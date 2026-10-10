@@ -66,10 +66,6 @@ function NavRow({
 export function SidebarAppsButton() {
   const { state, dispatch } = useStore();
   const label = t("sidebar.nav.apps");
-  if (state.instances.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind))) return <button
-    type="button" aria-label="Connected tools" title="Connected tools"
-    onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })}
-    className="flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-secondary hover:bg-raised/50 hover:text-ink"><Puzzle size={18} /></button>;
   return (
     <button
       type="button"

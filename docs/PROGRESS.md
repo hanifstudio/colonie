@@ -18,7 +18,9 @@ synthetic checks on this machine. Memory, Chief delegation and
 automation remain subsequent milestones.
 Bot-level multiple conversations are now available in the default interface and
 verified with both-provider HTTP and production packaged desktop SDK fixtures.
-This file describes observed results, not intended success.
+ACP is the app's only execution path — a fixed property, not a mode: the puzzle
+entry opens the Apps panel directly. This file describes observed results, not
+intended success.
 
 ## Roadmap update — marketplace consolidation and deferred legacy retirement
 
@@ -37,6 +39,28 @@ This file describes observed results, not intended success.
   deferred, not folded into the free-model UX task.
 - Documentation-only update. Verification: cross-document scope/order review and
   `git diff --check`; no runtime workflow or implementation pass is claimed.
+
+## M8-C — puzzle entry and ACP-only identity (implemented, client)
+
+- Decision: ACP is the only execution path the app works through, not a mode and
+  not something inferred from the provider/driver list. No `mode`/`ACP_ONLY`
+  style switch is introduced; a single-flag design was rejected as implying ACP
+  is optional.
+- `SidebarAppsButton` now always opens the Apps panel (`togglePlugins`). The
+  earlier branch that sent an ACP fleet to Settings → connections is removed; the
+  button keeps its `nav-apps` guided-tour anchor and "Apps" label.
+- Updated `src/components/SidebarFooterNav.test.ts`: the Apps button opens the
+  Apps panel for simple, advanced and ACP-engine states; the ACP case asserts no
+  automation rows, not a "Connected tools" label.
+- Deliberately deferred (owner chose "leave for now"): the remaining
+  `instances.every(isColonieAcpDriver)` hiding in `SidebarFooterNav` and
+  `SettingsModal`, plus the legacy Routines/Triggers/Team menu and legacy Settings
+  sections. They stay hidden, remain dead code, and are cleaned with D1. The
+  upstream `PluginsPanel` marketplace is still the Apps-panel content and is
+  adapted to the ACP boundary as later M8-C work.
+- Evidence: `pnpm lint` and `pnpm typecheck` clean;
+  `pnpm vitest run src/components/SidebarFooterNav.test.ts` — 14 passed. No
+  renderer/desktop workflow pass is claimed from this routing change.
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 
@@ -839,10 +863,12 @@ The full upstream test suite was not run; results above name the tested scope.
 
 ## Next action
 
-Begin M8-C: map the two connected-tools surfaces, define stable Colonie UI identity,
-and prepare non-overlapping lead/delegate file ownership and acceptance criteria.
-Confirm Herdr session and free-model availability before starting a delegated pane.
-D1 frontend/backend retirement stays deferred pending the post-consolidation audit.
+M8-C puzzle entry is done: the puzzle opens the Apps panel (ACP is the only
+execution path, not a mode). Continue M8-C by adapting that Apps-panel content to
+the Colonie ACP boundary (Composio + Custom MCP), then verify entry/loading and
+status in an isolated renderer fixture. The deferred legacy hiding (footer menu,
+legacy Settings sections, non-ACP branches) and D1 source retirement stay for the
+post-consolidation cleanup; ACP is the app, so no `mode`-style switch is added.
 M9 remains the subsequent feature-expansion milestone. Any reported installation-
 specific credential-store issue uses bounded metadata diagnosis, not credential
 inspection or reset.

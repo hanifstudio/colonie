@@ -36,12 +36,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("sidebar footer places", () => {
-  it("offers Connected tools while hiding unsupported automation in the Colonie fleet", () => {
+  it("hides unsupported automation when the engines are Colonie ACP", () => {
     fixture.advanced = true;
     fixture.state.instances = [{ driverKind: "codex-acp" }];
     expect(render("comfortable").html).toBe("");
     expect(render("icons").html).toBe("");
-    expect(renderToStaticMarkup(createElement(SidebarAppsButton))).toContain('aria-label="Connected tools"');
   });
   it.each(["comfortable", "compact"] as const)("shows Routines and Triggers as direct rows in Advanced mode, with Apps beside the profile instead (%s)", (density) => {
     fixture.advanced = true;
@@ -111,14 +110,14 @@ describe("sidebar footer places", () => {
 });
 
 describe("Apps beside the profile", () => {
-  it.each([false, true])("is one icon button that opens Apps and carries the tour's Apps anchor (advanced: %s)", (advanced) => {
-    fixture.advanced = advanced;
+  it.each([false, true, "acp"] as const)("is one icon button that opens the Apps panel and carries the tour's Apps anchor (advanced: %s)", (variant) => {
+    fixture.advanced = variant === true;
+    if (variant === "acp") fixture.state.instances = [{ driverKind: "codex-acp" }];
     let tree!: ReturnType<typeof SidebarAppsButton>;
     function Capture() { tree = SidebarAppsButton(); return tree; }
     const html = renderToStaticMarkup(createElement(Capture));
     expect(html).toMatch(/data-tour="nav-apps" data-sidebar-nav="apps"/);
     expect(html).toContain('aria-label="Apps"');
-    if (!tree) throw new Error("Expected an Apps button for the upstream fleet");
     (tree.props.onClick as () => void)();
     expect(fixture.dispatch).toHaveBeenLastCalledWith({ type: "togglePlugins", open: true });
   });
