@@ -67,7 +67,7 @@ export function ConnectedToolsSettings() {
     <section className="space-y-3 rounded-2xl border border-hairline p-4" aria-label="Custom MCP connections">
       <h3 className="text-base font-semibold">Custom MCP</h3>
       <p className="text-sm text-ink-secondary">Add the URL or local command provided by your tool, or paste its MCP configuration. Choose which bots can use it in their profiles.</p>
-      <McpServersPanel embedded nativeSettings={false} />
+      <McpServersPanel embedded hideWhop nativeSettings={false} />
     </section>
   </div>;
 }

@@ -345,8 +345,6 @@ export function PluginsPanel() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"marketplace" | "connected">("marketplace");
   const [showAllApps, setShowAllApps] = useState(false);
-  const [whopConnected, setWhopConnected] = useState<boolean | null>(null);
-  const [whopRefresh, setWhopRefresh] = useState(0);
 
   const pollTimers = useRef(new Map<string, ReturnType<typeof setInterval>>());
   const statusGenerations = useRef(new Map<string, number>());
@@ -612,8 +610,6 @@ export function PluginsPanel() {
   );
   const isConnected = (slug: string) => Boolean(status[slug]?.connected || status[slug]?.accounts?.length);
   const filter: AppsFilter = surface === "mcp" ? "mcp" : tab === "connected" ? "connected" : "all";
-  const whopMatches = !search || `whop ${t("whop.description")}`.toLowerCase().includes(search.toLowerCase().trim());
-  const showWhop = whopMatches && (filter === "all" || (filter === "connected" && whopConnected !== false));
   // Connected apps lead the grid, so the ones you use are never a scroll away.
   const visible = (filter === "connected" ? matching.filter((card) => isConnected(card.slug)) : matching)
     .map((card, index) => ({ card, index }))
@@ -623,7 +619,7 @@ export function PluginsPanel() {
   // first screenful so the MCP section below stays a short scroll away.
   const capped = filter === "all" && !search && !showAllApps && visible.length > APPS_PREVIEW_COUNT;
   const shown = capped ? visible.slice(0, APPS_PREVIEW_COUNT) : visible;
-  const connectedCount = Object.values(status).filter((service) => service.connected || service.accounts?.length).length + Number(whopConnected === true);
+  const connectedCount = Object.values(status).filter((service) => service.connected || service.accounts?.length).length;
   const connectedEmptyCopy = connectedInventoryCopy(inventoryPhase);
   const close = () => dispatch({ type: "togglePlugins", open: false });
   // Only worth saying once an app is actually connected and reachable.
@@ -681,7 +677,7 @@ export function PluginsPanel() {
                 />
               </label>
               <button
-                onClick={() => { setWhopRefresh((value) => value + 1); void loadConnectionInventory(true); }}
+                onClick={() => void loadConnectionInventory(true)}
                 disabled={refreshing}
                 className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-50"
                 title={t("connectors.refreshTitle")}
@@ -747,7 +743,7 @@ export function PluginsPanel() {
                 setupNotice.tone === "warning" ? "bg-warning/10 text-warning" : "glass-card text-ink-secondary",
               )}
             >
-              {t(whopConnected ? "whop.otherAppsSetup" : setupNotice.key)}{" "}
+              {t(setupNotice.key)}{" "}
               <button
                 className={cn(
                   "font-medium underline underline-offset-2",
@@ -823,9 +819,6 @@ export function PluginsPanel() {
                 )}
               </div>
               <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2 @3xl:grid-cols-3">
-                <div className={showWhop ? "contents" : "hidden"}>
-                  <McpServersPanel whopCard refreshKey={whopRefresh} onWhopConnection={setWhopConnected} />
-                </div>
                 {shown.map((card) => renderTile(card))}
               </div>
               {cards === null && (
@@ -844,7 +837,7 @@ export function PluginsPanel() {
                   </button>
                 </div>
               )}
-              {cards !== null && visible.length === 0 && !showWhop && (
+              {cards !== null && visible.length === 0 && (
                 <div className="flex min-h-40 flex-col items-center justify-center text-center">
                   <div className="text-[14px] font-medium text-ink">
                     {filter === "connected" ? connectedEmptyCopy.title : t("connectors.noAppsFound")}
@@ -870,7 +863,7 @@ export function PluginsPanel() {
 
           {filter !== "connected" && (
             <div className={cn(filter === "all" && "mt-8 border-t border-hairline/30 pt-6", filter === "mcp" && "pt-3")}>
-              <McpServersPanel embedded hideWhop={filter === "all"} />
+              <McpServersPanel embedded hideWhop />
             </div>
           )}
         </div>

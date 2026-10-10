@@ -52,15 +52,21 @@ intended success.
 - Updated `src/components/SidebarFooterNav.test.ts`: the Apps button opens the
   Apps panel for simple, advanced and ACP-engine states; the ACP case asserts no
   automation rows, not a "Connected tools" label.
+- Apps-panel content adapted to the Colonie boundary: `PluginsPanel` keeps the
+  shared Composio catalog (the same `/api/connectors/catalog` list and logos used
+  by Settings) plus the Custom MCP section, and drops the ready-to-use Whop card,
+  its search/filter branch, its connect flow and the whop refresh wiring. Settings
+  keeps the Composio project-key entry and now passes `hideWhop` to its Custom MCP
+  list. Composio is the only built-in integration; other services are Custom MCP.
 - Deliberately deferred (owner chose "leave for now"): the remaining
   `instances.every(isColonieAcpDriver)` hiding in `SidebarFooterNav` and
   `SettingsModal`, plus the legacy Routines/Triggers/Team menu and legacy Settings
-  sections. They stay hidden, remain dead code, and are cleaned with D1. The
-  upstream `PluginsPanel` marketplace is still the Apps-panel content and is
-  adapted to the ACP boundary as later M8-C work.
+  sections. They stay hidden, remain dead code, and are cleaned with D1.
 - Evidence: `pnpm lint` and `pnpm typecheck` clean;
-  `pnpm vitest run src/components/SidebarFooterNav.test.ts` — 14 passed. No
-  renderer/desktop workflow pass is claimed from this routing change.
+  `pnpm vitest run src/components/SidebarFooterNav.test.ts
+  src/components/PluginsPanel.navigation.test.ts
+  src/components/McpServersPanel.embedded.test.ts` — 35 passed. No renderer/desktop
+  workflow pass is claimed from these routing/content changes.
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 
@@ -863,12 +869,13 @@ The full upstream test suite was not run; results above name the tested scope.
 
 ## Next action
 
-M8-C puzzle entry is done: the puzzle opens the Apps panel (ACP is the only
-execution path, not a mode). Continue M8-C by adapting that Apps-panel content to
-the Colonie ACP boundary (Composio + Custom MCP), then verify entry/loading and
-status in an isolated renderer fixture. The deferred legacy hiding (footer menu,
-legacy Settings sections, non-ACP branches) and D1 source retirement stay for the
-post-consolidation cleanup; ACP is the app, so no `mode`-style switch is added.
+M8-C puzzle entry and Apps-panel content are done: the puzzle opens the Apps
+panel, and that panel is Composio + Custom MCP only (Whop removed). Next: rebuild
+the packaged app and verify entry/loading and connect status in an isolated
+renderer/desktop fixture, then confirm the puzzle destination on the packaged
+artifact. The deferred legacy hiding (footer menu, legacy Settings sections,
+non-ACP branches) and D1 source retirement stay for the post-consolidation
+cleanup; ACP is the app, so no `mode`-style switch is added.
 M9 remains the subsequent feature-expansion milestone. Any reported installation-
 specific credential-store issue uses bounded metadata diagnosis, not credential
 inspection or reset.
