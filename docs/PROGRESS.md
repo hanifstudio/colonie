@@ -107,21 +107,36 @@ results, not intended success.
 - The UI could not tell whether a Claude/Codex ACP engine was signed in, and
   offered no sign-in. With M8-D isolating the config dir this became a hard stop:
   a fresh engine is signed out with no way to log in.
-- `AcpRuntime.authStatus()` probes signed-in state over the protocol (initialize,
-  then session/new; `auth_required` = signed out), cached ~5 minutes; the instance
-  snapshot carries `authenticated`, so the existing `needsSignIn` card appears.
-- In-app sign-in: `AcpRuntime.authenticate()` runs the engine's own `authenticate`
-  (the adapter drives the provider's browser/device flow) and re-probes. Route
-  `POST /api/instances/:id/acp-auth`; the new `AcpSignIn` card renders one Sign in
-  button in `EngineSetup` for Colonie ACP drivers. Never reads stored credentials;
-  the login lands in the isolated config dir (M8-D).
-- Evidence: new `server/devone/auth.e2e.test.ts` (fixture `devone-unauth`) proves
-  the snapshot reports signed-out, the endpoint signs in, and the snapshot flips to
-  signed-in; `server/devone/isolation.e2e.test.ts` still passes. `pnpm lint`,
-  `pnpm typecheck` and `pnpm i18n:check` clean. `pnpm colonie:test`: 49 passed; the
-  one `start.e2e.test.ts` failure is the pre-existing Node-22-vs-24 launcher guard.
-- Not verified here: the real provider browser/device sign-in (needs a real
-  account), and the desktop renderer card itself.
+- Research finding (direct probe of the two installed adapters, on this machine):
+  **Claude can be isolated** — `CLAUDE_CONFIG_DIR` to an empty dir makes the
+  adapter report signed out and `claude auth status` says `loggedIn: false`. Both
+  `claude-agent-acp` and `codex-acp` announce the account over a `_meta` push
+  `_auth/status_update` (`{ authStatus: { kind } }`, `kind: "none"` = signed out).
+  The earlier probe, which relied on `session/new` throwing `auth_required`, was
+  right for Codex but wrong for Claude, which never gates session creation on
+  auth — that is the bug that made Claude look connected while turns failed.
+- `AcpRuntime.authStatus()` now reads that push (via a params-parser notification
+  handler), falling back to `session/new` only for agents that do not announce
+  auth. Cached ~5 minutes; `snapshot.authenticated` drives the existing
+  `needsSignIn` card. Never reads stored credentials.
+- In-app sign-in: `POST /api/instances/:id/acp-auth` runs `authenticate` with the
+  preferred browser/subscription method (Codex `chat-gpt`). When the adapter offers
+  only terminal sign-in (Claude), the endpoint returns the login command with the
+  isolated dir and the `AcpSignIn` card opens it in a Terminal. Login lands in the
+  isolated config dir (M8-D).
+- Bot creation: when no engine can run yet, `/api/bot-defaults` returns an empty
+  selection; the New Bot dialog now shows "Sign in to a model provider…" and
+  disables Create (plus a link to model settings), instead of submitting an empty
+  model and failing server validation.
+- Evidence: `server/devone/auth.e2e.test.ts` (fixture `devone-unauth`: engines
+  spawn signed out via the push, `/api/bot-defaults` is empty, the endpoint signs
+  in, and the snapshot flips to signed-in) and `server/devone/isolation.e2e.test.ts`
+  pass; `server/devone/application.e2e.test.ts` still passes. `pnpm lint`,
+  `pnpm typecheck` clean; client component tests for NewBotDialog/EngineSetup pass.
+  `pnpm colonie:test`: 49 passed; the one `start.e2e.test.ts` failure is the
+  pre-existing Node-22-vs-24 launcher guard.
+- Not verified here: a real provider browser sign-in for Codex and a real Claude
+  terminal sign-in (both need completing login), and the desktop renderer card.
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 

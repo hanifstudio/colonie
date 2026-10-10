@@ -231,16 +231,20 @@ user's global CLI keeps only its own state.
 
 Colonie shows whether each ACP engine is signed in and lets the user sign in from
 the app, without reading credentials:
-- `AcpRuntime.authStatus()` probes over the protocol (initialize, then session/new);
-  `auth_required` means signed out. Cached a few minutes; never reads stored tokens.
-  The instance snapshot carries `authenticated`, so the existing `needsSignIn` card
+- `AcpRuntime.authStatus()` reads the adapters' `_auth/status_update` push
+  (`kind: "none"` = signed out), falling back to `session/new` only for agents that
+  do not announce auth. Cached a few minutes; never reads stored tokens. The
+  instance snapshot carries `authenticated`, so the existing `needsSignIn` card
   appears in the model picker and engine settings.
-- `AcpRuntime.authenticate()` runs the engine's own `authenticate` (the adapter
-  drives the provider's browser/device flow), then re-probes. Route:
-  `POST /api/instances/:id/acp-auth`; the new `AcpSignIn` card shows one Sign in button.
-- The login lands in the isolated config dir (M8-D).
-- Verified with the signed-out fixture (`devone-unauth`). The real provider browser
-  flow is not verified in an isolated fixture (it needs a real account).
+- In-app sign-in: `POST /api/instances/:id/acp-auth` runs `authenticate` with the
+  preferred browser/subscription method (Codex). When the adapter offers only
+  terminal sign-in (Claude) the endpoint returns the login command with the
+  isolated config dir and the `AcpSignIn` card opens it in a Terminal.
+- New-bot creation is blocked (with a setup pointer) when no engine can run yet,
+  instead of failing validation on an empty model.
+- The login lands in the isolated config dir (M8-D). Verified with the signed-out
+  fixture (`devone-unauth`); a real provider sign-in is not verified in an isolated
+  fixture (it needs completing a real login).
 
 ### D1 — frontend/backend legacy retirement (deferred architecture milestone)
 

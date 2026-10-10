@@ -75,6 +75,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
   const [draft, setDraft] = useState(() => new BotCreationDraft(EMPTY_BOT_DEFAULTS, () => render(value => value + 1)));
   const [active, setActive] = useState<Section>("Identity");
   const [ready, setReady] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
   const [localSaving, setSaving] = useState(false);
   const saving = localSaving || parent.state.botCreationPending;
   const savingRef = useRef(false);
@@ -98,6 +99,9 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
         if (cancelled) return;
         const defaults = structuredClone(result.defaults);
         defaults.profile.modelSelection ??= result.modelSelection;
+        // No engine can run a turn yet (none signed in): guide to setup
+        // instead of submitting an empty model and failing validation.
+        setNeedsSetup(!defaults.profile.modelSelection?.instanceId);
         if (!defaultsMode) defaults.profile.name = defaults.profile.name?.trim() || result.suggestedName;
         if (section !== undefined) defaults.profile.section = section;
         setDraft(new BotCreationDraft(defaults, () => render(value => value + 1)));
@@ -131,7 +135,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
     return () => { window.removeEventListener("keydown", onKey); if (previous?.isConnected) previous.focus(); };
   }, []);
   const save = async () => {
-    if (!ready || savingRef.current || parent.state.botCreationPending) return;
+    if (!ready || needsSetup || savingRef.current || parent.state.botCreationPending) return;
     if (!defaultsMode && draft.bot.approvalMode === "full" && !draft.consent.confirmFullAccess) { setWarning("full"); return; }
     if (!defaultsMode && draft.bot.approvalMode === "auto" && draft.bot.computer === "local" && !draft.consent.acknowledgeLocalAuto) { setWarning("local"); return; }
     const visibility = choosesVisibility ? visibilityFromForm(audience, people) : null;
@@ -220,10 +224,14 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
           </fieldset>}
         </div>
       </div>
+      {needsSetup && <div role="alert" className="flex flex-wrap items-center gap-2 border-t border-hairline/40 px-5 py-3 text-[13px] text-ink-secondary">
+        {t("newBot.needsModel")}
+        <button type="button" className="underline" onClick={() => { closeRef.current(); parent.dispatch({ type: "toggleAppSettings", open: true, section: "engines" }); }}>{t("newBot.openModels")}</button>
+      </div>}
       {error && <p role="alert" className="max-h-24 overflow-y-auto border-t border-hairline/40 px-5 py-3 text-[13px] text-danger">{error}</p>}
       <div className="flex shrink-0 justify-end gap-2 border-t border-hairline/40 px-5 py-3">
         <button type="button" onClick={() => closeRef.current()} className="rounded-lg px-4 py-2 text-[13px] text-ink-secondary hover:bg-control">{t("common.cancel")}</button>
-        <button type="button" disabled={!ready || saving || (!defaultsMode && !bot.name.trim())} onClick={() => void save()}
+        <button type="button" disabled={!ready || saving || needsSetup || (!defaultsMode && !bot.name.trim())} onClick={() => void save()}
           className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-40">
           {saving && <Loader2 size={15} className="animate-spin" />}{t(defaultsMode ? "newBot.saveDefaults" : "newBot.create")}
         </button>

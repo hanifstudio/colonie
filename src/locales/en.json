@@ -3496,6 +3496,8 @@
   "newBot.randomName": "Random name",
   "newBot.edit": "Edit",
   "newBot.loading": "Loading settings…",
+  "newBot.needsModel": "Sign in to a model provider before creating a bot.",
+  "newBot.openModels": "Open model settings",
   "newBot.randomFemaleName": "Random female name",
   "newBot.randomMaleName": "Random male name",
   "botAccess.grants.noApps": "No apps connected yet.",

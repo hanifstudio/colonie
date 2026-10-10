@@ -455,6 +455,9 @@ export async function launchVerificationServer(
   const logPath = join(evidenceDir, `server-${Date.now()}-${process.pid}.log`);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     ...(boatFixtureApi ? { box: { token: "box_verification_fixture" } } : {}),
+    // A real install always has a saved default; the ACP fixtures need one so
+    // the signed-out path (no ready engine) is exercised faithfully.
+    ...(devoneFixtures ? { defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" } } : {}),
     instances: {
       ...(devoneFixtures ? { "codex-acp": {
         driver: "codex-acp", displayName: "Codex · ACP fixture",

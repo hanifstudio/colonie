@@ -67,8 +67,16 @@ const sessionState = (id?: string) => {
 };
 
 agent({ name: "DevOne deterministic fixture" })
-  .onRequest(methods.agent.initialize, () => ({ protocolVersion: PROTOCOL_VERSION, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true, sse: claude } }, authMethods: currentState().authenticated === false ? [{ id: "fixture-login", name: "Fixture sign-in" }] : [] }))
-  .onRequest(methods.agent.authenticate, () => transaction(() => { state.authenticated = true; return {}; }))
+  .onRequest(methods.agent.initialize, ({ client }) => {
+    const authed = currentState().authenticated !== false;
+    void client.notify("_auth/status_update", { authStatus: authed ? { kind: "account", label: "Fixture account" } : { kind: "none", label: "Not logged in" } });
+    return { protocolVersion: PROTOCOL_VERSION, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true, sse: claude }, _meta: { authStatus: {} } }, authMethods: authed ? [] : [{ id: "fixture-login", name: "Fixture sign-in" }] };
+  })
+  .onRequest(methods.agent.authenticate, ({ client }) => transaction(() => {
+    state.authenticated = true;
+    void client.notify("_auth/status_update", { authStatus: { kind: "account", label: "Fixture account" } });
+    return {};
+  }))
   .onRequest(methods.agent.session.new, ({ params }) => transaction(() => {
     if (state.authenticated === false) throw RequestError.authRequired();
     const sessionId = crypto.randomUUID();

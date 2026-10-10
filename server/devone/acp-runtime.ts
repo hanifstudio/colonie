@@ -51,6 +51,12 @@ export interface AcpAuthStatus {
   authenticated: boolean;
   methods: Array<{ id: string; name: string }>;
 }
+/** Both maintained adapters announce the account over this `_meta` push:
+ * `claude-agent-acp` and `codex-acp` send `{ authStatus: { kind } }`, where
+ * `kind: "none"` means signed out. It is the reliable signal for both. */
+const AUTH_STATUS_UPDATE_METHOD = "_auth/status_update";
+type AuthStatusPush = { kind?: string };
+const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 type EventPayload<E = RuntimeEvent> = E extends RuntimeEvent
   ? Omit<E, "eventId" | "provider" | "threadId" | "createdAt"> : never;
 
@@ -326,14 +332,23 @@ export class AcpRuntime implements ProviderAdapter {
   }
 
   /** A short-lived adapter connection for auth, outside the session map. */
-  private async withAdapter<T>(action: (connection: ClientConnection, init: InitializeResponse) => Promise<T>): Promise<T> {
+  private async withAdapter<T>(
+    action: (connection: ClientConnection, init: InitializeResponse, auth: { latest: AuthStatusPush | null }) => Promise<T>,
+    timeoutMs = this.config.setupTimeoutMs,
+  ): Promise<T> {
     const cwd = tmpdir();
     const child = this.spawnAdapter(cwd);
-    const connection = client({ name: "Colonie" }).connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
-    const timer = setTimeout(() => connection.close(new Error("ACP auth request timed out")), this.config.setupTimeoutMs);
+    const auth: { latest: AuthStatusPush | null } = { latest: null };
+    const connection = client({ name: "Colonie" })
+      .onNotification(AUTH_STATUS_UPDATE_METHOD, (params: unknown) => params, (ctx) => {
+        const value = (ctx?.params as { authStatus?: AuthStatusPush } | undefined)?.authStatus;
+        if (value && typeof value.kind === "string") auth.latest = value;
+      })
+      .connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
+    const timer = setTimeout(() => connection.close(new Error("ACP auth request timed out")), timeoutMs);
     try {
       const init = await connection.agent.request(methods.agent.initialize, { protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" }, clientCapabilities: {} });
-      return await action(connection, init);
+      return await action(connection, init, auth);
     } finally {
       clearTimeout(timer);
       connection.close();
@@ -341,8 +356,23 @@ export class AcpRuntime implements ProviderAdapter {
     }
   }
 
-  /** Initialize, then try to open a session. `auth_required` — or any failure
-   * while the engine advertises sign-in methods — means not signed in. */
+  /** Prefer the adapter's account push; fall back to session/new
+   * `auth_required` for agents that do not announce auth. An agent that
+   * advertises the push but never sends it is reported as unknown, never
+   * optimistically signed in. */
+  private async resolvedAuth(connection: ClientConnection, init: InitializeResponse, auth: { latest: AuthStatusPush | null }): Promise<AcpAuthStatus> {
+    const offered = AcpRuntime.authMethods(init);
+    const announces = Boolean((init.agentCapabilities as { _meta?: { authStatus?: unknown } } | undefined)?._meta?.authStatus);
+    const deadline = Date.now() + (announces ? 5000 : 1500);
+    while (auth.latest === null && Date.now() < deadline) await delay(50);
+    if (auth.latest) return { authenticated: auth.latest.kind !== "none", methods: offered };
+    if (announces) throw new Error("The engine did not report its sign-in state.");
+    return this.probeConnection(connection, init);
+  }
+
+  /** Fallback for agents without the account push: initialize, then try to
+   * open a session. `auth_required` — or any failure while the engine
+   * advertises sign-in methods — means not signed in. */
   private probeConnection(connection: ClientConnection, init: InitializeResponse): Promise<AcpAuthStatus> {
     const offered = AcpRuntime.authMethods(init);
     return connection.agent.request(methods.agent.session.new, { cwd: tmpdir(), mcpServers: [] }).then(
@@ -363,12 +393,36 @@ export class AcpRuntime implements ProviderAdapter {
     return /auth(?:entication)?\s+required|not\s+(?:signed|logged)\s+in|sign[\s-]?in|log[\s-]?in/i.test(message);
   }
 
+  /** A browser/subscription method beats an API key or gateway for the single
+   * in-app button. */
+  private static preferredSignInMethod(offered: Array<{ id: string }>): string | undefined {
+    const score = (id: string) =>
+      /chat-?gpt|device-?code/i.test(id) ? 0
+        : /login|subscription|claude|console/i.test(id) ? 1
+          : /api-?key|gateway/i.test(id) ? 9 : 5;
+    return offered.map((method) => method.id).sort((a, b) => score(a) - score(b))[0];
+  }
+
+  /** Whether the adapter offers an agent-run sign-in at all (Claude's is a
+   * terminal method, so it has none). */
+  hasInAppSignIn(): Promise<boolean> {
+    return this.withAdapter((_connection, init) => Promise.resolve(AcpRuntime.authMethods(init).length > 0));
+  }
+
+  /** The terminal login command, with the isolated config dir so the login
+   * lands inside Colonie. */
+  signInCommand(): string {
+    const dir = this.environment.CLAUDE_CONFIG_DIR ?? this.environment.CODEX_HOME;
+    const key = this.environment.CLAUDE_CONFIG_DIR ? "CLAUDE_CONFIG_DIR" : "CODEX_HOME";
+    return dir ? `${key}="${dir}" ${this.flavor.loginCommand}` : this.flavor.loginCommand;
+  }
+
   /** Probe over the protocol, not from stored credentials. Cached briefly. */
   async authStatus(force = false): Promise<AcpAuthStatus> {
     const now = Date.now();
     if (!force && this.authCache && now - this.authCache.at < AcpRuntime.AUTH_TTL_MS) return this.authCache.status;
     if (this.authProbe) return this.authProbe;
-    const probe = this.withAdapter((connection, init) => this.probeConnection(connection, init))
+    const probe = this.withAdapter((connection, init, auth) => this.resolvedAuth(connection, init, auth))
       .then((status) => { this.authCache = { at: Date.now(), status }; return status; })
       .finally(() => { this.authProbe = null; });
     this.authProbe = probe;
@@ -376,16 +430,17 @@ export class AcpRuntime implements ProviderAdapter {
   }
 
   /** Run the engine's own sign-in and report the result. The adapter drives
-   * the provider's browser/device flow; the app only waits. */
+   * the provider's browser flow; the app only waits. */
   async authenticate(methodId?: string): Promise<AcpAuthStatus> {
     this.authCache = null;
-    const status = await this.withAdapter(async (connection, init) => {
+    const status = await this.withAdapter(async (connection, init, auth) => {
       const offered = AcpRuntime.authMethods(init);
-      const method = methodId ?? offered[0]?.id;
-      if (!method) throw new Error("This connection does not offer a sign-in method.");
+      const method = methodId ?? AcpRuntime.preferredSignInMethod(offered);
+      if (!method) throw Object.assign(new Error("This connection signs in from a terminal, not in the app."), { code: "terminal-sign-in" });
+      auth.latest = null;
       await connection.agent.request(methods.agent.authenticate, { methodId: method });
-      return this.probeConnection(connection, init);
-    });
+      return this.resolvedAuth(connection, init, auth);
+    }, 5 * 60_000);
     this.authCache = { at: Date.now(), status };
     return status;
   }

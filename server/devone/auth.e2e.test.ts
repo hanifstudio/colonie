@@ -16,6 +16,11 @@ it("reports a signed-out ACP engine and signs in through the in-app authenticate
     expect(before.find((entry) => entry.instanceId === "codex-acp").snapshot.authenticated).toBe(false);
     expect(before.find((entry) => entry.instanceId === "claude-acp").snapshot.authenticated).toBe(false);
 
+    // No engine can run yet: never hand a new bot an empty model selection.
+    const defaults = (await api("GET", "/api/bot-defaults")).value;
+    expect(defaults.modelSelection.instanceId).toBe("");
+    expect(defaults.modelSelection.model).toBe("");
+
     const signedIn = await api("POST", "/api/instances/codex-acp/acp-auth", {});
     expect(signedIn.status).toBe(200);
     expect(signedIn.value.instances.find((entry: any) => entry.instanceId === "codex-acp").snapshot.authenticated).toBe(true);

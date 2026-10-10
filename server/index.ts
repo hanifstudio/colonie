@@ -24266,6 +24266,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         await instance.adapter.authenticate(methodId);
         return json(res, 200, { instances: await describeInstances() });
       } catch (error) {
+        // Claude's adapter offers only terminal sign-in: hand back the command
+        // (with the isolated config dir) for the app to open in a Terminal.
+        if (error && typeof error === "object" && (error as { code?: unknown }).code === "terminal-sign-in") {
+          return json(res, 200, { terminal: { command: instance.adapter.signInCommand() }, instances: await describeInstances() });
+        }
         return json(res, 400, { error: error instanceof Error ? error.message : String(error) });
       }
     }
