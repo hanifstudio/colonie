@@ -7,7 +7,7 @@ import { fixtureMcpClient, type FixtureMcpClient } from "./mcp-client.ts";
 
 const file = process.env.DEVONE_FAKE_STATE!;
 type FixtureSession = { prompts: string[]; mode?: string; model?: string; effort?: string; fast?: boolean };
-type State = { sessions: Record<string, FixtureSession>; permissions: string[]; loads: number };
+type State = { sessions: Record<string, FixtureSession>; permissions: string[]; loads: number; environment?: Record<string, string | null> };
 let state: State;
 /** Several adapter processes share this fixture file; serialize their updates. */
 function transaction<T>(action: () => T): T {
@@ -63,6 +63,9 @@ agent({ name: "DevOne deterministic fixture" })
   .onRequest(methods.agent.session.new, ({ params }) => transaction(() => {
     const sessionId = crypto.randomUUID();
     state.sessions[sessionId] = { prompts: [] };
+    // Record the config-dir env the app spawns this engine with, so a fixture
+    // can prove Colonie isolates it from the user's own CLI state.
+    state.environment = { CODEX_HOME: process.env.CODEX_HOME ?? null, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? null };
     mounts.set(sessionId, params.mcpServers);
     return { sessionId, ...sessionState(sessionId) };
   }))

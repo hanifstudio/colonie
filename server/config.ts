@@ -8,7 +8,7 @@ import { z } from "zod";
 import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shared/image-generation.ts";
 
 import { writeFileAtomic } from "./atomic.ts";
-import { devoneProfile, devoneInstances } from "./devone/profile.ts";
+import { acpIsolationDirNames, devoneProfile, devoneInstances } from "./devone/profile.ts";
 import { colonieDataDir } from "../electron/colonie-config.mjs";
 import { withoutComputerEngine } from "./computer-engine-removal.ts";
 import { newBotDefaultsSchema, type NewBotDefaults } from "./new-bot-defaults.ts";
@@ -977,7 +977,7 @@ export function ensureDirs() {
       /* cross-device or busy — fall through to a fresh dir */
     }
   }
-  for (const dir of [DATA_DIR, EVENTS_DIR, NATIVE_DIR]) mkdirSync(dir, { recursive: true });
+  for (const dir of [DATA_DIR, EVENTS_DIR, NATIVE_DIR, ...acpIsolationDirNames().map((name) => join(NATIVE_DIR, name))]) mkdirSync(dir, { recursive: true });
   migrateLegacyFeatureFlags();
 }
 
@@ -1687,7 +1687,7 @@ const API_KEY_FLEET: InstanceConfigMap = {
 // see them without needing real process env vars — but only into the
 // driver that consumes each key (injectedEnvironment above).
 export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
-  if (devoneProfile()) return devoneInstances(cfg.instances);
+  if (devoneProfile()) return devoneInstances(cfg.instances, NATIVE_DIR);
   // The default `grok` instance rides the `grokAgent` driver, not the API-key
   // one: like claude and codex it needs no credential from us, just the CLI
   // installed and logged in (it shows up unavailable otherwise). The API-key

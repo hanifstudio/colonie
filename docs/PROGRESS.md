@@ -19,7 +19,9 @@ automation remain subsequent milestones.
 Bot-level multiple conversations are now available in the default interface and
 verified with both-provider HTTP and production packaged desktop SDK fixtures.
 ACP is the app's only execution path — a fixed property, not a mode: the puzzle
-entry opens the Apps panel directly. This file describes observed results, not
+entry opens the Apps panel directly. Colonie also keeps its own state separate
+from the user's plain CLI: the ACP engines run with a per-engine config dir under
+`~/.colonie/native/...` (M8-D). This file describes observed results, not
 intended success.
 
 ## Roadmap update — marketplace consolidation and deferred legacy retirement
@@ -76,6 +78,28 @@ intended success.
   `node scripts/colonie/credential-ui-check.ts` and
   `node scripts/colonie/connected-tools-web-check.ts` both passed against the
   isolated fixture (simulated Composio, renderer, no real providers/model turns).
+
+## M8-D — Colonie CLI state isolation (implemented)
+
+- Decision: Colonie always runs the ACP engines with their own config directory
+  under the app data dir, so its sessions/sign-in/history never mix into the
+  user's own `~/.codex`/`~/.claude`. This is how the app runs — not a mode and not
+  a toggle. The user signs in once inside Colonie (accepted).
+- `server/devone/profile.ts`: `devoneInstances(configured, nativeBase)` injects
+  `CODEX_HOME` (codex-acp) and `CLAUDE_CONFIG_DIR` (claude-acp) into every ACP
+  instance environment, pointing at `native/<codex|claude>`; app-set values win so
+  separation is guaranteed regardless of stored config.
+- `server/config.ts`: `instanceConfigs` passes `NATIVE_DIR`; `ensureDirs` creates
+  `native/codex` and `native/claude` at boot.
+- Limit stated, not hidden: account/service-level facts (e.g. usage counting)
+  cannot be separated from the account.
+- Evidence: `server/devone/profile.test.ts` asserts the injection and that `HOME`
+  is not overridden; new `server/devone/isolation.e2e.test.ts` boots the isolated
+  fixture and proves both engines spawn with the config dir under the app data
+  dir (`native/codex`, `native/claude`) — 2 passed. `pnpm lint` and
+  `pnpm typecheck` clean. `server/devone/` suite: 274 passed; the single
+  `start.e2e.test.ts` failure is the pre-existing Node-22-vs-24 launcher guard,
+  not this change.
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 
@@ -878,15 +902,15 @@ The full upstream test suite was not run; results above name the tested scope.
 
 ## Next action
 
-M8-C is complete for this scope: the puzzle opens the Apps panel, that panel is
-Composio + Custom MCP only (Whop removed), and Settings → connections is the
-project-key entry alone (one connect surface). Rebuild the packaged app for the
-owner to confirm the destination, and re-run the packaged connected-tools fixture
-(`package-check.ts`) against the new navigation. Then the next feature milestone is
-Skills on the ACP boundary (M10 in `PLAN.md`): reuse the upstream Agent Skills
-store, links and UI, expose the ACP bot-profile Skills section, and deliver the
-index through the app-owned ACP context. The deferred legacy hiding (footer menu,
-legacy Settings sections, non-ACP branches) and D1 source retirement stay for the
+M8-C is complete (puzzle → Apps panel; that panel Composio + Custom MCP only;
+Settings → connections is the project-key entry alone). M8-D is complete: the ACP
+engines run isolated under `~/.colonie/native/...`, verified end-to-end. Rebuild
+the packaged app for the owner, and re-run the packaged connected-tools fixture
+(`package-check.ts`) against the new navigation. Next feature milestone is Skills
+on the ACP boundary (M10 in `PLAN.md`): reuse the upstream Agent Skills store,
+links and UI, expose the ACP bot-profile Skills section, and deliver the index
+through the app-owned ACP context. The deferred legacy hiding (footer menu, legacy
+Settings sections, non-ACP branches) and D1 source retirement stay for the
 post-consolidation cleanup; ACP is the app, so no `mode`-style switch is added.
 M9 (memory/Chief/routines) remains before or alongside M10. Any reported
 installation-specific credential-store issue uses bounded metadata diagnosis, not credential

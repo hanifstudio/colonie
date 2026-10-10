@@ -327,6 +327,17 @@ M8-C consolidates navigation and reuses the useful upstream Apps marketplace ove
 Colonie's existing credential/policy/ACP boundary; Composio remains the only built-in
 ready-to-use integration, with other services configured as Custom MCP.
 
+Colonie isolates its own state from the user's own coding-assistant CLI: the ACP
+engines always run with a per-engine config directory under the app data dir
+(`CODEX_HOME`, `CLAUDE_CONFIG_DIR` → `~/.colonie/native/...`), so Colonie's
+sessions, sign-in and history do not mix into `~/.codex`/`~/.claude`. This is the
+app's fixed behaviour, not a mode or a setting. App-authored context (memory,
+skills, per-bot workspace) likewise lives under the app data dir and is delivered
+per dispatch; MCP servers are passed per ACP session. Account/service-level facts
+are the only part that cannot be separated, and that limit is stated rather than
+hidden. A user who stops using Colonie and returns to the plain CLI finds their
+own state unchanged.
+
 The owner approved bounded delegation of frontend UX cleanup through Herdr/OpenCode
 with a free model when available, with complete planning, separate file ownership,
 one-pass reporting and lead review. This does not delegate or authorize broad

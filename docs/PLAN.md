@@ -176,7 +176,7 @@ including workspace import origin. The original failure depended on inaccessible
 Keychain context in temporary HOME; unsigned status alone was not established as
 the cause. Historical records remain, and current evidence is recorded in PROGRESS.
 
-### M8-C — one connected-tools marketplace and ACP-only UX (planned)
+### M8-C — one connected-tools marketplace and ACP-only UX (implemented)
 
 1. Make the puzzle entry open one Connected apps/tools surface consistently,
    including before provider discovery completes. Product identity comes from a
@@ -205,6 +205,27 @@ deletion. The lead reviews the full diff and checks before integrating.
 Done when puzzle/navigation is stable during loading and reload, one marketplace
 serves Composio/Custom MCP, credential and bot-policy behavior remains explicit,
 and normal Colonie UI does not fall back to an upstream execution experience.
+
+### M8-D — Colonie CLI state isolation (implemented)
+
+Colonie runs the ACP engines with their own config directory under the app data
+dir, so its sessions, sign-in and history never touch the user's own CLI state
+(`~/.codex`, `~/.claude`). This is how Colonie always runs — not a mode and not a
+toggle:
+- `server/devone/profile.ts` injects `CODEX_HOME` (codex-acp) and
+  `CLAUDE_CONFIG_DIR` (claude-acp) into every ACP instance's environment, pointing
+  at `~/.colonie/native/<codex|claude>` (`nativeBase` = `NATIVE_DIR`).
+- `server/config.ts` passes `NATIVE_DIR` and creates those directories at boot.
+- The user signs in once inside Colonie (or the engine's own login runs with the
+  isolated env during a session); the token lands in the app data dir, not the
+  global CLI config.
+- Account/service-level facts (e.g. usage counting) cannot be separated; that is
+  stated, not hidden.
+- Reuses the mechanism already present for hosted/managed Claude/Codex accounts
+  (`CODEX_HOME`, `CLAUDE_CONFIG_DIR`).
+
+Done when both engines spawn with the isolated dir (verified end-to-end) and the
+user's global CLI keeps only its own state.
 
 ### D1 — frontend/backend legacy retirement (deferred architecture milestone)
 
