@@ -144,6 +144,9 @@ export class AcpRuntime implements ProviderAdapter {
   private authCache: { at: number; status: AcpAuthStatus } | null = null;
   private authProbe: Promise<AcpAuthStatus> | null = null;
   private static readonly AUTH_TTL_MS = 5 * 60_000;
+  /** Signed out is re-probed soon, so a login that finishes elsewhere shows up
+   * quickly; signed in is the steady state and caches longer. */
+  private static readonly AUTH_TTL_SIGNED_OUT_MS = 5_000;
 
   constructor(
     instanceId: string,
@@ -420,7 +423,8 @@ export class AcpRuntime implements ProviderAdapter {
   /** Probe over the protocol, not from stored credentials. Cached briefly. */
   async authStatus(force = false): Promise<AcpAuthStatus> {
     const now = Date.now();
-    if (!force && this.authCache && now - this.authCache.at < AcpRuntime.AUTH_TTL_MS) return this.authCache.status;
+    const ttl = this.authCache?.status.authenticated ? AcpRuntime.AUTH_TTL_MS : AcpRuntime.AUTH_TTL_SIGNED_OUT_MS;
+    if (!force && this.authCache && now - this.authCache.at < ttl) return this.authCache.status;
     if (this.authProbe) return this.authProbe;
     const probe = this.withAdapter((connection, init, auth) => this.resolvedAuth(connection, init, auth))
       .then((status) => { this.authCache = { at: Date.now(), status }; return status; })
