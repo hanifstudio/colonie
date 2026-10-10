@@ -82,7 +82,7 @@ export function createSecureCredentialState(initialCredentials, persist, { writa
         } catch (error) {
           // Keep both the in-memory view and the encrypted file consistent
           // with the failed operation the caller observed.
-          await persist(copy(previous));
+          await persist(copy(previous), { rollback: true });
           current = previous;
           throw error;
         }

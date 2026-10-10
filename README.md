@@ -1,3 +1,25 @@
+# Colonie
+
+Colonie is a macOS personal-agent desktop app, based on the OpenMausBot UI,
+with [Bloub](https://github.com/jeremy-prt/bloub) artwork and maintained
+**Codex + Claude ACP adapters**. Existing DevOne data/session paths remain usable.
+
+Start with [the Colonie run guide](docs/COLONIE.md),
+[specification](docs/SPEC.md), [plan](docs/PLAN.md), and
+[actual verification/progress](docs/PROGRESS.md).
+
+```sh
+nvm use
+pnpm install --frozen-lockfile
+pnpm colonie
+```
+
+Local built app: `release/colonie/mac-arm64/Colonie.app`.
+The upstream documentation below describes the original project, not all
+features enabled in this fork's Codex-first execution profile.
+
+---
+
 <div align="center">
 
 # OpenMausBot

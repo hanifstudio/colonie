@@ -32,6 +32,11 @@ import { useAdvancedMode } from "@/lib/interface-mode";
 import { SimpleBotPanel } from "./bot-settings/SimpleBotPanel";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import type { PromptPreviewData } from "./bot-settings/PromptPreview";
+import { PromptPreview } from "./bot-settings/PromptPreview";
+import { isColonieAcpDriver } from "../../shared/devone";
+import { AcpContextDialog } from "./AcpContextDialog";
+import { useDeveloperTools } from "@/lib/developer-tools";
+import { BotConnectedTools } from "./BotConnectedTools";
 
 const sectionLabel = (entry: (typeof BOT_SECTIONS)[number]) => (entry.labelKey ? t(entry.labelKey) : entry.label);
 
@@ -52,6 +57,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   overlay?: boolean;
 }) {
   const { state, dispatch, flushBotPatches } = useStore();
+  const codexAcp = isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
   const section = state.botSettingsSection;
   const derived = useBotSettingsDerived(bot);
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -59,6 +65,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // panel's close button sits; drop the header below them.
   const { padClass } = useCaptionChrome();
   const [query, setQuery] = useState("");
+  const [contextOpen, setContextOpen] = useState(false);
   // Keep expansion in the store too: header deep links can arrive while
   // this panel is already mounted, including after collapsing the same row.
   const collapsed = !state.botSettingsExpandAccordion;
@@ -67,6 +74,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // (or a deep link to a section it does not cover) switches to the full
   // fold-out view for this opening only — App remounts the panel per open.
   const advanced = useAdvancedMode();
+  const developerTools = useDeveloperTools();
   const wantsFullView = !collapsed && !SIMPLE_PANEL_SECTIONS.has(section);
   const [showAll, setShowAll] = useState(wantsFullView);
   useEffect(() => {
@@ -80,6 +88,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // on a served workspace, and there only to an admin.
   const ownerOrAdmin = useOwnerOrAdmin();
   const sections = BOT_SECTIONS
+    .filter((entry) => !codexAcp || ["overview", "identity", "soul", "access", "model", "permissions"].includes(entry.id))
     .filter((entry) => entry.id !== "slack" || slackUrl !== null)
     .filter((entry) => entry.id !== "visibility" || (!window.ogb && ownerOrAdmin === true));
   const visibleSections = sections.filter((entry) => sectionMatches(entry, q));
@@ -264,6 +273,12 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   const renderSectionBody = (id: (typeof BOT_SECTIONS)[number]["id"]) => {
     switch (id) {
       case "overview":
+        if (codexAcp) return (
+          <div className="space-y-3">
+            <p className="rounded-xl bg-card p-4 text-sm text-ink-secondary">Your bot uses its profile and saved instructions automatically. Edit its name, role and description in Identity, and its standing instructions in Soul. Start a new conversation to use profile updates.</p>
+            {developerTools && <><button className="rounded-lg bg-control px-3 py-2 text-sm" onClick={() => setContextOpen(true)}>Inspect ACP context</button><PromptPreview data={prompt} error={promptError} open onToggle={() => {}} /></>}
+          </div>
+        );
         return overview === null && overviewError ? (
           <div className="rounded-xl bg-card p-4 text-[13px] text-ink-secondary">Couldn’t load the overview.</div>
         ) : (
@@ -291,10 +306,11 @@ export function BotSettingsDialog({ bot, overlay = false }: {
             patch={derived.patch}
             activeState={derived.activeState}
             mascotMotion={derived.mascotMotion}
+            acp={codexAcp}
           />
         );
       case "soul":
-        return <SoulSection bot={bot} patch={derived.patch} />;
+        return <SoulSection bot={bot} patch={derived.patch} acp={codexAcp} />;
       case "slack":
         return slackUrl ? <SlackSection managementUrl={slackUrl} /> : null;
       case "skills":
@@ -308,6 +324,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
       case "routines":
         return <RoutinesSection bot={bot} routines={derived.botRoutines} runs={state.routineRuns} />;
       case "access":
+        if (codexAcp) return <BotConnectedTools bot={bot} />;
         return <AccessSection bot={bot} derived={derived} />;
       case "model":
         return <ModelSection bot={bot} />;
@@ -367,6 +384,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
             headerClassName={padClass}
             onClose={() => dispatch({ type: "toggleSettings", open: false })}
             onAllSettings={() => setShowAll(true)}
+            acp={codexAcp}
             onAddSkill={() => {
               setShowAll(true);
               dispatch({ type: "toggleSettings", open: true, section: "skills" });
@@ -490,6 +508,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
         onCancel={() => setRollbackTarget(null)}
         onConfirm={() => { if (rollbackTarget) void rollbackHistory(rollbackTarget); }}
       />
+      {developerTools && contextOpen && <AcpContextDialog botId={bot.id} threadId={bot.threadId} onClose={() => setContextOpen(false)} />}
     </>
   );
 }

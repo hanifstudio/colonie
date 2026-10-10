@@ -110,6 +110,9 @@ export type RequestOutcome = "allowed-once" | "rejected" | "answered" | "unavail
 // the first turn (the agentcal per-turn-process model) with resumeCursor
 // carrying the provider-native continuation (e.g. a claude session id).
 export interface SendTurnInput {
+  /** Explicit Colonie context candidate; legacy system fields are never used by ACP. */
+  acpContext?: import("../shared/acp-context.ts").AcpContextSnapshot;
+  acpTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
   threadId: ThreadId;
   /** The bot this turn belongs to. threadIds are meant to be unique per bot
    * task, but a driver's process-level resource maps (permission-broker

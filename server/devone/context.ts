@@ -1,0 +1,109 @@
+/** Independent context composition. Never imports the legacy prompt pipeline. */
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { z } from "zod";
+import { DATA_DIR } from "../config.ts";
+import { writeFileAtomic } from "../atomic.ts";
+import type { AcpContextSection, AcpContextSnapshot, AcpContextManifest, AcpContextView } from "../../shared/acp-context.ts";
+import type { AcpInputReceipt } from "../../shared/devone.ts";
+
+export const appContextSchema = z.object({ enabled: z.boolean(), instructions: z.string().max(32_000) }).strict();
+export const botContextSchema = z.object({ persona: z.boolean(), soul: z.boolean() }).strict();
+const sectionSchema = z.object({ id: z.string(), label: z.string(), scope: z.enum(["app", "bot", "instance", "conversation"]),
+  source: z.string(), version: z.string(), hash: z.string(), status: z.enum(["active", "disabled", "empty"]), text: z.string() }).strict();
+const snapshotSchema = z.object({ version: z.literal(1), botId: z.string(), hash: z.string(), sections: z.array(sectionSchema),
+  app: appContextSchema, bot: botContextSchema, legacyPlain: z.boolean() }).strict();
+const pinSchema = z.object({ snapshot: snapshotSchema, pinnedAt: z.string() }).strict();
+export type ContextPin = z.infer<typeof pinSchema>;
+export type ContextProfile = { id: string; name: string; title: string; description: string; soul?: string; chiefOfStaff?: boolean };
+export const contextHash = (value: string) => createHash("sha256").update(value).digest("hex");
+const revision = (value: unknown) => contextHash(JSON.stringify(value));
+function path(kind: "app" | "bots" | "threads", id = "settings") {
+  if (!/^[\w-]{1,128}$/.test(id)) throw new Error("Invalid context id");
+  return join(DATA_DIR, "acp-context", kind, `${id}.json`);
+}
+function read<T>(file: string, schema: z.ZodType<T>, fallback: T): T {
+  try { return schema.parse(JSON.parse(readFileSync(file, "utf8"))); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback; throw error; }
+}
+function write(kind: "app" | "bots" | "threads", id: string, value: unknown) {
+  mkdirSync(join(DATA_DIR, "acp-context", kind), { recursive: true, mode: 0o700 });
+  writeFileAtomic(path(kind, id), JSON.stringify(value, null, 2), { mode: 0o600 });
+}
+export function appContextPreferences() { return read(path("app"), appContextSchema, { enabled: true, instructions: "" }); }
+export function botContextPreferences(botId: string) { return read(path("bots", botId), botContextSchema, { persona: true, soul: true }); }
+export function appContextView() {
+  const preferences = appContextPreferences();
+  return { ...preferences, revision: revision(preferences) };
+}
+export function changeContextPreferences(scope: "app" | "bot", botId: string, expectedRevision: string, value: unknown) {
+  const current = scope === "app" ? appContextPreferences() : botContextPreferences(botId);
+  if (revision(current) !== expectedRevision) throw Object.assign(new Error("Context settings changed. Refresh before saving."), { status: 409 });
+  write(scope === "app" ? "app" : "bots", scope === "app" ? "settings" : botId,
+    scope === "app" ? appContextSchema.parse(value) : botContextSchema.parse(value));
+}
+export function contextSection(id: string, label: string, scope: AcpContextSection["scope"], source: string, text: string, enabled = true, version?: string): AcpContextSection {
+  const hash = contextHash(text);
+  // Disabled content does not enter receipts or previews as active context.
+  return { id, label, scope, source, version: version ?? `sha256:${hash}`, hash,
+    status: !enabled ? "disabled" : text ? "active" : "empty", text: enabled ? text : "" };
+}
+export function contextCandidate(profile: ContextProfile, instanceId: string, instructions: string, legacyPlain = false): AcpContextSnapshot {
+  const app = appContextPreferences();
+  const bot = botContextPreferences(profile.id);
+  const sections = [
+    contextSection("app.identity", "App · Identity", "app", "Colonie factory", "You are interacting through Colonie, a desktop application for personal AI agents. Application-authored context is provided here as explicit user context; native provider and project instructions remain provider-owned.", app.enabled && !legacyPlain, "colonie.identity.v1"),
+    contextSection("app.instructions", "App · Shared instructions", "app", "Workspace owner", app.instructions, app.enabled && !legacyPlain),
+    contextSection("bot.persona", "Bot · Persona", "bot", `bot:${profile.id}:profile`,
+      [`Name: ${profile.name}`, profile.title && `Role: ${profile.title}`, profile.description && `Description: ${profile.description}`,
+        profile.chiefOfStaff && "Configured role: Chief. This role alone does not provide delegation tools."].filter(Boolean).join("\n"), bot.persona && !legacyPlain),
+    contextSection("bot.soul", "Bot · SOUL", "bot", `bot:${profile.id}:soul`, profile.soul ?? "", bot.soul && !legacyPlain),
+    contextSection("instance.instructions", "Instance · Extra context", "instance", `instance:${instanceId}:instructions`, instructions),
+  ];
+  const value = { version: 1 as const, botId: profile.id, sections, app, bot, legacyPlain };
+  return { ...value, hash: revision(value) };
+}
+export function contextPin(threadId: string): ContextPin | null {
+  const pin = read(path("threads", threadId), pinSchema.nullable(), null);
+  if (pin) {
+    const { hash, ...content } = pin.snapshot;
+    if (revision(content) !== hash) throw new Error("The saved context snapshot is damaged. Restore it before continuing this conversation.");
+  }
+  return pin;
+}
+export function pinContext(threadId: string, candidate: AcpContextSnapshot): ContextPin {
+  const existing = contextPin(threadId);
+  if (existing) {
+    if (existing.snapshot.botId !== candidate.botId) throw new Error("Context snapshot belongs to another bot");
+    return existing;
+  }
+  const pin = { snapshot: candidate, pinnedAt: new Date().toISOString() };
+  write("threads", threadId, pinSchema.parse(pin));
+  return pin;
+}
+export function contextView(profile: ContextProfile, threadId: string, instanceId: string, instructions: string, legacyPlain: boolean): AcpContextView {
+  const pin = contextPin(threadId);
+  if (pin && pin.snapshot.botId !== profile.id) throw new Error("Context snapshot belongs to another bot");
+  const preview = contextCandidate(profile, instanceId, instructions, pin ? false : legacyPlain);
+  // New-conversation preview can enable additions while a legacy pin stays plain.
+  const comparable = pin?.snapshot.legacyPlain ? contextCandidate(profile, instanceId, instructions, true) : preview;
+  return { app: { ...preview.app, revision: revision(preview.app) },
+    bot: { ...preview.bot, revision: revision(preview.bot) }, preview,
+    pinned: pin ? { ...pin.snapshot, pinnedAt: pin.pinnedAt } : null, changed: Boolean(pin && pin.snapshot.hash !== comparable.hash) };
+}
+/** Same composer for both providers; each active section is a separate ACP text block. */
+export function composeContext(pin: ContextPin | null, text: string, instanceId: string, instructions: string, effective: { provider: string; model: string; mode: string; tools?: import("../../shared/connected-apps.ts").ConnectedToolsReceipt }) {
+  const sections: AcpContextManifest["sections"] = (pin?.snapshot.sections ?? [contextSection("instance.instructions", "Instance · Extra context", "instance", `instance:${instanceId}:instructions`, instructions)]).map((section) => ({ ...section }));
+  if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain) sections.splice(1, 0,
+    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports direct chat, native session continuity, tool activity, permission responses, and Stop. Tools and access are determined by the native provider and enforced by runtime permissions. ${effective.tools?.servers.length ? `App-selected tools: ${effective.tools.servers.map((server) => server.name).join(", ")}.${effective.tools.composioToolkits.length ? ` Composio apps: ${effective.tools.composioToolkits.join(", ")}. Connect required accounts in app settings; ask the user to continue after connecting.` : ""}` : "No app-selected MCP tools are mounted."} Cross-bot delegation, memory recall and automation are not available on this connection.`, true, "colonie.capabilities.v2"));
+  sections.push(contextSection("user.message", "Conversation · User message", "conversation", "User", text));
+  const prompt: AcpInputReceipt["prompt"] = [];
+  for (const section of sections) {
+    if (section.status !== "active" && section.id !== "user.message") continue;
+    section.blockIndex = prompt.length;
+    prompt.push({ type: "text", text: section.id === "user.message" || section.id === "instance.instructions" ? section.text : `### ${section.label}\n${section.text}` });
+  }
+  const manifest: AcpContextManifest = { version: 1, snapshotHash: pin?.snapshot.hash, pinnedAt: pin?.pinnedAt, botId: pin?.snapshot.botId, sections };
+  return { prompt, manifest, instructions: sections.find((section) => section.id === "instance.instructions")?.text ?? "" };
+}

@@ -58,6 +58,10 @@ import { setAdvancedMode, useAdvancedMode } from "@/lib/interface-mode";
 import { parseSidebarDensity, setSidebarDensity, SIDEBAR_DENSITIES, useSidebarDensity, type SidebarDensity } from "@/lib/sidebar-preferences";
 import { setShowRunCard, useShowRunCard } from "@/lib/run-card-preferences";
 import { effectiveLanguage, setLanguageChoice, useLanguageChoice } from "@/lib/language-preference";
+import { isColonieAcpDriver } from "../../shared/devone";
+import { setDeveloperTools, useDeveloperTools } from "@/lib/developer-tools";
+import { SharedAgentInstructions } from "./SharedAgentInstructions";
+import { ConnectedToolsSettings } from "./ConnectedToolsSettings";
 
 // `labelKey`, not a label: t() reads the active pack when it is called, so a
 // label resolved here at module scope would freeze the language the app booted
@@ -470,6 +474,13 @@ function AdvancedModeRow() {
   );
 }
 
+function DeveloperToolsRow() {
+  const enabled = useDeveloperTools();
+  return <SettingRow title="Developer tools" subtitle="Show the ACP context inspector for debugging application input. This does not enable or disable bot profiles.">
+    <Switch checked={enabled} aria-label="Developer tools" onClick={() => setDeveloperTools(!enabled)} />
+  </SettingRow>;
+}
+
 function ShowThreadsRow() {
   const enabled = useShowThreadsChoice();
   return (
@@ -794,7 +805,9 @@ export function SettingsModal() {
   useEffect(() => window.ogb?.onOpenAppSettings?.(() => setQuery("")), []);
   const q = query.trim().toLowerCase();
   const ownerOrAdmin = useOwnerOrAdmin();
+  const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance" || entry.id === "desktopWorkspaces")
+    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
     .filter((entry) => entry.id !== "desktopWorkspaces" || Boolean(window.ogb?.environments))
     .filter((entry) => entry.id !== "organization" || Boolean(window.ogb?.organization))
     // On the person's own Cloud in this app's window, the plan shows read only (cloudPlan);
@@ -909,6 +922,7 @@ export function SettingsModal() {
           <>
             <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1">
               <AdvancedModeRow />
+              {colonieFleet && advanced && <DeveloperToolsRow />}
             </div>
             <ProSettingsCard />
             <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
@@ -919,6 +933,7 @@ export function SettingsModal() {
               <NewBotEffortRow />
               <AnalyticsRow />
               <DefaultBotSettings />
+              {colonieFleet && <SharedAgentInstructions />}
             </div>
             <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
               <RoomTurnTimeoutSettings />
@@ -948,9 +963,7 @@ export function SettingsModal() {
               {remoteActive && <AdvancedModeRow />}
               <FontRow />
               <SidebarDensityRow />
-              {/* Simple mode keeps one conversation per bot, so the switch
-                  only means something in Advanced. */}
-              {advanced && <ShowThreadsRow />}
+               <ShowThreadsRow />
               <PinnedCirclesRow />
               <UniversalPinsRow />
               <NotificationSoundsRow />
@@ -962,6 +975,7 @@ export function SettingsModal() {
       case "experimental":
         return <ExperimentalFeaturesRow />;
       case "connections":
+        if (colonieFleet) return <ConnectedToolsSettings />;
         return (
           <Card
             title={t("settings.connections.title")}

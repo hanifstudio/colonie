@@ -94,6 +94,7 @@ function urlError(value: string): string | null {
 }
 
 const RESERVED_MCP_NAMES = new Set([
+  "colonie_composio",
   "ogb",
   "computer",
   "agents",

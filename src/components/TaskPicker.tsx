@@ -17,6 +17,8 @@ import { FolderIcon, NewThreadButton } from "./BotProjects";
 import { useShowThreads } from "@/lib/thread-preferences";
 import { attentionJumpAction, attentionOwnerName, AttentionThreadRows, crossBotAttentionThreads, threadsWhenTreeHidden, type AttentionThread } from "./SidebarBotActivity";
 import { formatUpdatedAt, orderedThreadList, threadByline, threadRecency, threadUpdatedLabel, useRelativeNow } from "./SidebarThreadRow";
+import { useAdvancedMode } from "@/lib/interface-mode";
+import { conversationTitle } from "@/lib/conversation-title";
 
 /** Click-to-switch used to close this menu immediately, which unmounted the
  * row before a double-click (or right-click) could start a rename. Linger
@@ -76,7 +78,7 @@ function TaskUsage({ usage }: { usage: Task["usage"] }) {
   );
 }
 
-type PickerTask = Pick<Task, "threadId" | "title" | "createdAt" | "updatedAt" | "pinned" | "busy" | "activity" | "unread" | "projectId" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil" | "waitingForTeammates"> & { usage?: Task["usage"] };
+type PickerTask = Pick<Task, "threadId" | "title" | "preview" | "createdAt" | "updatedAt" | "pinned" | "busy" | "activity" | "unread" | "projectId" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil" | "waitingForTeammates"> & { usage?: Task["usage"] };
 
 /** The full picker searches both thread titles and their project names.
  * Legacy/orphaned project IDs remain visible under Ungrouped. */
@@ -101,6 +103,7 @@ function ConversationTaskPicker({
   onPin,
   attention,
   onAttentionJump,
+  conversations = false,
 }: {
   threadId: string;
   tasks: PickerTask[];
@@ -114,6 +117,7 @@ function ConversationTaskPicker({
   onPin?: (threadId: string, pinned: boolean) => void;
   attention?: AttentionThread[];
   onAttentionJump?: (entry: AttentionThread) => void;
+  conversations?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const motion = useMenuMotion(open);
@@ -244,21 +248,22 @@ function ConversationTaskPicker({
           if (open) closeMenu();
           else setOpen(true);
         }}
-        title={switchTitle}
-        aria-label={t("task.switch")}
+        title={conversations ? "Choose a conversation" : switchTitle}
+        aria-label={conversations ? "Conversations" : t("task.switch")}
+        aria-expanded={open}
         className={cn(
           "flex max-w-[220px] items-center gap-1.5 rounded-full border border-hairline/40 px-2.5 py-1 text-[12.5px] text-ink-secondary hover:bg-raised hover:text-ink",
           COMPACT_BUBBLE,
         )}
       >
-        <span className="truncate @max-4xl/chathead:hidden">{t("task.switch")}</span>
+        <span className={cn("truncate", !conversations && "@max-4xl/chathead:hidden")}>{conversations ? "Conversations" : t("task.switch")}</span>
         {/* folded: just the count in the bubble — the title rides the tooltip */}
         <span className="shrink-0 tabular-nums opacity-60 @max-4xl/chathead:opacity-100">{tasks.length}</span>
         <ChevronDown size={12} className="shrink-0 @max-4xl/chathead:hidden" />
       </button>
 
       {motion.shown && (
-        <div className={cn("absolute right-0 top-full z-40 mt-1 w-[300px] overflow-hidden rounded-xl border border-hairline/50 bg-card py-1 shadow-2xl shadow-black/50", motion.className)} {...motion.exitProps}>
+        <div className={cn("absolute top-full z-40 mt-1 overflow-hidden rounded-xl border border-hairline/50 bg-card py-1 shadow-2xl shadow-black/50", conversations ? "left-0 w-[min(300px,calc(100vw-40px))]" : "right-0 w-[300px]", motion.className)} {...motion.exitProps}>
           <div className="px-2 pb-1 pt-1.5">
             <div className="flex items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-2.5 py-1.5 focus-within:border-focus">
               <Search size={13} className="shrink-0 text-ink-secondary" />
@@ -285,13 +290,13 @@ function ConversationTaskPicker({
                     closeMenu();
                   }
                 }}
-                placeholder={t("task.search")}
-                aria-label={t("task.search")}
+                placeholder={conversations ? "Search conversations" : t("task.search")}
+                aria-label={conversations ? "Search conversations" : t("task.search")}
                 className="w-full bg-transparent text-[12.5px] text-ink placeholder:text-ink-secondary focus:outline-none"
               />
             </div>
           </div>
-          <div className="max-h-[320px] overflow-y-auto" role="group" aria-label={looking ? t("task.matching", { count: results.length }) : t("task.list")}>
+          <div className="max-h-[320px] overflow-y-auto" role="group" aria-label={conversations ? "Conversation list" : looking ? t("task.matching", { count: results.length }) : t("task.list")}>
             {attentionRows.length > 0 && <div className="pb-1">
               <div className="flex items-center gap-1.5 px-3 pb-1 pt-1.5 text-[11px] font-medium text-ink-secondary"><Activity size={12} />{t("attention.title")}</div>
               <AttentionThreadRows entries={attentionRows} onJump={(entry) => { onAttentionJump?.(entry); closeMenu(); }} />
@@ -339,6 +344,8 @@ function ConversationTaskPicker({
                   ) : (
                     <button
                       type="button"
+                      data-conversation-row={task.threadId}
+                      aria-current={active ? "page" : undefined}
                       onClick={(e) => {
                         if (taskPickerPointerIntent("click", e.detail) !== "select") return;
                         if (!active) onSwitch(task.threadId);
@@ -357,11 +364,12 @@ function ConversationTaskPicker({
                       className="min-w-0 flex-1 text-left"
                       title={t("task.renameHint")}
                     >
-                      <div dir="auto" className="truncate text-[13px] text-ink">{task.title}</div>
+                      <div dir="auto" className="truncate text-[13px] text-ink">{conversations ? conversationTitle(task.title) : task.title}</div>
+                      {conversations && task.preview && <div dir="auto" className="truncate text-[11px] text-ink-secondary">{task.preview}</div>}
                       <div className="text-[11px] text-ink-secondary">
-                        {task.activity === "waiting-on-you" ? `${t("task.waiting")} · ` : task.waitingForTeammates ? `${t("task.waitingOnTeammate")} · ` : task.busy ? `${t("chat.activity.working")} · ` : task.unread ? `${t("task.unread")} · ` : ""}
+                        {task.activity === "waiting-on-you" ? `${conversations ? "Needs approval" : t("task.waiting")} · ` : task.waitingForTeammates ? `${t("task.waitingOnTeammate")} · ` : task.busy ? `${t("chat.activity.working")} · ` : task.unread ? `${t("task.unread")} · ` : ""}
                         <TaskUpdatedTime task={task} now={now} />
-                        <TaskUsage usage={task.usage} />
+                        {!conversations && <TaskUsage usage={task.usage} />}
                         {opener && ` · ${opener}`}
                       </div>
                     </button>
@@ -412,7 +420,7 @@ function ConversationTaskPicker({
               );
             })}
           </div>
-          {bot ? <NewThreadButton bot={bot} onCreated={closeMenu} className="mt-1 w-full rounded-none border-t border-hairline/40" /> : <button
+          {bot ? <NewThreadButton bot={bot} label={conversations ? "New conversation" : undefined} onCreated={closeMenu} className="mt-1 w-full rounded-none border-t border-hairline/40" /> : <button
             type="button"
             onClick={() => {
               onNew();
@@ -458,22 +466,24 @@ export function BotActivityPicker({ bot }: { bot: Bot }) {
   );
 }
 
-export function TaskPicker({ bot }: { bot: Bot }) {
+export function TaskPicker({ bot, conversations = false }: { bot: Bot; conversations?: boolean }) {
   const { state, dispatch } = useStore();
   const showThreads = useShowThreads();
-  if (!showThreads) return null;
+  const advanced = useAdvancedMode();
+  if (!showThreads && !conversations) return null;
   return (
     <ConversationTaskPicker
       threadId={bot.threadId}
       tasks={orderedThreadList((bot.tasks ?? []).filter((task) => !task.routineRunId))}
       busy={false}
       bot={bot}
+      conversations={conversations}
       attention={crossBotAttentionThreads(state.bots, state.pendingQueued, bot.id, state.groups)}
       onNew={() => dispatch({ type: "newTask", botId: bot.id })}
       onSwitch={(threadId) => dispatch({ type: "switchTask", botId: bot.id, threadId })}
       onRename={(threadId, title) => dispatch({ type: "renameTask", botId: bot.id, threadId, title })}
       onDelete={(threadId) => dispatch({ type: "deleteTask", botId: bot.id, threadId })}
-      onMove={(threadId, projectId) => dispatch({ type: "updateTask", botId: bot.id, threadId, patch: { projectId } })}
+      onMove={advanced ? (threadId, projectId) => dispatch({ type: "updateTask", botId: bot.id, threadId, patch: { projectId } }) : undefined}
       onPin={(threadId, pinned) => dispatch({ type: "updateTask", botId: bot.id, threadId, patch: { pinned } })}
       onAttentionJump={(entry) => dispatch(attentionJumpAction(entry))}
     />

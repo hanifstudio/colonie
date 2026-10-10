@@ -4,6 +4,20 @@
 // First, before any module that could start a process: a Cloud home's
 // secrets off the launcher's pipe (cloud-secrets-boot.ts).
 import { BOOT_CLOUD_SECRETS } from "./cloud-secrets-boot.ts";
+import { isColonieAcpDriver } from "../shared/devone.ts";
+import { inputReceipts } from "./devone/receipts.ts";
+import { AcpRuntime } from "./devone/acp-runtime.ts";
+import { createAcpSettingsRoutes } from "./devone/settings-routes.ts";
+import { createAcpContextRoutes } from "./devone/context-routes.ts";
+import { contextCandidate, contextPin } from "./devone/context.ts";
+import { conversationPreview } from "./devone/conversation-preview.ts";
+import { devoneProfile } from "./devone/profile.ts";
+import { ConnectedTools } from "./colonie/connections/manager.ts";
+import { botAppPolicy } from "./colonie/connections/policy.ts";
+import { connectedToolsRoutes } from "./colonie/connections/routes.ts";
+import { composioCredentialStatus } from "./colonie/connections/credential-status.ts";
+import { composioCredentialRoutes } from "./colonie/connections/credential-routes.ts";
+import { nativeHistoryConflict } from "./devone/native-history.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, rmSync, mkdirSync } from "node:fs";
@@ -2864,6 +2878,7 @@ function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
 }
 
 async function interruptDirectThread(botId: string, threadId: string, options?: { preserveComputerResume?: boolean }): Promise<void> {
+  connectedTools.cancel(threadId);
   // A parked turn has settled its provider but still owns a future resume.
   // Stop cancels that work too. The parking teardown itself preserves it.
   if (!options?.preserveComputerResume && pendingComputerResumes.delete(threadId)
@@ -3747,6 +3762,19 @@ const store = new Store(
   (instanceId) => registry.cliTarget(instanceId)?.driverKind,
 );
 const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), ENVIRONMENT_ID);
+const connectedTools = new ConnectedTools({ origin: `http://127.0.0.1:${PORT}`,
+  credentials: () => cfg.composio?.apiKey ? { key: cfg.composio.apiKey, userId: cfg.composio.userId } : null,
+  recordUserId: (userId) => { cfg.composio = { ...cfg.composio, userId }; saveConfig({ composio: { userId } }); },
+  owns: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
+});
+async function acpToolMount(botId: string, threadId: string, instanceId: string) {
+  const policy = botAppPolicy(botId);
+  const custom = managedPolicy.filterMcp(customMcpServers(cfg, policy.customServers));
+  if (policy.customServers.some((name) => !custom[name])) throw new Error("A custom MCP server selected for this bot is disabled or missing. Update Connected apps in its profile.");
+  const signedIn = await withMcpSignIn(custom, mcpOAuth);
+  if (policy.customServers.some((name) => !signedIn[name])) throw new Error("Sign in to the custom MCP server in app settings before using it.");
+  return connectedTools.mount(botId, threadId, instanceId, signedIn);
+}
 let followupsReady = false;
 const sendSequencer = new SendSequencer();
 // Before the new-bot default is read: a saved default may name the engine.
@@ -3838,7 +3866,9 @@ const wireTask = (task: TaskRecord, botModel: ModelSelection): WireTask => {
   // timer, no device skew. The 0 sentinel ("until new activity") is not a
   // time and survives reads; only a wake event in the store clears it.
   const { snoozedUntil, ...base } = toWireTask(task, botModel);
-  const coordinated = { ...base, waitingForTeammates: activeCoordinationForThread(task.threadId) && !task.busy };
+  // ACP histories do not branch; a bounded tail avoids loading idle full transcripts.
+  const preview = devoneProfile() ? conversationPreview(store.messagesTail(task.threadId, 10).messages) : undefined;
+  const coordinated = { ...base, ...(preview !== undefined ? { preview } : {}), waitingForTeammates: activeCoordinationForThread(task.threadId) && !task.busy };
   const asleep = snoozedUntil === 0 || (snoozedUntil !== undefined && snoozedUntil > Date.now());
   return asleep ? { ...coordinated, snoozedUntil } : coordinated;
 };
@@ -3874,6 +3904,17 @@ const wireTrustedApprovalBot = (bot: NonNullable<ReturnType<typeof store.bot>>) 
  * provisioning or credentials are needed to inspect it. The selected engine
  * bounds advertised tools; task-specific context is added only at dispatch. */
 function previewSystemPrompt(bot: BotRecord) {
+  if (isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)) {
+    const config = instanceConfigs(cfg)[bot.modelSelection.instanceId]?.config as { instructions?: string } | undefined;
+    const candidate = contextCandidate(bot, bot.modelSelection.instanceId, config?.instructions ?? "");
+    const sections = candidate.sections.filter((section) => section.status === "active").map((section) => ({ ...section, bytes: Buffer.byteLength(section.text) }));
+    const bytes = sections.reduce((sum, section) => sum + section.bytes, 0);
+    return {
+      sections,
+      totalBytes: bytes, approxTokens: Math.ceil(bytes / 4),
+      note: "Developer preview for a new conversation. App awareness and saved bot profiles are enabled by default. Context is pinned at first dispatch; native capabilities follow runtime settings. Native/project instructions remain provider-owned. No memory, team or automation context is added.",
+    };
+  }
   // `cfg` is the module-level config (`const cfg = loadConfig()` near the
   // top of index.ts), the same object the turn code reads.
   const persona = [
@@ -9750,6 +9791,13 @@ async function startTurn(
   const model = bot.modelSelection.model;
   const effort = bot.modelSelection.effort;
   const variant = bot.modelSelection.variant;
+  if (instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(threadId)) throw Object.assign(new Error("The native settings are being prepared. Wait for that operation before sending."), { status: 409 });
+  if (isColonieAcpDriver(instance.driverKind) && nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors })) {
+    throw Object.assign(new Error("This conversation belongs to another agent's native history. Start a new thread for the selected agent, or select the original agent to continue."), { status: 409 });
+  }
+  if (isColonieAcpDriver(instance.driverKind) && (opts?.editedMessageId || task.rewound || opts?.compactOnly || opts?.automationSource || opts?.coordination || opts?.unattended || opts?.peerAsk)) {
+    throw Object.assign(new Error("This ACP connection supports direct native sessions. Start a new thread for a different history; use /compact for native compaction."), { status: 409 });
+  }
   assertModelVariantSupported({ variant, effort }, instance.adapter.capabilities);
   // A selection can be persisted while its engine is offline. Re-check when
   // the engine returns so an old or unsupported value never reaches a CLI.
@@ -9864,6 +9912,39 @@ async function startTurn(
       if (enginesRead) {
         await enginesRead;
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped while the engines were read");
+      }
+      if (isColonieAcpDriver(instance.driverKind)) {
+        // Independent execution path: branch before compaction, persona,
+        // memory, recall, setup/learn rewriting, skills, and MCP assembly.
+        if (task.rewound || opts?.editedMessageId || opts?.compactOnly) {
+          throw new Error("Native ACP session editing/branch replay is not available. Start a new thread for a different history; use /compact for agent-native compaction.");
+        }
+        if (opts?.automationSource || opts?.coordination || opts?.unattended || opts?.peerAsk) {
+          throw new Error("The transparent ACP connection accepts user-driven conversations, not OpenMausBot automation or team prompts.");
+        }
+        const privateCwd = ensureTaskWorkspace(bot.id, threadId);
+        const cwd = store.pinTaskCwd(bot.id, threadId, privateCwd) ?? privateCwd;
+        const contextConfig = instanceConfigs(cfg)[instanceId]?.config as { instructions?: string } | undefined;
+        const acpContext = contextCandidate(bot, instanceId, contextConfig?.instructions ?? "", !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length));
+        runningTurnEngines.set(threadId, instance);
+        const acpTools = await acpToolMount(bot.id, threadId, instanceId);
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { acpTools.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
+        const dispatch = await guardTurnDispatch(instance.adapter.sendTurn({
+          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools,
+          cwd, model, approvalMode: approvalModeForTurn(bot, false, threadId),
+          resumeCursor: task.resumeCursors[instanceId],
+        }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
+          await instance.adapter.interruptTurn(threadId).catch(() => {});
+        });
+        if (dispatch.cancelled) {
+          retireProviderTurn(dispatch.value.turnId);
+          throw new DirectTurnSetupCancelled("turn stopped during ACP setup");
+        }
+        const requestOwner = directRequestOwners.get(threadId);
+        if (requestOwner?.generation === dispatchClaimId) requestOwner.turnId = dispatch.value.turnId;
+        clearDirectTurnDispatch(threadId, dispatchClaimId);
+        store.markTaskDispatched(bot.id, threadId, instanceId);
+        return;
       }
       // Readiness can wait on the network. Admit the task first so its busy
       // state, Stop action and watchdog own that wait just like VM setup.
@@ -12578,7 +12659,9 @@ async function runGroupMemberTurn(
     onDispatchError?.(`${bot.name}'s provider account is being updated — try again shortly`);
     return true;
   }
-  const roomPolicyRefusal = instance ? policyModelRefusal(instance) : undefined;
+  const roomPolicyRefusal = isColonieAcpDriver(instance?.driverKind)
+    ? "The transparent ACP connection supports direct conversations; room orchestration is not enabled."
+    : instance ? policyModelRefusal(instance) : undefined;
   // A room turn a guest drives on a Cloud home is confined like a guest's
   // own conversation, or refused on an engine that cannot be.
   if (!groupSpeakers.has(threadId)) guestDrivenTurns.delete(threadId);
@@ -15468,6 +15551,7 @@ function configStatus() {
     // the base URL is a setting, not a secret; the key stays write-only
     openaiCompat: { configured: Boolean(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "" },
     composio: {
+      projectKeyConfigured: Boolean(cfg.composio?.apiKey?.trim()),
       configured: composio.configured(cfg),
       mode: composio.connectionMode(cfg),
     },
@@ -15925,6 +16009,52 @@ const cloudMoveRoutes = createCloudMoveRoutes({
 // Route modules (server/routes/README.md). `workspaceAccess` is assigned at
 // boot, after this line, so the dependency reads it per request.
 ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: () => Boolean(workspaceAccess) && entitled("admin") }));
+ROUTES.push(composioCredentialRoutes(() => composioCredentialStatus(cfg)));
+ROUTES.push(connectedToolsRoutes({
+  exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task) => threadBusy(botId, task.threadId)
+    || registry.instances().some((instance) => instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(task.threadId))),
+  configured: () => Boolean(cfg.composio?.apiKey), customNames: () => Object.keys(managedPolicy.filterMcp(customMcpServers(cfg))),
+  invalidateBot: (botId) => connectedTools.invalidateBot(botId),
+}));
+ROUTES.push(createAcpContextRoutes({
+  resolve: (botId, threadId) => {
+    const profile = store.projectBotForTask(botId, threadId);
+    if (!profile) throw Object.assign(new Error("No such conversation"), { status: 404 });
+    if (!isColonieAcpDriver(registry.get(profile.modelSelection.instanceId)?.driverKind)) throw Object.assign(new Error("This connection has no Colonie ACP context"), { status: 409 });
+    const task = store.taskByThread(botId, threadId)!;
+    const config = instanceConfigs(cfg)[profile.modelSelection.instanceId]?.config as { instructions?: string } | undefined;
+    return { profile, instanceId: profile.modelSelection.instanceId, instructions: config?.instructions ?? "",
+      legacyPlain: !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length) };
+  },
+}));
+ROUTES.push(createAcpSettingsRoutes({
+  resolve: async (botId, threadId) => {
+    const bot = store.projectBotForTask(botId, threadId);
+    if (!bot) throw Object.assign(new Error("No such conversation"), { status: 404 });
+    if (threadBusy(botId, threadId) || providerFleetReloading || providerInstancesChanging.has(bot.modelSelection.instanceId)) throw Object.assign(new Error("The conversation/provider is busy. Wait before changing native settings."), { status: 409 });
+    const instance = registry.get(bot.modelSelection.instanceId);
+    if (!instance || !(instance.adapter instanceof AcpRuntime)) throw Object.assign(new Error("This connection has no native ACP controls"), { status: 409 });
+    const task = store.taskByThread(botId, threadId)!;
+    if (nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors })) {
+      throw Object.assign(new Error("This conversation belongs to another native agent. Start a new thread before preparing this provider's settings."), { status: 409 });
+    }
+    const cwd = store.pinTaskCwd(botId, threadId, ensureTaskWorkspace(botId, threadId));
+    return { adapter: instance.adapter, input: { threadId, botId, text: "", cwd: cwd ?? undefined,
+      acpTools: await acpToolMount(botId, threadId, instance.instanceId),
+      model: bot.modelSelection.model, approvalMode: approvalModeForTurn(bot, false, threadId), resumeCursor: store.taskByThread(botId, threadId)?.resumeCursors[instance.instanceId] } };
+  },
+  assertCurrent: (botId, threadId, adapter, input) => {
+    const bot = store.projectBotForTask(botId, threadId);
+    if (!bot || registry.get(bot.modelSelection.instanceId)?.adapter !== adapter || bot.modelSelection.model !== input.model || approvalModeForTurn(bot, false, threadId) !== input.approvalMode) {
+      throw Object.assign(new Error("Agent/model/permission selection changed during native configuration. Refresh the panel."), { status: 409 });
+    }
+  },
+  recordSession: (botId, threadId, instanceId, sessionId) => { store.setResumeCursor(botId, instanceId, sessionId, threadId); },
+  recordModel: (botId, threadId, model) => {
+    const bot = store.projectBotForTask(botId, threadId);
+    if (bot) store.patchTask(botId, threadId, { modelSelection: { instanceId: bot.modelSelection.instanceId, model } });
+  },
+}));
 // Install statuses come from the organization library's own state, never
 // its file, so New bot cannot disagree with it. No organization: none.
 const orgInstallStatuses = () => orgLibrary?.installStatuses() ?? new Map();
@@ -16587,6 +16717,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         openedThreads: 0,
       });
       return json(res, 201, { token });
+    }
+    if (path === "/api/internal/colonie-mcp") {
+      return await connectedTools.handle(req, res, method === "POST" ? await readBody(req) : null);
     }
     // ── internal peer-agent comms (localhost + bot capability only) ───
     // The agents-proxy (spawned inside a bot's agent process) calls these to
@@ -22335,6 +22468,23 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!bot) return json(res, 404, { error: "no such bot" });
       return json(res, 200, previewSystemPrompt(bot));
     }
+    m = path.match(/^\/api\/bots\/([\w-]+)\/acp-inputs$/);
+    if (m && method === "GET") {
+      const bot = store.bot(m[1]);
+      if (!bot) return json(res, 404, { error: "no such bot" });
+      const threadId = url.searchParams.get("threadId") ?? bot.threadId;
+      if (!store.tasks(bot.id).some((task) => task.threadId === threadId)) return json(res, 404, { error: "no such thread" });
+      return json(res, 200, { receipts: inputReceipts(threadId) });
+    }
+    m = path.match(/^\/api\/bots\/([\w-]+)\/acp-live$/);
+    if (m && method === "GET") {
+      const bot = store.bot(m[1]);
+      if (!bot) return json(res, 404, { error: "no such bot" });
+      const threadId = url.searchParams.get("threadId") ?? bot.threadId;
+      if (!store.tasks(bot.id).some((task) => task.threadId === threadId)) return json(res, 404, { error: "no such thread" });
+      const adapter = registry.get(botForThread(bot.id, threadId)?.modelSelection.instanceId ?? bot.modelSelection.instanceId)?.adapter;
+      return json(res, 200, { reply: adapter instanceof AcpRuntime ? adapter.liveReply(threadId) : null });
+    }
     m = path.match(/^\/api\/bots\/([\w-]+)\/overview$/);
     if (m && method === "GET") {
       const bot = store.bot(m[1]);
@@ -22729,6 +22879,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const notYours = cloudThreadRefusal(auth, bot.threadId);
       if (notYours) return json(res, 403, { error: notYours });
       if (threadBusy(bot.id, bot.threadId)) return json(res, 409, { error: "the thread is working — stop it before switching versions" });
+      if (isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)) return json(res, 409, { error: "Native ACP history switching is not available. Start a new thread." });
       if (phoneSecretSubmissions.hasThread(bot.threadId)) {
         return json(res, 409, { error: "this task is securely saving a credential — try again when it finishes" });
       }
@@ -24675,6 +24826,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
             return json(res, 400, { error: error instanceof Error ? error.message : String(error) });
           }
         } else {
+          const currentCredential = composioCredentialStatus(cfg);
+          if (currentCredential.available && !currentCredential.canRemove) return json(res, 409, { error: currentCredential.source === "environment"
+            ? "This Composio key is provided by the environment and cannot be removed from the app."
+            : "The credential store could not be read on this launch. Restart after unlocking your keychain before removing saved keys." });
           patch.composio = { ...patch.composio, apiKey: "", sessionId: "" };
         }
       }
@@ -24854,7 +25009,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           if (persisted.live?.key !== undefined) persisted.live.key = "";
           saveConfig(persisted);
           configWriteCommitted = true;
-          syncCredentialEnv(patch);
+          syncCredentialEnv(patch, url.searchParams.get("composioSource") === "environment" ? "environment" : "secure-store");
           Object.assign(cfg, loadConfig());
         } else {
           saveConfig(patch);
@@ -25699,6 +25854,7 @@ const gracefulShutdown = createGracefulShutdown({
     }
     closeMessageDb();
     mcpOAuth.dispose();
+    connectedTools.dispose();
     releaseDataDirLeaseAtExit();
     // Every launcher in this repo starts the server again on this code (server/restart.ts).
     process.exit(restartRequested && code === 0 ? RESTART_EXIT_CODE : code);

@@ -22,6 +22,7 @@ import { Switch } from "../SettingsPrimitives";
 import { SoulField } from "../SoulField";
 import { SkillReviewDialog, useManagedSkills } from "./SkillsSection";
 import type { useBotSettingsDerived } from "./useBotSettingsDerived";
+import { BotConnectedTools } from "../BotConnectedTools";
 
 export const simpleInputCls =
   "w-full rounded-xl border border-hairline/40 bg-inset px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-tertiary focus:border-accent-border focus:outline-none";
@@ -70,6 +71,7 @@ export function SimpleBotPanel({
   onClose,
   onAllSettings,
   onAddSkill,
+  acp = false,
 }: {
   bot: Bot;
   derived: ReturnType<typeof useBotSettingsDerived>;
@@ -78,11 +80,12 @@ export function SimpleBotPanel({
   onClose: () => void;
   onAllSettings: () => void;
   onAddSkill: () => void;
+  acp?: boolean;
 }) {
   const { dispatch } = useStore();
   const [tab, setTab] = useState<"details" | "library">("details");
   const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
-  const skills = useManagedSkills(bot);
+  const skills = useManagedSkills(bot, !acp);
   const { patch, approvalMode, engine, trustedModesAvailable } = derived;
   // Match the full selector: old Antigravity Auto still executes as Ask.
   // Display that behavior without changing the saved mode or granting Full.
@@ -184,6 +187,11 @@ export function SimpleBotPanel({
               </div>
             </div>
 
+            {acp && <div>
+              <label htmlFor={`simple-bot-about-${bot.id}`} className={labelCls}>About this bot</label>
+              <textarea id={`simple-bot-about-${bot.id}`} className={simpleInputCls} maxLength={BOT_PROFILE_LIMITS.description}
+                placeholder="What should this bot help you with?" value={bot.description} onChange={(event) => patch({ description: event.target.value })} />
+            </div>}
             <SoulField
               bot={bot}
               onPatch={patch}
@@ -192,6 +200,8 @@ export function SimpleBotPanel({
                 placeholder: t("botSettings.simple.instructionsPlaceholder", { name: bot.name }),
               }}
             />
+            {acp && <p className="-mt-3 text-xs text-ink-secondary">Your bot uses its profile and saved instructions automatically. Changes apply to new conversations.</p>}
+            {acp && <BotConnectedTools bot={bot} />}
 
             {/* The bot's model, in the same plain-words picker as the chat
                 header, shown in place (a floating popover would be clipped by
@@ -241,7 +251,7 @@ export function SimpleBotPanel({
               )}
             </div>
 
-            <div>
+            {!acp && <div>
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span className="text-[12px] text-ink-secondary">{t("botSettings.simple.skills")}</span>
                 <button
@@ -276,7 +286,7 @@ export function SimpleBotPanel({
               {skills.error && !skills.reviewing && (
                 <div role="alert" className="mt-2 text-[12px] text-danger">{skills.error}</div>
               )}
-            </div>
+            </div>}
 
             <button
               type="button"
@@ -285,9 +295,9 @@ export function SimpleBotPanel({
               className="flex items-center gap-2 rounded-xl border border-dashed border-hairline px-4 py-3 text-left text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
             >
               <span className="min-w-0 flex-1">
-                <span className="font-semibold text-ink">{t("botSettings.simple.allSettings")}</span>
+                <span className="font-semibold text-ink">{acp ? "More profile options" : t("botSettings.simple.allSettings")}</span>
                 {" — "}
-                {t("botSettings.simple.allSettingsHint")}
+                {acp ? "Appearance, working folder, model and permissions" : t("botSettings.simple.allSettingsHint")}
               </span>
               <ChevronRight size={15} className="shrink-0" />
             </button>

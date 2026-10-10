@@ -6,6 +6,7 @@ import type { SidebarDensity } from "@/lib/sidebar-preferences";
 
 const fixture = vi.hoisted(() => ({ showThreads: true, state: {} as Partial<AppState>, dispatch: vi.fn() }));
 vi.mock("@/lib/thread-preferences", () => ({ useShowThreads: () => fixture.showThreads }));
+vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => false }));
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({}) }));
 vi.mock("react-dom", () => ({ createPortal: (node: ReactNode) => node }));
 vi.mock("@/state/store", async (importOriginal) => {
@@ -73,9 +74,7 @@ describe("bot-first sidebar", () => {
       const markup = renderToStaticMarkup(createElement(Capture));
       const row = findElement(tree, "data-sidebar-bot-row", bot.id)!;
       expect(String(row.props.className).split(" ")).toEqual(expect.arrayContaining([...spacing]));
-      expect(markup).toContain(avatar.avatarUrl
-        ? `width="${size}" height="${size}"`
-        : `width="${size}px" height="${size}px"`);
+      expect(markup).toContain(`width="${size}" height="${size}"`);
     }
   });
 
@@ -104,7 +103,7 @@ describe("bot-first sidebar", () => {
     fixture.state.selectedId = bot.id;
     const markup = renderToStaticMarkup(createElement(BotListItem, rowProps(density)));
     expect(markup).not.toContain("data-sidebar-thread-row");
-    if (density !== "icons") expect(markup).toContain('aria-label="Expand Atlas threads" aria-expanded="false"');
+    if (density !== "icons") expect(markup).toContain('aria-label="Expand Atlas conversations" aria-expanded="false"');
   });
 
   it.each(densities)("hides thread browsing and creation but keeps attention accessible in %s density", (density) => {
@@ -139,11 +138,12 @@ describe("bot-first sidebar", () => {
       menu: { botId: bot.id, x: 0, y: 0 }, onClose: vi.fn(), onArchive: vi.fn(), onDelete: vi.fn(), onMoveToSection: vi.fn(), onNewFolder: vi.fn(),
     }));
     const enabled = render();
-    expect(enabled).toContain("New thread");
-    expect(enabled).toContain("New folder");
+    expect(enabled).toContain("New conversation");
+    expect(enabled).not.toContain("New folder");
     fixture.showThreads = false;
     const disabled = render();
     expect(disabled).not.toContain("New thread");
+    expect(disabled).not.toContain("New conversation");
     expect(disabled).not.toContain("New folder");
     expect(disabled).toContain("Edit Profile");
     expect(disabled).toContain("Move to team");

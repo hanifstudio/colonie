@@ -43,7 +43,7 @@ interface StagedSkillSummary {
  * the Simple bot panel share: switching a skill off writes at once; switching
  * one on fetches its integrity-checked text and waits for an explicit review
  * (`reviewing` + `enableReviewed`) before it can reach the bot's prompt. */
-export function useManagedSkills(bot: Bot) {
+export function useManagedSkills(bot: Bot, enabled = true) {
   const { request: api } = useBotEditor();
   const [skills, setSkills] = useState<ManagedSkill[]>([]);
   const [assignedSkills, setAssignedSkills] = useState<string[]>([]);
@@ -80,6 +80,7 @@ export function useManagedSkills(bot: Bot) {
   };
 
   useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setReviewing(null);
@@ -87,7 +88,7 @@ export function useManagedSkills(bot: Bot) {
     return () => {
       cancelled = true;
     };
-  }, [bot.id]);
+  }, [bot.id, enabled]);
 
   const putAssignments = async (name: string, remove = false) => {
     const listing = (await api(`/api/bots/${bot.id}/skills`)) as { assignedSkills?: string[] };

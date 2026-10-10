@@ -413,10 +413,16 @@ export async function launchVerificationServer(
   enterprise?: { dir: string; licenseKey: string },
   room?: { scripted: boolean },
   /** Optional repository-owned fake providers for multi-engine setup checks. */
-  extraProviders: Array<"codex"> = [],
+  extraProviders: Array<"codex" | "devone"> = [],
   /** Programmatic tests only: an owned loopback Boat provider, never a live account. */
   boatFixtureApi?: string,
+  /** Owned loopback Composio session/MCP fixture; never a real account. */
+  composioFixtureApi?: string,
+  /** Synthetic fixture credential only; enables provenance/removal checks. */
+  composioFixtureEnvironmentKey = false,
 ): Promise<VerificationServer> {
+  if (composioFixtureEnvironmentKey && !composioFixtureApi) throw new ControlOmbError("An environment-key fixture requires a loopback Composio provider");
+  if (composioFixtureApi && !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(composioFixtureApi)) throw new ControlOmbError("Composio verification requires an explicit loopback HTTP provider");
   if (boatFixtureApi) {
     if (!/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(boatFixtureApi)) {
       throw new ControlOmbError("Boat verification requires an explicit loopback HTTP provider");
@@ -445,6 +451,15 @@ export async function launchVerificationServer(
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     ...(boatFixtureApi ? { box: { token: "box_verification_fixture" } } : {}),
     instances: {
+      ...(extraProviders.includes("devone") ? { "codex-acp": {
+        driver: "codex-acp", displayName: "Codex · ACP fixture",
+        config: { cli: process.execPath, args: [join(ROOT, "server", "devone", "testing", "fake-agent.ts")] },
+        environment: { DEVONE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600" },
+      }, "claude-acp": {
+        driver: "claude-acp", displayName: "Claude · ACP fixture",
+        config: { cli: process.execPath, args: [join(ROOT, "server", "devone", "testing", "fake-agent.ts")] },
+        environment: { DEVONE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" },
+      } } : {}),
       ...(extraProviders.includes("codex") ? { codex: {
         driver: "codex", displayName: "Verification Codex", config: { cli: fileURLToPath(new URL("../server/testing/fake-codex-app-server.ts", import.meta.url)) },
       } } : {}),
@@ -459,6 +474,7 @@ export async function launchVerificationServer(
 
   const log = openSync(logPath, "a", 0o600);
   const childEnv = verificationServerEnvironment(parentEnv, dataDir, port);
+  if (extraProviders.includes("devone")) childEnv.DEVONE_PROFILE = "1";
   // Opt-in live Local VM fixture: keep the temporary home and fake engine,
   // granting only the explicitly selected machine connection and static UI.
   if (localVm) Object.assign(childEnv, {
@@ -473,6 +489,8 @@ export async function launchVerificationServer(
     AGENT_BROWSER_EXECUTABLE_PATH: browser.executablePath,
   });
   if (boatFixtureApi) childEnv.OMB_BOX_API = boatFixtureApi;
+  if (composioFixtureApi) { childEnv.OMB_COMPOSIO_API = `${composioFixtureApi}/api/v3.1`; childEnv.OMB_COMPOSIO_TOOLKITS_API = `${composioFixtureApi}/api/v3`; }
+  if (composioFixtureEnvironmentKey) childEnv.COMPOSIO_API_KEY = "ak_colonie_fixture_only";
   const serverArgs = ["--experimental-strip-types"];
   if (childEnv.OMB_TEST_FAIL_AUDIO_APPEND_ONCE === "1") {
     serverArgs.push("--import", pathToFileURL(join(ROOT, "server", "testing", "fail-audio-append-once.mjs")).href);

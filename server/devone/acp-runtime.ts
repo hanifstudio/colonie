@@ -1,0 +1,635 @@
+/** New ACP boundary. No imports from the legacy drivers/acp client or Codex driver. */
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
+import { Readable, Writable } from "node:stream";
+import {
+  client, methods, ndJsonStream, PROTOCOL_VERSION,
+  type ClientConnection, type InitializeResponse, type LoadSessionResponse,
+  type NewSessionResponse, type PermissionOption, type RequestPermissionRequest,
+  type RequestPermissionResponse, type SessionNotification, type SessionConfigOption,
+  type ToolCallUpdate, type PromptRequest, type PromptResponse, type SetSessionConfigOptionResponse, type SetSessionConfigOptionRequest,
+} from "@agentclientprotocol/sdk";
+import { z } from "zod";
+import { createHash } from "node:crypto";
+import {
+  newEventId, newId,
+  type ModelCatalog, type ProviderAdapter, type ProviderDriver,
+  type RuntimeEvent, type RuntimeEventListener, type SendTurnInput,
+} from "../contracts.ts";
+import type { AcpInputReceipt } from "../../shared/devone.ts";
+import { inputReceipts, saveInputReceipt } from "./receipts.ts";
+import { composeContext, contextPin, pinContext } from "./context.ts";
+import { redactSecretsInText } from "../redact.ts";
+import { nativePreferences, saveNativePreferences, type NativePreferences } from "./settings.ts";
+import type { NativeSettings, NativeSettingChange, NativeOption } from "../../shared/acp-settings.ts";
+import type { AcpToolMount } from "../colonie/connections/contracts.ts";
+
+const require = createRequire(import.meta.url);
+const configSchema = z.object({
+  /** Explicit executable + argv, never a shell command or automatic npm download. */
+  cli: z.string().min(1).optional(),
+  args: z.array(z.string()).optional(),
+  instructions: z.string().max(32_000).default(""),
+  setupTimeoutMs: z.number().int().min(100).max(120_000).default(30_000),
+}).strict();
+type Config = z.infer<typeof configSchema>;
+export interface AcpProvider {
+  kind: "codex-acp" | "claude-acp";
+  name: string;
+  packageEntry: string;
+  entryEnvironment: string;
+  version: string;
+  loginCommand: string;
+  askMode: string;
+  fullMode: string;
+}
+type EventPayload<E = RuntimeEvent> = E extends RuntimeEvent
+  ? Omit<E, "eventId" | "provider" | "threadId" | "createdAt"> : never;
+
+type ActiveTurn = {
+  id: string;
+  text: string;
+  item: number;
+  cancelled: boolean;
+  finished: boolean;
+  receipt?: AcpInputReceipt;
+  done: Promise<void>;
+  resolveDone: () => void;
+};
+type PendingPermission = {
+  turnId: string;
+  options: PermissionOption[];
+  resolve: (response: RequestPermissionResponse) => void;
+};
+type LiveSession = {
+  mount?: AcpToolMount;
+  threadId: string;
+  cwd: string;
+  child: ChildProcessWithoutNullStreams;
+  connection: ClientConnection;
+  initialization?: InitializeResponse;
+  state?: NewSessionResponse | LoadSessionResponse;
+  id?: string;
+  turn?: ActiveTurn;
+  permissions: Map<string, PendingPermission>;
+  tools: Set<string>;
+  loading: boolean;
+  closed: boolean;
+  stderr: string;
+  idleTimer?: ReturnType<typeof setTimeout>;
+  defaultModel?: string;
+  modeEpoch: number;
+  applicationSelection?: string;
+};
+
+function choices(option: SessionConfigOption): Array<{ value: string; name: string }> {
+  return option.type === "select"
+    ? option.options.flatMap((item) => "group" in item ? item.options : [item])
+    : [];
+}
+function nativeOption(option: SessionConfigOption): NativeOption {
+  return { id: option.id, name: option.name, description: option.description ?? undefined,
+    category: option.category ?? undefined, type: option.type, currentValue: option.currentValue, options: choices(option) };
+}
+function supportedOption(option: SessionConfigOption) {
+  return option.category === "model" || option.category === "thought_level" || option.category === "model_config" || option.id === "model";
+}
+const selectionKey = (input: SendTurnInput) => JSON.stringify([input.model ?? "agent-default", input.approvalMode ?? "ask"]);
+
+function toolOutput(call: ToolCallUpdate): string | undefined {
+  const text = call.content?.flatMap((item) => {
+    if (item.type === "content" && item.content.type === "text") return [item.content.text];
+    if (item.type === "diff") return [`${item.path}\n${item.newText}`];
+    return [];
+  }).join("\n");
+  return text ? redactSecretsInText(text).slice(0, 32_000) : undefined;
+}
+
+export class AcpRuntime implements ProviderAdapter {
+  readonly provider: string;
+  readonly capabilities = {
+    sessionModelSwitch: "in-session" as const,
+    images: true,
+    nativeImageInput: true,
+    strictResume: true,
+    // Keep tools, project context and native compaction owned by Codex.
+  };
+  private readonly sessions = new Map<string, LiveSession>();
+  private readonly listeners = new Set<RuntimeEventListener>();
+  private readonly starting = new Set<string>();
+  private readonly stoppedDuringSetup = new Set<string>();
+  private readonly discoveries = new Map<string, { key: string; promise: Promise<NativeSettings> }>();
+  private disposed = false;
+  readonly instanceId: string;
+  readonly models: ModelCatalog;
+  private readonly config: Config;
+  private readonly environment: Record<string, string>;
+  private readonly flavor: AcpProvider;
+
+  constructor(
+    instanceId: string,
+    config: Config,
+    environment: Record<string, string>,
+    models: ModelCatalog,
+    flavor: AcpProvider,
+  ) {
+    this.instanceId = instanceId;
+    this.config = config;
+    this.environment = environment;
+    this.models = models;
+    this.flavor = flavor;
+    this.provider = flavor.kind;
+  }
+
+  onEvent(listener: RuntimeEventListener): () => void {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
+  private emit(session: LiveSession, event: EventPayload): void {
+    const value = {
+      eventId: newEventId(), provider: this.provider, providerInstanceId: this.instanceId,
+      threadId: session.threadId, createdAt: new Date().toISOString(),
+      turnId: session.turn?.id, ...event,
+    } as RuntimeEvent;
+    for (const listener of this.listeners) listener(value);
+  }
+
+  private flushText(session: LiveSession): void {
+    const turn = session.turn;
+    if (!turn?.text) return;
+    this.emit(session, { type: "item.completed", itemType: "assistant_text", itemId: `${turn.id}-text-${turn.item++}`, text: turn.text });
+    turn.text = "";
+  }
+
+  private update(session: LiveSession, notification: SessionNotification): void {
+    // session/load can replay old history: never append it to our transcript again.
+    if (session.loading || session.closed || notification.sessionId !== session.id) return;
+    const update = notification.update;
+    if (update.sessionUpdate === "config_option_update") {
+      if (session.state) session.state.configOptions = update.configOptions;
+      const mode = update.configOptions.find((option) => option.category === "mode" || option.id === "mode");
+      if (mode?.type === "select" && session.state?.modes) { session.state.modes.currentModeId = mode.currentValue; session.modeEpoch++; }
+      this.catalog(session);
+      return;
+    }
+    if (update.sessionUpdate === "current_mode_update") {
+      if (session.state?.modes) session.state.modes.currentModeId = update.currentModeId;
+      session.modeEpoch++;
+      return;
+    }
+    if (!session.turn || session.turn.finished) return;
+    switch (update.sessionUpdate) {
+      case "agent_message_chunk":
+        if (update.content.type === "text") {
+          session.turn.text += update.content.text;
+          this.emit(session, { type: "content.delta", streamKind: "assistant_text", delta: update.content.text,
+            itemId: `${session.turn.id}-text-${session.turn.item}`, offset: session.turn.text.length - update.content.text.length });
+        }
+        break;
+      case "agent_thought_chunk":
+        if (update.content.type === "text") this.emit(session, { type: "content.delta", streamKind: "reasoning_text", delta: update.content.text });
+        break;
+      case "tool_call":
+      case "tool_call_update": {
+        this.flushText(session);
+        const itemId = update.toolCallId;
+        if (!session.tools.has(itemId)) {
+          session.tools.add(itemId);
+          this.emit(session, { type: "item.started", itemType: "tool", itemId,
+            title: update.title ?? update.kind ?? "Tool", input: redactSecretsInText(JSON.stringify(update.rawInput ?? {})).slice(0, 4000) });
+        }
+        if (update.status === "completed" || update.status === "failed") {
+          this.emit(session, { type: "item.completed", itemType: "tool", itemId,
+            ok: update.status === "completed", output: toolOutput(update) });
+        } else {
+          this.emit(session, { type: "item.updated", itemType: "tool", itemId });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private permission(session: LiveSession, request: RequestPermissionRequest): Promise<RequestPermissionResponse> {
+    const turn = session.turn;
+    if (session.closed || session.loading || !turn || turn.finished || turn.cancelled || request.sessionId !== session.id) {
+      return Promise.resolve({ outcome: { outcome: "cancelled" } });
+    }
+    const requestId = newId();
+    // Register before emitting: a listener may answer synchronously.
+    const result = new Promise<RequestPermissionResponse>((resolve) => {
+      session.permissions.set(requestId, { turnId: turn.id, options: request.options, resolve });
+    });
+    this.emit(session, { type: "request.opened", requestId, requestType: "permission",
+      tool: request.toolCall.kind ?? "tool", summary: request.toolCall.title ?? "Agent requests permission",
+      choices: request.options.map((option) => option.name),
+      allowSession: request.options.some((option) => option.kind === "allow_always"),
+    });
+    return result;
+  }
+
+  private catalog(session: LiveSession): void {
+    const option = session.state?.configOptions?.find((entry) => entry.category === "model" || entry.id === "model");
+    if (option?.type !== "select") return;
+    this.models.options = [{ id: "agent-default", label: `${this.flavor.name} default` }, ...choices(option).map((entry) => ({ id: entry.value, label: entry.name }))];
+  }
+
+  private finish(session: LiveSession, ok: boolean, stopReason: string, error?: string): void {
+    const turn = session.turn;
+    if (!turn || turn.finished) return;
+    this.flushText(session);
+    turn.finished = true;
+    if (turn.cancelled) { ok = false; stopReason = "cancelled"; }
+    this.cancelPermissions(session);
+    session.mount?.deactivate();
+    if (turn.receipt) {
+      turn.receipt.connectedToolCalls = session.mount?.calls();
+      turn.receipt.status = turn.cancelled ? "cancelled" : ok ? "completed" : "failed";
+      if (error) turn.receipt.error = error;
+      try { saveInputReceipt(turn.receipt); }
+      catch (cause) {
+        this.emit(session, { type: "runtime.notice", message: `The provider finished, but the input receipt status could not be updated: ${(cause as Error).message}` });
+      }
+    }
+    if (error && !turn.cancelled) this.emit(session, { type: "runtime.error", message: error, terminal: true });
+    this.emit(session, { type: "turn.completed", ok, stopReason });
+    turn.resolveDone();
+    if (!session.closed) session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
+  }
+
+  private cancelPermissions(session: LiveSession): void {
+    for (const [requestId, pending] of session.permissions) {
+      session.permissions.delete(requestId);
+      pending.resolve({ outcome: { outcome: "cancelled" } });
+      this.emit(session, { type: "request.resolved", requestId, behavior: "deny", source: "system" });
+    }
+  }
+
+  private async close(session: LiveSession): Promise<void> {
+    if (session.closed) return;
+    session.closed = true;
+    session.mount?.release();
+    clearTimeout(session.idleTimer);
+    this.cancelPermissions(session);
+    session.connection.close();
+    session.child.kill("SIGTERM");
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        if (session.child.exitCode !== null || session.child.signalCode !== null) resolve();
+        else session.child.once("exit", () => resolve());
+      }),
+      new Promise<void>((resolve) => { killTimer = setTimeout(() => { session.child.kill("SIGKILL"); resolve(); }, 1000).unref(); }),
+    ]);
+    clearTimeout(killTimer);
+    if (this.sessions.get(session.threadId) === session) this.sessions.delete(session.threadId);
+  }
+
+  private async setup<T>(session: LiveSession, request: Promise<T>): Promise<T> {
+    const timer = setTimeout(() => {
+      session.connection.close(new Error("ACP setup timed out"));
+    }, this.config.setupTimeoutMs);
+    try { return await request; }
+    finally { clearTimeout(timer); }
+  }
+
+  private async open(input: SendTurnInput): Promise<LiveSession> {
+    const cwd = resolve(input.cwd ?? process.cwd());
+    let existing = this.sessions.get(input.threadId);
+    const toolsChanged = existing && existing.mount?.revision !== input.acpTools?.revision;
+    if (existing && (existing.closed || existing.cwd !== cwd || input.sessionReset || toolsChanged)) {
+      if (toolsChanged && !input.sessionReset && existing.cwd === cwd) input = { ...input, resumeCursor: input.resumeCursor ?? existing.id };
+      await this.close(existing);
+      existing = undefined;
+    }
+    if (existing) { clearTimeout(existing.idleTimer); return existing; }
+    if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
+    const env = { ...process.env, ...this.environment };
+    env.ELECTRON_RUN_AS_NODE = "1";
+    // Existing CLI auth is inherited. Ambient API keys must not silently change billing.
+    if (!Object.hasOwn(this.environment, "OPENAI_API_KEY")) delete env.OPENAI_API_KEY;
+    if (!Object.hasOwn(this.environment, "CODEX_API_KEY")) delete env.CODEX_API_KEY;
+    for (const key of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"]) {
+      if (!Object.hasOwn(this.environment, key)) delete env[key];
+    }
+    delete env.CLAUDECODE; // SDK child is not a nested interactive CLI session.
+    delete env.COMPOSIO_API_KEY; // App credentials stay in the server-side relay.
+    delete env.COLONIE_COMPOSIO_API_KEY;
+    const command = this.config.cli ?? process.execPath;
+    const args = this.config.cli ? this.config.args ?? [] : [process.env[this.flavor.entryEnvironment] ?? require.resolve(this.flavor.packageEntry)];
+    const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    const session = { threadId: input.threadId, cwd, child, mount: input.acpTools,
+      permissions: new Map(), tools: new Set(), loading: true, closed: false, stderr: "", modeEpoch: 0,
+    } as LiveSession;
+    // Bounded failure diagnostics, never protocol or prompt context.
+    child.stderr.on("data", (chunk: Buffer) => { session.stderr = (session.stderr + chunk.toString()).slice(-4000); });
+    session.connection = client({ name: "Colonie" })
+      .onNotification(methods.client.session.update, ({ params }) => this.update(session, params))
+      .onRequest(methods.client.session.requestPermission, ({ params }) => this.permission(session, params))
+      .connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
+    this.sessions.set(input.threadId, session);
+    const exited = (message: string) => {
+      if (!session.closed) {
+        session.connection.close(new Error(message));
+        this.finish(session, false, "error", message);
+        this.emit(session, { type: "session.exited", reason: message });
+        session.closed = true;
+        session.mount?.release();
+        if (this.sessions.get(input.threadId) === session) this.sessions.delete(input.threadId);
+      }
+    };
+    child.once("error", (error) => exited(`ACP adapter could not start: ${error.message}`));
+    child.once("exit", (code, signal) => exited(`ACP adapter exited (${signal ?? code})`));
+    void session.connection.closed.then(async () => {
+      if (!session.closed) {
+        this.finish(session, false, "error", "The ACP transport closed");
+        await this.close(session);
+      }
+    });
+    try {
+      session.initialization = await this.setup(session, session.connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" },
+        // Codex performs filesystem/shell work itself; do not advertise unimplemented host tools.
+        clientCapabilities: {},
+      }));
+      const mcpServers = input.acpTools?.servers ?? [];
+      for (const server of mcpServers) {
+        if ("type" in server && (server.type === "http" || server.type === "sse") && !session.initialization.agentCapabilities?.mcpCapabilities?.[server.type]) {
+          throw new Error(`This ${this.flavor.name} connection does not support ${server.type.toUpperCase()} MCP. Choose a supported connection in app settings.`);
+        }
+      }
+      const cursor = !input.sessionReset && typeof input.resumeCursor === "string" ? input.resumeCursor : undefined;
+      if (cursor) {
+        if (!session.initialization.agentCapabilities?.loadSession) throw new Error("Agent cannot load this saved session. Start a new conversation explicitly.");
+        session.id = cursor;
+        session.state = await this.setup(session, session.connection.agent.request(methods.agent.session.load,
+          { sessionId: cursor, cwd, mcpServers }));
+      } else {
+        const state = await this.setup(session, session.connection.agent.request(methods.agent.session.new,
+          { cwd, mcpServers }));
+        session.state = state;
+        session.id = state.sessionId;
+      }
+      session.loading = false;
+      const defaultModel = session.state.configOptions?.find((option) => option.category === "model" || option.id === "model");
+      if (defaultModel?.type === "select") session.defaultModel = defaultModel.currentValue;
+      this.catalog(session);
+      if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
+      return session;
+    } catch (error) {
+      await this.close(session);
+      const diagnostic = session.stderr.trim() ? ` ${redactSecretsInText(session.stderr.trim())}` : "";
+      throw new Error(`${this.flavor.name} ACP setup failed: ${(error as Error).message}.${diagnostic} Check '${this.flavor.loginCommand}' or start a new conversation.`, { cause: error });
+    }
+  }
+
+  async sendTurn(input: SendTurnInput) {
+    if (this.disposed) throw new Error("ACP runner is closed");
+    if (input.acpContext && input.acpContext.botId !== input.botId) throw new Error("Context snapshot belongs to another bot");
+    if (this.starting.has(input.threadId) || this.sessions.get(input.threadId)?.turn && !this.sessions.get(input.threadId)!.turn!.finished) {
+      throw new Error("This conversation already has an active turn");
+    }
+    this.starting.add(input.threadId);
+    try {
+      const session = await this.open(input);
+      const preferences = nativePreferences(input.threadId, this.instanceId);
+      await this.selectConfiguredModel(session, input.model);
+      session.applicationSelection = selectionKey(input);
+      await this.applyStoredOptions(session, preferences);
+      const requestedMode = preferences.mode && preferences.approvalBaseline === (input.approvalMode ?? "ask")
+        ? preferences.mode : input.approvalMode === "full" ? this.flavor.fullMode : this.flavor.askMode;
+      await this.setMode(session, requestedMode);
+      const mode = session.state!.modes!.currentModeId;
+      if (this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
+      let resolveDone!: () => void;
+      const turn: ActiveTurn = { id: newId(), text: "", item: 0, cancelled: false, finished: false,
+        done: new Promise<void>((resolve) => { resolveDone = resolve; }), resolveDone: () => resolveDone(),
+      };
+      session.turn = turn;
+      session.tools.clear();
+      const configuredModel = session.state?.configOptions?.find((option) => option.category === "model");
+      const effectiveModel = configuredModel?.type === "select" ? configuredModel.currentValue : input.model ?? "agent-default";
+      if (input.acpContext && !contextPin(input.threadId) && inputReceipts(input.threadId).some((receipt) => receipt.context?.snapshotHash)) {
+        throw new Error("This conversation's context snapshot is missing. Restore it before continuing.");
+      }
+      const pin = input.acpContext ? pinContext(input.threadId, input.acpContext) : null;
+      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: session.mount?.receipt });
+      const prompt = composed.prompt;
+      for (const image of input.images ?? []) {
+        prompt.push({ type: "image", mimeType: image.mime, data: readFileSync(image.path).toString("base64") });
+      }
+      turn.receipt = { id: newId(), at: new Date().toISOString(), threadId: input.threadId, turnId: turn.id,
+        instanceId: this.instanceId, sessionId: session.id!, cwd: session.cwd, model: effectiveModel,
+        mode, instructions: composed.instructions, prompt, context: composed.manifest, status: "dispatching",
+        connectedTools: session.mount?.receipt,
+        nativeSettings: Object.fromEntries((session.state?.configOptions ?? []).filter(supportedOption).map((option) => [option.id, option.currentValue])) };
+      // Persist exact authored bytes BEFORE sending a request to the agent.
+      saveInputReceipt(turn.receipt);
+      session.mount?.activate();
+      this.emit(session, { type: "session.started", sessionId: session.id!, model: effectiveModel });
+      this.emit(session, { type: "turn.started" });
+      void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
+        .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason))
+        .catch((error: Error) => this.finish(session, false, turn.cancelled ? "cancelled" : "error", redactSecretsInText(error.message)));
+      return { turnId: turn.id };
+    } catch (error) {
+      const session = this.sessions.get(input.threadId);
+      if (session) {
+        if (session.turn && !session.turn.finished) {
+          session.turn.finished = true;
+          session.turn.resolveDone();
+        }
+        await this.close(session);
+      }
+      throw error;
+    } finally {
+      this.starting.delete(input.threadId);
+      this.stoppedDuringSetup.delete(input.threadId);
+    }
+  }
+
+  async interruptTurn(threadId: string, turnId?: string): Promise<void> {
+    const session = this.sessions.get(threadId);
+    if (this.starting.has(threadId)) {
+      this.stoppedDuringSetup.add(threadId);
+      if (session) await this.close(session);
+      return;
+    }
+    const turn = session?.turn;
+    if (!session || !turn || turn.finished || turnId && turnId !== turn.id) return;
+    turn.cancelled = true;
+    session.mount?.deactivate();
+    this.cancelPermissions(session);
+    await session.connection.agent.notify(methods.agent.session.cancel, { sessionId: session.id! }).catch(() => {});
+    await Promise.race([turn.done, new Promise<void>((resolve) => setTimeout(resolve, 1500).unref())]);
+    if (!turn.finished) {
+      this.finish(session, false, "cancelled");
+      await this.close(session);
+    }
+  }
+
+  async respondToRequest(threadId: string, requestId: string, decision: { behavior: "allow" | "deny" | "answer"; always?: boolean }) {
+    const session = this.sessions.get(threadId);
+    const pending = session?.permissions.get(requestId);
+    if (!session || !pending || session.turn?.id !== pending.turnId || session.turn.finished) return "unavailable" as const;
+    const kind = decision.behavior === "allow" ? decision.always ? "allow_always" : "allow_once" : "reject_once";
+    const option = pending.options.find((entry) => entry.kind === kind)
+      ?? (decision.behavior === "deny" ? pending.options.find((entry) => entry.kind === "reject_always") : undefined);
+    // Never turn a one-shot allow into a broader grant just because only that option exists.
+    session.permissions.delete(requestId);
+    pending.resolve(option ? { outcome: { outcome: "selected", optionId: option.optionId } } : { outcome: { outcome: "cancelled" } });
+    const behavior = option && decision.behavior === "allow" ? "allow" : "deny";
+    this.emit(session, { type: "request.resolved", requestId, behavior, source: "user" });
+    return behavior === "allow" ? "allowed-once" as const : "rejected" as const;
+  }
+
+  hasSession(threadId: string): boolean { return Boolean(this.sessions.get(threadId)?.id); }
+  isConfiguring(threadId: string): boolean { return this.starting.has(threadId); }
+
+  private async setMode(session: LiveSession, mode: string) {
+    if (!session.state?.modes?.availableModes.some((entry) => entry.id === mode)) throw Object.assign(new Error(`Agent does not support mode '${mode}'`), { status: 409 });
+    const before = session.modeEpoch;
+    await this.setup(session, session.connection.agent.request(methods.agent.session.setMode, { sessionId: session.id!, modeId: mode }));
+    // Keep native fallback notifications authoritative when the agent clamps a mode.
+    if (before === session.modeEpoch) session.state.modes.currentModeId = mode;
+  }
+
+  private async setOption(session: LiveSession, id: string, value: string | boolean) {
+    const option = session.state?.configOptions?.find((entry) => entry.id === id && supportedOption(entry));
+    if (!option || (option.type === "boolean" ? typeof value !== "boolean" : typeof value !== "string" || !choices(option).some((entry) => entry.value === value))) {
+      throw Object.assign(new Error(`Native option '${id}' no longer offers this value. Refresh the agent settings.`), { status: 409 });
+    }
+    const request: SetSessionConfigOptionRequest = typeof value === "boolean"
+      ? { sessionId: session.id!, configId: id, value, type: "boolean" }
+      : { sessionId: session.id!, configId: id, value };
+    const response = await this.setup(session, session.connection.agent.request<SetSessionConfigOptionResponse, SetSessionConfigOptionRequest>(methods.agent.session.setConfigOption, request));
+    session.state!.configOptions = response.configOptions;
+    this.catalog(session);
+  }
+
+  private async applyStoredOptions(session: LiveSession, preferences: NativePreferences) {
+    for (const [id, value] of Object.entries(preferences.values)) await this.setOption(session, id, value);
+  }
+
+  private async selectConfiguredModel(session: LiveSession, requested?: string) {
+    const model = requested && requested !== "agent-default" ? requested : session.defaultModel;
+    if (!model) return;
+    const option = session.state?.configOptions?.find((entry) => entry.category === "model" || entry.id === "model");
+    if (!option || !choices(option).some((entry) => entry.value === model)) throw Object.assign(new Error(`Model '${model}' is not offered by this ${this.flavor.name} session`), { status: 409 });
+    if (option.currentValue !== model) await this.setOption(session, option.id, model);
+  }
+
+  private settingsSnapshot(session: LiveSession, warnings: string[] = []): NativeSettings {
+    const options = (session.state?.configOptions ?? []).filter(supportedOption).map(nativeOption);
+    const modes = session.state?.modes;
+    if (!session.id || !modes) throw new Error("The native session is not ready");
+    const publicModes = { currentModeId: modes.currentModeId, availableModes: modes.availableModes.map(({ id, name, description }) => ({ id, name, description: description ?? undefined })) };
+    const preferences = nativePreferences(session.threadId, this.instanceId);
+    const stale = Object.entries(preferences.values).flatMap(([id, value]) => {
+      const option = options.find((entry) => entry.id === id);
+      const valid = option && (option.type === "boolean" ? typeof value === "boolean" : typeof value === "string" && option.options.some((entry) => entry.value === value));
+      return valid ? [] : [`Override '${id}' (${String(value)}) is no longer supported. Choose or apply an available native value before sending a message.`];
+    });
+    const revision = createHash("sha256").update(JSON.stringify([session.id, publicModes, options, session.applicationSelection, preferences, session.mount?.revision])).digest("hex");
+    return { sessionId: session.id, instanceId: this.instanceId, threadId: session.threadId, cwd: session.cwd, revision, modes: publicModes, options, warnings: [...new Set([...warnings, ...stale])] };
+  }
+
+  prepareSettings(input: SendTurnInput): Promise<NativeSettings> {
+    const key = JSON.stringify([input.cwd, input.model, input.resumeCursor, input.approvalMode, input.acpTools?.revision]);
+    const pending = this.discoveries.get(input.threadId);
+    if (pending?.key === key) return pending.promise;
+    if (pending) return Promise.reject(Object.assign(new Error("Another native-settings discovery is active for this thread"), { status: 409 }));
+    const promise = this.discoverSettings(input).finally(() => {
+      if (this.discoveries.get(input.threadId)?.promise === promise) this.discoveries.delete(input.threadId);
+    });
+    this.discoveries.set(input.threadId, { key, promise });
+    return promise;
+  }
+
+  private async discoverSettings(input: SendTurnInput): Promise<NativeSettings> {
+    if (this.disposed || this.starting.has(input.threadId) || this.sessions.get(input.threadId)?.turn && !this.sessions.get(input.threadId)!.turn!.finished) throw Object.assign(new Error("The native conversation is busy"), { status: 409 });
+    this.starting.add(input.threadId);
+    try {
+      const session = await this.open(input);
+      const preferences = nativePreferences(input.threadId, this.instanceId);
+      const warnings: string[] = [];
+      session.applicationSelection = selectionKey(input);
+      try { await this.selectConfiguredModel(session, input.model); } catch (error) { warnings.push((error as Error).message); }
+      try { await this.applyStoredOptions(session, preferences); } catch (error) { warnings.push((error as Error).message); }
+      const mode = preferences.mode && preferences.approvalBaseline === (input.approvalMode ?? "ask") ? preferences.mode
+        : input.approvalMode === "full" ? this.flavor.fullMode : this.flavor.askMode;
+      try { await this.setMode(session, mode); } catch (error) { warnings.push((error as Error).message); }
+      session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
+      return this.settingsSnapshot(session, warnings);
+    } finally { this.starting.delete(input.threadId); }
+  }
+
+  async changeSettings(input: SendTurnInput, change: NativeSettingChange): Promise<NativeSettings> {
+    const session = this.sessions.get(input.threadId);
+    if (this.starting.has(input.threadId) || !session || session.closed || session.turn && !session.turn.finished) throw Object.assign(new Error("Refresh the native settings after the conversation is idle"), { status: 409 });
+    if (session.mount?.revision !== input.acpTools?.revision) throw Object.assign(new Error("Connected tools changed. Refresh agent options before editing."), { status: 409 });
+    const snapshot = this.settingsSnapshot(session);
+    if (session.applicationSelection !== selectionKey(input)) throw Object.assign(new Error("Application model/permission settings changed. Refresh the native panel."), { status: 409 });
+    if (change.sessionId !== snapshot.sessionId || change.expectedRevision !== snapshot.revision) throw Object.assign(new Error("Native settings changed. Refresh before choosing a value."), { status: 409 });
+    this.starting.add(input.threadId); clearTimeout(session.idleTimer);
+    try {
+      const preferences = nativePreferences(input.threadId, this.instanceId);
+      if (change.kind === "mode") {
+        await this.setMode(session, change.value);
+        preferences.mode = session.state!.modes!.currentModeId;
+        preferences.approvalBaseline = input.approvalMode ?? "ask";
+      } else {
+        await this.setOption(session, change.configId, change.value);
+        const option = session.state!.configOptions!.find((entry) => entry.id === change.configId)!;
+        if (option.category !== "model" && option.id !== "model") preferences.values = { ...preferences.values, [option.id]: option.currentValue };
+        else if (typeof option.currentValue === "string") session.applicationSelection = selectionKey({ ...input, model: option.currentValue });
+      }
+      saveNativePreferences(input.threadId, this.instanceId, preferences);
+      return this.settingsSnapshot(session);
+    } finally {
+      this.starting.delete(input.threadId);
+      session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
+    }
+  }
+  liveReply(threadId: string) {
+    const turn = this.sessions.get(threadId)?.turn;
+    return turn && !turn.finished
+      ? { turnId: turn.id, itemId: `${turn.id}-text-${turn.item}`, text: turn.text }
+      : null;
+  }
+  async stopAll(): Promise<void> {
+    this.disposed = true;
+    await Promise.all([...this.sessions.values()].map(async (session) => {
+      if (session.turn && !session.turn.finished) { session.turn.cancelled = true; this.finish(session, false, "cancelled"); }
+      await this.close(session);
+    }));
+  }
+}
+
+export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> { return {
+  driverKind: flavor.kind,
+  metadata: { displayName: `${flavor.name} · ACP`, access: "subscription", supportsMultipleInstances: true },
+  install: { signInCommand: flavor.loginCommand, docsUrl: `https://github.com/agentclientprotocol/${flavor.kind === "claude-acp" ? "claude-agent-acp" : "codex-acp"}` },
+  models: { default: "agent-default", options: [{ id: "agent-default", label: `${flavor.name} default` }] },
+  defaultConfig: () => configSchema.parse({}),
+  decodeConfig: (raw) => {
+    const config = configSchema.parse(raw ?? {});
+    if (config.cli && !isAbsolute(config.cli) && /\s/.test(config.cli)) throw new Error("Use an executable path and a separate args array");
+    return config;
+  },
+  async create(input) {
+    const models = structuredClone(this.models);
+    const adapter = new AcpRuntime(input.instanceId, input.config, input.environment, models, flavor);
+    return {
+      instanceId: input.instanceId, driverKind: flavor.kind, displayName: input.displayName,
+      enabled: input.enabled, models, adapter,
+      // Only a real session can establish auth/model access; don't inspect credentials.
+      snapshot: async () => ({ state: input.enabled ? "available" : "unavailable", version: `${flavor.kind} ${flavor.version}`, reason: input.enabled ? undefined : "Disabled" }),
+      dispose: () => adapter.stopAll(),
+    };
+  },
+}; }

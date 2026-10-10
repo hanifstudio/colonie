@@ -1,9 +1,7 @@
-// Bot avatar — the Blob Studio "Cursor" mascot (CursorAvatar.tsx), wrapped
-// in the app's historical MausAvatar API so no call site changes: per-bot
-// color becomes a body gradient, the app's one-shot motion beats borrow the
-// face/state for a moment, and the eyes follow the pointer. The previous
-// hand-built Maus body + face engine (maus-engine/face/driver) is gone;
-// CursorAvatar owns morphing, blinking, drift, body motion and effects.
+// Colonie's default is the pinned Bloub engine/React wrapper. Preserve the
+// historical avatar props and uploaded-image crop path so existing call sites
+// and stored profiles stay compatible. The legacy Cursor implementation below
+// remains exported for source compatibility; it is not the default renderer.
 import {
   forwardRef,
   memo,
@@ -15,6 +13,7 @@ import {
 } from "react";
 import { MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
 import { CursorAvatar, type CursorAvatarHandle } from "./CursorAvatar";
+import { BloubAvatar } from "./BloubAvatar";
 import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, type BotAvatarCrop } from "../../shared/bot-avatar";
 import { MASCOT_BODIES, botMascotBody, type MascotBodyId } from "../../shared/mascot-bodies";
 
@@ -197,7 +196,8 @@ function MausAvatarComponent(
   );
 }
 
-export const MausAvatar = memo(forwardRef(MausAvatarComponent));
+export const LegacyMausAvatar = memo(forwardRef(MausAvatarComponent));
+export const MausAvatar = BloubAvatar;
 
 export type BotAvatarProps = Omit<MausAvatarProps, "color"> & {
   bot: {

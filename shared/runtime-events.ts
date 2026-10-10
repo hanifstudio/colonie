@@ -121,7 +121,7 @@ export type RuntimeEvent = RuntimeEventBase &
      * multi-megabyte base64 result belongs in one durable message URL, not
      * duplicated through every connected window. */
     | { type: "item.completed"; itemType: "assistant_image"; data: string; alt?: string }
-    | { type: "content.delta"; streamKind: "assistant_text" | "reasoning_text"; delta: string }
+    | { type: "content.delta"; streamKind: "assistant_text" | "reasoning_text"; delta: string; offset?: number }
     | {
         type: "request.opened";
         requestType: "permission" | "question";

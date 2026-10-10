@@ -30,12 +30,19 @@ function render(density: SidebarDensity) {
 beforeEach(() => {
   fixture.advanced = false;
   fixture.dispatch.mockReset();
-  fixture.state = { activeView: "chat", routineRuns: [], triggersOpen: false, pluginsOpen: false };
+  fixture.state = { activeView: "chat", routineRuns: [], triggersOpen: false, pluginsOpen: false, instances: [] };
   vi.stubGlobal("window", {});
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("sidebar footer places", () => {
+  it("offers Connected tools while hiding unsupported automation in the Colonie fleet", () => {
+    fixture.advanced = true;
+    fixture.state.instances = [{ driverKind: "codex-acp" }];
+    expect(render("comfortable").html).toBe("");
+    expect(render("icons").html).toBe("");
+    expect(renderToStaticMarkup(createElement(SidebarAppsButton))).toContain('aria-label="Connected tools"');
+  });
   it.each(["comfortable", "compact"] as const)("shows Routines and Triggers as direct rows in Advanced mode, with Apps beside the profile instead (%s)", (density) => {
     fixture.advanced = true;
     const { html } = render(density);
@@ -111,6 +118,7 @@ describe("Apps beside the profile", () => {
     const html = renderToStaticMarkup(createElement(Capture));
     expect(html).toMatch(/data-tour="nav-apps" data-sidebar-nav="apps"/);
     expect(html).toContain('aria-label="Apps"');
+    if (!tree) throw new Error("Expected an Apps button for the upstream fleet");
     (tree.props.onClick as () => void)();
     expect(fixture.dispatch).toHaveBeenLastCalledWith({ type: "togglePlugins", open: true });
   });

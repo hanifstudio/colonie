@@ -8,6 +8,8 @@ import { z } from "zod";
 import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shared/image-generation.ts";
 
 import { writeFileAtomic } from "./atomic.ts";
+import { devoneProfile, devoneInstances } from "./devone/profile.ts";
+import { colonieDataDir } from "../electron/colonie-config.mjs";
 import { withoutComputerEngine } from "./computer-engine-removal.ts";
 import { newBotDefaultsSchema, type NewBotDefaults } from "./new-bot-defaults.ts";
 import { EFFORT_LEVELS, type EffortLevel, type LiveSettings } from "../shared/wire.ts";
@@ -960,7 +962,7 @@ export function providerReloadKeys(patch: object): string[] {
 }
 
 // OMB_DATA_DIR isolates test/soak rigs from the user's real fleet.
-export const DATA_DIR = process.env.OMB_DATA_DIR ?? join(homedir(), ".openmausbot");
+export const DATA_DIR = process.env.OMB_DATA_DIR ?? (devoneProfile() ? colonieDataDir(homedir()) : join(homedir(), ".openmausbot"));
 const LEGACY_DATA_DIR = join(homedir(), ".opengrokbot");
 export const EVENTS_DIR = join(DATA_DIR, "events");
 export const NATIVE_DIR = join(DATA_DIR, "native");
@@ -968,7 +970,7 @@ export const NATIVE_DIR = join(DATA_DIR, "native");
 export function ensureDirs() {
   // one-time migration from the pre-rename data dir — bots, transcripts,
   // config and keys all carry over
-  if (!existsSync(DATA_DIR) && existsSync(LEGACY_DATA_DIR)) {
+  if (!devoneProfile() && !process.env.OMB_DATA_DIR && !existsSync(DATA_DIR) && existsSync(LEGACY_DATA_DIR)) {
     try {
       renameSync(LEGACY_DATA_DIR, DATA_DIR);
     } catch {
@@ -1127,7 +1129,7 @@ export function cacheUntilConfigChanges<T>(derive: (config: AppConfig) => T): ()
  * user cleared the credential, so the var is dropped and the (now empty)
  * file value is authoritative again. Fields absent from the patch are
  * untouched. */
-export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "newBots">>): void {
+export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "newBots">>, composioSource: "secure-store" | "workspace-settings" | "environment" = "workspace-settings"): void {
   const secrets: Array<[value: string | undefined, name: string]> = [
     [patch.xai?.key, "XAI_API_KEY"],
     [patch.mistral?.key, "MISTRAL_API_KEY"],
@@ -1150,6 +1152,12 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     if (value === undefined) continue;
     if (value) process.env[name] = value;
     else delete process.env[name];
+  }
+  if (patch.composio?.apiKey !== undefined) {
+    process.env.COLONIE_COMPOSIO_CREDENTIAL_SOURCE = patch.composio.apiKey ? composioSource : "none";
+    process.env.COLONIE_COMPOSIO_CREDENTIAL_ORIGIN = patch.composio.apiKey
+      ? composioSource === "environment" ? "environment" : "user-input" : "none";
+    delete process.env.COLONIE_COMPOSIO_MIGRATION_PENDING;
   }
   // loadConfig() also prefers env for url/model/provider, so a saved value
   // must follow the same set-when-truthy / delete-when-cleared rule as keys.
@@ -1679,6 +1687,7 @@ const API_KEY_FLEET: InstanceConfigMap = {
 // see them without needing real process env vars — but only into the
 // driver that consumes each key (injectedEnvironment above).
 export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
+  if (devoneProfile()) return devoneInstances(cfg.instances);
   // The default `grok` instance rides the `grokAgent` driver, not the API-key
   // one: like claude and codex it needs no credential from us, just the CLI
   // installed and logged in (it shows up unavailable otherwise). The API-key

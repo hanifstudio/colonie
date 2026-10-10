@@ -1,8 +1,8 @@
 {
-  "name": "openmausbot",
+  "name": "colonie",
   "private": true,
   "version": "0.1.101",
-  "description": "A local-first chat app for running a team of AI agents.",
+  "description": "Colonie — personal desktop agents through local ACP runtimes.",
   "homepage": "https://github.com/milind-soni/OpenMausBot",
   "repository": {
     "type": "git",
@@ -13,14 +13,31 @@
     "email": "46266943+milind-soni@users.noreply.github.com"
   },
   "license": "Apache-2.0",
-  "desktopName": "com.openmausbot.app.desktop",
+  "desktopName": "com.colonie.desktop",
   "type": "module",
-  "main": "electron/main.mjs",
+  "main": "electron/colonie.mjs",
   "engines": {
     "node": ">=24"
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
+    "colonie": "node scripts/devone/start.ts",
+    "colonie:web": "node scripts/devone/start.ts --web",
+    "colonie:test": "vitest run server/devone/ server/colonie/ src/components/BloubAvatar.test.ts",
+    "colonie:ui-check": "node scripts/devone/ui-check.ts",
+    "colonie:desktop-check": "node scripts/devone/ui-check.ts --desktop",
+    "colonie:package-check": "node scripts/devone/package-check.ts",
+    "colonie:build": "node scripts/colonie/icons.ts && pnpm build && pnpm build:server && node scripts/devone/stage-runtime.mjs",
+    "colonie:package": "pnpm colonie:build && electron-builder --config electron-builder.colonie.yml --mac --dir --publish never",
+    "devone": "node scripts/devone/start.ts",
+    "devone:web": "node scripts/devone/start.ts --web",
+    "devone:provider-check": "node scripts/devone/provider-check.ts --real",
+    "devone:test": "vitest run server/devone/",
+    "devone:ui-check": "node scripts/devone/ui-check.ts",
+    "devone:desktop-check": "node scripts/devone/ui-check.ts --desktop",
+    "devone:package-check": "node scripts/devone/package-check.ts",
+    "devone:build": "pnpm build && pnpm build:server && node scripts/devone/stage-runtime.mjs",
+    "devone:package": "pnpm colonie:package",
     "clean": "node scripts/clean.mjs",
     "prepare": "node scripts/install-git-hooks.mjs",
     "lint": "oxlint --deny-warnings .",
@@ -85,6 +102,9 @@
     "control-plane:dry-run": "pnpm --filter @openmausbot/control-plane dry-run"
   },
   "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.88.0",
+    "@agentclientprotocol/codex-acp": "2.1.1",
+    "@agentclientprotocol/sdk": "1.7.0",
     "@clack/prompts": "1.7.0",
     "@hpke/core": "1.9.0",
     "@novnc/novnc": "1.7.0",
@@ -131,6 +151,7 @@
     "esbuild": "^0.28.2",
     "happy-dom": "^20.14.5",
     "oxlint": "1.80.0",
+    "playwright": "1.64.0",
     "tailwindcss": "^4.1.11",
     "typebox": "1.3.7",
     "typescript": "^5.8.3",

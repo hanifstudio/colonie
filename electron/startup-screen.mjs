@@ -73,7 +73,8 @@ export function createStartupScreen({
   splash.webContents.once("render-process-gone", resolveReady);
   const startupFallback = setTimeout(resolveReady, 10_000);
   startupFallback.unref?.();
-  void splash.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(startupScreenHtml(iconPath)))
+  const html = process.env.COLONIE_PROFILE === "1" ? startupScreenHtml(iconPath).replaceAll("OpenMaus Bot", "Colonie") : startupScreenHtml(iconPath);
+  void splash.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html))
     .catch(resolveReady);
   const attach = (win, { maximized = false } = {}) => {
     const reveal = () => {

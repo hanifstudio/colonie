@@ -70,6 +70,7 @@ import {
 } from "./desktop-companion-client.mjs";
 import { isKnownSkin, skinChrome } from "./skin-overlay.cjs";
 import { readSecureCredentials } from "./secure-credentials.mjs";
+import { createCredentialPersistence, migrateComposioCredential } from "./credential-persistence.mjs";
 import { createControlPlaneClient } from "./control-plane-client.mjs";
 import {
   companionAccountCleanupPending,
@@ -109,8 +110,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // resolve to ::1 and paint a black window
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
 const DEFAULT_COMPOSIO_BROKER_URL = "https://openmausbot-composio.milindsoni201.workers.dev";
-let SERVER_PORT = 8799;
-const APP_ICON = path.join(__dirname, "resources/app-icon.png");
+let SERVER_PORT = Number(process.env.OMB_PORT) || 8799;
+const APP_ICON = path.join(__dirname, process.env.COLONIE_PROFILE === "1" ? "resources/colonie-icon.png" : "resources/app-icon.png");
 let desktopViewerWindow = null;
 let desktopViewerOwner = null;
 let desktopViewerContextId = null;
@@ -405,6 +406,7 @@ const CREDENTIALS_FILE = path.join(app.getPath("userData"), "credentials.bin");
  * server's view of "configured", and whether we may register a fresh
  * installation — keys off this rather than off an empty object. */
 let credentialStoreUnavailable = false;
+let composioMigrationPending = false;
 
 async function loadSecureCredentials() {
   const result = await readSecureCredentials({
@@ -423,42 +425,31 @@ async function loadSecureCredentials() {
   return result.credentials;
 }
 
-async function saveSecureCredentials(credentials) {
-  // A failed read means we do not know what the existing encrypted document
-  // contains. Never derive a replacement from that incomplete view: boot
-  // migrations must leave plaintext in place so a later launch can retry.
-  if (credentialStoreUnavailable) {
-    throw new Error("The operating-system credential store could not be read this launch");
-  }
-  if (!(await safeStorage.isAsyncEncryptionAvailable())) {
-    throw new Error("The operating-system credential store is unavailable");
-  }
-  fs.mkdirSync(path.dirname(CREDENTIALS_FILE), { recursive: true });
-  const encrypted = await safeStorage.encryptStringAsync(JSON.stringify(credentials));
-  const temporary = `${CREDENTIALS_FILE}.${process.pid}.tmp`;
-  fs.writeFileSync(temporary, encrypted, { mode: 0o600 });
-  fs.renameSync(temporary, CREDENTIALS_FILE);
-}
+const saveSecureCredentials = createCredentialPersistence({
+  writable: () => !credentialStoreUnavailable,
+  readEncrypted: () => fs.existsSync(CREDENTIALS_FILE) ? fs.readFileSync(CREDENTIALS_FILE) : null,
+  remove: () => fs.rmSync(CREDENTIALS_FILE, { force: true }),
+  isAvailable: () => safeStorage.isAsyncEncryptionAvailable(),
+  encrypt: (text) => safeStorage.encryptStringAsync(text),
+  writeEncrypted: (encrypted) => {
+    fs.mkdirSync(path.dirname(CREDENTIALS_FILE), { recursive: true });
+    const temporary = `${CREDENTIALS_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, encrypted, { mode: 0o600 });
+    fs.renameSync(temporary, CREDENTIALS_FILE);
+  },
+});
 
 async function secureComposioConfig() {
   const dataDir = desktopDataDir();
   const configPath = path.join(dataDir, "config.json");
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    let config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     if (!config?.composio || typeof config.composio !== "object") return;
     let changed = false;
-    const apiKey = config?.composio?.apiKey;
-    if (typeof apiKey === "string" && apiKey.trim().startsWith("ak_")) {
-      if (!secureCredentials.composioApiKey) {
-        secureCredentials.composioApiKey = apiKey.trim();
-        await saveSecureCredentials(secureCredentials);
-      }
-      config.composio.apiKey = "";
-      changed = true;
-    } else if (typeof apiKey === "string" && apiKey.trim()) {
-      config.composio.apiKey = "";
-      changed = true;
-    }
+    const migrated = await migrateComposioCredential(config, secureCredentials, saveSecureCredentials);
+    secureCredentials = migrated.credentials;
+    config = migrated.config; changed = migrated.changed;
+    composioMigrationPending = false;
     // These were the old Connect credential and endpoint. They are no longer
     // read; remove them during the upgrade so an unused secret is not left in
     // plaintext indefinitely.
@@ -473,6 +464,7 @@ async function secureComposioConfig() {
     fs.writeFileSync(temporary, JSON.stringify(config, null, 2), { mode: 0o600 });
     fs.renameSync(temporary, configPath);
   } catch (error) {
+    if (error?.code !== "ENOENT") composioMigrationPending = true;
     if (error?.code !== "ENOENT") slog(`credential migration failed: ${error?.message ?? error}`);
   }
 }
@@ -1331,6 +1323,11 @@ async function startServerOn(port) {
     ...(secureCredentials.composioApiKey
       ? { COMPOSIO_API_KEY: secureCredentials.composioApiKey }
       : {}),
+    COLONIE_COMPOSIO_CREDENTIAL_SOURCE: secureCredentials.composioApiKey ? "secure-store"
+      : process.env.COMPOSIO_API_KEY?.trim() ? "environment" : "workspace-settings",
+    COLONIE_COMPOSIO_CREDENTIAL_ORIGIN: secureCredentials.composioApiKey
+      ? secureCredentials.composioCredentialOrigin ?? "existing-device-store" : "environment",
+    ...(composioMigrationPending ? { COLONIE_COMPOSIO_MIGRATION_PENDING: "1" } : {}),
     // "we could not read your keys" must not reach the UI as "you have none"
     OMB_CREDENTIAL_STORE: credentialStoreUnavailable ? "unavailable" : "ok",
     // one env var per stored workspace secret (xai/box/voice/OpenCode Go);
@@ -1422,8 +1419,11 @@ async function startServerPackaged() {
   // two passes: a quit-and-reopen relaunch can race the dying instance's
   // server during teardown — one settle-and-retry covers it
   let everyPortForeignOwned = true;
+  const requestedPort = Number(process.env.OMB_PORT);
+  const ports = process.env.COLONIE_PROFILE === "1" && Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535
+    ? [requestedPort] : [8799, 18799, 28799];
   for (let attempt = 0; attempt < 2; attempt++) {
-    for (const port of [8799, 18799, 28799]) {
+    for (const port of ports) {
       if (desktopShutdownStarted) return false;
       const started = await startServerOn(port);
       if (started.proc) {
@@ -1895,7 +1895,7 @@ function persistEnvironments(next) {
   writeEnvironments(next);
   environmentsState = next;
   refreshApplicationMenu();
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
 }
 
 async function workspaceMenuAction(action) {
@@ -2215,7 +2215,7 @@ function createWindow({ deferNavigation = false } = {}) {
       // renderer's remote-only feature gates. Keep the two facts independent:
       // upstream's origin boundary must not erase the client-mode marker.
       additionalArguments: [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
-        ...(app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : [])],
+        ...(app.isPackaged && !desktopRemoteAccess && process.env.DEVONE_PROFILE !== "1" ? ["--omb-company-desktop=1"] : [])],
     },
   });
   mainWindow = win;
@@ -2226,11 +2226,11 @@ function createWindow({ deferNavigation = false } = {}) {
       desktopTray.hide(win);
     }
   });
-  win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
+  win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
   win.webContents.on("page-title-updated", event => {
     if (!desktopRemoteAccess && !activeEnvironment(environmentsState)) return;
     event.preventDefault();
-    win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess));
+    win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
   });
   attachUpdaterWindow(win);
   if (startupScreen) startupScreen.attach(win, { maximized: restored.maximized });
@@ -3253,41 +3253,53 @@ async function saveWorkspaceCredential(name, value) {
   if (!patchFor || typeof value !== "string") {
     throw new Error("Unsupported credential");
   }
-  if (app.isPackaged && !(await safeStorage.isAsyncEncryptionAvailable())) {
-    throw new Error("The operating-system credential store is unavailable");
-  }
   const secret = value.trim();
+  const runtimeFallback = name === "composioApiKey" && !secret ? process.env.COMPOSIO_API_KEY?.trim() ?? "" : "";
+  const effectiveSecret = runtimeFallback || secret;
+  const source = runtimeFallback ? "environment" : "secure-store";
   const applyToHarness = async () => {
     if (app.isPackaged && !serverReady) throw new Error("The embedded bot server is unavailable");
     // In development the server is a separately launched process, so it
     // cannot receive credentials from Electron at boot. Keep its established
     // local config path there; production always uses the encrypted store.
-    const secretStorage = app.isPackaged ? "?secretStorage=external" : "";
+    const secretStorage = app.isPackaged ? `?secretStorage=external&composioSource=${source}` : "";
     const response = await fetch(`http://127.0.0.1:${SERVER_PORT}/api/config${secretStorage}`, {
       method: "PUT",
       headers: desktopServerHeaders(
         { "content-type": "application/json" },
         { packaged: app.isPackaged, token: desktopMutationToken },
       ),
-      body: JSON.stringify(patchFor(secret)),
+      body: JSON.stringify(patchFor(effectiveSecret)),
     });
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new Error(body?.error || `Could not save credential (HTTP ${response.status})`);
     return body;
   };
   if (!app.isPackaged) return applyToHarness();
+  if (name === "composioApiKey" && !secret && !secureCredentials.composioApiKey) {
+    if (credentialStoreUnavailable) throw new Error("The credential store could not be read on this launch, so credentials cannot be saved");
+    if (runtimeFallback) throw new Error("This Composio key is provided by the environment and cannot be removed from the app.");
+    // A legacy config-only key has no encrypted entry to rewrite.
+    const result = await applyToHarness(); composioMigrationPending = false; return result;
+  }
 
   // Commit the encrypted value before the server makes it live. The shared
   // state rolls credentials.bin back if validation/reload fails, while also
   // keeping concurrent account and provider updates serialized.
-  return updateSecureCredentialDocument(
+  const result = await updateSecureCredentialDocument(
     (credentials) => {
       if (secret) credentials[name] = secret;
       else delete credentials[name];
+      if (name === "composioApiKey") {
+        if (secret) credentials.composioCredentialOrigin = "user-input";
+        else delete credentials.composioCredentialOrigin;
+      }
       return credentials;
     },
     applyToHarness,
   );
+  if (name === "composioApiKey") composioMigrationPending = false;
+  return result;
 }
 
 ipcMain.handle("credential:set", localOnly("credential:set", (_event, name, value) =>
@@ -3371,7 +3383,7 @@ app.whenReady().then(async () => {
       // config.json. The parent retains ownership across utility-child port
       // fallbacks and restarts for the entire desktop process lifetime.
       desktopDataDirLease = acquireDataDirLease(desktopDataDir(), {
-        legacyDataDir: path.join(app.getPath("home"), ".opengrokbot"),
+        legacyDataDir: process.env.DEVONE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".opengrokbot"),
       });
     } catch (error) {
       dialog.showErrorBox(
@@ -3383,7 +3395,7 @@ app.whenReady().then(async () => {
     }
   }
   if (app.isPackaged) {
-    app.setAsDefaultProtocolClient("openmausbot");
+    if (process.env.DEVONE_PROFILE !== "1") app.setAsDefaultProtocolClient("openmausbot");
     // Chromium adds this capability below JavaScript, so renderer requests
     // can mutate the local harness while a Full-access shell using curl
     // cannot impersonate the person operating the desktop app.
@@ -3414,7 +3426,7 @@ app.whenReady().then(async () => {
     writable: !credentialStoreUnavailable,
   });
   secureCredentials = secureCredentialState.read();
-  if (app.isPackaged) await ensurePhoneSecretIdentity();
+  if (app.isPackaged && process.env.COLONIE_PROFILE !== "1") await ensurePhoneSecretIdentity();
   desktopRemoteAccess = desktopCompanionAccess(secureCredentials);
   const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();
   // Display capture remains user-initiated. The renderer first sends a
@@ -3475,7 +3487,7 @@ app.whenReady().then(async () => {
   // connection descriptor on first render. Never blocks window creation on
   // failure — computer use degrades to "unavailable", the rest still works.
   cuaReady =
-    !desktopRemoteAccess && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
+    process.env.DEVONE_PROFILE !== "1" && !desktopRemoteAccess && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
       ? startCua().catch((e) => {
           console.error("[cua] start failed:", e);
           return { mode: "unavailable", reason: String(e) };
@@ -3568,7 +3580,7 @@ app.whenReady().then(async () => {
   if (credentialStoreUnavailable) {
     slog("skipping connected-apps registration: the credential store was unreadable this launch");
   }
-  if (!desktopRemoteAccess && app.isPackaged && composioBrokerUrl() && !credentialStoreUnavailable) {
+  if (process.env.DEVONE_PROFILE !== "1" && !desktopRemoteAccess && app.isPackaged && composioBrokerUrl() && !credentialStoreUnavailable) {
     void updateSecureCredentialDocument(async (credentials) => {
       await ensureManagedComposioCredentials({
         brokerUrl: composioBrokerUrl(),
@@ -3583,7 +3595,7 @@ app.whenReady().then(async () => {
   }
   // in-app auto-update (packaged only) — checks GitHub releases and downloads
   // by itself; only "Restart to update", the person's click, installs
-  startUpdater();
+  if (process.env.DEVONE_PROFILE !== "1") startUpdater();
   refreshApplicationMenu();
   app.on("activate", () => {
     if (desktopTray?.show()) return;

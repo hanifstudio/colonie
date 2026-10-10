@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
+import { credentialOperationError } from "../../shared/composio-credential";
 
 export type ConfigSection = "composio" | "box" | "opencodeGo" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras";
 /** Sections whose key can be tried against the provider from the server. */
@@ -322,7 +323,7 @@ export function ApiKeyRow({
         onSaved?.(nowConfigured);
         if (next && nowConfigured) void test();
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(section === "composio" ? credentialOperationError(e, remove ? "remove" : "save") : e.message))
       .finally(() => { savingRef.current = false; setSaving(false); });
   };
 

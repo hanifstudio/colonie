@@ -308,6 +308,7 @@ export interface ModelSelection {
 /** One of a bot's separate contexts: its own thread, transcript and
  * provider session. The bot's threadId points at the active one. */
 export interface Task {
+  preview?: string;
   waitingForTeammates?: boolean;
   threadId: string;
   /** Internal routine execution; reachable through its run receipt, not history menus. */
@@ -648,7 +649,7 @@ export interface ConfigStatus {
   fleet?: { available: boolean };
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
-  composio: { configured: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
+  composio: { configured: boolean; projectKeyConfigured?: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
   /** `included`: cloud computers come with Cloud Pro, no key is saved. */
   box: { configured: boolean; included?: boolean };
   vps: { configured: boolean; sshAlias: string };

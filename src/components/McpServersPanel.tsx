@@ -223,13 +223,14 @@ function draftFor(server: McpServerListing): McpDraft {
 
 /** `embedded`: a section of the Apps pop-up's one scrolling view, rather
  * than a page that owns its own scroll. */
-export function McpServersPanel({ embedded = false, whopCard = false, hideWhop = false, refreshKey = 0, onWhopConnection }: {
+export function McpServersPanel({ embedded = false, whopCard = false, hideWhop = false, refreshKey = 0, onWhopConnection, nativeSettings = true }: {
   embedded?: boolean;
   /** Use the same OAuth lifecycle as a normal app tile, without MCP controls. */
   whopCard?: boolean;
   hideWhop?: boolean;
   refreshKey?: number;
   onWhopConnection?: (connected: boolean) => void;
+  nativeSettings?: boolean;
 } = {}) {
   const { state: store, dispatch } = useStore();
   // While enrolled with custom servers off, only approved servers can be added.
@@ -695,7 +696,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
         </div>
 
         {restricted && policy && <p role="status" className="mt-3 text-[12.5px] leading-relaxed text-ink-secondary">{t("policy.mcpRestricted", { organization: policy.organizationName })}</p>}
-        <ClaudeMcpSwitch />
+        {nativeSettings && <ClaudeMcpSwitch />}
 
         {importOpen && (
           <div className="mt-4 rounded-2xl border border-hairline/60 bg-card p-4 sm:p-5">

@@ -9,7 +9,7 @@ import {
   type BotAvatarProps,
   type MausAvatarProps,
 } from "./Avatar";
-import { MASCOT_BODIES } from "../../shared/mascot-bodies";
+import { bloubShape } from "./BloubAvatar";
 
 const render = (props: Partial<MausAvatarProps>) =>
   renderToStaticMarkup(createElement(MausAvatar, { color: "green", animated: false, ...props }));
@@ -19,14 +19,16 @@ const renderBot = (bot: Partial<BotAvatarProps["bot"]>) =>
     createElement(BotAvatar, { bot: { color: "green", ...bot }, animated: false }),
   );
 
-describe("MausAvatar body", () => {
-  it("wears the cursor when no body is given", () => {
-    expect(render({})).toContain(MASCOT_BODIES.cursor.fit);
+describe("Colonie mascot under the historical avatar API", () => {
+  it("uses the new mascot and a pebble fallback for the historical default", () => {
+    expect(render({})).toContain('data-mascot="bloub"');
+    expect(bloubShape().id).toBe("galet");
   });
 
   it("wears the body it is given", () => {
     const markup = render({ bodyId: "star" });
-    expect(markup).toContain(MASCOT_BODIES.star.fit);
+    expect(bloubShape("star").id).toBe("nuage");
+    expect(markup.match(/<path d="([^"]+)"/)?.[1]).not.toBe(render({}).match(/<path d="([^"]+)"/)?.[1]);
   });
 
   it("falls back to the cursor for an unknown body", () => {
@@ -34,16 +36,16 @@ describe("MausAvatar body", () => {
     // exercises the runtime schema fallback for a value that could arrive
     // from persisted/streamed data, which the type system would otherwise
     // rule out at this call site.
-    expect(render({ bodyId: "hexagram" as MausAvatarProps["bodyId"] })).toContain(
-      MASCOT_BODIES.cursor.fit,
-    );
+    expect(render({ bodyId: "hexagram" as MausAvatarProps["bodyId"] })).toContain('data-mascot="bloub"');
+    expect(bloubShape("hexagram").id).toBe("galet");
   });
 
-  it("paints the body with the per-bot gradient, never a flat black fill", () => {
+  it("paints the body with Colonie colors while retaining SVG masking", () => {
     const markup = render({ bodyId: "circle" });
     expect(markup).not.toContain('fill="#000000"');
     expect(markup).not.toContain("{{GRADIENT}}");
     expect(markup).toContain("url(#");
+    expect(markup).toContain('fill="#64bb91"');
   });
 });
 

@@ -5,14 +5,14 @@ import { SoulField } from "../SoulField";
 import { ProposalStatus } from "./ProposalStatus";
 import type { BotPatch } from "./useBotSettingsDerived";
 
-export function SoulSection({ bot, patch }: { bot: Bot; patch: (patch: BotPatch) => void }) {
+export function SoulSection({ bot, patch, acp = false }: { bot: Bot; patch: (patch: BotPatch) => void; acp?: boolean }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[13px] leading-relaxed text-ink-secondary">
-        Who this bot is and the rules it never breaks. Always in its context.
+        {acp ? "Tell your bot how to help you. Saved instructions are used automatically in new conversations." : "Who this bot is and the rules it never breaks. Always in its context."}
       </p>
       <ProposalStatus bot={bot} kind="chief" />
-      <SoulField bot={bot} onPatch={patch} />
+      <SoulField bot={bot} onPatch={patch} contextNote={acp ? "Used automatically in new conversations." : undefined} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { useAdvancedMode } from "@/lib/interface-mode";
 import { isRoutineProblemRun } from "@/lib/routines";
 import type { SidebarDensity } from "@/lib/sidebar-preferences";
 import { useStore } from "@/state/store";
+import { isColonieAcpDriver } from "../../shared/devone";
 
 
 function NavRow({
@@ -65,6 +66,10 @@ function NavRow({
 export function SidebarAppsButton() {
   const { state, dispatch } = useStore();
   const label = t("sidebar.nav.apps");
+  if (state.instances.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind))) return <button
+    type="button" aria-label="Connected tools" title="Connected tools"
+    onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })}
+    className="flex size-9 shrink-0 items-center justify-center rounded-xl text-ink-secondary hover:bg-raised/50 hover:text-ink"><Puzzle size={18} /></button>;
   return (
     <button
       type="button"
@@ -91,6 +96,7 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
   const iconSize = iconsOnly ? 20 : 18;
   const tone = (active: boolean) => (active ? "text-accent" : "text-ink-secondary");
   const routinesNeedYou = state.routineRuns.some((run) => isRoutineProblemRun(run) && !run.seenAt);
+  if (state.instances.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind))) return null;
   // Simple mode on a full-width sidebar has no rows left: draw nothing, so
   // the profile row is the foot's first line.
   if (!advanced && !iconsOnly) return null;

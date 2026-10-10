@@ -161,6 +161,7 @@ export type MascotBotProfile = {
   description?: string;
   mascotExpression?: string | null;
   busy?: boolean;
+  activity?: string;
   unread?: boolean;
   tasks?: Array<{ unread?: boolean; routineRunId?: string }> | null;
   messages?: MascotMessage[];
@@ -172,6 +173,7 @@ export type MascotBotProfile = {
  * visual identity stays stable while its title and description are edited.
  */
 export function stateForBot(bot: MascotBotProfile): MausState {
+  if (bot.activity === "waiting-on-you") return "alerting";
   const pinned = normalizeState(bot.mascotExpression);
   if (pinned) return pinned;
 

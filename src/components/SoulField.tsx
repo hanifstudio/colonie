@@ -18,6 +18,7 @@ export function SoulField({
   bot,
   onPatch,
   simple,
+  contextNote,
 }: {
   bot: Bot;
   onPatch: (patch: { soul?: string; description?: string }) => void;
@@ -25,6 +26,7 @@ export function SoulField({
    * and drift banner, without the file name, mono font and byte counter
    * (the counter returns only when the text is over the cap). */
   simple?: { label: string; placeholder: string };
+  contextNote?: string;
 }) {
   const { dispatch, flushBotPatches } = useStore();
   const { request: api } = useBotEditor();
@@ -127,7 +129,7 @@ export function SoulField({
       />
       {(!simple || over) && <div className="mt-1.5 flex items-start justify-between gap-3 text-[11px] text-ink-secondary">
         <span>
-          {!simple && <>In this bot’s context on every turn.{info?.file ? <> Mirrored to <span className="break-all">{info.file}</span>.</> : null}</>}
+          {!simple && <>{contextNote ?? "In this bot’s context on every turn."}{info?.file ? <> Mirrored to <span className="break-all">{info.file}</span>.</> : null}</>}
         </span>
         <span className={cn("shrink-0 tabular-nums", over && "font-medium text-red-500")}>
           {bytes.toLocaleString()} / {limit.toLocaleString()} bytes{over ? " — not saved" : ""}

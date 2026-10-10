@@ -7,6 +7,7 @@ import { useMenuMotion } from "./MenuMotion";
 import { APPROVAL_LEVELS_URL, openExternalLink } from "@/lib/app-links";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
+import { isColonieAcpDriver } from "../../shared/devone";
 
 /** Keys, not labels — these are the words the held notes quote back to the
  * reader ("… so Approve for me stopped to ask"), and a label resolved in this
@@ -47,7 +48,7 @@ export function approvalModeOptions(): ApprovalModeOption[] {
 
 export function approvalModeOptionsFor(driverKind: string, trustedModesAvailable = true) {
   return approvalModeOptions()
-    .filter((option) => supportsApprovalMode(driverKind, option.mode)
+    .filter((option) => (!isColonieAcpDriver(driverKind) || option.mode === "ask" || option.mode === "full") && supportsApprovalMode(driverKind, option.mode)
       // Antigravity has no native reviewer. Offer its explicit full-access
       // grant as Auto instead of a second choice that actually behaves as Ask.
       && (driverKind !== "antigravityAgent" || option.mode !== "auto")
@@ -116,7 +117,7 @@ export function ApprovalModeSelector({
   const savedMode = approvalModeFor({ approvalMode, autoApprove });
   // Old Antigravity Auto settings still ask. Do not display or silently grant
   // the new Auto/full-access behavior until the user explicitly selects it.
-  const mode = driverKind === "antigravityAgent" && savedMode === "auto" ? "ask" : savedMode;
+  const mode = (driverKind === "antigravityAgent" && savedMode === "auto") || (isColonieAcpDriver(driverKind) && savedMode !== "full") ? "ask" : savedMode;
   const allOptions = approvalModeOptions();
   const current = approvalModeOptionsFor(driverKind).find((option) => option.mode === mode)
     ?? allOptions.find((option) => option.mode === mode)

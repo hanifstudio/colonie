@@ -12,6 +12,7 @@ export type ApprovalMode = (typeof APPROVAL_MODES)[number];
  * Gemini `auto_edit`. Codex's Ask already runs `workspace-write`, so an edits
  * level would change nothing there. */
 export function supportsApprovalMode(driverKind: string | undefined, mode: ApprovalMode): boolean {
+  if (driverKind === "codex-acp" || driverKind === "claude-acp") return mode === "ask" || mode === "full";
   if (mode === "custom") return driverKind === "codex";
   if (mode === "edits") return ["claudeAgent", "grokAgent", "antigravityAgent", "qwenAgent", "geminiAgent"].includes(driverKind ?? "");
   if (mode !== "full") return true;

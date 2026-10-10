@@ -42,6 +42,7 @@ recipe from sending messages to the user's running app by accident.
 
 Use only mapped, tested commands:
 
+- [Colonie: shared ACP boundary, artwork and packaged desktop](devone-acp.md)
 - [Chat turns](chat-turns.md)
 - [Conversation context compaction](context-compaction.md)
 - [Work summaries and engine hooks](digests.md)

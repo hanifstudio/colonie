@@ -26,12 +26,14 @@ export function IdentitySection({
   activeState,
   mascotMotion,
   namePlaceholder,
+  acp = false,
 }: {
   bot: Bot;
   patch: (patch: BotPatch) => void;
   activeState: MausState;
   mascotMotion: { kind: Exclude<MausMotion, "none">; nonce: number } | null;
   namePlaceholder?: string;
+  acp?: boolean;
 }) {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const { draft } = useBotEditor();
@@ -98,7 +100,7 @@ export function IdentitySection({
           onChange={(e) => patch({ description: e.target.value })}
         />
         <div className="mt-1.5 flex items-start justify-between gap-3 text-[11px] text-ink-secondary">
-          <span>Shown in rosters, on the phone, and to other bots. Standing instructions belong in Soul, which has room for a full document.</span>
+          <span>{acp ? "Your bot uses its name, role and description automatically. Profile changes apply to new conversations. Appearance only changes its look." : "Shown in rosters, on the phone, and to other bots. Standing instructions belong in Soul, which has room for a full document."}</span>
           {/* The cap only matters when someone is near it; a counter under a
               one-line field otherwise reads as an invitation to fill it. */}
           {bot.description.length > 3_000 && (

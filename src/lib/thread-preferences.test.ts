@@ -141,10 +141,10 @@ describe("local thread visibility", () => {
 describe("threads in Simple mode", () => {
   it.each([
     [true, true, true],
-    [true, false, false],
+    [true, false, true],
     [false, true, false],
     [false, false, false],
-  ])("shows threads only when chosen and in Advanced mode (chosen %s, advanced %s → %s)", async (chosen, advanced, shown) => {
+  ])("respects the choice independently of mode (chosen %s, advanced %s → %s)", async (chosen, advanced, shown) => {
     vi.doMock("./interface-mode", () => ({ useAdvancedMode: () => advanced }));
     const preference = await import("./thread-preferences");
     local.setItem(preference.SHOW_THREADS_KEY, chosen ? "1" : "0");
@@ -152,12 +152,12 @@ describe("threads in Simple mode", () => {
     vi.doUnmock("./interface-mode");
   });
 
-  it("leaves the stored choice alone, so Advanced mode gets the person's threads back", async () => {
+  it("shows chosen conversations in Simple mode without changing stored preferences", async () => {
     vi.doMock("./interface-mode", () => ({ useAdvancedMode: () => false }));
     const preference = await import("./thread-preferences");
     local.setItem(preference.SHOW_THREADS_KEY, "1");
     local.setItem.mockClear();
-    expect(preference.useShowThreads()).toBe(false);
+    expect(preference.useShowThreads()).toBe(true);
     expect(preference.useShowThreadsChoice()).toBe(true);
     expect(local.setItem).not.toHaveBeenCalled();
     vi.doUnmock("./interface-mode");

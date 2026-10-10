@@ -1,5 +1,6 @@
 import { Component, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
+import { useDeveloperTools } from "@/lib/developer-tools";
 import { useCopyFeedback } from "@/lib/copy-text";
 import {
   AlertTriangle,
@@ -87,7 +88,9 @@ import { AttachmentGallery, collectMessageFiles, splitMessageAttachments } from 
 import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
 import { RenameTitle } from "./RenameTitle";
-import { BotActivityPicker } from "./TaskPicker";
+import { BotActivityPicker, TaskPicker } from "./TaskPicker";
+import { NewThreadButton } from "./BotProjects";
+import { conversationTitle } from "@/lib/conversation-title";
 import { ModelPicker } from "./ModelPicker";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
 import { ShortcutHint } from "./ShortcutHint";
@@ -124,6 +127,10 @@ import { useCanWriteIn } from "@/lib/cloud-guest";
 import { latestFailure, latestReply, type TranscriptSnapshot } from "@/lib/transcript-announcer";
 import { pendingApprovals } from "./PendingApproval";
 import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
+import { AcpLiveReply } from "./AcpLiveReply";
+import { AcpContextDialog } from "./AcpContextDialog";
+import { AcpSettingsDialog } from "./AcpSettingsDialog";
+import { isColonieAcpDriver } from "../../shared/devone";
 
 /** Long user messages collapse behind a fade so pasted walls of text don't
  * bury the conversation; bots get full markdown. */
@@ -147,6 +154,7 @@ interface ChatRows {
   localVoice: boolean;
   /** Editing, regenerating and switching versions wait for the turn. */
   busy: boolean;
+  nativeHistoryOnly?: boolean;
   /** Every bot, for who wrote a relayed line or sits across a bot⇄bot chip. */
   bots: readonly Bot[];
   /** Every other bot, for @mentions. */
@@ -465,7 +473,7 @@ const Bubble = memo(function Bubble({
   replyTarget?: Message;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, voiceId, tts, localVoice, busy, mentionPeers, focus, dispatch, onBranch } = useChatRows();
+  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, mentionPeers, focus, dispatch, onBranch } = useChatRows();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
@@ -529,7 +537,7 @@ const Bubble = memo(function Bubble({
           <MessageActions side="user">
             {/* editing rewinds the thread, so it waits for the turn to end —
                 same rule as the version switcher below */}
-            {message.kind === "text" && !webhookView && !hasAttachments && !busy && !message.id.startsWith("optimistic-") && (
+            {message.kind === "text" && !nativeHistoryOnly && !webhookView && !hasAttachments && !busy && !message.id.startsWith("optimistic-") && (
               <button
                 onClick={() => onStartEdit(message.id)}
                 aria-label={t("chat.editMessage")}
@@ -668,7 +676,7 @@ const Bubble = memo(function Bubble({
             {message.kind === "text" && text && !peer && (
               <SpeakButton text={text} botId={botId} messageId={message.id} voiceId={voiceId} tts={tts} localVoice={localVoice} className="opacity-100" />
             )}
-            {!busy && onRegenerate && (
+            {!busy && !nativeHistoryOnly && onRegenerate && (
               <button
                 onClick={onRegenerate}
                 aria-label={t("chat.regenerate")}
@@ -1112,6 +1120,12 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   const computerStarting = computerStartLine(state.computerStarts[bot.id], bot.name);
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
   const [findOpen, setFindOpen] = useState(false);
+  const [acpContextOpen, setAcpContextOpen] = useState(false);
+  const developerTools = useDeveloperTools();
+  const [acpSettingsOpen, setAcpSettingsOpen] = useState(false);
+  const codexAcp = isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
+  useEffect(() => setAcpContextOpen(false), [bot.threadId]);
+  useEffect(() => setAcpSettingsOpen(false), [bot.threadId, bot.modelSelection.instanceId]);
   const { replyTo, selectReply, clearReply, consumeReply, restoreReply } = useReplyDraft(
     bot.threadId,
     `bot:${bot.id}:${bot.threadId}`,
@@ -1176,6 +1190,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
     messages,
     pinOn: [bot.busy, composerDock.pad],
   });
+  const followAcpReply = useCallback(() => { if (following) jumpToLatest(); }, [following, jumpToLatest]);
 
   const lastBotTextId = useMemo(
     () => [...messages].reverse().find((m) => m.role === "bot" && m.kind === "text")?.id,
@@ -1199,8 +1214,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   branch.current = messages;
   const onBranch = useCallback((messageId: string) => branch.current.some((m) => m.id === messageId), []);
   const rows = useMemo<ChatRows>(
-    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
-    [bot.id, bot.threadId, bot.name, bot.voice, tts, localVoice, busy, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch],
+    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, nativeHistoryOnly: codexAcp, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
+    [bot.id, bot.threadId, bot.name, bot.voice, tts, localVoice, busy, codexAcp, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch],
   );
   // Where this conversation works, for the place icon on screen and page tools.
   const place = effectivePlace(bot, bot.tasks?.find((task) => task.threadId === bot.threadId));
@@ -1419,6 +1434,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
             </button>
           )}
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
+          {codexAcp && <button aria-label="Open native settings" disabled={bot.busy} onClick={() => setAcpSettingsOpen(true)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-40">Agent options</button>}
+          {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}
           {/* below md the sidebar (and its Live call pill) is hidden */}
           <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, state)} />
           <button
@@ -1439,7 +1456,11 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
         </div>
       </div>
 
-      <BotActivityPicker bot={bot} />
+      {codexAcp ? <div data-conversation-navigation className="flex min-w-0 flex-wrap items-center gap-2 px-5 py-2">
+        <TaskPicker bot={bot} conversations />
+        <span dir="auto" className="min-w-0 flex-1 truncate text-xs text-ink-secondary">{conversationTitle(bot.tasks?.find((task) => task.threadId === bot.threadId)?.title)}</span>
+        <NewThreadButton bot={bot} label="New conversation" className="shrink-0 border border-hairline/40" />
+      </div> : <BotActivityPicker bot={bot} />}
       {routineExecution && <div className="mx-5 mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[11.5px] text-ink-secondary">
         <span className="min-w-0 flex-1 truncate">{t("routines.executionDetails", { name: routineExecution.routineName })}</span>
         {canOpenResults && resultsThreadId && <button type="button" onClick={() => openNotificationTarget(dispatch, { botId: bot.id, threadId: resultsThreadId }, state)} className="rounded px-2 py-1 text-accent hover:bg-raised">{t("routines.results.back")}</button>}
@@ -1530,7 +1551,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               onReply={selectReply}
             />
           </ChatRowsContext.Provider>
-          {laterCount > 0 && (
+           {codexAcp && <AcpLiveReply key={bot.threadId} botId={bot.id} threadId={bot.threadId} onProgress={followAcpReply} />}
+           {laterCount > 0 && (
             <div className="flex justify-center">
               <button
                 onClick={showLater}
@@ -1570,6 +1592,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
       </div>
 
       <TranscriptAnnouncer threadKey={transcriptKey} snapshot={announcement} />
+      {developerTools && acpContextOpen && <AcpContextDialog botId={bot.id} threadId={bot.threadId} onClose={() => setAcpContextOpen(false)} />}
+      {acpSettingsOpen && <AcpSettingsDialog key={`${bot.threadId}:${bot.modelSelection.instanceId}`} botId={bot.id} threadId={bot.threadId} onClose={() => setAcpSettingsOpen(false)} />}
 
       {/* Reading scrollback — one tap back to the end, streaming or not */}
       {!following && (
@@ -1624,7 +1648,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
         onClearReply={clearReply}
         onConsumeReply={consumeReply}
         onRestoreReply={restoreReply}
-        onEditLast={lastUserMessage && !lastUserMessageHasAttachments && !bot.busy && !lastUserMessage.id.startsWith("optimistic-")
+        onEditLast={!codexAcp && lastUserMessage && !lastUserMessageHasAttachments && !bot.busy && !lastUserMessage.id.startsWith("optimistic-")
           ? () => setEditingId(lastUserMessage.id)
           : undefined}
       />

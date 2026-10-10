@@ -1,0 +1,43 @@
+appId: com.devone.desktop
+productName: DevOne
+artifactName: DevOne-${version}-${arch}.${ext}
+directories:
+  buildResources: build
+  output: release/devone
+files:
+  - electron/**
+  - "!electron/**/*.test.*"
+  - "!electron/resources/speech-helper*"
+  - "!electron/resources/OpenMausBot Speech.app/**"
+  - "!**/node_modules/**"
+  - package.json
+asar: true
+extraResources:
+  - from: dist
+    to: ui
+  - from: dist-server
+    to: server
+    filter:
+      - "**/*"
+      - "!enterprise/**"
+      - "!server/enterprise/**"
+      - "!server/**/*.test.*"
+      - "!server/devone/testing/**"
+  - from: dist-devone/codex-acp
+    to: codex-acp
+  # electron-builder's default resource matcher skips nested node_modules.
+  # Copy the maintained runtime's two package roots explicitly.
+  - from: dist-devone/codex-acp/node_modules/@openai/codex
+    to: codex-acp/node_modules/@openai/codex
+  - from: dist-devone/codex-acp/node_modules/@openai/codex-darwin-${arch}
+    to: codex-acp/node_modules/@openai/codex-darwin-${arch}
+  - from: LICENSE
+    to: licenses/OpenMausBot-LICENSE.txt
+  - from: NOTICE
+    to: licenses/OpenMausBot-NOTICE.txt
+mac:
+  target: dir
+  icon: build/icon.icns
+  category: public.app-category.developer-tools
+  identity: null
+  notarize: false

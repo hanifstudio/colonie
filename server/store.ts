@@ -7,6 +7,7 @@ import { chmodSync, existsSync, readFileSync, mkdirSync, rmSync, statSync, unlin
 import { join } from "node:path";
 
 import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
+import { devoneProfile } from "./devone/profile.ts";
 import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import { ensureSections, readSections, changeEmptySection } from "./section-context.ts";
 import type { TeamComputers } from "./team-computers.ts";
@@ -106,7 +107,7 @@ export interface TaskRecord extends Omit<WireTask, TaskWireDerivedKeys> {
  * so a new server field forces a decision — wire-visible or private here. */
 export type TaskWirePrivateKeys = "resumeCursors" | "lastInstanceId" | "handedMessages" | "appliedCompactionId" | "contextFloor" | "lastContextModel" | "surfaceSource";
 /** WireTask fields computed by toWireTask and never stored on a TaskRecord. */
-export type TaskWireDerivedKeys = "surfaceAuto" | "followsBotModel";
+export type TaskWireDerivedKeys = "surfaceAuto" | "followsBotModel" | "preview";
 export type TaskWireProjection = Pick<TaskRecord, Exclude<keyof TaskRecord, TaskWirePrivateKeys>> & Pick<WireTask, TaskWireDerivedKeys>;
 type AssertExact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 type AssertSameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? true : never) : never;
@@ -1840,7 +1841,7 @@ export class Store {
       this.appendMessage(bot.threadId, {
         role: "bot",
         kind: "text",
-        text: `Hi, I'm ${name}. What would you like me to do?`,
+        text: devoneProfile() ? "Hi! What would you like help with?" : `Hi, I'm ${name}. What would you like me to do?`,
       });
     }
     return bot;
@@ -2951,6 +2952,7 @@ export class Store {
    * random friendly name like every other bot. */
   seedIfEmpty() {
     if (!this.needsSeed()) return;
-    this.createBot();
+    const bot = this.createBot(devoneProfile() ? { name: "Codex", color: "purple" } : {});
+    if (devoneProfile()) this.patchBot(bot.id, { computer: "off", memoryEnabled: false });
   }
 }

@@ -179,16 +179,16 @@ export function BotProjectDialog({ bot, project, onClose, onCreated }: {
 }
 
 /** One-click new thread in the current folder. Folder creation lives in the sidebar. */
-export function NewThreadButton({ bot, className, compact = false, onCreated }: { bot: Bot; className?: string; compact?: boolean; onCreated?: () => void }) {
+export function NewThreadButton({ bot, className, compact = false, onCreated, label }: { bot: Bot; className?: string; compact?: boolean; onCreated?: () => void; label?: string }) {
   const { dispatch } = useStore();
   const projects = bot.projects ?? [];
   const currentProject = projects.find((project) => project.id === bot.tasks?.find((task) => task.threadId === bot.threadId)?.projectId);
-  return <button type="button" aria-label={t("task.newShort")} title={currentProject ? t("task.newIn", { name: currentProject.name }) : t("task.newShort")}
+  return <button type="button" aria-label={label ?? t("task.newShort")} title={label ?? (currentProject ? t("task.newIn", { name: currentProject.name }) : t("task.newShort"))}
     onClick={() => {
       dispatch({ type: "newTask", botId: bot.id, ...(currentProject ? { projectId: currentProject.id } : {}) });
       onCreated?.();
     }}
     className={cn("flex min-w-0 items-center gap-2 rounded-lg px-2.5 text-left text-[12px] text-ink-secondary hover:bg-raised/60 hover:text-ink", compact ? "py-1 @max-4xl/chathead:h-[30px] @max-4xl/chathead:px-2" : "py-2", className)}>
-    <Plus aria-hidden="true" size={12} /><span className={cn("truncate", compact && "@max-4xl/chathead:hidden")}>{t("task.newShort")}</span>
+    <Plus aria-hidden="true" size={12} /><span className={cn("truncate", compact && "@max-4xl/chathead:hidden")}>{label ?? t("task.newShort")}</span>
   </button>;
 }

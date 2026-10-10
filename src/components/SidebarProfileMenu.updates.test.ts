@@ -27,6 +27,6 @@ it("offers the restart once an update has downloaded by itself", () => {
   expect(entry({ status: "idle" })?.label).toBe("Check for updates");
   const ready = entry({ status: "downloaded", version: "0.2.0" });
   // Named: on My Cloud's page it is this app that restarts, not the Cloud.
-  expect(ready?.label).toBe("OpenMausBot 0.2.0 ready — restart");
+  expect(ready?.label).toBe("Colonie 0.2.0 ready — restart");
   expect(ready?.item.attention).toBe(true);
 });
