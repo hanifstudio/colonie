@@ -53,11 +53,18 @@ intended success.
   Apps panel for simple, advanced and ACP-engine states; the ACP case asserts no
   automation rows, not a "Connected tools" label.
 - Apps-panel content adapted to the Colonie boundary: `PluginsPanel` keeps the
-  shared Composio catalog (the same `/api/connectors/catalog` list and logos used
-  by Settings) plus the Custom MCP section, and drops the ready-to-use Whop card,
-  its search/filter branch, its connect flow and the whop refresh wiring. Settings
-  keeps the Composio project-key entry and now passes `hideWhop` to its Custom MCP
-  list. Composio is the only built-in integration; other services are Custom MCP.
+  shared Composio catalog (the same `/api/connectors/catalog` list and logos) plus
+  the Custom MCP section, and drops the ready-to-use Whop card, its search/filter
+  branch, its connect flow and the whop refresh wiring. Composio is the only
+  built-in integration; other services are Custom MCP.
+- One connect surface: Settings → connections is now the Composio project-key
+  entry only (masked identity, source/origin, replace/remove, and a button to open
+  the Apps panel). The duplicate catalog and Custom MCP list were removed from
+  Settings; app accounts and Custom MCP live in the Apps panel. `hideWhop` is set
+  on both `McpServersPanel` uses.
+- Updated the isolated verification helpers for the new navigation
+  (`scripts/colonie/connected-tools-ui.ts`, `credential-ui-check.ts`): the key is
+  reached through the profile menu → Settings, the catalog through the Apps panel.
 - Deliberately deferred (owner chose "leave for now"): the remaining
   `instances.every(isColonieAcpDriver)` hiding in `SidebarFooterNav` and
   `SettingsModal`, plus the legacy Routines/Triggers/Team menu and legacy Settings
@@ -65,8 +72,10 @@ intended success.
 - Evidence: `pnpm lint` and `pnpm typecheck` clean;
   `pnpm vitest run src/components/SidebarFooterNav.test.ts
   src/components/PluginsPanel.navigation.test.ts
-  src/components/McpServersPanel.embedded.test.ts` — 35 passed. No renderer/desktop
-  workflow pass is claimed from these routing/content changes.
+  src/components/McpServersPanel.embedded.test.ts` — 35 passed.
+  `node scripts/colonie/credential-ui-check.ts` and
+  `node scripts/colonie/connected-tools-web-check.ts` both passed against the
+  isolated fixture (simulated Composio, renderer, no real providers/model turns).
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 
@@ -869,15 +878,18 @@ The full upstream test suite was not run; results above name the tested scope.
 
 ## Next action
 
-M8-C puzzle entry and Apps-panel content are done: the puzzle opens the Apps
-panel, and that panel is Composio + Custom MCP only (Whop removed). Next: rebuild
-the packaged app and verify entry/loading and connect status in an isolated
-renderer/desktop fixture, then confirm the puzzle destination on the packaged
-artifact. The deferred legacy hiding (footer menu, legacy Settings sections,
-non-ACP branches) and D1 source retirement stay for the post-consolidation
-cleanup; ACP is the app, so no `mode`-style switch is added.
-M9 remains the subsequent feature-expansion milestone. Any reported installation-
-specific credential-store issue uses bounded metadata diagnosis, not credential
+M8-C is complete for this scope: the puzzle opens the Apps panel, that panel is
+Composio + Custom MCP only (Whop removed), and Settings → connections is the
+project-key entry alone (one connect surface). Rebuild the packaged app for the
+owner to confirm the destination, and re-run the packaged connected-tools fixture
+(`package-check.ts`) against the new navigation. Then the next feature milestone is
+Skills on the ACP boundary (M10 in `PLAN.md`): reuse the upstream Agent Skills
+store, links and UI, expose the ACP bot-profile Skills section, and deliver the
+index through the app-owned ACP context. The deferred legacy hiding (footer menu,
+legacy Settings sections, non-ACP branches) and D1 source retirement stay for the
+post-consolidation cleanup; ACP is the app, so no `mode`-style switch is added.
+M9 (memory/Chief/routines) remains before or alongside M10. Any reported
+installation-specific credential-store issue uses bounded metadata diagnosis, not credential
 inspection or reset.
 Repeat real Codex native-controls/scoped-context checks when quota becomes
 available as a separate follow-up. Chief coordination, memory and routines remain

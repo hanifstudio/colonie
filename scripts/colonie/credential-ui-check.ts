@@ -22,8 +22,13 @@ try {
     };
     try {
       await page.goto(preview.previewUrl);
-      await page.getByRole("button", { name: "Connected tools", exact: true }).click();
-      const region = page.getByRole("region", { name: "Composio connections", exact: true });
+      await page.getByRole("button", { name: "You", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
+      const settings = page.getByRole("dialog", { name: "Settings", exact: true });
+      const connectionsSection = settings.locator('[data-settings-section="connections"]');
+      if (await connectionsSection.count()) await connectionsSection.click();
+      else await settings.locator('[data-settings-page="ai"]').click();
+      const region = settings.getByRole("region", { name: "Composio project key", exact: true });
       const panel = region.locator("[data-composio-credential]");
       if (external) {
         await panel.getByText("Provided by the runtime environment", { exact: true }).waitFor();
@@ -33,14 +38,12 @@ try {
         result.externalKey = { sourceVisible: true, removalHiddenAndBlocked: true };
       } else {
         await panel.getByText("Not set up", { exact: true }).waitFor();
-        if (await region.getByRole("textbox", { name: "Search Composio apps", exact: true }).count()) throw new Error("App catalog is visible without a key");
         await page.screenshot({ path: join(evidence, "credential-ui-not-set-up.png"), animations: "disabled" });
         await panel.getByLabel("Composio project key", { exact: true }).fill(service.key);
         await panel.getByRole("button", { name: "Save key", exact: true }).click();
         await panel.getByText("From existing workspace settings", { exact: true }).waitFor();
         const masked = await panel.getByTestId("composio-masked-key").innerText();
         if (masked === service.key || !masked.endsWith("only")) throw new Error("Stored key identity is not safely masked");
-        await region.getByRole("textbox", { name: "Search Composio apps", exact: true }).waitFor();
         await page.evaluate(() => { (window as any).ogb = { setCredential: async () => { throw new Error("Error invoking remote method 'credential:set': Error: Error while encrypting the text provided to safeStorage.encryptStringAsync."); } }; });
         await panel.getByRole("button", { name: "Remove key", exact: true }).click();
         await panel.getByRole("alert").filter({ hasText: "could not be removed" }).waitFor();
@@ -56,8 +59,7 @@ try {
         await page.evaluate(() => { delete (window as any).ogb; });
         await panel.getByRole("button", { name: "Remove key", exact: true }).click();
         await panel.getByText("Not set up", { exact: true }).waitFor();
-        if (await region.getByRole("textbox", { name: "Search Composio apps", exact: true }).count()) throw new Error("Successful removal left the catalog visible");
-        result.savedKey = { maskedIdentity: true, sourceVisible: true, failedRemovalPreservesState: true, rejectedKeyReasonPreserved: true, successfulRemovalHidesCatalog: true };
+        result.savedKey = { maskedIdentity: true, sourceVisible: true, failedRemovalPreservesState: true, rejectedKeyReasonPreserved: true, successfulRemovalClearsKey: true };
       }
       const status = (await api("GET", "/api/colonie/composio/credential")).value;
       if (JSON.stringify(status).includes(service.key)) throw new Error("Metadata returned a full key");

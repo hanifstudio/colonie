@@ -46,7 +46,7 @@ export function ComposioCredentialPanel({ onStatus }: { onStatus(status: Composi
       const next: ComposioCredentialStatus = await api("/api/colonie/composio/credential");
       setStatus(next); onStatus(next); setDraft(""); setEditing(false);
       setNotice(action === "remove" ? next.available ? "The saved key was removed. An external key is still active." : "Project key removed."
-        : "Project key saved. Connect an app account below if needed.");
+        : "Project key saved. Connect an app account in the Apps panel if needed.");
     } catch (cause) {
       setError(credentialOperationError(cause, action));
       // Failed mutations retain the previous source/masked key, not a success state.
@@ -63,7 +63,7 @@ export function ComposioCredentialPanel({ onStatus }: { onStatus(status: Composi
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-ink-secondary">Active key</dt><dd data-testid="composio-masked-key" className="font-mono">{status.maskedKey}</dd>
         <dt className="text-ink-secondary">Source</dt><dd>{sourceLabel[status.source]}</dd>
         <dt className="text-ink-secondary">Origin</dt><dd>{originLabel[status.origin]}</dd></dl>
-      <p className="text-xs text-ink-secondary">A project key enables Composio setup. Gmail, Drive and other accounts are connected separately below.</p>
+      <p className="text-xs text-ink-secondary">A project key enables Composio setup. Gmail, Drive and other accounts are connected separately in the Apps panel.</p>
       {status.source === "environment" && <p className="text-xs text-ink-secondary">This key is supplied outside the app. Remove it from the launch environment to turn it off.</p>}
       <div className="flex gap-2"><button disabled={busy || status.storage === "unreadable"} onClick={() => { setEditing(true); setError(""); setNotice(""); }} className="rounded-lg bg-control px-3 py-2 text-sm">Replace key</button>
         {status.canRemove && <button disabled={busy} onClick={() => void save("remove")} className="rounded-lg bg-control px-3 py-2 text-sm text-danger">{busy ? "Please wait…" : "Remove key"}</button>}</div>

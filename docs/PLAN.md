@@ -244,6 +244,19 @@ webhooks as needed. Define who responds, what context crosses agent boundaries,
 how Stop propagates and how retries avoid duplicate work. Chief profile alone
 does not satisfy this milestone.
 
+### M10 — skills on the ACP boundary (proposed)
+
+Colonie already ships the upstream Agent Skills store (`server/skills.ts`,
+`shared/skill-md.ts`) and per-bot Skills UI: `SKILL.md` imports (agentskills.io
+format) land disabled with provenance, a content hash and a static scan; enabled
+skills reach an engine through native discovery links (`.claude/skills`,
+`.agents/skills`, `.grok/skills`) and a bounded index line in the system prompt.
+Adopt it for ACP: reuse the store, links and UI, expose a Skills section in the ACP
+bot profile (currently filtered out), and deliver the skills index through the
+app-owned ACP context (M7-B) instead of the legacy prompt pipeline. Claude reads
+`.claude/skills` natively through its adapter; Codex relies on the context index.
+Verify with an isolated fixture and one bounded native-discovery check per provider.
+
 ### Later — computer/VM, voice and office deployment
 
 Computer/VM and voice are potential follow-ups. Office multiuser access requires
