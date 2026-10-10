@@ -24250,6 +24250,26 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, probe);
     }
 
+    // ── in-app sign-in for a Colonie ACP connection ──
+    // Runs the adapter's own authenticate (the provider's browser/device flow)
+    // with the isolated config dir; never a terminal command.
+    const acpAuth = /^\/api\/instances\/([\w.-]+)\/acp-auth$/.exec(path);
+    if (method === "POST" && acpAuth) {
+      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+        return json(res, 415, { error: "content-type must be application/json" });
+      }
+      const body = await readBody(req);
+      const instance = registry.get(acpAuth[1]);
+      if (!instance || !(instance.adapter instanceof AcpRuntime) || !instance.enabled) return json(res, 404, { error: "no such sign-in-able ACP connection" });
+      const methodId = typeof body?.methodId === "string" ? body.methodId : undefined;
+      try {
+        await instance.adapter.authenticate(methodId);
+        return json(res, 200, { instances: await describeInstances() });
+      } catch (error) {
+        return json(res, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     // ── instance-scoped Claude Code update ──
     // No command or path comes from the request: the registry supplies the
     // executable already configured for this Claude instance. The JSON gate

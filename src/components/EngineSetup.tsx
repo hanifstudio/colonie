@@ -9,6 +9,8 @@ import { t } from "@/lib/i18n";
 import { copyText } from "@/lib/copy-text";
 import { DEVICE_SIGN_IN_COPY, DeviceSignIn, deviceSignInProvider } from "./DeviceSignIn";
 import { ClaudeSignIn } from "./ClaudeSignIn";
+import { AcpSignIn } from "./AcpSignIn";
+import { isColonieAcpDriver } from "../../shared/devone";
 
 type Platform = "darwin" | "win32" | "linux";
 
@@ -526,13 +528,17 @@ export function EngineSetup({
   const deviceSignIn = signInOnly && instance.authentication?.method === "device-code";
   const browserSignIn = signInOnly && instance.authentication?.method === "browser-pkce";
   const pasteSignIn = signInOnly && instance.authentication?.method === "paste-code";
+  // Colonie's ACP engines sign in through the adapter's own browser flow.
+  const acpSignIn = signInOnly && isColonieAcpDriver(instance.driverKind);
   const provider = deviceSignInProvider(instance.driverKind);
   const command = signInOnly ? signInCommand : installCommand;
   const title = signInOnly
     ? t("engineSetup.signInTitle", { name: instance.displayName })
     : t("engineSetup.installTitle", { name: instance.displayName });
   const description = descriptionOverride ?? (signInOnly
-    ? browserSignIn
+    ? acpSignIn
+      ? t("engineSetup.acpSignIn")
+      : browserSignIn
       ? t("engineSetup.chatgpt.description")
       : deviceSignIn
       ? t(DEVICE_SIGN_IN_COPY[provider].description)
@@ -590,7 +596,9 @@ export function EngineSetup({
         </p>
       )}
 
-      {deviceSignIn || browserSignIn ? (
+      {acpSignIn ? (
+        <AcpSignIn key={instance.instanceId} instanceId={instance.instanceId} />
+      ) : deviceSignIn || browserSignIn ? (
         <>
           <DeviceSignIn key={instance.instanceId} instanceId={instance.instanceId} browserPkce={browserSignIn} provider={provider} />
           {/* Grok keeps its terminal sign-in for people who prefer one, where

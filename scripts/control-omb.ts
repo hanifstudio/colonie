@@ -412,8 +412,10 @@ export async function launchVerificationServer(
    * it should accept, so a recipe can prove entitled behaviour offline. */
   enterprise?: { dir: string; licenseKey: string },
   room?: { scripted: boolean },
-  /** Optional repository-owned fake providers for multi-engine setup checks. */
-  extraProviders: Array<"codex" | "devone"> = [],
+  /** Optional repository-owned fake providers for multi-engine setup checks.
+   * `devone-unauth` is the same fixture started signed-out, to exercise the
+   * in-app ACP sign-in. */
+  extraProviders: Array<"codex" | "devone" | "devone-unauth"> = [],
   /** Programmatic tests only: an owned loopback Boat provider, never a live account. */
   boatFixtureApi?: string,
   /** Owned loopback Composio session/MCP fixture; never a real account. */
@@ -442,6 +444,9 @@ export async function launchVerificationServer(
   // Native browser daemons use UNIX sockets; a macOS temp home can exceed
   // their path limit. This is still an owned, randomly named fixture only.
   const dataDir = mkdtempSync(join(browser && process.platform !== "win32" ? "/tmp" : tmpdir(), "openmausbot-verify-data-"));
+  const devoneFixtures = extraProviders.includes("devone") || extraProviders.includes("devone-unauth");
+  const devoneUnauth = extraProviders.includes("devone-unauth");
+  const devoneInstanceEnv = (extra: Record<string, string>) => ({ ...extra, ...(devoneUnauth ? { COLONIE_FAKE_UNAUTH: "1" } : {}) });
   const fixtureTemp = join(dataDir, "tmp");
   const fixtureDumpPath = join(dataDir, "fake-claude-dump.json");
   mkdirSync(fixtureTemp, { recursive: true });
@@ -451,14 +456,14 @@ export async function launchVerificationServer(
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     ...(boatFixtureApi ? { box: { token: "box_verification_fixture" } } : {}),
     instances: {
-      ...(extraProviders.includes("devone") ? { "codex-acp": {
+      ...(devoneFixtures ? { "codex-acp": {
         driver: "codex-acp", displayName: "Codex · ACP fixture",
         config: { cli: process.execPath, args: [join(ROOT, "server", "devone", "testing", "fake-agent.ts")] },
-        environment: { DEVONE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600" },
+        environment: devoneInstanceEnv({ DEVONE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600" }),
       }, "claude-acp": {
         driver: "claude-acp", displayName: "Claude · ACP fixture",
         config: { cli: process.execPath, args: [join(ROOT, "server", "devone", "testing", "fake-agent.ts")] },
-        environment: { DEVONE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" },
+        environment: devoneInstanceEnv({ DEVONE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), DEVONE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" }),
       } } : {}),
       ...(extraProviders.includes("codex") ? { codex: {
         driver: "codex", displayName: "Verification Codex", config: { cli: fileURLToPath(new URL("../server/testing/fake-codex-app-server.ts", import.meta.url)) },
@@ -474,7 +479,7 @@ export async function launchVerificationServer(
 
   const log = openSync(logPath, "a", 0o600);
   const childEnv = verificationServerEnvironment(parentEnv, dataDir, port);
-  if (extraProviders.includes("devone")) childEnv.DEVONE_PROFILE = "1";
+  if (devoneFixtures) childEnv.DEVONE_PROFILE = "1";
   // Opt-in live Local VM fixture: keep the temporary home and fake engine,
   // granting only the explicitly selected machine connection and static UI.
   if (localVm) Object.assign(childEnv, {

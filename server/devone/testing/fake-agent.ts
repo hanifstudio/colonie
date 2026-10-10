@@ -7,7 +7,9 @@ import { fixtureMcpClient, type FixtureMcpClient } from "./mcp-client.ts";
 
 const file = process.env.DEVONE_FAKE_STATE!;
 type FixtureSession = { prompts: string[]; mode?: string; model?: string; effort?: string; fast?: boolean };
-type State = { sessions: Record<string, FixtureSession>; permissions: string[]; loads: number; environment?: Record<string, string | null> };
+type State = { sessions: Record<string, FixtureSession>; permissions: string[]; loads: number; environment?: Record<string, string | null>; authenticated?: boolean };
+const unauthenticatedStart = () => process.env.COLONIE_FAKE_UNAUTH === "1";
+const initialState = (): State => ({ sessions: {}, permissions: [], loads: 0, authenticated: !unauthenticatedStart() });
 let state: State;
 /** Several adapter processes share this fixture file; serialize their updates. */
 function transaction<T>(action: () => T): T {
@@ -22,11 +24,17 @@ function transaction<T>(action: () => T): T {
   }
   try {
     try { state = JSON.parse(readFileSync(file, "utf8")); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; state = { sessions: {}, permissions: [], loads: 0 }; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; state = initialState(); }
     const result = action();
     writeFileSync(file, JSON.stringify(state));
     return result;
   } finally { rmdirSync(lock); }
+}
+/** Read without writing: auth state is shared across the processes a probe
+ * and a sign-in spawn. Missing file means the unflagged default. */
+function currentState(): State {
+  try { return JSON.parse(readFileSync(file, "utf8")); }
+  catch { return initialState(); }
 }
 const active = new Map<string, () => void>();
 const mounts = new Map<string, McpServer[]>();
@@ -59,8 +67,10 @@ const sessionState = (id?: string) => {
 };
 
 agent({ name: "DevOne deterministic fixture" })
-  .onRequest(methods.agent.initialize, () => ({ protocolVersion: PROTOCOL_VERSION, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true, sse: claude } } }))
+  .onRequest(methods.agent.initialize, () => ({ protocolVersion: PROTOCOL_VERSION, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true, sse: claude } }, authMethods: currentState().authenticated === false ? [{ id: "fixture-login", name: "Fixture sign-in" }] : [] }))
+  .onRequest(methods.agent.authenticate, () => transaction(() => { state.authenticated = true; return {}; }))
   .onRequest(methods.agent.session.new, ({ params }) => transaction(() => {
+    if (state.authenticated === false) throw RequestError.authRequired();
     const sessionId = crypto.randomUUID();
     state.sessions[sessionId] = { prompts: [] };
     // Record the config-dir env the app spawns this engine with, so a fixture

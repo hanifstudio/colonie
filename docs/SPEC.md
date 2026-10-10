@@ -338,6 +338,11 @@ are the only part that cannot be separated, and that limit is stated rather than
 hidden. A user who stops using Colonie and returns to the plain CLI finds their
 own state unchanged.
 
+Because the login is isolated, the app must show whether each ACP engine is signed
+in and offer a way to sign in: it probes signed-in state over the protocol (never
+from stored credentials) and runs the engine's own `authenticate`, so the isolated
+login is discoverable and usable from the app.
+
 The owner approved bounded delegation of frontend UX cleanup through Herdr/OpenCode
 with a free model when available, with complete planning, separate file ownership,
 one-pass reporting and lead review. This does not delegate or authorize broad

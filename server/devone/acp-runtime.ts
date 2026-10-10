@@ -2,6 +2,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
@@ -44,6 +45,11 @@ export interface AcpProvider {
   loginCommand: string;
   askMode: string;
   fullMode: string;
+}
+/** Whether this connection is signed in, plus its offered sign-in methods. */
+export interface AcpAuthStatus {
+  authenticated: boolean;
+  methods: Array<{ id: string; name: string }>;
 }
 type EventPayload<E = RuntimeEvent> = E extends RuntimeEvent
   ? Omit<E, "eventId" | "provider" | "threadId" | "createdAt"> : never;
@@ -127,6 +133,11 @@ export class AcpRuntime implements ProviderAdapter {
   private readonly config: Config;
   private readonly environment: Record<string, string>;
   private readonly flavor: AcpProvider;
+  /** Signed-in state is probed over the protocol, not read from credentials.
+   * Cached for a few minutes; invalidated after a sign-in. */
+  private authCache: { at: number; status: AcpAuthStatus } | null = null;
+  private authProbe: Promise<AcpAuthStatus> | null = null;
+  private static readonly AUTH_TTL_MS = 5 * 60_000;
 
   constructor(
     instanceId: string,
@@ -297,17 +308,7 @@ export class AcpRuntime implements ProviderAdapter {
     finally { clearTimeout(timer); }
   }
 
-  private async open(input: SendTurnInput): Promise<LiveSession> {
-    const cwd = resolve(input.cwd ?? process.cwd());
-    let existing = this.sessions.get(input.threadId);
-    const toolsChanged = existing && existing.mount?.revision !== input.acpTools?.revision;
-    if (existing && (existing.closed || existing.cwd !== cwd || input.sessionReset || toolsChanged)) {
-      if (toolsChanged && !input.sessionReset && existing.cwd === cwd) input = { ...input, resumeCursor: input.resumeCursor ?? existing.id };
-      await this.close(existing);
-      existing = undefined;
-    }
-    if (existing) { clearTimeout(existing.idleTimer); return existing; }
-    if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
+  private spawnAdapter(cwd: string): ChildProcessWithoutNullStreams {
     const env = { ...process.env, ...this.environment };
     env.ELECTRON_RUN_AS_NODE = "1";
     // Existing CLI auth is inherited. Ambient API keys must not silently change billing.
@@ -321,7 +322,86 @@ export class AcpRuntime implements ProviderAdapter {
     delete env.COLONIE_COMPOSIO_API_KEY;
     const command = this.config.cli ?? process.execPath;
     const args = this.config.cli ? this.config.args ?? [] : [process.env[this.flavor.entryEnvironment] ?? require.resolve(this.flavor.packageEntry)];
-    const child = spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    return spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+  }
+
+  /** A short-lived adapter connection for auth, outside the session map. */
+  private async withAdapter<T>(action: (connection: ClientConnection, init: InitializeResponse) => Promise<T>): Promise<T> {
+    const cwd = tmpdir();
+    const child = this.spawnAdapter(cwd);
+    const connection = client({ name: "Colonie" }).connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
+    const timer = setTimeout(() => connection.close(new Error("ACP auth request timed out")), this.config.setupTimeoutMs);
+    try {
+      const init = await connection.agent.request(methods.agent.initialize, { protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" }, clientCapabilities: {} });
+      return await action(connection, init);
+    } finally {
+      clearTimeout(timer);
+      connection.close();
+      child.kill("SIGTERM");
+    }
+  }
+
+  /** Initialize, then try to open a session. `auth_required` — or any failure
+   * while the engine advertises sign-in methods — means not signed in. */
+  private probeConnection(connection: ClientConnection, init: InitializeResponse): Promise<AcpAuthStatus> {
+    const offered = AcpRuntime.authMethods(init);
+    return connection.agent.request(methods.agent.session.new, { cwd: tmpdir(), mcpServers: [] }).then(
+      () => ({ authenticated: true, methods: offered }),
+      (error: unknown) => {
+        if (AcpRuntime.isAuthError(error) || offered.length) return { authenticated: false, methods: offered };
+        throw error;
+      },
+    );
+  }
+
+  private static authMethods(init: InitializeResponse): Array<{ id: string; name: string }> {
+    return (init.authMethods ?? []).map((method) => ({ id: method.id, name: method.name }));
+  }
+
+  private static isAuthError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /auth(?:entication)?\s+required|not\s+(?:signed|logged)\s+in|sign[\s-]?in|log[\s-]?in/i.test(message);
+  }
+
+  /** Probe over the protocol, not from stored credentials. Cached briefly. */
+  async authStatus(force = false): Promise<AcpAuthStatus> {
+    const now = Date.now();
+    if (!force && this.authCache && now - this.authCache.at < AcpRuntime.AUTH_TTL_MS) return this.authCache.status;
+    if (this.authProbe) return this.authProbe;
+    const probe = this.withAdapter((connection, init) => this.probeConnection(connection, init))
+      .then((status) => { this.authCache = { at: Date.now(), status }; return status; })
+      .finally(() => { this.authProbe = null; });
+    this.authProbe = probe;
+    return probe;
+  }
+
+  /** Run the engine's own sign-in and report the result. The adapter drives
+   * the provider's browser/device flow; the app only waits. */
+  async authenticate(methodId?: string): Promise<AcpAuthStatus> {
+    this.authCache = null;
+    const status = await this.withAdapter(async (connection, init) => {
+      const offered = AcpRuntime.authMethods(init);
+      const method = methodId ?? offered[0]?.id;
+      if (!method) throw new Error("This connection does not offer a sign-in method.");
+      await connection.agent.request(methods.agent.authenticate, { methodId: method });
+      return this.probeConnection(connection, init);
+    });
+    this.authCache = { at: Date.now(), status };
+    return status;
+  }
+
+  private async open(input: SendTurnInput): Promise<LiveSession> {
+    const cwd = resolve(input.cwd ?? process.cwd());
+    let existing = this.sessions.get(input.threadId);
+    const toolsChanged = existing && existing.mount?.revision !== input.acpTools?.revision;
+    if (existing && (existing.closed || existing.cwd !== cwd || input.sessionReset || toolsChanged)) {
+      if (toolsChanged && !input.sessionReset && existing.cwd === cwd) input = { ...input, resumeCursor: input.resumeCursor ?? existing.id };
+      await this.close(existing);
+      existing = undefined;
+    }
+    if (existing) { clearTimeout(existing.idleTimer); return existing; }
+    if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
+    const child = this.spawnAdapter(cwd);
     const session = { threadId: input.threadId, cwd, child, mount: input.acpTools,
       permissions: new Map(), tools: new Set(), loading: true, closed: false, stderr: "", modeEpoch: 0,
     } as LiveSession;
@@ -627,8 +707,18 @@ export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> {
     return {
       instanceId: input.instanceId, driverKind: flavor.kind, displayName: input.displayName,
       enabled: input.enabled, models, adapter,
-      // Only a real session can establish auth/model access; don't inspect credentials.
-      snapshot: async () => ({ state: input.enabled ? "available" : "unavailable", version: `${flavor.kind} ${flavor.version}`, reason: input.enabled ? undefined : "Disabled" }),
+      // Signed-in state comes from the protocol probe, never from credentials.
+      snapshot: async () => {
+        const base = { state: input.enabled ? "available" : "unavailable", version: `${flavor.kind} ${flavor.version}`, reason: input.enabled ? undefined : "Disabled" } as const;
+        if (!input.enabled) return { ...base };
+        try {
+          const auth = await adapter.authStatus();
+          return { ...base, authenticated: auth.authenticated };
+        } catch {
+          // A probe that cannot start says nothing about sign-in; do not claim one.
+          return { ...base };
+        }
+      },
       dispose: () => adapter.stopAll(),
     };
   },

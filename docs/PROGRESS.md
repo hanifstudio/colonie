@@ -21,8 +21,9 @@ verified with both-provider HTTP and production packaged desktop SDK fixtures.
 ACP is the app's only execution path — a fixed property, not a mode: the puzzle
 entry opens the Apps panel directly. Colonie also keeps its own state separate
 from the user's plain CLI: the ACP engines run with a per-engine config dir under
-`~/.colonie/native/...` (M8-D). This file describes observed results, not
-intended success.
+`~/.colonie/native/...` (M8-D), and the app shows whether each engine is signed in
+and signs in through the engine's own flow (M8-E). This file describes observed
+results, not intended success.
 
 ## Roadmap update — marketplace consolidation and deferred legacy retirement
 
@@ -100,6 +101,27 @@ intended success.
   `pnpm typecheck` clean. `server/devone/` suite: 274 passed; the single
   `start.e2e.test.ts` failure is the pre-existing Node-22-vs-24 launcher guard,
   not this change.
+
+## M8-E — ACP connection status and in-app sign-in (implemented)
+
+- The UI could not tell whether a Claude/Codex ACP engine was signed in, and
+  offered no sign-in. With M8-D isolating the config dir this became a hard stop:
+  a fresh engine is signed out with no way to log in.
+- `AcpRuntime.authStatus()` probes signed-in state over the protocol (initialize,
+  then session/new; `auth_required` = signed out), cached ~5 minutes; the instance
+  snapshot carries `authenticated`, so the existing `needsSignIn` card appears.
+- In-app sign-in: `AcpRuntime.authenticate()` runs the engine's own `authenticate`
+  (the adapter drives the provider's browser/device flow) and re-probes. Route
+  `POST /api/instances/:id/acp-auth`; the new `AcpSignIn` card renders one Sign in
+  button in `EngineSetup` for Colonie ACP drivers. Never reads stored credentials;
+  the login lands in the isolated config dir (M8-D).
+- Evidence: new `server/devone/auth.e2e.test.ts` (fixture `devone-unauth`) proves
+  the snapshot reports signed-out, the endpoint signs in, and the snapshot flips to
+  signed-in; `server/devone/isolation.e2e.test.ts` still passes. `pnpm lint`,
+  `pnpm typecheck` and `pnpm i18n:check` clean. `pnpm colonie:test`: 49 passed; the
+  one `start.e2e.test.ts` failure is the pre-existing Node-22-vs-24 launcher guard.
+- Not verified here: the real provider browser/device sign-in (needs a real
+  account), and the desktop renderer card itself.
 
 ## Composio credential provenance / Clear / storage — implemented and verified
 
@@ -904,9 +926,12 @@ The full upstream test suite was not run; results above name the tested scope.
 
 M8-C is complete (puzzle → Apps panel; that panel Composio + Custom MCP only;
 Settings → connections is the project-key entry alone). M8-D is complete: the ACP
-engines run isolated under `~/.colonie/native/...`, verified end-to-end. Rebuild
-the packaged app for the owner, and re-run the packaged connected-tools fixture
-(`package-check.ts`) against the new navigation. Next feature milestone is Skills
+engines run isolated under `~/.colonie/native/...`, verified end-to-end. M8-E is
+complete: the app shows signed-in/signed-out per ACP engine and signs in through
+the engine's own flow, verified with the signed-out fixture. Rebuild the packaged
+app for the owner; the real provider sign-in still needs a real account to confirm
+on the packaged build, and the desktop renderer card is unverified. Next feature
+milestone is Skills
 on the ACP boundary (M10 in `PLAN.md`): reuse the upstream Agent Skills store,
 links and UI, expose the ACP bot-profile Skills section, and deliver the index
 through the app-owned ACP context. The deferred legacy hiding (footer menu, legacy
