@@ -24258,21 +24258,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      const body = await readBody(req);
+      await readBody(req);
       const instance = registry.get(acpAuth[1]);
       if (!instance || !(instance.adapter instanceof AcpRuntime) || !instance.enabled) return json(res, 404, { error: "no such sign-in-able ACP connection" });
-      const methodId = typeof body?.methodId === "string" ? body.methodId : undefined;
-      try {
-        await instance.adapter.authenticate(methodId);
-        return json(res, 200, { instances: await describeInstances() });
-      } catch (error) {
-        // Claude's adapter offers only terminal sign-in: hand back the command
-        // (with the isolated config dir) for the app to open in a Terminal.
-        if (error && typeof error === "object" && (error as { code?: unknown }).code === "terminal-sign-in") {
-          return json(res, 200, { terminal: { command: instance.adapter.signInCommand() }, instances: await describeInstances() });
-        }
-        return json(res, 400, { error: error instanceof Error ? error.message : String(error) });
-      }
+      // Colonie signs in through the engine's own CLI in a Terminal, with the
+      // isolated config dir — the same for Codex and Claude.
+      return json(res, 200, { terminal: { command: instance.adapter.signInCommand() }, instances: await describeInstances() });
     }
 
     // ── instance-scoped Claude Code update ──

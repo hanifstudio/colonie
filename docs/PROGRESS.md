@@ -119,14 +119,20 @@ results, not intended success.
   handler), falling back to `session/new` only for agents that do not announce
   auth. Cached ~5 minutes; `snapshot.authenticated` drives the existing
   `needsSignIn` card. Never reads stored credentials.
-- In-app sign-in: `POST /api/instances/:id/acp-auth` runs `authenticate` with the
-  preferred browser/subscription method (Codex `chat-gpt`). When the adapter offers
-  only terminal sign-in (Claude), `AcpSignIn` runs the login in a real Terminal via
-  a new `engine:sign-in-terminal` IPC: the main process builds
-  `CLAUDE_CONFIG_DIR="<data>/native/claude" claude auth login` from the app's own
-  data dir (renderer text never becomes a process argument) and launches it
-  through `openTerminalWithCommand` — the older copy-and-open-blank behavior is not
-  used here. Login lands in the isolated config dir (M8-D).
+- Sign-in is the engine's own CLI in a Terminal, the same for Codex and Claude:
+  `POST /api/instances/:id/acp-auth` returns `{ terminal: { command } }` and
+  `AcpSignIn` runs it via the `engine:sign-in-terminal` IPC. The main process
+  builds `<CODEX_HOME|CLAUDE_CONFIG_DIR>="<data>/native/<engine>" <cli login>` from
+  the app's own data dir (renderer text never becomes a process argument) and
+  launches it through `openTerminalWithCommand`. The adapters' in-app
+  `authenticate` browser path was dropped for consistency and predictability.
+  Login lands in the isolated config dir (M8-D); a signed-out engine re-probes
+  within ~5s, so the badge updates soon after the login finishes.
+- Model list before the first message: ACP engines report their models only inside
+  a session, so the picker used to show just the agent default until the first
+  turn. `AcpRuntime.discoverModels()` opens one throwaway session on demand, wired
+  to the provider's `refreshModels`; the picker calls it when it shows a signed-in
+  ACP engine, so the full list appears without sending a message.
 - Bot creation: when no engine can run yet, `/api/bot-defaults` returns an empty
   selection; the New Bot dialog now shows "Sign in to a model provider…" and
   disables Create (plus a link to model settings), instead of submitting an empty

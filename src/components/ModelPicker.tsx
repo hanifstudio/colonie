@@ -19,6 +19,7 @@ import { EngineGroupLabel } from "./EngineGroupLabel";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ChatGptPlanStatus } from "./ChatGptPlanStatus";
 import { approvalModeFor, modelSwitchNeedsAsk } from "../../shared/approval-mode";
+import { isColonieAcpDriver } from "../../shared/devone";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { repeatedModelLabels, SimpleModelPane } from "./SimpleModelPane";
@@ -627,6 +628,20 @@ export function ModelPicker({
   useEffect(() => {
     if (open) refreshLocalInstances();
   }, [open, refreshLocalInstances]);
+
+  // ACP engines report their model list only inside a session, so the catalog
+  // is just the agent default until the first message. Open one throwaway
+  // session when the picker shows a signed-in ACP engine so the list is whole.
+  const acpProbedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!open || !railInstance || railInstance.snapshot.authenticated === false) return;
+    if (!isColonieAcpDriver(railInstance.driverKind)) return;
+    if (railInstance.models.options.filter((option) => !option.custom).length > 1) return;
+    const id = railInstance.instanceId;
+    if (acpProbedRef.current.has(id)) return;
+    acpProbedRef.current.add(id);
+    void refreshInstanceModels(id).catch(() => acpProbedRef.current.delete(id));
+  }, [open, railInstance, refreshInstanceModels]);
 
   useEffect(() => {
     if (bot.busy) setOpen(false);

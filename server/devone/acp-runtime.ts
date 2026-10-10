@@ -396,22 +396,6 @@ export class AcpRuntime implements ProviderAdapter {
     return /auth(?:entication)?\s+required|not\s+(?:signed|logged)\s+in|sign[\s-]?in|log[\s-]?in/i.test(message);
   }
 
-  /** A browser/subscription method beats an API key or gateway for the single
-   * in-app button. */
-  private static preferredSignInMethod(offered: Array<{ id: string }>): string | undefined {
-    const score = (id: string) =>
-      /chat-?gpt|device-?code/i.test(id) ? 0
-        : /login|subscription|claude|console/i.test(id) ? 1
-          : /api-?key|gateway/i.test(id) ? 9 : 5;
-    return offered.map((method) => method.id).sort((a, b) => score(a) - score(b))[0];
-  }
-
-  /** Whether the adapter offers an agent-run sign-in at all (Claude's is a
-   * terminal method, so it has none). */
-  hasInAppSignIn(): Promise<boolean> {
-    return this.withAdapter((_connection, init) => Promise.resolve(AcpRuntime.authMethods(init).length > 0));
-  }
-
   /** The terminal login command, with the isolated config dir so the login
    * lands inside Colonie. */
   signInCommand(): string {
@@ -433,20 +417,17 @@ export class AcpRuntime implements ProviderAdapter {
     return probe;
   }
 
-  /** Run the engine's own sign-in and report the result. The adapter drives
-   * the provider's browser flow; the app only waits. */
-  async authenticate(methodId?: string): Promise<AcpAuthStatus> {
-    this.authCache = null;
-    const status = await this.withAdapter(async (connection, init, auth) => {
-      const offered = AcpRuntime.authMethods(init);
-      const method = methodId ?? AcpRuntime.preferredSignInMethod(offered);
-      if (!method) throw Object.assign(new Error("This connection signs in from a terminal, not in the app."), { code: "terminal-sign-in" });
-      auth.latest = null;
-      await connection.agent.request(methods.agent.authenticate, { methodId: method });
-      return this.resolvedAuth(connection, init, auth);
-    }, 5 * 60_000);
-    this.authCache = { at: Date.now(), status };
-    return status;
+  /** Create a throwaway session to learn the engine's model list, so the picker
+   * is complete before the first message. Best effort. */
+  async discoverModels(): Promise<void> {
+    const cwd = this.environment.CLAUDE_CONFIG_DIR ?? this.environment.CODEX_HOME;
+    const input = { threadId: "__models__", botId: "__models__", text: "", cwd, model: "agent-default" } as SendTurnInput;
+    try {
+      await this.prepareSettings(input);
+      this.authCache = null;
+    } catch {
+      // The catalog keeps whatever it last knew.
+    }
   }
 
   private async open(input: SendTurnInput): Promise<LiveSession> {
@@ -766,6 +747,9 @@ export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> {
     return {
       instanceId: input.instanceId, driverKind: flavor.kind, displayName: input.displayName,
       enabled: input.enabled, models, adapter,
+      // Open a throwaway session on demand so the model picker is complete
+      // before the first message (the adapter only reports models in-session).
+      refreshModels: async () => { await adapter.discoverModels(); },
       // Signed-in state comes from the protocol probe, never from credentials.
       snapshot: async () => {
         const base = { state: input.enabled ? "available" : "unavailable", version: `${flavor.kind} ${flavor.version}`, reason: input.enabled ? undefined : "Disabled" } as const;
