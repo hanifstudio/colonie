@@ -121,9 +121,12 @@ results, not intended success.
   `needsSignIn` card. Never reads stored credentials.
 - In-app sign-in: `POST /api/instances/:id/acp-auth` runs `authenticate` with the
   preferred browser/subscription method (Codex `chat-gpt`). When the adapter offers
-  only terminal sign-in (Claude), the endpoint returns the login command with the
-  isolated dir and the `AcpSignIn` card opens it in a Terminal. Login lands in the
-  isolated config dir (M8-D).
+  only terminal sign-in (Claude), `AcpSignIn` runs the login in a real Terminal via
+  a new `engine:sign-in-terminal` IPC: the main process builds
+  `CLAUDE_CONFIG_DIR="<data>/native/claude" claude auth login` from the app's own
+  data dir (renderer text never becomes a process argument) and launches it
+  through `openTerminalWithCommand` — the older copy-and-open-blank behavior is not
+  used here. Login lands in the isolated config dir (M8-D).
 - Bot creation: when no engine can run yet, `/api/bot-defaults` returns an empty
   selection; the New Bot dialog now shows "Sign in to a model provider…" and
   disables Create (plus a link to model settings), instead of submitting an empty

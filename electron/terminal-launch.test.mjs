@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
 
-import { openBlankTerminal } from "./terminal-launch.mjs";
+import { openBlankTerminal, openTerminalWithCommand } from "./terminal-launch.mjs";
 
 function launcher(outcomes) {
   const calls = [];
@@ -66,5 +66,21 @@ describe("blank terminal launcher", () => {
       throw new Error("launch failed");
     };
     await expect(openBlankTerminal("darwin", run)).resolves.toBe(false);
+  });
+});
+
+describe("sign-in terminal launcher", () => {
+  it("runs the fixed sign-in command in Terminal, escaping its quotes", async () => {
+    const fake = launcher(["spawn"]);
+    await expect(
+      openTerminalWithCommand('CLAUDE_CONFIG_DIR="/x/.colonie/native/claude" claude auth login', "darwin", fake.run),
+    ).resolves.toBe(true);
+    expect(fake.calls).toEqual([
+      {
+        executable: "osascript",
+        args: ["-e", 'tell application "Terminal"\nactivate\ndo script "CLAUDE_CONFIG_DIR=\\"/x/.colonie/native/claude\\" claude auth login"\nend tell'],
+        options: undefined,
+      },
+    ]);
   });
 });

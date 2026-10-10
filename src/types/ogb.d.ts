@@ -240,6 +240,9 @@ const __APP_VERSION__: string;
       /** Copies an engine install command and opens a blank terminal. False
        * when no terminal could be launched; the clipboard still has it. */
       openInstallTerminal?(command: string): Promise<boolean>;
+      /** Opens a Terminal that runs the engine's own sign-in command with the
+       * isolated config dir. False when it could not launch. */
+      signInTerminal?(engineId: string): Promise<boolean>;
       /** Writes plain text to the system clipboard; false on failure. Absent on older builds. */
       copyText?(text: string): Promise<boolean>;
       /** Opens an http(s) link in the user's default browser. */

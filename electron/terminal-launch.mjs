@@ -23,6 +23,37 @@ function launch(executable, args, options, run = execFile) {
   });
 }
 
+/** Open a terminal and run one fixed command in it. The caller owns the
+ * command text (engine sign-in, built from the app's own data dir); this
+ * module never builds a command from renderer input. */
+export async function openTerminalWithCommand(command, platform = process.platform, run = execFile) {
+  if (platform === "darwin") {
+    const escaped = command.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const script = `tell application "Terminal"\nactivate\ndo script "${escaped}"\nend tell`;
+    return launch("osascript", ["-e", script], undefined, run);
+  }
+  if (platform === "win32") {
+    const escaped = command.replace(/"/g, '`"');
+    return launch(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", `Start-Process powershell.exe -ArgumentList '-NoExit','-Command',"${escaped}"`],
+      { windowsHide: true },
+      run,
+    );
+  }
+  if (platform === "linux") {
+    for (const [terminal, args] of [
+      ["x-terminal-emulator", ["-e", "bash", "-lc", command]],
+      ["gnome-terminal", ["--", "bash", "-lc", command]],
+      ["konsole", ["-e", "bash", "-lc", command]],
+      ["xterm", ["-e", "bash", "-lc", command]],
+    ]) {
+      if (await launch(terminal, args, undefined, run)) return true;
+    }
+  }
+  return false;
+}
+
 /** Open a blank terminal. Installer text is deliberately not accepted here,
  * so renderer-controlled input can never become a process argument. */
 export async function openBlankTerminal(platform = process.platform, run = execFile) {

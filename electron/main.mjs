@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { startCua, stopCua, registerCuaIpc, setCuaStateListener } from "./cua.mjs";
 import { createAndroidDeviceController } from "./android-device.mjs";
 import { finishSpeech, startSpeech, stopSpeech } from "./speech.mjs";
-import { openBlankTerminal } from "./terminal-launch.mjs";
+import { openBlankTerminal, openTerminalWithCommand } from "./terminal-launch.mjs";
 import { pasteMenuItem } from "./paste-menu-item.mjs";
 import { attachUpdaterWindow, startUpdater, registerUpdaterIpc, sendUpdaterState } from "./updater.mjs";
 import {
@@ -2475,6 +2475,20 @@ ipcMain.handle("engine:open-terminal", localOnly("engine:open-terminal", async (
   if (typeof command !== "string" || !command.trim()) return false;
   clipboard.writeText(command);
   return openBlankTerminal();
+}));
+
+// Colonie engine sign-in: open a real Terminal that runs the provider's own
+// login with the isolated config dir. The command is built here from the app's
+// own data dir, so renderer text never becomes a process argument.
+const ENGINE_SIGN_IN = {
+  "claude-acp": { env: "CLAUDE_CONFIG_DIR", dir: "claude", command: "claude auth login" },
+  "codex-acp": { env: "CODEX_HOME", dir: "codex", command: "codex login" },
+};
+ipcMain.handle("engine:sign-in-terminal", localOnly("engine:sign-in-terminal", async (_event, engineId) => {
+  const spec = ENGINE_SIGN_IN[engineId];
+  if (!spec) return false;
+  const dir = path.join(desktopDataDir(), "native", spec.dir);
+  return openTerminalWithCommand(`${spec.env}="${dir}" ${spec.command}`);
 }));
 
 // Fallback for the renderer's copy button when the web Clipboard API rejects

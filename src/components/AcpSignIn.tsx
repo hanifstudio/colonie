@@ -6,7 +6,7 @@ import { copyText } from "@/lib/copy-text";
 
 /** In-app sign-in for a Colonie ACP connection. Codex signs in through the
  * adapter's own browser flow; Claude's adapter offers only a terminal login,
- * which the app opens with the isolated config dir. */
+ * which the app opens (running it) with the isolated config dir. */
 export function AcpSignIn({ instanceId }: { instanceId: string }) {
   const { refreshInstances, refreshModels } = useStore();
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,9 @@ export function AcpSignIn({ instanceId }: { instanceId: string }) {
     try {
       const result = await api<{ terminal?: { command: string } }>(`/api/instances/${encodeURIComponent(instanceId)}/acp-auth`, { method: "POST", body: "{}" });
       if (result.terminal) {
-        const opened = await window.ogb?.openInstallTerminal?.(result.terminal.command);
+        // Run the login in a real Terminal; only fall back to showing the
+        // command when no terminal can be launched (a browser client).
+        const opened = await window.ogb?.signInTerminal?.(instanceId);
         if (!opened) setTerminal(result.terminal.command);
       }
       await refresh();
