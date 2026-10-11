@@ -20,6 +20,7 @@ import { useSlackManagementUrl } from "./bot-settings/useSlackManagement";
 import { SoulSection } from "./bot-settings/SoulSection";
 import { SkillsSection } from "./bot-settings/SkillsSection";
 import { MemorySection } from "./bot-settings/MemorySection";
+import { ColonieMemorySection } from "./bot-settings/ColonieMemorySection";
 import { RoutinesSection } from "./bot-settings/RoutinesSection";
 import { AccessSection } from "./bot-settings/AccessSection";
 import { ModelSection } from "./bot-settings/ModelSection";
@@ -89,7 +90,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // on a served workspace, and there only to an admin.
   const ownerOrAdmin = useOwnerOrAdmin();
   const sections = BOT_SECTIONS
-    .filter((entry) => !codexAcp || ["overview", "identity", "soul", "access", "model", "permissions"].includes(entry.id))
+    .filter((entry) => !codexAcp || ["overview", "identity", "soul", "memory", "access", "model", "permissions"].includes(entry.id))
     .filter((entry) => entry.id !== "slack" || slackUrl !== null)
     .filter((entry) => entry.id !== "visibility" || (!window.ogb && ownerOrAdmin === true));
   const visibleSections = sections.filter((entry) => sectionMatches(entry, q));
@@ -321,7 +322,8 @@ export function BotSettingsDialog({ bot, overlay = false }: {
         // while the user consults another section. It fetches when it
         // becomes the active section. Always mounted; visibility toggled
         // via hidden on the accordion body wrapper.
-        return <MemorySection bot={bot} active={!collapsed && section === "memory"} onToggle={(enabled) => derived.patch({ memoryEnabled: enabled })} />;
+        return codexAcp ? <ColonieMemorySection bot={bot} active={!collapsed && section === "memory"} />
+          : <MemorySection bot={bot} active={!collapsed && section === "memory"} onToggle={(enabled) => derived.patch({ memoryEnabled: enabled })} />;
       case "routines":
         return <RoutinesSection bot={bot} routines={derived.botRoutines} runs={state.routineRuns} />;
       case "access":

@@ -1,9 +1,9 @@
 /** New ACP boundary. No imports from the legacy drivers/acp client or Codex driver. */
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
   client, methods, ndJsonStream, PROTOCOL_VERSION,
@@ -26,6 +26,7 @@ import { redactSecretsInText } from "../redact.ts";
 import { nativePreferences, saveNativePreferences, type NativePreferences } from "./settings.ts";
 import type { NativeSettings, NativeSettingChange, NativeOption } from "../../shared/acp-settings.ts";
 import type { AcpToolMount } from "../colonie/connections/contracts.ts";
+import { DATA_DIR } from "../config.ts";
 
 const require = createRequire(import.meta.url);
 const configSchema = z.object({
@@ -510,6 +511,7 @@ export class AcpRuntime implements ProviderAdapter {
   async sendTurn(input: SendTurnInput) {
     if (this.disposed) throw new Error("ACP runner is closed");
     if (input.acpContext && input.acpContext.botId !== input.botId) throw new Error("Context snapshot belongs to another bot");
+    if (input.acpMemory?.entries.some((entry) => entry.scope === "bot" && entry.botId !== input.botId)) throw new Error("Memory belongs to another bot");
     if (this.starting.has(input.threadId) || this.sessions.get(input.threadId)?.turn && !this.sessions.get(input.threadId)!.turn!.finished) {
       throw new Error("This conversation already has an active turn");
     }
@@ -537,7 +539,7 @@ export class AcpRuntime implements ProviderAdapter {
         throw new Error("This conversation's context snapshot is missing. Restore it before continuing.");
       }
       const pin = input.acpContext ? pinContext(input.threadId, input.acpContext) : null;
-      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: session.mount?.receipt });
+      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: session.mount?.receipt, memory: input.acpMemory });
       const prompt = composed.prompt;
       for (const image of input.images ?? []) {
         prompt.push({ type: "image", mimeType: image.mime, data: readFileSync(image.path).toString("base64") });
@@ -720,6 +722,57 @@ export class AcpRuntime implements ProviderAdapter {
     return turn && !turn.finished
       ? { turnId: turn.id, itemId: `${turn.id}-text-${turn.item}`, text: turn.text }
       : null;
+  }
+  /** Bounded independent memory analysis. It never shares a conversation session,
+   * persona, selected MCP servers, working project or events with normal chat.
+   * Native tools remain provider-owned; any observed tool activity invalidates
+   * the analysis, and every permission request is denied. */
+  async analyzeMemory(prompt: string, options: { model?: string; signal: AbortSignal }): Promise<string> {
+    if (this.disposed || options.signal.aborted) throw new Error("Memory analysis was cancelled");
+    const base = join(DATA_DIR, "colonie-memory", "analysis");
+    mkdirSync(base, { recursive: true, mode: 0o700 });
+    const cwd = mkdtempSync(join(base, "job-"));
+    const threadId = `memory-${newId()}`;
+    const analysis = new AcpRuntime(this.instanceId, { ...this.config, instructions: "" },
+      this.environment, structuredClone(this.models), this.flavor);
+    const signal = AbortSignal.any([options.signal, AbortSignal.timeout(60_000)]);
+    let answer = "";
+    let settle!: (value: string) => void;
+    let fail!: (error: Error) => void;
+    const completed = new Promise<string>((resolve, reject) => { settle = resolve; fail = reject; });
+    // A provider can settle while sendTurn is still awaiting setup/dispatch.
+    void completed.catch(() => {});
+    const abort = () => {
+      fail(new Error("Memory analysis was cancelled or timed out"));
+      void analysis.stopAll();
+    };
+    const unsubscribe = analysis.onEvent((event) => {
+      if (event.type === "request.opened") {
+        if (event.requestId) void analysis.respondToRequest(threadId, event.requestId, { behavior: "deny" });
+        fail(new Error("Memory analysis requested a tool; no memory was changed"));
+        void analysis.stopAll();
+      } else if (event.type === "item.started" && event.itemType === "tool") {
+        fail(new Error("Memory analysis used a tool; no memory was changed"));
+        void analysis.stopAll();
+      } else if (event.type === "item.completed" && event.itemType === "assistant_text") {
+        answer += event.text ?? "";
+        if (answer.length > 32_000) { fail(new Error("Memory analysis exceeded its response limit")); void analysis.stopAll(); }
+      } else if (event.type === "turn.completed") {
+        if (event.ok) settle(answer);
+        else fail(new Error("Memory analysis did not complete"));
+      } else if (event.type === "runtime.error") fail(new Error("Memory analysis provider failed"));
+    });
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      if (signal.aborted) abort();
+      await analysis.sendTurn({ threadId, text: prompt, cwd, model: options.model, approvalMode: "ask" });
+      return await completed;
+    } finally {
+      signal.removeEventListener("abort", abort);
+      unsubscribe();
+      await analysis.stopAll();
+      rmSync(cwd, { recursive: true, force: true });
+    }
   }
   async stopAll(): Promise<void> {
     this.disposed = true;

@@ -2953,6 +2953,6 @@ export class Store {
   seedIfEmpty() {
     if (!this.needsSeed()) return;
     const bot = this.createBot(devoneProfile() ? { name: "Codex", color: "purple" } : {});
-    if (devoneProfile()) this.patchBot(bot.id, { computer: "off", memoryEnabled: false });
+    if (devoneProfile()) this.patchBot(bot.id, { computer: "off" });
   }
 }

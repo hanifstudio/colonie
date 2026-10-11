@@ -214,6 +214,10 @@ regression or real connected-account mutation is required for this follow-up.
 
 ## What is not claimed
 
+M9-A memory has its own [verification recipe](colonie-memory.md), covering capture,
+recall, shared/private scope, owner controls, restart and separate real-Claude
+evidence. Product guide: [Memory in Colonie](../COLONIE-MEMORY.md).
+
 These checks do not establish multiuser office deployment, signed/notarized
 distribution, native rollback/forking, every provider feature,
 or arbitrary long-running coding-task reliability. Record actual results and

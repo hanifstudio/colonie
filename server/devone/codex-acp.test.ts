@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { CodexAcpDriver } from "./codex-acp.ts";
@@ -8,6 +8,7 @@ import { inputReceipts } from "./receipts.ts";
 import type { ProviderInstance, RuntimeEvent } from "../contracts.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { DATA_DIR } from "../config.ts";
+import { AcpRuntime } from "./acp-runtime.ts";
 
 const instances: ProviderInstance[] = [];
 const directories: string[] = [];
@@ -136,5 +137,36 @@ describe.each([["Codex", CodexAcpDriver], ["Claude", ClaudeAcpDriver]] as const)
     rmSync(corrupted);
     const retry = await f.instance.adapter.sendTurn({ threadId: "write-failure", text: "retry after repair", cwd: f.cwd });
     await completed(f.events, retry.turnId);
+  });
+
+  it("runs memory analysis in a separate session with no normal chat events or history changes", async () => {
+    const f = await fixture();
+    const sent = await f.instance.adapter.sendTurn({ threadId: "memory-isolation", text: "normal chat", cwd: f.cwd });
+    await completed(f.events, sent.turnId);
+    const receipt = inputReceipts("memory-isolation")[0]!;
+    const count = f.events.length;
+    const answer = await (f.instance.adapter as AcpRuntime).analyzeMemory("analysis input", { signal: AbortSignal.timeout(10_000) });
+    expect(answer).toBe("1: analysis input");
+    expect(f.events).toHaveLength(count);
+    expect(inputReceipts("memory-isolation")).toHaveLength(1);
+    const state = JSON.parse(readFileSync(f.file, "utf8"));
+    expect(state.sessions[receipt.sessionId].prompts).toEqual(["normal chat"]);
+    expect(Object.keys(state.sessions)).toHaveLength(2);
+    expect(readdirSync(join(DATA_DIR, "colonie-memory", "analysis"))).toEqual([]);
+  });
+
+  it("rejects tool activity and cancels bounded background analysis without closing a user's session", async () => {
+    const f = await fixture();
+    const sent = await f.instance.adapter.sendTurn({ threadId: "memory-user-live", text: "normal chat", cwd: f.cwd });
+    await completed(f.events, sent.turnId);
+    const adapter = f.instance.adapter as AcpRuntime;
+    await expect(adapter.analyzeMemory("permission", { signal: AbortSignal.timeout(10_000) })).rejects.toThrow(/tool|complete/);
+    const controller = new AbortController();
+    const analysis = adapter.analyzeMemory("hang", { signal: controller.signal });
+    setTimeout(() => controller.abort(), 150);
+    await expect(analysis).rejects.toThrow(/cancel|failed|setup/);
+    expect(adapter.hasSession("memory-user-live")).toBe(true);
+    const next = await adapter.sendTurn({ threadId: "memory-user-live", text: "continue after analysis", cwd: f.cwd });
+    await completed(f.events, next.turnId);
   });
 });

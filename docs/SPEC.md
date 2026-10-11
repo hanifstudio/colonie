@@ -352,3 +352,37 @@ entry points and build dependencies are audited and retired in separate slices.
 Shared infrastructure and persisted-data compatibility must be explicitly retained
 or extracted. Future memory/Chief/routine features must not be erased merely because
 their upstream execution pipeline is currently unsupported.
+
+## M9-A — controlled cross-conversation memory
+
+Owner-approved order: complete memory, then Chief delegation (M9-B). First-run
+provider work is proceeding independently. The memory contract covers automatic
+capture, immediate correction/consolidation, relevant recall, owner controls,
+provenance, scope isolation and restart; CRUD alone is not milestone completion.
+
+- Shared memory holds durable owner facts/preferences; private memory belongs to
+  one bot. Other bots' private notes/transcripts are never copied automatically.
+- Capture accepts successful owner-driven ACP direct turns only. Initial evidence
+  is the person's own text, not assistant guesses, quoted documents or tools.
+  Model proposals require validated verbatim source quotes, bounded confidence,
+  scope and entry targets. Corrections supersede the intended existing fact.
+- Capture runs asynchronously in a separate bounded ACP session with no app MCP,
+  project, persona or conversation history. Permissions are denied; observed tool
+  activity invalidates the proposal. Native tools remain provider-owned.
+- Recall is dynamic reference data per dispatch, separate from stable persona/SOUL
+  pins. Exact selected memory is recorded before dispatch; the user's own message
+  retains its bytes. Plain/legacy app-context-disabled conversations stay plain.
+- Memory and automatic capture have normal shared/per-bot controls, enabled by
+  default; stored explicit off choices are honored. Forget/edit/off invalidates
+  pending proposals. Tombstones prevent automatic resurrection of forgotten facts.
+- Store and durable job queue live under application data, independently of native
+  provider session state. Expired facts do not enter recall. Corrupt/unreadable
+  storage is not overwritten as an empty memory.
+- Editing or forgetting affects future retrieval, not text already delivered to a
+  native session. Existing native history is not silently reset or represented as
+  erased. A new conversation provides a clean native context.
+
+Preserve legacy Markdown notes/APIs without silently importing their old context
+pipeline. Verify both-provider SDK/HTTP lifecycle, renderer controls, restart and
+bounded real-provider behavior separately. Implementation ownership and exact
+acceptance matrix: `plans/2026-10-11-colonie-memory.md`.

@@ -18,6 +18,10 @@ import { connectedToolsRoutes } from "./colonie/connections/routes.ts";
 import { composioCredentialStatus } from "./colonie/connections/credential-status.ts";
 import { composioCredentialRoutes } from "./colonie/connections/credential-routes.ts";
 import { nativeHistoryConflict } from "./devone/native-history.ts";
+import { ColonieMemoryStore } from "./colonie/memory/store.ts";
+import { ColonieMemoryService } from "./colonie/memory/service.ts";
+import { createColonieMemoryRoutes } from "./colonie/memory/routes.ts";
+import type { CompletedMemoryTurn } from "../shared/colonie-memory.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, rmSync, mkdirSync } from "node:fs";
@@ -2879,6 +2883,11 @@ function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
 
 async function interruptDirectThread(botId: string, threadId: string, options?: { preserveComputerResume?: boolean }): Promise<void> {
   connectedTools.cancel(threadId);
+  if (isColonieAcpDriver(registry.get(store.bot(botId)?.modelSelection.instanceId ?? "")?.driverKind)) {
+    try { colonieMemory.cancelThread(botId, threadId); }
+    catch { console.warn("Colonie memory could not persist its cancelled capture queue."); }
+    if (colonieMemorySources.get(threadId)?.botId === botId) colonieMemorySources.delete(threadId);
+  }
   // A parked turn has settled its provider but still owns a future resume.
   // Stop cancels that work too. The parking teardown itself preserves it.
   if (!options?.preserveComputerResume && pendingComputerResumes.delete(threadId)
@@ -6308,14 +6317,61 @@ bus.subscribe((event: RuntimeEvent) => {
 
 // Memory upkeep (server/memory-upkeep.ts): background capture, About me
 // suggestions and the nightly tidy-up, for bots with the switch on.
+const colonieMemoryStore = new ColonieMemoryStore(DATA_DIR);
+const colonieMemorySources = new Map<string, CompletedMemoryTurn>();
+const colonieMemory = new ColonieMemoryService(colonieMemoryStore, {
+  bot: (id) => {
+    const bot = store.bot(id);
+    const instance = bot && registry.get(bot.modelSelection.instanceId);
+    return bot && instance && isColonieAcpDriver(instance.driverKind) && !policyModelRefusal(instance) ? bot : undefined;
+  },
+  owns: (botId, threadId) => {
+    const pin = contextPin(threadId);
+    return Boolean(store.taskByThread(botId, threadId) && pin?.snapshot.botId === botId
+      && pin.snapshot.app.enabled && !pin.snapshot.legacyPlain);
+  },
+  analyze: async (botId, prompt, signal) => {
+    const bot = store.bot(botId);
+    const instance = bot && registry.get(bot.modelSelection.instanceId);
+    if (!bot || !instance || !(instance.adapter instanceof AcpRuntime) || policyModelRefusal(instance)) throw new Error("The selected provider cannot process memory right now.");
+    assertWithinBudget(cfg, DATA_DIR);
+    return instance.adapter.analyzeMemory(prompt, { model: bot.modelSelection.model, signal });
+  },
+  log: (message) => console.log(message),
+});
+store.onChange((change) => {
+  try { if (change.type === "bot.deleted") {
+    colonieMemory.cancelBot(change.botId);
+    colonieMemoryStore.removeBot(change.botId);
+    for (const [threadId, source] of colonieMemorySources) if (source.botId === change.botId) colonieMemorySources.delete(threadId);
+  } else if (change.type === "bot") {
+    const bot = store.bot(change.botId);
+    if (bot?.memoryEnabled === false || bot?.memoryUpkeep === false) colonieMemory.cancelBot(change.botId);
+  } } catch { console.warn("Colonie memory could not persist this bot's memory lifecycle change."); }
+});
+bus.subscribe((event: RuntimeEvent) => {
+  if (event.type !== "turn.completed" && event.type !== "session.exited") return;
+  const source = colonieMemorySources.get(event.threadId);
+  if (!source) return;
+  colonieMemorySources.delete(event.threadId);
+  if (event.type !== "turn.completed" || !event.ok || shouldIgnoreProviderEvent(event)) return;
+  try {
+    const receipt = inputReceipts(event.threadId).find((row) => row.turnId === event.turnId);
+    if (receipt?.status !== "completed" || !receipt.context?.sections.some((section) => section.id === "app.identity" && section.status === "active")) return;
+    const user = receipt.context.sections.find((section) => section.id === "user.message");
+    if (user?.text !== source.text) return;
+    colonieMemory.noteTurn(source);
+  } catch { console.warn("Colonie memory could not queue this completed conversation."); }
+});
+
 const memoryUpkeep = createMemoryUpkeep({
-  bots: () => store.bots,
+  bots: () => store.bots.filter((bot) => !isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)),
   bot: (id) => store.bot(id) ?? undefined,
   engine: (botId) => {
     const bot = store.bot(botId);
     const instance = bot ? registry.get(bot.modelSelection.instanceId) : undefined;
     // an engine the organisation disallows never receives memory text
-    if (!bot || !instance || policyModelRefusal(instance)) return null;
+    if (!bot || !instance || isColonieAcpDriver(instance.driverKind) || policyModelRefusal(instance)) return null;
     const generate = instance.generateText?.bind(instance);
     return generate ? {
       generateText: async (prompt, options) => {
@@ -6388,7 +6444,7 @@ bus.subscribe((event: RuntimeEvent) => {
   if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
   try {
     const bot = store.botByThread(event.threadId);
-    if (!bot || !upkeepEnabled(bot) || store.groupByThread(event.threadId) || isInternalTurn(event.threadId)
+    if (!bot || isColonieAcpDriver(event.provider) || !upkeepEnabled(bot) || store.groupByThread(event.threadId) || isInternalTurn(event.threadId)
       || isUnattended(bot.id, event.threadId) || routines?.runForThread(event.threadId)) return;
     // On a Cloud home the bot's memory reaches its owner's turns (and a lent
     // Mac): nothing is captured from a conversation anyone else wrote in.
@@ -6421,7 +6477,7 @@ bus.subscribe((event: RuntimeEvent) => {
     const messages = store.messagesFor(event.threadId);
     const reply = messages.findLast((message) => message.role === "bot" && message.kind === "text" && message.turnId === event.turnId);
     const bot = store.botByThread(event.threadId) ?? (reply?.from ? store.bot(reply.from.botId) : undefined);
-    if (!bot || bot.memoryEnabled === false) return;
+    if (!bot || isColonieAcpDriver(event.provider) || bot.memoryEnabled === false) return;
     const tools = messages
       .filter((message) => message.kind === "activity" && message.turnId === event.turnId && message.tool?.name)
       .map((message) => message.tool!.name);
@@ -9929,8 +9985,12 @@ async function startTurn(
         runningTurnEngines.set(threadId, instance);
         const acpTools = await acpToolMount(bot.id, threadId, instanceId);
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { acpTools.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
+        const acpMemory = colonieMemory.recall(bot.id, providerText) ?? undefined;
+        if (!userMessage.sender && !userMessage.peerAsk) colonieMemorySources.set(threadId, {
+          botId: bot.id, threadId, messageId: userMessage.id, text: providerText, at: new Date(userMessage.at).toISOString(),
+        });
         const dispatch = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools,
+          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools, acpMemory,
           cwd, model, approvalMode: approvalModeForTurn(bot, false, threadId),
           resumeCursor: task.resumeCursors[instanceId],
         }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
@@ -10990,6 +11050,7 @@ async function startTurn(
       const ownsLatestGeneration = directTurnGenerationByThread.get(threadId) === dispatchClaimId;
       releaseTurnResources(resourceOwner);
       if (ownsLatestGeneration) {
+        if (colonieMemorySources.get(threadId)?.messageId === userMessage.id) colonieMemorySources.delete(threadId);
         runningTurnEngines.delete(threadId);
         endMemoryTurn(threadId);
         clearTurnDigestState(threadId);
@@ -16010,6 +16071,11 @@ const cloudMoveRoutes = createCloudMoveRoutes({
 // boot, after this line, so the dependency reads it per request.
 ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: () => Boolean(workspaceAccess) && entitled("admin") }));
 ROUTES.push(composioCredentialRoutes(() => composioCredentialStatus(cfg)));
+ROUTES.push(createColonieMemoryRoutes({ service: colonieMemory, exists: (botId) => Boolean(store.bot(botId)),
+  setBotMemoryEnabled: (botId, enabled) => {
+    store.patchBot(botId, { memoryEnabled: enabled, memoryUpkeep: colonieMemoryStore.snapshot(botId).bot.automatic });
+  },
+}));
 ROUTES.push(connectedToolsRoutes({
   exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task) => threadBusy(botId, task.threadId)
     || registry.instances().some((instance) => instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(task.threadId))),
@@ -25786,6 +25852,7 @@ server.listen(PORT, "127.0.0.1", async () => {
   // endpoint is listening; earlier dispatch can hit uninitialized bindings.
   routines!.start();
   memoryUpkeep.start();
+  colonieMemory.start();
   const leftover = pendingThreads();
   if (leftover.length) console.log(`delegations: ${leftover.length} thread(s) with queued handoffs from a previous run — draining`);
   for (const threadId of leftover) {
@@ -25839,6 +25906,7 @@ const gracefulShutdown = createGracefulShutdown({
       routines?.stop();
       calendarCalls?.stop();
       memoryUpkeep.stop();
+      colonieMemory.stop();
       webhookIngress?.server.close();
       tunnelListener?.close();
     },
@@ -25850,6 +25918,7 @@ const gracefulShutdown = createGracefulShutdown({
     () => liveCalls.shutdown(),
     () => flushAllProfileHistory(),
     () => flushAllMemoryJournals(),
+    () => colonieMemory.idle(),
     () => flushUsageLedger(DATA_DIR),
     () => flushDecisionLog(DATA_DIR),
     () => flushAdminActivity(DATA_DIR),

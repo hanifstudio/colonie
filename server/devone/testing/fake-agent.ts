@@ -126,6 +126,40 @@ agent({ name: "DevOne deterministic fixture" })
       return { stopReason: "cancelled" };
     }
     let result = `${session.prompts.length}: ${text}`;
+    if (text.startsWith("COLONIE_MEMORY_CAPTURE_V1") || text.includes("COLONIE_MEMORY_CAPTURE_V1\n")) {
+      // Scripted judgments exercise the real SDK/background lifecycle; they
+      // are intentionally not evidence of real-model extraction quality.
+      let payload: unknown;
+      const inputEnd = text.indexOf("\n\nAnswer with a JSON array");
+      for (let at = text.indexOf("{"); at >= 0; at = text.indexOf("{", at + 1)) {
+        try { payload = JSON.parse(text.slice(at, inputEnd < 0 ? undefined : inputEnd)); break; } catch { /* find the JSON input */ }
+      }
+      const objects: Record<string, unknown>[] = [];
+      const walk = (value: unknown) => {
+        if (!value || typeof value !== "object") return;
+        if (Array.isArray(value)) { value.forEach(walk); return; }
+        objects.push(value as Record<string, unknown>);
+        Object.values(value).forEach(walk);
+      };
+      walk(payload);
+      const existing = objects.find((value) => value.key === "user.reply-style" && typeof value.id === "string");
+      const source = objects.find((value) => typeof value.messageId === "string" && typeof value.text === "string")?.text
+        ?? objects.find((value) => typeof value.userText === "string")?.userText ?? text;
+      const correction = String(source).includes("I now prefer detailed replies.");
+      const initial = String(source).includes("I prefer concise replies.");
+      const forget = String(source).includes("Forget my reply style.");
+      const project = String(source).includes("Project Nebula launches on October 20.");
+      const changes: unknown[] = [];
+      if (forget && existing) changes.push({ action: "forget", scope: "shared", kind: "preference", key: "user.reply-style",
+        text: existing.text, evidence: "Forget my reply style.", confidence: 1, replaces: existing.id });
+      else if (correction || initial) changes.push({ action: "upsert", scope: "shared", kind: "preference", key: "user.reply-style",
+        text: correction ? "The user prefers detailed replies." : "The user prefers concise replies.",
+        evidence: correction ? "I now prefer detailed replies." : "I prefer concise replies.", confidence: 1,
+        ...(existing ? { replaces: existing.id } : {}) });
+      if (project) changes.push({ action: "upsert", scope: "bot", kind: "decision", key: "project.nebula.launch",
+        text: "Project Nebula launches on October 20.", evidence: "Project Nebula launches on October 20.", confidence: 1 });
+      result = JSON.stringify(changes);
+    }
     if (text === "mcp list") {
       const names: string[] = [];
       for (const server of mounts.get(params.sessionId) ?? []) {

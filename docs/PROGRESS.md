@@ -1,5 +1,98 @@
 # Colonie progress
 
+## M9-A — complete controlled memory (implemented; isolated workflows verified)
+
+- Owner approved full automatic memory before Chief delegation, with detailed
+  lead planning and Herdr/OpenCode delegation using
+  `9router/alitp-intl/deepseek-v4.1-flash`. Plan:
+  `docs/plans/2026-10-11-colonie-memory.md`. Model availability confirmed with
+  `opencode models 9router`; worker `memory-worker` in `w2M:pA`. No provider
+  configuration or credential contents were changed/read.
+- Ownership confirmed with the onboarding/branding lead (`w2M:p1`). Worker writes
+  only new memory modules, shared types and a new UI component; lead owns narrow
+  ACP/contracts/index/bot-panel wiring and final review. Onboarding, App,
+  SettingsModal and locales are outside this slice. No shared-tree git restoration
+  was performed. The owner subsequently requested committing all memory changes.
+- Lead has added dynamic memory composition separate from stable context pins,
+  independent bounded ACP background analysis, normal profile integration and
+  source-correlated capture wiring. Worker handoff and lead integration/review are
+  complete. Product guide: `COLONIE-MEMORY.md`; recipe:
+  `verification/colonie-memory.md`.
+- Actual check under Node 25.8.1:
+  `PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm exec vitest run
+  server/devone/codex-acp.test.ts` — **22 passed**. Real-SDK simulated-provider
+  tests additionally prove separate analysis sessions/events, cleanup, tool-output
+  refusal, cancellation and preservation of the normal user's native session.
+  This is runtime-boundary evidence only, not automatic-memory/renderer/desktop or
+  real-model evidence on its own.
+- Review found and fixed an actual revision bug: automatic changes initially did
+  not advance the public revision, so the stale-edit HTTP check returned 200 rather
+  than 409. Public content revision plus owner-edit generation now invalidates
+  stale editors without discarding valid queued sibling captures. The final store
+  has atomic rollback/one-commit capture, source updates, key/text suppression,
+  cloned views, bounded source/context/ledger sizes and late-result cancellation.
+  Lead fixes additionally cover renderer draft/request guards, saved automatic-off
+  compatibility, accurate workspace-control labels, scope/expiry-preserving edits,
+  malformed-response status, bounded analyzer cancellation and thread-scoped Stop.
+- Actual focused checks (all with the Node path above):
+  - `pnpm exec vitest run server/colonie/memory/
+    src/components/bot-settings/ColonieMemorySection.test.ts
+    server/devone/context.e2e.test.ts server/devone/context-integrity.test.ts
+    server/devone/application.e2e.test.ts server/devone/codex-acp.test.ts
+    src/components/BotSettingsDialog.simple.test.ts` — **91 passed / 11 files**.
+  - Final durable-job/storage/Stop follow-up:
+    `pnpm exec vitest run server/colonie/memory/
+    src/components/bot-settings/ColonieMemorySection.test.ts
+    server/devone/conversations.e2e.test.ts` — **48 passed / 7 files**. Runs
+    overlap; their test counts are not added together.
+  - `pnpm exec vitest run server/devone/memory.e2e.test.ts` — **2 passed**, one
+    per provider. Canonical disposable SDK/HTTP fixtures prove capture, scoped
+    recall, source quotes, fresh native sessions, immediate correction/provenance,
+    stale edit 409, natural-language forget/suppression, off and full server restart
+    with stable profile pins. Log/action-result paths are printed by the tests.
+  - Final `pnpm lint`, `pnpm typecheck`, `pnpm i18n:check` (3708 English strings)
+    and `git diff --check` — **passed**. An earlier typecheck command timed out
+    with a package-manager network notice; direct TypeScript and the later normal
+    command passed. Failed attempts are not counted as passes.
+- `node scripts/colonie/memory-ui-check.ts` — **passed**, actual React UI with SDK
+  simulation: automatic capture, profile, competing edit/draft retention,
+  refresh/save, Forget, Add, off/re-enable, retained review and new-conversation
+  recall. `node scripts/colonie/memory-ui-check.ts --desktop --claude` — **passed**
+  with isolated development Electron/preload. Earlier recipe failures were ambiguous
+  Refresh/New conversation locators, alertdialog versus dialog, and premature send
+  during a new-thread transition; locators and transition waits were corrected.
+  One concurrent source fixture startup timed out with an empty log; a later run
+  passed without relaxing its timeout. Evidence:
+  `.devone/evidence/{memory-renderer,claude-memory-desktop}-check.json` and screenshots.
+- `node scripts/colonie/memory-provider-check.ts --real --claude` — **passed**:
+  two analysis/five foreground requests, inherited CLI auth, disposable data/workspace,
+  and no accepted tool activity. Claude captured a synthetic preference, recalled
+  it in another native session, corrected the same entry/source, recalled the new
+  value, then answered UNKNOWN in a fresh session after owner deletion. The first
+  recipe rejected an old codename appearing as a historical qualifier; the corrected
+  contract checks one active preference and the actual current-value answer.
+  Receipts show `Silverwren, replacing Amberfinch`, not two active conflicting facts.
+  Evidence: `.devone/evidence/claude-acp-memory-real-check.json`. This is bounded
+  real-provider ACP evidence, not a real-provider packaged sign-in check.
+- Final `pnpm colonie:package` — **passed**, rebuilding
+  `release/colonie/mac-arm64/Colonie.app` after storage and Stop changes.
+  `node scripts/colonie/memory-package-check.ts` and `--claude` both **passed**
+  against that exact production artifact: actual Electron/bundled renderer/server,
+  capture/profile, distinct-session recall, full app restart with the same session/
+  pin, then UI memory-off and another restart with retained review/no recall block.
+  Renderer errors are empty. Evidence:
+  `.devone/evidence/{claude-,}memory-packaged-fixture-check.json`. Screenshots and
+  synthetic real-provider receipts were inspected. Artifact ownership was
+  coordinated with the onboarding lead; its source changes are preserved.
+- Remaining boundaries: real Codex memory is unverified while its latest quota
+  blocker remains; no real-provider packaged sign-in was exercised. Retrieval is
+  bounded preference/word-overlap recall, not universal semantic search. Manual
+  edits outrank automatic correction; old native prompts cannot be erased by
+  Forget. Legacy Markdown memory is retained separately. No full upstream suite or
+  live-app mutation was performed. M9-A's recorded
+  acceptance scope is complete. Next: M9-B detailed Chief-delegation contract,
+  scoped task context, result routing, Stop and duplicate-work guards.
+
 ## Onboarding adaptation to Colonie (implemented, isolated fixture-verified)
 
 - Owner asked to reuse the inherited OpenMausBot first-run UI for Colonie. The
@@ -304,8 +397,8 @@ for developers. Both-provider
 fixtures and bounded packaged real Claude passed; real Codex remains quota-blocked.
 M8 Composio and Custom MCP are implemented and verified for scoped app/bot tools.
 Credential source/origin UI and encrypted save/remove persistence now pass targeted
-synthetic checks on this machine. Memory, Chief delegation and
-automation remain subsequent milestones.
+synthetic checks on this machine. Memory is now implemented as M9-A with its
+evidence above; Chief delegation and automation remain subsequent milestones.
 Bot-level multiple conversations are now available in the default interface and
 verified with both-provider HTTP and production packaged desktop SDK fixtures.
 ACP is the app's only execution path — a fixed property, not a mode: the puzzle

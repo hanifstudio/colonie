@@ -112,6 +112,8 @@ export type RequestOutcome = "allowed-once" | "rejected" | "answered" | "unavail
 export interface SendTurnInput {
   /** Explicit Colonie context candidate; legacy system fields are never used by ACP. */
   acpContext?: import("../shared/acp-context.ts").AcpContextSnapshot;
+  /** Fresh scoped memory reference data, separate from stable persona/SOUL pins. */
+  acpMemory?: import("../shared/colonie-memory.ts").AcpMemoryContext;
   acpTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
   threadId: ThreadId;
   /** The bot this turn belongs to. threadIds are meant to be unique per bot

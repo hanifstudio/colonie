@@ -19,10 +19,10 @@ simulated-provider with real renderer/desktop; native parallel throughput is not
 claimed. M8 connected tools are now implemented; the separate unsigned macOS
 credential UI/storage follow-up is now verified with targeted synthetic tests.
 User-specific unreadable/locked-store recovery remains a bounded diagnostic task.
-The immediate next slice is M8-C: connected-tools marketplace and ACP-only UX
-consolidation. Full frontend/backend legacy retirement is reserved as deferred
-architecture milestone D1; it is not part of the delegated UX cleanup. M9 remains
-the next feature-expansion milestone after consolidation.
+M8-C connected-tools consolidation and M8-D/E CLI isolation/sign-in are implemented.
+M9-A memory is implemented with isolated SDK/HTTP, renderer/desktop and bounded
+real-Claude evidence. The next feature slice is M9-B Chief delegation. Full
+frontend/backend legacy retirement remains deferred architecture milestone D1.
 
 ## Next phase
 
@@ -283,6 +283,21 @@ Chief delegation and group context/ownership; then manual/scheduled routines and
 webhooks as needed. Define who responds, what context crosses agent boundaries,
 how Stop propagates and how retries avoid duplicate work. Chief profile alone
 does not satisfy this milestone.
+
+#### M9-A — complete controlled memory (implemented; evidence recorded)
+
+Owner approved implementing the full capture/consolidation/recall/control/restart
+lifecycle before Chief delegation. Detailed plan and parallel ownership:
+`plans/2026-10-11-colonie-memory.md`. A Herdr OpenCode worker uses
+`9router/alitp-intl/deepseek-v4.1-flash` for new memory modules/UI; the lead owns
+ACP/runtime/shared-file integration, review and end-to-end evidence. First-run
+provider work remains independently owned. Do not mark complete on CRUD or
+compilation alone. Capture/correction, scoped dynamic recall, normal owner controls
+and durable queue/restart are implemented. Both-provider SDK/HTTP and production
+packaged fixtures passed; the actual React editor and development desktop passed.
+A bounded real-Claude ACP check passed separately. Real Codex is not claimed.
+Commands/limitations: `verification/colonie-memory.md` and `PROGRESS.md`. Next:
+M9-B Chief delegation with scoped task context, result routing and Stop ownership.
 
 ### M10 — skills on the ACP boundary (proposed)
 
