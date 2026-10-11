@@ -30,8 +30,8 @@ export function ProgressDots({
     >
       {/* the pill: one element, moved on transform only */}
       <span
-        className="pointer-events-none absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-accent transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-        style={{ width: SLOT, transform: `translate(${index * (SLOT + GAP)}px, -50%)` }}
+        className="pointer-events-none absolute inset-y-0 left-0 my-auto h-1.5 rounded-full bg-accent transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{ width: SLOT, transform: `translateX(${index * (SLOT + GAP)}px)` }}
         aria-hidden="true"
       />
       {items.map((item, i) => {

@@ -34,7 +34,6 @@ import { EnginesBeat } from "./beats/EnginesBeat";
 import { HelloBeat } from "./beats/HelloBeat";
 import { MeetYourBotBeat } from "./beats/MeetYourBotBeat";
 import { PermissionsBeat } from "./beats/PermissionsBeat";
-import { PhoneBeat } from "./beats/PhoneBeat";
 import { QuietButton } from "./beats/shared";
 import { withViewTransition } from "./view-transition";
 import { ProgressDots } from "./ProgressDots";
@@ -47,7 +46,6 @@ const MASCOT_FOR_BEAT: Record<BeatId, MausState> = {
   reel: "curious",
   engines: "searching",
   permissions: "listening",
-  phone: "sending",
   bot: "celebrate",
 };
 
@@ -63,8 +61,6 @@ function beatTitle(beat: BeatId): string | null {
       return t("onboarding.bot.title");
     case "reel":
       return t("onboarding.reel.title");
-    case "phone":
-      return t("onboarding.phone.title");
   }
 }
 
@@ -80,15 +76,13 @@ export function WelcomeFlow({
   dictation,
   entrance = "arrive",
   hosted = false,
-  onOpenOrganisation,
 }: {
   /** The seeded bot the exit beat names; null when the roster is empty. */
   bot: Bot | null;
   onDone: () => void;
   /** Replays skip nothing but are tracked separately. */
   replay?: boolean;
-  /** Open on a given beat: the preview, and resuming after the engines beat
-   * sent the person to Settings → Organisation. */
+  /** Open on a given beat: the preview gallery uses this. */
   initialBeat?: BeatId;
   /** Preview only: fill the parent instead of the viewport. */
   embedded?: boolean;
@@ -100,8 +94,6 @@ export function WelcomeFlow({
   entrance?: Motion;
   /** A hosted team workspace: the hosted beat set, no email field. */
   hosted?: boolean;
-  /** The engines beat's organisation row asks for Settings → Organisation. */
-  onOpenOrganisation?: () => void;
 }) {
   const { dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
@@ -231,7 +223,11 @@ export function WelcomeFlow({
         className="welcome-card relative flex max-h-full w-full flex-col overflow-y-auto rounded-2xl border border-hairline/40 bg-panel p-5 sm:p-8 shadow-[0_30px_80px_-28px_rgba(0,0,0,0.45),0_8px_24px_-12px_rgba(0,0,0,0.25)] outline-none"
         style={{ maxWidth: beatWidth(beat) }}
       >
-        <QuietButton onClick={() => void finish("skipped")} className="absolute right-4 top-4">
+        <QuietButton
+          onClick={() => void finish("skipped")}
+          disabled={beat === "hello"}
+          className={cn("absolute right-4 top-4", beat === "hello" && "cursor-not-allowed opacity-40")}
+        >
           {t("onboarding.skipTour")}
         </QuietButton>
 
@@ -247,6 +243,7 @@ export function WelcomeFlow({
                 motionKey={motion.key}
                 size={hello ? 72 : 40}
                 label={brand().name}
+                followGlobalPointer
               />
             )}
           </div>
@@ -264,9 +261,8 @@ export function WelcomeFlow({
         <div key={beat} className={cn("flex flex-col", beat === "engines" ? "min-h-0" : "shrink-0")}>
           {beat === "hello" && <HelloBeat {...beatProps} hosted={hosted} />}
           {beat === "reel" && <FeatureReel {...beatProps} />}
-          {beat === "engines" && <EnginesBeat {...beatProps} hosted={hosted} onOpenOrganisation={onOpenOrganisation} />}
+          {beat === "engines" && <EnginesBeat {...beatProps} />}
           {beat === "permissions" && <PermissionsBeat {...beatProps} />}
-          {beat === "phone" && <PhoneBeat {...beatProps} />}
           {beat === "bot" && (
             <MeetYourBotBeat
               bot={bot}

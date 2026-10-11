@@ -5,6 +5,11 @@ exploratory plan it replaced considered recorded clips and a field-guide
 page, both dropped in favour of code-drawn scenes and a guided tour on the
 real interface.
 
+Colonie note (Oct 11 2026): the welcome flow is reused with the engines and
+phone beats adapted for Colonie (see `docs/verification/onboarding.md`). The
+guided tour and first-conversation spotlights are disabled for now — the code
+and tests below are retained but not mounted.
+
 ## Goal
 
 A new install should leave the first session knowing what OpenMausBot is

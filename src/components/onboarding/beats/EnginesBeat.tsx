@@ -17,9 +17,8 @@ import { engineReady } from "@/components/EngineLibrary";
 import { InstanceProviderMark } from "@/components/ProviderIcons";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { engineSummary, organisationSignIn } from "@/lib/onboarding";
+import { engineSummary } from "@/lib/onboarding";
 import { api, useStore, type InstanceInfo } from "@/state/store";
-import { OrganisationRow } from "./OrganisationRow";
 import { PrimaryButton, staggerIndex, type BeatProps } from "./shared";
 
 function version(instance: InstanceInfo): string | null {
@@ -50,19 +49,8 @@ function SkeletonRow({ index }: { index: number }) {
   );
 }
 
-export function EnginesBeat({
-  onNext,
-  setMascot,
-  bump,
-  hosted = false,
-  onOpenOrganisation,
-}: BeatProps & {
-  hosted?: boolean;
-  /** Settings → Organisation; the flow resumes here when it closes. */
-  onOpenOrganisation?: () => void;
-}) {
+export function EnginesBeat({ onNext, setMascot, bump }: BeatProps) {
   const { state, dispatch } = useStore();
-  const organisation = organisationSignIn(window.ogb, { hosted });
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const latestRequest = useRef(0);
@@ -97,7 +85,7 @@ export function EnginesBeat({
     };
   }, [refresh]);
 
-  const summary = engineSummary(instances ?? [], engineReady, { company: Boolean(organisation) });
+  const summary = engineSummary(instances ?? [], engineReady, { company: false });
   const { ready, setup } = summary;
   const allReady = instances !== null && summary.allReady;
   const expanded = open;
@@ -120,15 +108,8 @@ export function EnginesBeat({
 
   return (
     <div className="flex min-h-0 flex-col">
-      <p className="animate-rise mt-1 text-[13.5px] text-ink-secondary">{t("onboarding.engines.intro")}</p>
-
-      {organisation && (
-        <OrganisationRow
-          bridge={organisation}
-          onOpenSettings={() => (onOpenOrganisation ? onOpenOrganisation() : dispatch({ type: "toggleAppSettings", open: true, section: "organization" }))}
-          onConnected={() => void refresh()}
-        />
-      )}
+      <p className="animate-rise mt-1 text-[13.5px] text-ink-secondary">{t("onboarding.engines.introProviders")}</p>
+      <p className="animate-rise mt-1 text-[12.5px] text-ink-tertiary">{t("onboarding.engines.choose")}</p>
 
       {/* the whole story in one line, and the way back after a terminal trip */}
       <div className="animate-rise mt-4 flex items-center justify-between gap-3" style={staggerIndex(1)}>
@@ -159,9 +140,6 @@ export function EnginesBeat({
         </button>
       </div>
       {failed && instances !== null && <p role="alert" className="mt-2 text-[13px] text-danger">{t("onboarding.engines.error")}</p>}
-      {summary.company > 0 && ready.length + setup.length > 0 && (
-        <p className="mt-2 text-[12px] text-ink-secondary">{t("onboarding.org.personalOptional")}</p>
-      )}
 
       <div
         className="animate-rise mt-2.5 min-h-0 divide-y divide-hairline/40 overflow-y-auto rounded-xl border border-hairline/40 bg-card [scrollbar-width:thin]"

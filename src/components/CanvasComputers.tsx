@@ -268,7 +268,7 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
     <ConfirmDialog open={assignment !== null} tone="neutral" title={assignment?.section === null ? `Unassign ${assignment?.computer.name ?? "computer"}?` : `Assign ${assignment?.computer.name ?? "computer"} to ${assignment?.section || "General"}?`}
       body={assignment?.section === null
         ? "This removes the team default. It does not stop or delete the machine, its files, or its logins. Review the bots' Auto routing before their next task."
-        : "Bots on Auto in this team will share this computer's files and signed-in accounts. Explicit bot computer settings stay unchanged. Only one bot can use the desktop at a time. This does not move the OpenMausBot server or enable 24/7 hosting."}
+        : "Bots on Auto in this team will share this computer's files and signed-in accounts. Explicit bot computer settings stay unchanged. Only one bot can use the desktop at a time. This does not move the Colonie server or enable 24/7 hosting."}
       confirmLabel={assignment?.section === null ? "Unassign computer" : "Assign computer"} onCancel={cancelAssignment} onConfirm={() => {
         const target = assignment;
         if (!target) return;

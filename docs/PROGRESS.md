@@ -1,5 +1,110 @@
 # Colonie progress
 
+## Onboarding adaptation to Colonie (implemented, isolated fixture-verified)
+
+- Owner asked to reuse the inherited OpenMausBot first-run UI for Colonie. The
+  welcome flow was already mounted (`src/App.tsx`) but was still OpenMausBot
+  shaped. Owner-decided scope: keep the feature reel as-is, keep Hello /
+  Permissions / Meet your bot, make the phone beat "coming soon", frame the
+  engines beat as Codex / Claude Code, and disable the guided tour + first
+  conversation spotlights for now.
+- Changes: `GuidedTour` and `FirstConversationTour` are no longer mounted; the
+  welcome flow no longer opens a tour on finish
+  (`src/components/onboarding/WelcomeGate.tsx`) and Settings drops its "Replay
+  app tour" button (`src/components/SettingsModal.tsx`). The engines beat drops
+  the organisation sign-in row, which Colonie does not have, and adds the
+  provider-choice framing and "never installed either?" helper copy
+  (`src/components/onboarding/beats/EnginesBeat.tsx`). The phone beat is a
+  coming-soon note (`src/components/onboarding/beats/PhoneBeat.tsx`). Three new
+  English keys were added; other locales fall back to English.
+- Evidence (isolated, no live app/data):
+  - `pnpm typecheck`, `pnpm exec oxlint --deny-warnings` on the touched files,
+    and `pnpm i18n:check` (10 languages, 3706 English strings) all passed.
+  - `pnpm exec vitest run src/components/onboarding src/lib/onboarding.test.ts
+    src/lib/guided-tour.test.ts src/lib/first-conversation.test.ts
+    src/lib/i18n.test.ts` — **100 passed across 10 files**; the two updated
+    onboarding component tests pass. `SettingsModal` suite — **84 passed**.
+  - `node --experimental-strip-types scripts/verify-onboarding-ui.ts
+    <handle>` against a fresh `control-omb ui launch` fixture — **passed**. The
+    real renderer/fake-engine recipe proves profile-save retry, reduced-motion
+    reel, the engines beat's provider framing + inventory-refresh failure,
+    the phone coming-soon beat, welcome completion with **no** guided tour,
+    dismissed-after-reload, Settings replay (no app-tour button), and a
+    skip-while-saving. Screenshots:
+    `.omb-scratch/verify-evidence/onboarding/{welcome,reel,engines,meet-bot,complete}.png`.
+- Not covered: the real Electron preload bridge, provider sign-in, and a real
+  phone pairing (not part of this slice). The tour code is retained, not
+  deleted, so re-enabling it is a small follow-up.
+
+## Onboarding owner feedback round (implemented, isolated fixture-verified)
+
+- Owner ran the rebuilt app and asked for five changes, all applied:
+  1. Hello beat: name and email are required; "Maybe later" removed. The
+     top-right "Skip tour" still leaves the whole flow.
+  2. Feature reel: visible `OpenMausBot`/`Maus` strings changed to `Colonie`
+     (Terminal command, terminal welcome/ready lines, browser tab title,
+     mini-card title; Hands bot name and composer placeholder; Channels member
+     name). Reel content is otherwise unchanged per the owner's earlier call.
+  3. Phone beat removed from the flow entirely (component deleted; `beatsFor`
+     updated; no `phone` BeatId).
+  4. Meet your bot: a Bloub **body** picker added next to the color picker
+     (patches `mascotBody`); the bot preview and the welcome-flow guide now use
+     `followGlobalPointer`, so the eyes follow the pointer anywhere in the
+     window (the agent confirmed the onboarding already renders the updated
+     Bloub engine via `MausAvatar = BloubAvatar` — the missing part was the
+     global-gaze flag, not the engine).
+  5. `ProgressDots`: the active pill is vertically centered against the dots
+     via `inset-y-0 my-auto` instead of `top-1/2 -translate-y-1/2`.
+- Evidence (isolated, no live app/data): `pnpm typecheck`, `pnpm lint`,
+  `pnpm i18n:check` (10 languages, 3708 English strings) clean.
+  `pnpm exec vitest run src/components/onboarding src/lib/onboarding.test.ts
+  src/lib/i18n.test.ts` — **84 passed**. The isolated recipe
+  `scripts/verify-onboarding-ui.ts` passed end to end against a fresh
+  `control-omb ui launch` fixture (no phone beat; name/email required), with
+  refreshed screenshots. `pnpm colonie:package` rebuilt
+  `release/colonie/mac-arm64/Colonie.app` and
+  `node scripts/devone/package-check.ts` passed with isolated data.
+- Brand-sweep evidence (isolated, no live app/data): `pnpm typecheck`,
+  `pnpm lint`, `pnpm i18n:check` clean; the changed test files + locales ran
+  **490 passed**.
+- Owner follow-up: the global "Skip tour" is now disabled on the greeting
+  (name/email) beat, so that step is truly mandatory; other beats keep it.
+- Colonie brand sweep (owner: "replace OpenMausBot with Colonie wherever you
+  find it"): 83 English i18n values and ~30 renderer files changed, plus the
+  tests that asserted that copy; changed English keys were dropped from the
+  non-English packs and `source-hashes.json` so `pnpm i18n:check` stays green
+  (they fall back to English). Deliberately left unchanged because they are not
+  user-facing copy and changing them would break things: GitHub repository
+  URLs, the `openmausbot://` deep-link scheme, `OMB_*`/format/backup
+  identifiers, `server/cli-*` text, and the server-side brand default (177
+  server files still reference the historical name). The one English test that
+  uses the deep-link scheme (`ChatMarkdown.renderers.test.ts`) keeps the
+  original `OpenMausBot://` scheme case.
+- Fresh-install seed fix (owner: "I want to feel what a user feels"):
+  `electron/colonie-config.mjs` `initializeColonieData` used to write a new
+  `config.json` with onboarding **already complete** and every `tour.*` hint
+  filled in — a phase-1 choice that suppressed the inherited welcome flow, so
+  no fresh install ever saw onboarding. It now seeds an empty record
+  (`completedAt: ""`, `version: 0`, `hintsSeen: []`). Confirmed by wiping the
+  data dir and relaunching the rebuilt app: `~/.colonie/config.json` shows the
+  empty record and the welcome flow appears. `server/devone/branding.test.ts`
+  passes (it only asserts an existing config is not overwritten).
+- Second suppressor found while re-testing: `src/main.tsx` called
+  `setEmailGateDone("skipped")` on every boot, so `welcomeDue`'s legacy-grace
+  rule (`!completedAt && legacyDone`) made it return false even with an empty
+  record. Removed the call (and its import); the gate now reflects real browser
+  storage, so a fresh profile is a new user and sees the flow, while genuinely
+  legacy installs keep the one-release grace. `pnpm typecheck`, `pnpm lint`, and
+  the `lazy-screens` + onboarding suites pass (**71 passed**). Rebuilt and
+  re-verified on a wiped data dir/profile.
+- Known non-issue / open: `server/store.ts` `seedIfEmpty` still creates one
+  starter bot ("Codex", purple, greeting "Hi! What would you like help with?")
+  so the app is never empty; the welcome flow's "Meet your first bot" beat is
+  meant to rename it. If the owner prefers no pre-made bot or a neutral name,
+  that is a separate, small change.
+- Not covered: real provider sign-in and the real Electron preload bridge, and
+  the server-side brand default / protocol identifiers (left deliberately).
+
 ## Provider-agnostic assistant foundation (implemented, isolated fixture-verified)
 
 - Owner approved a general behavioral foundation after an empty-SOUL Biscuit

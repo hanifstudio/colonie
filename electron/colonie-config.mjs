@@ -18,10 +18,10 @@ export function initializeColonieData(dataDir) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const config = join(dataDir, "config.json");
   if (!existsSync(config)) writeFileSync(config, JSON.stringify({
-    language: "en", onboarding: { completedAt: new Date().toISOString(), version: 1, hintsSeen: [
-      "tour.composer", "tour.model", "tour.computer", "tour.computer-browser", "tour.tools",
-      "tour.apps", "tour.apps-panel", "tour.automations", "tour.automations-page", "tour.done",
-    ] },
+    // A fresh install is not onboarding-complete: the welcome flow decides
+    // for itself. Marking it done here (as phase 1 did to suppress the
+    // inherited flow) hid onboarding from every new user.
+    language: "en", onboarding: { completedAt: "", version: 0, reelSeen: false, hintsSeen: [] },
     defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" },
     features: { showToolCalls: true, llmThreadTitles: false, autoRecall: false, skillAuthoring: false, skillsLibrary: false },
     instances: {

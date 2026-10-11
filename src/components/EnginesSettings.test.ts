@@ -234,7 +234,7 @@ describe("Settings → Engines → setup cards", () => {
     // A remote client cannot reach this server's key settings.
     vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
     const remote = renderToStaticMarkup(createElement(EnginesSettings));
-    expect(remote).toContain("open Settings → API keys on the computer running OpenMausBot");
+    expect(remote).toContain("open Settings → API keys on the computer running Colonie");
     expect(remote).not.toContain("Change key");
 
     // A Company-managed key is not the person's to change.

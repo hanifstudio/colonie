@@ -33,7 +33,7 @@ async function ready(state: CloudAccountState = { status: "signed-out" }) { vi.m
 it("loads optional account state without enrollment/network and delegates sign-in without arguments", async () => {
   await ready(); expect(bridge.begin).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   expect(render().html).toContain("Free local use"); expect(render().html).toContain("separate from organization sign-in");
-  click("Sign in to OpenMausBot Cloud"); await flush(); expect(bridge.begin).toHaveBeenCalledExactlyOnceWith();
+  click("Sign in to Colonie Cloud"); await flush(); expect(bridge.begin).toHaveBeenCalledExactlyOnceWith();
 });
 it("checkout opens the dashboard but only a verified native update displays Pro; unavailable/revoked states remove it", async () => {
   await ready(free); click("Choose a Cloud plan in your browser"); await flush(); expect(bridge.openDashboard).toHaveBeenCalledExactlyOnceWith();
@@ -46,7 +46,7 @@ it("names the verified tier; no tier is today's Pro, and a tier newer than the a
   await ready(free);
   for (const [tier, text] of [[undefined, "Pro active"], ["personal", "Personal active"], ["pro", "Pro active"], ["max", "Max active"], ["team", "Cloud active"], ["constructor", "Cloud active"]] as const) {
     push({ ...free, entitlement: { plan: "pro", ...(tier ? { tier } : {}), status: "active", expiresAt: 1_900_000_000_000, version: 3 } });
-    expect(render().html).toContain(`${text} · verified by OpenMausBot Cloud`); expect(render().html).toContain("Manage Cloud subscription");
+    expect(render().html).toContain(`${text} · verified by Colonie Cloud`); expect(render().html).toContain("Manage Cloud subscription");
   }
   // A lapsed plan is not "Free account", and nobody is asked to choose a plan again.
   push({ ...free, entitlement: { plan: "pro", tier: "max", status: "inactive", expiresAt: null, version: 4 } });
@@ -55,10 +55,10 @@ it("names the verified tier; no tier is today's Pro, and a tier newer than the a
   expect(cloudPlanLabel()).toBe("Pro"); expect(cloudPlanLabel("toString")).toBe("Cloud");
 });
 it("sign-out requires confirmation and preserves local and organization wording", async () => {
-  await ready(free); click("Sign out of OpenMausBot Cloud"); expect(bridge.signOut).not.toHaveBeenCalled();
+  await ready(free); click("Sign out of Colonie Cloud"); expect(bridge.signOut).not.toHaveBeenCalled();
   expect(render().html).toContain("does not cancel your subscription"); click("Keep signed in"); expect(bridge.signOut).not.toHaveBeenCalled();
-  click("Sign out of OpenMausBot Cloud"); click("Sign out of OpenMausBot Cloud"); await flush(); expect(bridge.signOut).toHaveBeenCalledExactlyOnceWith();
-  expect(render().html).toContain("Sign in to OpenMausBot Cloud"); expect(fetch).not.toHaveBeenCalled();
+  click("Sign out of Colonie Cloud"); click("Sign out of Colonie Cloud"); await flush(); expect(bridge.signOut).toHaveBeenCalledExactlyOnceWith();
+  expect(render().html).toContain("Sign in to Colonie Cloud"); expect(fetch).not.toHaveBeenCalled();
 });
 it("never accesses account bridge from remote companion pages", async () => {
   vi.stubGlobal("window", { ogb: { cloudAccount: bridge, remoteClient: { active: true } } }); render(); f.effects[0](); await flush();
@@ -66,7 +66,7 @@ it("never accesses account bridge from remote companion pages", async () => {
 });
 it("a late initial snapshot cannot replace a newer revoked state", async () => {
   let resolve!: (state: CloudAccountState) => void; vi.mocked(bridge.state).mockReturnValueOnce(new Promise(done => { resolve = done; }));
-  render(); f.effects[0](); push({ status: "reauth-required" }); resolve(free); await flush(); expect(render().html).toContain("no longer signed in to OpenMausBot Cloud");
+  render(); f.effects[0](); push({ status: "reauth-required" }); resolve(free); await flush(); expect(render().html).toContain("no longer signed in to Colonie Cloud");
 });
 
 const all = (html: string, texts: string[]) => texts.forEach(text => expect(html).toContain(text));
@@ -79,13 +79,13 @@ it("a failed re-check keeps the plan, Cloud and Connect, and only says it is che
   const machine = { status: "ready" as const, origin: "https://home-7f3k2.fly.dev" };
   await ready({ ...free, entitlement: { plan: "pro", tier: "max", status: "active", expiresAt: 1_900_000_000_000, version: 3 }, machine, checking: true });
   const { html } = render();
-  all(html, ["Max active · verified by OpenMausBot Cloud", "Checking with OpenMausBot Cloud…", "Open My Cloud", "Manage Cloud subscription"]);
+  all(html, ["Max active · verified by Colonie Cloud", "Checking with Colonie Cloud…", "Open My Cloud", "Manage Cloud subscription"]);
   none(html, [...BUY, ...ALARM]);
 });
 it("OMB Cloud out of reach: the plan last verified stays named, calmly, with no offer to buy", async () => {
   await ready({ status: "unavailable", message: "unreachable", account: { id: "fixture", email: "person@example.test" }, lastPlan: { tier: "personal", active: true } });
   let html = render().html;
-  all(html, ["Personal · checking with OpenMausBot Cloud…", "be reached right now, so this app", "Nothing has changed with your plan", "Manage Cloud subscription"]);
+  all(html, ["Personal · checking with Colonie Cloud…", "be reached right now, so this app", "Nothing has changed with your plan", "Manage Cloud subscription"]);
   none(html, [...BUY, ...ALARM]);
   // With no plan known, still no offer: only the dashboard.
   push({ status: "unavailable", message: "unreachable", account: { id: "fixture", email: "person@example.test" } });
@@ -98,9 +98,9 @@ it("a saved sign-in that couldn't be cleared names the Sign out button on the ca
     f.values = []; f.platform = platform;
     await ready({ status: "unavailable", message: "signout-storage-failed" });
     const { html } = render();
-    all(html, ["could not be read or cleared", "Choose Sign out of OpenMausBot Cloud, then sign in again."]);
+    all(html, ["could not be read or cleared", "Choose Sign out of Colonie Cloud, then sign in again."]);
     none(html, ["keychain"]);
-    expect(button("Sign out of OpenMausBot Cloud")).toBeTruthy();
+    expect(button("Sign out of Colonie Cloud")).toBeTruthy();
   }
 });
 // A saved sign-in that may only be locked is kept and read again by itself.
@@ -129,13 +129,13 @@ it("a sign-in that ended asks to sign in again, keeps the plan, and offers nothi
   button("Sign in again")!.props.onClick!(); await flush();
   expect(bridge.signInAgain).toHaveBeenCalledExactlyOnceWith(); expect(bridge.signOut).not.toHaveBeenCalled(); expect(bridge.begin).not.toHaveBeenCalled();
   push({ status: "reauth-required", message: "access-ended", account: { id: "fixture", email: "person@example.test" } });
-  all(render().html, ["no longer signed in to OpenMausBot Cloud", "Sign in again"]); none(render().html, BUY);
+  all(render().html, ["no longer signed in to Colonie Cloud", "Sign in again"]); none(render().html, BUY);
 });
 it("a payment problem or a stopped Cloud is never 'Free account' with a plan to choose", async () => {
   const origin = "https://home-7f3k2.fly.dev";
   await ready({ ...free, machine: { status: "payment-problem", origin } });
   let html = render().html;
-  all(html, ["OpenMausBot Cloud · not active right now", "problem with your payment", "Update payment in your browser"]); none(html, BUY);
+  all(html, ["Colonie Cloud · not active right now", "problem with your payment", "Update payment in your browser"]); none(html, BUY);
   push({ ...free, machine: { status: "stopped", origin } });
   html = render().html; all(html, ["Subscribe again on your Plan page", "Open your Plan page"]); none(html, BUY);
   // The Cloud's card says why; the account card does not say it twice.
@@ -148,7 +148,7 @@ it("a payment being linked says so, with its date, and asks nobody to pay again"
   const html = render().html;
   all(html, ["Personal · payment received", "Received Oct 2, 2026", "no need to pay again", "Open your Plan page"]); none(html, BUY);
   push({ ...free, purchase: { state: "held" } });
-  all(render().html, ["OpenMausBot Cloud · payment received", "linking your payment"]); none(render().html, BUY);
+  all(render().html, ["Colonie Cloud · payment received", "linking your payment"]); none(render().html, BUY);
 });
 it("a free account may choose a plan, and is told what to do if it bought with another email", async () => {
   await ready(free);
@@ -162,12 +162,12 @@ it("shows the sign-in code plainly, with how long it works", async () => {
   all(html, ["Check that your browser shows this code:", "ABCDE-FGHJK", "The code works until"]);
   expect(html).not.toContain("<details"); expect(html).not.toContain("Security details");
   push({ status: "signed-out", message: "enrollment-expired" });
-  all(render().html, ["The sign-in code expired", "Sign in to OpenMausBot Cloud"]);
+  all(render().html, ["The sign-in code expired", "Sign in to Colonie Cloud"]);
 });
 it("while a saved sign-in is read, nothing is offered and the Cloud link waits", async () => {
   await ready({ status: "signed-out", message: "restoring" });
   const html = render().html;
-  expect(html).toContain("Loading Cloud account"); none(html, ["Sign in to OpenMausBot Cloud", "could not be completed"]);
+  expect(html).toContain("Loading Cloud account"); none(html, ["Sign in to Colonie Cloud", "could not be completed"]);
   expect(cloudLinkAction({ status: "signed-out", message: "restoring" }, { arrived: true, connected: false })).toBeNull();
   render({ linkRequest: 1 }); f.effects[1](); await flush(); expect(bridge.begin).not.toHaveBeenCalled();
 });
@@ -176,7 +176,7 @@ it("a saved sign-in that could not be read was removed: one line says so, and Si
   const html = render().html;
   expect(html).toContain("Cloud sign-in couldn&#x27;t be read, so it was removed. Sign in again.");
   none(html, ["could not be completed", "Unlock your system keychain"]);
-  expect(button("Sign in to OpenMausBot Cloud")).toBeTruthy();
+  expect(button("Sign in to Colonie Cloud")).toBeTruthy();
 });
 it("a saved sign-in that can't be read right now says the app tries again by itself, and asks for no sign-out", async () => {
   await ready({ status: "unavailable", message: "restore-failed" });
@@ -214,19 +214,19 @@ it("on the person's own Cloud, Settings shows the plan read only, with Manage an
   const view = () => { f.index = 0; f.effects = []; let tree: ReactNode; function Capture() { tree = CloudPlanOnCloud({ bridge: plan }); return tree; }
     return { html: renderToStaticMarkup(createElement(Capture)), nodes: nodes(tree) }; };
   view(); f.effects[0](); await flush();
-  all(view().html, ["Max active · verified by OpenMausBot Cloud", "Manage in your browser", "Switch to this computer"]); none(view().html, BUY);
+  all(view().html, ["Max active · verified by Colonie Cloud", "Manage in your browser", "Switch to this computer"]); none(view().html, BUY);
   view().nodes.find(node => node.type === "button" && node.props.children === "Manage in your browser")!.props.onClick!();
   view().nodes.find(node => node.type === "button" && node.props.children === "Switch to this computer")!.props.onClick!();
   await flush(); expect(plan.manage).toHaveBeenCalledExactlyOnceWith(); expect(plan.useThisComputer).toHaveBeenCalledExactlyOnceWith();
   plan.state.mockResolvedValueOnce({ status: "checking", tier: "pro" }); f.values = []; view(); f.effects[0](); await flush();
-  expect(view().html).toContain("Pro · checking with OpenMausBot Cloud…");
+  expect(view().html).toContain("Pro · checking with Colonie Cloud…");
   // This computer's sign-in ended: the plan stays named, with the one next step, and nothing to buy.
   plan.state.mockResolvedValueOnce({ status: "signin", tier: "max" }); f.values = []; view(); f.effects[0](); await flush();
-  all(view().html, ["Max plan", "This computer needs to sign in to OpenMausBot Cloud again", "Switch to this computer"]); none(view().html, [...BUY, "Could not complete"]);
+  all(view().html, ["Max plan", "This computer needs to sign in to Colonie Cloud again", "Switch to this computer"]); none(view().html, [...BUY, "Could not complete"]);
   // This app cannot vouch for this Cloud: where the plan is managed, and nothing that would fail.
   plan.state.mockRejectedValueOnce(new Error("cloud-plan:state is only available in this app's window")); f.values = []; view(); f.effects[0](); await flush();
   const refused = view();
-  expect(refused.html).toContain("Your plan is managed in the OpenMausBot app on your computer.");
+  expect(refused.html).toContain("Your plan is managed in the Colonie app on your computer.");
   expect(refused.nodes.some(node => node.type === "button")).toBe(false);
   none(refused.html, ["Could not complete", 'role="alert"', "Loading"]);
 });
@@ -314,7 +314,7 @@ it("only shows the status of a Cloud that is not Ready, and a later sign-out sta
     expect(render().html).toContain(`data-cloud-home="${machine.status}"`);
   }
   push({ status: "signed-out" }); linked(); await flush();
-  expect(render().html).toContain("Sign in to OpenMausBot Cloud");
+  expect(render().html).toContain("Sign in to Colonie Cloud");
   expect(bridge.connectHome).not.toHaveBeenCalled();
   expect(bridge.begin).not.toHaveBeenCalled();
 });

@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { MAUS_COLOR_NAMES, MAUS_COLORS, type MausColor } from "@/lib/mascot";
 import { api, type Bot } from "@/state/store";
+import { DEFAULT_MASCOT_BODY, MASCOT_BODIES, MASCOT_BODY_IDS, type MascotBodyId } from "../../../../shared/mascot-bodies";
 import { inputClass, PrimaryButton, QuietButton, staggerIndex, type BeatProps } from "./shared";
 
 const SOUL_LINE_LIMIT = 200;
@@ -32,6 +33,7 @@ export function MeetYourBotBeat({
 }) {
   const [name, setName] = useState(bot?.name ?? "");
   const [color, setColor] = useState<MausColor>(bot?.color ?? "green");
+  const [body, setBody] = useState<MascotBodyId>(bot?.mascotBody ?? DEFAULT_MASCOT_BODY);
   const [line, setLine] = useState("");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -53,6 +55,7 @@ export function MeetYourBotBeat({
     const trimmedName = name.trim();
     if (trimmedName && trimmedName !== bot.name) patch.name = trimmedName;
     if (color !== bot.color) patch.color = color;
+    if (body !== (bot.mascotBody ?? DEFAULT_MASCOT_BODY)) patch.mascotBody = body;
     const soul = soulWithLine(bot.soul, line);
     if (soul !== undefined) patch.soul = soul;
     if (!Object.keys(patch).length) {
@@ -79,7 +82,7 @@ export function MeetYourBotBeat({
 
       <div className="animate-rise mt-5 flex items-center gap-4" style={staggerIndex(1)}>
         {/* the bot itself, in its chosen color, next to the guide */}
-        <MausAvatar color={color} state="happy" size={64} label={name || bot?.name} />
+        <MausAvatar color={color} bodyId={body} state="happy" size={64} label={name || bot?.name} followGlobalPointer />
         <div className="min-w-0 flex-1">
           <label className="text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary" htmlFor="welcome-bot-name">
             {t("onboarding.bot.name")}
@@ -123,6 +126,31 @@ export function MeetYourBotBeat({
       </div>
 
       <div className="animate-rise mt-4" style={staggerIndex(3)}>
+        <div className="text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary">{t("onboarding.bot.body")}</div>
+        <div role="radiogroup" aria-label={t("onboarding.bot.body")} className="mt-2 grid grid-cols-5 gap-1.5">
+          {MASCOT_BODY_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={id === body}
+              aria-label={t("onboarding.bot.bodyAria", { body: MASCOT_BODIES[id].name })}
+              onClick={() => {
+                setBody(id);
+                bump("customize");
+              }}
+              className={cn(
+                "flex items-center justify-center rounded-lg py-1 transition-colors",
+                id === body ? "bg-control" : "hover:bg-control/60",
+              )}
+            >
+              <MausAvatar color={color} bodyId={id} size={30} animated={false} trackPointer={false} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="animate-rise mt-4" style={staggerIndex(4)}>
         <label className="text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary" htmlFor="welcome-bot-soul">
           {t("onboarding.bot.soul")}
         </label>
@@ -144,7 +172,7 @@ export function MeetYourBotBeat({
         </div>
       )}
 
-      <PrimaryButton onClick={() => void save()} disabled={saving} className="animate-rise mt-5" style={staggerIndex(4)}>
+      <PrimaryButton onClick={() => void save()} disabled={saving} className="animate-rise mt-5" style={staggerIndex(5)}>
         {saving ? t("onboarding.bot.saving") : t("onboarding.bot.finish")}
       </PrimaryButton>
       {failed && (

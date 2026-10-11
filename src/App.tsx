@@ -4,9 +4,7 @@ import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./components/HIcon";
 import { CLOUD_LINK_SETTINGS, StoreProvider, useStore } from "@/state/store";
 import { useWelcomeViewer, WelcomeGate } from "@/components/onboarding/WelcomeGate";
-import { cloudSignInDue, spotlightsQuiet, type WelcomeViewer } from "@/lib/onboarding";
-import { FirstConversationTour } from "@/components/onboarding/FirstConversationTour";
-import { GuidedTour } from "@/components/onboarding/GuidedTour";
+import { cloudSignInDue, type WelcomeViewer } from "@/lib/onboarding";
 import { LiveCallHost } from "@/components/LiveCallHost";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { initAnalytics } from "@/lib/analytics";
@@ -410,9 +408,7 @@ function Application() {
           <Shell viewer={viewer} />
         </ThreadRefsProvider>
         <WelcomeGate viewer={viewer} />
-        <GuidedTour />
         <LiveCallHost />
-        <FirstConversationTour quiet={spotlightsQuiet(viewer)} />
       </StoreProvider>
     </DesktopCapabilitiesProvider>
   );

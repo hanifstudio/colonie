@@ -9,7 +9,7 @@
 // finish.
 import { useEffect, useState } from "react";
 import { emailGateDone } from "@/lib/analytics";
-import { hostedMember, LOCAL_VIEWER, welcomeDue, welcomeViewer, type BeatId, type WelcomeViewer } from "@/lib/onboarding";
+import { hostedMember, LOCAL_VIEWER, welcomeDue, welcomeViewer, type WelcomeViewer } from "@/lib/onboarding";
 import { api, useStore } from "@/state/store";
 import { SharedWorkspaceHint } from "./SharedWorkspaceHint";
 import { WelcomeFlow } from "./WelcomeFlow";
@@ -51,9 +51,6 @@ export function useWelcomeViewer(): WelcomeViewer | null {
 export function WelcomeGate({ viewer }: { viewer: WelcomeViewer | null }) {
   const { state, dispatch } = useStore();
   const [dismissed, setDismissed] = useState(false);
-  // Set when the engines beat's organisation row opened Settings, so closing
-  // Settings brings the person back to that beat rather than the greeting.
-  const [resumeAt, setResumeAt] = useState<BeatId | undefined>(undefined);
   const remoteClient = window.ogb?.remoteClient?.active === true;
   if (!viewer) return null;
   // Only a hosted workspace is a team's by definition. Elsewhere a session
@@ -92,17 +89,9 @@ export function WelcomeGate({ viewer }: { viewer: WelcomeViewer | null }) {
       bot={bot}
       replay={replay}
       hosted={viewer.hosted}
-      initialBeat={resumeAt}
-      onOpenOrganisation={() => {
-        setResumeAt("engines");
-        dispatch({ type: "toggleAppSettings", open: true, section: "organization" });
-      }}
       onDone={() => {
         setDismissed(true);
-        setResumeAt(undefined);
         dispatch({ type: "toggleWelcome", open: false });
-        // the first real finish hands over to the guided tour; a replay does not
-        if (!replay) dispatch({ type: "toggleTour", open: true });
       }}
     />
   );

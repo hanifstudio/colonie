@@ -1,24 +1,25 @@
-// Beat 1: who you are. Name and email go to the workspace profile (the
-// sidebar footer reads them back) and to analytics identity. Both optional;
-// "Maybe later" moves on without either.
+// Beat 1: who you are. Name and email are required; both go to the workspace
+// profile (the sidebar footer reads them back) and to analytics identity.
 //
 // A hosted team workspace asks for neither: its profile is shared by
 // everyone who signs in there, and the email field is a mailing-list offer
 // for people installing the app. It only says what the workspace is.
 import { useRef, useState } from "react";
-import { identifyEmail, track } from "@/lib/analytics";
+import { identifyEmail } from "@/lib/analytics";
 import { t } from "@/lib/i18n";
 import { api, useStore } from "@/state/store";
-import { inputClass, PrimaryButton, QuietButton, staggerIndex, type BeatProps } from "./shared";
+import { inputClass, PrimaryButton, staggerIndex, type BeatProps } from "./shared";
 
-export function HelloBeat({ onNext, onSkip, hosted = false }: BeatProps & { hosted?: boolean }) {
+export function HelloBeat({ onNext, hosted = false }: BeatProps & { hosted?: boolean }) {
   const { dispatch } = useStore();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const pending = useRef(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const nameOk = name.trim().length > 0;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const valid = nameOk && emailOk;
 
   const saveProfile = async () => {
     if (!valid || pending.current) return;
@@ -26,7 +27,7 @@ export function HelloBeat({ onNext, onSkip, hosted = false }: BeatProps & { host
     setSaving(true);
     setFailed(false);
     const trimmedEmail = email.trim().toLowerCase();
-    // persisted server-side (~/.openmausbot/config.json); the response is
+    // persisted server-side (~/.colonie/config.json); the response is
     // the fresh config status, folded straight into the store
     try {
       const config = await api("/api/config", {
@@ -69,6 +70,7 @@ export function HelloBeat({ onNext, onSkip, hosted = false }: BeatProps & { host
         aria-label={t("onboarding.name")}
         value={name}
         onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && email.trim() && void saveProfile()}
         placeholder={t("onboarding.name")}
         className={`animate-rise mt-5 ${inputClass}`}
         style={staggerIndex(1)}
@@ -87,16 +89,6 @@ export function HelloBeat({ onNext, onSkip, hosted = false }: BeatProps & { host
       <PrimaryButton onClick={() => void saveProfile()} disabled={!valid || saving} className="animate-rise mt-3" style={staggerIndex(3)}>
         {t("onboarding.continue")}
       </PrimaryButton>
-      <QuietButton
-        onClick={() => {
-          track("email_skipped");
-          onSkip();
-        }}
-        className="animate-rise mt-3"
-        style={staggerIndex(4)}
-      >
-        {t("onboarding.maybeLater")}
-      </QuietButton>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { bootstrapBrand } from "./lib/brand";
 import { applySkin, readSkin } from "./lib/skins";
 import { applyFont, readFont } from "./lib/fonts";
 import { settleAdvancedModeDefault } from "./lib/interface-mode";
-import { setAnalyticsEnabled, setEmailGateDone } from "./lib/analytics";
+import { setAnalyticsEnabled } from "./lib/analytics";
 import { BrowserSignInPage } from "./pair/BrowserSignInPage";
 import { PairPage } from "./pair/PairPage";
 import "katex/dist/katex.min.css";
@@ -23,7 +23,6 @@ import "./styles.css";
 settleAdvancedModeDefault();
 // This fork uses local CLI authentication, not the upstream signup/analytics flow.
 setAnalyticsEnabled(false);
-setEmailGateDone("skipped");
 applySkin(readSkin());
 applyFont(readFont());
 

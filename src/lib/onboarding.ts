@@ -117,7 +117,7 @@ export function hintSeenPatch(
 
 // ── beats ──────────────────────────────────────────────────────────────
 
-export type BeatId = "hello" | "reel" | "engines" | "permissions" | "phone" | "bot";
+export type BeatId = "hello" | "reel" | "engines" | "permissions" | "bot";
 
 export interface BeatOptions {
   /** The desktop app can ask for the microphone; a browser cannot. */
@@ -133,7 +133,7 @@ export interface BeatOptions {
 /** Beats in order for this session. The exit beat is always last so the
  * seeded bot is named even when everything else was skipped. A hosted
  * workspace gets a greeting and the bot: its organisation assigns the models,
- * and the reel, engines, microphone and phone beats all describe this
+ * and the reel, engines and microphone beats all describe this
  * computer, which a hosted workspace is not. */
 export function beatsFor(options: BeatOptions): BeatId[] {
   if (options.hosted) return ["hello", "bot"];
@@ -141,7 +141,7 @@ export function beatsFor(options: BeatOptions): BeatId[] {
   if (options.reel) beats.push("reel");
   beats.push("engines");
   if (options.dictation) beats.push("permissions");
-  beats.push("phone", "bot");
+  beats.push("bot");
   return beats;
 }
 
@@ -164,8 +164,6 @@ export function beatWidth(beat: BeatId): number {
   switch (beat) {
     case "engines":
       return 680;
-    case "phone":
-      return 620;
     case "reel":
       return 720;
     case "bot":

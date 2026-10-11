@@ -1,20 +1,25 @@
-// Assert the first-run workflow against a handle from `control-omb ui launch`.
-// The handle gate refuses live-app URLs and stopped fixtures. All profile,
-// bot and onboarding writes below stay inside that launch's disposable home.
+// Assert the first-run welcome flow against a handle from `control-omb ui
+// launch`. The handle gate refuses live-app URLs and stopped fixtures. All
+// profile, bot and onboarding writes below stay inside that launch's
+// disposable home.
+//
+// The guided tour and the first-conversation spotlights are disabled in
+// Colonie for now, so this recipe stops at the welcome flow: it proves the
+// flow completes, persists, stays dismissed after reload, hands straight to
+// the chat with no tour, and still replays from Settings.
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { runControlOmb } from "./control-omb.ts";
-import { TOUR_STEPS } from "../src/lib/guided-tour.ts";
 
 const handle = process.argv[2];
 if (!handle) throw new Error("Usage: node --experimental-strip-types scripts/verify-onboarding-ui.ts /path/to/fixture/ui.json");
 const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
 const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
 const click = async (name: string) => {
-  // Let the 320ms spotlight transition land before sending a real pointer
-  // click; the browser CLI does not wait for moving controls to stabilize.
+  // Let the 320ms view transition land before sending a real pointer click;
+  // the browser CLI does not wait for moving controls to stabilize.
   await delay(400);
   return ui("click", "--name", name);
 };
@@ -55,7 +60,9 @@ const holdConfigWrite = () => evaluate(`(() => {
 })()`);
 
 // The standard fixture suppresses onboarding. This opt-in entry skips that
-// suppression; only this fixture browser's localStorage is cleared.
+// suppression; only this fixture browser's localStorage is cleared. The
+// onboarding record is reset first so the recipe can rerun on one fixture.
+await evaluate("fetch('/api/config', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({onboarding:{completedAt:'', version:0, reelSeen:false, hintsSeen:[]}})}).then(r=>r.ok)");
 await evaluate("localStorage.clear(); setTimeout(() => { location.search = '?onboarding=1'; }, 0); true");
 await textVisible("Your name");
 await evaluate("document.documentElement.dataset.reducedMotion = 'true'; true");
@@ -93,6 +100,11 @@ await click("Next");
 await click("Next");
 await click("Next");
 await click("Continue");
+
+// The engines beat frames the two ACP providers and keeps working when the
+// inventory request fails.
+await textVisible("Codex or Claude Code");
+await textVisible("Never installed either");
 await textVisible("Check again");
 await screenshot("engines");
 const inventoryBefore = await evaluate("[...document.querySelectorAll('.welcome-card [aria-expanded]')].map(e => e.textContent)");
@@ -113,74 +125,55 @@ assert.deepEqual(await evaluate("[...document.querySelectorAll('.welcome-card [a
 await click("Check again");
 await poll(async () => (await snapshot()).includes("Couldn't check your AI connections"), false, "inventory retry");
 await click("Continue");
-await textVisible("Your phone");
-await click("Not now");
+
+// No phone beat in Colonie: the engines beat hands straight to the bot beat.
 await textVisible("Start chatting");
 await screenshot("meet-bot");
 await click("Start chatting");
-await textVisible("This is where you talk to your bots");
-console.log("PASS reel, engine failure/retry, phone skip and welcome completion");
 
-// Complete every live-interface step and verify its server record. A missing
-// optional browser tab may skip itself, but every required anchor must work.
-for (const step of TOUR_STEPS) {
-  if ((await config()).onboarding.hintsSeen.includes(step.id)) continue;
-  await poll(() => evaluate("Boolean(document.querySelector('[data-tour-card] button'))"), true, step.id);
-  await screenshot(step.id);
-  await click(step.id === "tour.done" ? "Finish" : "Next");
-  await poll(async () => (await config()).onboarding.hintsSeen.includes(step.id), true, `saved ${step.id}`);
-}
-await poll(() => evaluate("document.querySelectorAll('[data-tour-card]').length"), 0, "tour closed");
+// The guided tour is off: finishing lands directly in the chat with no card.
+await poll(async () => (await snapshot()).includes("Start chatting"), false, "welcome closed");
+assert.equal(await evaluate("document.querySelectorAll('.welcome-card, [data-tour-card]').length"), 0);
+await textVisible("Message Pepper");
+await poll(async () => Boolean((await config()).onboarding.completedAt), true, "welcome save completed");
+assert.equal((await config()).onboarding.hintsSeen.filter((id: string) => id.startsWith("tour.")).length, 0);
+console.log("PASS reel, engine failure/retry, no phone beat, welcome completion with no guided tour");
+
 await evaluate("setTimeout(() => location.reload(), 0); true");
 await textVisible("Message Pepper");
 assert.equal(await evaluate("document.querySelectorAll('.welcome-card, [data-tour-card]').length"), 0);
-console.log("PASS full guided tour, saved progress, reload stays dismissed");
+console.log("PASS reload stays dismissed with no tour");
 
+// Settings keeps the welcome replay and no longer offers an app tour.
 await openSettings();
-await click("Replay app tour");
-await textVisible("This is where you talk to your bots");
-await holdConfigWrite();
-await click("Next");
-await poll(() => evaluate("window.heldWrites"), 1, "Next pending");
-await click("Skip tour");
-await poll(() => evaluate("document.querySelectorAll('[data-tour-card]').length"), 0, "Skip closes immediately");
-await evaluate("window.releaseWrite(); true");
-await poll(async () => (await config()).onboarding.hintsSeen.filter((id: string) => id.startsWith("tour.")).length, TOUR_STEPS.length, "Skip survives in-flight Next");
-console.log("PASS Settings replay and Skip queued behind slow Next");
-
-await openSettings();
+assert.equal(await evaluate("document.body.innerHTML.includes('Replay app tour')"), false, "no app-tour replay button");
 await click("Replay welcome tour");
 await textVisible("Your name");
+// The greeting cannot be skipped: name and email are mandatory.
+assert.equal(
+  await evaluate("[...document.querySelectorAll('.welcome-card button')].find((b) => b.textContent.includes('Skip tour')).disabled"),
+  true,
+  "greeting Skip tour is disabled",
+);
+await type("Your name", "Onboarding fixture");
+await type("Email", "onboarding@example.test");
+await click("Continue");
+await textVisible("What your bots can do");
 await holdConfigWrite();
 await click("Skip tour");
 await poll(() => evaluate("document.querySelectorAll('.welcome-card').length"), 0, "slow completion cannot trap welcome");
 await evaluate("window.releaseWrite(); true");
-console.log("PASS welcome replay can close while persistence is pending");
+console.log("PASS greeting cannot be skipped; welcome replay can close while persistence is pending");
 await poll(async () => Boolean((await config()).onboarding.completedAt), true, "welcome save completed");
 
-// An upgraded install can have only the legacy browser gate. Replay still
-// works without a new welcome completion, and failures keep Settings open.
+// An upgraded install can have only the legacy browser gate; replay still
+// works there without a new welcome completion.
 await evaluate("fetch('/api/config', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({onboarding:{completedAt:'', version:0}})}).then(r=>r.ok)");
 await evaluate("setTimeout(() => location.reload(), 0); true");
 await textVisible("Message Pepper");
 await openSettings();
-await evaluate(`(() => {
-  const original = window.fetch.bind(window);
-  window.fetch = (input, init) => {
-    if (String(input) === '/api/config' && init?.method === 'PUT') {
-      window.fetch = original;
-      return Promise.resolve(new Response('{}', {status:503}));
-    }
-    return original(input, init);
-  };
-  return true;
-})()`);
-await click("Replay app tour");
-await textVisible("Couldn't save your progress");
-await click("Replay app tour");
-await textVisible("This is where you talk to your bots");
-await click("Skip tour");
-await poll(async () => (await config()).onboarding.hintsSeen.filter((id: string) => id.startsWith("tour.")).length, TOUR_STEPS.length, "legacy replay saved");
-console.log("PASS legacy-install replay and failed replay retry");
+await click("Replay welcome tour");
+await textVisible("Your name");
+console.log("PASS legacy-install replay opens without a new welcome completion");
 await screenshot("complete");
 console.log(JSON.stringify({ ok: true, evidence, config: (await config()).onboarding }));

@@ -81,7 +81,7 @@ describe("who gets the welcome flow", () => {
     vi.stubGlobal("window", LOCAL_PAGE);
     const { tree } = gate(LOCAL_VIEWER);
     expect(tree?.type).toBe(WelcomeFlow);
-    expect(tree?.props).toMatchObject({ hosted: false, initialBeat: undefined, replay: false });
+    expect(tree?.props).toMatchObject({ hosted: false, replay: false });
   });
 
   it("opens the hosted beat set for a hosted workspace's admin", () => {
@@ -101,7 +101,7 @@ describe("who gets the welcome flow", () => {
   it("gives a hosted member a note instead, and nothing that writes the workspace config", async () => {
     const { tree, html } = gate({ hosted: true, canSave: false });
     expect(tree?.type).toBe(SharedWorkspaceHint);
-    expect(html).toContain("Your team&#x27;s shared OpenMausBot");
+    expect(html).toContain("Your team&#x27;s shared Colonie");
     expect(html).not.toContain("role=\"dialog\"");
     fixture.values = [];
     const hint = render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() }));
@@ -120,11 +120,11 @@ describe("who gets the welcome flow", () => {
     expect(render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() })).html).toBe("");
     // but Settings → Replay welcome tour shows it again
     fixture.values = [];
-    expect(render(() => SharedWorkspaceHint({ replay: true, onClose: vi.fn() })).html).toContain("shared OpenMausBot");
+    expect(render(() => SharedWorkspaceHint({ replay: true, onClose: vi.fn() })).html).toContain("shared Colonie");
     // storage that throws (private window) still shows it and never breaks
     vi.stubGlobal("localStorage", { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
     fixture.values = [];
-    expect(render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() })).html).toContain("shared OpenMausBot");
+    expect(render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() })).html).toContain("shared Colonie");
   });
 
   it("never opens the flow for a hosted member, even when the admin has not finished it", () => {
@@ -181,22 +181,6 @@ describe("who gets the welcome flow", () => {
     expect(gate(LOCAL_VIEWER).tree).not.toBeNull();
     store.state = { ...store.state, appSettingsOpen: false, appSettingsSection: "cloudAccount" };
     expect(gate(LOCAL_VIEWER).tree).not.toBeNull();
-  });
-
-  it("resumes on the engines beat after the organisation row opens Settings", () => {
-    vi.stubGlobal("window", LOCAL_PAGE);
-    const first = gate(LOCAL_VIEWER).tree!;
-    first.props.onOpenOrganisation!();
-    expect(store.dispatch).toHaveBeenCalledWith({ type: "toggleAppSettings", open: true, section: "organization" });
-    store.state = { ...store.state, appSettingsOpen: true, appSettingsSection: "organization" };
-    expect(gate(LOCAL_VIEWER).tree).toBeNull();
-    store.state = { ...store.state, appSettingsOpen: false };
-    const resumed = gate(LOCAL_VIEWER).tree!;
-    expect(resumed.props.initialBeat).toBe("engines");
-    // finishing forgets it: a later Settings replay starts at the greeting
-    (resumed.props.onDone as () => void)();
-    store.state = { ...store.state, welcomeOpen: true };
-    expect(gate(LOCAL_VIEWER).tree?.props.initialBeat).toBeUndefined();
   });
 });
 
