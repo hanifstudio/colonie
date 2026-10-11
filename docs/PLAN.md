@@ -21,7 +21,8 @@ credential UI/storage follow-up is now verified with targeted synthetic tests.
 User-specific unreadable/locked-store recovery remains a bounded diagnostic task.
 M8-C connected-tools consolidation and M8-D/E CLI isolation/sign-in are implemented.
 M9-A memory is implemented with isolated SDK/HTTP, renderer/desktop and bounded
-real-Claude evidence. The next feature slice is M9-B Chief delegation. Full
+real-Claude evidence. M9-B Chief and M10 skills are now approved and in progress;
+group chat is deferred for a separate discussion. Full
 frontend/backend legacy retirement remains deferred architecture milestone D1.
 
 ## Next phase
@@ -279,7 +280,7 @@ M8-C UX cleanup and should have its own implementation/review/verification plan.
 ### M9 — memory, Chief coordination and routines (proposed)
 
 Split into independently verifiable slices: controlled cross-session memory;
-Chief delegation and group context/ownership; then manual/scheduled routines and
+Chief delegation (group chat deferred); then manual/scheduled routines and
 webhooks as needed. Define who responds, what context crosses agent boundaries,
 how Stop propagates and how retries avoid duplicate work. Chief profile alone
 does not satisfy this milestone.
@@ -299,7 +300,15 @@ A bounded real-Claude ACP check passed separately. Real Codex is not claimed.
 Commands/limitations: `verification/colonie-memory.md` and `PROGRESS.md`. Next:
 M9-B Chief delegation with scoped task context, result routing and Stop ownership.
 
-### M10 — skills on the ACP boundary (proposed)
+#### M9-B — one default Chief (in progress)
+
+Owner approved the first bot as the default Chief and exactly one Chief per
+workspace. Implement create/read/update/delete/ask tools, role transfer, explicit
+task ownership/results, target permissions, Stop, idempotency and restart. Normal
+chat/profile controls suffice. Groups remain deferred; do not restore the old
+team/context pipeline. Plan: `plans/2026-10-12-chief-and-skills.md`.
+
+### M10 — skills on the ACP boundary (in progress)
 
 Colonie already ships the upstream Agent Skills store (`server/skills.ts`,
 `shared/skill-md.ts`) and per-bot Skills UI: `SKILL.md` imports (agentskills.io
@@ -311,6 +320,13 @@ bot profile (currently filtered out), and deliver the skills index through the
 app-owned ACP context (M7-B) instead of the legacy prompt pipeline. Claude reads
 `.claude/skills` natively through its adapter; Codex relies on the context index.
 Verify with an isolated fixture and one bounded native-discovery check per provider.
+
+Owner approved doing skills alongside Chief, before groups. Reuse upstream storage
+and integrity with normal profile create/edit/import/on/off/assignment; Chief can
+manage guides through scoped tools. Deliver a dynamic bounded index plus exact
+skill-body retrieval through scoped MCP, so user-selected cwd and both maintained
+adapters work without writing app instructions into native projects/global homes.
+Detailed worker/lead contracts and acceptance: `plans/2026-10-12-chief-and-skills.md`.
 
 ### Later — computer/VM, voice and office deployment
 

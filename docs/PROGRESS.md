@@ -1,5 +1,92 @@
 # Colonie progress
 
+## M9-B + M10 — singleton default Chief and ACP skills (in progress)
+
+- Owner clarified Chief as the first bot by default, exactly one per workspace,
+  able to create/change/delete/ask other bots. Owner approved implementation of
+  Chief and skills together; group chat is deferred for a separate discussion.
+  Updated SPEC/PLAN; detailed file/API/lifecycle/verification plan:
+  `plans/2026-10-12-chief-and-skills.md`.
+- Parallel color lead (`w2M:p1`) confirmed no source edits/ownership overlap. The
+  tree was clean at start (M9-A commit `cd246c4d`). Lead owns shared files/runtime/
+  server integration and final verification. New Herdr workers `chief-worker`
+  (`w2M:pB`) and `skills-worker` (`w2M:pC`) use
+  `9router/alitp-intl/deepseek-v4.1-flash`; availability reconfirmed with
+  `opencode models 9router`. Worker new-file allowlists are disjoint.
+- Audit: upstream Chiefs are section-scoped, while the approved product requires
+  a workspace singleton. Legacy delegation is blocked on ACP and cannot simply
+  be re-enabled. Upstream skill store/import/review/integrity is reusable, but ACP
+  conversation cwd differs from skill workspace: scoped MCP body retrieval plus
+  dynamic indexes are required to preserve bot/project isolation.
+- Worker slices completed one bounded pass each. Chief worker: new
+  `shared/colonie-chief.ts`, `server/colonie/chief/{store,manager,routes}.ts` + tests,
+  `src/components/{ChiefControls,ChiefActivity}.tsx` + tests. Skills worker: new
+  `shared/colonie-skills.ts`, `server/colonie/skills/{service,routes}.ts` + tests,
+  `src/components/bot-settings/ColonieSkillsSection.tsx` + test. Lead held all
+  existing shared files and integration. Combined worker suites: **49 passed / 8 files**.
+- Lead integration (existing shared files): `shared/connected-apps.ts` gains the
+  `colonie` server source; `server/contracts.ts` adds `acpSkills`, `acpAssignment`,
+  `acpChief`; `server/index.ts` instantiates `ColonieSkills` + `ColonieChief`,
+  merges the connected-tools and Colonie workspace tool mounts into one ACP mount,
+  passes a dynamic skills index plus the assignment/chief flags into each dispatch,
+  registers the owner/admin Chief and per-bot skills routes, serves the internal
+  `/api/internal/colonie-workspace-mcp` loopback relay, runs child assignments under
+  their own ACP conversation (`runColonieAssignment`), and cancels exact work on Stop,
+  bot deletion and shutdown. `server/devone/context.ts` composes the skills index and
+  Chief/assignment sections dynamically, never on stable pins. `server/store.ts`
+  elects one workspace Chief: the first seeded bot, or the oldest bot on an upgraded
+  workspace without one.
+- Memory boot hardening: an unreadable ledger no longer aborts startup. The store is
+  constructed in a guarded block; on failure memory is explicitly unavailable (recall
+  off, panel reports unavailable, mutations refused) and the existing data is left
+  untouched. The known M9-A startup gap is closed.
+- Real React mounts: `ChiefControls` + `ColonieSkillsSection` + `ColonieMemorySection`
+  in the normal Simple bot profile and the full ACP sections; `ChiefActivity` above the
+  Chief's own conversation. Fixed invalid theme tokens (`border-line`/`bg-surface`)
+  the worker used, to the app's real `border-hairline`/`bg-card` tokens.
+- Actual checks under Node 25.8.1:
+  - `pnpm typecheck` — **passed**; `pnpm lint` (oxlint --deny-warnings) — **passed**;
+    `pnpm build` (production renderer + server) — **passed**.
+  - `pnpm exec vitest run server/store.test.ts server/colonie/
+    server/devone/memory.e2e.test.ts server/devone/context.e2e.test.ts
+    server/devone/context-integrity.test.ts server/devone/conversations.e2e.test.ts
+    src/components/BotSettingsDialog.simple.test.ts src/components/ChatView.controls.test.ts`
+    — **289 passed across 22 files**.
+  - `server/colonie/chief/chief.e2e.test.ts` — **2 passed**, both providers, canonical
+    disposable SDK/HTTP fixtures: the seeded first bot is the workspace Chief; a
+    second bot is created and the role transfers (still exactly one Chief, stale
+    revision 409); an owner-authored guide reaches a real ACP turn's receipt as a
+    bounded, named `skills.index` section with `colonie_workspace` mounted in the
+    connected-tools receipt; a disabled guide is excluded from the next dispatch.
+  - The same e2e now drives a **real delegated task through the model**: the Chief
+    sends `mcp call colonie_workspace ask_bot {...}` in an actual ACP turn, the fixture
+    raises the tool permission which the test allows over HTTP, the child bot runs in
+    its own freshly created conversation, and the child's reply flows back as the
+    assignment result. Inspected evidence: worker task count 1→2, assignment status
+    `completed` with result `1: Reply with the exact word PONG.`, and a recorded
+    `colonie_workspace` `ask_bot` completed tool call. Re-sending the same `requestId`
+    replays the recorded result idempotently and creates no second child conversation.
+- Real renderer check — `node scripts/colonie/chief-skills-ui-check.ts` and
+  `--claude` — **both passed** against the canonical SDK fixture and the actual React
+  app: the seeded bot's profile shows the Chief card, a guide is created and listed
+  through the normal profile, an enabled guide reaches a real dispatch receipt as a
+  `skills.index` section, turning the guide off from the profile excludes it from the
+  next dispatch, and the user's own message bytes are preserved. Evidence:
+  `.devone/evidence/{claude-,}chief-skills-renderer-check.json`.
+- Verification caught and fixed a real integration bug: two tool mounts (connected
+  apps + Colonie workspace) were merged into one wrapper whose `release` released
+  shared sub-leases, so the second message in a conversation failed with
+  `Connected app access changed`. The ACP runtime now carries independent mounts
+  (`acpTools` + `acpExtraTools`), activates/releases each, and on session rebuild
+  releases only the mounts the next turn does not reuse. Both-provider renderer and
+  HTTP/SDK checks pass again after the fix.
+- Actual boundaries now: the child ran on the SDK fixture (simulated provider), not a
+  real model; permission-waiting/Stop propagation for a child is covered by manager
+  unit tests with injected deps. The production packaged desktop workflow and a
+  bounded real-provider Chief/skills check remain unverified (packaging writes the
+  shared `release/` artifact and is deferred until parallel work confirms it is free).
+  Group chat is explicitly deferred.
+
 ## M9-A — complete controlled memory (implemented; isolated workflows verified)
 
 - Owner approved full automatic memory before Chief delegation, with detailed

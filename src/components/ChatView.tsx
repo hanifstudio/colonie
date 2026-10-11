@@ -90,6 +90,7 @@ import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
 import { RenameTitle } from "./RenameTitle";
 import { BotActivityPicker, TaskPicker } from "./TaskPicker";
+import { ChiefActivity } from "./ChiefActivity";
 import { NewThreadButton } from "./BotProjects";
 import { conversationTitle } from "@/lib/conversation-title";
 import { ModelPicker } from "./ModelPicker";
@@ -1462,6 +1463,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
         <span dir="auto" className="min-w-0 flex-1 truncate text-xs text-ink-secondary">{conversationTitle(bot.tasks?.find((task) => task.threadId === bot.threadId)?.title)}</span>
         <NewThreadButton bot={bot} label="New conversation" className="shrink-0 border border-hairline/40" />
       </div> : <BotActivityPicker bot={bot} />}
+      {codexAcp && bot.chiefOfStaff && <div className="px-5 pb-1"><ChiefActivity botId={bot.id} threadId={bot.threadId} /></div>}
       {routineExecution && <div className="mx-5 mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[11.5px] text-ink-secondary">
         <span className="min-w-0 flex-1 truncate">{t("routines.executionDetails", { name: routineExecution.routineName })}</span>
         {canOpenResults && resultsThreadId && <button type="button" onClick={() => openNotificationTarget(dispatch, { botId: bot.id, threadId: resultsThreadId }, state)} className="rounded px-2 py-1 text-accent hover:bg-raised">{t("routines.results.back")}</button>}

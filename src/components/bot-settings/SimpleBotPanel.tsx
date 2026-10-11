@@ -25,6 +25,8 @@ import { SkillReviewDialog, useManagedSkills } from "./SkillsSection";
 import type { useBotSettingsDerived } from "./useBotSettingsDerived";
 import { BotConnectedTools } from "../BotConnectedTools";
 import { ColonieMemorySection } from "./ColonieMemorySection";
+import { ColonieSkillsSection } from "./ColonieSkillsSection";
+import { ChiefControls } from "../ChiefControls";
 
 export const simpleInputCls =
   "w-full rounded-xl border border-hairline/40 bg-inset px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-tertiary focus:border-accent-border focus:outline-none";
@@ -203,7 +205,9 @@ export function SimpleBotPanel({
               }}
             />
             {acp && <p className="-mt-3 text-xs text-ink-secondary">Your bot uses its profile and saved instructions automatically. Changes apply to new conversations.</p>}
+            {acp && <ChiefControls bot={bot} />}
             {acp && <BotConnectedTools bot={bot} />}
+            {acp && <ColonieSkillsSection bot={bot} />}
             {acp && <ColonieMemorySection bot={bot} />}
 
             {/* The bot's model, in the same plain-words picker as the chat

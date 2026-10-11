@@ -115,6 +115,15 @@ export interface SendTurnInput {
   /** Fresh scoped memory reference data, separate from stable persona/SOUL pins. */
   acpMemory?: import("../shared/colonie-memory.ts").AcpMemoryContext;
   acpTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
+  /** A second independent tool mount (the Colonie workspace tools), kept separate
+   * so each mount owns its own lease lifetime and neither can release the other. */
+  acpExtraTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
+  /** Fresh scoped skills index, separate from stable persona/SOUL pins. */
+  acpSkills?: import("../shared/colonie-skills.ts").AcpSkillsContext;
+  /** Present only on a delegated Chief assignment turn: its exact ownership. */
+  acpAssignment?: import("../shared/colonie-chief.ts").AcpAssignmentContext;
+  /** True when this bot is the workspace Chief (it has management tools). */
+  acpChief?: boolean;
   threadId: ThreadId;
   /** The bot this turn belongs to. threadIds are meant to be unique per bot
    * task, but a driver's process-level resource maps (permission-broker

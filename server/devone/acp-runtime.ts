@@ -26,6 +26,7 @@ import { redactSecretsInText } from "../redact.ts";
 import { nativePreferences, saveNativePreferences, type NativePreferences } from "./settings.ts";
 import type { NativeSettings, NativeSettingChange, NativeOption } from "../../shared/acp-settings.ts";
 import type { AcpToolMount } from "../colonie/connections/contracts.ts";
+import type { ConnectedToolsReceipt } from "../../shared/connected-apps.ts";
 import { DATA_DIR } from "../config.ts";
 
 const require = createRequire(import.meta.url);
@@ -77,7 +78,7 @@ type PendingPermission = {
   resolve: (response: RequestPermissionResponse) => void;
 };
 type LiveSession = {
-  mount?: AcpToolMount;
+  mounts: AcpToolMount[];
   threadId: string;
   cwd: string;
   child: ChildProcessWithoutNullStreams;
@@ -266,9 +267,9 @@ export class AcpRuntime implements ProviderAdapter {
     turn.finished = true;
     if (turn.cancelled) { ok = false; stopReason = "cancelled"; }
     this.cancelPermissions(session);
-    session.mount?.deactivate();
+    for (const mount of session.mounts) mount.deactivate();
     if (turn.receipt) {
-      turn.receipt.connectedToolCalls = session.mount?.calls();
+      turn.receipt.connectedToolCalls = session.mounts.flatMap((mount) => mount.calls());
       turn.receipt.status = turn.cancelled ? "cancelled" : ok ? "completed" : "failed";
       if (error) turn.receipt.error = error;
       try { saveInputReceipt(turn.receipt); }
@@ -293,7 +294,7 @@ export class AcpRuntime implements ProviderAdapter {
   private async close(session: LiveSession): Promise<void> {
     if (session.closed) return;
     session.closed = true;
-    session.mount?.release();
+    for (const mount of session.mounts) mount.release();
     clearTimeout(session.idleTimer);
     this.cancelPermissions(session);
     session.connection.close();
@@ -431,19 +432,39 @@ export class AcpRuntime implements ProviderAdapter {
     }
   }
 
+  /** Each independent mount (connected tools, Colonie workspace tools) is a
+   * separate lease; the runtime activates/releases each, so neither wrapper can
+   * release a lease the other still holds. */
+  private mountsOf(input: SendTurnInput): AcpToolMount[] {
+    return [input.acpTools, input.acpExtraTools].filter((mount): mount is AcpToolMount => Boolean(mount));
+  }
+  private mountRevision(mounts: readonly AcpToolMount[]): string {
+    return mounts.map((mount) => mount.revision).join("+");
+  }
+  private combinedReceipt(mounts: readonly AcpToolMount[]): ConnectedToolsReceipt | undefined {
+    if (!mounts.length) return undefined;
+    return { policyHash: this.mountRevision(mounts), composioToolkits: mounts.flatMap((mount) => mount.receipt.composioToolkits),
+      servers: mounts.flatMap((mount) => mount.receipt.servers) };
+  }
+
   private async open(input: SendTurnInput): Promise<LiveSession> {
     const cwd = resolve(input.cwd ?? process.cwd());
     let existing = this.sessions.get(input.threadId);
-    const toolsChanged = existing && existing.mount?.revision !== input.acpTools?.revision;
+    const toolsChanged = existing && this.mountRevision(existing.mounts) !== this.mountRevision(this.mountsOf(input));
     if (existing && (existing.closed || existing.cwd !== cwd || input.sessionReset || toolsChanged)) {
       if (toolsChanged && !input.sessionReset && existing.cwd === cwd) input = { ...input, resumeCursor: input.resumeCursor ?? existing.id };
+      // A mount reused by the next session (same revision) must not be released
+      // by this teardown: release only the mounts the next turn does not carry,
+      // so two independent leases never release each other.
+      const keep = new Set(this.mountsOf(input).map((mount) => mount.revision));
+      existing.mounts = existing.mounts.filter((mount) => !keep.has(mount.revision));
       await this.close(existing);
       existing = undefined;
     }
     if (existing) { clearTimeout(existing.idleTimer); return existing; }
     if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
     const child = this.spawnAdapter(cwd);
-    const session = { threadId: input.threadId, cwd, child, mount: input.acpTools,
+    const session = { threadId: input.threadId, cwd, child, mounts: this.mountsOf(input),
       permissions: new Map(), tools: new Set(), loading: true, closed: false, stderr: "", modeEpoch: 0,
     } as LiveSession;
     // Bounded failure diagnostics, never protocol or prompt context.
@@ -459,7 +480,7 @@ export class AcpRuntime implements ProviderAdapter {
         this.finish(session, false, "error", message);
         this.emit(session, { type: "session.exited", reason: message });
         session.closed = true;
-        session.mount?.release();
+        for (const mount of session.mounts) mount.release();
         if (this.sessions.get(input.threadId) === session) this.sessions.delete(input.threadId);
       }
     };
@@ -539,7 +560,8 @@ export class AcpRuntime implements ProviderAdapter {
         throw new Error("This conversation's context snapshot is missing. Restore it before continuing.");
       }
       const pin = input.acpContext ? pinContext(input.threadId, input.acpContext) : null;
-      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: session.mount?.receipt, memory: input.acpMemory });
+      const combinedReceipt = this.combinedReceipt(session.mounts);
+      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: combinedReceipt, memory: input.acpMemory, skills: input.acpSkills, chief: input.acpChief, assignment: input.acpAssignment });
       const prompt = composed.prompt;
       for (const image of input.images ?? []) {
         prompt.push({ type: "image", mimeType: image.mime, data: readFileSync(image.path).toString("base64") });
@@ -547,11 +569,11 @@ export class AcpRuntime implements ProviderAdapter {
       turn.receipt = { id: newId(), at: new Date().toISOString(), threadId: input.threadId, turnId: turn.id,
         instanceId: this.instanceId, sessionId: session.id!, cwd: session.cwd, model: effectiveModel,
         mode, instructions: composed.instructions, prompt, context: composed.manifest, status: "dispatching",
-        connectedTools: session.mount?.receipt,
+        connectedTools: combinedReceipt,
         nativeSettings: Object.fromEntries((session.state?.configOptions ?? []).filter(supportedOption).map((option) => [option.id, option.currentValue])) };
       // Persist exact authored bytes BEFORE sending a request to the agent.
       saveInputReceipt(turn.receipt);
-      session.mount?.activate();
+      for (const mount of session.mounts) mount.activate();
       this.emit(session, { type: "session.started", sessionId: session.id!, model: effectiveModel });
       this.emit(session, { type: "turn.started" });
       void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
@@ -584,7 +606,7 @@ export class AcpRuntime implements ProviderAdapter {
     const turn = session?.turn;
     if (!session || !turn || turn.finished || turnId && turnId !== turn.id) return;
     turn.cancelled = true;
-    session.mount?.deactivate();
+    for (const mount of session.mounts) mount.deactivate();
     this.cancelPermissions(session);
     await session.connection.agent.notify(methods.agent.session.cancel, { sessionId: session.id! }).catch(() => {});
     await Promise.race([turn.done, new Promise<void>((resolve) => setTimeout(resolve, 1500).unref())]);
@@ -656,7 +678,7 @@ export class AcpRuntime implements ProviderAdapter {
       const valid = option && (option.type === "boolean" ? typeof value === "boolean" : typeof value === "string" && option.options.some((entry) => entry.value === value));
       return valid ? [] : [`Override '${id}' (${String(value)}) is no longer supported. Choose or apply an available native value before sending a message.`];
     });
-    const revision = createHash("sha256").update(JSON.stringify([session.id, publicModes, options, session.applicationSelection, preferences, session.mount?.revision])).digest("hex");
+    const revision = createHash("sha256").update(JSON.stringify([session.id, publicModes, options, session.applicationSelection, preferences, this.mountRevision(session.mounts)])).digest("hex");
     return { sessionId: session.id, instanceId: this.instanceId, threadId: session.threadId, cwd: session.cwd, revision, modes: publicModes, options, warnings: [...new Set([...warnings, ...stale])] };
   }
 
@@ -693,7 +715,7 @@ export class AcpRuntime implements ProviderAdapter {
   async changeSettings(input: SendTurnInput, change: NativeSettingChange): Promise<NativeSettings> {
     const session = this.sessions.get(input.threadId);
     if (this.starting.has(input.threadId) || !session || session.closed || session.turn && !session.turn.finished) throw Object.assign(new Error("Refresh the native settings after the conversation is idle"), { status: 409 });
-    if (session.mount?.revision !== input.acpTools?.revision) throw Object.assign(new Error("Connected tools changed. Refresh agent options before editing."), { status: 409 });
+    if (this.mountRevision(session.mounts) !== this.mountRevision(this.mountsOf(input))) throw Object.assign(new Error("Connected tools changed. Refresh agent options before editing."), { status: 409 });
     const snapshot = this.settingsSnapshot(session);
     if (session.applicationSelection !== selectionKey(input)) throw Object.assign(new Error("Application model/permission settings changed. Refresh the native panel."), { status: 409 });
     if (change.sessionId !== snapshot.sessionId || change.expectedRevision !== snapshot.revision) throw Object.assign(new Error("Native settings changed. Refresh before choosing a value."), { status: 409 });

@@ -386,3 +386,44 @@ Preserve legacy Markdown notes/APIs without silently importing their old context
 pipeline. Verify both-provider SDK/HTTP lifecycle, renderer controls, restart and
 bounded real-provider behavior separately. Implementation ownership and exact
 acceptance matrix: `plans/2026-10-11-colonie-memory.md`.
+
+## M9-B and M10 — default Chief and usable skills (owner approved)
+
+The first bot is Chief automatically. Colonie has exactly one Chief per workspace,
+regardless of legacy sections. Existing unique Chief/profile choices are preserved;
+otherwise an existing first/oldest bot is selected without resetting its history.
+Users can transfer the role through an ordinary profile action. The current Chief
+must be transferred before deletion/archive; no per-team Chiefs are introduced.
+
+Chief is a normal user-named/personality/provider-configured bot with authority to
+create, inspect, update, delete and ask other bots and manage their skills. Normal
+chat is sufficient. Model-facing management tools use scoped active-turn ACP MCP
+leases, not the legacy agent/team prompt pipeline. Authority is checked against
+the current Chief on every operation. Stable request IDs, persisted operation
+claims and argument hashes prevent duplicate mutations/assignments after retries;
+uncertain operations after restart are not silently re-executed.
+
+Each delegated task has a fresh target conversation and explicit selected task
+context, its own provider/model/tools/permissions/memory/skills and status/result.
+Chief combines actual results, not success claims. Normal UI shows who is working,
+which task needs approval and what completed/failed/stopped. Stop cancels only the
+source request's owned children. Group chat, team orchestration and routines remain
+deferred pending a separate product discussion.
+
+Skills are reusable guides managed from normal bot profiles or Chief chat. Users
+can author/read/edit private guides, import supported SKILL.md/source URLs, enable/
+disable/remove and assign existing library guides. Reuse the upstream store,
+review/integrity rules and private-over-library name precedence. External imports
+arrive disabled; explicit user/Chief-authored guide changes use the exact-content
+store path. Imported/library originals can be copied to editable private guides.
+
+ACP receives a bounded dynamic index; scoped read_skill MCP returns exact enabled,
+integrity-checked bodies only for the receiving bot. No app-managed guide is copied
+into a user's project or global native CLI configuration. Profile pins/native
+history remain stable; settings apply to subsequent requests. Native project and
+provider instructions remain agent-owned. Skills do not grant new tool permissions.
+
+Implementation plan and disjoint worker ownership:
+`plans/2026-10-12-chief-and-skills.md`. The implementation also hardens memory boot
+so unreadable stored memory leaves the app usable and explicitly memory-unavailable,
+without overwriting unknown data. All workflow claims require isolated evidence.

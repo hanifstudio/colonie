@@ -21,6 +21,7 @@ import { SoulSection } from "./bot-settings/SoulSection";
 import { SkillsSection } from "./bot-settings/SkillsSection";
 import { MemorySection } from "./bot-settings/MemorySection";
 import { ColonieMemorySection } from "./bot-settings/ColonieMemorySection";
+import { ColonieSkillsSection } from "./bot-settings/ColonieSkillsSection";
 import { RoutinesSection } from "./bot-settings/RoutinesSection";
 import { AccessSection } from "./bot-settings/AccessSection";
 import { ModelSection } from "./bot-settings/ModelSection";
@@ -90,7 +91,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // on a served workspace, and there only to an admin.
   const ownerOrAdmin = useOwnerOrAdmin();
   const sections = BOT_SECTIONS
-    .filter((entry) => !codexAcp || ["overview", "identity", "soul", "memory", "access", "model", "permissions"].includes(entry.id))
+    .filter((entry) => !codexAcp || ["overview", "identity", "soul", "skills", "memory", "access", "model", "permissions"].includes(entry.id))
     .filter((entry) => entry.id !== "slack" || slackUrl !== null)
     .filter((entry) => entry.id !== "visibility" || (!window.ogb && ownerOrAdmin === true));
   const visibleSections = sections.filter((entry) => sectionMatches(entry, q));
@@ -316,7 +317,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
       case "slack":
         return slackUrl ? <SlackSection managementUrl={slackUrl} /> : null;
       case "skills":
-        return <SkillsSection bot={bot} />;
+        return codexAcp ? <ColonieSkillsSection bot={bot} active={!collapsed && section === "skills"} /> : <SkillsSection bot={bot} />;
       case "memory":
         // Memory has an explicit Save button; preserve its unsaved draft
         // while the user consults another section. It fetches when it

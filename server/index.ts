@@ -22,6 +22,11 @@ import { ColonieMemoryStore } from "./colonie/memory/store.ts";
 import { ColonieMemoryService } from "./colonie/memory/service.ts";
 import { createColonieMemoryRoutes } from "./colonie/memory/routes.ts";
 import type { CompletedMemoryTurn } from "../shared/colonie-memory.ts";
+import { ColonieSkills } from "./colonie/skills/service.ts";
+import { createColonieSkillsRoutes } from "./colonie/skills/routes.ts";
+import { ColonieChief } from "./colonie/chief/manager.ts";
+import { createChiefRoutes } from "./colonie/chief/routes.ts";
+import type { ChiefAssignment, ChiefBot } from "../shared/colonie-chief.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, rmSync, mkdirSync } from "node:fs";
@@ -2883,6 +2888,8 @@ function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
 
 async function interruptDirectThread(botId: string, threadId: string, options?: { preserveComputerResume?: boolean }): Promise<void> {
   connectedTools.cancel(threadId);
+  colonieChief.cancelSource(threadId);
+  colonieTurnByThread.delete(threadId);
   if (isColonieAcpDriver(registry.get(store.bot(botId)?.modelSelection.instanceId ?? "")?.driverKind)) {
     try { colonieMemory.cancelThread(botId, threadId); }
     catch { console.warn("Colonie memory could not persist its cancelled capture queue."); }
@@ -3317,6 +3324,45 @@ function askBotAndWait(targetBotId: string, message: string, depth: number, from
     }).catch((err) =>
       finish({ status: "error", text: `(couldn't start that bot: ${err instanceof Error ? err.message : String(err)})` }),
     );
+  });
+}
+
+/** One Chief assignment: run the target's fresh conversation under its own
+ * provider/tools/permissions and return the result text. Stop aborts exactly
+ * this child; the caller (Chief manager) owns the durable status. */
+function runColonieAssignment(job: ChiefAssignment, signal: AbortSignal): Promise<string> {
+  const threadId = job.targetThreadId;
+  if (!threadId) return Promise.reject(new Error("The assignment has no conversation."));
+  return new Promise<string>((resolve, reject) => {
+    let text = "";
+    let done = false;
+    const finish = (settle: () => void) => {
+      if (done) return;
+      done = true;
+      unsub();
+      signal.removeEventListener("abort", onAbort);
+      settle();
+    };
+    const unsub = bus.subscribe((event: RuntimeEvent) => {
+      if (shouldIgnoreProviderEvent(event) || event.threadId !== threadId) return;
+      if (event.type === "item.completed" && event.itemType === "assistant_text") text += (text ? "\n" : "") + event.text;
+      else if (event.type === "turn.completed") {
+        finish(() => event.ok ? resolve(text || "(the bot finished without a text reply)") : reject(new Error(event.stopReason ?? "The task failed.")));
+      }
+    });
+    const onAbort = () => {
+      finish(() => reject(Object.assign(new Error("The task was stopped."), { name: "AbortError" })));
+      void interruptDirectThread(job.targetBotId, threadId);
+    };
+    if (signal.aborted) { onAbort(); return; }
+    signal.addEventListener("abort", onAbort, { once: true });
+    const chief = store.bot(job.chiefBotId);
+    startTurn(job.targetBotId, job.message, {
+      threadId,
+      colonieAssignment: { id: job.id, chiefBotId: job.chiefBotId, chiefName: chief?.name ?? "the Chief",
+        sourceThreadId: job.sourceThreadId, ...(job.context ? { context: job.context } : {}) },
+      onDispatchError: (reason) => finish(() => reject(new Error(reason))),
+    }).catch((error) => finish(() => reject(error instanceof Error ? error : new Error(String(error)))));
   });
 }
 
@@ -3776,13 +3822,69 @@ const connectedTools = new ConnectedTools({ origin: `http://127.0.0.1:${PORT}`,
   recordUserId: (userId) => { cfg.composio = { ...cfg.composio, userId }; saveConfig({ composio: { userId } }); },
   owns: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
 });
-async function acpToolMount(botId: string, threadId: string, instanceId: string) {
+const colonieSkills = new ColonieSkills({
+  bot: (id) => { const bot = store.bot(id); return bot ? { id, assignedSkills: bot.assignedSkills } : undefined; },
+  setAssigned: (id, names) => { store.patchBot(id, { assignedSkills: names }); },
+  busy: (id) => botHasActiveTurn(id),
+});
+const chiefBot = (bot: NonNullable<ReturnType<typeof store.bot>>): ChiefBot => ({
+  id: bot.id, name: bot.name, title: bot.title, description: bot.description,
+  ...(bot.chiefOfStaff ? { chiefOfStaff: true } : {}), ...(bot.hidden ? { hidden: true } : {}),
+  modelSelection: { instanceId: bot.modelSelection.instanceId, model: bot.modelSelection.model },
+});
+/** The turn id currently running on a thread, tracked at ACP dispatch. */
+const colonieTurnByThread = new Map<string, string>();
+const colonieChief = new ColonieChief({
+  origin: `http://127.0.0.1:${PORT}`,
+  bots: () => store.bots.map(chiefBot),
+  bot: (id) => { const bot = store.bot(id); return bot ? chiefBot(bot) : undefined; },
+  chiefId: () => store.bots.find((bot) => bot.chiefOfStaff)?.id ?? null,
+  owns: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
+  currentTurn: (botId, threadId) => (store.taskByThread(botId, threadId) && colonieTurnByThread.get(threadId)) || null,
+  busy: (botId) => botHasActiveTurn(botId) || store.tasks(botId).some((task) => threadBusy(botId, task.threadId)),
+  setChief: (botId) => { store.setChiefOfStaff(botId); },
+  createBot: async (input) => {
+    const bot = store.createBot({ name: input.name, ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}), ...(input.soul !== undefined ? { soul: input.soul } : {}),
+      ...(input.modelSelection ? { modelSelection: input.modelSelection } : {}) });
+    return chiefBot(store.bot(bot.id)!);
+  },
+  updateBot: async (botId, patch) => {
+    const { modelSelection, ...profile } = patch;
+    if (Object.keys(profile).length) store.patchBotProfile(botId, profile);
+    if (modelSelection) store.patchBot(botId, { modelSelection });
+    return chiefBot(store.bot(botId)!);
+  },
+  deleteBot: async (botId) => { const result = await deleteBotWithLifecycle(botId); if (result.status >= 400) throw new Error(result.body?.error ?? "The bot could not be deleted."); },
+  createAssignmentThread: (job) => {
+    const task = store.createTask(job.targetBotId, undefined, false);
+    if (!task) throw new Error("Could not start a conversation for that bot.");
+    return task.threadId;
+  },
+  runAssignment: (job, signal) => runColonieAssignment(job, signal),
+  skills: {
+    list: (botId) => colonieSkills.view(botId).skills,
+    readEnabled: (botId, name) => colonieSkills.readEnabled(botId, name),
+    save: (botId, input, actor) => colonieSkills.save(botId, input as Parameters<ColonieSkills["save"]>[1], undefined, { botId: actor.botId }),
+    setEnabled: (botId, name, enabled, expectedRevision) => colonieSkills.setEnabled(botId, name, enabled, expectedRevision),
+    remove: (botId, name, expectedRevision) => colonieSkills.remove(botId, name, expectedRevision),
+  },
+});
+/** Merge the app-selected connected tools with the Colonie workspace tools into
+ * one ACP mount, so a turn sees both without either lifecycle being lost. */
+type AcpToolMounts = { tools: import("./colonie/connections/contracts.ts").AcpToolMount; extra?: import("./colonie/connections/contracts.ts").AcpToolMount };
+async function acpToolMount(botId: string, threadId: string, instanceId: string): Promise<AcpToolMounts> {
   const policy = botAppPolicy(botId);
   const custom = managedPolicy.filterMcp(customMcpServers(cfg, policy.customServers));
   if (policy.customServers.some((name) => !custom[name])) throw new Error("A custom MCP server selected for this bot is disabled or missing. Update Connected apps in its profile.");
   const signedIn = await withMcpSignIn(custom, mcpOAuth);
   if (policy.customServers.some((name) => !signedIn[name])) throw new Error("Sign in to the custom MCP server in app settings before using it.");
-  return connectedTools.mount(botId, threadId, instanceId, signedIn);
+  const connected = connectedTools.mount(botId, threadId, instanceId, signedIn);
+  const skills = colonieSkills.context(botId);
+  const hashes = Object.fromEntries(skills.entries.map((entry) => [entry.name, entry.sha256]));
+  const extra = colonieChief.mount(botId, threadId, instanceId, skills.revision, hashes);
+  // Each mount is its own lease, released independently by the ACP runtime.
+  return extra ? { tools: connected, extra } : { tools: connected };
 }
 let followupsReady = false;
 const sendSequencer = new SendSequencer();
@@ -3816,6 +3918,9 @@ if (startupCatalogs.length) {
   });
 }
 store.seedIfEmpty();
+// Colonie's first bot is the workspace Chief; an upgraded workspace without one
+// elects its oldest bot. Non-Colonie workspaces keep their section Chiefs.
+store.ensureWorkspaceChief();
 hostedModels?.reconcile(store);
 // Skills library boot sweep (features.skillsLibrary): migrate per-bot
 // copies into the shared library and apply assignments. Flag-off boots
@@ -6317,32 +6422,53 @@ bus.subscribe((event: RuntimeEvent) => {
 
 // Memory upkeep (server/memory-upkeep.ts): background capture, About me
 // suggestions and the nightly tidy-up, for bots with the switch on.
-const colonieMemoryStore = new ColonieMemoryStore(DATA_DIR);
 const colonieMemorySources = new Map<string, CompletedMemoryTurn>();
-const colonieMemory = new ColonieMemoryService(colonieMemoryStore, {
-  bot: (id) => {
-    const bot = store.bot(id);
-    const instance = bot && registry.get(bot.modelSelection.instanceId);
-    return bot && instance && isColonieAcpDriver(instance.driverKind) && !policyModelRefusal(instance) ? bot : undefined;
-  },
-  owns: (botId, threadId) => {
-    const pin = contextPin(threadId);
-    return Boolean(store.taskByThread(botId, threadId) && pin?.snapshot.botId === botId
-      && pin.snapshot.app.enabled && !pin.snapshot.legacyPlain);
-  },
-  analyze: async (botId, prompt, signal) => {
-    const bot = store.bot(botId);
-    const instance = bot && registry.get(bot.modelSelection.instanceId);
-    if (!bot || !instance || !(instance.adapter instanceof AcpRuntime) || policyModelRefusal(instance)) throw new Error("The selected provider cannot process memory right now.");
-    assertWithinBudget(cfg, DATA_DIR);
-    return instance.adapter.analyzeMemory(prompt, { model: bot.modelSelection.model, signal });
-  },
-  log: (message) => console.log(message),
-});
+/** Memory is a feature, not a boot dependency: an unreadable ledger must not
+ * stop the app. When the store cannot load, memory is explicitly unavailable
+ * (recall/capture off, panel says so) and the existing data is never written. */
+let colonieMemoryStore: ColonieMemoryStore | null = null;
+let colonieMemory: ColonieMemoryService;
+try {
+  colonieMemoryStore = new ColonieMemoryStore(DATA_DIR);
+  colonieMemory = new ColonieMemoryService(colonieMemoryStore, {
+    bot: (id) => {
+      const bot = store.bot(id);
+      const instance = bot && registry.get(bot.modelSelection.instanceId);
+      return bot && instance && isColonieAcpDriver(instance.driverKind) && !policyModelRefusal(instance) ? bot : undefined;
+    },
+    owns: (botId, threadId) => {
+      const pin = contextPin(threadId);
+      return Boolean(store.taskByThread(botId, threadId) && pin?.snapshot.botId === botId
+        && pin.snapshot.app.enabled && !pin.snapshot.legacyPlain);
+    },
+    analyze: async (botId, prompt, signal) => {
+      const bot = store.bot(botId);
+      const instance = bot && registry.get(bot.modelSelection.instanceId);
+      if (!bot || !instance || !(instance.adapter instanceof AcpRuntime) || policyModelRefusal(instance)) throw new Error("The selected provider cannot process memory right now.");
+      assertWithinBudget(cfg, DATA_DIR);
+      return instance.adapter.analyzeMemory(prompt, { model: bot.modelSelection.model, signal });
+    },
+    log: (message) => console.log(message),
+  });
+} catch (error) {
+  const reason = error instanceof Error ? error.message : String(error);
+  console.error(`Colonie memory is unavailable; the app continues without it and the stored data is left untouched: ${reason}`);
+  const unavailable = { revision: "0", app: { enabled: false, automatic: false }, bot: { enabled: false, automatic: false }, entries: [],
+    status: { pending: 0, running: false, lastError: "Stored memory could not be read; memory is unavailable until it is repaired. Your existing memory data was not changed." } };
+  colonieMemory = {
+    view: () => unavailable, snapshot: () => unavailable, recall: () => null, noteTurn: () => {}, start: () => {}, stop: async () => {},
+    idle: async () => {}, cancelBot: () => {}, cancelThread: () => {}, cancelAll: () => {},
+    updatePreferences: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
+    saveEntry: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
+    forgetEntry: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
+    clear: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
+  } as unknown as ColonieMemoryService;
+}
 store.onChange((change) => {
   try { if (change.type === "bot.deleted") {
     colonieMemory.cancelBot(change.botId);
-    colonieMemoryStore.removeBot(change.botId);
+    colonieMemoryStore?.removeBot(change.botId);
+    colonieChief.cancelBot(change.botId);
     for (const [threadId, source] of colonieMemorySources) if (source.botId === change.botId) colonieMemorySources.delete(threadId);
   } else if (change.type === "bot") {
     const bot = store.bot(change.botId);
@@ -6362,6 +6488,14 @@ bus.subscribe((event: RuntimeEvent) => {
     if (user?.text !== source.text) return;
     colonieMemory.noteTurn(source);
   } catch { console.warn("Colonie memory could not queue this completed conversation."); }
+});
+// Chief assignments: the target thread's approval state drives the work card,
+// and a settled/exited turn drops its live turn id. Terminal assignment status
+// is owned by the Chief manager once the child call returns.
+bus.subscribe((event: RuntimeEvent) => {
+  if (event.type === "turn.completed" || event.type === "session.exited") { colonieTurnByThread.delete(event.threadId); return; }
+  if (event.type === "request.opened") colonieChief.setAssignmentStatus(event.threadId, "waiting");
+  else if (event.type === "request.resolved" || event.type === "turn.started") colonieChief.setAssignmentStatus(event.threadId, "running");
 });
 
 const memoryUpkeep = createMemoryUpkeep({
@@ -9710,6 +9844,9 @@ async function startTurn(
     /** Queue receipts outlive the dispatch acknowledgment until this exact turn settles. */
     onTurnSettled?: () => void;
     coordination?: { id: string; resumed: boolean; settle: (outcome: { ok: boolean; text: string }) => void };
+    /** A task delegated by the workspace Chief: its exact assignment ownership.
+     * Not a peer ask or automation; the child gets its own fresh conversation. */
+    colonieAssignment?: import("../shared/colonie-chief.ts").AcpAssignmentContext;
   },
 ) {
   workspaceMaintenance.assertAvailable();
@@ -9809,7 +9946,7 @@ async function startTurn(
   const commsDepth = opts?.commsDepth ?? 0;
   // Classify the turn where the peer paths' depth actually arrives: by the
   // time it settles, the fold has only a thread id to go on.
-  if (commsDepth > 0) markInternalTurn(threadId);
+  if (commsDepth > 0 || opts?.colonieAssignment) markInternalTurn(threadId);
   else clearInternalTurn(threadId);
   // a task takes its name from the first thing you asked it to do
   if (resolvedImages.text.trim() && !opts?.cardContinuation) {
@@ -9983,14 +10120,16 @@ async function startTurn(
         const contextConfig = instanceConfigs(cfg)[instanceId]?.config as { instructions?: string } | undefined;
         const acpContext = contextCandidate(bot, instanceId, contextConfig?.instructions ?? "", !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length));
         runningTurnEngines.set(threadId, instance);
-        const acpTools = await acpToolMount(bot.id, threadId, instanceId);
-        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { acpTools.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
+        const mounts = await acpToolMount(bot.id, threadId, instanceId);
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
         const acpMemory = colonieMemory.recall(bot.id, providerText) ?? undefined;
-        if (!userMessage.sender && !userMessage.peerAsk) colonieMemorySources.set(threadId, {
+        const acpSkills = colonieSkills.context(bot.id);
+        const acpAssignment = opts?.colonieAssignment ?? undefined;
+        if (!userMessage.sender && !userMessage.peerAsk && !acpAssignment) colonieMemorySources.set(threadId, {
           botId: bot.id, threadId, messageId: userMessage.id, text: providerText, at: new Date(userMessage.at).toISOString(),
         });
         const dispatch = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools, acpMemory,
+          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
           cwd, model, approvalMode: approvalModeForTurn(bot, false, threadId),
           resumeCursor: task.resumeCursors[instanceId],
         }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
@@ -10000,6 +10139,7 @@ async function startTurn(
           retireProviderTurn(dispatch.value.turnId);
           throw new DirectTurnSetupCancelled("turn stopped during ACP setup");
         }
+        colonieTurnByThread.set(threadId, dispatch.value.turnId);
         const requestOwner = directRequestOwners.get(threadId);
         if (requestOwner?.generation === dispatchClaimId) requestOwner.turnId = dispatch.value.turnId;
         clearDirectTurnDispatch(threadId, dispatchClaimId);
@@ -16073,9 +16213,13 @@ ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: (
 ROUTES.push(composioCredentialRoutes(() => composioCredentialStatus(cfg)));
 ROUTES.push(createColonieMemoryRoutes({ service: colonieMemory, exists: (botId) => Boolean(store.bot(botId)),
   setBotMemoryEnabled: (botId, enabled) => {
-    store.patchBot(botId, { memoryEnabled: enabled, memoryUpkeep: colonieMemoryStore.snapshot(botId).bot.automatic });
+    store.patchBot(botId, { memoryEnabled: enabled, memoryUpkeep: colonieMemoryStore?.snapshot(botId).bot.automatic ?? true });
   },
 }));
+ROUTES.push(createColonieSkillsRoutes({ service: colonieSkills, exists: (botId) => Boolean(store.bot(botId)) }));
+// A role transfer emits a bot change per affected bot from the store, so the
+// existing broadcast already refreshes every window; no extra signal is needed.
+ROUTES.push(createChiefRoutes({ chief: colonieChief, exists: (botId) => Boolean(store.bot(botId)) }));
 ROUTES.push(connectedToolsRoutes({
   exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task) => threadBusy(botId, task.threadId)
     || registry.instances().some((instance) => instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(task.threadId))),
@@ -16105,8 +16249,9 @@ ROUTES.push(createAcpSettingsRoutes({
       throw Object.assign(new Error("This conversation belongs to another native agent. Start a new thread before preparing this provider's settings."), { status: 409 });
     }
     const cwd = store.pinTaskCwd(botId, threadId, ensureTaskWorkspace(botId, threadId));
+    const mounts = await acpToolMount(botId, threadId, instance.instanceId);
     return { adapter: instance.adapter, input: { threadId, botId, text: "", cwd: cwd ?? undefined,
-      acpTools: await acpToolMount(botId, threadId, instance.instanceId),
+      acpTools: mounts.tools, ...(mounts.extra ? { acpExtraTools: mounts.extra } : {}),
       model: bot.modelSelection.model, approvalMode: approvalModeForTurn(bot, false, threadId), resumeCursor: store.taskByThread(botId, threadId)?.resumeCursors[instance.instanceId] } };
   },
   assertCurrent: (botId, threadId, adapter, input) => {
@@ -16786,6 +16931,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (path === "/api/internal/colonie-mcp") {
       return await connectedTools.handle(req, res, method === "POST" ? await readBody(req) : null);
+    }
+    if (path === "/api/internal/colonie-workspace-mcp") {
+      return await colonieChief.handle(req, res, method === "POST" ? await readBody(req) : null);
     }
     // ── internal peer-agent comms (localhost + bot capability only) ───
     // The agents-proxy (spawned inside a bot's agent process) calls these to
@@ -25907,6 +26055,7 @@ const gracefulShutdown = createGracefulShutdown({
       calendarCalls?.stop();
       memoryUpkeep.stop();
       colonieMemory.stop();
+      colonieChief.dispose();
       webhookIngress?.server.close();
       tunnelListener?.close();
     },

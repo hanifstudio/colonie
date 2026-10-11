@@ -2953,6 +2953,23 @@ export class Store {
   seedIfEmpty() {
     if (!this.needsSeed()) return;
     const bot = this.createBot(devoneProfile() ? { name: "Codex", color: "purple" } : {});
-    if (devoneProfile()) this.patchBot(bot.id, { computer: "off" });
+    if (devoneProfile()) {
+      this.patchBot(bot.id, { computer: "off" });
+      // Colonie's first bot is the workspace Chief by default.
+      this.setChiefOfStaff(bot.id);
+    }
+  }
+
+  /** Colonie has exactly one Chief per workspace; the first bot is it. Called
+   * at boot so a fresh or upgraded workspace without a Chief elects the oldest
+   * existing bot instead of starting with none. The section-scoped store
+   * shape plus Colonie's single empty section already means "one Chief". */
+  ensureWorkspaceChief() {
+    if (!devoneProfile()) return;
+    if (this.bots.some((bot) => bot.chiefOfStaff)) return;
+    const candidates = this.bots.filter((bot) => !bot.hidden);
+    if (!candidates.length) return;
+    const first = [...candidates].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0]!;
+    this.setChiefOfStaff(first.id);
   }
 }
