@@ -5,7 +5,8 @@
 // fold and only become visible by scrolling; the in-flow menu pushes the
 // Effort card down instead and is fully visible where it opens.
 import { EffortRow, ModelPicker } from "../ModelPicker";
-import { X } from "lucide-react";
+import { MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { cn } from "@/lib/cn";
 import { useStore, type Bot } from "@/state/store";
 import { useBotEditor } from "./BotEditorContext";
@@ -102,7 +103,7 @@ function FallbackChain({ bot, onChange }: { bot: Bot; onChange: (fallback: Bot["
                 aria-label={`Remove ${nameOf(entry.instanceId)} from the fallback list`}
                 className="shrink-0 rounded p-0.5 text-ink-secondary hover:text-ink"
               >
-                <X size={13} />
+                <HIcon icon={MultiplicationSignIcon} size={13} />
               </button>
             </li>
           ))}

@@ -1,9 +1,10 @@
 // Templates → From {Organization}: the packages an organization's Admin
 // shares with this desktop (server/org-library.ts). Add is one click with no
 // confirmation; Details opens the same preview a shared file gets.
-import { Building2, Check, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { Building02Icon, Loading02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { t } from "@/lib/i18n";
 import {
   orgCardAction,
@@ -77,7 +78,7 @@ function OrgPackageCard({
   return (
     <article className="flex min-h-[104px] items-center gap-3 border-b border-hairline/35 px-1 py-4">
       <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", GLYPHS[index % GLYPHS.length])}>
-        <Building2 size={20} />
+        <HIcon icon={Building02Icon} size={20} />
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-[14px] font-medium text-ink">{entry.name}</h3>
@@ -98,13 +99,13 @@ function OrgPackageCard({
             aria-label={t("orgLibrary.addAria", { name: entry.name })}
             className="flex min-w-[72px] items-center justify-center gap-1.5 rounded-full bg-accent px-3.5 py-2 text-[12.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-40"
           >
-            {adding && <Loader2 size={13} className="animate-spin" />}
+            {adding && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
             {adding ? t("orgLibrary.adding") : t("orgLibrary.add")}
           </button>
         )}
         {action === "added" && (
           <span className="flex items-center gap-1 rounded-full bg-raised px-3 py-1.5 text-[12px] text-ink-secondary">
-            <Check size={13} className="text-success" />{t("orgLibrary.added")}
+            <HIcon icon={Tick01Icon} size={13} className="text-success" />{t("orgLibrary.added")}
           </span>
         )}
         {action === "updateApp" && <span className="max-w-[140px] text-right text-[11.5px] text-ink-secondary">{t("orgLibrary.updateApp")}</span>}

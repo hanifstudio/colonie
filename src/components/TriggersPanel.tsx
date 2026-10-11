@@ -5,7 +5,8 @@
 // types, where it runs, how many at once, rotating the private URL, the
 // delivery log — stays one "Advanced options" away on each trigger.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Copy, ExternalLink, Laptop, Cloud, Link2, Loader2, Pencil, RotateCw, Trash2, Webhook, X, Zap } from "lucide-react";
+import { ArrowRight01Icon, CloudIcon, Copy01Icon, Delete02Icon, LaptopIcon, Link02Icon, Loading02Icon, MultiplicationSignIcon, PencilIcon, RotateCwIcon, SquareArrowUpRightIcon, Tick01Icon, WebhookIcon, ZapIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { BotAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
@@ -167,7 +168,7 @@ export function TriggersPanel() {
             <p className="mt-1 text-[13px] text-ink-secondary">{t("triggers.subtitle")}</p>
           </div>
           <button onClick={close} aria-label={t("triggers.close")} className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink">
-            <X size={21} />
+            <HIcon icon={MultiplicationSignIcon} size={21} />
           </button>
         </header>
 
@@ -182,7 +183,7 @@ export function TriggersPanel() {
             }}
           >
             <div className="flex flex-wrap items-center gap-2 text-[14px] text-ink">
-              <Zap size={16} className="shrink-0 text-accent-text" aria-hidden="true" />
+              <HIcon icon={ZapIcon} size={16} className="shrink-0 text-accent-text" aria-hidden="true" />
               <span className="font-medium">{t("triggers.when")}</span>
               <select aria-label={t("triggers.sourceAria")} value={source} onChange={(event) => setSource(event.target.value)} className={selectClass}>
                 {TRIGGER_SOURCES.map((entry) => (
@@ -199,7 +200,7 @@ export function TriggersPanel() {
                   className="min-h-9 min-w-[200px] flex-1 rounded-xl border border-hairline/40 bg-inset px-3 py-1.5 text-[13.5px] text-ink placeholder:text-ink-tertiary"
                 />
               )}
-              <ArrowRight size={15} className="shrink-0 text-ink-tertiary" aria-hidden="true" />
+              <HIcon icon={ArrowRight01Icon} size={15} className="shrink-0 text-ink-tertiary" aria-hidden="true" />
               <select aria-label={t("triggers.botAria")} value={chosenBot} disabled={bots.length === 0} onChange={(event) => setBotId(event.target.value)} className={selectClass}>
                 {bots.map((bot) => (
                   <option key={bot.id} value={bot.id}>{bot.name}</option>
@@ -222,7 +223,7 @@ export function TriggersPanel() {
                 disabled={creating || !chosenBot}
                 className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-40"
               >
-                {creating && <Loader2 size={14} className="animate-spin" />}
+                {creating && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}
                 {t("triggers.create")}
               </button>
             </div>
@@ -325,12 +326,12 @@ function TriggerRow({
         {bot ? (
           <BotAvatar bot={bot} state={webhook.enabled ? "idle" : "sleeping"} size={34} animated={false} label={bot.name} />
         ) : (
-          <div className="flex size-[34px] shrink-0 items-center justify-center rounded-xl bg-raised text-ink-secondary"><Webhook size={16} /></div>
+          <div className="flex size-[34px] shrink-0 items-center justify-center rounded-xl bg-raised text-ink-secondary"><HIcon icon={WebhookIcon} size={16} /></div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-medium text-ink">
             <span className="truncate">{webhook.name}</span>
-            <ArrowRight size={13} className="shrink-0 text-ink-tertiary" aria-hidden="true" />
+            <HIcon icon={ArrowRight01Icon} size={13} className="shrink-0 text-ink-tertiary" aria-hidden="true" />
             <span className="truncate">{botName}</span>
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-ink-secondary">
@@ -350,7 +351,7 @@ function TriggerRow({
           onClick={() => onCopy("link", false)}
           className="flex items-center gap-1.5 rounded-lg bg-control/70 px-2.5 py-1.5 text-[12px] font-medium text-ink hover:bg-raised-hover disabled:opacity-40"
         >
-          {copied === "link" ? <Check size={13} className="text-success" /> : working === `${webhook.id}:command` ? <Loader2 size={13} className="animate-spin" /> : <Link2 size={13} />}
+          {copied === "link" ? <HIcon icon={Tick01Icon} size={13} className="text-success" /> : working === `${webhook.id}:command` ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={Link02Icon} size={13} />}
           {copied === "link" ? t("triggers.copied") : t("triggers.copyLink")}
         </button>
         <Switch
@@ -370,7 +371,7 @@ function TriggerRow({
           {webhook.prompt ? <p><span className="font-medium text-ink">{t("triggers.defaultInstruction")}</span> {webhook.prompt}</p> : <p>{t("triggers.requestInstruction")}</p>}
           {webhook.eventTypes?.length ? <p><span className="font-medium text-ink">{t("triggers.acceptedEvents")}</span> {webhook.eventTypes.join(", ")}</p> : <p>{t("triggers.allEvents")}</p>}
           <p className="flex items-center gap-1.5">
-            {webhook.runOn === "cloud" ? <Cloud size={12} /> : <Laptop size={12} />}
+            {webhook.runOn === "cloud" ? <HIcon icon={CloudIcon} size={12} /> : <HIcon icon={LaptopIcon} size={12} />}
             <span className="font-medium text-ink">{t("routines.drawer.runsOn")}:</span> {t(webhook.runOn === "cloud" ? "triggers.cloudVm" : "routines.runsOn.local")}
           </p>
           <p><span className="font-medium text-ink">{t("triggers.pendingTasks")}</span> {t("triggers.pendingTasksHelp", { count: webhook.maxPendingRuns ?? WEBHOOK_DEFAULT_MAX_PENDING_RUNS })}</p>
@@ -379,16 +380,16 @@ function TriggerRow({
           )}
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={busy || (!hasCredential && !ingressAvailable)} onClick={() => onCopy("command", false)} className="flex items-center gap-1.5 rounded-lg border border-hairline/50 px-3 py-1.5 text-[11.5px] font-medium text-ink hover:bg-raised disabled:opacity-40">
-              {copied === "command" ? <Check size={12} className="text-success" /> : <Copy size={12} />}{t(copied === "command" ? "triggers.copied" : "engineSetup.copyCommand")}
+              {copied === "command" ? <HIcon icon={Tick01Icon} size={12} className="text-success" /> : <HIcon icon={Copy01Icon} size={12} />}{t(copied === "command" ? "triggers.copied" : "engineSetup.copyCommand")}
             </button>
             <button type="button" disabled={busy || !ingressAvailable} onClick={() => onCopy("link", true)} className="flex items-center gap-1.5 rounded-lg border border-hairline/50 px-3 py-1.5 text-[11.5px] font-medium text-ink hover:bg-raised disabled:opacity-40">
-              <RotateCw size={12} />{t("triggers.rotateUrl")}
+              <HIcon icon={RotateCwIcon} size={12} />{t("triggers.rotateUrl")}
             </button>
             <button type="button" disabled={busy} onClick={onEdit} className="flex items-center gap-1.5 rounded-lg border border-hairline/50 px-3 py-1.5 text-[11.5px] font-medium text-ink hover:bg-raised disabled:opacity-40">
-              <Pencil size={12} />{t("triggers.editSettings")}
+              <HIcon icon={PencilIcon} size={12} />{t("triggers.editSettings")}
             </button>
             <button type="button" disabled={busy} onClick={onDelete} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-medium text-danger hover:bg-danger/10 disabled:opacity-40">
-              <Trash2 size={12} />{t("common.delete")}
+              <HIcon icon={Delete02Icon} size={12} />{t("common.delete")}
             </button>
           </div>
           <div>
@@ -406,7 +407,7 @@ function TriggerRow({
                     <span className={cn("shrink-0 text-[10.5px] font-medium", outcomeTone(item.outcome, item.run))}>{outcomeLabel(item.outcome, item.run)}</span>
                     {item.run?.threadId && bot && (
                       <button type="button" onClick={() => onOpenChat(item.run!.threadId!)} className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] hover:bg-raised hover:text-ink">
-                        <ExternalLink size={11} />{t("canvas.openChat")}
+                        <HIcon icon={SquareArrowUpRightIcon} size={11} />{t("canvas.openChat")}
                       </button>
                     )}
                   </li>

@@ -6,7 +6,8 @@
 // standing grants) are new.
 import { useEffect, useState } from "react";
 import { browserUnavailableReason } from "@/lib/feature-flags";
-import { ChevronDown, ChevronRight, FolderOpen, Plus } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, FolderOpenIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { api, useStore, type Bot } from "@/state/store";
 import { useBotEditor } from "./BotEditorContext";
@@ -78,7 +79,7 @@ function WorkingFolder({ bot }: { bot: Bot }) {
             {bot.cwd ? shortPath(bot.cwd, home) : <span className="text-ink-secondary">Private bot folder</span>}
           </div>
           <button onClick={() => void pick()} disabled={saving} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50">
-            <FolderOpen size={14} /> Choose…
+            <HIcon icon={FolderOpenIcon} size={14} /> Choose…
           </button>
           {bot.cwd && (
             <button onClick={() => void save(null)} disabled={saving} className="shrink-0 rounded-lg px-2 py-2 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-50">
@@ -177,7 +178,7 @@ function McpServersCard({ bot, patch }: { bot: Bot; patch: (patch: { mcpServers:
       )}
       <div className="mt-3 flex items-center gap-2">
         <button type="button" onClick={openPlugins} className="flex items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover">
-          <Plus size={14} /> {t("botAccess.mcpAdd")}
+          <HIcon icon={PlusSignIcon} size={14} /> {t("botAccess.mcpAdd")}
         </button>
         {!usesAll && servers && servers.length > 0 && (
           <button type="button" disabled={!!bot.busy || error} onClick={() => { if (!bot.busy && !error) patch({ mcpServers: null }); }} className="rounded-lg px-2 py-2 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-50">
@@ -355,7 +356,7 @@ function ConnectorToolsGrants({
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-control/60"
               >
-                {open ? <ChevronDown size={14} className="shrink-0 text-ink-secondary" /> : <ChevronRight size={14} className="shrink-0 text-ink-secondary" />}
+                {open ? <HIcon icon={ChevronDownIcon} size={14} className="shrink-0 text-ink-secondary" /> : <HIcon icon={ChevronRightIcon} size={14} className="shrink-0 text-ink-secondary" />}
                 <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink">{slug}</span>
                 <span className="shrink-0 text-[11.5px] text-ink-secondary">
                   {!access.editable
@@ -656,7 +657,7 @@ export function AccessSection({
             }}
             className="mt-3 flex items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover"
           >
-            <Plus size={14} /> {t("botAccess.connectApp")}
+            <HIcon icon={PlusSignIcon} size={14} /> {t("botAccess.connectApp")}
           </button>
         )}
       </div>

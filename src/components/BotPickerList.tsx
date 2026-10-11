@@ -1,7 +1,8 @@
 // The checkbox roster shared by "New Room" and "Manage Members": one row per
 // bot, a tick on the ones picked. Both callers own their own selection state —
 // this only draws it, so the two lists can never drift apart visually.
-import { Check } from "lucide-react";
+import { Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { Bot } from "@/state/store";
 import { BotAvatar } from "./Avatar";
 import { cn } from "@/lib/cn";
@@ -38,7 +39,7 @@ export function BotPickerList({
               picked.has(b.id) ? "border-accent bg-accent text-white" : "border-hairline/60",
             )}
           >
-            {picked.has(b.id) && <Check size={12} />}
+            {picked.has(b.id) && <HIcon icon={Tick01Icon} size={12} />}
           </span>
         </button>
       ))}

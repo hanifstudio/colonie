@@ -10,7 +10,8 @@
 // ready, so an employee with only company models is not told to set up
 // personal engines. Without that bridge the beat is exactly as before.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, RefreshCw } from "lucide-react";
+import { ChevronDownIcon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../HIcon";
 import { EngineSetup } from "@/components/EngineSetup";
 import { engineReady } from "@/components/EngineLibrary";
 import { InstanceProviderMark } from "@/components/ProviderIcons";
@@ -136,7 +137,7 @@ export function EnginesBeat({
             <span>{failed ? t("onboarding.engines.error") : t("common.checking")}</span>
           ) : allReady ? (
             <>
-              <Check size={14} strokeWidth={2.5} />
+              <HIcon icon={Tick01Icon} size={14} strokeWidth={2.5} />
               <span>{t("onboarding.engines.allReady")}</span>
             </>
           ) : (
@@ -153,7 +154,7 @@ export function EnginesBeat({
           disabled={checking}
           className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-ink-secondary transition-colors hover:bg-raised hover:text-ink disabled:opacity-50"
         >
-          <RefreshCw size={12} className={checking ? "animate-spin" : ""} />
+          <HIcon icon={RefreshCwIcon} size={12} className={checking ? "animate-spin" : ""} />
           {checking ? t("common.checking") : t("common.checkAgain")}
         </button>
       </div>
@@ -199,7 +200,8 @@ export function EnginesBeat({
                         {v && <span className="shrink-0 text-[11.5px] tabular-nums text-ink-secondary">{v}</span>}
                       </div>
                       <StatusPill ready={false} />
-                      <ChevronDown
+                      <HIcon
+                        icon={ChevronDownIcon}
                         size={14}
                         className={cn("shrink-0 text-ink-secondary transition-transform duration-200", expanded === instance.instanceId && "rotate-180")}
                       />

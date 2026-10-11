@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
 import { t } from "@/lib/i18n";
 import {
-  Cloud,
-  Loader2,
-  LogOut,
-  ShieldCheck,
-  Smartphone,
-  Trash2,
-  Wifi,
-} from "lucide-react";
+  CloudIcon,
+  Loading02Icon,
+  Logout01Icon,
+  ShieldCheckIcon,
+  SmartphoneIcon,
+  Delete02Icon,
+  Wifi01Icon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import {
   PhoneSetupFlowView,
   companionAccountActionError,
@@ -167,7 +168,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
   if (!state) {
     return (
       <Card title={t("remote.title")} subtitle={t("remote.checking")}>
-        <Loader2 size={15} className="animate-spin text-ink-secondary" />
+        <HIcon icon={Loading02Icon} size={15} className="animate-spin text-ink-secondary" />
       </Card>
     );
   }
@@ -211,7 +212,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
               )}
               {pairedCount > 0 && c.hostedReady && (
                 <div className="flex items-center gap-1.5 text-[11.5px] text-ink-secondary">
-                  <ShieldCheck size={13} className="text-accent" /> {t("remote.worksAway")}
+                  <HIcon icon={ShieldCheckIcon} size={13} className="text-accent" /> {t("remote.worksAway")}
                 </div>
               )}
             </div>
@@ -250,7 +251,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
                     <li key={device.id} className="rounded-xl bg-inset px-3 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-control text-ink-secondary">
-                          <Smartphone size={15} />
+                          <HIcon icon={SmartphoneIcon} size={15} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[13.5px] font-medium text-ink">{device.name}</div>
@@ -262,7 +263,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
                           aria-label={t("remote.devices.remove", { name: device.name })}
                           className="shrink-0 rounded p-1.5 text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-40"
                         >
-                          <Trash2 size={14} />
+                          <HIcon icon={Delete02Icon} size={14} />
                         </button>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-3 border-t border-hairline/30 pt-3">
@@ -306,7 +307,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
             <div className="mt-3">
               <div className="rounded-xl bg-inset px-3 py-3" aria-live="polite">
                 <div className="flex items-start gap-2.5">
-                  <ShieldCheck
+                  <HIcon icon={ShieldCheckIcon}
                     size={16}
                     className={`mt-0.5 shrink-0 ${tailscaleStatus.kind === "ready" ? "text-success" : "text-ink-secondary"}`}
                   />
@@ -364,7 +365,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
           <div className="border-t border-hairline/30 pt-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-2.5">
-                <Cloud size={15} className="mt-0.5 shrink-0 text-accent" />
+                <HIcon icon={CloudIcon} size={15} className="mt-0.5 shrink-0 text-accent" />
                 <div className="min-w-0">
                   <div className="text-[13px] text-ink">{t("remote.account.title")}</div>
                   <div className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">
@@ -386,7 +387,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
                   onClick={() => void c.accountAct((remote) => remote.signOut())}
                   className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[11.5px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
                 >
-                  <LogOut size={12} /> {t("remote.account.signOut")}
+                  <HIcon icon={Logout01Icon} size={12} /> {t("remote.account.signOut")}
                 </button>
               )}
             </div>
@@ -418,7 +419,7 @@ export function CompanionSection({ profileEmail = "", focusRequest = 0 }: { prof
 
           <div className="border-t border-hairline/30 pt-4">
             <div className="flex items-start gap-2.5">
-              <Wifi size={15} className="mt-0.5 shrink-0 text-ink-secondary" />
+              <HIcon icon={Wifi01Icon} size={15} className="mt-0.5 shrink-0 text-ink-secondary" />
               <div>
                 <div className="text-[13px] text-ink">{t("remote.pairing.wifi.title")}</div>
                 <div className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">

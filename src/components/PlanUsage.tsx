@@ -1,7 +1,8 @@
 // Settings → Usage: remaining subscription allowance. This is not the token
 // ledger below it — each provider reports its own 5-hour and weekly windows.
+import { Loading02Icon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
 import { api } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -181,7 +182,7 @@ export function PlanUsage() {
           title={t("planUsage.refresh")}
           className="rounded-md p-2 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"
         >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          {loading ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={14} />}
         </button>
       </div>
       {loading && !report && <p role="status" className="text-[13px] text-ink-secondary">{t("planUsage.loading")}</p>}

@@ -1,4 +1,5 @@
-import { Activity, ChevronDown, ChevronRight, PinOff } from "lucide-react";
+import { Activity01Icon, ChevronDownIcon, ChevronRightIcon, PinOffIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import type { SidebarDensity } from "@/lib/sidebar-preferences";
@@ -15,7 +16,7 @@ export function SidebarAttentionPanel({ entries, density, onUnpin, onJump, colla
   onToggle?: () => void;
 }) {
   const compact = density === "compact";
-  const Chevron = collapsed ? ChevronRight : ChevronDown;
+  const Chevron = collapsed ? ChevronRightIcon : ChevronDownIcon;
   return (
     <section
       data-testid="sidebar-attention-panel"
@@ -31,9 +32,9 @@ export function SidebarAttentionPanel({ entries, density, onUnpin, onJump, colla
           aria-label={t(collapsed ? "sidebar.section.expand" : "sidebar.section.collapse", { name: t("attention.title") })}
           className="flex size-5 shrink-0 items-center justify-center rounded text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <Chevron size={compact ? 11 : 12} aria-hidden="true" />
+          <HIcon icon={Chevron} size={compact ? 11 : 12} aria-hidden="true" />
         </button>
-        <Activity size={compact ? 11 : 12} aria-hidden="true" className="shrink-0" />
+        <HIcon icon={Activity01Icon} size={compact ? 11 : 12} aria-hidden="true" className="shrink-0" />
         <span className="min-w-0 flex-1 truncate">{t("attention.title")}</span>
         {entries.length > 0 && (
           <span className="text-[10.5px] font-normal tabular-nums">{entries.length}</span>
@@ -45,7 +46,7 @@ export function SidebarAttentionPanel({ entries, density, onUnpin, onJump, colla
           title={t("attention.unpin")}
           className="flex size-5 shrink-0 items-center justify-center rounded text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <PinOff size={compact ? 11 : 12} aria-hidden="true" />
+          <HIcon icon={PinOffIcon} size={compact ? 11 : 12} aria-hidden="true" />
         </button>
       </div>
       {!collapsed && (entries.length === 0 ? (

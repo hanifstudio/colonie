@@ -1,4 +1,5 @@
-import { Check } from "lucide-react";
+import { Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
@@ -125,7 +126,7 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
                   {followsAuto ? t("place.autoDetail") : t("place.followBotDetail", { place: t(placeLabelKey(botDefault)) })}
                 </span>
               </span>
-              {!pinned && <Check size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
+              {!pinned && <HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
             </button>
             {PLACES.filter((place) => placeOffered(place, state.config)).map((place) => {
               const selected = task?.surface === place;
@@ -149,7 +150,7 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
                     <span className="block text-[13px] text-ink">{t(placeLabelKey(place))}</span>
                     <span className="block text-[11px] text-ink-secondary">{detail}</span>
                   </span>
-                  {selected && <Check size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
+                  {selected && <HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
                 </button>
               );
             })}

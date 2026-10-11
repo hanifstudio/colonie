@@ -4,12 +4,16 @@ import { BotEngine, type BotFrame } from "../../third_party/bloub/src/bot/engine
 import { SHAPE_BY_ID } from "../../third_party/bloub/src/bot/skins";
 import { EXPRESSION_BY_ID, EXPRESSIONS } from "../../third_party/bloub/src/bot/expressions";
 import { NOTIF_BLUE } from "../../third_party/bloub/src/bot/decor";
+import { bloubViewHalf, useGlobalBloubGaze } from "./bloub-gaze";
 import type { StateId } from "../../third_party/bloub/src/bot/states";
 import type { MausAvatarHandle, MausAvatarProps } from "./Avatar";
 
 const SHAPES: Record<string, string> = { cursor: "galet", blob: "galet", circle: "cercle", squircle: "squircle", capsule: "capsule", drop: "goutte", shield: "goutte", hexagon: "hexagone", diamond: "squircle", star: "nuage" };
 const FACES: Record<string, string> = { happy: "heureux", proud: "fier", sad: "triste", scared: "effraye", suspicious: "mefiant", confused: "confus", curious: "curieux", surprised: "surpris", angry: "colere", drowsy: "somnolent", listening: "attentif", excited: "excite", shy: "timide", bored: "blase" };
-const COLORS: Record<string, string> = { green: "#64bb91", purple: "#8b72f8", blue: "#5ca6e8", cyan: "#56c5cc", red: "#e7798d", pink: "#e18cb4", orange: "#e9a765", yellow: "#e4c979", teal: "#67b7a9", coral: "#e59883" };
+// Body inks. Deeper and more saturated than the earlier pastel set so the
+// light `#fcfaff` eyes read clearly: every tone now holds >= 3:1 against the
+// eyes (WCAG non-text minimum; the old set sat at 1.6-3.5:1).
+const COLORS: Record<string, string> = { green: "#1f8a5b", purple: "#6d4ae0", blue: "#2f74c9", cyan: "#1f8f99", red: "#cf4258", pink: "#c74b86", orange: "#c86a1c", yellow: "#a8841a", teal: "#1f8a80", coral: "#c85a41" };
 
 export function bloubState(state = "idle", motion = "none"): StateId {
   if (motion === "failure") return "alert";
@@ -30,8 +34,14 @@ export function BloubFrame({ frame, size, ink, uid, label }: { frame: BotFrame; 
   const dots = frame.dots.map((dot, index) => dot.d
     ? <path key={index} d={dot.d} transform={`translate(${dot.x} ${dot.y}) rotate(${dot.rot ?? 0}) scale(100)`} fill={dot.color ?? ink} opacity={dot.opacity} />
     : <circle key={index} cx={dot.x} cy={dot.y} r={dot.r} fill={dot.color ?? ink} opacity={dot.opacity} />);
+  // Presentation-only camera: the tight window at rest makes the body ~1.3x
+  // larger without touching engine geometry; the full window returns while
+  // orbit/comet decor is visibly drawn (see bloub-frame-fit.test.ts). The
+  // mask keeps full-viewBox coordinates — a larger mask than the visible
+  // window is harmless.
+  const half = bloubViewHalf(frame.arcs);
   return (
-    <svg width={size} height={size} viewBox="-158 -158 316 316" role="img" aria-label={label ?? "Colonie agent"} data-mascot="bloub">
+    <svg width={size} height={size} viewBox={`${-half} ${-half} ${half * 2} ${half * 2}`} role="img" aria-label={label ?? "Colonie agent"} data-mascot="bloub">
       <defs>
         <mask id={`${uid}-mask`} maskUnits="userSpaceOnUse" x={-158} y={-158} width={316} height={316}>
           <path d={frame.bodyPath} fill="white" />
@@ -66,6 +76,23 @@ export const BloubAvatar = memo(forwardRef<MausAvatarHandle, MausAvatarProps>(fu
   engineRef.current ??= new BotEngine(100, state, bloubShape(props.bodyId).radii, expression ?? null);
   const engine = engineRef.current;
   const [frame, setFrame] = useState(() => engine.sample(1));
+  // Global gaze replaces the local hover handlers below: while it is on, a
+  // `pointerleave` of the small avatar box must NOT rest the eyes, because
+  // the pointer is usually still inside the window and the next global
+  // `pointermove` keeps the stare alive.
+  const globalGaze = props.followGlobalPointer === true
+    && props.trackPointer !== false && props.animated !== false;
+  const canHover = props.trackPointer !== false && props.animated !== false && !globalGaze;
+  useGlobalBloubGaze({
+    enabled: globalGaze,
+    elementRef: element,
+    onGaze: (yaw, pitch) => {
+      engine.setLook({ yaw, pitch, mix: 1, spin: 0, wander: 0 }, clock.current);
+    },
+    onRest: () => {
+      engine.setLook(null, clock.current);
+    },
+  });
   useImperativeHandle(ref, () => ({ blink: () => engine.setState("wink", clock.current), spin: () => engine.setState("swirl", clock.current), setExpression: (index) => engine.setExpression(EXPRESSIONS[index % EXPRESSIONS.length] ?? null, clock.current) }), [engine]);
   useEffect(() => {
     engine.setShape(bloubShape(props.bodyId).radii, clock.current);
@@ -92,10 +119,10 @@ export const BloubAvatar = memo(forwardRef<MausAvatarHandle, MausAvatarProps>(fu
     media.addEventListener("change", update); document.addEventListener("visibilitychange", update); update();
     return () => { cancelAnimationFrame(raf); observer?.disconnect(); media.removeEventListener("change", update); document.removeEventListener("visibilitychange", update); };
   }, [engine, props.animated]);
-  return <span ref={element} className="inline-flex shrink-0" onPointerMove={props.trackPointer !== false && props.animated !== false ? (event) => {
+  return <span ref={element} className="inline-flex shrink-0" onPointerMove={canHover ? (event) => {
     const box = event.currentTarget.getBoundingClientRect();
-    if (box.width && box.height) engine.setLook({ yaw: ((event.clientX - box.left) / box.width - 0.5) * 40, pitch: ((event.clientY - box.top) / box.height - 0.5) * 25, mix: 1, spin: 0, wander: 0 }, clock.current);
-  } : undefined} onPointerLeave={() => engine.setLook(null, clock.current)}>
+    if (box.width && box.height) engine.setLook({ yaw: ((event.clientX - box.left) / box.width - 0.5) * 40, pitch: -((event.clientY - box.top) / box.height - 0.5) * 25, mix: 1, spin: 0, wander: 0 }, clock.current);
+  } : undefined} onPointerLeave={globalGaze ? undefined : () => engine.setLook(null, clock.current)}>
     <BloubFrame frame={frame} size={props.size ?? 44} ink={COLORS[props.color] ?? COLORS.green!} uid={uid} label={props.label} />
   </span>;
 }));

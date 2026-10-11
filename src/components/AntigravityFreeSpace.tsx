@@ -4,7 +4,8 @@
 // ones in its own folder by itself; this also finds the ones left in the
 // Windows temporary folder. It always says how much it found before deleting.
 import { useState } from "react";
-import { HardDrive, Loader2 } from "lucide-react";
+import { HardDriveIcon, Loading02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, type InstanceInfo } from "@/state/store";
 import { t } from "@/lib/i18n";
 
@@ -64,7 +65,7 @@ export function AntigravityFreeSpace({ instance, initial = { kind: "idle" } }: {
   return (
     <section className="mt-3 rounded-xl border border-hairline/40 px-3 py-2.5" aria-label={t("engines.freeSpace.title")}>
       <div className="flex flex-wrap items-center gap-2">
-        <HardDrive size={13} aria-hidden="true" className="shrink-0 text-ink-secondary" />
+        <HIcon icon={HardDriveIcon} size={13} aria-hidden="true" className="shrink-0 text-ink-secondary" />
         <span className="text-[12px] font-medium text-ink">{t("engines.freeSpace.title")}</span>
         <span className="flex-1" />
         {(phase.kind === "idle" || phase.kind === "none" || phase.kind === "done" || busy) && (
@@ -74,7 +75,7 @@ export function AntigravityFreeSpace({ instance, initial = { kind: "idle" } }: {
             disabled={busy}
             className="flex shrink-0 items-center gap-1 rounded-lg border border-hairline/40 px-3 py-1 text-[12px] text-ink-secondary hover:bg-raised/50 hover:text-ink disabled:opacity-50"
           >
-            {busy && <Loader2 size={12} className="animate-spin" />}
+            {busy && <HIcon icon={Loading02Icon} size={12} className="animate-spin" />}
             {t("engines.freeSpace.action")}
           </button>
         )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, ExternalLink, Globe, Loader2 } from "lucide-react";
+import { GlobeIcon, Loading02Icon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { Card, CommandLine } from "./SettingsPrimitives";
@@ -89,7 +90,7 @@ export function CustomDomainGuide({ status }: { status: CustomDomainStatus }) {
       {!status.serverIpv4 && <p className="mt-3">{t("settings.domain.ipAdminHint")}</p>}
       <p className="mt-3">{t("settings.domain.scope")}</p>
       <a className="mt-3 inline-flex items-center gap-1.5 text-accent hover:underline" href="https://github.com/milind-soni/OpenMausBot/blob/main/docs/self-hosting.md#connect-a-custom-domain-in-settings" target="_blank" rel="noopener noreferrer">
-        {t("settings.domain.fullGuide")} <ExternalLink size={12} />
+        {t("settings.domain.fullGuide")} <HIcon icon={SquareArrowUpRightIcon} size={12} />
       </a>
     </details>
   );
@@ -137,7 +138,7 @@ export function CustomDomainSettings() {
   return (
     <Card title={t("settings.domain.title")} subtitle={t("settings.domain.subtitle")}>
       <div className="space-y-3" data-custom-domain-settings>
-        {busy === "loading" && <p role="status" className="flex items-center gap-2 text-[13px] text-ink-secondary"><Loader2 size={14} className="animate-spin" />{t("settings.domain.loading")}</p>}
+        {busy === "loading" && <p role="status" className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={14} className="animate-spin" />{t("settings.domain.loading")}</p>}
         {status && !status.supported && <p className="text-[13px] leading-relaxed text-ink-secondary">{t("settings.domain.serverOnly")}</p>}
         {status?.supported && (
           <>
@@ -148,7 +149,7 @@ export function CustomDomainSettings() {
               <p className="text-[11.5px] leading-relaxed text-ink-secondary">{t("settings.domain.httpsNeeded")}</p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <button type="submit" disabled={!domain.trim() || busy !== null} className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50">
-                  {busy === "saving" ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+                  {busy === "saving" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={GlobeIcon} size={14} />}
                   {busy === "saving" ? t("settings.domain.verifying") : t("settings.domain.verify")}
                 </button>
                 {status.customDomain && <button type="button" disabled={busy !== null} onClick={() => void save(true)} className="rounded-lg bg-control px-3 py-2 text-[12px] font-medium text-ink hover:bg-raised-hover disabled:opacity-50">{busy === "removing" ? t("settings.domain.removing") : t("settings.domain.remove")}</button>}
@@ -159,7 +160,7 @@ export function CustomDomainSettings() {
             <CustomDomainGuide status={status} />
           </>
         )}
-        {notice && <p role="status" className="flex items-start gap-1.5 text-[12px] leading-relaxed text-success"><Check size={14} className="mt-0.5 shrink-0" />{notice}</p>}
+        {notice && <p role="status" className="flex items-start gap-1.5 text-[12px] leading-relaxed text-success"><HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0" />{notice}</p>}
         {error && <p role="alert" className="text-[12px] leading-relaxed text-danger">{error}</p>}
       </div>
     </Card>

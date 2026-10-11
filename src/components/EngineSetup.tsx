@@ -2,7 +2,8 @@
 // errors. The command has one inline copy action and one primary next step;
 // unusable model lists stay out of the way until the engine is ready.
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Copy, Download, ExternalLink, KeyRound, Loader2, LogIn, TerminalSquare, X } from "lucide-react";
+import { Alert02Icon, Copy01Icon, Download01Icon, Key01Icon, Loading02Icon, Login01Icon, MultiplicationSignIcon, SquareArrowUpRightIcon, SquareTerminalIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, type EngineInstall, type InstanceInfo, useStore } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -86,8 +87,8 @@ export function CommandRow({
     const result = await copyText(command);
     if (result !== "empty") settle(result);
   };
-  const copyIcon = (size: number) => status === "copied" ? <Check size={size} className="text-success" />
-    : status === "failed" ? <X size={size} className="text-danger" /> : <Copy size={size} />;
+  const copyIcon = (size: number) => status === "copied" ? <HIcon icon={Tick01Icon} size={size} className="text-success" />
+    : status === "failed" ? <HIcon icon={MultiplicationSignIcon} size={size} className="text-danger" /> : <HIcon icon={Copy01Icon} size={size} />;
 
   const openTerminal = async () => {
     const opened = await window.ogb!.openInstallTerminal!(command);
@@ -118,7 +119,7 @@ export function CommandRow({
             title={actionLabel}
             className="flex shrink-0 items-center gap-1 rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-white hover:brightness-110"
           >
-            {status === "opened" ? <Check size={12} /> : <TerminalSquare size={12} />}
+            {status === "opened" ? <HIcon icon={Tick01Icon} size={12} /> : <HIcon icon={SquareTerminalIcon} size={12} />}
             {status === "opened" ? t("engineSetup.opened") : t("engineSetup.terminal")}
           </button>
         )}
@@ -156,7 +157,7 @@ export function CommandRow({
             onClick={() => void openTerminal()}
             className="mt-2 flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110"
           >
-            {status === "opened" ? <Check size={14} /> : <TerminalSquare size={14} />}
+            {status === "opened" ? <HIcon icon={Tick01Icon} size={14} /> : <HIcon icon={SquareTerminalIcon} size={14} />}
             {status === "opened" ? t("engineSetup.terminalOpened") : actionLabel}
           </button>
           <p aria-live="polite" className="mt-1.5 text-center text-[11px] text-ink-tertiary">
@@ -212,7 +213,7 @@ function ServerEngineInstall({ instance, mode, command }: { instance: InstanceIn
         onClick={() => void run()}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
       >
-        {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+        {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Download01Icon} size={14} />}
         {busy
           ? t("engineSetup.serverInstalling")
           : t(mode === "update" ? "engineSetup.serverUpdate" : "engineSetup.serverInstall", { name: instance.displayName })}
@@ -246,7 +247,7 @@ export function EngineUpdateNotice({
       className={cn("rounded-xl border border-warning/25 bg-warning/5 p-2.5", className)}
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+        <HIcon icon={Alert02Icon} size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
         <div className="min-w-0">
           <div className="text-[12.5px] font-semibold text-ink">{update.title}</div>
           <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">{update.message}</p>
@@ -274,7 +275,7 @@ export function EngineWarningNotice({
       className={cn("rounded-xl border border-warning/25 bg-warning/5 p-2.5", className)}
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+        <HIcon icon={Alert02Icon} size={14} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
         <div className="min-w-0">
           <div className="text-[12.5px] font-semibold text-ink">{warning.title}</div>
           <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">{warning.message}</p>
@@ -354,7 +355,7 @@ function ManagedEngineSetup({ instance, signInOnly }: { instance: InstanceInfo; 
           onClick={() => void install()}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
         >
-          {busy === "install" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {busy === "install" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Download01Icon} size={14} />}
           {busy === "install" ? t("engineSetup.installing") : managed.label}
         </button>
         <p className="mt-1.5 text-center text-[11px] text-ink-tertiary">
@@ -373,7 +374,7 @@ function ManagedEngineSetup({ instance, signInOnly }: { instance: InstanceInfo; 
         onClick={() => void signIn()}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
       >
-        {busy === "signin" ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
+        {busy === "signin" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Login01Icon} size={14} />}
         {busy === "signin"
           ? t("engineSetup.startingGoogle")
           : flow
@@ -438,7 +439,7 @@ function GrokKeyInstead({ className, unframed }: { className?: string; unframed:
     <div data-engine-setup-key-instead className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-inset text-ink-secondary">
-          <KeyRound size={14} />
+          <HIcon icon={Key01Icon} size={14} />
         </span>
         <p className="min-w-0 text-[12.5px] leading-relaxed text-ink">{t("engineSetup.grok.notInstalled")}</p>
       </div>
@@ -449,7 +450,7 @@ function GrokKeyInstead({ className, unframed }: { className?: string; unframed:
           onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })}
           className="mt-3 flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-raised-hover"
         >
-          <KeyRound size={13} aria-hidden="true" />
+          <HIcon icon={Key01Icon} size={13} aria-hidden="true" />
           {t("engineSetup.grok.addKey")}
         </button>
       )}
@@ -469,7 +470,7 @@ function ApiKeyEngineSetup({ instance, className, unframed, configured = false }
     <div data-engine-setup-api-key={configured ? "configured" : ""} className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-inset text-ink-secondary">
-          <KeyRound size={14} />
+          <HIcon icon={Key01Icon} size={14} />
         </span>
         <div className="min-w-0">
           <div className="text-[13px] font-semibold text-ink">{t(copy.title, { name: instance.displayName })}</div>
@@ -486,7 +487,7 @@ function ApiKeyEngineSetup({ instance, className, unframed, configured = false }
           onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })}
           className="mt-3 flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-raised-hover"
         >
-          <KeyRound size={13} aria-hidden="true" />
+          <HIcon icon={Key01Icon} size={13} aria-hidden="true" />
           {t(copy.action)}
         </button>
       )}
@@ -582,7 +583,7 @@ export function EngineSetup({
     <div className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-inset text-ink-secondary">
-          {signInOnly ? <LogIn size={14} /> : <Download size={14} />}
+          {signInOnly ? <HIcon icon={Login01Icon} size={14} /> : <HIcon icon={Download01Icon} size={14} />}
         </span>
         <div className="min-w-0">
           <div className="text-[13px] font-semibold text-ink">{title}</div>
@@ -646,7 +647,7 @@ export function EngineSetup({
           rel="noreferrer"
           className="mt-2.5 inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
         >
-          <ExternalLink size={12} /> {t("engineSetup.viewGuide")}
+          <HIcon icon={SquareArrowUpRightIcon} size={12} /> {t("engineSetup.viewGuide")}
         </a>
       )}
     </div>

@@ -5,7 +5,8 @@
 // asks before registering — the classic miss is a path the terminal sees
 // but this GUI app can't.
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { Alert02Icon, ChevronDownIcon, Loading02Icon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { EngineCard, EngineSections, RefreshEngines, engineReady } from "./EngineLibrary";
@@ -128,7 +129,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
-          <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-secondary" />
+          <HIcon icon={ChevronDownIcon} size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-secondary" />
         </div>
       )}
       <input
@@ -149,7 +150,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
       />
       {probe && !probe.ok && probe.message && (
         <div role="alert" className="flex gap-1.5 rounded-lg border border-warning/25 bg-warning/10 px-2.5 py-2 text-[12px] leading-relaxed text-warning">
-          <TriangleAlert size={13} className="mt-0.5 shrink-0" />
+          <HIcon icon={Alert02Icon} size={13} className="mt-0.5 shrink-0" />
           <span>{t("engines.testFailed", { message: probe.message })}</span>
         </div>
       )}
@@ -179,7 +180,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
               disabled={busy}
               className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[13px] text-danger hover:bg-raised-hover disabled:opacity-50"
             >
-              {saving ? <Loader2 size={13} className="animate-spin" /> : t("engines.saveAnyway")}
+              {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : t("engines.saveAnyway")}
             </button>
           </>
         ) : (
@@ -192,7 +193,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
-            {busy ? <Loader2 size={13} className="animate-spin" /> : <><Check size={13} />{t("common.save")}</>}
+            {busy ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <><HIcon icon={Tick01Icon} size={13} />{t("common.save")}</>}
           </button>
         )}
       </div>
@@ -274,9 +275,9 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
         (instance.authentication?.method === "device-code" || instance.authentication?.method === "browser-pkce") && deviceSignInProvider(instance.driverKind) === "codex"
           ? <CodexAccountSettings instance={instance} />
           : instance.authentication?.method === "device-code"
-          ? <p className="flex items-center gap-1.5 text-[12px] text-success"><Check size={13} />{t(DEVICE_SIGN_IN_COPY[deviceSignInProvider(instance.driverKind)].connectedAccount)}</p>
+          ? <p className="flex items-center gap-1.5 text-[12px] text-success"><HIcon icon={Tick01Icon} size={13} />{t(DEVICE_SIGN_IN_COPY[deviceSignInProvider(instance.driverKind)].connectedAccount)}</p>
           : instance.authentication?.method === "paste-code" && !instance.claudeAccount && (
-            <p className="flex items-center gap-1.5 text-[12px] text-success"><Check size={13} />{t("engineSetup.claude.connectedAccount")}</p>
+            <p className="flex items-center gap-1.5 text-[12px] text-success"><HIcon icon={Tick01Icon} size={13} />{t("engineSetup.claude.connectedAccount")}</p>
           )
       )}
       {instance.freeUpSpace && <AntigravityFreeSpace instance={instance} />}
@@ -311,7 +312,7 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
               disabled={switching || updating}
               className="flex shrink-0 items-center gap-1 text-[11.5px] text-ink-secondary hover:text-ink disabled:opacity-50"
             >
-              {updating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              {updating ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={12} />}
               {updating ? t("engines.updating") : t("engines.updateClaude")}
             </button>
           )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { t } from "@/lib/i18n";
 import { parseRoomTurnTimeoutMinutes } from "@/lib/room-turn-timeout";
@@ -107,7 +108,7 @@ export function ConversationTurnLimit({ group }: { group: Group }) {
         ) : null}
         <option value="custom">{t("room.turnLimit.custom")}</option>
       </select>
-      <ChevronDown
+      <HIcon icon={ChevronDownIcon}
         size={13}
         aria-hidden="true"
         className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-secondary"

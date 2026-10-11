@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Copy, Download, Loader2, RefreshCw, X } from "lucide-react";
+import { Copy01Icon, Download01Icon, Loading02Icon, RefreshCwIcon, Tick01Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { t } from "@/lib/i18n";
 import { useCopyFeedback } from "@/lib/copy-text";
@@ -53,7 +54,7 @@ export function ClaudeUpdatePrompt({
       onClick={onRetry}
       className="flex items-center gap-1.5 rounded-full border border-hairline/40 px-2.5 py-1 text-[12.5px] text-ink hover:bg-raised-hover"
     >
-      <RefreshCw size={12} aria-hidden="true" /> {t("chat.retry")}
+      <HIcon icon={RefreshCwIcon} size={12} aria-hidden="true" /> {t("chat.retry")}
     </button>
   );
 
@@ -68,7 +69,7 @@ export function ClaudeUpdatePrompt({
               onClick={update}
               className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[12.5px] font-medium text-white hover:brightness-110"
             >
-              <Download size={12} aria-hidden="true" /> {t("chat.claudeUpdate.doIt")}
+              <HIcon icon={Download01Icon} size={12} aria-hidden="true" /> {t("chat.claudeUpdate.doIt")}
             </button>
             <button
               type="button"
@@ -82,13 +83,13 @@ export function ClaudeUpdatePrompt({
       )}
       {phase.kind === "updating" && (
         <p className="flex items-center gap-2 text-ink-secondary" aria-live="polite">
-          <Loader2 size={13} className="animate-spin" aria-hidden="true" /> {t("chat.claudeUpdate.updating")}
+          <HIcon icon={Loading02Icon} size={13} className="animate-spin" aria-hidden="true" /> {t("chat.claudeUpdate.updating")}
         </p>
       )}
       {phase.kind === "updated" && (
         <>
           <p className="flex items-center gap-1.5 text-success" aria-live="polite">
-            <Check size={13} aria-hidden="true" /> {t("engines.claudeUpdated", { version: phase.version })}
+            <HIcon icon={Tick01Icon} size={13} aria-hidden="true" /> {t("engines.claudeUpdated", { version: phase.version })}
           </p>
           {retry && <div className="mt-2">{retry}</div>}
         </>
@@ -106,7 +107,7 @@ export function ClaudeUpdatePrompt({
               title={copyLabel}
               className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink"
             >
-              {copyState === "copied" ? <Check size={13} className="text-success" /> : copyState === "failed" ? <X size={13} className="text-danger" /> : <Copy size={13} />}
+              {copyState === "copied" ? <HIcon icon={Tick01Icon} size={13} className="text-success" /> : copyState === "failed" ? <HIcon icon={MultiplicationSignIcon} size={13} className="text-danger" /> : <HIcon icon={Copy01Icon} size={13} />}
             </button>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">

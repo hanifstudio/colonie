@@ -1,11 +1,12 @@
 import {
-  CheckCircle2,
-  CircleAlert,
-  Hand,
-  Loader2,
-  Square,
-  XCircle,
-} from "lucide-react";
+  AlertCircleIcon,
+  CancelCircleIcon,
+  CheckmarkCircle02Icon,
+  HandIcon,
+  Loading02Icon,
+  SquareIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 import type { Message } from "@/state/store";
@@ -36,19 +37,19 @@ function StatusIcon({ status }: { status: GroupGoalRunCardData["status"] }) {
   const className = "size-4 shrink-0";
   switch (status) {
     case "working":
-      return <Loader2 aria-hidden="true" className={cn(className, "animate-spin text-accent")} />;
+      return <HIcon icon={Loading02Icon} aria-hidden="true" className={cn(className, "animate-spin text-accent")} />;
     case "completed":
-      return <CheckCircle2 aria-hidden="true" className={cn(className, "text-success")} />;
+      return <HIcon icon={CheckmarkCircle02Icon} aria-hidden="true" className={cn(className, "text-success")} />;
     case "needs-input":
-      return <Hand aria-hidden="true" className={cn(className, "text-warning")} />;
+      return <HIcon icon={HandIcon} aria-hidden="true" className={cn(className, "text-warning")} />;
     case "blocked":
     case "limit-reached":
     case "paused":
-      return <CircleAlert aria-hidden="true" className={cn(className, "text-warning")} />;
+      return <HIcon icon={AlertCircleIcon} aria-hidden="true" className={cn(className, "text-warning")} />;
     case "stopped":
-      return <Square aria-hidden="true" className={cn(className, "text-ink-secondary")} />;
+      return <HIcon icon={SquareIcon} aria-hidden="true" className={cn(className, "text-ink-secondary")} />;
     case "failed":
-      return <XCircle aria-hidden="true" className={cn(className, "text-danger")} />;
+      return <HIcon icon={CancelCircleIcon} aria-hidden="true" className={cn(className, "text-danger")} />;
   }
 }
 

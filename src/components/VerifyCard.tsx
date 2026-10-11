@@ -1,5 +1,6 @@
-import { BookmarkPlus, CheckCircle2, ChevronDown, ChevronUp, ListChecks, Loader2, X, XCircle } from "lucide-react";
 import { useState } from "react";
+import { BookmarkAdd01Icon, CancelCircleIcon, CheckListIcon, CheckmarkCircle02Icon, ChevronDownIcon, ChevronUpIcon, Loading02Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -9,11 +10,11 @@ function StatusIcon({ status }: { status: RunStep["status"] }) {
   const className = "size-4 shrink-0";
   switch (status) {
     case "running":
-      return <Loader2 aria-hidden="true" className={cn(className, "animate-spin text-accent")} />;
+      return <HIcon icon={Loading02Icon} aria-hidden="true" className={cn(className, "animate-spin text-accent")} />;
     case "passed":
-      return <CheckCircle2 aria-hidden="true" className={cn(className, "text-success")} />;
+      return <HIcon icon={CheckmarkCircle02Icon} aria-hidden="true" className={cn(className, "text-success")} />;
     case "failed":
-      return <XCircle aria-hidden="true" className={cn(className, "text-danger")} />;
+      return <HIcon icon={CancelCircleIcon} aria-hidden="true" className={cn(className, "text-danger")} />;
   }
 }
 
@@ -54,7 +55,7 @@ export function VerifyCard({
       className="pointer-events-auto w-[22rem] max-w-full rounded-2xl border border-hairline/40 bg-raised/95 text-ink shadow-lg backdrop-blur-sm"
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <ListChecks size={14} className="shrink-0 text-accent" aria-hidden="true" />
+        <HIcon icon={CheckListIcon} size={14} className="shrink-0 text-accent" aria-hidden="true" />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[13px] font-medium">{t("chat.verify.title")}</span>
           <span role="status" aria-live="polite" aria-atomic="true" className="text-[12px] text-ink-secondary">
@@ -69,10 +70,10 @@ export function VerifyCard({
           title={toggleLabel}
           className={ICON_BUTTON}
         >
-          {collapsed ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+          {collapsed ? <HIcon icon={ChevronUpIcon} size={14} aria-hidden="true" /> : <HIcon icon={ChevronDownIcon} size={14} aria-hidden="true" />}
         </button>
         <button type="button" onClick={onDismiss} aria-label={t("chat.verify.dismiss")} title={t("chat.verify.dismiss")} className={ICON_BUTTON}>
-          <X size={14} aria-hidden="true" />
+          <HIcon icon={MultiplicationSignIcon} size={14} aria-hidden="true" />
         </button>
       </div>
       {!collapsed && (
@@ -106,7 +107,7 @@ export function VerifyCard({
                 onClick={onSave}
                 className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-ink-secondary outline-none hover:bg-raised-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/60"
               >
-                <BookmarkPlus size={13} aria-hidden="true" />
+                <HIcon icon={BookmarkAdd01Icon} size={13} aria-hidden="true" />
                 {t("chat.verify.save")}
               </button>
               <span className="text-[12px] text-ink-secondary">{t("chat.verify.saveHint")}</span>

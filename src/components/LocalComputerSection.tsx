@@ -4,19 +4,20 @@ import { t } from "@/lib/i18n";
 import { waitForLocalVmReady } from "@/lib/local-vm-readiness";
 import type { LocaleKey } from "@/locales";
 import {
-  AlertTriangle,
-  Check,
-  Circle,
-  Cloud,
-  ExternalLink,
-  Loader2,
-  Moon,
-  RefreshCw,
-  RotateCcw,
-  Server,
-  Square,
-  Trash2,
-} from "lucide-react";
+  Alert02Icon,
+  CircleIcon,
+  CloudIcon,
+  Delete02Icon,
+  Loading02Icon,
+  Moon01Icon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  ServerIcon,
+  SquareArrowUpRightIcon,
+  SquareIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { Card, CommandLine } from "./SettingsPrimitives";
 import { MacLocalControl } from "./MacLocalControl";
 import { cn } from "@/lib/cn";
@@ -395,7 +396,7 @@ export function VpsComputersCard({
           aria-label={t("vm.vps.refreshAria")}
           className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
         >
-          <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
+          <HIcon icon={RefreshCwIcon} size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
       </div>
 
@@ -419,15 +420,15 @@ export function VpsComputersCard({
       >
         {loading && instances.length === 0 ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <Loader2 size={13} className="animate-spin" /> {t("vm.vps.checkingList")}
+            <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {t("vm.vps.checkingList")}
           </div>
         ) : unavailableReason ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <AlertTriangle size={14} className="shrink-0 text-warning" /> {unavailableReason}
+            <HIcon icon={Alert02Icon} size={14} className="shrink-0 text-warning" /> {unavailableReason}
           </div>
         ) : configured === false ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <Server size={14} className="shrink-0" /> {t("vm.vps.notConfigured")}
+            <HIcon icon={ServerIcon} size={14} className="shrink-0" /> {t("vm.vps.notConfigured")}
           </div>
         ) : instances.length === 0 ? (
           <div className="px-3 py-4 text-[13px] text-ink-secondary">{t("vm.vps.noneFound")}</div>
@@ -477,7 +478,7 @@ export function VpsComputersCard({
                 title={t("vm.vps.removeTitle")}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {removing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                {removing ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={Delete02Icon} size={12} />}
                 {t("vm.vps.remove")}
               </button>
             </div>
@@ -529,7 +530,7 @@ export function CloudComputersCard({
           aria-label={t("vm.cloud.refreshAria")}
           className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
         >
-          <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
+          <HIcon icon={RefreshCwIcon} size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
       </div>
 
@@ -553,15 +554,15 @@ export function CloudComputersCard({
       >
         {loading && instances.length === 0 ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <Loader2 size={13} className="animate-spin" /> {t("vm.cloud.checkingList")}
+            <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {t("vm.cloud.checkingList")}
           </div>
         ) : unavailableReason ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <AlertTriangle size={14} className="shrink-0 text-warning" /> {unavailableReason}
+            <HIcon icon={Alert02Icon} size={14} className="shrink-0 text-warning" /> {unavailableReason}
           </div>
         ) : configured === false ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <Cloud size={14} className="shrink-0" /> {t("vm.cloud.notConnected")}
+            <HIcon icon={CloudIcon} size={14} className="shrink-0" /> {t("vm.cloud.notConnected")}
           </div>
         ) : instances.length === 0 ? (
           <div className="px-3 py-4 text-[13px] text-ink-secondary">{t("vm.cloud.noneFound")}</div>
@@ -613,7 +614,7 @@ export function CloudComputersCard({
                   title={canSleep ? t("vm.cloud.sleepTitle") : t("vm.cloud.sleepBlocked", { state: state.toLowerCase() })}
                   className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {isPending && pending?.action === "sleep" ? <Loader2 size={12} className="animate-spin" /> : <Moon size={12} />}
+                  {isPending && pending?.action === "sleep" ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={Moon01Icon} size={12} />}
                   {t("vm.cloud.sleep")}
                 </button>
                 <button
@@ -624,7 +625,7 @@ export function CloudComputersCard({
                   title={t("vm.cloud.deleteTitle")}
                   className="flex items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {isPending && pending?.action === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  {isPending && pending?.action === "delete" ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={Delete02Icon} size={12} />}
                   {t("common.delete")}
                 </button>
               </div>
@@ -675,7 +676,7 @@ export function LocalVmInventoryCard({
           aria-label={t("vm.perBot.refreshAria")}
           className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
         >
-          <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
+          <HIcon icon={RefreshCwIcon} size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
       </div>
 
@@ -697,11 +698,11 @@ export function LocalVmInventoryCard({
       >
         {loading && instances.length === 0 ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <Loader2 size={13} className="animate-spin" /> {t("vm.perBot.checkingList")}
+            <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {t("vm.perBot.checkingList")}
           </div>
         ) : unavailableReason ? (
           <div className="flex items-center gap-2 px-3 py-4 text-[13px] text-ink-secondary">
-            <AlertTriangle size={14} className="shrink-0 text-warning" /> {unavailableReason}
+            <HIcon icon={Alert02Icon} size={14} className="shrink-0 text-warning" /> {unavailableReason}
           </div>
         ) : instances.length === 0 ? (
           <div className="px-3 py-4 text-[13px] text-ink-secondary">{t("vm.perBot.none")}</div>
@@ -762,7 +763,7 @@ export function LocalVmInventoryCard({
                 }
                 className="flex shrink-0 items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                {deleting ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={Delete02Icon} size={12} />}
                 {t("common.delete")}
               </button>}
             </div>
@@ -782,7 +783,7 @@ function Step({ n, title, done, children }: { n: number; title: string; done: bo
           done ? "bg-success/20 text-success" : "border border-hairline/50 text-ink-secondary",
         )}
       >
-        {done ? <Check size={12} /> : n}
+        {done ? <HIcon icon={Tick01Icon} size={12} /> : n}
       </div>
       <div className="min-w-0 flex-1">
         <div className={cn("text-[14px]", done ? "text-ink-secondary line-through" : "text-ink")}>{title}</div>
@@ -815,7 +816,7 @@ function ActionButton({
         danger ? "bg-danger/15 text-danger hover:bg-danger/20" : "bg-accent text-white hover:brightness-110",
       )}
     >
-      {pending === action && <Loader2 size={13} className="animate-spin" />}
+      {pending === action && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
       {children}
     </button>
   );
@@ -1404,7 +1405,7 @@ export function LocalComputerSection() {
               headerReady ? "bg-success/15 text-success" : "bg-control text-ink-secondary",
             )}
           >
-            {loading ? <Loader2 size={12} className="animate-spin" /> : headerReady ? <Check size={12} /> : <Circle size={9} />}
+            {loading ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : headerReady ? <HIcon icon={Tick01Icon} size={12} /> : <HIcon icon={CircleIcon} size={9} />}
             {loading
               ? t("common.checking")
               : unavailable
@@ -1426,7 +1427,7 @@ export function LocalComputerSection() {
             disabled={loading || pending !== null}
             className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1 text-[12.5px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
           >
-            <RefreshCw size={12} /> {t("vm.main.recheck")}
+            <HIcon icon={RefreshCwIcon} size={12} /> {t("vm.main.recheck")}
           </button>
           {ready && !perBot && (
             <a
@@ -1435,7 +1436,7 @@ export function LocalComputerSection() {
               rel="noreferrer"
               className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1 text-[12.5px] text-ink hover:bg-control"
             >
-              <ExternalLink size={12} /> {t("vm.main.watch")}
+              <HIcon icon={SquareArrowUpRightIcon} size={12} /> {t("vm.main.watch")}
             </a>
           )}
         </div>
@@ -1486,7 +1487,7 @@ export function LocalComputerSection() {
           disabled={!status || policyPending}
           onSave={saveIdleTimeout}
         />
-        {policyPending && <div className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-secondary"><Loader2 size={12} className="animate-spin" /> {t("vm.saving")}</div>}
+        {policyPending && <div className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-secondary"><HIcon icon={Loading02Icon} size={12} className="animate-spin" /> {t("vm.saving")}</div>}
       </Card>
 
       <Card title={t("vm.setup.title")} subtitle={t("vm.setup.subtitle")}>
@@ -1547,12 +1548,12 @@ export function LocalComputerSection() {
             ) : needsRecreate ? (
               <>
                 <div className="flex gap-2 text-[13px] text-warning">
-                  <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                  <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0" />
                   <span>{status?.problem}</span>
                 </div>
                 {status?.image ? (
                   <ActionButton action="recreate" pending={pending} onClick={() => void act("recreate")} danger>
-                    <RotateCcw size={13} /> {t("vm.setup.recreate")}
+                    <HIcon icon={RotateCcwIcon} size={13} /> {t("vm.setup.recreate")}
                   </ActionButton>
                 ) : (
                   <div className="text-[13px] text-ink-secondary">{t("vm.setup.prepareFirst")}</div>
@@ -1564,7 +1565,7 @@ export function LocalComputerSection() {
                 <ActionButton action="start" pending={pending} onClick={() => void act("start")}>{t("vm.setup.start")}</ActionButton>
               </>
             ) : status?.container === "running" ? (
-              <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><Loader2 size={13} className="animate-spin" /> {t("vm.setup.waiting")}</div>
+              <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {t("vm.setup.waiting")}</div>
             ) : status?.image ? (
               <>
                 <ActionButton action="run" pending={pending} onClick={() => void act("run")}>{t("vm.setup.start")}</ActionButton>
@@ -1592,7 +1593,7 @@ export function LocalComputerSection() {
       {unavailable && (
         <Card>
           <div className="flex gap-2 text-[13px] text-ink-secondary">
-            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
+            <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0 text-warning" />
             <span>{t("vm.inspectFailed")}</span>
           </div>
         </Card>
@@ -1610,11 +1611,11 @@ export function LocalComputerSection() {
           <div className="flex flex-wrap gap-2">
             {status?.container === "running" && (
               <ActionButton action="stop" pending={pending} onClick={() => void act("stop")}>
-                <Square size={12} /> {t("vm.safety.stop")}
+                <HIcon icon={SquareIcon} size={12} /> {t("vm.safety.stop")}
               </ActionButton>
             )}
             <ActionButton action="remove" pending={pending} onClick={() => void act("remove")} danger>
-              <Trash2 size={12} /> {perBot ? t("vm.safety.deleteLegacy") : t("vm.safety.deleteVm")}
+              <HIcon icon={Delete02Icon} size={12} /> {perBot ? t("vm.safety.deleteLegacy") : t("vm.safety.deleteVm")}
             </ActionButton>
           </div>
         )}

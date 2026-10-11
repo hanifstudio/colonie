@@ -1,5 +1,6 @@
+import { ChevronLeftIcon, ChevronRightIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -63,7 +64,7 @@ export function MiniMonth({ anchor, onSelect }: MiniMonthProps) {
             className="flex size-7 items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
             aria-label="Previous month"
           >
-            <ChevronLeft size={15} aria-hidden="true" />
+            <HIcon icon={ChevronLeftIcon} size={15} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -71,7 +72,7 @@ export function MiniMonth({ anchor, onSelect }: MiniMonthProps) {
             className="flex size-7 items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
             aria-label="Next month"
           >
-            <ChevronRight size={15} aria-hidden="true" />
+            <HIcon icon={ChevronRightIcon} size={15} aria-hidden="true" />
           </button>
         </div>
       </div>

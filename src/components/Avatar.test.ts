@@ -45,7 +45,7 @@ describe("Colonie mascot under the historical avatar API", () => {
     expect(markup).not.toContain('fill="#000000"');
     expect(markup).not.toContain("{{GRADIENT}}");
     expect(markup).toContain("url(#");
-    expect(markup).toContain('fill="#64bb91"');
+    expect(markup).toContain('fill="#1f8a5b"');
   });
 });
 

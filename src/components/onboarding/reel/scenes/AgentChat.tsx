@@ -4,8 +4,9 @@
 // makes it OpenMausBot is the tool chip in the reply: the bot ran a real
 // command on this machine before answering, which is the promise the
 // guided first conversation then keeps.
+import { SquareTerminalIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../../HIcon";
 import { useEffect, useState } from "react";
-import { Check, TerminalSquare } from "lucide-react";
 import { MausAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import { reducedMotion } from "@/lib/onboarding";
@@ -118,7 +119,7 @@ export function AgentChat({ playing, onCue, onEnded, label }: SceneProps) {
                     done ? "bg-success/15 text-success" : "bg-raised text-ink-secondary",
                   )}
                 >
-                  {done ? <Check size={11} strokeWidth={3} /> : <TerminalSquare size={11} />}
+                  {done ? <HIcon icon={Tick01Icon} size={11} strokeWidth={3} /> : <HIcon icon={SquareTerminalIcon} size={11} />}
                   <code className="font-mono">pnpm test</code>
                   <span>{done ? "passed" : "running…"}</span>
                 </div>

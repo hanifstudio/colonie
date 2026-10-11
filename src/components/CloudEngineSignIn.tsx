@@ -7,7 +7,8 @@
 // in Settings → Connections. Grok is offered only where this Cloud computer
 // has the Grok CLI. Once an engine can run, the chat takes this screen's place.
 import { useState } from "react";
-import { ArrowUpRight, ChevronDown, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { ArrowUpRight01Icon, ChevronDownIcon, Key01Icon, Loading02Icon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { EngineSetup } from "@/components/EngineSetup";
 import { ProviderMark } from "@/components/ProviderIcons";
 import { cn } from "@/lib/cn";
@@ -65,7 +66,7 @@ export function CloudEngineSignIn() {
                     <span className="block text-[13.5px] font-medium text-ink">{choice.label}</span>
                     <span className="block text-[12px] text-ink-secondary">{choice.hint}</span>
                   </span>
-                  <ChevronDown size={14} className={cn("shrink-0 text-ink-secondary transition-transform duration-200", expanded && "rotate-180")} />
+                  <HIcon icon={ChevronDownIcon} size={14} className={cn("shrink-0 text-ink-secondary transition-transform duration-200", expanded && "rotate-180")} />
                 </button>
                 {expanded && (instance
                   ? <EngineSetup instance={instance} className="mx-3.5 mb-3.5 border-0 bg-inset" />
@@ -76,13 +77,13 @@ export function CloudEngineSignIn() {
           <div data-cloud-choice="api-key">
             <button type="button" onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })} className={row}>
               <span className="flex size-[18px] shrink-0 items-center justify-center text-ink-secondary">
-                <KeyRound size={16} />
+                <HIcon icon={Key01Icon} size={16} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13.5px] font-medium text-ink">{t("cloudSignIn.apiKey")}</span>
                 <span className="block text-[12px] text-ink-secondary">{t("cloudSignIn.apiKeyHint")}</span>
               </span>
-              <ArrowUpRight size={14} className="shrink-0 text-ink-secondary" />
+              <HIcon icon={ArrowUpRight01Icon} size={14} className="shrink-0 text-ink-secondary" />
             </button>
           </div>
         </div>
@@ -93,7 +94,7 @@ export function CloudEngineSignIn() {
           disabled={checking}
           className="mt-6 flex items-center gap-2 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-60"
         >
-          {checking ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          {checking ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={14} />}
           {checking ? t("common.checking") : t("common.checkAgain")}
         </button>
       </div>

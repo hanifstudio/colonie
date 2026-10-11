@@ -7,7 +7,8 @@
 // dialogs. Desktop and self-hosted installs never see it; they keep the welcome
 // flow, and an empty one gets the same Copy this computer here card.
 import { useEffect, useState } from "react";
-import { CheckCircle2, Circle, Cloud } from "lucide-react";
+import { CheckmarkCircle02Icon, CircleIcon, CloudIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cloudMoveOffer, CloudMoveSuggestion, moveNextSteps, useCloudMove } from "@/components/CloudMove";
 import { engineReady } from "@/components/EngineLibrary";
 import { cn } from "@/lib/cn";
@@ -135,8 +136,8 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
     </>;
     return <li key={item.id} data-cloud-setup-step={item.id} data-status={item.status} className="flex gap-2.5">
       {pending
-        ? <Circle size={16} aria-hidden="true" className="mt-px shrink-0 text-ink-secondary" />
-        : <CheckCircle2 size={16} aria-hidden="true" className="mt-px shrink-0 text-success" />}
+        ? <HIcon icon={CircleIcon} size={16} aria-hidden="true" className="mt-px shrink-0 text-ink-secondary" />
+        : <HIcon icon={CheckmarkCircle02Icon} size={16} aria-hidden="true" className="mt-px shrink-0 text-success" />}
       <div className="min-w-0 flex-1">
         {pending && !open
           ? <button type="button" aria-expanded={false} onClick={() => setChosen(item.id)} className="block w-full text-left text-[13px] text-ink hover:text-accent">{title}</button>
@@ -150,7 +151,7 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
 
   return <aside aria-labelledby="cloud-setup-title" data-cloud-setup className="fixed bottom-4 left-4 z-40 max-h-[calc(100dvh-32px)] w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-xl border border-hairline/40 bg-panel p-3.5 text-ink shadow-2xl shadow-black/20">
     <div className="flex items-center gap-2.5">
-      <Cloud size={16} aria-hidden="true" className="shrink-0 text-ink-secondary" />
+      <HIcon icon={CloudIcon} size={16} aria-hidden="true" className="shrink-0 text-ink-secondary" />
       <h2 id="cloud-setup-title" className="min-w-0 flex-1 text-[13.5px] font-semibold">{t("cloudSetup.title")}</h2>
       <span className="shrink-0 text-[12px] text-ink-secondary">{t("cloudSetup.progress", { done: items.filter((item) => item.status !== "todo").length, total: items.length })}</span>
     </div>

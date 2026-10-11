@@ -5,7 +5,8 @@
 // The pixels always come from the server's image route: live frames and
 // transcript pages carry only a flag, so one path serves both.
 import { useState } from "react";
-import { ZoomIn } from "lucide-react";
+import { ZoomInAreaIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { AttachmentPreviewDialog, type MessageAttachmentContext, type PreviewImage } from "@/components/AttachmentPreview";
 import { t } from "@/lib/i18n";
@@ -44,7 +45,7 @@ export function ScreenFrame({ threadId, message }: { threadId: string; message: 
           aria-hidden
           className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover/image:opacity-100 group-focus-within/image:opacity-100"
         >
-          <ZoomIn size={13} />
+          <HIcon icon={ZoomInAreaIcon} size={13} />
         </span>
       </button>
       {open && <AttachmentPreviewDialog image={image} onClose={() => setOpen(false)} />}

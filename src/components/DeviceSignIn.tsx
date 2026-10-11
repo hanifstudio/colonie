@@ -4,7 +4,8 @@
 // ChatGPT plan (a browser page, no code). The same card on the desktop, a
 // self-hosted server and My Cloud.
 import { useEffect, useState } from "react";
-import { Check, Copy, ExternalLink, Loader2, LogIn, X } from "lucide-react";
+import { Copy01Icon, Login01Icon, Loading02Icon, MultiplicationSignIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, ApiError, useStore } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { openExternalLink } from "@/lib/app-links";
@@ -109,17 +110,17 @@ export function DeviceSignInProgress({ auth, browserPkce = false, provider = "co
           onClick={copyCode}
           className="rounded-md p-2 text-ink-secondary hover:bg-control hover:text-ink"
         >
-          {codeCopy === "copied" ? <Check size={15} className="text-success" /> : codeCopy === "failed" ? <X size={15} className="text-danger" /> : <Copy size={15} />}
+          {codeCopy === "copied" ? <HIcon icon={Tick01Icon} size={15} className="text-success" /> : codeCopy === "failed" ? <HIcon icon={MultiplicationSignIcon} size={15} className="text-danger" /> : <HIcon icon={Copy01Icon} size={15} />}
         </button>
       </div></>}
       <a href={link} target="_blank" rel="noopener noreferrer" onClick={(event) => {
         if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(link); }
       }} className={browserPkce ? chatgptButton : "flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110"}>
         {browserPkce && <CodexMark size={16} className="fill-current" />}
-        {t(browserPkce ? "engineSetup.chatgpt.start" : copy.open)} <ExternalLink size={13} />
+        {t(browserPkce ? "engineSetup.chatgpt.start" : copy.open)} <HIcon icon={SquareArrowUpRightIcon} size={13} />
       </a>
       <p role="status" className="flex items-center gap-1.5 text-[11.5px] text-ink-secondary">
-        <Loader2 size={12} className="animate-spin" /> {t("engineSetup.device.waiting")}
+        <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> {t("engineSetup.device.waiting")}
       </p>
       {auth.expiresAt && Number.isFinite(Date.parse(auth.expiresAt)) && (
         <p className="text-[11px] text-ink-secondary">{t(browserPkce ? "engineSetup.chatgpt.expires" : "engineSetup.device.expires", { time: new Date(auth.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}</p>
@@ -225,7 +226,7 @@ export function DeviceSignIn({ instanceId, browserPkce = false, provider = "code
         </button>
       ) : auth?.phase !== "succeeded" && (
         <button type="button" disabled={busy} onClick={() => void start()} className={browserPkce ? chatgptButton : "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50"}>
-          {busy ? <Loader2 size={14} className="animate-spin" /> : browserPkce ? <CodexMark size={16} className="fill-current" /> : <LogIn size={14} />}
+          {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : browserPkce ? <CodexMark size={16} className="fill-current" /> : <HIcon icon={Login01Icon} size={14} />}
           {startLabel}
         </button>
       )}

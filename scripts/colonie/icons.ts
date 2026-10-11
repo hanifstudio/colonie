@@ -14,7 +14,7 @@ import {SHAPE_BY_ID} from './third_party/bloub/src/bot/skins';
 import {EXPRESSION_BY_ID} from './third_party/bloub/src/bot/expressions';
 import {BloubFrame} from './src/components/BloubAvatar';
 const engine=new BotEngine(100,'idle',SHAPE_BY_ID.get('galet').radii,EXPRESSION_BY_ID.get('curieux'));
-export const svg=renderToStaticMarkup(createElement(BloubFrame,{frame:engine.sample(1),size:1024,ink:'#8b72f8',uid:'colonie-icon',label:'Colonie'}));`,
+export const svg=renderToStaticMarkup(createElement(BloubFrame,{frame:engine.sample(1),size:1024,ink:'#6d4ae0',uid:'colonie-icon',label:'Colonie'}));`,
   resolveDir: resolve("."), loader: "tsx" }, outfile: entry, bundle: true, platform: "node", format: "esm", jsx: "automatic", external: ["react", "react-dom/server", "react/jsx-runtime"] });
 const { svg } = await import(pathToFileURL(entry).href);
 writeFileSync(resolve("public/colonie.svg"), svg);

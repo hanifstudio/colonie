@@ -7,25 +7,26 @@ import type { PackageDocument } from "../../shared/package-format";
 import type { Routine } from "@/lib/routines";
 import { api, useStore, type Bot, type Group } from "@/state/store";
 import {
-  ArrowLeft,
-  BookOpen,
-  CalendarClock,
-  NotebookPen,
-  Check,
-  Compass,
-  Crown,
-  ExternalLink,
-  FolderOpen,
-  Github,
-  Loader2,
-  MessageSquare,
-  Plug,
-  Search,
-  Share2,
-  UploadCloud,
-  Users,
-  X,
-} from "lucide-react";
+  ArrowLeft01Icon,
+  BookOpen01Icon,
+  CalendarClockIcon,
+  NotebookIcon,
+  Tick01Icon,
+  CompassIcon,
+  CrownIcon,
+  SquareArrowUpRightIcon,
+  FolderOpenIcon,
+  GithubIcon,
+  Loading02Icon,
+  MessageSquareIcon,
+  PlugIcon,
+  Search01Icon,
+  Share08Icon,
+  CloudUploadIcon,
+  UsersIcon,
+  MultiplicationSignIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -127,7 +128,7 @@ export function shareableTeamList(sections: readonly string[], bots: ReadonlyArr
 function TeamGlyph({ index }: { index: number }) {
   return (
     <div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", TEAM_GLYPHS[index % TEAM_GLYPHS.length])}>
-      <Users size={20} />
+      <HIcon icon={UsersIcon} size={20} />
     </div>
   );
 }
@@ -156,14 +157,14 @@ export function TeamImportDetails({ pending, importedNames, org = false }: {
       </div>}
       {(pending.kind === "package" || pending.kind === "backup") && (
         <div className="mt-5 flex flex-wrap gap-2 text-[11.5px] text-ink-secondary">
-          {pending.chiefOfStaff && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><Crown size={13} />{pending.chiefOfStaff} leads</span>}
-          {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><MessageSquare size={13} />{pending.rooms} {pending.rooms === 1 ? "group chat" : "group chats"}</span>}
-          {!(pending.library && !pending.playbooks) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><BookOpen size={13} />{pending.playbooks} playbooks</span>}
-          {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><CalendarClock size={13} />{pending.version === 2 ? t("teamImport.routinesPaused", { count: pending.routines }) : `${pending.routines} paused routines`}</span>}
-          {pending.kind === "package" && pending.version !== 2 && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><Plug size={13} />{pending.apps.length} connections</span>}
-          {Boolean(pending.connections?.length) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><Plug size={13} />{t("teamImport.connections", { count: pending.connections?.length ?? 0 })}</span>}
-          {Boolean(pending.notes) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><NotebookPen size={13} />{t("teamImport.notes", { count: pending.notes ?? 0 })}</span>}
-          {Boolean(pending.presets?.length) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><Users size={13} />{t("teamImport.presets", { count: pending.presets?.length ?? 0 })}</span>}
+          {pending.chiefOfStaff && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={CrownIcon} size={13} />{pending.chiefOfStaff} leads</span>}
+          {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={MessageSquareIcon} size={13} />{pending.rooms} {pending.rooms === 1 ? "group chat" : "group chats"}</span>}
+          {!(pending.library && !pending.playbooks) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={BookOpen01Icon} size={13} />{pending.playbooks} playbooks</span>}
+          {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={CalendarClockIcon} size={13} />{pending.version === 2 ? t("teamImport.routinesPaused", { count: pending.routines }) : `${pending.routines} paused routines`}</span>}
+          {pending.kind === "package" && pending.version !== 2 && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={PlugIcon} size={13} />{pending.apps.length} connections</span>}
+          {Boolean(pending.connections?.length) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={PlugIcon} size={13} />{t("teamImport.connections", { count: pending.connections?.length ?? 0 })}</span>}
+          {Boolean(pending.notes) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={NotebookIcon} size={13} />{t("teamImport.notes", { count: pending.notes ?? 0 })}</span>}
+          {Boolean(pending.presets?.length) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={UsersIcon} size={13} />{t("teamImport.presets", { count: pending.presets?.length ?? 0 })}</span>}
         </div>
       )}
       {Boolean(pending.skills?.length) && (
@@ -215,7 +216,7 @@ export function TeamImportDetails({ pending, importedNames, org = false }: {
         ))}
       </div>
       <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-raised/45 px-4 py-3 text-[12.5px] leading-relaxed text-ink-secondary">
-        <Check size={15} className="mt-0.5 shrink-0 text-success" />
+        <HIcon icon={Tick01Icon} size={15} className="mt-0.5 shrink-0 text-success" />
         <p>
           {pending.kind === "backup"
             ? `${TEAM_BACKUP_EXCLUSIONS} ${pending.archivedBots ? `${pending.archivedBots} archived bots will remain archived.` : ""}`
@@ -650,7 +651,7 @@ export function TeamLibraryPanel({
                   className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-50"
                   aria-label="Back to templates"
                 >
-                  <ArrowLeft size={18} />
+                  <HIcon icon={ArrowLeft01Icon} size={18} />
                 </button>
               )}
               <h2 id="team-library-title" className="truncate text-[22px] font-semibold tracking-[-0.01em] text-ink">
@@ -678,9 +679,9 @@ export function TeamLibraryPanel({
                 className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12.5px] text-ink-secondary hover:bg-raised hover:text-ink"
                 title="Open the community templates repository"
               >
-                <Github size={16} />
+                <HIcon icon={GithubIcon} size={16} />
                 <span className="max-sm:hidden">Community repo</span>
-                <ExternalLink size={12} />
+                <HIcon icon={SquareArrowUpRightIcon} size={12} />
               </button>
             )}
             <button
@@ -689,7 +690,7 @@ export function TeamLibraryPanel({
               className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-50"
               aria-label="Close templates"
             >
-              <X size={21} />
+              <HIcon icon={MultiplicationSignIcon} size={21} />
             </button>
           </div>
         </header>
@@ -720,12 +721,12 @@ export function TeamLibraryPanel({
                     aria-label={t("orgLibrary.addAria", { name: pendingOrg.name })}
                     className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
                   >
-                    {importing && <Loader2 size={15} className="animate-spin" />}
+                    {importing && <HIcon icon={Loading02Icon} size={15} className="animate-spin" />}
                     {importing ? t("orgLibrary.adding") : t("orgLibrary.add")}
                   </button>
                 ) : (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-raised px-4 py-2 text-[13px] text-ink-secondary">
-                    <Check size={14} className="text-success" />{t("orgLibrary.added")}
+                    <HIcon icon={Tick01Icon} size={14} className="text-success" />{t("orgLibrary.added")}
                   </span>
                 )
               ) : <button
@@ -733,7 +734,7 @@ export function TeamLibraryPanel({
                 disabled={importing}
                 className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
               >
-                {importing && <Loader2 size={15} className="animate-spin" />}
+                {importing && <HIcon icon={Loading02Icon} size={15} className="animate-spin" />}
                 {importing
                   ? "Importing…"
                   : pending.kind === "backup" ? "Import backup" : pending.library ? t("teamImport.addPresets") : "Add team"}
@@ -824,7 +825,7 @@ export function TeamLibraryPanel({
               </div>
               {tab === "explore" && (
                 <label className="flex h-11 w-full items-center gap-2.5 rounded-xl bg-raised/70 px-3.5 sm:w-[320px]">
-                  <Search size={17} className="shrink-0 text-ink-secondary" />
+                  <HIcon icon={Search01Icon} size={17} className="shrink-0 text-ink-secondary" />
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
@@ -854,7 +855,7 @@ export function TeamLibraryPanel({
                   </div>
                   {catalogLoading && (
                     <div className="flex items-center justify-center gap-2 py-24 text-[13px] text-ink-secondary">
-                      <Loader2 size={16} className="animate-spin" /> Loading templates…
+                      <HIcon icon={Loading02Icon} size={16} className="animate-spin" /> Loading templates…
                     </div>
                   )}
                   {!catalogLoading && catalogError && (
@@ -882,7 +883,7 @@ export function TeamLibraryPanel({
                             disabled={busySlug !== null}
                             className="flex min-w-[72px] items-center justify-center gap-1.5 rounded-full bg-raised px-3.5 py-2 text-[12.5px] text-ink hover:bg-raised-hover disabled:opacity-40"
                           >
-                            {busySlug === entry.slug && <Loader2 size={13} className="animate-spin" />}
+                            {busySlug === entry.slug && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
                             {busySlug === entry.slug ? "Loading" : "Load"}
                           </button>
                         </article>
@@ -933,13 +934,13 @@ export function TeamLibraryPanel({
                         dragging ? "border-accent bg-accent/5" : "border-hairline/60 bg-raised/20 hover:bg-raised/35",
                       )}
                     >
-                      <UploadCloud size={27} className="text-accent" />
+                      <HIcon icon={CloudUploadIcon} size={27} className="text-accent" />
                       <span className="mt-3 text-[14px] font-medium text-ink">Choose a backup or team file</span>
                       <span className="mt-1 text-[12.5px] text-ink-secondary">Drop a .mausbackup.json, BotMRR .md or legacy .mausteam.json here. You’ll preview it before anything is added.</span>
                     </button>
 
                     <div className="flex min-h-56 flex-col justify-center rounded-2xl bg-raised/25 px-6">
-                      <Github size={25} className="text-ink-secondary" />
+                      <HIcon icon={GithubIcon} size={25} className="text-ink-secondary" />
                       <h3 className="mt-3 text-[14px] font-medium text-ink">Load from GitHub</h3>
                       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">Paste a public repo or a direct team JSON link.</p>
                       <div className="mt-4 flex gap-2">
@@ -956,7 +957,7 @@ export function TeamLibraryPanel({
                           disabled={!githubUrl.trim() || githubLoading}
                           className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-[13px] font-medium text-white hover:bg-accent/90 disabled:opacity-40"
                         >
-                          {githubLoading && <Loader2 size={13} className="animate-spin" />}
+                          {githubLoading && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
                           Load
                         </button>
                       </div>
@@ -985,7 +986,7 @@ export function TeamLibraryPanel({
                             aria-label={t("teamLibrary.shareTeamAria", { name: team.name || t("teamLibrary.general") })}
                             className="flex items-center gap-1.5 rounded-full bg-raised px-3.5 py-2 text-[12.5px] text-ink hover:bg-raised-hover"
                           >
-                            <Share2 size={13} />
+                            <HIcon icon={Share08Icon} size={13} />
                             {t("teamLibrary.shareTeam")}
                           </button>
                         </article>
@@ -1017,7 +1018,7 @@ export function TeamLibraryPanel({
                         disabled={scouting}
                         className="flex items-center justify-center gap-1.5 rounded-full bg-raised px-4 py-2.5 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-40"
                       >
-                        <FolderOpen size={14} />
+                        <HIcon icon={FolderOpenIcon} size={14} />
                         Browse
                       </button>
                     )}
@@ -1026,7 +1027,7 @@ export function TeamLibraryPanel({
                       disabled={!scoutTarget || scouting}
                       className="flex items-center justify-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-[13px] font-medium text-white hover:bg-accent/90 disabled:opacity-40"
                     >
-                      {scouting ? <Loader2 size={14} className="animate-spin" /> : <Compass size={14} />}
+                      {scouting ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={CompassIcon} size={14} />}
                       {scouting ? "Scouting…" : "Scout"}
                     </button>
                   </div>
@@ -1104,7 +1105,7 @@ export function TeamLibraryPanel({
                                   title="Read this bot's page before adding it"
                                   className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised hover:text-ink"
                                 >
-                                  <ExternalLink size={14} />
+                                  <HIcon icon={SquareArrowUpRightIcon} size={14} />
                                 </button>
                               </div>
                             ))}
@@ -1124,7 +1125,7 @@ export function TeamLibraryPanel({
                           disabled={creating}
                           className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
                         >
-                          {creating && <Loader2 size={15} className="animate-spin" />}
+                          {creating && <HIcon icon={Loading02Icon} size={15} className="animate-spin" />}
                           {creating ? "Creating…" : "Create group chat"}
                         </button>
                       </div>

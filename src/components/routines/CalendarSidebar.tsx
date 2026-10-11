@@ -1,5 +1,6 @@
+import { GripIcon, Search01Icon, UsersIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { useMemo, useState, type DragEvent } from "react";
-import { GripVertical, Search, UsersRound } from "lucide-react";
 import { BotAvatar } from "@/components/Avatar";
 import type { Bot } from "@/state/store";
 import { MiniMonth } from "./MiniMonth";
@@ -40,7 +41,7 @@ export function CalendarSidebar({ bots, anchor, onSelectDate }: CalendarSidebarP
       <section aria-labelledby="calendar-bots-heading" className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-3">
         <div className="mb-2 flex items-center justify-between px-1">
           <div id="calendar-bots-heading" className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.11em] text-ink-secondary">
-            <UsersRound size={13} aria-hidden="true" />
+            <HIcon icon={UsersIcon} size={13} aria-hidden="true" />
             My bots
           </div>
           <span className="rounded-full bg-raised px-1.5 py-0.5 text-[9px] tabular-nums text-ink-secondary">
@@ -50,7 +51,7 @@ export function CalendarSidebar({ bots, anchor, onSelectDate }: CalendarSidebarP
 
         <label className="relative mb-2 block">
           <span className="sr-only">Search bots</span>
-          <Search
+          <HIcon icon={Search01Icon}
             size={13}
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary"
             aria-hidden="true"
@@ -75,7 +76,7 @@ export function CalendarSidebar({ bots, anchor, onSelectDate }: CalendarSidebarP
               aria-label={`Drag ${bot.name} onto the schedule`}
               title={`Drag ${bot.name} onto the schedule`}
             >
-              <GripVertical
+              <HIcon icon={GripIcon}
                 size={13}
                 className="shrink-0 text-ink-secondary/35 transition-colors group-hover:text-ink-secondary"
                 aria-hidden="true"

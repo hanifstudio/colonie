@@ -3,7 +3,8 @@
 // through the server's exact-message file authorization.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { ChevronDown, ChevronUp, Download, Film, LoaderCircle, Music, Play, X } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, Download01Icon, Film01Icon, Loading02Icon, MusicNote01Icon, MultiplicationSignIcon, PlayIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { attachmentBasename, FILE_MAX_BYTES, type TranscriptFileAttachment, type TranscriptImageAttachment } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -216,17 +217,17 @@ function VideoAttachment({ file, message }: { file: GalleryFile; message: Messag
             aria-label={t("attach.previewVideo", { name: file.name })}
             className="flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-ink-secondary transition-colors hover:bg-raised/60 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60 disabled:cursor-wait disabled:hover:bg-transparent"
           >
-            {loading ? <LoaderCircle size={24} className="animate-spin" /> : <Play size={24} />}
+            {loading ? <HIcon icon={Loading02Icon} size={24} className="animate-spin" /> : <HIcon icon={PlayIcon} size={24} />}
             <span className="text-[12px]">{loading ? t("attach.videoLoading") : error ? t("chat.retry") : t("attach.loadVideo")}</span>
             {!error && !loading && <span className="text-[10.5px]">{t("attach.videoHint")}</span>}
           </button>
         )}
         {(preview || loading || error) && (
           <button type="button" aria-label={t("attach.closeVideo")} onClick={close} className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-panel/90 text-ink-secondary hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
-            <X size={14} />
+            <HIcon icon={MultiplicationSignIcon} size={14} />
           </button>
         )}
-        {!preview && !loading && <Film size={13} className="pointer-events-none absolute left-2 top-2 text-ink-secondary/50" />}
+        {!preview && !loading && <HIcon icon={Film01Icon} size={13} className="pointer-events-none absolute left-2 top-2 text-ink-secondary/50" />}
       </div>
       {error && <p role="alert" className="px-3 py-2 text-[11px] text-danger">{error}</p>}
       <AttachedFileChip file={file} linked={file.linked} message={message} className="max-w-none rounded-none border-0 border-t border-hairline/30 bg-transparent" />
@@ -303,16 +304,16 @@ function AudioAttachment({ file, message }: { file: GalleryFile; message: Messag
   return (
     <div className="inline-flex w-72 max-w-full flex-col gap-1.5 rounded-2xl border border-hairline/30 bg-inset/60 px-3 py-2.5 text-left">
       <div className="flex items-center gap-2">
-        {src ? <Music size={14} className="shrink-0 text-accent" aria-hidden="true" />
+        {src ? <HIcon icon={MusicNote01Icon} size={14} className="shrink-0 text-accent" aria-hidden="true" />
           : (
             <button type="button" disabled={loading} onClick={() => void load()} aria-label={t("attach.previewAudio", { name: file.name })}
               className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent transition-colors hover:bg-accent/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-wait">
-              {loading ? <LoaderCircle size={14} className="animate-spin" /> : <Play size={13} fill="currentColor" />}
+              {loading ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={PlayIcon} size={13} fill="currentColor" />}
             </button>
           )}
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink" title={file.name}>{file.name}</span>
         {src && <a href={src} download={file.name} aria-label={t("attach.saveAria", { name: file.name })} title={t("attach.saveAria", { name: file.name })}
-          className="shrink-0 rounded-lg p-1 text-ink-secondary hover:bg-raised hover:text-ink"><Download size={14} /></a>}
+          className="shrink-0 rounded-lg p-1 text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={Download01Icon} size={14} /></a>}
       </div>
       {src && !error && <audio src={src} controls autoPlay preload="metadata" aria-label={t("attach.previewAudio", { name: file.name })} onError={() => { setSrc(null); setError(t("attach.audioUnavailable")); }} className="h-9 w-full" />}
       {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
@@ -385,7 +386,7 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
       )}
       {items.length > 4 && (
         <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="flex min-h-8 items-center gap-1 rounded-lg px-1 py-1 text-[11px] text-ink-secondary transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
-          {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          {expanded ? <HIcon icon={ChevronUpIcon} size={13} /> : <HIcon icon={ChevronDownIcon} size={13} />}
           {expanded ? t("attach.showLess") : t("attach.showMore", { count: items.length - 4 })}
         </button>
       )}

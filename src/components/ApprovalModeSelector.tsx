@@ -1,5 +1,15 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Check, FilePen, Hand, ListChecks, Settings, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  CheckListIcon,
+  FilePenIcon,
+  HandIcon,
+  Settings01Icon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
+import { HIcon } from "./HIcon";
 
 import { approvalModeFor, hasNativeAutoReview, supportsApprovalMode, type ApprovalMode } from "../../shared/approval-mode";
 import { cn } from "@/lib/cn";
@@ -17,13 +27,13 @@ const APPROVAL_MODE_KEYS: ReadonlyArray<{
   labelKey: LocaleKey;
   chipKey: LocaleKey;
   descriptionKey: LocaleKey;
-  Icon: typeof Hand;
+  Icon: IconSvgElement;
 }> = [
-  { mode: "ask", labelKey: "approvalMode.ask.label", chipKey: "approvalMode.ask.chip", descriptionKey: "approvalMode.ask.desc", Icon: Hand },
-  { mode: "edits", labelKey: "approvalMode.edits.label", chipKey: "approvalMode.edits.chip", descriptionKey: "approvalMode.edits.desc", Icon: FilePen },
-  { mode: "auto", labelKey: "approvalMode.auto.label", chipKey: "approvalMode.auto.chip", descriptionKey: "approvalMode.auto.desc", Icon: ShieldCheck },
-  { mode: "full", labelKey: "approvalMode.full.label", chipKey: "approvalMode.full.chip", descriptionKey: "approvalMode.full.desc", Icon: ShieldAlert },
-  { mode: "custom", labelKey: "approvalMode.custom.label", chipKey: "approvalMode.custom.chip", descriptionKey: "approvalMode.custom.desc", Icon: Settings },
+  { mode: "ask", labelKey: "approvalMode.ask.label", chipKey: "approvalMode.ask.chip", descriptionKey: "approvalMode.ask.desc", Icon: HandIcon },
+  { mode: "edits", labelKey: "approvalMode.edits.label", chipKey: "approvalMode.edits.chip", descriptionKey: "approvalMode.edits.desc", Icon: FilePenIcon },
+  { mode: "auto", labelKey: "approvalMode.auto.label", chipKey: "approvalMode.auto.chip", descriptionKey: "approvalMode.auto.desc", Icon: ShieldCheckIcon },
+  { mode: "full", labelKey: "approvalMode.full.label", chipKey: "approvalMode.full.chip", descriptionKey: "approvalMode.full.desc", Icon: ShieldAlertIcon },
+  { mode: "custom", labelKey: "approvalMode.custom.label", chipKey: "approvalMode.custom.chip", descriptionKey: "approvalMode.custom.desc", Icon: Settings01Icon },
 ];
 
 export interface ApprovalModeOption {
@@ -31,7 +41,7 @@ export interface ApprovalModeOption {
   label: string;
   chip: string;
   description: string;
-  Icon: typeof Hand;
+  Icon: IconSvgElement;
 }
 
 /** The levels, in the reader's language. A function rather than a
@@ -159,7 +169,7 @@ export function ApprovalModeSelector({
       }}
       className="flex items-center gap-3 border-t border-hairline/20 px-4 py-3 text-left text-[14px] text-ink hover:bg-raised-hover"
     >
-      <ListChecks size={18} className="shrink-0 opacity-80" />
+      <HIcon icon={CheckListIcon} size={18} className="shrink-0 opacity-80" />
       {t("commandAllowlist.title")}
     </button>
   );
@@ -183,11 +193,11 @@ export function ApprovalModeSelector({
       >
         {wide ? (
           <span className="flex min-w-0 items-center gap-2">
-            <CurrentIcon size={14} className="shrink-0 opacity-70" />
+            <HIcon icon={CurrentIcon} size={14} className="shrink-0 opacity-70" />
             <span className="truncate">{current.label}</span>
           </span>
         ) : (
-          <CurrentIcon size={16} className="shrink-0 opacity-80" />
+          <HIcon icon={CurrentIcon} size={16} className="shrink-0 opacity-80" />
         )}
         {wide && <span aria-hidden className="text-[11px] text-ink-secondary">⌄</span>}
       </button>
@@ -241,11 +251,11 @@ export function ApprovalModeSelector({
                       modesDisabled && "cursor-not-allowed opacity-45 hover:bg-transparent",
                     )}
                   >
-                    <Icon size={18} className="mt-0.5 shrink-0 opacity-80" />
+                    <HIcon icon={Icon} size={18} className="mt-0.5 shrink-0 opacity-80" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center justify-between gap-3 text-[14px] text-ink">
                         {option.label}
-                        {selected && <Check size={15} className="shrink-0" />}
+                        {selected && <HIcon icon={Tick01Icon} size={15} className="shrink-0" />}
                       </span>
                       <span className="text-[12.5px] leading-snug text-ink-secondary">
                         {option.description}

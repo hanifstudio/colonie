@@ -1,5 +1,6 @@
+import { MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useState } from "react";
-import { X } from "lucide-react";
 import { useStore, visibleMessages, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -78,7 +79,7 @@ export function OptionCard({
             aria-label={t("onboarding.card.dismiss")}
             title={t("onboarding.card.dismiss")}
           >
-            <X size={16} />
+            <HIcon icon={MultiplicationSignIcon} size={16} />
           </button>
         )}
       </div>

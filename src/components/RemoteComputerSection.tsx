@@ -1,6 +1,7 @@
+import { LaptopIcon, Loading02Icon, UnplugIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
-import { Laptop, Loader2, Unplug } from "lucide-react";
 import { Card } from "./SettingsPrimitives";
 
 const inputClass =
@@ -106,7 +107,7 @@ export function RemoteComputerSection() {
       ) : state.active ? (
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 rounded-lg border border-success/25 bg-success/10 px-3 py-3">
-            <Laptop size={18} className="mt-0.5 shrink-0 text-success" />
+            <HIcon icon={LaptopIcon} size={18} className="mt-0.5 shrink-0 text-success" />
             <div className="min-w-0">
               <div className="text-[14px] font-medium text-ink">
                 {t("remote.client.connected", { name: state.serverName || t("remote.client.fallbackName") })}
@@ -123,7 +124,7 @@ export function RemoteComputerSection() {
             onClick={() => void disconnect()}
             className="flex w-fit items-center gap-2 rounded-lg border border-danger/30 px-3 py-2 text-[13px] text-danger hover:bg-danger/10 disabled:opacity-50"
           >
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <Unplug size={14} />}
+            {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={UnplugIcon} size={14} />}
             {t("remote.client.disconnect")}
           </button>
         </div>
@@ -210,7 +211,7 @@ export function RemoteComputerSection() {
             disabled={busy || (serverMode ? !serverLink.trim() : endpoint.trim() === "" || code.length !== 6)}
             className="flex w-fit items-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <Laptop size={14} />}
+            {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={LaptopIcon} size={14} />}
             {serverMode ? t("remote.client.server.connect") : t("remote.client.pair")}
           </button>
           <p className="text-[11.5px] leading-relaxed text-ink-secondary">

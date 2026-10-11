@@ -4,7 +4,8 @@
 // The voice list comes from the harness, which holds cloud provider keys —
 // the renderer never talks to ElevenLabs or Fish Audio itself.
 import { useEffect, useState } from "react";
-import { Check, Loader2, Volume2 } from "lucide-react";
+import { Loading02Icon, Tick01Icon, VolumeHighIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { api, useStore, type Bot, type ConfigStatus } from "@/state/store";
 import { useDesktopCapabilities } from "@/components/DesktopCapabilities";
@@ -321,7 +322,7 @@ export function VoiceSettings({
             disabled={saving || !key.trim()}
             className="flex w-[72px] shrink-0 items-center justify-center gap-1.5 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <><Check size={13} />Save</>}
+            {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <><HIcon icon={Tick01Icon} size={13} />Save</>}
           </button>
         </div>
         {!configured && (
@@ -387,7 +388,7 @@ export function VoiceSettings({
             disabled={savingServer || !serverUrl.trim()}
             className="flex w-[72px] shrink-0 items-center justify-center gap-1.5 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {savingServer ? <Loader2 size={13} className="animate-spin" /> : <><Check size={13} />Save</>}
+            {savingServer ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <><HIcon icon={Tick01Icon} size={13} />Save</>}
           </button>
         </div>
         <input
@@ -452,7 +453,7 @@ export function VoiceSettings({
               aria-label="Hear this voice"
               className="flex w-[72px] shrink-0 items-center justify-center gap-1.5 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Volume2 size={14} /> Try
+              <HIcon icon={VolumeHighIcon} size={14} /> Try
             </button>
           </div>
         </div>

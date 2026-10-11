@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { CircleHelp } from "lucide-react";
+import { HelpCircleIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { createAboutMeDraft } from "./about-me-draft";
@@ -31,7 +32,7 @@ export function AboutMeSettings() {
         <details className="group relative">
           <summary title={t("settings.profile.aboutMeHelp")} aria-label={t("settings.profile.aboutMeHelp")}
             className="flex size-6 cursor-pointer list-none items-center justify-center rounded-md text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 [&::-webkit-details-marker]:hidden">
-            <CircleHelp size={14} aria-hidden="true" />
+            <HIcon icon={HelpCircleIcon} size={14} aria-hidden="true" />
           </summary>
           <p className="absolute left-0 z-30 mt-1 w-56 rounded-xl border border-hairline bg-panel p-3 text-[12px] text-ink-secondary shadow-xl">
             {t("settings.profile.aboutMeHelp")}

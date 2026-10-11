@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CheckCircle2,
-  ClipboardPaste,
-  FlaskConical,
-  Globe,
-  Loader2,
-  LogIn,
-  LogOut,
-  Pencil,
-  Plus,
-  RefreshCw,
-  ServerCog,
-  Trash2,
-} from "lucide-react";
+  CheckmarkCircle02Icon,
+  ClipboardPasteIcon,
+  Delete02Icon,
+  FlaskConicalIcon,
+  GlobeIcon,
+  Loading02Icon,
+  Login01Icon,
+  Logout01Icon,
+  PencilIcon,
+  PlusSignIcon,
+  RefreshCwIcon,
+  ServerCogIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { openExternalLink } from "@/lib/app-links";
 import { cn } from "@/lib/cn";
@@ -573,7 +574,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
           className="mt-1 w-full rounded-lg border border-hairline bg-inset px-3 py-2 text-ink outline-none focus:border-accent" />
         <button type="button" disabled={!callbackUrl.trim() || completingSignIn} aria-busy={completingSignIn} onClick={() => void completeSignIn()}
           className="mt-2 inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 font-medium text-white disabled:opacity-40">
-          {completingSignIn && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+          {completingSignIn && <HIcon icon={Loading02Icon} size={14} className="animate-spin" aria-hidden="true" />}
           {t(completingSignIn ? "mcp.auth.completing" : "mcp.auth.complete")}
         </button>
       </>
@@ -584,7 +585,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
     return signingIn === server.name && (
       <div className="mt-3 space-y-3 rounded-lg bg-raised px-3 py-3 text-[12px] text-ink-secondary">
         <div role="status" className="flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin" /> {t(signInFlow?.phase === "succeeded" ? "whop.loadingTools" : "mcp.auth.waiting")}
+          <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {t(signInFlow?.phase === "succeeded" ? "whop.loadingTools" : "mcp.auth.waiting")}
         </div>
         {signInFlow?.authorizationUrl && mcpSignInLink(signInFlow.authorizationUrl) && (
           <button type="button" onClick={() => void openExternalLink(signInFlow.authorizationUrl!).catch(() => setCallbackError(t("mcp.auth.openFailed")))} className="text-accent hover:underline">
@@ -623,7 +624,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
             disabled={pending || (servers !== null && !whopConnected && (Boolean(whopServer?.managedBy) || (restricted && !policy?.mcp.allowlist.length)))}
             onClick={() => void (servers === null ? load() : whopConnected && whopServer ? signOut(whopServer) : connectWhop())}
             className="flex min-w-[80px] items-center justify-center gap-1.5 rounded-full bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-40">
-            {pending ? <Loader2 size={13} className="animate-spin" /> : servers === null ? t("connectors.action.retry") : t(whopConnected ? "connectors.disconnect" : "connectors.action.connect")}
+            {pending ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : servers === null ? t("connectors.action.retry") : t(whopConnected ? "connectors.disconnect" : "connectors.action.connect")}
           </button>}
       </div>
       {failed && <p role="alert" className="mt-3 text-[12px] text-danger">{typeof failed === "string" ? failed : t(failed.key, failed.params)}</p>}
@@ -663,7 +664,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
               className="rounded-lg p-2 text-ink-secondary transition-colors hover:bg-raised hover:text-ink disabled:opacity-40"
               aria-label={t("mcp.refreshAria")}
             >
-              <RefreshCw size={16} className={cn(busy === "load" && "animate-spin")} />
+              <HIcon icon={RefreshCwIcon} size={16} className={cn(busy === "load" && "animate-spin")} />
             </button>
             <button
               type="button"
@@ -676,7 +677,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
               }}
               className="flex items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-raised-hover disabled:opacity-40"
             >
-              <ClipboardPaste size={14} /> {t("mcp.import")}
+              <HIcon icon={ClipboardPasteIcon} size={14} /> {t("mcp.import")}
             </button>
             <button
               type="button"
@@ -690,7 +691,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
               }}
               className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-medium text-white disabled:opacity-40"
             >
-              <Plus size={14} /> {t(embedded ? "apps.mcp.add" : "mcp.addServer")}
+              <HIcon icon={PlusSignIcon} size={14} /> {t(embedded ? "apps.mcp.add" : "mcp.addServer")}
             </button>
           </div>
         </div>
@@ -906,17 +907,17 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                 onClick={() => void save()}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12.5px] font-medium text-white disabled:opacity-50"
               >
-                {busy === "save" && <Loader2 size={13} className="animate-spin" />} {t("mcp.save")}
+                {busy === "save" && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />} {t("mcp.save")}
               </button>
             </div>
           </div>
         )}
 
         {servers === null ? (
-          <div className="flex items-center justify-center gap-2 py-24 text-[13px] text-ink-secondary"><Loader2 size={14} className="animate-spin" /> {t("mcp.loading")}</div>
+          <div className="flex items-center justify-center gap-2 py-24 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={14} className="animate-spin" /> {t("mcp.loading")}</div>
         ) : visibleServers?.length === 0 && !editing ? (
           <div className="mt-5 flex min-h-32 flex-col items-center justify-center rounded-2xl border border-dashed border-hairline/60 text-center">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-raised text-ink-secondary"><ServerCog size={21} /></div>
+            <div className="flex size-11 items-center justify-center rounded-xl bg-raised text-ink-secondary"><HIcon icon={ServerCogIcon} size={21} /></div>
             <div className="mt-3 text-[14px] font-medium text-ink">{t("mcp.empty.title")}</div>
             <div className="mt-1 max-w-sm text-[12.5px] text-ink-secondary">{t("mcp.empty.desc")}</div>
           </div>
@@ -932,7 +933,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                 <div key={server.name} data-whop-server={whop ? server.name : undefined} className="rounded-2xl border border-hairline/50 bg-card px-4 py-4 sm:px-5">
                   <div data-mcp-row className="flex flex-wrap items-center gap-3">
                     <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", server.enabled ? "bg-success/10 text-success" : "bg-raised text-ink-secondary")}>
-                      {whop ? <WhopIcon /> : isRemoteMcpListing(server) ? <Globe size={19} /> : <ServerCog size={19} />}
+                      {whop ? <WhopIcon /> : isRemoteMcpListing(server) ? <HIcon icon={GlobeIcon} size={19} /> : <HIcon icon={ServerCogIcon} size={19} />}
                     </div>
                     <div className="min-w-0 flex-[1_1_220px]">
                       <div className="flex flex-wrap items-center gap-2">
@@ -951,24 +952,24 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                     <div data-mcp-row-actions className="ml-auto flex flex-wrap items-center justify-end gap-1">
                       {signingIn === server.name ? (
                         <button type="button" onClick={() => signInAbort.current?.abort()} className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink">
-                          <Loader2 size={14} className="animate-spin" /> {t("mcp.auth.cancel")}
+                          <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> {t("mcp.auth.cancel")}
                         </button>
                       ) : canSignIn ? (
                         <button type="button" disabled={busy !== null || signingIn !== null || Boolean(server.managedBy)} onClick={() => void signIn(server)} className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-2 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-40">
-                          <LogIn size={14} /> {t(whop ? "whop.connect" : "mcp.auth.signIn")}
+                          <HIcon icon={Login01Icon} size={14} /> {t(whop ? "whop.connect" : "mcp.auth.signIn")}
                         </button>
                       ) : auth === "signed-in" ? (
                         <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => void signOut(server)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40">
-                          {busy === `signout:${server.name}` ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />} {t(whop ? "whop.disconnect" : "mcp.auth.signOut")}
+                          {busy === `signout:${server.name}` ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Logout01Icon} size={14} />} {t(whop ? "whop.disconnect" : "mcp.auth.signOut")}
                         </button>
                       ) : null}
                       <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => void test(server)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40">
-                        {busy === `test:${server.name}` ? <Loader2 size={14} className="animate-spin" /> : <FlaskConical size={14} />} {t("mcp.test")}
+                        {busy === `test:${server.name}` ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={FlaskConicalIcon} size={14} />} {t("mcp.test")}
                       </button>
-                      <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => { setEditing(server.name); setDraft(draftFor(server)); setError(null); setNotice(null); }} className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40" aria-label={t("mcp.editAria", { name: server.name })}><Pencil size={14} /></button>
-                      <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => void remove(server)} className="rounded-lg p-2 text-ink-secondary hover:bg-danger/10 hover:text-danger disabled:opacity-40" aria-label={t("mcp.removeAria", { name: server.name })}><Trash2 size={14} /></button>
+                      <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => { setEditing(server.name); setDraft(draftFor(server)); setError(null); setNotice(null); }} className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40" aria-label={t("mcp.editAria", { name: server.name })}><HIcon icon={PencilIcon} size={14} /></button>
+                      <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => void remove(server)} className="rounded-lg p-2 text-ink-secondary hover:bg-danger/10 hover:text-danger disabled:opacity-40" aria-label={t("mcp.removeAria", { name: server.name })}><HIcon icon={Delete02Icon} size={14} /></button>
                       <span className="ml-1 flex items-center">
-                        {busy === `toggle:${server.name}` && <Loader2 size={13} className="mr-1.5 animate-spin text-ink-secondary" />}
+                        {busy === `toggle:${server.name}` && <HIcon icon={Loading02Icon} size={13} className="mr-1.5 animate-spin text-ink-secondary" />}
                         <Switch
                           checked={server.enabled}
                           disabled={busy !== null || signingIn !== null}
@@ -994,7 +995,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                   {result && signingIn !== server.name && (
                     <div role="status" className={cn("mt-3 rounded-lg px-3 py-2 text-[12px]", result.ok ? "bg-success/10 text-success" : result.auth === "required" ? "bg-warning/10 text-warning" : "bg-danger/10 text-danger")}>
                       {result.auth === "required" ? t("mcp.auth.required") : result.ok ? (
-                        <span className="flex items-start gap-2"><CheckCircle2 size={14} className="mt-px shrink-0" /> {t("mcp.probe.connected")} {probeToolsLabel(result.tools, result.total)}</span>
+                        <span className="flex items-start gap-2"><HIcon icon={CheckmarkCircle02Icon} size={14} className="mt-px shrink-0" /> {t("mcp.probe.connected")} {probeToolsLabel(result.tools, result.total)}</span>
                       ) : result.error}
                     </div>
                   )}

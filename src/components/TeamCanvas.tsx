@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowRight, BookOpen, Brain, Crown, MessageCircle, Minus, Monitor, MoreHorizontal, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { ArrowRight01Icon, BookOpen01Icon, BrainIcon, CrownIcon, Delete02Icon, MessageCircleIcon, MinusSignIcon, MonitorIcon, MoreHorizontalIcon, PencilIcon, PlusSignIcon, UsersIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -45,19 +46,19 @@ function BotCard({ bot, selected, moving, connected, onComputer, onArrange }: {
       <BotAvatar bot={bot} size={38} motion="none" motionKey={0} animated={false} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5"><span className="truncate text-[14px] font-semibold">{bot.name}</span>
-          {bot.chiefOfStaff && <Crown size={12} className="shrink-0 text-warning" aria-label={t("chat.chiefOfStaff")} />}</span>
+          {bot.chiefOfStaff && <HIcon icon={CrownIcon} size={12} className="shrink-0 text-warning" aria-label={t("chat.chiefOfStaff")} />}</span>
         <span className="mt-1 block truncate text-[11px] text-ink-secondary">{bot.title || (bot.chiefOfStaff ? t("chat.chiefOfStaff") : t("canvas.bot"))}</span>
       </span>
     </button>
     <div className="flex h-[43px] items-center gap-1 border-t border-hairline/30 px-2">
       <button className={cn(iconButton, "size-8")} aria-label={t("canvas.openBotChat", { name: bot.name })} title={t("canvas.openChat")}
-        onClick={() => dispatch({ type: "select", id: bot.id })}><MessageCircle size={13} /></button>
+        onClick={() => dispatch({ type: "select", id: bot.id })}><HIcon icon={MessageCircleIcon} size={13} /></button>
       {status.tone !== "idle" && <span className="flex items-center gap-1.5 text-[10px] text-ink-secondary" title={status.label}>
         <span className={cn("size-1.5 rounded-full", status.tone === "success" ? "bg-success" : status.tone === "warning" ? "bg-warning" : status.tone === "danger" ? "bg-danger" : "bg-ink-secondary/35")} />
         {status.label}
       </span>}
       {selected && onComputer && <button className={cn(iconButton, "size-8")} aria-label={t("canvas.botComputer", { name: bot.name })} title={t("computer.tab.computer")}
-        onClick={() => onComputer(bot)}><Monitor size={13} /></button>}
+        onClick={() => onComputer(bot)}><HIcon icon={MonitorIcon} size={13} /></button>}
       <button aria-label={t("canvas.changeModel", { name: bot.name })} title={`${t("canvas.defaultModel")}: ${model}`}
         onClick={() => dispatch({ type: "toggleSettings", botId: bot.id, section: "model", open: true })}
         className="ml-auto flex h-8 min-w-0 max-w-[130px] items-center gap-1.5 rounded-md px-2 text-[10px] text-ink-secondary hover:bg-control hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
@@ -383,7 +384,7 @@ export function TeamCanvas({ sections, canManage, onMove, onInstructions, onMemo
             {computer && <button aria-label={t("canvas.teamComputer", { team: section.name, name: computer.name })} title={`${computer.name}${computer.state ? ` · ${computer.state}` : ""}`}
               disabled={!onTeamComputer} onClick={() => onTeamComputer?.(section.key)}
               className="flex min-w-0 max-w-[120px] shrink items-center gap-1.5 rounded-md px-1.5 py-2 text-[10px] text-ink-secondary hover:bg-control hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none">
-              <Monitor size={12} className="shrink-0" /><span className="truncate">{computer.name}</span>
+              <HIcon icon={MonitorIcon} size={12} className="shrink-0" /><span className="truncate">{computer.name}</span>
             </button>}
             <span className="text-[11px] tabular-nums text-ink-secondary">{section.chiefs.length + section.members.length}</span>
             {canManage && <details className="relative" onToggle={(event) => {
@@ -393,24 +394,24 @@ export function TeamCanvas({ sections, canManage, onMove, onInstructions, onMemo
                 viewport.current?.querySelectorAll("details[open]").forEach((element) => { if (element !== event.currentTarget) element.removeAttribute("open"); });
               }
             }}>
-              <summary aria-label={t("canvas.manageTeam", { name: section.name })} className={cn(iconButton, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}><MoreHorizontal size={17} /></summary>
+              <summary aria-label={t("canvas.manageTeam", { name: section.name })} className={cn(iconButton, "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}><HIcon icon={MoreHorizontalIcon} size={17} /></summary>
               <div className={cn("absolute right-0 z-30 w-[220px] animate-pop-in rounded-xl border border-hairline bg-panel p-1.5 shadow-xl", menuAbove === section.key ? "bottom-10" : "top-10")} onClick={(event) => {
                 const menu = event.currentTarget.closest("details");
                 menu?.querySelector("summary")?.focus();
                 menu?.removeAttribute("open");
               }}>
-                <button className={menuButton} onClick={() => onEditTeam(section.key)} aria-label={t("team.moveTo", { name: section.name })}><Users size={14} />{t("team.moveTo", { name: section.name })}</button>
-                <button className={menuButton} onClick={() => onInstructions(section.key, section.name)} aria-label={t("team.instructionsEdit", { name: section.name })}><BookOpen size={14} />{t("team.instructions")}</button>
-                {onMemory && <button className={menuButton} onClick={() => onMemory(section.key, section.name)} aria-label={`${section.name} team memory`}><Brain size={14} />Team memory</button>}
-                {section.key && <button className={menuButton} onClick={() => onEditTeam(section.key, true)} aria-label={t("team.renameAria", { name: section.name })}><Pencil size={14} />{t("team.rename")}</button>}
-                {section.key && <button className={cn(menuButton, "hover:text-danger")} onClick={() => onDeleteTeam(section.key)} aria-label={t("team.deleteAria", { name: section.name })}><Trash2 size={14} />{t("team.delete")}</button>}
+                <button className={menuButton} onClick={() => onEditTeam(section.key)} aria-label={t("team.moveTo", { name: section.name })}><HIcon icon={UsersIcon} size={14} />{t("team.moveTo", { name: section.name })}</button>
+                <button className={menuButton} onClick={() => onInstructions(section.key, section.name)} aria-label={t("team.instructionsEdit", { name: section.name })}><HIcon icon={BookOpen01Icon} size={14} />{t("team.instructions")}</button>
+                {onMemory && <button className={menuButton} onClick={() => onMemory(section.key, section.name)} aria-label={`${section.name} team memory`}><HIcon icon={BrainIcon} size={14} />Team memory</button>}
+                {section.key && <button className={menuButton} onClick={() => onEditTeam(section.key, true)} aria-label={t("team.renameAria", { name: section.name })}><HIcon icon={PencilIcon} size={14} />{t("team.rename")}</button>}
+                {section.key && <button className={cn(menuButton, "hover:text-danger")} onClick={() => onDeleteTeam(section.key)} aria-label={t("team.deleteAria", { name: section.name })}><HIcon icon={Delete02Icon} size={14} />{t("team.delete")}</button>}
               </div>
             </details>}
           </header>
           {dropping && <div className="pointer-events-none absolute -top-7 left-2 z-30 max-w-[calc(100%-16px)] truncate rounded-md bg-accent px-2 py-1 text-[10px] text-white shadow-sm">{dropHint}</div>}
           <div className="flex items-center px-5 pb-5">
             {section.chiefs.length > 0 && <div className="flex flex-col gap-4">{orderBots(section.chiefs, personalOrder(section.key)).map(renderBot)}</div>}
-            {hierarchy && <div className="flex w-10 shrink-0 justify-center text-ink-secondary/35" aria-hidden="true"><ArrowRight size={22} strokeWidth={1} /></div>}
+            {hierarchy && <div className="flex w-10 shrink-0 justify-center text-ink-secondary/35" aria-hidden="true"><HIcon icon={ArrowRight01Icon} size={22} strokeWidth={1} /></div>}
             {section.members.length > 0 && <div className="flex flex-col gap-4">{orderBots(section.members, personalOrder(section.key)).map(renderBot)}</div>}
             {section.chiefs.length + section.members.length === 0 && <p className="flex h-[126px] w-[236px] items-center justify-center rounded-xl border border-dashed border-hairline/70 px-6 text-center text-[12px] leading-relaxed text-ink-secondary">{t("canvas.dropHere")}</p>}
           </div>
@@ -427,9 +428,9 @@ export function TeamCanvas({ sections, canManage, onMove, onInstructions, onMemo
         <p role="status" aria-live="polite" className="max-w-[440px]">{dropHint ?? announcement}</p>
       </div>
       <div className="pointer-events-auto flex shrink-0 items-center gap-0.5 rounded-xl border border-hairline/60 bg-panel p-1 shadow-sm">
-        <button className={iconButton} aria-label={t("canvas.zoomOut")} onClick={() => zoom(1 / 1.2)}><Minus size={15} /></button>
+        <button className={iconButton} aria-label={t("canvas.zoomOut")} onClick={() => zoom(1 / 1.2)}><HIcon icon={MinusSignIcon} size={15} /></button>
         <button className="min-w-12 rounded-md px-1 py-2 text-[11px] tabular-nums text-ink-secondary hover:bg-control" aria-label={t("canvas.fit")} title={t("canvas.fitHint")} onClick={fit}>{Math.round(view.scale * 100)}%</button>
-        <button className={iconButton} aria-label={t("canvas.zoomIn")} onClick={() => zoom(1.2)}><Plus size={15} /></button>
+        <button className={iconButton} aria-label={t("canvas.zoomIn")} onClick={() => zoom(1.2)}><HIcon icon={PlusSignIcon} size={15} /></button>
       </div>
     </div>
   </div>;

@@ -4,7 +4,8 @@
 // filtered by who, what and when, and exported as CSV. Read-only: the log is
 // GET /api/admin-activity (server/admin-activity.ts), kept on this server.
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, Download, Loader2, RefreshCw } from "lucide-react";
+import { ChevronRightIcon, Download01Icon, Loading02Icon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { api } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -31,7 +32,7 @@ export function ActivityRow({ entry }: { entry: ActivityEntry }) {
           {entry.type === "approval" && entry.summary && <div className="mt-0.5 truncate text-[12px] text-ink-secondary">{entry.summary}</div>}
           {detail && (
             <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-secondary hover:text-ink">
-              <ChevronRight size={12} className={cn("transition-transform", open && "rotate-90")} />
+              <HIcon icon={ChevronRightIcon} size={12} className={cn("transition-transform", open && "rotate-90")} />
               {t("activity.changed", { paths: (entry.changed ?? []).join(", ") || "—" })}
             </button>
           )}
@@ -108,10 +109,10 @@ export function ActivitySection() {
           <input type="date" value={filters.to} min={filters.from || undefined} onChange={(e) => set({ to: e.target.value })} className={inputClass} />
         </label>
         <button type="button" onClick={() => void load()} disabled={loading} aria-label={t("activity.refresh")} title={t("activity.refresh")} className="rounded-md p-2 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          {loading ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={14} />}
         </button>
         <a href={`/api/admin-activity.csv${query}`} download className="flex items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-control/70">
-          <Download size={13} aria-hidden="true" />{t("activity.export")}
+          <HIcon icon={Download01Icon} size={13} aria-hidden="true" />{t("activity.export")}
         </a>
       </div>
       {error && <p role="alert" className="mt-3 text-[12.5px] text-danger">{t("activity.error", { message: error })}</p>}

@@ -1,5 +1,6 @@
+import { ArrowUpRight01Icon, CalendarClockIcon, CloudIcon, CrownIcon, MonitorIcon, MultiplicationSignIcon, SparklesIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, CalendarClock, Cloud, Crown, Monitor, Sparkles, X } from "lucide-react";
 import type { CloudAccountState } from "../../electron/cloud-account.mjs";
 import { api, CLOUD_LINK_SETTINGS, useStore } from "@/state/store";
 import { openExternalLink, PRICING_URL, PRO_URL } from "@/lib/app-links";
@@ -64,7 +65,7 @@ export function ProLink({ onOpened }: { onOpened?: () => void }) {
       setFailed(false);
       void openExternalLink(PRO_URL).then(onOpened).catch(() => setFailed(true));
     }}>
-      {t("pro.getPro")}<ArrowUpRight size={14} aria-hidden="true" />
+      {t("pro.getPro")}<HIcon icon={ArrowUpRight01Icon} size={14} aria-hidden="true" />
     </button>
     {failed && <p role="alert" className="mt-2 text-[12px] text-danger">{t("pro.openFailed")}</p>}
   </div>;
@@ -80,7 +81,7 @@ export function ProSettingsCard() {
   if (buyOfferAllowed(view)) {
     return <section aria-label={t("pro.name")} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hairline/50 p-3">
       <div className="flex items-center gap-3">
-        <Crown className="text-ink-secondary" size={18} aria-hidden="true" />
+        <HIcon icon={CrownIcon} className="text-ink-secondary" size={18} aria-hidden="true" />
         <div><h3 className="text-[14px] font-semibold text-ink">{t("pro.name")}</h3>
           <p className="mt-1 text-[12px] text-ink-secondary">{t("pro.settingsSummary")}</p>
           <p className="mt-1 text-[12px] text-ink-secondary">{t("pro.fromPrice", { price: CLOUD_PERSONAL_PRICE })}</p></div>
@@ -95,7 +96,7 @@ export function ProSettingsCard() {
   if (!line && view.kind !== "reauth") return null;
   return <section aria-label={t("settings.section.cloudAccount")} data-cloud-plan={view.kind} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hairline/50 p-3">
     <div className="flex items-center gap-3">
-      <Cloud className="text-ink-secondary" size={18} aria-hidden="true" />
+      <HIcon icon={CloudIcon} className="text-ink-secondary" size={18} aria-hidden="true" />
       <div><h3 className="text-[14px] font-semibold text-ink">{t("settings.section.cloudAccount")}</h3>
         <p className="mt-1 text-[12px] text-ink-secondary">{view.kind === "reauth" ? t("pro.reauthShort") : line}</p></div>
     </div>
@@ -109,17 +110,17 @@ export function ProIntroductionCard({ onDismiss, onSignIn }: { onDismiss: () => 
   }} className="fixed bottom-4 left-4 z-40 max-h-[calc(100dvh-32px)] w-[300px] max-w-[calc(100vw-32px)] overflow-y-auto rounded-xl border border-hairline/40 bg-panel p-3.5 text-ink shadow-2xl shadow-black/20">
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <Crown size={16} className="text-ink-secondary" aria-hidden="true" />
+        <HIcon icon={CrownIcon} size={16} className="text-ink-secondary" aria-hidden="true" />
         <h2 id="pro-introduction-title" className="text-[13.5px] font-semibold">{t("pro.name")}</h2>
       </div>
-      <button type="button" onClick={onDismiss} aria-label={t("pro.dismiss")} className="ui-icon-button"><X size={16} /></button>
+      <button type="button" onClick={onDismiss} aria-label={t("pro.dismiss")} className="ui-icon-button"><HIcon icon={MultiplicationSignIcon} size={16} /></button>
     </div>
     <p className="mt-1 text-[12.5px] text-ink-secondary">{t("pro.headline")}</p>
     <ul className="my-3 space-y-2 text-[12.5px]">
-      <li className="flex items-center gap-2.5"><Sparkles size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.priority")}</li>
-      <li className="flex items-center gap-2.5"><Cloud size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.alwaysOn")}</li>
-      <li className="flex items-center gap-2.5"><Monitor size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.computers")}</li>
-      <li className="flex items-center gap-2.5"><CalendarClock size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.schedule")}</li>
+      <li className="flex items-center gap-2.5"><HIcon icon={SparklesIcon} size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.priority")}</li>
+      <li className="flex items-center gap-2.5"><HIcon icon={CloudIcon} size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.alwaysOn")}</li>
+      <li className="flex items-center gap-2.5"><HIcon icon={MonitorIcon} size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.computers")}</li>
+      <li className="flex items-center gap-2.5"><HIcon icon={CalendarClockIcon} size={17} className="shrink-0 text-ink-secondary" aria-hidden="true" />{t("pro.schedule")}</li>
     </ul>
     <p className="text-[12.5px]">{t("pro.launchPrice", { price: PRO_LAUNCH_PRICE, laterPrice: PRO_LATER_PRICE })}</p>
     <p className="mt-1 text-[12px] text-ink-secondary">{t("pro.otherPlans", { personal: CLOUD_PERSONAL_PRICE, max: CLOUD_MAX_PRICE })}</p>

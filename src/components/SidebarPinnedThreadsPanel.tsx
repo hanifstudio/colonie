@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronRight, Pin } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, PinIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import type { SidebarDensity } from "@/lib/sidebar-preferences";
@@ -19,7 +20,7 @@ export function SidebarPinnedThreadsPanel({ entries, density, now, onJump, onUnp
 }) {
   if (entries.length === 0) return null;
   const compact = density === "compact";
-  const Chevron = collapsed ? ChevronRight : ChevronDown;
+  const Chevron = collapsed ? ChevronRightIcon : ChevronDownIcon;
   return (
     <section
       data-testid="sidebar-pinned-threads-panel"
@@ -35,9 +36,9 @@ export function SidebarPinnedThreadsPanel({ entries, density, now, onJump, onUnp
           aria-label={t(collapsed ? "sidebar.section.expand" : "sidebar.section.collapse", { name: t("sidebar.pinnedThreads.title") })}
           className="flex size-5 shrink-0 items-center justify-center rounded text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <Chevron size={compact ? 11 : 12} aria-hidden="true" />
+          <HIcon icon={Chevron} size={compact ? 11 : 12} aria-hidden="true" />
         </button>
-        <Pin size={compact ? 11 : 12} aria-hidden="true" className="shrink-0" />
+        <HIcon icon={PinIcon} size={compact ? 11 : 12} aria-hidden="true" className="shrink-0" />
         <span className="min-w-0 flex-1 truncate">{t("sidebar.pinnedThreads.title")}</span>
         <span className="text-[10.5px] font-normal tabular-nums">{entries.length}</span>
       </div>

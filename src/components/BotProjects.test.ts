@@ -28,11 +28,11 @@ afterEach(() => vi.unstubAllGlobals());
 describe("folder controls", () => {
   it("uses an optional decorative emoji with the generic folder as its default", () => {
     const generic = renderToStaticMarkup(createElement(FolderIcon, {}));
-    expect(generic).toContain("lucide-folder");
+    expect(generic).toContain("M8 7H16.75C18.8567");
     const emoji = renderToStaticMarkup(createElement(FolderIcon, { emoji: "📬" }));
     expect(emoji).toContain("📬");
     expect(emoji).toContain('aria-hidden="true"');
-    expect(emoji).not.toContain("lucide-folder");
+    expect(emoji).not.toContain("M8 7H16.75C18.8567");
   });
   it("offers a labelled single-click icon chooser in both create and edit dialogs", () => {
     for (const project of [undefined, bot.projects![0]]) {

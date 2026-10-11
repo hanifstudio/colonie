@@ -12,7 +12,8 @@
 // Nothing here is captured for the panel's sake — both logs already exist
 // under ~/.openmausbot (server/harness/bus.ts, server/drivers/native.ts).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bug, ChevronDown, ChevronRight, RefreshCw, X } from "lucide-react";
+import { Bug01Icon, ChevronDownIcon, ChevronRightIcon, MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, visibleMessages, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
@@ -172,7 +173,7 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
     <aside aria-label="Inspector" className="animate-panel-in absolute inset-0 z-40 flex h-full min-w-0 flex-col border-l border-hairline/40 bg-panel md:static md:z-auto md:w-[min(460px,45vw)] md:shrink-0">
       <div className={cn("flex items-center justify-between px-4 py-3", padClass)}>
         <span className="flex items-center gap-2 text-[15px] font-semibold text-ink">
-          <Bug size={16} className="text-ink-secondary" /> Inspector
+          <HIcon icon={Bug01Icon} size={16} className="text-ink-secondary" /> Inspector
         </span>
         <button
           onClick={() => dispatch({ type: "toggleInspector", open: false })}
@@ -180,7 +181,7 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
           title="Close the Inspector"
           className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <X size={18} />
+          <HIcon icon={MultiplicationSignIcon} size={18} />
         </button>
       </div>
 
@@ -219,7 +220,7 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
           {page ? (shown < total ? `last ${shown} of ${total}` : `${shown} entries`) : "loading…"}
         </span>}
         {lens !== "run" && <button onClick={() => managedRefresh.current()} className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink" title="Reload from disk">
-          <RefreshCw size={14} />
+          <HIcon icon={RefreshCwIcon} size={14} />
         </button>}
       </div>
 
@@ -250,7 +251,7 @@ function Row({ row, open, onToggle }: { row: InspectorRow; open: boolean; onTogg
       )}
     >
       <button onClick={onToggle} className="flex w-full items-start gap-2 px-3 py-1.5 text-left hover:bg-raised/60">
-        <span className="mt-[1px] shrink-0 text-ink-secondary">{open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
+        <span className="mt-[1px] shrink-0 text-ink-secondary">{open ? <HIcon icon={ChevronDownIcon} size={12} /> : <HIcon icon={ChevronRightIcon} size={12} />}</span>
         <span className="shrink-0 tabular-nums text-ink-secondary">{formatTime(row.at)}</span>
         <span
           className={cn(

@@ -1,5 +1,6 @@
-import { MessageSquareReply, X } from "lucide-react";
 
+import { MessageSquareReplyIcon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { peerLine } from "@/lib/peer-message";
 import { replyAuthor, replySnippet } from "@/lib/replies";
 import { t } from "@/lib/i18n";
@@ -20,7 +21,7 @@ export function ReplyQuote({
 }) {
   const body = (
     <>
-      <MessageSquareReply size={compact ? 12 : 14} className="shrink-0 text-accent" />
+      <HIcon icon={MessageSquareReplyIcon} size={compact ? 12 : 14} className="shrink-0 text-accent" />
       <span className="min-w-0 flex-1">
         <span className="block text-[10.5px] font-medium text-accent">{t("chat.reply.replyingTo", { name: replyAuthor(message, fallbackName) })}</span>
         <span dir="auto" className="block truncate text-[11.5px] text-ink-secondary">{replySnippet(peerLine(message)?.body ?? message.text ?? "")}</span>
@@ -38,7 +39,7 @@ export function ReplyQuote({
       )}
       {onClear && (
         <button type="button" onClick={onClear} aria-label={t("chat.reply.cancel")} className="shrink-0 rounded p-0.5 text-ink-secondary hover:bg-raised hover:text-ink">
-          <X size={14} />
+          <HIcon icon={MultiplicationSignIcon} size={14} />
         </button>
       )}
     </div>

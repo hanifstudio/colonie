@@ -5,7 +5,8 @@
 // in Settings; this row only starts, follows and cancels one sign-in. It adds
 // no dialog and gates nothing: Continue works in every state.
 import { useEffect, useRef, useState } from "react";
-import { Building2, Check } from "lucide-react";
+import { Building02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../HIcon";
 import type { ManagedDesktopBridge, ManagedDesktopState } from "../../../../electron/managed-desktop.mjs";
 import { brand } from "@/lib/brand";
 import { t } from "@/lib/i18n";
@@ -149,7 +150,7 @@ export function OrganisationRow({
         </p>
       </>
     );
-    action = count > 0 ? <Check size={16} strokeWidth={2.5} className="shrink-0 text-success" aria-hidden="true" /> : null;
+    action = count > 0 ? <HIcon icon={Tick01Icon} size={16} strokeWidth={2.5} className="shrink-0 text-success" aria-hidden="true" /> : null;
   } else {
     // Needs a new sign-in, unavailable, or a state this build does not know:
     // Settings says why and offers the way out; this row only points there.
@@ -168,7 +169,7 @@ export function OrganisationRow({
       className="animate-rise mt-4 flex items-center gap-3 rounded-xl border border-hairline/40 bg-card px-3.5 py-3"
       style={staggerIndex(1)}
     >
-      <Building2 size={18} className="shrink-0 text-ink-secondary" aria-hidden="true" />
+      <HIcon icon={Building02Icon} size={18} className="shrink-0 text-ink-secondary" aria-hidden="true" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {body}
         {connection.message && (

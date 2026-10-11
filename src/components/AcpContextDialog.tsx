@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { X, RefreshCw } from "lucide-react";
+import { MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore } from "@/state/store";
 import type { AcpInputReceipt } from "../../shared/devone";
 import { useModalDialog } from "@/hooks/use-modal-dialog";
@@ -31,8 +32,8 @@ export function AcpContextDialog({ botId, threadId, onClose }: { botId: string; 
         <header className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">ACP context · exact application input</h2>
           <div className="flex gap-2">
-            <button aria-label="Refresh ACP context" onClick={() => setRevision((value) => value + 1)} className="rounded p-2 hover:bg-raised"><RefreshCw size={18} /></button>
-            <button aria-label="Close ACP context" onClick={onClose} className="rounded p-2 hover:bg-raised"><X size={18} /></button>
+            <button aria-label="Refresh ACP context" onClick={() => setRevision((value) => value + 1)} className="rounded p-2 hover:bg-raised"><HIcon icon={RefreshCwIcon} size={18} /></button>
+            <button aria-label="Close ACP context" onClick={onClose} className="rounded p-2 hover:bg-raised"><HIcon icon={MultiplicationSignIcon} size={18} /></button>
           </div>
         </header>
         <p className="my-3 text-sm text-ink-secondary">App-wide context and bot-specific persona/SOUL are independently configured below. Exact input is saved before dispatch. The agent owns its native system prompt, project instructions and tools.</p>

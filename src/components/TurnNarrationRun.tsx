@@ -2,7 +2,8 @@
 // narrate before tools; the messages stay available without looking like six
 // separate final answers after the turn is done.
 import { useEffect, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { ChevronRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 export function TurnNarrationRun({
   label,
@@ -28,9 +29,9 @@ export function TurnNarrationRun({
           title={open ? "Hide progress messages" : "Show progress messages"}
           className="flex items-center gap-2 rounded-full border border-hairline/40 bg-panel px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-control"
         >
-          <Check size={13} className="text-success" />
+          <HIcon icon={Tick01Icon} size={13} className="text-success" />
           <span>{label}</span>
-          <ChevronRight size={13} className={open ? "rotate-90" : undefined} />
+          <HIcon icon={ChevronRightIcon} size={13} className={open ? "rotate-90" : undefined} />
         </button>
       </div>
       {open && children}

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import {
-  AlertTriangle,
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-  MonitorCog,
-  Power,
-  RotateCcw,
-} from "lucide-react";
+  Alert02Icon,
+  CheckmarkCircle02Icon,
+  Loading02Icon,
+  MonitorCogIcon,
+  PowerIcon,
+  RotateCcwIcon,
+  SquareArrowUpRightIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -54,7 +55,7 @@ export function LinuxLocalControl() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div id="linux-local-control-title" className="flex items-center gap-2 text-[15px] font-medium text-ink">
-            <MonitorCog size={16} className={ready ? "text-success" : "text-ink-secondary"} />
+            <HIcon icon={MonitorCogIcon} size={16} className={ready ? "text-success" : "text-ink-secondary"} />
             {t("computer.linux.title")}
           </div>
           <div className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
@@ -86,7 +87,7 @@ export function LinuxLocalControl() {
       {waylandSafetyBlocked ? (
         <div className="mt-3 rounded-lg border border-danger/20 bg-danger/5 p-3">
           <div className="flex gap-2 text-[12px] leading-relaxed text-ink-secondary">
-            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-danger" />
+            <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0 text-danger" />
             <span>
               {t("computer.linux.waylandBefore")}{" "}
               <strong className="font-medium text-ink">{t("computer.linux.waylandXorg")}</strong>
@@ -97,7 +98,7 @@ export function LinuxLocalControl() {
       ) : !local.enabled ? (
         <div className="mt-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
           <div className="flex gap-2 text-[12px] leading-relaxed text-ink-secondary">
-            <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
+            <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0 text-warning" />
             <span>
               {t("computer.linux.enableBefore")}{" "}
               <strong className="font-medium text-ink">{t("vm.dest.local")}</strong>{" "}
@@ -110,11 +111,11 @@ export function LinuxLocalControl() {
         <div className="mt-3 rounded-lg bg-panel p-3 text-[12px] text-ink-secondary">
           <div className="flex items-start gap-2">
             {ready ? (
-              <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-success" />
+              <HIcon icon={CheckmarkCircle02Icon} size={15} className="mt-0.5 shrink-0 text-success" />
             ) : busy ? (
-              <Loader2 size={15} className="mt-0.5 shrink-0 animate-spin" />
+              <HIcon icon={Loading02Icon} size={15} className="mt-0.5 shrink-0 animate-spin" />
             ) : (
-              <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
+              <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0 text-warning" />
             )}
             <span aria-live="polite">
               {ready
@@ -141,7 +142,7 @@ export function LinuxLocalControl() {
             onClick={() => void run("enable")}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {pending === "enable" ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+            {pending === "enable" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={PowerIcon} size={14} />}
             {t("computer.linux.enable")}
           </button>
         ) : (
@@ -153,7 +154,7 @@ export function LinuxLocalControl() {
                 onClick={() => void run("retry")}
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
               >
-                {pending === "retry" ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                {pending === "retry" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={RotateCcwIcon} size={14} />}
                 {t("computer.linux.tryAgain")}
               </button>
             )}
@@ -163,7 +164,7 @@ export function LinuxLocalControl() {
               onClick={() => void run("disable")}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
             >
-              {pending === "disable" ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+              {pending === "disable" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={PowerIcon} size={14} />}
               {t("computer.linux.disable")}
             </button>
           </>
@@ -176,7 +177,7 @@ export function LinuxLocalControl() {
         className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] text-ink-secondary hover:bg-raised hover:text-ink"
       >
         {capabilities.host.packaged ? t("computer.linux.guide") : t("computer.linux.driverSetup")}{" "}
-        <ExternalLink size={11} />
+        <HIcon icon={SquareArrowUpRightIcon} size={11} />
       </button>
     </section>
   );

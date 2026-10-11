@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Check, ExternalLink, KeyRound, Loader2, LockKeyhole, RefreshCw, X } from "lucide-react";
+import { Key01Icon, Loading02Icon, LockKeyIcon, MultiplicationSignIcon, RefreshCwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { credentialConfigPatch, credentialResumeOutcome } from "../../shared/credential-request";
 import { cn } from "@/lib/cn";
@@ -110,14 +111,14 @@ export function SecretRequestCard({
       <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-hairline/50 bg-card shadow-sm">
         <div className="flex items-start gap-3 p-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-control text-ink">
-            <KeyRound size={19} />
+            <HIcon icon={Key01Icon} size={19} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="truncate text-[14px] font-semibold text-ink">{secret.label}</span>
               {provided && (
                 <span className="flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
-                  <Check size={11} /> Saved
+                  <HIcon icon={Tick01Icon} size={11} /> Saved
                 </span>
               )}
               {superseded && (
@@ -131,7 +132,7 @@ export function SecretRequestCard({
             </p>
             {pending && (
               <p className="mt-1 flex items-center gap-1 text-[11.5px] text-ink-tertiary">
-                <LockKeyhole size={11} /> Stored securely by OpenMausBot and never added to chat.
+                <HIcon icon={LockKeyIcon} size={11} /> Stored securely by OpenMausBot and never added to chat.
               </p>
             )}
             {error && <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p>}
@@ -143,7 +144,7 @@ export function SecretRequestCard({
               title="Not now"
               className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
             >
-              <X size={15} />
+              <HIcon icon={MultiplicationSignIcon} size={15} />
             </button>
           )}
         </div>
@@ -171,7 +172,7 @@ export function SecretRequestCard({
                 disabled={saving || (!value.trim() && !savedLocally)}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? <Loader2 size={13} className="animate-spin" /> : <LockKeyhole size={13} />}
+                {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={LockKeyIcon} size={13} />}
                 {savedLocally ? "Continue task" : "Save securely"}
               </button>
             </div>
@@ -181,7 +182,7 @@ export function SecretRequestCard({
               rel="noopener noreferrer"
               className="mt-2 inline-flex items-center gap-1 text-[11.5px] text-accent hover:underline"
             >
-              Where to get this key <ExternalLink size={11} />
+              Where to get this key <HIcon icon={SquareArrowUpRightIcon} size={11} />
             </a>
           </form>
         )}
@@ -191,7 +192,7 @@ export function SecretRequestCard({
             declined ? "text-danger" : "text-success",
           )}>
             <span className="flex items-center gap-1.5">
-              {secret.resumed ? <Check size={12} /> : error ? <KeyRound size={12} /> : <Loader2 size={12} className="animate-spin" />}
+              {secret.resumed ? <HIcon icon={Tick01Icon} size={12} /> : error ? <HIcon icon={Key01Icon} size={12} /> : <HIcon icon={Loading02Icon} size={12} className="animate-spin" />}
               {footerLabel}
             </span>
             {!secret.resumed && error && (
@@ -200,7 +201,7 @@ export function SecretRequestCard({
                 disabled={saving}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Try again
+                {saving ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={12} />} Try again
               </button>
             )}
           </div>
@@ -208,7 +209,7 @@ export function SecretRequestCard({
         {superseded && (
           <div className="flex items-center border-t border-hairline/40 bg-panel/40 px-4 py-2.5 text-[11.5px] text-ink-secondary">
             <span className="flex items-center gap-1.5">
-              <X size={12} /> Superseded by a newer request
+              <HIcon icon={MultiplicationSignIcon} size={12} /> Superseded by a newer request
             </span>
           </div>
         )}

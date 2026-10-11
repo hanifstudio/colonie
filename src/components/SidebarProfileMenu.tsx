@@ -9,27 +9,23 @@
 // The update entry is the one item that reports progress in place, so it
 // keeps the menu open and re-labels itself as it works.
 //
-// The phone has two entries: Connect your phone, which opens the pairing
-// this window can do and says where the phone will connect (this computer,
-// your Cloud, this server), and Get the phone app (iPhone and Android). On
-// this computer, a paid Cloud that is Ready adds a Connect your phone line
-// of its own, first: to your Cloud, always on.
+// The phone entries (Connect your phone, Get the phone app) stay visible
+// but disabled in this fork. Help Center and Send Feedback are not offered.
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDownToLine,
-  Check,
-  Download,
-  Info,
-  HelpCircle,
-  Keyboard,
-  Loader2,
-  RefreshCw,
-  Settings as SettingsIcon,
-  Smartphone,
-} from "lucide-react";
+  ArrowDownToLineIcon,
+  Download01Icon,
+  InformationCircleIcon,
+  KeyboardIcon,
+  Loading02Icon,
+  RefreshCwIcon,
+  Settings01Icon,
+  SmartphoneIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { InitialsAvatar } from "./Avatar";
-import { DiscordIcon } from "./DiscordIcon";
 import { AboutDialog } from "./AboutDialog";
 import { PhoneAppDialog } from "./PhoneAppDialog";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
@@ -41,7 +37,6 @@ import { useUpdaterState, type UpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { FEEDBACK_URL, HELP_CENTER_URL, openExternalLink } from "@/lib/app-links";
 import {
   cloudPhoneDestination,
   connectPhoneEntry,
@@ -134,10 +129,10 @@ export function updateBusy(phase: UpdatePhase, pending = false): boolean {
 }
 
 function UpdateIcon({ phase, pending, size = 18 }: { phase: UpdatePhase; pending: boolean; size?: number }) {
-  if (updateBusy(phase, pending)) return <Loader2 size={size} className="animate-spin" />;
-  if (phase === "up-to-date") return <Check size={size} />;
-  if (phase === "downloaded") return <ArrowDownToLine size={size} />;
-  return <RefreshCw size={size} />;
+  if (updateBusy(phase, pending)) return <HIcon icon={Loading02Icon} size={size} className="animate-spin" />;
+  if (phase === "up-to-date") return <HIcon icon={Tick01Icon} size={size} />;
+  if (phase === "downloaded") return <HIcon icon={ArrowDownToLineIcon} size={size} />;
+  return <HIcon icon={RefreshCwIcon} size={size} />;
 }
 
 /** Whether the updater has something the profile row should say out loud.
@@ -254,7 +249,8 @@ export function selectPhoneDestination(destination: PhoneDestination, { bridge, 
 /** The phone entries at the top of the menu: a Connect your phone line per
  * destination, then Get the phone app. Connect your phone is absent where
  * this window cannot pair one (a chat-only session, a server whose people
- * sign in through their organization). */
+ * sign in through their organization). Both entries are shown disabled in
+ * this fork. */
 export function phoneMenuItems({
   destinations,
   connected,
@@ -273,17 +269,19 @@ export function phoneMenuItems({
       label: t("sidebar.menu.connectPhone"),
       subtitle: t(destination.subtitleKey),
       ...(destination.noteKey ? { note: t(destination.noteKey) } : {}),
-      icon: <Smartphone size={18} />,
+      icon: <HIcon icon={SmartphoneIcon} size={18} />,
       trailing:
         destination.id === "here" && destination.target === "computer" && connected ? (
           <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-success" />
         ) : undefined,
+      disabled: true,
       onSelect: () => onConnect(destination),
     } satisfies SidebarMenuItem)),
     {
       key: "phone-app",
       label: t("sidebar.menu.getPhoneApp"),
-      icon: <Download size={18} />,
+      icon: <HIcon icon={Download01Icon} size={18} />,
+      disabled: true,
       onSelect: onGetApp,
     },
   ];
@@ -314,13 +312,13 @@ export function SidebarProfileMenu() {
     {
       key: "settings",
       label: t("sidebar.menu.settings"),
-      icon: <SettingsIcon size={18} />,
+      icon: <HIcon icon={Settings01Icon} size={18} />,
       onSelect: () => dispatch({ type: "toggleAppSettings" }),
     },
     {
       key: "shortcuts",
       label: "Keyboard shortcuts",
-      icon: <Keyboard size={18} />,
+      icon: <HIcon icon={KeyboardIcon} size={18} />,
       trailing: <ShortcutHint id="shortcuts-cheat-sheet" />,
       onSelect: () => {
         // The menu item unmounts; let the dialog restore the profile button.
@@ -332,21 +330,9 @@ export function SidebarProfileMenu() {
     {
       key: "about",
       label: t("sidebar.menu.about"),
-      icon: <Info size={18} />,
+      icon: <HIcon icon={InformationCircleIcon} size={18} />,
       separatorBefore: true,
       onSelect: () => setAboutOpen(true),
-    },
-    {
-      key: "help",
-      label: t("sidebar.menu.help"),
-      icon: <HelpCircle size={18} />,
-      onSelect: () => void openExternalLink(HELP_CENTER_URL),
-    },
-    {
-      key: "feedback",
-      label: t("sidebar.menu.feedback"),
-      icon: <DiscordIcon size={17} />,
-      onSelect: () => void openExternalLink(FEEDBACK_URL),
     },
   ];
 

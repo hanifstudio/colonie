@@ -6,8 +6,9 @@
 // a spinner and "Starting…" here read as a broken demo, since people often
 // click Next inside the first second. Resolution is the click landing, the
 // tool chip in the chat, and the reply.
+import { Cursor02Icon, HandIcon, Loading02Icon, MultiplicationSignIcon, Settings02Icon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../../HIcon";
 import { useEffect, useState } from "react";
-import { Check, ExternalLink, Hand, Loader2, MousePointer2, Settings2, X } from "lucide-react";
 import { MausAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import { reducedMotion } from "@/lib/onboarding";
@@ -96,7 +97,7 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
                 <MausAvatar color="green" state={busy ? "working" : "proud"} size={22} animated={!still} trackPointer={false} />
                 <div className="min-w-0">
                   <div className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors duration-300", done ? "bg-success/15 text-success" : "bg-raised text-ink-secondary")}>
-                    {done ? <Check size={10} strokeWidth={3} /> : <Loader2 size={10} className="animate-spin" />}
+                    {done ? <HIcon icon={Tick01Icon} size={10} strokeWidth={3} /> : <HIcon icon={Loading02Icon} size={10} className="animate-spin" />}
                     {done ? "clicked Book" : clicked ? "clicking Book…" : "using the computer"}
                   </div>
                   {replied && (
@@ -119,7 +120,7 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
           )}
         >
           <div className="flex items-center justify-between px-2.5 py-2">
-            <Settings2 size={13} className="text-ink-secondary" />
+            <HIcon icon={Settings02Icon} size={13} className="text-ink-secondary" />
             <div className="flex overflow-hidden rounded-md border border-hairline/40">
               {TABS.map((tab, i) => (
                 <span key={tab} className={cn("px-2 py-0.5 text-[9px] font-medium", i === 0 ? "bg-raised text-ink" : "text-ink-secondary")}>
@@ -127,7 +128,7 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
                 </span>
               ))}
             </div>
-            <X size={13} className="text-ink-secondary" />
+            <HIcon icon={MultiplicationSignIcon} size={13} className="text-ink-secondary" />
           </div>
 
           {/* the screen */}
@@ -182,7 +183,7 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
                 )}
               >
                 {clicked && !done && <span className="absolute -left-1.5 -top-1.5 size-4 animate-ripple rounded-full" />}
-                <MousePointer2 size={11} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" fill="#fff" />
+                <HIcon icon={Cursor02Icon} size={11} className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" fill="#fff" />
               </div>
             </div>
           </div>
@@ -195,10 +196,10 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
             </div>
             <div className="flex items-center gap-1">
               <span className="flex items-center gap-1 rounded-md bg-raised px-1.5 py-0.5 text-[9px] text-ink">
-                <ExternalLink size={9} /> Open live desktop
+                <HIcon icon={SquareArrowUpRightIcon} size={9} /> Open live desktop
               </span>
               <span className="flex items-center gap-1 rounded-md bg-raised px-1.5 py-0.5 text-[9px] text-ink">
-                <Hand size={9} /> Take control
+                <HIcon icon={HandIcon} size={9} /> Take control
               </span>
             </div>
           </div>

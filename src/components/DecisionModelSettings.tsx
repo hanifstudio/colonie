@@ -6,7 +6,8 @@
 // Pro home Jev is included: it works with no key, there is nothing to clear,
 // and a key pasted here replaces it.
 import { useState } from "react";
-import { Check, ExternalLink, Loader2 } from "lucide-react";
+import { Loading02Icon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -167,7 +168,7 @@ export function DecisionModelSettings() {
               clearing ? "text-danger" : "text-ink",
             )}
           >
-            {saving ? <Loader2 size={13} className="animate-spin" /> : clearing ? t("keys.clear") : <><Check size={13} />{t("common.save")}</>}
+            {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : clearing ? t("keys.clear") : <><HIcon icon={Tick01Icon} size={13} />{t("common.save")}</>}
           </button>
           <button
             type="button"
@@ -188,7 +189,7 @@ export function DecisionModelSettings() {
           className="mt-2 inline-flex cursor-pointer items-center gap-1 text-[12px] text-accent hover:underline"
         >
           {t("decider.key.getKey")}
-          <ExternalLink size={11} aria-hidden="true" />
+          <HIcon icon={SquareArrowUpRightIcon} size={11} aria-hidden="true" />
         </a>
       </Card>
 

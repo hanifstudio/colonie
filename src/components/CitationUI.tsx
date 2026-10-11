@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Quote, X } from "lucide-react";
+import { MultiplicationSignIcon, QuoteUpIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import {
   CITATION_MAX_COMMENT_LENGTH,
   CITATION_MAX_QUOTE_LENGTH,
@@ -191,7 +192,7 @@ export function CitationSelectionToolbar({
       className="fixed z-50 flex items-center gap-1.5 rounded-full border border-hairline/50 bg-panel px-3 py-1.5 text-[12px] font-medium text-ink shadow-lg disabled:text-danger"
       style={captured.point}
     >
-      <Quote size={13} aria-hidden="true" /> {tooLong ? "Shorten selection" : "Cite"}
+      <HIcon icon={QuoteUpIcon} size={13} aria-hidden="true" /> {tooLong ? "Shorten selection" : "Cite"}
     </button>,
     document.body,
   );
@@ -249,11 +250,11 @@ export function CitationBadge({
         aria-label={`Open citation: ${citation.quote.slice(0, 80)}`}
         className="inline-flex max-w-64 items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] text-accent-text hover:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60"
       >
-        <Quote size={11} className="shrink-0" aria-hidden="true" />
+        <HIcon icon={QuoteUpIcon} size={11} className="shrink-0" aria-hidden="true" />
         <span className="truncate">{citation.quote.replace(/\s+/g, " ")}</span>
       </button>
       {onRemove && (
-        <button type="button" onClick={onRemove} aria-label="Remove citation" className="flex size-5 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"><X size={11} /></button>
+        <button type="button" onClick={onRemove} aria-label="Remove citation" className="flex size-5 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={MultiplicationSignIcon} size={11} /></button>
       )}
       {open && createPortal(
         <div

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Copy, X } from "lucide-react";
+import { Copy01Icon, MultiplicationSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCopyFeedback } from "@/lib/copy-text";
 import { t } from "@/lib/i18n";
 
@@ -36,7 +37,7 @@ export function ConnectionDetail({ label, value }: { label: string; value: strin
         aria-label={copyState === "failed" ? t("common.copyFailed") : `Copy ${label}`}
         className="shrink-0 rounded p-1.5 text-ink-secondary hover:bg-control hover:text-ink"
       >
-        {copyState === "copied" ? <Check size={13} className="text-success" /> : copyState === "failed" ? <X size={13} className="text-danger" /> : <Copy size={13} />}
+        {copyState === "copied" ? <HIcon icon={Tick01Icon} size={13} className="text-success" /> : copyState === "failed" ? <HIcon icon={MultiplicationSignIcon} size={13} className="text-danger" /> : <HIcon icon={Copy01Icon} size={13} />}
       </button>
     </div>
   );

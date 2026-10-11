@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FolderPlus, X } from "lucide-react";
+import { FolderAddIcon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { CloudLendingBridge, CloudLendingSnapshot, SharedFolder } from "../../electron/computer-sharing.mjs";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
@@ -94,14 +95,14 @@ export function CloudLending({ bridge }: { bridge: CloudLendingBridge }) {
           <label className="flex items-center gap-2 text-[12px] text-ink-secondary">
             <input type="checkbox" checked={folder.write} onChange={event => lend(folders.map(entry => entry.id === folder.id ? { ...entry, write: event.target.checked } : entry), screen)} />{t("lending.canEdit")}
           </label>
-          <button type="button" aria-label={t("lending.removeFolder", { name: folder.name })} onClick={() => lend(folders.filter(entry => entry.id !== folder.id), screen)} className="rounded p-1 text-ink-secondary hover:bg-control"><X size={14} /></button>
+          <button type="button" aria-label={t("lending.removeFolder", { name: folder.name })} onClick={() => lend(folders.filter(entry => entry.id !== folder.id), screen)} className="rounded p-1 text-ink-secondary hover:bg-control"><HIcon icon={MultiplicationSignIcon} size={14} /></button>
         </div>)}
         <button type="button" disabled={folders.length >= 20} onClick={() => void perform(async () => {
           const folder = await bridge.chooseFolder();
           const next = folder && !folders.some(entry => entry.path === folder.path) ? [...folders, folder] : folders;
           if (next !== folders) { setFolders(next); return bridge.save({ folders: next, screen }); }
           return bridge.state();
-        })} className="ui-button flex w-fit items-center gap-2"><FolderPlus size={14} />{t("lending.addFolder")}</button>
+        })} className="ui-button flex w-fit items-center gap-2"><HIcon icon={FolderAddIcon} size={14} />{t("lending.addFolder")}</button>
       </fieldset>
       <fieldset disabled={working} className="flex flex-col gap-1 disabled:opacity-60">
         <label className="flex items-start gap-2">

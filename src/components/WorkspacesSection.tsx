@@ -3,7 +3,8 @@
 // add or remove a person, suspend, resume, delete, upgrade all. Enterprise
 // `admin` entitlement, and only where an agent exists.
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loading02Icon, PlusSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -139,7 +140,7 @@ function NewWorkspaceForm({ domain, onCreated, disabled }: { domain: string; onC
       {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
       <div className="flex justify-end">
         <button type="submit" disabled={disabled || saving} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-60">
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}{saving ? t("workspaces.creating") : t("workspaces.create")}
+          {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={PlusSignIcon} size={13} />}{saving ? t("workspaces.creating") : t("workspaces.create")}
         </button>
       </div>
     </form>
@@ -252,14 +253,14 @@ export function WorkspacesSection({ load = fetchFleet }: { load?: () => Promise<
     <div className="flex flex-col gap-5">
       <Card title={t("workspaces.title")} subtitle={t("workspaces.subtitle")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => void refresh()} disabled={loading || busy !== null} className="flex items-center gap-1 text-[12px] text-ink-secondary hover:text-ink disabled:opacity-50"><RefreshCw size={12} className={cn(loading && "animate-spin")} />{t("workspaces.refresh")}</button>
-          <button type="button" onClick={() => setCreating((value) => !value)} disabled={busy !== null} className="ml-auto flex items-center gap-1.5 rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-raised/50 hover:text-ink disabled:opacity-50"><Plus size={13} />{t("workspaces.new")}</button>
+          <button type="button" onClick={() => void refresh()} disabled={loading || busy !== null} className="flex items-center gap-1 text-[12px] text-ink-secondary hover:text-ink disabled:opacity-50"><HIcon icon={RefreshCwIcon} size={12} className={cn(loading && "animate-spin")} />{t("workspaces.refresh")}</button>
+          <button type="button" onClick={() => setCreating((value) => !value)} disabled={busy !== null} className="ml-auto flex items-center gap-1.5 rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-raised/50 hover:text-ink disabled:opacity-50"><HIcon icon={PlusSignIcon} size={13} />{t("workspaces.new")}</button>
           <button type="button" onClick={() => void upgrade()} disabled={busy !== null || !fleet?.workspaces.length} className="rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-raised/50 hover:text-ink disabled:opacity-50">{busy === "*" ? t("workspaces.working") : t("workspaces.upgradeAll")}</button>
         </div>
         {creating && fleet && <div className="mb-4 rounded-xl border border-hairline/40 p-3"><NewWorkspaceForm domain={fleet.domain} disabled={busy !== null} onCreated={(lines, created) => { setCreating(false); setLog(lines); setInviteLink(`https://${created.slug}.${fleet.domain}/pair?email=${encodeURIComponent(created.admin)}`); void refresh(); }} /></div>}
         {inviteLink && <div className="mb-4"><CopyLink link={inviteLink} /></div>}
         {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
-        {fleet ? <WorkspacesTable fleet={fleet} onAct={(slug, action) => void act(slug, action)} busy={busy} /> : loading ? <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><Loader2 size={14} className="animate-spin" />{t("common.checking")}</div> : null}
+        {fleet ? <WorkspacesTable fleet={fleet} onAct={(slug, action) => void act(slug, action)} busy={busy} /> : loading ? <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={14} className="animate-spin" />{t("common.checking")}</div> : null}
         {usersFor && <UsersForm slug={usersFor} onDone={(lines) => { setLog(lines); void refresh(); }} />}
         {log.length > 0 && (
           <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-inset p-2 text-[11.5px] text-ink-secondary">{log.join("\n")}</pre>

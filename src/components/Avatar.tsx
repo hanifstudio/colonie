@@ -105,6 +105,12 @@ export type MausAvatarProps = {
   lookAround?: number;
   /** Let the eyes follow the pointer across this avatar. */
   trackPointer?: boolean;
+  /**
+   * Follow the pointer anywhere in the window, not just while it hovers this
+   * avatar. Reserved for the active bot (selected sidebar row, empty-chat
+   * hero) so idle rows stay static. Requires `trackPointer` and `animated`.
+   */
+  followGlobalPointer?: boolean;
   /** Run the animation. Off renders the state's resting face. */
   animated?: boolean;
   /** Which body the bot wears. Unknown values fall back to the cursor. */

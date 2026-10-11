@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { Globe, Plus, Trash2 } from "lucide-react";
+import { Delete02Icon, GlobeIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, ApiError, useStore, type Bot, type BotAnnouncement, type BrowserProfile, type ConfigStatus } from "@/state/store";
 import { browserProfileDeletionBlockReason, browserProfilesMutation, newBrowserProfileId } from "@/lib/browser-profiles";
 import { isOwnerOrAdmin, readSessionState } from "@/lib/session";
@@ -163,7 +164,7 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
           <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void create(); }}>
             <label htmlFor={`${fieldId}-new`} className="sr-only">{t("settings.profiles.newName")}</label>
             <input id={`${fieldId}-new`} value={name} onChange={(event) => setName(event.target.value)} maxLength={40} required disabled={locked || profiles.length >= 20} placeholder={t("settings.profiles.newName")} className={inputClass} />
-            <button type="submit" disabled={locked || !name.trim() || profiles.length >= 20} className={`${buttonClass} flex items-center gap-1`}><Plus size={13} />{t("settings.profiles.create")}</button>
+            <button type="submit" disabled={locked || !name.trim() || profiles.length >= 20} className={`${buttonClass} flex items-center gap-1`}><HIcon icon={PlusSignIcon} size={13} />{t("settings.profiles.create")}</button>
           </form>
           {profiles.length >= 20 && <p className="text-[11px] text-ink-secondary">{t("settings.profiles.limit")}</p>}
           {!profiles.length && <p className="text-[12px] text-ink-secondary">{t("settings.profiles.sharedEmpty")}</p>}
@@ -174,7 +175,7 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
               return (
                 <div key={profile.id} className="flex flex-col gap-1 py-2">
                   <div className="flex min-w-0 items-center gap-2">
-                    <Globe size={14} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={GlobeIcon} size={14} className="shrink-0 text-ink-secondary" />
                     {renaming?.id === profile.id ? (
                       <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void rename(); }}>
                         <input autoFocus value={renaming.name} onChange={(event) => setRenaming({ id: profile.id, name: event.target.value })} maxLength={40} required disabled={locked} className={inputClass} aria-label={t("settings.profiles.nameAria")} />
@@ -184,7 +185,7 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
                     ) : (
                       <>
                         <button type="button" disabled={locked} onClick={() => { setRenaming({ id: profile.id, name: profile.name }); setError(""); }} className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-ink hover:underline disabled:opacity-50" title={t("settings.profiles.rename")}>{profile.name}</button>
-                        <button type="button" onClick={() => void remove(profile)} disabled={locked || Boolean(blocked)} title={blocked ?? t("settings.profiles.deleteTitle")} aria-label={`${t("common.delete")} ${profile.name}`} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-50"><Trash2 size={13} />{t("common.delete")}</button>
+                        <button type="button" onClick={() => void remove(profile)} disabled={locked || Boolean(blocked)} title={blocked ?? t("settings.profiles.deleteTitle")} aria-label={`${t("common.delete")} ${profile.name}`} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-50"><HIcon icon={Delete02Icon} size={13} />{t("common.delete")}</button>
                       </>
                     )}
                   </div>

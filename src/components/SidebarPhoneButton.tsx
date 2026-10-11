@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus, TabletSmartphone } from "lucide-react";
+import { PlusSignIcon, TabletSmartphoneIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -176,14 +177,14 @@ export function SidebarPhoneStatusButton({
         connected ? "text-success" : "text-ink-secondary hover:text-ink",
       )}
     >
-      <TabletSmartphone size={18} strokeWidth={1.8} />
+      <HIcon icon={TabletSmartphoneIcon} size={18} strokeWidth={1.8} />
       {status.kind === "unpaired" && (
         <span
           aria-hidden="true"
           data-phone-plus
           className="absolute bottom-1 right-1 flex size-3.5 items-center justify-center rounded-full border border-panel bg-panel"
         >
-          <Plus size={10} strokeWidth={2.8} />
+          <HIcon icon={PlusSignIcon} size={10} strokeWidth={2.8} />
         </span>
       )}
       {connected && (

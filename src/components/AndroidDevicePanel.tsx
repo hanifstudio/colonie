@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Circle, Loader2, RotateCcw, ShieldCheck, Smartphone, Usb } from "lucide-react";
+import { ArrowLeft01Icon, CircleIcon, Loading02Icon, RotateCcwIcon, ShieldCheckIcon, SmartphoneIcon, UsbIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { usePageVisible } from "@/lib/page-visible";
 import { t } from "@/lib/i18n";
 import type { AndroidDeviceInput, AndroidDeviceStatus, AndroidUsbDevice } from "@/types/ogb";
@@ -200,14 +201,14 @@ export function AndroidDevicePanel({ status }: { status: AndroidDeviceStatus }) 
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-[15px] font-medium text-ink">
-              <Smartphone size={16} className="text-success" /> {deviceLabel(selected)}
+              <HIcon icon={SmartphoneIcon} size={16} className="text-success" /> {deviceLabel(selected)}
             </div>
             <div className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
               {t("computer.android.usbSubtitle")}
             </div>
           </div>
           <span className="flex shrink-0 items-center gap-1 text-[11px] text-success">
-            <ShieldCheck size={12} /> {t("computer.android.usb")}
+            <HIcon icon={ShieldCheckIcon} size={12} /> {t("computer.android.usb")}
           </span>
         </div>
         {status.devices.length > 1 && (
@@ -286,7 +287,7 @@ export function AndroidDevicePanel({ status }: { status: AndroidDeviceStatus }) 
                 className="pointer-events-none h-full w-full select-none object-contain"
               />
             ) : (
-              <Loader2 size={20} className="animate-spin text-ink-secondary" />
+              <HIcon icon={Loading02Icon} size={20} className="animate-spin text-ink-secondary" />
             )}
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -294,19 +295,19 @@ export function AndroidDevicePanel({ status }: { status: AndroidDeviceStatus }) 
               onClick={() => send({ type: "key", key: "back" })}
               className="flex items-center justify-center gap-1.5 rounded-lg bg-raised py-2 text-[12px] text-ink hover:bg-raised-hover"
             >
-              <ArrowLeft size={13} /> {t("computer.android.back")}
+              <HIcon icon={ArrowLeft01Icon} size={13} /> {t("computer.android.back")}
             </button>
             <button
               onClick={() => send({ type: "key", key: "home" })}
               className="flex items-center justify-center gap-1.5 rounded-lg bg-raised py-2 text-[12px] text-ink hover:bg-raised-hover"
             >
-              <Circle size={12} /> {t("computer.android.home")}
+              <HIcon icon={CircleIcon} size={12} /> {t("computer.android.home")}
             </button>
             <button
               onClick={() => send({ type: "key", key: "recent" })}
               className="flex items-center justify-center gap-1.5 rounded-lg bg-raised py-2 text-[12px] text-ink hover:bg-raised-hover"
             >
-              <RotateCcw size={13} /> {t("computer.android.recent")}
+              <HIcon icon={RotateCcwIcon} size={13} /> {t("computer.android.recent")}
             </button>
           </div>
           <div className="text-center text-[11px] leading-relaxed text-ink-secondary">
@@ -323,7 +324,7 @@ export function AndroidDevicePanel({ status }: { status: AndroidDeviceStatus }) 
 
       <div className="rounded-xl bg-card p-4">
         <div className="flex items-center gap-2 text-[13px] font-medium text-ink">
-          <Usb size={15} className="text-accent" /> {t("computer.android.setupTitle")}
+          <HIcon icon={UsbIcon} size={15} className="text-accent" /> {t("computer.android.setupTitle")}
         </div>
         <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-[11.5px] leading-relaxed text-ink-secondary">
           <li>{t("computer.android.step1")}</li>

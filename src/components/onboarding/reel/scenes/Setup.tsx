@@ -8,8 +8,10 @@
 // Rows land one at a time because that is what setup really does: each is
 // its own tool call, applied or waiting on the user. Values blur in rather
 // than cross-fade so a placeholder and a value never show as two objects.
+import { ArrowUp01Icon, CalendarClockIcon, Folder01Icon, PlugIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../../HIcon";
+import type { IconSvgElement } from "@hugeicons/react";
 import { useEffect, useState } from "react";
-import { ArrowUp, CalendarClock, Check, Folder, Plug } from "lucide-react";
 import { MausAvatar } from "@/components/Avatar";
 import { ServiceIcon, type ToolkitCard } from "@/components/PluginsPanel";
 import { cn } from "@/lib/cn";
@@ -90,10 +92,10 @@ function Reveal({ shown, children, bar = "w-20" }: { shown: boolean; children: R
   );
 }
 
-function Row({ icon: Icon, label, done, children, bar }: { icon: typeof Folder; label: string; done: boolean; children: React.ReactNode; bar?: string }) {
+function Row({ icon: Icon, label, done, children, bar }: { icon: IconSvgElement; label: string; done: boolean; children: React.ReactNode; bar?: string }) {
   return (
     <div className="flex items-center gap-2.5 py-2">
-      <Icon size={14} className={cn("shrink-0 transition-colors duration-300", done ? "text-ink" : "text-ink-tertiary")} />
+      <HIcon icon={Icon} size={14} className={cn("shrink-0 transition-colors duration-300", done ? "text-ink" : "text-ink-tertiary")} />
       <span className="w-11 shrink-0 text-[11px] text-ink-secondary">{label}</span>
       <span className="min-w-0 flex-1 whitespace-nowrap pr-2 text-[12px] font-medium text-ink">
         <Reveal shown={done} bar={bar}>
@@ -106,7 +108,7 @@ function Row({ icon: Icon, label, done, children, bar }: { icon: typeof Folder; 
           done ? "scale-100 opacity-100" : "scale-75 opacity-0",
         )}
       >
-        <Check size={10} strokeWidth={3} />
+        <HIcon icon={Tick01Icon} size={10} strokeWidth={3} />
       </span>
     </div>
   );
@@ -217,7 +219,7 @@ export function Setup({ playing, onCue, onEnded, label }: SceneProps) {
                 pressed && "scale-90",
               )}
             >
-              <ArrowUp size={13} strokeWidth={2.5} />
+              <HIcon icon={ArrowUp01Icon} size={13} strokeWidth={2.5} />
             </span>
           </div>
         </div>
@@ -242,10 +244,10 @@ export function Setup({ playing, onCue, onEnded, label }: SceneProps) {
               </div>
             </div>
           </div>
-          <Row icon={CalendarClock} label="When" done={steps >= 2}>
+          <Row icon={CalendarClockIcon} label="When" done={steps >= 2}>
             Every 15 min
           </Row>
-          <Row icon={Plug} label="Apps" done={steps >= 3} bar="w-14">
+          <Row icon={PlugIcon} label="Apps" done={steps >= 3} bar="w-14">
             <span className="inline-flex items-center gap-3">
               {APPS.map((app) => (
                 <span key={app.slug} className="inline-flex items-center gap-1">
@@ -255,7 +257,7 @@ export function Setup({ playing, onCue, onEnded, label }: SceneProps) {
               ))}
             </span>
           </Row>
-          <Row icon={Folder} label="Folder" done={steps >= 4} bar="w-16">
+          <Row icon={Folder01Icon} label="Folder" done={steps >= 4} bar="w-16">
             <code className="font-mono text-[11.5px]">~/bug-triage</code>
           </Row>
         </div>

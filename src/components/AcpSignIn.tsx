@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Copy, Loader2, LogIn } from "lucide-react";
+import { Copy01Icon, Loading02Icon, Login01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { copyText } from "@/lib/copy-text";
@@ -45,7 +46,7 @@ export function AcpSignIn({ instanceId }: { instanceId: string }) {
       onClick={() => void start()}
       className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
     >
-      {busy ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
+      {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Login01Icon} size={14} />}
       {busy ? t("engineSetup.device.waiting") : t("pro.signIn")}
     </button>
     {terminal && <div className="space-y-1 rounded-lg border border-hairline/50 bg-app p-2">
@@ -53,7 +54,7 @@ export function AcpSignIn({ instanceId }: { instanceId: string }) {
       <div className="flex items-center gap-1.5">
         <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-secondary" title={terminal}>{terminal}</code>
         <button type="button" onClick={() => void copy()} aria-label={t("engineSetup.copyCommand")} className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-ink">
-          {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+          {copied ? <HIcon icon={Tick01Icon} size={12} className="text-success" /> : <HIcon icon={Copy01Icon} size={12} />}
         </button>
       </div>
     </div>}

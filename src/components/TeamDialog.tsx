@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { PlusSignIcon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type Bot } from "@/state/store";
 import { BotPickerList } from "./BotPickerList";
 import { NewBotDialog } from "./lazy-screens";
@@ -82,7 +83,7 @@ export function TeamDialog({ section, rename = false, onClose, onRenamed }: {
         }}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="team-dialog-title" className="text-[17px] font-semibold">{title}</h2>
-          <button aria-label={t("team.closeDialog")} disabled={saving} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><X size={18} /></button>
+          <button aria-label={t("team.closeDialog")} disabled={saving} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><HIcon icon={MultiplicationSignIcon} size={18} /></button>
         </div>
         {(!moving || rename) && <label className="mb-3 block text-[13px] text-ink-secondary">{t("team.name")}
           <input value={name} maxLength={60} disabled={saving} onChange={(event) => setName(event.target.value)}
@@ -95,7 +96,7 @@ export function TeamDialog({ section, rename = false, onClose, onRenamed }: {
           </p>
           {managing && <button disabled={saving || state.botCreationPending} onClick={() => setCreating(true)}
             className="mb-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] text-accent hover:bg-raised disabled:opacity-40">
-            <Plus size={14} />{t("sidebar.newBot")}
+            <HIcon icon={PlusSignIcon} size={14} />{t("sidebar.newBot")}
           </button>}
           <fieldset disabled={saving}>
             <legend className="mb-1 text-[12px] font-medium text-ink-secondary">{t("team.existingBots")}</legend>

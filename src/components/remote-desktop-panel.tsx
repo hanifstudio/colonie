@@ -1,6 +1,7 @@
+import { Calendar03Icon, CalendarClockIcon, ImageOffIcon, Loading02Icon, MonitorIcon, MultiplicationSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { boatCapableEngine } from "@/lib/remote-desktop";
 import { useEffect, useRef, useState } from "react";
-import { CalendarClock, CalendarDays, ImageOff, Loader2, Monitor, Plus, X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
@@ -209,7 +210,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
           className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
           aria-label="Close computer panel"
         >
-          <X size={18} />
+          <HIcon icon={MultiplicationSignIcon} size={18} />
         </button>
       </div>
 
@@ -224,10 +225,10 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
           {frame ? (
             <img src={frame} alt={`${bot.name}'s VPS desktop preview`} className="h-full w-full object-contain" />
           ) : previewPending ? (
-            <Loader2 size={22} className="animate-spin text-ink-secondary" />
+            <HIcon icon={Loading02Icon} size={22} className="animate-spin text-ink-secondary" />
           ) : (
             <div className="flex flex-col items-center gap-2 text-ink-secondary">
-              <ImageOff size={24} />
+              <HIcon icon={ImageOffIcon} size={24} />
               <span className="text-[11px]">{previewUnavailable ? "Preview unavailable" : "Waiting for preview"}</span>
             </div>
           )}
@@ -249,7 +250,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
           disabled={pending}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          {pending ? <Loader2 size={15} className="animate-spin" /> : <Monitor size={15} />}
+          {pending ? <HIcon icon={Loading02Icon} size={15} className="animate-spin" /> : <HIcon icon={MonitorIcon} size={15} />}
           {pending ? "Opening…" : "Take control"}
         </button>
         {error && (
@@ -264,7 +265,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
         <div className="w-full rounded-xl bg-card p-4 text-left">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-[15px] font-medium text-ink">
-              <CalendarClock size={16} className="text-accent" />
+              <HIcon icon={CalendarClockIcon} size={16} className="text-accent" />
               Scheduled tasks
             </div>
             {botRoutines.length > 0 && (
@@ -279,7 +280,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
               onClick={() => dispatch({ type: "showRoutines" })}
               className="mt-3 flex w-full items-center gap-2 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-left text-[12px] text-accent hover:bg-accent/15"
             >
-              <Loader2 size={13} className={activeRoutineRun.status === "queued" ? "" : "animate-spin"} />
+              <HIcon icon={Loading02Icon} size={13} className={activeRoutineRun.status === "queued" ? "" : "animate-spin"} />
               <span className="min-w-0 flex-1 truncate">
                 {activeRoutineRun.routineName} · {activeRoutineRun.status === "waiting" ? "needs you" : activeRoutineRun.status}
               </span>
@@ -312,7 +313,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
               onClick={() => setCreatingRoutine(true)}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:brightness-110"
             >
-              <Plus size={14} />
+              <HIcon icon={PlusSignIcon} size={14} />
               Create schedule
             </button>
             <button
@@ -321,7 +322,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
               className="flex items-center justify-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover"
               title="Open schedules"
             >
-              <CalendarDays size={14} />
+              <HIcon icon={Calendar03Icon} size={14} />
               Schedules
             </button>
           </div>

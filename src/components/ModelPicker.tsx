@@ -7,7 +7,8 @@
 // the person making it, so the chat header and the settings dialog render the
 // same row and write through the same action.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, KeyRound, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, Key01Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, currentTaskBot, type Bot, type InstanceInfo, type ModelSelection } from "@/state/store";
 import type { EffortLevel } from "../../shared/wire";
 import type { ModelVariantOption } from "../../shared/runtime-events";
@@ -307,7 +308,7 @@ function ModelRow({
         )}
         {botModel && <span data-bot-model className="shrink-0 text-[11px] text-ink-secondary">{t("model.botModelTag")}</span>}
       </span>
-      {current && <Check size={14} className="shrink-0 text-accent" />}
+      {current && <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-accent" />}
     </button>
   );
 }
@@ -330,7 +331,7 @@ export function FollowBotModelRow({ name, model, follows, onPick }: { name: stri
         <span className="shrink-0 font-medium">{t("model.useBotModel", { name })}</span>
         <span className="truncate text-[12px] text-ink-secondary">{model}</span>
       </span>
-      {follows && <Check size={14} className="shrink-0 text-accent" aria-hidden="true" />}
+      {follows && <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-accent" aria-hidden="true" />}
     </button>
   );
 }
@@ -349,7 +350,7 @@ function ModelSearch({
   return (
     <div className="shrink-0 px-2 pb-2">
       <div className="flex items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-2.5 py-1.5 focus-within:border-focus">
-        <Search size={13} className="shrink-0 text-ink-secondary" />
+        <HIcon icon={Search01Icon} size={13} className="shrink-0 text-ink-secondary" />
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -438,7 +439,7 @@ export function ModelEngineRail({ instances, selectedInstance, claudeInstance, o
         {/* the same provider can sit in Cloud and API keys: the key marks which */}
         {target.access === "api" && (
           <span data-rail-key-badge className="absolute bottom-0 left-0 flex size-3.5 items-center justify-center rounded-full bg-panel text-ink-secondary">
-            <KeyRound size={9} aria-hidden="true" />
+            <HIcon icon={Key01Icon} size={9} aria-hidden="true" />
           </span>
         )}
         {attention && <span className="absolute bottom-0.5 right-0.5 size-1.5 rounded-full bg-warning ring-2 ring-panel" />}
@@ -460,7 +461,7 @@ export function ModelEngineRail({ instances, selectedInstance, claudeInstance, o
           title={apiKeysLabel(instances)}
           className="flex size-9 items-center justify-center rounded-lg border border-dashed border-hairline text-ink-secondary hover:bg-control/60 hover:text-ink"
         >
-          <Plus size={16} aria-hidden="true" />
+          <HIcon icon={PlusSignIcon} size={16} aria-hidden="true" />
         </button>
       )}
       {local.length > 0 && <EngineGroupLabel className="px-0 pb-0.5 pt-2 text-center text-[9px]">{t("model.rail.local")}</EngineGroupLabel>}
@@ -781,7 +782,7 @@ export function ModelPicker({
   const lookingForLocal = Boolean(railInstance && probingLocal === railInstance.instanceId);
   const lookingForLocalStatus = (
     <span role="status" className="flex items-center justify-center gap-2">
-      <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+      <HIcon icon={Loading02Icon} size={12} className="animate-spin" aria-hidden="true" />
       {t("model.lookingLocal")}
     </span>
   );
@@ -919,7 +920,7 @@ export function ModelPicker({
           </span>
         )}
       </span>
-      <ChevronDown
+      <HIcon icon={ChevronDownIcon}
         size={14}
         className={cn(
           "text-ink-secondary transition-transform",
@@ -1057,9 +1058,9 @@ export function ModelPicker({
                         className="flex size-6 items-center justify-center rounded-md text-ink-secondary hover:bg-control hover:text-ink disabled:cursor-wait disabled:opacity-70"
                       >
                         {refreshing ? (
-                          <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                          <HIcon icon={Loading02Icon} size={12} className="animate-spin" aria-hidden="true" />
                         ) : (
-                          <RefreshCw size={12} aria-hidden="true" />
+                          <HIcon icon={RefreshCwIcon} size={12} aria-hidden="true" />
                         )}
                       </button>
                       <span
@@ -1100,7 +1101,7 @@ export function ModelPicker({
                     }}
                     className="mx-2 mb-1 flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-ink-secondary hover:bg-control/60"
                   >
-                    <ChevronLeft size={13} /> {t("model.backTo", { name: railInstance.displayName })}
+                    <HIcon icon={ChevronLeftIcon} size={13} /> {t("model.backTo", { name: railInstance.displayName })}
                   </button>
                 )}
 
@@ -1170,7 +1171,7 @@ export function ModelPicker({
                               onClick={() => setShowAll(true)}
                               className="mt-1 flex w-full items-center justify-between rounded-lg border-t border-hairline/40 px-2.5 py-2 text-[12.5px] font-medium text-ink-secondary hover:bg-control/60 hover:text-ink"
                             >
-                              {t("model.showAll", { count: official.length })} <ChevronDown size={13} />
+                              {t("model.showAll", { count: official.length })} <HIcon icon={ChevronDownIcon} size={13} />
                             </button>
                           )}
                           {!query && showAll && official.length > COMPACT_MODEL_COUNT && (
@@ -1259,7 +1260,7 @@ export function ModelPicker({
                           {t("model.available", { count: custom.length })}
                         </span>
                       )}
-                      <ChevronRight size={14} className="text-ink-secondary" />
+                      <HIcon icon={ChevronRightIcon} size={14} className="text-ink-secondary" />
                     </span>
                   </button>
                 )}
@@ -1278,7 +1279,7 @@ export function ModelPicker({
                   shortcut would land somewhere else. */}
               {window.ogb?.remoteClient?.active !== true && (
                 <button type="button" data-model-add-api-keys onClick={openApiKeys} className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-[12px] text-ink-secondary hover:bg-control/60 hover:text-ink">
-                  <KeyRound size={12} aria-hidden="true" />
+                  <HIcon icon={Key01Icon} size={12} aria-hidden="true" />
                   {apiKeysLabel(pickerInstances)}
                 </button>
               )}
@@ -1295,7 +1296,7 @@ export function ModelPicker({
           <ThreadModelsLine bot={profile} />
           <button type="button" aria-label={t("common.close")} onClick={() => setChangedBotModel(false)}
             className="shrink-0 rounded-md p-1 text-ink-secondary hover:bg-control/60 hover:text-ink">
-            <X size={13} aria-hidden="true" />
+            <HIcon icon={MultiplicationSignIcon} size={13} aria-hidden="true" />
           </button>
         </div>
       )}

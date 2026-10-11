@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle } from "lucide-react";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 
@@ -118,7 +119,7 @@ export function ConfirmDialogCard({
     >
       <div className="flex items-start gap-3">
         <span className={cn("mt-0.5 shrink-0", danger ? "text-danger" : "text-warning")}>
-          {icon ?? <AlertTriangle size={18} />}
+          {icon ?? <HIcon icon={Alert02Icon} size={18} />}
         </span>
         <div className="min-w-0">
           <h2 id="confirm-dialog-title" className="text-[15px] font-semibold text-ink">

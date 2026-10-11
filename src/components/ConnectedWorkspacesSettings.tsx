@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Cloud, Laptop, Loader2, Trash2 } from "lucide-react";
+import { CloudIcon, LaptopIcon, Loading02Icon, Delete02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { Card } from "./SettingsPrimitives";
 import { ComputerSharingSettings } from "./ComputerSharingSettings";
 import { CloudMoveSettings } from "./CloudMove";
@@ -72,18 +73,18 @@ export function ConnectedWorkspacesSettings() {
         <ul className="divide-y divide-hairline/40">
           {[{ id: "local", name: "This computer", origin: "" }, ...saved.environments].map((entry) => {
             const active = entry.id === saved.activeId;
-            const Icon = entry.id === "local" ? Laptop : Cloud;
+            const Icon = entry.id === "local" ? LaptopIcon : CloudIcon;
             return <li key={entry.id} className="flex items-center gap-3 py-3">
-              <Icon size={18} className="shrink-0 text-ink-secondary" />
+              <HIcon icon={Icon} size={18} className="shrink-0 text-ink-secondary" />
               <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-medium text-ink">{entry.name}</div>
                 <div className="break-all text-[12px] text-ink-secondary">{entry.origin || "Local bots and conversations"}</div></div>
-              {active ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-ink-secondary"><Check size={13} />Current</span> :
+              {active ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-ink-secondary"><HIcon icon={Tick01Icon} size={13} />Current</span> :
                 <button type="button" disabled={busy} aria-label={`Switch to ${entry.name}`} onClick={() => void perform(async () => { await bridge.switch(entry.id); return true; })}
                   className="rounded-md px-2 py-1.5 text-[12px] text-ink hover:bg-control disabled:opacity-50">Switch</button>}
               {entry.id !== "local" && copyOffered && <button type="button" disabled={busy} aria-label={`${t("cloudMove.here")}: ${entry.name}`} onClick={() => setCopyId(entry.id)} className="rounded-md px-2 py-1.5 text-[12px] text-ink hover:bg-control">{t("cloudMove.here")}</button>}
               {entry.id !== "local" && sharingOffered && <button type="button" disabled={busy} aria-label={`Computer access for ${entry.name}`} onClick={() => setComputerId(entry.id)} className="rounded-md px-2 py-1.5 text-[12px] text-ink hover:bg-control">Computer access</button>}
               {entry.id !== "local" && <button type="button" disabled={busy} aria-label={`Forget ${entry.name}`} title={`Forget ${entry.name}`}
-                onClick={() => void perform(() => bridge.forget(entry.id))} className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-50"><Trash2 size={14} /></button>}
+                onClick={() => void perform(() => bridge.forget(entry.id))} className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-50"><HIcon icon={Delete02Icon} size={14} /></button>}
             </li>;
           })}
         </ul>}
@@ -111,7 +112,7 @@ export function ConnectedWorkspacesSettings() {
         </details>
         {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
         <button type="submit" disabled={busy || !address.trim()} className="flex w-fit items-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink disabled:opacity-50">
-          {busy && <Loader2 size={14} className="animate-spin" />}Connect
+          {busy && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}Connect
         </button>
       </form>
     </Card>

@@ -17,6 +17,17 @@ const snapshotSchema = z.object({ version: z.literal(1), botId: z.string(), hash
 const pinSchema = z.object({ snapshot: snapshotSchema, pinnedAt: z.string() }).strict();
 export type ContextPin = z.infer<typeof pinSchema>;
 export type ContextProfile = { id: string; name: string; title: string; description: string; soul?: string; chiefOfStaff?: boolean };
+const appFoundation = `You are a personal AI assistant in Colonie.
+
+Respond to the user's intent and current context. Be clear, useful, and proportionate to the request. Adapt your language, tone, and level of detail to the conversation and any configured persona.
+
+For actionable requests, make reasonable progress using available capabilities. Ask for clarification when missing information materially affects the outcome.
+
+Ground claims about capabilities, access, actions, and results in available evidence. Distinguish what you can do, what you have done, and what remains uncertain.
+
+Mention operational details or limitations when they affect the user's request or when the user asks about them. Explain them in plain language.
+
+Treat application and tool status as supporting context, not as topics that must be included in every response.`;
 export const contextHash = (value: string) => createHash("sha256").update(value).digest("hex");
 const revision = (value: unknown) => contextHash(JSON.stringify(value));
 function path(kind: "app" | "bots" | "threads", id = "settings") {
@@ -53,7 +64,7 @@ export function contextCandidate(profile: ContextProfile, instanceId: string, in
   const app = appContextPreferences();
   const bot = botContextPreferences(profile.id);
   const sections = [
-    contextSection("app.identity", "App · Identity", "app", "Colonie factory", "You are interacting through Colonie, a desktop application for personal AI agents. Application-authored context is provided here as explicit user context; native provider and project instructions remain provider-owned.", app.enabled && !legacyPlain, "colonie.identity.v1"),
+    contextSection("app.identity", "App · Identity", "app", "Colonie factory", appFoundation, app.enabled && !legacyPlain, "colonie.identity.v2"),
     contextSection("app.instructions", "App · Shared instructions", "app", "Workspace owner", app.instructions, app.enabled && !legacyPlain),
     contextSection("bot.persona", "Bot · Persona", "bot", `bot:${profile.id}:profile`,
       [`Name: ${profile.name}`, profile.title && `Role: ${profile.title}`, profile.description && `Description: ${profile.description}`,
@@ -96,7 +107,7 @@ export function contextView(profile: ContextProfile, threadId: string, instanceI
 export function composeContext(pin: ContextPin | null, text: string, instanceId: string, instructions: string, effective: { provider: string; model: string; mode: string; tools?: import("../../shared/connected-apps.ts").ConnectedToolsReceipt }) {
   const sections: AcpContextManifest["sections"] = (pin?.snapshot.sections ?? [contextSection("instance.instructions", "Instance · Extra context", "instance", `instance:${instanceId}:instructions`, instructions)]).map((section) => ({ ...section }));
   if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain) sections.splice(1, 0,
-    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports direct chat, native session continuity, tool activity, permission responses, and Stop. Tools and access are determined by the native provider and enforced by runtime permissions. ${effective.tools?.servers.length ? `App-selected tools: ${effective.tools.servers.map((server) => server.name).join(", ")}.${effective.tools.composioToolkits.length ? ` Composio apps: ${effective.tools.composioToolkits.join(", ")}. Connect required accounts in app settings; ask the user to continue after connecting.` : ""}` : "No app-selected MCP tools are mounted."} Cross-bot delegation, memory recall and automation are not available on this connection.`, true, "colonie.capabilities.v2"));
+    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports chat, continuing this conversation, tool activity, approvals, and Stop. Access is enforced by runtime permissions. ${effective.tools?.servers.length ? `App-selected tools: ${effective.tools.servers.map((server) => server.name).join(", ")}.${effective.tools.composioToolkits.length ? ` Composio apps: ${effective.tools.composioToolkits.join(", ")}. If a requested task is blocked by an account connection, ask the user to connect that account in app settings and continue afterward.` : ""}` : "No app-selected tools are mounted. Native provider tools may still be available."} Cross-bot delegation, memory recall and automation are not available on this connection.`, true, "colonie.capabilities.v3"));
   sections.push(contextSection("user.message", "Conversation · User message", "conversation", "User", text));
   const prompt: AcpInputReceipt["prompt"] = [];
   for (const section of sections) {

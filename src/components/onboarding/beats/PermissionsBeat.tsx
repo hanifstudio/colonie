@@ -4,7 +4,8 @@
 // so the OS flow triggers on the first real capture in the Computer panel,
 // the moment the user has context for the dialog.
 import { useEffect, useState } from "react";
-import { Check, Mic } from "lucide-react";
+import { Mic01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../HIcon";
 import { t } from "@/lib/i18n";
 import { PrimaryButton, QuietButton, staggerIndex, type BeatProps } from "./shared";
 
@@ -35,14 +36,14 @@ export function PermissionsBeat({ onNext, onSkip, setMascot, bump }: BeatProps) 
       <div className="stagger mt-4 flex flex-col gap-2.5">
         <div className="animate-rise flex items-center justify-between gap-3 rounded-xl bg-card p-3.5" style={staggerIndex(1)}>
           <div className="flex items-start gap-3">
-            <Mic size={18} className="mt-0.5 shrink-0 text-ink-secondary" />
+            <HIcon icon={Mic01Icon} size={18} className="mt-0.5 shrink-0 text-ink-secondary" />
             <div>
               <div className="text-[14px] font-medium text-ink">{t("onboarding.perms.mic")}</div>
               <div className="mt-0.5 text-[12.5px] text-ink-secondary">{t("onboarding.perms.micDetail")}</div>
             </div>
           </div>
           {granted ? (
-            <Check size={16} className="shrink-0 text-success" />
+            <HIcon icon={Tick01Icon} size={16} className="shrink-0 text-success" />
           ) : denied ? (
             <button
               onClick={() => window.ogb?.permOpenSettings?.("mic")}

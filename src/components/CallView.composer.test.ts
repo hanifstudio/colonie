@@ -108,8 +108,8 @@ describe("composer call button", () => {
     const { html, button } = render();
     expect(button.props["aria-label"]).toBe("Call Pepper");
     expect(String(button.props.className).split(" ")).toEqual(expect.arrayContaining(["size-8", "rounded-full", "bg-control"]));
-    expect(html).toContain("lucide-audio-lines");
-    expect(html).not.toContain("lucide-phone");
+    expect(html).toContain("M12 3V21");
+    expect(html).not.toContain("M4.90404 10.5413");
   });
 
   it("starts the call with the same telemetry as the header button did", () => {
@@ -124,7 +124,7 @@ describe("composer call button", () => {
     const { html, button } = render();
     expect(button.props["aria-label"]).toBe("Hang up on Pepper");
     expect(String(button.props.className)).toContain("bg-danger");
-    expect(html).toContain("lucide-phone-off");
+    expect(html).toContain("M20 4L14 10M20 10L14 4");
     button.props.onClick!();
     expect(fixture.endCall).toHaveBeenCalledWith("pepper");
     expect(fixture.startCall).not.toHaveBeenCalled();
@@ -182,7 +182,7 @@ describe("composer call button", () => {
     fixture.config = { tts: { configured: false } };
     const { html, button } = render("header");
     expect(String(button.props.className).split(" ")).toContain("size-9");
-    expect(html).toContain("lucide-phone");
+    expect(html).toContain("M4.90404 10.5413");
     expect(html).not.toMatch(/role="group" aria-label="Call unavailable" class="[^"]*\bbottom-full\b/);
   });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
-import { Loader2, Menu } from "lucide-react";
+import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./components/HIcon";
 import { CLOUD_LINK_SETTINGS, StoreProvider, useStore } from "@/state/store";
 import { useWelcomeViewer, WelcomeGate } from "@/components/onboarding/WelcomeGate";
 import { cloudSignInDue, spotlightsQuiet, type WelcomeViewer } from "@/lib/onboarding";
@@ -288,7 +289,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         onClick={() => setDrawerOpen(true)}
         className="absolute left-3 top-3 z-30 rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink md:hidden"
       >
-        <Menu size={18} />
+        <HIcon icon={Menu01Icon} size={18} />
       </button>}
       {drawerOpen && !calendarFocus && (
         <div
@@ -326,7 +327,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         <ChatView bot={bot} />
       ) : (
         <main className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-3 bg-app text-ink-secondary">
-          <Loader2 size={20} className="animate-spin" />
+          <HIcon icon={Loading02Icon} size={20} className="animate-spin" />
           <div className="text-[14px]">
             {state.connected ? "No bots yet" : "Connecting to the bot server…"}
           </div>

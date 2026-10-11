@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loading02Icon, PlusSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -76,7 +77,7 @@ export function ClaudeAccountForm({ instance, onSaved, onCancel }: {
       <div className="flex justify-end gap-2">
         {onCancel && <button type="button" onClick={onCancel} disabled={saving} className="rounded-lg px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-raised/50 disabled:opacity-50">{t("common.cancel")}</button>}
         <button type="submit" disabled={saving || !displayName.trim() || !dirty || missingDirectory} className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-50">
-          {saving && <Loader2 size={13} className="animate-spin" />}
+          {saving && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
           {instance ? t("common.save") : t("engines.account.add")}
         </button>
       </div>
@@ -92,7 +93,7 @@ export function AddClaudeAccount() {
     </div>
   ) : (
     <button type="button" onClick={() => setOpen(true)} className="flex min-h-8 w-fit items-center gap-1.5 rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] font-medium text-ink-secondary outline-none hover:bg-control hover:text-ink focus-visible:ring-2 focus-visible:ring-accent">
-      <Plus size={13} />{t("engines.account.add")}
+      <HIcon icon={PlusSignIcon} size={13} />{t("engines.account.add")}
     </button>
   );
 }
@@ -173,7 +174,7 @@ export function ClaudeAccountSettings({ instance }: { instance: InstanceInfo }) 
           {identity && <p className="mt-1 break-words text-ink-secondary">{identity}</p>}
         </div>
         <button type="button" onClick={() => void refresh()} disabled={busy || signingOut} className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-ink-secondary outline-none hover:bg-control hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
-          <RefreshCw size={12} className={cn(busy && "animate-spin")} />{t("engines.account.check")}
+          <HIcon icon={RefreshCwIcon} size={12} className={cn(busy && "animate-spin")} />{t("engines.account.check")}
         </button>
       </div>
       <details>

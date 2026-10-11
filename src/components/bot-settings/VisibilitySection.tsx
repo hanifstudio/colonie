@@ -5,7 +5,8 @@
 // every member's lists, conversations, files and live updates at once
 // (server/bot-visibility.ts). No confirmation step: it is a setting.
 import { useEffect, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Loading02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { api, useStore, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -167,11 +168,11 @@ export function VisibilitySection({ bot }: { bot: Bot }) {
           disabled={busy || !dirty}
           className={cn("flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50")}
         >
-          {busy && <Loader2 size={13} className="animate-spin" />}
+          {busy && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
           {busy ? t("botSettings.visibility.saving") : t("botSettings.visibility.save")}
         </button>
         {status === "saved" && !dirty && (
-          <span role="status" className="flex items-center gap-1 text-[12px] text-success"><Check size={13} />{t("botSettings.visibility.saved")}</span>
+          <span role="status" className="flex items-center gap-1 text-[12px] text-success"><HIcon icon={Tick01Icon} size={13} />{t("botSettings.visibility.saved")}</span>
         )}
       </div>
       {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}

@@ -5,7 +5,8 @@
 // dialog's own z-50, plus: an Import from GitHub row, a static "when it's
 // used" line on every row (learned skills have no triggers to show), and a
 // read-only click-through view of a skill's full text.
-import { BookOpen, Trash2 } from "lucide-react";
+import { BookOpen01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { t } from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 
@@ -402,7 +403,7 @@ export function SkillsSection({ bot }: { bot: Bot }) {
     <div className="flex flex-col gap-4">
       <div className="rounded-xl bg-card p-4">
         <div className="flex items-center gap-2">
-          <BookOpen size={16} className="text-ink-secondary" />
+          <HIcon icon={BookOpen01Icon} size={16} className="text-ink-secondary" />
           <div className="text-[15px] font-medium text-ink">Learned skills</div>
         </div>
         <div className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
@@ -503,7 +504,7 @@ export function SkillsSection({ bot }: { bot: Bot }) {
                     onClick={() => void remove(skill)}
                     className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-secondary hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                   >
-                    <Trash2 size={15} />
+                    <HIcon icon={Delete02Icon} size={15} />
                   </button>
                 </div>
                 <div className="mt-1 truncate text-[10.5px] text-ink-secondary" title={skill.source}>Source: {skill.source}</div>

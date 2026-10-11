@@ -2,8 +2,9 @@
 // from /api/connectors/catalog — the full toolkit list with logos when a
 // Composio API key is configured, a curated set otherwise. Icons resolve
 // logo → favicon → monogram.
+import { Alert02Icon, Loading02Icon, MultiplicationSignIcon, RefreshCwIcon, Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Loader2, RefreshCw, Search, TriangleAlert, X } from "lucide-react";
 import { api, useStore, type Bot, type InstanceInfo } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
@@ -667,7 +668,7 @@ export function PluginsPanel() {
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <label className="hidden h-10 w-[260px] items-center gap-2.5 rounded-xl bg-control/70 px-3.5 md:flex">
-                <Search size={16} className="shrink-0 text-ink-secondary" />
+                <HIcon icon={Search01Icon} size={16} className="shrink-0 text-ink-secondary" />
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -683,20 +684,20 @@ export function PluginsPanel() {
                 title={t("connectors.refreshTitle")}
                 aria-label={t("connectors.refreshTitle")}
               >
-                <RefreshCw size={17} className={cn(refreshing && "animate-spin")} />
+                <HIcon icon={RefreshCwIcon} size={17} className={cn(refreshing && "animate-spin")} />
               </button>
               <button data-tour="apps-close"
                 onClick={close}
                 aria-label={t("connectors.closeAria")}
                 className="rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink"
               >
-                <X size={21} />
+                <HIcon icon={MultiplicationSignIcon} size={21} />
               </button>
             </div>
           </div>
           {/* A narrow window has no room in the header row for the search. */}
           <label className="flex h-10 w-full items-center gap-2.5 rounded-xl bg-control/70 px-3.5 md:hidden">
-            <Search size={16} className="shrink-0 text-ink-secondary" />
+            <HIcon icon={Search01Icon} size={16} className="shrink-0 text-ink-secondary" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -729,7 +730,7 @@ export function PluginsPanel() {
             // Say which of the two things is true. Silence here is what makes a
             // remembered list indistinguishable from a confirmed one.
             <div className="mb-2 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[12.5px] text-warning">
-              <TriangleAlert size={14} className="mt-px shrink-0" />
+              <HIcon icon={Alert02Icon} size={14} className="mt-px shrink-0" />
               <span>
                 {t("connectors.stale")}
               </span>
@@ -823,7 +824,7 @@ export function PluginsPanel() {
               </div>
               {cards === null && (
                 <div className="flex items-center justify-center gap-2 py-24 text-[13px] text-ink-secondary">
-                  <Loader2 size={14} className="animate-spin" /> {t("connectors.loadingCatalog")}
+                  <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> {t("connectors.loadingCatalog")}
                 </div>
               )}
               {capped && (
@@ -852,7 +853,7 @@ export function PluginsPanel() {
                       onClick={() => void loadConnectionInventory(true)}
                       className="mt-4 flex items-center gap-1.5 rounded-lg bg-raised px-3 py-2 text-[12.5px] text-ink transition-colors hover:bg-raised-hover disabled:opacity-50"
                     >
-                      <RefreshCw size={13} className={cn(refreshing && "animate-spin")} />
+                      <HIcon icon={RefreshCwIcon} size={13} className={cn(refreshing && "animate-spin")} />
                       {t("connectors.action.retry")}
                     </button>
                   )}
@@ -919,7 +920,7 @@ export function PluginsPanel() {
         <div className="mt-auto flex items-center justify-between gap-2 pt-3">
           {connected && !pending ? (
             <span className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-success">
-              <Check size={13} className="shrink-0" /> {t("apps.connected")}
+              <HIcon icon={Tick01Icon} size={13} className="shrink-0" /> {t("apps.connected")}
             </span>
           ) : <span />}
           <div className="flex min-w-0 items-center gap-2">
@@ -971,7 +972,7 @@ export function PluginsPanel() {
               {unavailableReason ? (
                 t("connectors.selfHostOnly")
               ) : busy ? (
-                <Loader2 size={13} className="mx-auto animate-spin" />
+                <HIcon icon={Loading02Icon} size={13} className="mx-auto animate-spin" />
               ) : (
                 connectorActionLabel(inventoryPhase, {
                   busy,
@@ -1003,7 +1004,7 @@ export function PluginsPanel() {
                 <div key={account.id} className="flex items-center gap-2 rounded-lg bg-inset/60 px-2.5 py-1.5">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-[12px] font-medium text-ink">
-                      {active && <Check size={12} className="shrink-0 text-success" />}
+                      {active && <HIcon icon={Tick01Icon} size={12} className="shrink-0 text-success" />}
                       <span className="truncate">{account.alias || account.id}</span>
                     </div>
                     <div className="mt-0.5 truncate text-[10.5px] text-ink-secondary">

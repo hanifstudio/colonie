@@ -1,6 +1,17 @@
 import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
-import { ArrowUp, BookOpen, Clock, Mic, Paperclip, Square, Target, Users, X } from "lucide-react";
+import {
+  ArrowUp01Icon,
+  AttachmentIcon,
+  BookOpen01Icon,
+  Clock01Icon,
+  Mic01Icon,
+  MultiplicationSignIcon,
+  StopIcon,
+  Target03Icon,
+  UsersIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, visibleMessages, currentTaskBot, type Bot, type Group, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
@@ -823,7 +834,7 @@ export function Composer({
               title={t("composer.failed.dismiss")}
               className="flex size-5 shrink-0 items-center justify-center rounded hover:bg-danger/10"
             >
-              <X size={13} strokeWidth={2.5} />
+              <HIcon icon={MultiplicationSignIcon} size={13} strokeWidth={2.5} />
             </button>
           </div>
         ))}
@@ -852,9 +863,9 @@ export function Composer({
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
                   {command.id === "goal" ? (
-                    <Target size={15} aria-hidden="true" />
+                    <HIcon icon={Target03Icon} size={15} aria-hidden="true" />
                   ) : (
-                    <BookOpen size={15} aria-hidden="true" />
+                    <HIcon icon={BookOpen01Icon} size={15} aria-hidden="true" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -896,7 +907,7 @@ export function Composer({
                     />
                   ) : (
                     <span className="flex size-6 items-center justify-center rounded-full bg-raised text-ink-secondary">
-                      <Users size={14} aria-hidden="true" />
+                      <HIcon icon={UsersIcon} size={14} aria-hidden="true" />
                     </span>
                   )}
                   name={peer.name}
@@ -1000,7 +1011,7 @@ export function Composer({
                 title={t("composer.attach")}
                 className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-control hover:text-ink"
               >
-                <Paperclip size={17} />
+                <HIcon icon={AttachmentIcon} size={17} />
               </button>
               {group && !group.dm && (
                 <button
@@ -1030,7 +1041,7 @@ export function Composer({
                       : "border-hairline/20 bg-transparent text-ink-secondary hover:bg-raised hover:text-ink",
                   )}
                 >
-                  <Target size={14} aria-hidden="true" />
+                  <HIcon icon={Target03Icon} size={14} aria-hidden="true" />
                   {effectiveChannelMode === "goal" ? "/goal" : t("composer.goal.chip")}
                 </button>
               )}
@@ -1183,7 +1194,7 @@ export function Composer({
             className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"
             title={t("chat.stop")}
           >
-            <Square size={14} className="fill-current" />
+            <HIcon icon={StopIcon} size={14} className="fill-current" />
           </button>
         )}
         {!locked && !busy && !hasContent && capabilities.dictation.available && (
@@ -1198,7 +1209,7 @@ export function Composer({
             )}
             title={recording ? t("composer.dictation.stopHint") : t("composer.dictation.hint")}
           >
-            <Mic size={18} />
+            <HIcon icon={Mic01Icon} size={18} />
           </button>
         )}
         {/* Calling the bot lives here, beside dictation, rather than in the
@@ -1230,7 +1241,7 @@ export function Composer({
                   : "bg-accent hover:brightness-110",
             )}
           >
-            {busy && !canSteer ? <Clock size={15} /> : <ArrowUp size={17} />}
+            {busy && !canSteer ? <HIcon icon={Clock01Icon} size={15} /> : <HIcon icon={ArrowUp01Icon} size={17} />}
           </button>
           )}
           </div>

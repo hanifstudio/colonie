@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { Minus, Square, Copy, X } from "lucide-react";
+import { Copy01Icon, MinusSignIcon, MultiplicationSignIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 
@@ -56,7 +57,7 @@ export function WindowCaptionButtons({ visible }: { visible: boolean }) {
         className={captionButton}
         onClick={() => void controls?.minimize()}
       >
-        <Minus size={14} />
+        <HIcon icon={MinusSignIcon} size={14} />
       </button>
       <button
         type="button"
@@ -65,7 +66,7 @@ export function WindowCaptionButtons({ visible }: { visible: boolean }) {
         className={captionButton}
         onClick={() => void controls?.toggleMaximize()}
       >
-        {maximized ? <Copy size={11} /> : <Square size={11} />}
+        {maximized ? <HIcon icon={Copy01Icon} size={11} /> : <HIcon icon={SquareIcon} size={11} />}
       </button>
       <button
         type="button"
@@ -74,7 +75,7 @@ export function WindowCaptionButtons({ visible }: { visible: boolean }) {
         className={cn(captionButton, "hover:bg-danger/25 hover:text-danger")}
         onClick={() => void controls?.close()}
       >
-        <X size={15} />
+        <HIcon icon={MultiplicationSignIcon} size={15} />
       </button>
     </div>
   );

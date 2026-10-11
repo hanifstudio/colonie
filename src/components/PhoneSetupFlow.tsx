@@ -1,3 +1,6 @@
+import { ArrowLeft01Icon, Loading02Icon, Mail01Icon, QrCodeIcon, ShieldCheckIcon, SmartphoneIcon, Tick01Icon, Wifi01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
+import type { IconSvgElement } from "@hugeicons/react";
 import {
   useCallback,
   useEffect,
@@ -9,16 +12,6 @@ import {
 } from "react";
 import { t } from "@/lib/i18n";
 import { PhonePreview } from "@/components/onboarding/PhonePreview";
-import {
-  ArrowLeft,
-  Check,
-  Loader2,
-  Mail,
-  QrCode,
-  ShieldCheck,
-  Smartphone,
-  Wifi,
-} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { phonePairingLink } from "../../shared/pairing-link";
 import {
@@ -908,16 +901,16 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
 }
 
 function ValuePoints() {
-  const points: Array<{ Icon: typeof Smartphone; title: string; detail: string }> = [
-    { Icon: Smartphone, title: t("phone.value.chats"), detail: t("phone.value.chatsDetail") },
-    { Icon: Check, title: t("phone.value.approvals"), detail: t("phone.value.approvalsDetail") },
-    { Icon: ShieldCheck, title: t("phone.value.private"), detail: t("phone.value.privateDetail") },
+  const points: Array<{ Icon: IconSvgElement; title: string; detail: string }> = [
+    { Icon: SmartphoneIcon, title: t("phone.value.chats"), detail: t("phone.value.chatsDetail") },
+    { Icon: Tick01Icon, title: t("phone.value.approvals"), detail: t("phone.value.approvalsDetail") },
+    { Icon: ShieldCheckIcon, title: t("phone.value.private"), detail: t("phone.value.privateDetail") },
   ];
   return (
     <div className="mt-5 grid w-full gap-2 sm:grid-cols-3">
       {points.map(({ Icon, title, detail }) => (
         <div key={title} className="rounded-xl bg-inset px-3 py-3 text-left">
-          <Icon size={16} className="text-accent" />
+          <HIcon icon={Icon} size={16} className="text-accent" />
           <div className="mt-2 text-[13px] font-medium text-ink">{title}</div>
           <div className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">{detail}</div>
         </div>
@@ -947,10 +940,10 @@ export function PhoneSetupFlowView({
   const manualCodeMode = phonePairingManualCodeMode(Boolean(c.state?.pairing), c.pairingLink);
 
   if (c.phase === "intro" && compactHeader) {
-    const points: Array<{ Icon: typeof Smartphone; title: string; detail: string }> = [
-      { Icon: Smartphone, title: t("phone.value.chats"), detail: t("phone.value.chatsDetail") },
-      { Icon: Check, title: t("phone.value.approvals"), detail: t("phone.value.approvalsDetail") },
-      { Icon: ShieldCheck, title: t("phone.value.private"), detail: t("phone.value.privateDetail") },
+    const points: Array<{ Icon: IconSvgElement; title: string; detail: string }> = [
+      { Icon: SmartphoneIcon, title: t("phone.value.chats"), detail: t("phone.value.chatsDetail") },
+      { Icon: Tick01Icon, title: t("phone.value.approvals"), detail: t("phone.value.approvalsDetail") },
+      { Icon: ShieldCheckIcon, title: t("phone.value.private"), detail: t("phone.value.privateDetail") },
     ];
     return (
       <div className="flex flex-col">
@@ -961,7 +954,7 @@ export function PhoneSetupFlowView({
             {points.map(({ Icon, title, detail }) => (
               <li key={title} className="flex items-start gap-3">
                 <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
-                  <Icon size={14} />
+                  <HIcon icon={Icon} size={14} />
                 </span>
                 <span>
                   <span className="block text-[13.5px] font-medium text-ink">{title}</span>
@@ -999,7 +992,7 @@ export function PhoneSetupFlowView({
         {!compactHeader && (
           <>
             <div className="flex size-14 items-center justify-center rounded-2xl bg-accent/12 text-accent">
-              <Smartphone size={26} />
+              <HIcon icon={SmartphoneIcon} size={26} />
             </div>
             <h2 className="mt-4 text-[19px] font-semibold text-ink">{t("phone.intro.title", { app: brand().name })}</h2>
           </>
@@ -1049,10 +1042,10 @@ export function PhoneSetupFlowView({
     return (
       <div className="mx-auto flex w-full max-w-[430px] flex-col">
         <button onClick={c.cancel} className="mb-4 flex w-fit items-center gap-1.5 text-[12px] text-ink-secondary hover:text-ink">
-          <ArrowLeft size={13} /> {t("phone.back")}
+          <HIcon icon={ArrowLeft01Icon} size={13} /> {t("phone.back")}
         </button>
         <div className="flex size-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
-          <Mail size={20} />
+          <HIcon icon={Mail01Icon} size={20} />
         </div>
         <h2 className="mt-3 text-[18px] font-semibold text-ink">
           {unavailable || failed ? t("phone.signIn.attention") : t("phone.signIn.title")}
@@ -1148,7 +1141,7 @@ export function PhoneSetupFlowView({
               onClick={c.useTailscale}
               className="flex items-center justify-center gap-2 rounded-lg border border-hairline/50 py-2.5 text-[13px] text-ink hover:bg-control disabled:opacity-40"
             >
-              <ShieldCheck size={15} /> {t("remote.pairOverTailscale")}
+              <HIcon icon={ShieldCheckIcon} size={15} /> {t("remote.pairOverTailscale")}
             </button>
             <p className="mt-2 text-center text-[11px] leading-relaxed text-ink-secondary">
               {t("phone.signIn.tailnetNote")}
@@ -1160,7 +1153,7 @@ export function PhoneSetupFlowView({
           onClick={c.useLocal}
           className={`${variant === "onboarding" && c.tailscaleAvailable ? "mt-3" : ""} flex items-center justify-center gap-2 rounded-lg border border-hairline/50 py-2.5 text-[13px] text-ink hover:bg-control disabled:opacity-40`}
         >
-          <Wifi size={15} /> {t("phone.signIn.wifiInstead")}
+          <HIcon icon={Wifi01Icon} size={15} /> {t("phone.signIn.wifiInstead")}
         </button>
         <p className="mt-2 text-center text-[11px] leading-relaxed text-ink-secondary">
           {t("phone.signIn.wifiNote")}
@@ -1173,7 +1166,7 @@ export function PhoneSetupFlowView({
     return (
       <div className="flex flex-col items-center py-8 text-center">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-accent/12 text-accent">
-          <Loader2 size={25} className="animate-spin" />
+          <HIcon icon={Loading02Icon} size={25} className="animate-spin" />
         </div>
         <h2 className="mt-4 text-[18px] font-semibold text-ink">
           {c.localFallback
@@ -1201,7 +1194,7 @@ export function PhoneSetupFlowView({
     return (
       <div className="flex flex-col items-center py-6 text-center">
         <div className="flex size-14 items-center justify-center rounded-full bg-success/15 text-success">
-          <Check size={28} />
+          <HIcon icon={Tick01Icon} size={28} />
         </div>
         <h2 className="mt-4 text-[19px] font-semibold text-ink">{t("phone.success.title")}</h2>
         <p className="mt-1.5 text-[13px] text-ink-secondary">
@@ -1223,7 +1216,7 @@ export function PhoneSetupFlowView({
   return (
     <div className="flex flex-col items-center text-center">
       <div className="flex size-12 items-center justify-center rounded-xl bg-white text-black">
-        <QrCode size={23} />
+        <HIcon icon={QrCodeIcon} size={23} />
       </div>
       <h2 className="mt-3 text-[18px] font-semibold text-ink">
         {c.pairingExpired ? t("phone.code.expired") : t("phone.code.title")}

@@ -3,7 +3,7 @@
 // bot-settings/; this dialog owns only the fetches (overview, system-prompt,
 // history) and which accordion row is expanded.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, Search, X } from "lucide-react";
+import { ChevronDownIcon, ChevronLeftIcon, MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
 
 import { api, useStore, type Bot } from "@/state/store";
 import type { BotOverview } from "@/lib/bot-overview-types";
@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useCaptionChrome } from "./DesktopCapabilities";
 import { BOT_SECTIONS } from "./bot-settings/sections";
+import { HIcon } from "./HIcon";
 import { useBotSettingsDerived } from "./bot-settings/useBotSettingsDerived";
 import { OverviewSection } from "./bot-settings/OverviewSection";
 import { IdentitySection } from "./bot-settings/IdentitySection";
@@ -398,7 +399,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
             onClick={() => setShowAll(false)}
             className={cn("flex shrink-0 items-center gap-1 self-start px-3 pt-3 text-[13px] text-ink-secondary hover:text-ink", padClass)}
           >
-            <ChevronLeft size={15} className="pointer-events-none" />
+            <HIcon icon={ChevronLeftIcon} size={15} className="pointer-events-none" />
             {t("botSettings.simple.back")}
           </button>
         )}
@@ -412,12 +413,12 @@ export function BotSettingsDialog({ bot, overlay = false }: {
             aria-label="Close settings"
             className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
           >
-            <X size={18} className="pointer-events-none" />
+            <HIcon icon={MultiplicationSignIcon} size={18} className="pointer-events-none" />
           </button>
         </div>
 
         <div className="mx-4 mb-2 flex shrink-0 items-center gap-2 rounded-lg border border-transparent bg-control/70 px-2.5 py-2 focus-within:border-focus">
-          <Search size={14} className="shrink-0 text-ink-secondary" />
+          <HIcon icon={Search01Icon} size={14} className="shrink-0 text-ink-secondary" />
           <input
             value={query}
             onChange={(e) => {
@@ -446,7 +447,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
               even when search filters its row out of view. Other unmatched
               rows are omitted entirely. */}
           {sections.map((entry) => {
-            const { id, icon: Icon } = entry;
+            const { id, icon } = entry;
             const label = sectionLabel(entry);
             const matched = sectionMatches(entry, q);
             if (!matched && id !== "memory") return null;
@@ -473,9 +474,10 @@ export function BotSettingsDialog({ bot, overlay = false }: {
                     open ? "bg-control/60 text-ink" : "text-ink-secondary hover:bg-control/40 hover:text-ink",
                   )}
                 >
-                  <Icon size={15} className="shrink-0" />
+                  <HIcon icon={icon} size={15} className="shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{label}</span>
-                  <ChevronDown
+                  <HIcon
+                    icon={ChevronDownIcon}
                     size={16}
                     className={cn(
                       "shrink-0 text-ink-secondary transition-transform",

@@ -2,7 +2,8 @@
 // screen, with an approval card you can answer from the sofa. Used by the
 // welcome tour's phone beat in place of three identical value cards. Purely
 // illustrative: nothing here is interactive.
-import { Check, X } from "lucide-react";
+import { MultiplicationSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { MausAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import { brand } from "@/lib/brand";
@@ -40,10 +41,10 @@ export function PhonePreview({ className }: { className?: string }) {
               <div className="mt-0.5 text-[7.5px] text-ink-secondary">clinic.example · 3:00 pm</div>
               <div className="mt-1.5 flex gap-1">
                 <span className="flex flex-1 items-center justify-center gap-0.5 rounded-md bg-accent py-1 text-[8px] font-semibold text-white">
-                  <Check size={8} strokeWidth={3} /> Allow
+                  <HIcon icon={Tick01Icon} size={8} strokeWidth={3} /> Allow
                 </span>
                 <span className="flex flex-1 items-center justify-center gap-0.5 rounded-md bg-raised py-1 text-[8px] font-medium text-ink">
-                  <X size={8} strokeWidth={3} /> Deny
+                  <HIcon icon={MultiplicationSignIcon} size={8} strokeWidth={3} /> Deny
                 </span>
               </div>
             </div>

@@ -15,24 +15,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { waitForLocalVmReady } from "@/lib/local-vm-readiness";
 import {
-  CalendarClock,
-  Columns2,
-  Box,
-  Check,
-  Cloud,
-  FolderOpen,
-  Sparkles,
-  Globe,
-  Hand,
-  Loader2,
-  Maximize2,
-  Monitor,
-  Moon,
-  Power,
-  Settings,
-  Smartphone,
-  X,
-} from "lucide-react";
+  BoxIcon,
+  CalendarClockIcon,
+  CloudIcon,
+  FolderOpenIcon,
+  GlobeIcon,
+  HandIcon,
+  Loading02Icon,
+  Maximize02Icon,
+  MonitorIcon,
+  Moon01Icon,
+  PowerIcon,
+  Settings01Icon,
+  SmartphoneIcon,
+  SparklesIcon,
+  Tick01Icon,
+  Layout01Icon,
+  MultiplicationSignIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, ApiError, currentTaskBot, useStore, type Bot, type ConfigStatus } from "@/state/store";
 import { setAdvancedMode, useAdvancedMode } from "@/lib/interface-mode";
 import { ComputerFilesPane } from "./ComputerFilesPane";
@@ -1240,7 +1241,7 @@ export function ComputerPanel({
   };
   const browserSwitchRow = (
     <div data-testid="browser-switch-row" className="mb-3 flex items-center gap-3 rounded-xl bg-card px-3 py-2.5">
-      <Globe size={15} className="shrink-0 text-ink-secondary" aria-hidden="true" />
+      <HIcon icon={GlobeIcon} size={15} className="shrink-0 text-ink-secondary" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-ink">{t("computer.browserSwitch.title", { name: bot.name })}</div>
         {!browserCanTurnOn && <div className="text-[11.5px] text-ink-secondary">{browserUnavailableReason(state.config)}</div>}
@@ -1286,12 +1287,12 @@ export function ComputerPanel({
   const cloudView = viewOf("cloud", cloudRefused);
   const autoView = viewOf("auto");
   const placeOptions = ([
-    [null, "vm.dest.auto", "computer.dest.autoDesc", Sparkles],
-    ["cloud", "place.cloud", "computer.dest.cloudDesc", Cloud],
-    ["vm", "vm.dest.vm", "computer.dest.vmDesc", Box],
-    ["local", "vm.dest.local", "computer.dest.localDesc", Monitor],
-    ["browser", "vm.dest.browser", "computer.dest.browserDesc", Globe],
-    ["off", "vm.dest.off", "computer.dest.offDesc", Power],
+    [null, "vm.dest.auto", "computer.dest.autoDesc", SparklesIcon],
+    ["cloud", "place.cloud", "computer.dest.cloudDesc", CloudIcon],
+    ["vm", "vm.dest.vm", "computer.dest.vmDesc", BoxIcon],
+    ["local", "vm.dest.local", "computer.dest.localDesc", MonitorIcon],
+    ["browser", "vm.dest.browser", "computer.dest.browserDesc", GlobeIcon],
+    ["off", "vm.dest.off", "computer.dest.offDesc", PowerIcon],
   ] as const).filter(([mode]) => mode === null || mode === "off" || placeOffered(mode, state.config)).map(([mode, labelKey, descriptionKey, Icon]) => {
     const selected = mode === null ? !profileBot.computer : profileBot.computer === mode;
     // A place the enrolled organisation disallows is not offered.
@@ -1419,7 +1420,7 @@ export function ComputerPanel({
               className="absolute left-0 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
               title={t("computer.botSettings")}
             >
-              <Settings size={18} />
+              <HIcon icon={Settings01Icon} size={18} />
             </button>
           )}
           <div className="mx-9 flex min-w-0 flex-wrap justify-center gap-0.5 rounded-full bg-inset p-0.5" data-tour="computer-tabs" data-testid="computer-tabs" aria-label="Bot panel view">
@@ -1428,7 +1429,7 @@ export function ComputerPanel({
               aria-pressed={panelView === "computer"}
               className={tabClass(panelView === "computer")}
             >
-              <Monitor size={13} /> {t("computer.tab.computer")}
+              <HIcon icon={MonitorIcon} size={13} /> {t("computer.tab.computer")}
               {placeLive && isComputerPlace(livePlace) && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="computer-tab-live" />}
             </button>
             {advanced && (
@@ -1437,7 +1438,7 @@ export function ComputerPanel({
               onClick={() => selectPanelView("routines")}
               aria-pressed={panelView === "routines"}
               className={tabClass(panelView === "routines")}
-            ><CalendarClock size={13} />{t("computer.tab.routines")}</button>
+            ><HIcon icon={CalendarClockIcon} size={13} />{t("computer.tab.routines")}</button>
             )}
             {advanced && androidConnected && (
             <button
@@ -1445,7 +1446,7 @@ export function ComputerPanel({
               aria-pressed={panelView === "android"}
               className={tabClass(panelView === "android")}
             >
-              <Smartphone size={13} /> {t("computer.tab.android")}
+              <HIcon icon={SmartphoneIcon} size={13} /> {t("computer.tab.android")}
             </button>
             )}
             {(
@@ -1458,7 +1459,7 @@ export function ComputerPanel({
               aria-pressed={panelView === "browser"}
               className={tabClass(panelView === "browser")}
             >
-              <Globe size={13} /> {t("computer.tab.browser")}
+              <HIcon icon={GlobeIcon} size={13} /> {t("computer.tab.browser")}
               {placeLive && livePlace === "browser" && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="browser-tab-live" />}
             </button>
             )}
@@ -1469,7 +1470,7 @@ export function ComputerPanel({
               aria-pressed={panelView === "files"}
               className={tabClass(panelView === "files")}
             >
-              <FolderOpen size={13} /> {t("computer.tab.files")}
+              <HIcon icon={FolderOpenIcon} size={13} /> {t("computer.tab.files")}
             </button>
             )}
           </div>
@@ -1479,7 +1480,7 @@ export function ComputerPanel({
             aria-label={t("computer.close")}
             title={t("computer.close")}
           >
-            <X size={18} />
+            <HIcon icon={MultiplicationSignIcon} size={18} />
           </button>
         </div>
       </div>
@@ -1502,7 +1503,7 @@ export function ComputerPanel({
         <div className="flex-1 overflow-y-auto px-5 pb-5" data-testid="browser-off">
           {browserSwitchRow}
           <div className="mt-2 flex flex-col items-center gap-3 rounded-xl bg-card px-6 py-8 text-center">
-            <Globe size={22} className="text-ink-secondary" aria-hidden="true" />
+            <HIcon icon={GlobeIcon} size={22} className="text-ink-secondary" aria-hidden="true" />
             <div className="text-[14px] font-medium text-ink">{t("computer.browserOff.title")}</div>
             <p className="text-[12px] leading-5 text-ink-secondary">
               {browserCanTurnOn ? t("computer.browserOff.body", { name: bot.name }) : browserUnavailableReason(state.config)}
@@ -1569,7 +1570,7 @@ export function ComputerPanel({
                 className="h-full w-full object-contain transition group-hover:brightness-75 group-focus-visible:brightness-75"
               />
               <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-medium text-white opacity-80 shadow-sm transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                {pending === "join" ? <Loader2 size={12} className="animate-spin" /> : <Maximize2 size={12} />}
+                {pending === "join" ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={Maximize02Icon} size={12} />}
                 {t("computer.open")}
               </span>
             </button>
@@ -1583,11 +1584,11 @@ export function ComputerPanel({
           ) : (
             <div className="flex flex-col items-center gap-2 px-6 text-center text-ink-secondary">
               {phase === "checking" || phase === "starting" || (phase === "busy-boat" && busyBoat.spinner) || phase === "vm" || (phase === "local" && !isLinux) ? (
-                <Loader2 size={18} className="animate-spin" />
+                <HIcon icon={Loading02Icon} size={18} className="animate-spin" />
               ) : phase === "off" ? (
-                <Power size={22} />
+                <HIcon icon={PowerIcon} size={22} />
               ) : (
-                <Monitor size={22} />
+                <HIcon icon={MonitorIcon} size={22} />
               )}
               <span className="text-[12px]">
                 {currentTeamComputer
@@ -1651,7 +1652,7 @@ export function ComputerPanel({
                     aria-busy={pending === "vm-start"}
                     className="mt-1 flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                   >
-                    {pending === "vm-start" && <Loader2 size={13} className="animate-spin" />}
+                    {pending === "vm-start" && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
                     {t(pending === "vm-start" ? "vm.setup.starting" : "vm.setup.start")}
                   </button>
                 ) : canManageVm && vmStatus?.mode === "per-bot" && vmStatus.image && vmStatus.create_supported ? (
@@ -1661,7 +1662,7 @@ export function ComputerPanel({
                     className="mt-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                   >
                     {(pending === "vm-create" || pending === "vm-recreate") && (
-                      <Loader2 size={13} className="mr-1.5 inline animate-spin" />
+                      <HIcon icon={Loading02Icon} size={13} className="mr-1.5 inline animate-spin" />
                     )}
                     {vmStatus.container === "missing"
                       ? t("computer.createVm", { name: bot.name })
@@ -1703,7 +1704,7 @@ export function ComputerPanel({
                   disabled={pending === "provision"}
                   className="mt-1 rounded-lg bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-50"
                 >
-                  {pending === "provision" && <Loader2 size={13} className="mr-1.5 inline animate-spin" />}
+                  {pending === "provision" && <HIcon icon={Loading02Icon} size={13} className="mr-1.5 inline animate-spin" />}
                   {phase === "vps-stopped" ? t("computer.startVps") : t("computer.prepareVps")}
                 </button>
               )}
@@ -1714,7 +1715,7 @@ export function ComputerPanel({
                   disabled={pending === "vps-replace"}
                   className="mt-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  {pending === "vps-replace" && <Loader2 size={13} className="mr-1.5 inline animate-spin" />}
+                  {pending === "vps-replace" && <HIcon icon={Loading02Icon} size={13} className="mr-1.5 inline animate-spin" />}
                   {t("computer.replaceVps")}
                 </button>
               )}
@@ -1762,7 +1763,7 @@ export function ComputerPanel({
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-accent/30 bg-accent/10 py-2 text-[13px] font-medium text-ink hover:bg-accent/15 disabled:opacity-50"
               title={t("computer.twoDesktopsTitle")}
             >
-              <Columns2 size={14} />
+              <HIcon icon={Layout01Icon} size={14} />
               {t("computer.twoDesktops")}
             </button>
           )}
@@ -1781,7 +1782,7 @@ export function ComputerPanel({
                 disabled={controlPending || pending === "join"}
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
               >
-                {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Hand size={14} />}
+                {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={HandIcon} size={14} />}
                 {t("computer.takeControl")}
               </button>
               <button
@@ -1810,7 +1811,7 @@ export function ComputerPanel({
               disabled={controlPending}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
             >
-              <Hand size={14} />
+              <HIcon icon={HandIcon} size={14} />
               {t("computer.handBack")}
             </button>
           </div>
@@ -1822,7 +1823,7 @@ export function ComputerPanel({
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
             title={t("computer.openVmDesktopTitle")}
           >
-            {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Monitor size={14} />}
+            {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={MonitorIcon} size={14} />}
             {t("computer.openLiveDesktop")}
           </button>
         )}
@@ -1833,7 +1834,7 @@ export function ComputerPanel({
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
             title={t("computer.takeControlVmTitle")}
           >
-            {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Hand size={14} />}
+            {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={HandIcon} size={14} />}
             {t("computer.takeControl")}
           </button>
         )}
@@ -1844,7 +1845,7 @@ export function ComputerPanel({
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-danger/30 py-2 text-[13px] text-danger hover:bg-danger/10 disabled:opacity-50"
             title={profileBot.busy ? t("computer.deleteVmBlocked") : t("computer.deleteVmTitle", { name: bot.name })}
           >
-            {pending === "vm-delete" ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
+            {pending === "vm-delete" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={PowerIcon} size={14} />}
             {t("computer.deleteVm")}
           </button>
         )}
@@ -1859,7 +1860,7 @@ export function ComputerPanel({
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
                 title={phase === "vm" ? t("computer.takeControlVmTitle") : t("computer.takeControlTitle")}
               >
-                {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Hand size={14} />}
+                {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={HandIcon} size={14} />}
                 {t("computer.takeControl")}
               </button>
             )}
@@ -1870,7 +1871,7 @@ export function ComputerPanel({
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
               title={t("computer.openLiveDesktop")}
             >
-              <Maximize2 size={14} />
+              <HIcon icon={Maximize02Icon} size={14} />
               {t("computer.fullScreen")}
             </button>
             {cloudPreviewReady && canManageCloud && (cloudBackend === "vps" || boatState !== "archived") && (
@@ -1882,7 +1883,7 @@ export function ComputerPanel({
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
                 title={t("computer.sleepTitle")}
               >
-                {pending === "sleep" ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
+                {pending === "sleep" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Moon01Icon} size={14} />}
                 {t("vm.cloud.sleep")}
               </button>
             )}
@@ -1900,7 +1901,7 @@ export function ComputerPanel({
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
                 title={t("computer.takeControlTitle")}
               >
-                {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Hand size={14} />}
+                {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={HandIcon} size={14} />}
                 {t("computer.takeControl")}
               </button>
             )}
@@ -1910,7 +1911,7 @@ export function ComputerPanel({
                 disabled={pending === "join"}
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
               >
-                {pending === "join" ? <Loader2 size={14} className="animate-spin" /> : <Monitor size={14} />}
+                {pending === "join" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={MonitorIcon} size={14} />}
                 {t("computer.openLiveDesktop")}
               </button>
             )}
@@ -1922,7 +1923,7 @@ export function ComputerPanel({
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
                 title={t("computer.sleepTitle")}
               >
-                {pending === "sleep" ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
+                {pending === "sleep" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Moon01Icon} size={14} />}
                 {t("vm.cloud.sleep")}
               </button>
             )}
@@ -1962,7 +1963,7 @@ export function ComputerPanel({
                 )}
               >
                 <span className="flex items-center gap-2 text-[12px] font-medium leading-4">
-                  {selected ? <Check size={14} className="shrink-0 text-accent" /> : <Icon size={14} className="shrink-0 text-ink-secondary" />}
+                  {selected ? <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-accent" /> : <HIcon icon={Icon} size={14} className="shrink-0 text-ink-secondary" />}
                   <span>{t(labelKey)}</span>
                 </span>
                 <span className="mt-1.5 block text-[11px] leading-4 text-ink-secondary">
@@ -1991,7 +1992,7 @@ export function ComputerPanel({
 
         {/* A compact entry beneath the computer; the tab owns the full list. */}
         <button type="button" onClick={() => selectPanelView("routines")} className="mt-4 flex w-full items-start gap-3 rounded-xl bg-card p-4 text-left hover:bg-raised">
-          <CalendarClock size={17} className="mt-0.5 shrink-0 text-accent" />
+          <HIcon icon={CalendarClockIcon} size={17} className="mt-0.5 shrink-0 text-accent" />
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-medium text-ink">{t("computer.tab.routines")} <span className="ml-1 text-[11px] text-ink-secondary">{botRoutines.length}</span></span>
             <span className={cn("mt-1 block truncate text-[11.5px]", activeRoutineRun ? routineRunTone(activeRoutineRun) : "text-ink-secondary")}>{activeRoutineRun ? `${activeRoutineRun.routineName} · ${routineRunLabel(activeRoutineRun)}` : t("computer.routines.openTitle")}</span>
@@ -2018,7 +2019,7 @@ export function ComputerPanel({
                     disabled ? "cursor-not-allowed opacity-50" : "hover:border-accent/40 hover:bg-control/60",
                   )}
                 >
-                  <Icon size={16} className={cn("shrink-0", selected ? "text-accent" : "text-ink-secondary")} aria-hidden="true" />
+                  <HIcon icon={Icon} size={16} className={cn("shrink-0", selected ? "text-accent" : "text-ink-secondary")} aria-hidden="true" />
                   <span className="w-full truncate text-[12px] font-medium leading-4">{simpleLabel}</span>
                   {issue && <span className="w-full truncate text-[10.5px] leading-3 text-ink-secondary">{view.short}</span>}
                 </button>

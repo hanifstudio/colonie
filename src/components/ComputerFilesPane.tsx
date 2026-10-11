@@ -2,7 +2,8 @@
 // keeps its working files, and the files this conversation's turns created
 // or changed. The list is read from the turn digests the chat already
 // holds, so the tab costs no request of its own.
-import { FileText, FolderOpen } from "lucide-react";
+import { FileTextIcon, FolderOpenIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, visibleMessages, type Bot } from "@/state/store";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { shortPath } from "@/lib/short-path";
@@ -44,7 +45,7 @@ export function ComputerFilesPane({ bot }: { bot: Bot }) {
       <div className="mt-2 rounded-xl bg-card p-4">
         <div className="text-[13px] font-medium text-ink">{t("computer.files.folder")}</div>
         <div className="mt-2 flex items-center gap-2">
-          <FolderOpen size={15} className="shrink-0 text-ink-secondary" aria-hidden="true" />
+          <HIcon icon={FolderOpenIcon} size={15} className="shrink-0 text-ink-secondary" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink" title={bot.cwd ?? undefined}>
             {bot.cwd ? shortPath(bot.cwd, home) : t("computer.files.privateFolder", { name: bot.name })}
           </span>
@@ -72,7 +73,7 @@ export function ComputerFilesPane({ bot }: { bot: Bot }) {
               const { name, folder } = splitPath(path);
               return (
                 <li key={path} className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1" title={path}>
-                  <FileText size={14} className="shrink-0 text-ink-secondary" aria-hidden="true" />
+                  <HIcon icon={FileTextIcon} size={14} className="shrink-0 text-ink-secondary" aria-hidden="true" />
                   <span className="min-w-0 truncate text-[12.5px] text-ink">{name}</span>
                   {folder && <span className="min-w-0 flex-1 truncate text-right text-[11px] text-ink-tertiary">{shortPath(folder, home)}</span>}
                 </li>

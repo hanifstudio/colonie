@@ -1,4 +1,5 @@
-import { Loader2, Square, Volume2 } from "lucide-react";
+import { Loading02Icon, SquareIcon, VolumeHighIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { speaker } from "@/lib/tts";
 import { useSpeech } from "@/lib/tts/useSpeech";
@@ -63,7 +64,7 @@ export function SpeakButton({
         className,
       )}
     >
-      {preparing ? <Loader2 size={14} className="animate-spin" /> : mine ? <Square size={14} className="fill-current" /> : <Volume2 size={14} />}
+      {preparing ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : mine ? <HIcon icon={SquareIcon} size={14} className="fill-current" /> : <HIcon icon={VolumeHighIcon} size={14} />}
     </button>
   );
 }

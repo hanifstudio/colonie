@@ -359,7 +359,7 @@ describe("thread control placement", () => {
     // #1871: the badge shrank with the name and wrapped "Chief / of / Staff",
     // taller than the header row.
     const markup = renderToStaticMarkup(createElement(ChatView, { bot: { ...bot, busy: false, chiefOfStaff: true } }));
-    const badge = /<span title="Chief of Staff" class="([^"]*)"><svg[^>]*lucide-crown[^]*?<\/svg> <span class="([^"]*)">Chief of Staff<\/span>/.exec(markup)!;
+    const badge = /<span title="Chief of Staff" class="([^"]*)"><svg[^>]*>[^]*?M5 21H19[^]*?<\/svg> <span class="([^"]*)">Chief of Staff<\/span>/.exec(markup)!;
     expect(badge[1].split(" ")).toEqual(expect.arrayContaining(["shrink-0", "whitespace-nowrap"]));
     // In a narrow column it folds to the crown, so the name keeps the room;
     // the label stays for screen readers and as the tooltip.

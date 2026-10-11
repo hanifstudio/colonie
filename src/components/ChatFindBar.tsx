@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { landOnSearchHit } from "@/lib/focus-message";
 import { t } from "@/lib/i18n";
@@ -72,7 +73,7 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
   return (
     <div className="w-full px-5 pb-2">
       <div className="flex items-center gap-1.5 rounded-xl border border-hairline/50 bg-panel px-2 py-1.5 shadow-sm focus-within:border-focus">
-        <Search size={15} className="shrink-0 text-ink-secondary" />
+        <HIcon icon={Search01Icon} size={15} className="shrink-0 text-ink-secondary" />
         <input
           ref={inputRef}
           dir="auto"
@@ -107,7 +108,7 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
           aria-label={t("chat.find.previous")}
           className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-30"
         >
-          <ChevronUp size={15} />
+          <HIcon icon={ChevronUpIcon} size={15} />
         </button>
         <button
           type="button"
@@ -116,7 +117,7 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
           aria-label={t("chat.find.next")}
           className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-30"
         >
-          <ChevronDown size={15} />
+          <HIcon icon={ChevronDownIcon} size={15} />
         </button>
         <button
           type="button"
@@ -124,7 +125,7 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
           aria-label={t("chat.find.close")}
           className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <X size={15} />
+          <HIcon icon={MultiplicationSignIcon} size={15} />
         </button>
       </div>
     </div>

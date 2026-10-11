@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { Box, ExternalLink, Loader2, Monitor, Plus, RefreshCw, X } from "lucide-react";
+import { BoxIcon, Loading02Icon, MonitorIcon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, SquareArrowUpRightIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore } from "@/state/store";
 import type { TeamComputer } from "../../shared/team-computer";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -180,9 +181,9 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
   return <>
     {open && <aside ref={shelf} aria-label="Team computers" onKeyDown={(event) => { if (event.key === "Escape" && !assignment) { event.stopPropagation(); if (pointer.current) clearDrag(); else onClose(); } }} className="flex w-[300px] max-w-[90vw] shrink-0 flex-col border-l border-hairline/50 bg-panel max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:z-30 max-sm:shadow-xl">
       <header className="flex items-center gap-2 border-b border-hairline/40 px-4 py-3">
-        <Monitor size={16} className="text-ink-secondary" /><h2 className="flex-1 text-[13px] font-semibold">Computers</h2>
-        <button aria-label="Refresh computers" className={control} disabled={loading || busy !== null} onClick={() => { setError(""); void refresh(); }}><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></button>
-        <button ref={closeButton} aria-label="Close computers" className={control} onClick={onClose}><X size={15} /></button>
+        <HIcon icon={MonitorIcon} size={16} className="text-ink-secondary" /><h2 className="flex-1 text-[13px] font-semibold">Computers</h2>
+        <button aria-label="Refresh computers" className={control} disabled={loading || busy !== null} onClick={() => { setError(""); void refresh(); }}><HIcon icon={RefreshCwIcon} size={14} className={loading ? "animate-spin" : ""} /></button>
+        <button ref={closeButton} aria-label="Close computers" className={control} onClick={onClose}><HIcon icon={MultiplicationSignIcon} size={15} /></button>
       </header>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <p className="text-[12px] leading-relaxed text-ink-secondary">Drag a computer onto a team, or choose its team below. Bots on Auto will use it.</p>
@@ -208,10 +209,10 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
           <div className="flex justify-end gap-1">
             <button type="button" className={control} disabled={busy !== null} onClick={() => setCreating(false)}>Cancel</button>
             <button type="submit" className="flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white disabled:opacity-40" disabled={!inventory?.configured || !name.trim() || busy !== null}>
-              {busy === "create" && <Loader2 size={13} className="animate-spin" />}Create cloud computer
+              {busy === "create" && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}Create cloud computer
             </button>
           </div>
-        </form> : <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-hairline/60 px-3 py-3 text-[12px] text-ink-secondary hover:bg-control hover:text-ink" disabled={busy !== null} onClick={() => setCreating(true)}><Plus size={14} /> New cloud computer</button>}
+        </form> : <button className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-hairline/60 px-3 py-3 text-[12px] text-ink-secondary hover:bg-control hover:text-ink" disabled={busy !== null} onClick={() => setCreating(true)}><HIcon icon={PlusSignIcon} size={14} /> New cloud computer</button>}
         {inventory?.computers.map((computer) => {
           const ready = ["idle", "ready", "running"].includes(computer.state);
           const starting = ["init", "provisioning", "provisioned", "cloning", "starting"].includes(computer.state);
@@ -229,7 +230,7 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
             }} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={clearDrag}
             onLostPointerCapture={() => { if (pointer.current) clearDrag(); }}
             className="flex touch-none select-none cursor-grab items-center gap-2.5 rounded-lg py-1 outline-none active:cursor-grabbing">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-control text-ink-secondary"><Box size={18} /></span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-control text-ink-secondary"><HIcon icon={BoxIcon} size={18} /></span>
             <span className="min-w-0"><span className="block truncate text-[13px] font-medium">{computer.name}</span><span className="block text-[11px] text-ink-secondary">Cloud computer · {busy === computer.id ? "Updating…" : computer.state}</span></span>
           </div>
           {computer.problem && <p className="mt-2 text-[11px] text-danger">{computer.problem}</p>}
@@ -251,7 +252,7 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
               // Only expose a deliberate link. A blocked popup must not trigger
               // another lifecycle request, and provider URLs are never iframes.
               if (typeof value.joinUrl === "string" && value.joinUrl.startsWith("https://")) setViewer({ id: computer.id, url: value.joinUrl });
-            })}>Open desktop <ExternalLink size={11} /></button>}
+            })}>Open desktop <HIcon icon={SquareArrowUpRightIcon} size={11} /></button>}
             {heldHereNow && <button className={`${control} text-accent`} disabled={busy !== null} onClick={() => void mutate(computer.id, () => post(computer.id, "control", { action: "release", controlLeaseId: controlLeaseId.current }), () => { setHeldHere(null); setViewer(null); })}>Return to bots</button>}
             {computer.held && !heldHereNow && <button className={control} disabled title="Another viewer has paused bot control on this desktop">In use</button>}
           </div>
@@ -261,7 +262,7 @@ export function CanvasComputers({ open, createRequest, drop, sections, onClose, 
       <footer className="border-t border-hairline/40 p-3"><button className={`${control} w-full text-left`} onClick={settings}>Local VM and other computers…</button></footer>
     </aside>}
     {dragging && createPortal(<div role="status" className="pointer-events-none fixed z-[70] rounded-xl border border-accent/40 bg-card px-4 py-3 text-[12px] text-ink shadow-xl" style={{ left: dragging.x + 14, top: dragging.y + 14 }}>
-      <span className="flex items-center gap-2"><Box size={15} />{dragging.name}</span>
+      <span className="flex items-center gap-2"><HIcon icon={BoxIcon} size={15} />{dragging.name}</span>
       <p className="mt-1 text-[10px] text-ink-secondary">{dragging.hint}</p>
     </div>, document.body)}
     <ConfirmDialog open={assignment !== null} tone="neutral" title={assignment?.section === null ? `Unassign ${assignment?.computer.name ?? "computer"}?` : `Assign ${assignment?.computer.name ?? "computer"} to ${assignment?.section || "General"}?`}

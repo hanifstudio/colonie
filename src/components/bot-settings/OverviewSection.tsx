@@ -4,7 +4,8 @@
 // about what a bot does. Pure presentational — no store, no fetch; the
 // dialog owns loading, errors, and the section switch (onOpen).
 import { useState } from "react";
-import { Circle, Sparkles } from "lucide-react";
+import { CircleIcon, SparklesIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import type { BotOverview } from "@/lib/bot-overview-types";
 import { t } from "@/lib/i18n";
@@ -54,7 +55,7 @@ export function OverviewSection({
               <li key={step.id}>
                 {!step.section ? (
                   <div className="flex items-center gap-2.5 px-1 py-1 text-[13px] text-ink">
-                    <Circle aria-hidden="true" size={14} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={CircleIcon} aria-hidden="true" size={14} className="shrink-0 text-ink-secondary" />
                     <span>{step.label}</span>
                   </div>
                 ) : (
@@ -63,7 +64,7 @@ export function OverviewSection({
                     onClick={() => onOpen(step.section!)}
                     className="flex w-full items-center gap-2.5 rounded-lg px-1 py-1 text-left text-[13px] text-ink hover:bg-inset"
                   >
-                    <Circle aria-hidden="true" size={14} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={CircleIcon} aria-hidden="true" size={14} className="shrink-0 text-ink-secondary" />
                     <span className="flex-1">{step.label}</span>
                     <span className="text-[12px] text-ink-secondary">→</span>
                   </button>
@@ -78,7 +79,7 @@ export function OverviewSection({
                 onClick={onSetup}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-medium text-accent-ink hover:brightness-110"
               >
-                <Sparkles size={14} /> {t("botSetup.withBot")}
+                <HIcon icon={SparklesIcon} size={14} /> {t("botSetup.withBot")}
               </button>
               <span className="text-[12px] text-ink-secondary">{t("botSetup.help")}</span>
             </div>

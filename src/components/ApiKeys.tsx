@@ -2,7 +2,8 @@
 // browser development falls back to PUT /api/config. Secrets are write-only
 // either way — GET /api/config returns configured flags, never values.
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, CircleHelp, ExternalLink, Loader2, TriangleAlert } from "lucide-react";
+import { Alert02Icon, HelpCircleIcon, Loading02Icon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
@@ -212,7 +213,7 @@ function CredentialHelp({ section }: { section: ConfigSection }) {
         onClick={() => setOpen((current) => !current)}
         className="flex size-6 items-center justify-center rounded-md text-ink-secondary outline-none transition-colors hover:bg-control hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/70"
       >
-        <CircleHelp size={14} aria-hidden="true" />
+        <HIcon icon={HelpCircleIcon} size={14} aria-hidden="true" />
       </button>
       {motion.shown && (
         <div
@@ -230,7 +231,7 @@ function CredentialHelp({ section }: { section: ConfigSection }) {
             className="mt-2.5 flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
           >
             {credential.linkLabel}
-            <ExternalLink size={12} aria-hidden="true" />
+            <HIcon icon={SquareArrowUpRightIcon} size={12} aria-hidden="true" />
           </a>
         </div>
       )}
@@ -364,7 +365,7 @@ export function ApiKeyRow({
             className="w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2 pr-8 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none"
           />
           {(saving || testing) && (
-            <Loader2 size={13} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />
+            <HIcon icon={Loading02Icon} size={13} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />
           )}
         </div>
         {clearing && (
@@ -391,7 +392,7 @@ export function ApiKeyRow({
       </div>
       {credential.warning && (
         <div className="mt-1.5 flex gap-1.5 text-[11.5px] leading-[1.4] text-warning">
-          <TriangleAlert size={13} className="mt-px shrink-0" aria-hidden="true" />
+          <HIcon icon={Alert02Icon} size={13} className="mt-px shrink-0" aria-hidden="true" />
           <span>{credential.warning}</span>
         </div>
       )}
@@ -462,7 +463,7 @@ export function OpenCodeProviderKeys() {
               aria-label={t("keys.opencode.otherProviders.removeAria", { name: saved })}
               className="flex w-[72px] shrink-0 items-center justify-center rounded-lg bg-control py-1.5 text-[13px] text-danger hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {removing === saved ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : t("keys.clear")}
+              {removing === saved ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" aria-hidden="true" /> : t("keys.clear")}
             </button>
           </div>
         ))}
@@ -496,7 +497,7 @@ export function OpenCodeProviderKeys() {
             disabled={busy || !name.trim() || !key.trim()}
             className="flex w-[72px] shrink-0 items-center justify-center gap-1.5 rounded-lg bg-control py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {adding ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <><Check size={13} aria-hidden="true" />{t("common.save")}</>}
+            {adding ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" aria-hidden="true" /> : <><HIcon icon={Tick01Icon} size={13} aria-hidden="true" />{t("common.save")}</>}
           </button>
         </div>
         {error && <div role="alert" className="text-[12px] text-danger">{error}</div>}
@@ -535,7 +536,7 @@ export function AnthropicEveryClaudeBot() {
       </label>
       {on && (
         <div className="mt-1.5 flex gap-1.5 text-[11.5px] leading-[1.4] text-warning">
-          <TriangleAlert size={13} className="mt-px shrink-0" aria-hidden="true" />
+          <HIcon icon={Alert02Icon} size={13} className="mt-px shrink-0" aria-hidden="true" />
           <span>{t("keys.anthropic.warning")}</span>
         </div>
       )}
@@ -615,7 +616,7 @@ export function VpsConnection() {
           )}
           title={!alias.trim() && configured ? t("keys.vps.removeAlias") : t("common.save")}
         >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : !alias.trim() && configured ? t("keys.clear") : <><Check size={13} />{t("common.save")}</>}
+          {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : !alias.trim() && configured ? t("keys.clear") : <><HIcon icon={Tick01Icon} size={13} />{t("common.save")}</>}
         </button>
       </div>
       {error && <div className="mt-1 text-[12px] text-danger">{error}</div>}
@@ -663,7 +664,7 @@ export function OpenAiCompatUrl() {
           className="w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2 pr-8 font-mono text-[12px] text-ink placeholder:text-ink-secondary focus:outline-none"
         />
         {saving && (
-          <Loader2 size={13} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />
+          <HIcon icon={Loading02Icon} size={13} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />
         )}
       </div>
       <p className="mt-1 text-[11.5px] leading-relaxed text-ink-secondary">{t("keys.openaiCompat.urlHint")}</p>

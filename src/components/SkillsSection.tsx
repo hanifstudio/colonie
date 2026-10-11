@@ -4,7 +4,8 @@
 // Local browse only by design: no registry and no network fetch of any kind
 // (the skills.sh question, #1782, is still open upstream), so an import is
 // exactly the bytes pasted here.
-import { Search, X } from "lucide-react";
+import { MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "@/lib/i18n";
 import { useModalDialog } from "@/hooks/use-modal-dialog";
@@ -196,7 +197,7 @@ export function SkillsSection() {
       <Card title={t("skills.library.title")} subtitle={t("skills.library.subtitle")}>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <Search size={15} className="shrink-0 text-ink-secondary" />
+            <HIcon icon={Search01Icon} size={15} className="shrink-0 text-ink-secondary" />
             <input
               className={inputClass}
               placeholder={t("skills.library.searchPlaceholder")}
@@ -276,7 +277,7 @@ export function SkillsSection() {
                             onClick={() => void unassign(skill, bot.id)}
                             className="flex size-4 items-center justify-center rounded-full text-ink-secondary hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                           >
-                            <X size={11} />
+                            <HIcon icon={MultiplicationSignIcon} size={11} />
                           </button>
                         </span>
                       ))

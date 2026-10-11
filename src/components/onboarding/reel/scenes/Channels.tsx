@@ -3,8 +3,9 @@
 // GroupView draws it; the action is typing "@Res", the mention menu opening
 // and Researcher being chosen; the resolution is Researcher lighting up in
 // the header and answering while the other two stay quiet.
+import { HashIcon, SentIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../../HIcon";
 import { useEffect, useState } from "react";
-import { Hash, Send } from "lucide-react";
 import { MausAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import type { MausColor } from "@/lib/mascot";
@@ -110,7 +111,7 @@ export function Channels({ playing, onCue, onEnded, label }: SceneProps) {
       <div className="animate-rise relative m-4 mb-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-hairline/40 bg-app shadow-[0_18px_44px_-20px_rgba(0,0,0,0.6)]">
         <header className="flex items-center justify-between border-b border-hairline/40 px-3.5 py-2.5">
           <div className="flex items-center gap-2">
-            <Hash size={14} className="text-ink-secondary" />
+            <HIcon icon={HashIcon} size={14} className="text-ink-secondary" />
             <span className="text-[13px] font-semibold text-ink">Work</span>
           </div>
           <div className="flex -space-x-2">
@@ -198,7 +199,7 @@ export function Channels({ playing, onCue, onEnded, label }: SceneProps) {
               </>
             )}
           </div>
-          <Send size={13} className={cn("transition-colors duration-200", picked && !sent ? "text-accent" : "text-ink-secondary")} />
+          <HIcon icon={SentIcon} size={13} className={cn("transition-colors duration-200", picked && !sent ? "text-accent" : "text-ink-secondary")} />
         </div>
       </div>
 

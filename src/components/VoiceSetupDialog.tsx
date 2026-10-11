@@ -10,8 +10,9 @@
 // those writes (the host keeps the engine and its key), so the call help
 // opens the remote agent settings there instead of this.
 import { useEffect, useId, useRef, type RefObject } from "react";
+import { CheckmarkCircle02Icon, ChevronRightIcon, Loading02Icon, MultiplicationSignIcon, PhoneIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { createPortal } from "react-dom";
-import { CheckCircle2, ChevronRight, Loader2, Phone, X } from "lucide-react";
 
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
 import { t } from "@/lib/i18n";
@@ -153,7 +154,7 @@ export function VoiceSetupDialog({
             aria-label={t("call.voiceSetup.close")}
             className="shrink-0 rounded-lg p-2 text-ink-secondary hover:bg-raised hover:text-ink"
           >
-            <X size={20} />
+            <HIcon icon={MultiplicationSignIcon} size={20} />
           </button>
         </header>
 
@@ -162,7 +163,7 @@ export function VoiceSetupDialog({
             <VoiceSettings bot={bot} onPatch={patch} />
           ) : (
             <div className="flex items-center justify-center gap-2 py-12 text-[13px] text-ink-secondary">
-              <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              <HIcon icon={Loading02Icon} size={14} className="animate-spin" aria-hidden="true" />
               {t("call.voiceSetup.loading")}
             </div>
           )}
@@ -173,7 +174,7 @@ export function VoiceSetupDialog({
         <div role="status" aria-live="polite">
           {ready && (
             <div className="mx-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 sm:mx-7">
-              <CheckCircle2 size={17} className="shrink-0 text-success" aria-hidden="true" />
+              <HIcon icon={CheckmarkCircle02Icon} size={17} className="shrink-0 text-success" aria-hidden="true" />
               <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">
                 {t("call.voiceSetup.ready", { name: callName })}
               </span>
@@ -183,7 +184,7 @@ export function VoiceSetupDialog({
                 onClick={onStartCall}
                 className="flex shrink-0 items-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-[13px] font-medium text-accent-ink hover:brightness-110"
               >
-                <Phone size={14} aria-hidden="true" />
+                <HIcon icon={PhoneIcon} size={14} aria-hidden="true" />
                 {t("call.voiceSetup.startCall")}
               </button>
             </div>
@@ -198,7 +199,7 @@ export function VoiceSetupDialog({
             className="inline-flex items-center gap-1 rounded-md text-[13px] font-medium text-accent-text underline-offset-2 hover:underline"
           >
             {t("call.voiceSetup.allSettings")}
-            <ChevronRight size={14} aria-hidden="true" />
+            <HIcon icon={ChevronRightIcon} size={14} aria-hidden="true" />
           </button>
         </footer>
       </div>

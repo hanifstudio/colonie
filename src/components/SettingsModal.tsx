@@ -3,7 +3,28 @@
 // is the stuff shared by every bot: who you are, your keys, and the
 // machine your bots can borrow.
 import { useEffect, useRef, useState } from "react";
-import { Archive, CircleUser, Coins, FlaskConical, KeyRound, Monitor, Palette, ScrollText, Search, Sparkles, TabletSmartphone, Terminal, User, Users, X, Building2, Zap, BookOpen } from "lucide-react";
+import {
+  ArchiveIcon,
+  BookOpen01Icon,
+  Building02Icon,
+  Coins01Icon,
+  FlaskConicalIcon,
+  Key01Icon,
+  MonitorIcon,
+  MultiplicationSignIcon,
+  PaletteIcon,
+  ScrollTextIcon,
+  Search01Icon,
+  SparklesIcon,
+  TabletSmartphoneIcon,
+  TerminalIcon,
+  UserCircleIcon,
+  UserIcon,
+  UsersIcon,
+  ZapIcon,
+} from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
+import { HIcon } from "./HIcon";
 import { api, useStore, type AppSettingsSection, type ConfigStatus } from "@/state/store";
 import { analyticsEnabled, setAnalyticsEnabled } from "@/lib/analytics";
 import { browserAvailable, browserUnavailableReason, builtInBrowserEnabled, routinesInConversationEnabled, showToolCallsEnabled, skillAuthoringEnabled, skillsLibraryEnabled } from "@/lib/feature-flags";
@@ -81,44 +102,44 @@ export const SECTIONS: Array<{
   id: AppSettingsSection;
   group: SettingsGroup;
   labelKey: LocaleKey;
-  icon: typeof User;
+  icon: IconSvgElement;
   keywords: string[];
 }> = [
-  { id: "general", group: "you", labelKey: "settings.section.general", icon: User, keywords: ["profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
-  { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: Palette, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "groups", "top"] },
-  { id: "companion", group: "you", labelKey: "settings.section.companion", icon: TabletSmartphone, keywords: ["companion", "device", "phone", "desktop", "client", "host", "pair", "pairing", "mobile", "https", "secure", "tailscale", "wifi", "remote", "advanced", "domain", "dns", "self-hosted", "server", "caddy"] },
-  { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: Terminal, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
-  { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: KeyRound, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "box", "xai", "mistral", "cerebras", "vps", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
-  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: Zap, keywords: ["decision", "jev", "typesafe", "routing", "auto", "rooms", "who answers"] },
-  { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
-  { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building2, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
-  { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: Monitor, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
-  { id: "cloudAccount", group: "account", labelKey: "settings.section.cloudAccount", icon: User, keywords: ["cloud", "account", "personal", "sign in", "pro", "subscription", "billing"] },
-  { id: "organization", group: "account", labelKey: "settings.section.organization", icon: Building2, keywords: ["company", "organization", "organisation", "sign in", "enroll", "managed", "models", "disconnect"] },
-  { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
-  { id: "backups", group: "account", labelKey: "settings.section.backups", icon: Archive, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
-  { id: "people", group: "account", labelKey: "settings.section.people", icon: Users, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
-  { id: "activity", group: "account", labelKey: "settings.section.activity", icon: ScrollText, keywords: ["activity", "audit", "log", "history", "who changed", "approvals", "decisions", "admin"] },
-  { id: "workspaces", group: "account", labelKey: "settings.section.workspaces", icon: Building2, keywords: ["clients", "tenants", "fleet", "workspaces", "installation", "installations"] },
-  { id: "experimental", group: "account", labelKey: "settings.section.experimental", icon: FlaskConical, keywords: ["early", "preview", "learn", "skill", "authoring"] },
+  { id: "general", group: "you", labelKey: "settings.section.general", icon: UserIcon, keywords: ["profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
+  { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "groups", "top"] },
+  { id: "companion", group: "you", labelKey: "settings.section.companion", icon: TabletSmartphoneIcon, keywords: ["companion", "device", "phone", "desktop", "client", "host", "pair", "pairing", "mobile", "https", "secure", "tailscale", "wifi", "remote", "advanced", "domain", "dns", "self-hosted", "server", "caddy"] },
+  { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
+  { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "box", "xai", "mistral", "cerebras", "vps", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
+  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "rooms", "who answers"] },
+  { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
+  { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building02Icon, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
+  { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
+  { id: "cloudAccount", group: "account", labelKey: "settings.section.cloudAccount", icon: UserIcon, keywords: ["cloud", "account", "personal", "sign in", "pro", "subscription", "billing"] },
+  { id: "organization", group: "account", labelKey: "settings.section.organization", icon: Building02Icon, keywords: ["company", "organization", "organisation", "sign in", "enroll", "managed", "models", "disconnect"] },
+  { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
+  { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
+  { id: "people", group: "account", labelKey: "settings.section.people", icon: UsersIcon, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
+  { id: "activity", group: "account", labelKey: "settings.section.activity", icon: ScrollTextIcon, keywords: ["activity", "audit", "log", "history", "who changed", "approvals", "decisions", "admin"] },
+  { id: "workspaces", group: "account", labelKey: "settings.section.workspaces", icon: Building02Icon, keywords: ["clients", "tenants", "fleet", "workspaces", "installation", "installations"] },
+  { id: "experimental", group: "account", labelKey: "settings.section.experimental", icon: FlaskConicalIcon, keywords: ["early", "preview", "learn", "skill", "authoring"] },
 ];
 
 /** A page of the Simple rail: one or more of the pages above, stacked. */
 export type SimpleSettingsPage = {
   id: string;
   labelKey: LocaleKey;
-  icon: typeof User;
+  icon: IconSvgElement;
   sections: AppSettingsSection[];
 };
 
 /** Simple mode's rail: at most five pages. A page is drawn only when one of
  * its sections passes the same visibility filters the Advanced rail uses. */
 export const SIMPLE_PAGES: SimpleSettingsPage[] = [
-  { id: "general", labelKey: "settings.section.general", icon: User, sections: ["general"] },
-  { id: "appearance", labelKey: "settings.section.appearance", icon: Palette, sections: ["appearance"] },
-  { id: "ai", labelKey: "settings.group.ai", icon: Sparkles, sections: ["engines", "connections", "decisionModel"] },
-  { id: "computers", labelKey: "settings.group.computers", icon: Monitor, sections: ["companion", "desktopWorkspaces", "computer"] },
-  { id: "account", labelKey: "settings.group.account", icon: CircleUser, sections: ["cloudAccount", "organization", "people", "activity"] },
+  { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
+  { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
+  { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "decisionModel"] },
+  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["companion", "desktopWorkspaces", "computer"] },
+  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["cloudAccount", "organization", "people", "activity"] },
 ];
 
 /** Advanced-only pages. A deep link to one still opens it in Simple mode, as
@@ -1102,7 +1123,7 @@ export function SettingsModal() {
             {t("settings.title")}
           </div>
           <div className="mb-2 mt-1 flex min-h-8 shrink-0 items-center gap-2 rounded-lg border border-transparent bg-control/70 px-2.5 py-2 focus-within:border-focus">
-            <Search size={14} className="shrink-0 text-ink-secondary" />
+            <HIcon icon={Search01Icon} size={14} className="shrink-0 text-ink-secondary" />
             <input
               data-settings-search
               value={query}
@@ -1138,11 +1159,11 @@ export function SettingsModal() {
                     onClick={() => openSection(id)}
                     aria-current={section === id ? "page" : undefined}
                     className={cn(
-                      "flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none",
+                      "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none",
                       section === id ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/50 hover:text-ink",
                     )}
                   >
-                    <Icon size={15} className="shrink-0" />
+                    <HIcon icon={Icon} size={15} className="shrink-0" />
                     {t(labelKey)}
                   </button>
                 ))}
@@ -1160,11 +1181,11 @@ export function SettingsModal() {
                     onClick={() => openSection(page.sections[0]!)}
                     aria-current={current ? "page" : undefined}
                     className={cn(
-                      "flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none",
+                      "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors motion-reduce:transition-none",
                       current ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/50 hover:text-ink",
                     )}
                   >
-                    <Icon size={15} className="shrink-0" />
+                    <HIcon icon={Icon} size={15} className="shrink-0" />
                     {t(page.labelKey)}
                   </button>
                 );
@@ -1221,7 +1242,7 @@ export function SettingsModal() {
               title={`${t("settings.close")} (${shortcutLabel("close-panel")})`}
               className="ui-icon-button shrink-0"
             >
-              <X size={18} />
+              <HIcon icon={MultiplicationSignIcon} size={18} />
             </button>
           </div>
 

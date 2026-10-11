@@ -1,7 +1,8 @@
+import { ArrowDown01Icon, ArrowUp01Icon, Copy01Icon, Download01Icon, Maximize02Icon, MultiplicationSignIcon, Search01Icon, TextWrapIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowUp, Check, Copy, Download, Maximize2, Search, WrapText, X } from "lucide-react";
 import { isTableNumber, tableCsv, tableRowOrder, type TableSort } from "@/lib/table-data";
 import { t } from "@/lib/i18n";
 import { copyText } from "@/lib/copy-text";
@@ -25,7 +26,7 @@ export function TableDialog({ title, onClose, children, returnFocus }: { title: 
       className="m-auto flex max-h-[94dvh] w-[min(96vw,1400px)] max-w-none flex-col overflow-hidden rounded-2xl border border-hairline bg-panel p-0 text-ink shadow-2xl backdrop:bg-black/55">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline/40 px-4 py-3">
         <h2 id={id} className="min-w-0 truncate text-sm font-medium">{title}</h2>
-        <button type="button" autoFocus onClick={onClose} className="table-action" aria-label={t("table.close")}><X size={16} /></button>
+        <button type="button" autoFocus onClick={onClose} className="table-action" aria-label={t("table.close")}><HIcon icon={MultiplicationSignIcon} size={16} /></button>
       </header>
       <div className="min-h-0 overflow-auto p-3 sm:p-5">{children}</div>
     </dialog>, document.body,
@@ -64,14 +65,14 @@ export function RichTable({ columns, rows, name = t("table.title"), expanded = f
     <div className="rich-table min-w-0 max-w-full overflow-hidden rounded-xl border border-hairline/50 bg-panel text-ink" dir="ltr">
       <div className="flex flex-wrap items-center gap-1 border-b border-hairline/40 px-2 py-1.5">
         <label className="flex min-w-24 flex-1 items-center gap-2 px-1 text-ink-secondary">
-          <Search size={13} aria-hidden="true" />
+          <HIcon icon={Search01Icon} size={13} aria-hidden="true" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label={t("table.search")}
             placeholder={t("table.search")} className="w-full min-w-0 bg-transparent py-1 text-xs text-ink outline-none placeholder:text-ink-tertiary focus-visible:ring-1 focus-visible:ring-accent" />
         </label>
-        <button type="button" className="table-action" aria-label={t("table.wrap")} title={t("table.wrap")} aria-pressed={wrap} onClick={() => setWrap(!wrap)}><WrapText size={14} /></button>
-        <button type="button" className="table-action" aria-label={t("table.copy")} title={t("table.copy")} onClick={() => void copy()}>{copyState === "copied" ? <Check size={14} /> : <Copy size={14} />}</button>
-        <button type="button" className="table-action" aria-label={t("table.download")} title={t("table.download")} onClick={download}><Download size={14} /></button>
-        {!large && <button type="button" className="table-action" aria-label={t("table.expand")} title={t("table.expand")} onClick={(event) => { trigger.current = event.currentTarget; setOpen(true); }}><Maximize2 size={14} /></button>}
+        <button type="button" className="table-action" aria-label={t("table.wrap")} title={t("table.wrap")} aria-pressed={wrap} onClick={() => setWrap(!wrap)}><HIcon icon={TextWrapIcon} size={14} /></button>
+        <button type="button" className="table-action" aria-label={t("table.copy")} title={t("table.copy")} onClick={() => void copy()}>{copyState === "copied" ? <HIcon icon={Tick01Icon} size={14} /> : <HIcon icon={Copy01Icon} size={14} />}</button>
+        <button type="button" className="table-action" aria-label={t("table.download")} title={t("table.download")} onClick={download}><HIcon icon={Download01Icon} size={14} /></button>
+        {!large && <button type="button" className="table-action" aria-label={t("table.expand")} title={t("table.expand")} onClick={(event) => { trigger.current = event.currentTarget; setOpen(true); }}><HIcon icon={Maximize02Icon} size={14} /></button>}
       </div>
       <TableViewport columns={columns} rows={rows} order={order} name={name} wrap={wrap} large={large} sort={sort} direction={direction}
         onSort={(column) => setSort(sort?.column !== column ? { column, descending: false } : !sort.descending ? { column, descending: true } : null)} />
@@ -122,7 +123,7 @@ function TableViewport({ columns, rows, order, name, wrap, large, sort, onSort, 
           <div className="flex items-center gap-1">
             <span dir="auto" className="min-w-0 flex-1 break-words">{column.content ?? (column.text || t("table.column", { number: index + 1 }))}</span>
             <button type="button" className="table-action shrink-0" aria-label={t("table.sort", { column: column.text || index + 1 })} title={t("table.sort", { column: column.text || index + 1 })} onClick={() => onSort(index)}>
-              {sort?.column === index && sort.descending ? <ArrowDown size={12} /> : <ArrowUp size={12} className={sort?.column === index ? "" : "opacity-35"} />}
+              {sort?.column === index && sort.descending ? <HIcon icon={ArrowDown01Icon} size={12} /> : <HIcon icon={ArrowUp01Icon} size={12} className={sort?.column === index ? "" : "opacity-35"} />}
             </button>
           </div>
         </th>)}

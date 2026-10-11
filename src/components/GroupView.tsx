@@ -4,7 +4,22 @@
 // default responder; @mentions override that routing.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { activeLocale, t } from "@/lib/i18n";
-import { ArrowDown, Check, ChevronDown, ChevronRight, Folder, FolderOpen, Loader2, MessageSquareReply, Pin, PinOff, Plus, Search, X } from "lucide-react";
+import {
+  ArrowDown01Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Folder01Icon,
+  FolderOpenIcon,
+  Loading02Icon,
+  MessageSquareReplyIcon,
+  MultiplicationSignIcon,
+  PinIcon,
+  PinOffIcon,
+  PlusSignIcon,
+  Search01Icon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import {
   api,
   useStore,
@@ -114,7 +129,7 @@ export function RoomToolChip({ message, roomId }: { message: Message; roomId?: s
         >
           <BotAvatar bot={withBot ?? { name: comm.withName, color: comm.withColor }} state="happy" size={16} animated={false} />
           <span className="max-w-[480px] truncate">{tool.name}</span>
-          <ChevronRight size={13} />
+          <HIcon icon={ChevronRightIcon} size={13} />
         </button>
       </div>
     );
@@ -170,7 +185,7 @@ function PinToggle({ group, message }: { group: Group; message: Message }) {
       className={messageActionClass}
       title={pinned ? t("chat.unpinHint") : t("room.pinHint")}
     >
-      {pinned ? <PinOff size={14} /> : <Pin size={14} />}
+      {pinned ? <HIcon icon={PinOffIcon} size={14} /> : <HIcon icon={PinIcon} size={14} />}
     </button>
   );
 }
@@ -228,7 +243,7 @@ function RoomTextMessage({
               title={t("chat.reply")}
               className={messageActionClass}
             >
-              <MessageSquareReply size={14} />
+              <HIcon icon={MessageSquareReplyIcon} size={14} />
             </button>
             <PinToggle group={group} message={m} />
           </MessageActions>
@@ -325,7 +340,7 @@ function RoomTextMessage({
               title={t("chat.reply")}
               className={messageActionClass}
             >
-              <MessageSquareReply size={14} />
+              <HIcon icon={MessageSquareReplyIcon} size={14} />
             </button>
             <PinToggle group={group} message={m} />
           </MessageActions>
@@ -550,7 +565,8 @@ export function DefaultResponderSelect({ group, members }: { group: Group; membe
           <option value="mentions">{t("room.responder.mentionsOption")}</option>
         </optgroup>
       </select>
-      <ChevronDown
+      <HIcon
+        icon={ChevronDownIcon}
         size={13}
         aria-hidden="true"
         className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-secondary"
@@ -613,7 +629,7 @@ function RoomWorkingFolder({ group }: { group: Group }) {
             {group.cwd ? shortPath(group.cwd, home) : <span className="text-ink-secondary">{t("room.folder.own")}</span>}
           </div>
           <button onClick={() => void pick()} disabled={saving} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50">
-            <FolderOpen size={14} /> {t("room.folder.choose")}
+            <HIcon icon={FolderOpenIcon} size={14} /> {t("room.folder.choose")}
           </button>
           {group.cwd && (
             <button onClick={() => void save(null)} disabled={saving} className="shrink-0 rounded-lg px-2 py-2 text-[13px] text-ink-secondary hover:text-ink disabled:opacity-50">
@@ -658,7 +674,7 @@ function RoomWorkingFolderChip({ group, onToggle }: { group: Group; onToggle: ()
         className="rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink"
         title={t("room.folder.chipTitle")}
       >
-        <Folder size={14} />
+        <HIcon icon={Folder01Icon} size={14} />
       </button>
     );
   }
@@ -669,7 +685,7 @@ function RoomWorkingFolderChip({ group, onToggle }: { group: Group; onToggle: ()
       className="flex max-w-[180px] items-center gap-1.5 rounded-full border border-hairline/40 bg-raised/60 px-2.5 py-1 text-[12.5px] text-ink-secondary hover:bg-raised hover:text-ink"
       title={t("chat.workingFolder", { folder })}
     >
-      <Folder size={12} />
+      <HIcon icon={Folder01Icon} size={12} />
       <span className="truncate font-mono">{name}</span>
     </button>
   );
@@ -835,7 +851,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
                 disabled={saving}
                 className="flex shrink-0 items-center gap-1.5 rounded-xl border border-hairline/50 bg-raised px-3 py-2 text-[13px] font-medium text-ink hover:bg-raised-hover disabled:opacity-50"
               >
-                <FolderOpen size={14} /> Choose
+                <HIcon icon={FolderOpenIcon} size={14} /> Choose
               </button>
             )}
           </div>
@@ -908,7 +924,8 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
                     </span>
                     {t("room.behavior.lead")}
                   </span>
-                  <ChevronDown
+                  <HIcon
+                    icon={ChevronDownIcon}
                     size={14}
                     aria-hidden="true"
                     className={cn("shrink-0 text-ink-secondary transition-transform", leadPickerOpen && "rotate-180")}
@@ -956,7 +973,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
                             <span className="block truncate text-[13px] font-medium text-ink">{member.name}</span>
                             <span className="block truncate text-[11px] text-ink-secondary">{member.title}</span>
                           </span>
-                          {selected && <Check size={15} className="shrink-0 text-accent" />}
+                          {selected && <HIcon icon={Tick01Icon} size={15} className="shrink-0 text-accent" />}
                         </button>
                       );
                     })}
@@ -1054,7 +1071,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
             disabled={saving}
             className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
           >
-            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}
             {t("room.setup.save")}
           </button>
         </div>
@@ -1284,7 +1301,7 @@ export function GroupView({ group }: { group: Group }) {
             )}
             title={t("chat.findShortcut")}
           >
-            <Search size={18} />
+            <HIcon icon={Search01Icon} size={18} />
           </button>
           <ExportTranscriptMenu
             title={group.name}
@@ -1315,7 +1332,7 @@ export function GroupView({ group }: { group: Group }) {
             >
               {memberMauses}
               <span className="flex size-[18px] items-center justify-center rounded-full border border-dashed border-hairline/70 text-ink-secondary">
-                <Plus size={11} />
+                <HIcon icon={PlusSignIcon} size={11} />
               </span>
             </button>
           )}
@@ -1371,7 +1388,7 @@ export function GroupView({ group }: { group: Group }) {
             className={cn("mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left", !remoteClient && "hover:bg-raised/40")}
             title={t("room.bulletin.title")}
           >
-            <Pin size={12} className="shrink-0 text-ink-secondary" />
+            <HIcon icon={PinIcon} size={12} className="shrink-0 text-ink-secondary" />
             <span dir="auto" className={cn("truncate text-[12.5px]", group.bulletin ? "text-ink-secondary" : "text-ink-tertiary")}>
               {group.bulletin.split("\n")[0] || (remoteClient ? t("room.bulletin.none") : t("room.bulletin.add"))}
             </span>
@@ -1397,7 +1414,7 @@ export function GroupView({ group }: { group: Group }) {
         return (
           <div className="w-full px-5">
             <div className="mb-2 flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-1.5">
-              <Pin size={12} className="shrink-0 text-accent" />
+              <HIcon icon={PinIcon} size={12} className="shrink-0 text-accent" />
               <button
                 onClick={() => dispatch({ type: "focusMessage", threadId: group.threadId, messageId: pinned.id })}
                 className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
@@ -1412,7 +1429,7 @@ export function GroupView({ group }: { group: Group }) {
                 title={t("chat.unpin")}
                 className={cn("shrink-0 rounded p-0.5 text-ink-secondary hover:bg-raised hover:text-ink", remoteClient && "hidden")}
               >
-                <X size={13} />
+                <HIcon icon={MultiplicationSignIcon} size={13} />
               </button>
             </div>
           </div>
@@ -1531,7 +1548,7 @@ export function GroupView({ group }: { group: Group }) {
           className="animate-pop-in absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] text-ink shadow-lg hover:bg-raised-hover"
           style={{ bottom: composerDock.height }}
         >
-          <ArrowDown size={13} /> {t("chat.jumpToLatest")}
+          <HIcon icon={ArrowDown01Icon} size={13} /> {t("chat.jumpToLatest")}
         </button>
       )}
 

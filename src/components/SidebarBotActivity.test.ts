@@ -1,4 +1,9 @@
-import { BellDot, CircleAlert, Clock3, Loader2 } from "lucide-react";
+import {
+  AlertCircleIcon,
+  Clock03Icon,
+  Loading02Icon,
+  Notification01Icon,
+} from "@hugeicons/core-free-icons";
 import { describe, expect, it } from "vitest";
 import type { Bot, Group, GroupTask, Task } from "@/state/store";
 import { botShowsUnread } from "@/lib/bot-unread";
@@ -217,28 +222,28 @@ describe("attentionRowStatus", () => {
     const status = attentionRowStatus({ threadId: "t", title: "T", createdAt: 0, queued: false, activity: "waiting-on-you" });
     expect(status.active).toBe(true);
     expect(status.label).toBe(t("task.waiting"));
-    expect(status.Icon).toBe(CircleAlert);
+    expect(status.icon).toBe(AlertCircleIcon);
   });
 
   it("flags a working task active with the spinning Loader2 icon", () => {
     const status = attentionRowStatus({ threadId: "t", title: "T", createdAt: 0, queued: false, busy: true, activity: "working" });
     expect(status.active).toBe(true);
     expect(status.label).toBe(t("chat.activity.working"));
-    expect(status.Icon).toBe(Loader2);
+    expect(status.icon).toBe(Loading02Icon);
   });
 
   it("flags a queued task active with the Clock3 icon", () => {
     const status = attentionRowStatus({ threadId: "t", title: "T", createdAt: 0, queued: true });
     expect(status.active).toBe(true);
     expect(status.label).toBe(t("task.queued"));
-    expect(status.Icon).toBe(Clock3);
+    expect(status.icon).toBe(Clock03Icon);
   });
 
   it("flags an unread task active with the BellDot icon", () => {
     const status = attentionRowStatus({ threadId: "t", title: "T", createdAt: 0, queued: false, unread: true });
     expect(status.active).toBe(true);
     expect(status.label).toBe(t("task.unread"));
-    expect(status.Icon).toBe(BellDot);
+    expect(status.icon).toBe(Notification01Icon);
   });
 
   it("marks a plain idle task inactive", () => {

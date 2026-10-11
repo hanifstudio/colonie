@@ -1,5 +1,6 @@
 import { useId, type ComponentProps } from "react";
-import { Check, Copy, X } from "lucide-react";
+import { Copy01Icon, MultiplicationSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { useCopyFeedback } from "@/lib/copy-text";
 import { t } from "@/lib/i18n";
@@ -92,7 +93,7 @@ export function CommandLine({ command, copyLabel = "Copy command" }: { command: 
         aria-label={state === "failed" ? t("common.copyFailed") : copyLabel}
         className="ui-icon-button shrink-0"
       >
-        {state === "copied" ? <Check size={13} className="text-success" /> : state === "failed" ? <X size={13} className="text-danger" /> : <Copy size={13} />}
+        {state === "copied" ? <HIcon icon={Tick01Icon} size={13} className="text-success" /> : state === "failed" ? <HIcon icon={MultiplicationSignIcon} size={13} className="text-danger" /> : <HIcon icon={Copy01Icon} size={13} />}
       </button>
     </div>
   );

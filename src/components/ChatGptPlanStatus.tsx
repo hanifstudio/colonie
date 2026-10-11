@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { SquareArrowUpRightIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { t } from "@/lib/i18n";
 import { openExternalLink } from "@/lib/app-links";
 import { CodexMark } from "./ProviderIcons";
@@ -29,7 +30,7 @@ export function ChatGptPlanStatus({ instanceId }: { instanceId: string }) {
       <span>{t("engineSetup.chatgpt.using")}</span>
       <a href={CHATGPT_USAGE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline" onClick={(event) => {
         if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
-      }}>{t("engineSetup.chatgpt.manageUsage")}<ExternalLink size={11} /></a>
+      }}>{t("engineSetup.chatgpt.manageUsage")}<HIcon icon={SquareArrowUpRightIcon} size={11} /></a>
     </div>
     {!acknowledged && <dialog ref={dialog} data-chatgpt-plan-welcome aria-labelledby={titleId} className="m-auto w-[min(420px,calc(100vw-32px))] rounded-2xl border border-hairline bg-panel p-6 text-ink shadow-2xl backdrop:bg-black/50" onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onCancel={(event) => { event.preventDefault(); dismiss(); }}>
       <CodexMark size={28} />

@@ -1,8 +1,9 @@
 // Double-click a title to rename it in place. Settings still exists for
 // the rest of the profile — this is just the fast path for the name.
+import { PencilIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
-import { Pencil } from "lucide-react";
 
 import { nextRename } from "@/lib/rename";
 import { cn } from "@/lib/cn";
@@ -107,7 +108,7 @@ export function RenameTitle({
           title={t("rename.agent")}
           className={cn("flex size-10 shrink-0 items-center justify-center rounded text-ink-secondary opacity-70 hover:bg-raised hover:text-ink hover:opacity-100", editButtonClassName)}
         >
-          <Pencil size={12} />
+          <HIcon icon={PencilIcon} size={12} />
         </button>
       </span>
     );

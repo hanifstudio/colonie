@@ -18,7 +18,16 @@
 // it happens, which is why waiting feels like listening to someone work
 // rather than listening to nothing.
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { AudioLines, Check, ChevronDown, Loader2, Phone, PhoneOff, X } from "lucide-react";
+import {
+  AudioLinesIcon,
+  CallEnd01Icon,
+  ChevronDownIcon,
+  Loading02Icon,
+  MultiplicationSignIcon,
+  PhoneIcon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { useStore, visibleMessages, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -294,8 +303,8 @@ export function CallTargetButton({
         )}
       >
         {active
-          ? <PhoneOff size={composer ? 15 : 17} />
-          : composer ? <AudioLines size={16} aria-hidden="true" /> : <Phone size={17} />}
+          ? <HIcon icon={CallEnd01Icon} size={composer ? 15 : 17} />
+          : composer ? <HIcon icon={AudioLinesIcon} size={16} aria-hidden="true" /> : <HIcon icon={PhoneIcon} size={17} />}
         {unavailable && (
           <span className="absolute right-1 top-1 size-1.5 rounded-full bg-warning ring-2 ring-app" aria-hidden="true" />
         )}
@@ -318,7 +327,7 @@ export function CallTargetButton({
           title={t("call.mode.menu")}
           className={cn("-ml-1 flex w-4 items-center justify-center rounded-full text-ink-secondary transition-colors hover:text-ink disabled:opacity-40", composer ? "h-8" : "h-9")}
         >
-          <ChevronDown size={13} className={cn("transition-transform", menuOpen && "rotate-180")} />
+          <HIcon icon={ChevronDownIcon} size={13} className={cn("transition-transform", menuOpen && "rotate-180")} />
         </button>
       )}
 
@@ -470,7 +479,7 @@ export function CallModeMenu({ id, mode, onChoose, onClose, placement = "header"
                 {unavailable ? `${unavailable.label}. ${unavailable.reason}` : callModeHint(entry.id, { cloudHome })}
               </span>
             </span>
-            {mode === entry.id && <Check size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
+            {mode === entry.id && <HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
           </button>
         );
       })}
@@ -838,7 +847,7 @@ function Call({ bot }: { bot: Bot }) {
         aria-label="Hang up"
         className="absolute right-5 top-5 rounded-md p-2 text-ink-secondary hover:bg-raised hover:text-ink"
       >
-        <X size={18} />
+        <HIcon icon={MultiplicationSignIcon} size={18} />
       </button>
 
       <BotAvatar bot={bot} state={mascotState} size={220} animated trackPointer />
@@ -846,7 +855,7 @@ function Call({ bot }: { bot: Bot }) {
       <div className="flex flex-col items-center gap-1.5 text-center">
         <div className="text-[20px] font-medium text-ink">{bot.name}</div>
         <div className="flex items-center gap-2 text-[13.5px] text-ink-secondary">
-          {(phase === "working" || phase === "sending") && <Loader2 size={13} className="animate-spin" />}
+          {(phase === "working" || phase === "sending") && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
           {status}
         </div>
       </div>
@@ -894,7 +903,7 @@ function Call({ bot }: { bot: Bot }) {
           onClick={() => endCall(bot.id)}
           className="flex items-center gap-2 rounded-full bg-danger px-5 py-2.5 text-[14px] font-medium text-white hover:brightness-110"
         >
-          <PhoneOff size={16} /> Hang up
+          <HIcon icon={CallEnd01Icon} size={16} /> Hang up
         </button>
       </div>
 

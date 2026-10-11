@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { ArrowUpRight, Check, ChevronDown, RefreshCw } from "lucide-react";
+import { ArrowUpRight01Icon, ChevronDownIcon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, type InstanceInfo } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -39,18 +40,18 @@ export function EngineCard({ instance, children }: { instance: InstanceInfo; chi
             <div className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink" title={instance.displayName}>{instance.displayName}</div>
             <div className="mt-1 truncate text-[12px] text-ink-secondary" title={subtitle}>{subtitle}</div>
           </div>
-          <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-ink-secondary transition-transform group-open/engine:rotate-180 motion-reduce:transition-none" />
+          <HIcon icon={ChevronDownIcon} size={16} aria-hidden="true" className="shrink-0 text-ink-secondary transition-transform group-open/engine:rotate-180 motion-reduce:transition-none" />
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium", ready ? "bg-success/10 text-success" : "bg-control text-ink-secondary")}>
-            {ready ? <Check size={12} aria-hidden="true" /> : <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />}
+            {ready ? <HIcon icon={Tick01Icon} size={12} aria-hidden="true" /> : <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />}
             {ready ? t("onboarding.engines.ready") : t("onboarding.engines.needsSetup")}
           </span>
           {ready ? (
             <span className="text-[11px] tabular-nums text-ink-secondary">{version ? `v${version}` : t("engines.library.manage")}</span>
           ) : (
             <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-accent-text">
-              {t("engines.library.setup")}<ArrowUpRight size={13} aria-hidden="true" />
+              {t("engines.library.setup")}<HIcon icon={ArrowUpRight01Icon} size={13} aria-hidden="true" />
             </span>
           )}
         </div>
@@ -91,7 +92,7 @@ export function RefreshEngines() {
     setBusy(true);
     try { await refreshInstances(); } finally { setBusy(false); }
   }} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium text-ink-secondary hover:bg-control hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50">
-    <RefreshCw size={13} aria-hidden="true" className={cn(busy && "animate-spin")} />
+    <HIcon icon={RefreshCwIcon} size={13} aria-hidden="true" className={cn(busy && "animate-spin")} />
     {busy ? t("common.checking") : t("engines.library.refresh")}
   </button>;
 }

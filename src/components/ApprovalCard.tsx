@@ -5,7 +5,8 @@
 // and the actual command/path in monospace, and the choices carry their
 // own behavior instead of being matched by their label text.
 import { useState } from "react";
-import { Check, ShieldCheck, Undo2, X } from "lucide-react";
+import { MultiplicationSignIcon, ShieldCheckIcon, Tick01Icon, Undo02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, ApiError, type Bot, type Message, type OptionCardData } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t, tFromServer } from "@/lib/i18n";
@@ -215,7 +216,7 @@ function AppliedChangeLine({
   return (
     <div className="w-full max-w-[840px] text-[13px] text-ink-secondary" data-applied-change={name}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {undone ? <Undo2 size={14} className="shrink-0" /> : <Check size={14} className="shrink-0 text-success" />}
+        {undone ? <HIcon icon={Undo02Icon} size={14} className="shrink-0" /> : <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-success" />}
         <span className="min-w-0 break-words">
           {summary.line}
           {undone && <span> · {t("approval.applied.undone")}</span>}
@@ -359,12 +360,12 @@ export function ApprovalCard({
       <div className="mt-3 flex items-center gap-1.5 text-[13px] text-ink-secondary">
         {outcome ? (
           <>
-            {settled === "allow" && !expired ? <Check size={14} className="text-success" /> : <X size={14} />} {outcome}
+            {settled === "allow" && !expired ? <HIcon icon={Tick01Icon} size={14} className="text-success" /> : <HIcon icon={MultiplicationSignIcon} size={14} />} {outcome}
             {byVoice}
           </>
         ) : (
           <>
-            <ShieldCheck size={14} className="text-accent" />
+            <HIcon icon={ShieldCheckIcon} size={14} className="text-accent" />
             {isRoutineRequest || isSkillRequest || isProfileRequest || isTeamSetup
               ? t("approval.status.waitingConfirmation")
               : t("approval.status.waitingAnswer")}

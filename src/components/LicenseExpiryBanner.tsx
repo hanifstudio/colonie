@@ -3,7 +3,8 @@
 // the dates to admins only (configStatus → editionForSettings), and only
 // inside the 30-day warning window or the 7-day grace period, so the banner
 // is simply "whatever the server says", and silent everywhere else.
-import { AlertTriangle } from "lucide-react";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { ConfigStatus } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -30,7 +31,7 @@ export function LicenseExpiryBanner({ config }: { config: ConfigStatus | null | 
         notice.tone === "danger" ? "border-danger/40 bg-danger/10 text-danger" : "border-warning/40 bg-warning/10 text-warning",
       )}
     >
-      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+      <HIcon icon={Alert02Icon} size={14} className="mt-0.5 shrink-0" />
       <span>{notice.text}</span>
     </div>
   );

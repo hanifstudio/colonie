@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Monitor, RotateCcw, Square } from "lucide-react";
+import { Loading02Icon, MonitorIcon, RotateCcwIcon, SquareIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { requestScreenPreview, stopScreenPreview } from "@/lib/screen-preview";
 import { t } from "@/lib/i18n";
@@ -148,9 +149,9 @@ export function LocalScreenPreview() {
         {phase !== "streaming" && (
           <div className="flex flex-col items-center gap-2 px-6 text-center text-ink-secondary">
             {phase === "requesting" ? (
-              <Loader2 size={18} className="animate-spin" />
+              <HIcon icon={Loading02Icon} size={18} className="animate-spin" />
             ) : (
-              <Monitor size={22} />
+              <HIcon icon={MonitorIcon} size={22} />
             )}
             <span className="text-[12px]" aria-live="polite">
               {!ready
@@ -183,13 +184,13 @@ export function LocalScreenPreview() {
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         {phase === "requesting" ? (
-          <Loader2 size={14} className="animate-spin" />
+          <HIcon icon={Loading02Icon} size={14} className="animate-spin" />
         ) : phase === "streaming" ? (
-          <Square size={13} />
+          <HIcon icon={SquareIcon} size={13} />
         ) : retry ? (
-          <RotateCcw size={14} />
+          <HIcon icon={RotateCcwIcon} size={14} />
         ) : (
-          <Monitor size={14} />
+          <HIcon icon={MonitorIcon} size={14} />
         )}
         {phase === "requesting"
           ? t("computer.screen.choosing")

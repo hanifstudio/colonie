@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight01Icon, BookOpen01Icon, BoxIcon, Loading02Icon, MonitorIcon, MultiplicationSignIcon, NetworkIcon, PlusSignIcon, SaveIcon, UsersIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { createPortal } from "react-dom";
-import { ArrowRight, BookOpen, Box, Loader2, Monitor, Network, Plus, Save, Users, X } from "lucide-react";
 
 import { api, formatTime, useStore, type Bot } from "@/state/store";
 import {
@@ -34,7 +35,7 @@ function EdgeRow({ edge, bots }: { edge: TeamMapEdge; bots: Bot[] }) {
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-[13px] font-medium text-ink">{source.name}</span>
-        <ArrowRight size={13} className={cn("shrink-0", live ? "text-accent" : "text-ink-secondary")} />
+        <HIcon icon={ArrowRight01Icon} size={13} className={cn("shrink-0", live ? "text-accent" : "text-ink-secondary")} />
         <span className="truncate text-[13px] font-medium text-ink">{target.name}</span>
       </div>
       {edge.reason && <span className="max-w-[220px] truncate text-[11.5px] text-ink-secondary">{edge.reason}</span>}
@@ -184,7 +185,7 @@ function SectionContextDialog({ section, label, onClose }: { section: string; la
         <header className="flex items-start justify-between gap-4 border-b border-hairline/40 px-6 pb-4 pt-6 sm:px-8 sm:pt-7">
           <div>
             <div className="flex items-center gap-2">
-              <BookOpen size={19} className="text-accent" />
+              <HIcon icon={BookOpen01Icon} size={19} className="text-accent" />
               <h2 id="section-context-title" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
                 {t("team.instructionsTitle", { name: label })}
               </h2>
@@ -199,14 +200,14 @@ function SectionContextDialog({ section, label, onClose }: { section: string; la
             aria-label={t("team.instructionsClose")}
             className="flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40"
           >
-            <X size={19} />
+            <HIcon icon={MultiplicationSignIcon} size={19} />
           </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
           {loading ? (
             <div className="flex min-h-[260px] items-center justify-center text-ink-secondary">
-              <Loader2 size={20} className="animate-spin" aria-label={t("team.instructionsLoading")} />
+              <HIcon icon={Loading02Icon} size={20} className="animate-spin" aria-label={t("team.instructionsLoading")} />
             </div>
           ) : (
             <>
@@ -241,7 +242,7 @@ function SectionContextDialog({ section, label, onClose }: { section: string; la
             disabled={loading || saving || !dirty || bytes > maxBytes}
             className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-40"
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saving ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={SaveIcon} size={14} />}
             {t("team.instructionsSave")}
           </button>
         </footer>
@@ -323,32 +324,32 @@ export function TeamMapPage() {
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-hairline/40 px-6 py-4 max-md:pl-12">
         <div>
           <div className="flex items-center gap-2.5">
-            <Network size={18} className="text-ink-secondary" />
+            <HIcon icon={NetworkIcon} size={18} className="text-ink-secondary" />
             <h1 className="text-[17px] font-semibold">Team map</h1>
             <span className="ml-1 text-[11px] text-ink-secondary">{teamMapBotCount(bots.length)}</span>
           </div>
           <p className="mt-1 text-[12px] text-ink-secondary">{t("canvas.description")}</p>
         </div>
         {!remoteClient && <div className="flex items-center gap-2">
-          <button onClick={() => setComputersOpen((value) => !value)} aria-label="Computers" aria-expanded={computersOpen} className="rounded-lg p-2 text-ink-secondary hover:bg-control hover:text-ink"><Monitor size={17} /></button>
+          <button onClick={() => setComputersOpen((value) => !value)} aria-label="Computers" aria-expanded={computersOpen} className="rounded-lg p-2 text-ink-secondary hover:bg-control hover:text-ink"><HIcon icon={MonitorIcon} size={17} /></button>
           <details className="relative" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.removeAttribute("open"); }} onKeyDown={(event) => {
             if (event.key === "Escape") { event.currentTarget.removeAttribute("open"); event.currentTarget.querySelector("summary")?.focus(); }
           }}>
-            <summary aria-label="Add to team map" className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-hairline/60 bg-panel px-3 py-2 text-[12px] font-medium hover:bg-control [&::-webkit-details-marker]:hidden"><Plus size={14} /> Add</summary>
+            <summary aria-label="Add to team map" className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-hairline/60 bg-panel px-3 py-2 text-[12px] font-medium hover:bg-control [&::-webkit-details-marker]:hidden"><HIcon icon={PlusSignIcon} size={14} /> Add</summary>
             <div className="absolute right-0 top-full z-40 mt-2 w-52 rounded-xl border border-hairline/60 bg-panel p-1.5 shadow-xl" onClick={(event) => {
               const details = event.currentTarget.closest("details"); details?.querySelector("summary")?.focus(); details?.removeAttribute("open");
             }}>
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => setTeamEditor({})}><Users size={14} />{t("team.create")}</button>
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => { setComputersOpen(true); setCreateComputerRequest((value) => value + 1); }}><Box size={14} />Cloud computer</button>
+              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => setTeamEditor({})}><HIcon icon={UsersIcon} size={14} />{t("team.create")}</button>
+              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => { setComputersOpen(true); setCreateComputerRequest((value) => value + 1); }}><HIcon icon={BoxIcon} size={14} />Cloud computer</button>
               {/* An OMB Cloud home has no Local VM (shared/cloud-home.ts). */}
-              {placeOffered("vm", state.config) && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => dispatch({ type: "toggleAppSettings", section: "computer", open: true })}><Monitor size={14} />Local VM…</button>}
+              {placeOffered("vm", state.config) && <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[12px] hover:bg-control" onClick={() => dispatch({ type: "toggleAppSettings", section: "computer", open: true })}><HIcon icon={MonitorIcon} size={14} />Local VM…</button>}
             </div>
           </details>
         </div>}
       </header>
       {(error || refreshError) && <div role="alert" className="flex shrink-0 items-center justify-between gap-3 border-b border-danger/20 bg-danger/10 px-6 py-2 text-[12px] text-danger">
         {error || refreshError}
-        <button aria-label={t("common.close")} className="rounded p-1 hover:bg-danger/10" onClick={() => { setError(null); setRefreshError(null); }}><X size={14} /></button>
+        <button aria-label={t("common.close")} className="rounded p-1 hover:bg-danger/10" onClick={() => { setError(null); setRefreshError(null); }}><HIcon icon={MultiplicationSignIcon} size={14} /></button>
       </div>}
       <div className="relative flex min-h-0 flex-1">
       <TeamCanvas sections={sections} canManage={!remoteClient} onMove={requestMove}

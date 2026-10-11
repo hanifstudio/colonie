@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Loading02Icon, SparklesIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { normalizeImageGenerationUrl, type AvatarImageProvider } from "../../shared/image-generation";
@@ -215,7 +216,7 @@ export function AvatarImageGenerator({
           disabled={busy || (provider === "custom" ? !customUrl.trim() || !customModel.trim() || (!unsaved && configured) : !imageKey.trim())}
           className={BUTTON_CLASS}
         >
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+          {saving ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={Tick01Icon} size={13} />}
           {provider === "custom" ? "Save connection" : "Save key"}
         </button>
       </div>
@@ -225,7 +226,7 @@ export function AvatarImageGenerator({
   return (
     <div className="mt-5 border-t border-hairline/40 pt-4">
       <div className="flex items-center gap-2 text-[13px] font-medium text-ink">
-        <Sparkles size={14} className="text-accent" /> Generate with AI
+        <HIcon icon={SparklesIcon} size={14} className="text-accent" /> Generate with AI
       </div>
       <label className="mt-3 block text-[11.5px] text-ink-secondary">
         Image provider
@@ -269,7 +270,7 @@ export function AvatarImageGenerator({
           disabled={busy || !configured || unsaved}
           className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          {generating ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={SparklesIcon} size={13} />}
           {generating ? "Generating…" : "Generate avatar"}
         </button>
       </div>

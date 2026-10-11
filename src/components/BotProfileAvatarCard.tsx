@@ -1,5 +1,6 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { Delete02Icon, ImageAdd01Icon, Loading02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { useStore, type Bot } from "@/state/store";
 import { useBotEditor } from "./bot-settings/BotEditorContext";
@@ -268,7 +269,7 @@ export function BotProfileAvatarCard({
             disabled={busy}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
           >
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+            {uploading ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={ImageAdd01Icon} size={14} />}
             Upload image
           </button>
           {bot.avatarUrl && (
@@ -280,7 +281,7 @@ export function BotProfileAvatarCard({
               title="Remove custom image"
               className="flex size-10 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-danger disabled:opacity-50"
             >
-              <Trash2 size={14} />
+              <HIcon icon={Delete02Icon} size={14} />
             </button>
           )}
         </div>

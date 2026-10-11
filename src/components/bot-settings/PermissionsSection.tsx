@@ -12,7 +12,8 @@
 // warnings remember which bot they were opened for, so a bot switch while
 // one is up never applies the choice to the newly selected bot.
 import { useEffect, useState } from "react";
-import { Crown } from "lucide-react";
+import { CrownIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -74,7 +75,7 @@ export function PermissionsSection({
               bot.chiefOfStaff ? "bg-accent text-white" : "bg-control text-ink-secondary",
             )}
           >
-            <Crown size={17} />
+            <HIcon icon={CrownIcon} size={17} />
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-medium text-ink">Chief of Staff</div>

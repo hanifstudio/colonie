@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Download, Share } from "lucide-react";
+import { Copy01Icon, Download01Icon, Share01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
@@ -118,7 +119,7 @@ export function ExportTranscriptMenu({
         )}
         title="Export conversation as Markdown"
       >
-        <Share size={18} />
+        <HIcon icon={Share01Icon} size={18} />
       </button>
 
       {motion.shown && (
@@ -144,9 +145,9 @@ export function ExportTranscriptMenu({
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink hover:bg-raised/70"
               >
                 {copied ? (
-                  <Check size={14} className="shrink-0 text-success" />
+                  <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-success" />
                 ) : (
-                  <Copy size={14} className="shrink-0 text-ink-secondary" />
+                  <HIcon icon={Copy01Icon} size={14} className="shrink-0 text-ink-secondary" />
                 )}
                 <span className="flex-1 truncate">
                   {copied ? "Copied to clipboard!" : "Copy as Markdown"}
@@ -165,7 +166,7 @@ export function ExportTranscriptMenu({
                 onClick={handleDownload}
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink hover:bg-raised/70"
               >
-                <Download size={14} className="shrink-0 text-ink-secondary" />
+                <HIcon icon={Download01Icon} size={14} className="shrink-0 text-ink-secondary" />
                 <span className="flex-1 truncate">Download as .md</span>
               </button>
             </>

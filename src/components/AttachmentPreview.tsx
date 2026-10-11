@@ -10,20 +10,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  FileText,
-  FolderOpen,
-  ImageOff,
-  LoaderCircle,
-  Maximize2,
-  RotateCcw,
-  X,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, Download01Icon, FileTextIcon, FolderOpenIcon, ImageOffIcon, Loading02Icon, Maximize02Icon, MultiplicationSignIcon, RotateCcwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import {
   attachmentBasename,
@@ -372,11 +360,11 @@ function MessageFolderFile({ folderPath, name, bytes, message }: {
         className="inline-flex min-h-8 min-w-0 items-center gap-1 break-all text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait"
       >
         {save.state === "saving" ? (
-          <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
+          <HIcon icon={Loading02Icon} size={12} className="shrink-0 animate-spin" aria-hidden="true" />
         ) : save.state === "saved" ? (
-          <Check size={12} className="shrink-0 text-success" aria-hidden="true" />
+          <HIcon icon={Tick01Icon} size={12} className="shrink-0 text-success" aria-hidden="true" />
         ) : (
-          <FileText size={12} className="shrink-0" aria-hidden="true" />
+          <HIcon icon={FileTextIcon} size={12} className="shrink-0" aria-hidden="true" />
         )}
         {name}
       </button>
@@ -448,7 +436,7 @@ export function OutsideWorkspaceFile({ filePath }: { filePath: string }) {
         title={filePath}
         className="inline-flex items-center gap-1 text-accent underline decoration-accent/40 hover:decoration-accent"
       >
-        <FolderOpen size={12} className="shrink-0" aria-hidden="true" />
+        <HIcon icon={FolderOpenIcon} size={12} className="shrink-0" aria-hidden="true" />
         {t("attach.showInFolder")}
       </button>
       {problem && <span role="alert" className="text-danger">{problem}</span>}
@@ -571,7 +559,7 @@ export function AttachmentPreviewDialog({
                 aria-label={t("attach.downloadAria", { name: current.name })}
                 title={t("attach.download")}
               >
-                <Download size={17} />
+                <HIcon icon={Download01Icon} size={17} />
               </a>
             )}
             {current.openUrl && (
@@ -583,7 +571,7 @@ export function AttachmentPreviewDialog({
                 aria-label={t("attach.openOriginalAria", { name: current.name })}
                 title={t("attach.openOriginal")}
               >
-                <ExternalLink size={17} />
+                <HIcon icon={SquareArrowUpRightIcon} size={17} />
               </a>
             )}
             <button
@@ -591,7 +579,7 @@ export function AttachmentPreviewDialog({
               className="flex size-9 items-center justify-center rounded-lg text-white/65 hover:bg-white/10 hover:text-white"
               aria-label={t("attach.close")}
             >
-              <X size={19} />
+              <HIcon icon={MultiplicationSignIcon} size={19} />
             </button>
           </div>
         </header>
@@ -599,20 +587,20 @@ export function AttachmentPreviewDialog({
           {!loaded && !failed && (
             <div className="absolute inset-4 flex animate-pulse items-center justify-center rounded-xl bg-white/[0.055] sm:inset-8" role="status">
               <span className="flex items-center gap-2 text-[13px] text-white/55">
-                <LoaderCircle size={17} className="animate-spin" /> Loading image…
+                <HIcon icon={Loading02Icon} size={17} className="animate-spin" /> Loading image…
               </span>
             </div>
           )}
           {failed ? (
             <div className="flex flex-col items-center gap-3 text-white/60" role="alert">
-              <ImageOff size={34} />
+              <HIcon icon={ImageOffIcon} size={34} />
               <span className="text-[13px]">This image could not be loaded.</span>
               <button
                 type="button"
                 onClick={retry}
                 className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-[12px] text-white hover:bg-white/15"
               >
-                <RotateCcw size={13} /> Retry
+                <HIcon icon={RotateCcwIcon} size={13} /> Retry
               </button>
             </div>
           ) : (
@@ -636,7 +624,7 @@ export function AttachmentPreviewDialog({
                 aria-label={t("attach.previous")}
                 className="absolute left-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white/80 backdrop-blur-sm hover:bg-black/75 hover:text-white sm:left-4"
               >
-                <ChevronLeft size={21} />
+                <HIcon icon={ChevronLeftIcon} size={21} />
               </button>
               <button
                 type="button"
@@ -644,7 +632,7 @@ export function AttachmentPreviewDialog({
                 aria-label={t("attach.next")}
                 className="absolute right-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white/80 backdrop-blur-sm hover:bg-black/75 hover:text-white sm:right-4"
               >
-                <ChevronRight size={21} />
+                <HIcon icon={ChevronRightIcon} size={21} />
               </button>
             </>
           )}
@@ -682,13 +670,13 @@ export function AttachmentThumbnail({
     >
       {state === "loading" && (
         <span className="absolute inset-0 flex animate-pulse items-center justify-center bg-raised/65" role="status">
-          <LoaderCircle size={17} className="animate-spin text-ink-tertiary" />
+          <HIcon icon={Loading02Icon} size={17} className="animate-spin text-ink-tertiary" />
           <span className="sr-only">Loading {image.name}</span>
         </span>
       )}
       {state === "failed" ? (
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center text-ink-secondary" role="alert">
-          <ImageOff size={22} />
+          <HIcon icon={ImageOffIcon} size={22} />
           <span className="max-w-full truncate text-[11.5px]">Image unavailable</span>
           <span
             role="button"
@@ -709,7 +697,7 @@ export function AttachmentThumbnail({
             className="flex items-center gap-1 rounded-md border border-hairline/50 bg-panel px-2 py-1 text-[11px] text-ink hover:bg-raised"
             aria-label={t("attach.retryAria", { name: image.name })}
           >
-            <RotateCcw size={11} /> {t("chat.retry")}
+            <HIcon icon={RotateCcwIcon} size={11} /> {t("chat.retry")}
           </span>
         </span>
       ) : (
@@ -750,7 +738,7 @@ export function AttachmentThumbnail({
             )}
           />
           <span className="absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover/image:opacity-100 group-focus-within/image:opacity-100">
-            <Maximize2 size={13} />
+            <HIcon icon={Maximize02Icon} size={13} />
           </span>
         </span>
       )}
@@ -867,19 +855,19 @@ export function MarkdownImagePreview({
       <span ref={containerRef} className="my-2 block w-[min(36rem,70vw)] max-w-full">
         {external && !externalAllowed ? (
           <span className="flex aspect-[4/3] max-h-96 flex-col items-center justify-center gap-2 rounded-xl border border-hairline/40 bg-inset px-4 text-center text-[12px] text-ink-secondary">
-            <ImageOff size={20} />
+            <HIcon icon={ImageOffIcon} size={20} />
             <span>{t("attach.externalHidden")}</span>
             <button type="button" className="rounded-md border border-hairline/50 bg-panel px-2.5 py-1 text-ink hover:bg-raised" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setApprovedExternalSource(src); }}>{t("attach.loadImage")}</button>
           </span>
         ) : filePath && (!threadId || !messageId || localSourceOffset === null) ? (
           <span className="flex aspect-[4/3] max-h-96 items-center justify-center gap-2 rounded-xl border border-hairline/40 bg-inset text-[12px] text-ink-secondary" role="alert">
-            <ImageOff size={17} /> {t("attach.oldImage")}
+            <HIcon icon={ImageOffIcon} size={17} /> {t("attach.oldImage")}
           </span>
         ) : visibleSource ? (
           <AttachmentThumbnail key={image.src} image={image} onPreview={() => setOpen(true)} className="max-h-96" eager />
         ) : (
           <span className="flex aspect-[4/3] max-h-96 animate-pulse items-center justify-center rounded-xl border border-hairline/40 bg-inset" role="status">
-            <LoaderCircle size={17} className="animate-spin text-ink-tertiary" />
+            <HIcon icon={Loading02Icon} size={17} className="animate-spin text-ink-tertiary" />
             <span className="sr-only">Loading {name}</span>
           </span>
         )}
@@ -906,7 +894,7 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
   if (!message || (!file.private && !linked)) {
     return (
       <div title={t("attach.legacyFile", { name: file.name })} className={cn("flex max-w-[280px] items-center gap-2 overflow-hidden rounded-lg border border-hairline/40 bg-inset/70 px-2.5 py-2 text-[12px] text-ink-secondary", className)}>
-        <FileText size={14} className="shrink-0" aria-hidden="true" />
+        <HIcon icon={FileTextIcon} size={14} className="shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
         <span className="text-[10.5px]">{t("attach.unavailable")}</span>
       </div>
@@ -929,16 +917,16 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
           }
           className="flex min-h-10 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60 disabled:cursor-wait disabled:hover:bg-transparent"
         >
-          <FileText size={14} className="shrink-0" aria-hidden="true" />
+          <HIcon icon={FileTextIcon} size={14} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
           {save.state === "saving" ? (
-            <LoaderCircle size={13} className="shrink-0 animate-spin" />
+            <HIcon icon={Loading02Icon} size={13} className="shrink-0 animate-spin" />
           ) : save.state === "saved" ? (
-            <Check size={13} className="shrink-0 text-success" />
+            <HIcon icon={Tick01Icon} size={13} className="shrink-0 text-success" />
           ) : save.state === "failed" ? (
-            <RotateCcw size={13} className="shrink-0 text-danger" />
+            <HIcon icon={RotateCcwIcon} size={13} className="shrink-0 text-danger" />
           ) : (
-            <Download size={13} className="shrink-0" />
+            <HIcon icon={Download01Icon} size={13} className="shrink-0" />
           )}
         </button>
         <TableFileButton path={file.path} name={file.name} message={message} />

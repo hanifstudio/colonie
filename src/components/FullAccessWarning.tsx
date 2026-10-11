@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlertIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 export const FULL_ACCESS_WARNING =
   "This bot can read, edit, delete files, use the internet, and control its selected computer without asking—even for potentially destructive or sensitive actions. This also applies to scheduled work and tasks delegated by your Chief or other bots. It does not enable Full access on other bots. Some providers may still require approval. Questions and separate OpenMausBot confirmations still wait for you. This does not grant operating-system permissions or access to accounts you have not connected.";
@@ -67,7 +68,7 @@ export function FullAccessWarning({
         className="w-full max-w-[440px] rounded-2xl border border-danger/30 bg-panel p-5 shadow-2xl"
       >
         <div className="flex items-start gap-3">
-          <ShieldAlert size={19} className="mt-0.5 shrink-0 text-danger" />
+          <HIcon icon={ShieldAlertIcon} size={19} className="mt-0.5 shrink-0 text-danger" />
           <div>
             <h2 id="full-access-warning-title" className="text-[15px] font-semibold text-ink">
               Enable Full access?

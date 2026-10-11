@@ -10,7 +10,8 @@
 // re-reads, so notes the bot wrote mid-session show up on the next look.
 // The dialog keeps this mounted while hidden so an unsaved draft survives
 // a visit to another section.
-import { FileText, FolderOpen, RotateCcw, Trash2 } from "lucide-react";
+import { Delete02Icon, FileTextIcon, FolderOpenIcon, RotateCcwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -292,7 +293,7 @@ export function MemorySection({ bot, active = true, onToggle }: { bot: Bot; acti
               Open in Obsidian
             </button>
             <button type="button" className={cn(buttonCls, "inline-flex items-center gap-1.5")} onClick={() => void openLocation("folder")}>
-              <FolderOpen size={14} />
+              <HIcon icon={FolderOpenIcon} size={14} />
               {fileManagerLabel(capabilities.host.platform)}
             </button>
           </div>
@@ -603,7 +604,7 @@ export function MemoryFileRows({
               )}
             >
               <button type="button" onClick={() => onOpen(file)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                <FileText size={14} className="shrink-0 text-ink-secondary" />
+                <HIcon icon={FileTextIcon} size={14} className="shrink-0 text-ink-secondary" />
                 <span className="truncate font-mono text-[12.5px] text-ink">{file.name}</span>
                 <span className="shrink-0 text-[11.5px] text-ink-secondary">
                   {formatBytes(file.bytes)} · {relativeTime(file.modifiedAt)}
@@ -616,7 +617,7 @@ export function MemoryFileRows({
                 title="Delete"
                 className="shrink-0 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-danger"
               >
-                <Trash2 size={14} />
+                <HIcon icon={Delete02Icon} size={14} />
               </button>
             </div>
           ))}
@@ -666,7 +667,7 @@ export function MemoryJournalList({
                   onClick={() => onRevert(row)}
                   className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium text-accent-text hover:bg-accent/10 disabled:opacity-50"
                 >
-                  <RotateCcw size={12} />
+                  <HIcon icon={RotateCcwIcon} size={12} />
                   {reverting === row.id ? "Undoing…" : "Undo"}
                 </button>
               ) : (

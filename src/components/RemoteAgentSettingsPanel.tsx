@@ -1,5 +1,6 @@
+import { ChevronLeftIcon, Delete02Icon, ImageAdd01Icon, Loading02Icon, MultiplicationSignIcon, Notification01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useRef, useState } from "react";
-import { Bell, ChevronLeft, ImagePlus, Loader2, Trash2, X } from "lucide-react";
 
 import { api, useStore, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -88,7 +89,7 @@ export function RemoteAgentSettingsPanel({ bot, overlay = false }: {
           aria-label="Collapse remote agent settings"
           className="flex size-10 items-center justify-center rounded-md text-ink-secondary hover:bg-control hover:text-ink"
         >
-          <ChevronLeft size={18} />
+          <HIcon icon={ChevronLeftIcon} size={18} />
         </button>
         <span className="text-[15px] font-semibold text-ink">Remote agent settings</span>
         <button
@@ -96,7 +97,7 @@ export function RemoteAgentSettingsPanel({ bot, overlay = false }: {
           aria-label="Close remote agent settings"
           className="flex size-10 items-center justify-center rounded-md text-ink-secondary hover:bg-control hover:text-ink"
         >
-          <X size={18} />
+          <HIcon icon={MultiplicationSignIcon} size={18} />
         </button>
       </div>
 
@@ -108,9 +109,9 @@ export function RemoteAgentSettingsPanel({ bot, overlay = false }: {
               <div className="flex gap-2">
                 <input ref={avatarInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
                 <button type="button" disabled={uploading || saving} onClick={() => avatarInput.current?.click()} className="flex items-center gap-1.5 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50">
-                  {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />} Avatar
+                  {uploading ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={ImageAdd01Icon} size={14} />} Avatar
                 </button>
-                {bot.avatarUrl && <button type="button" disabled={saving} onClick={() => void patch({ avatarUrl: null, avatarCrop: "mascot" })} aria-label="Remove custom avatar" className="flex size-9 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-danger"><Trash2 size={14} /></button>}
+                {bot.avatarUrl && <button type="button" disabled={saving} onClick={() => void patch({ avatarUrl: null, avatarCrop: "mascot" })} aria-label="Remove custom avatar" className="flex size-9 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-danger"><HIcon icon={Delete02Icon} size={14} /></button>}
               </div>
             </div>
             <label className="block text-[12px] font-medium text-ink-secondary">Name
@@ -132,7 +133,7 @@ export function RemoteAgentSettingsPanel({ bot, overlay = false }: {
 
           <div className="flex items-center justify-between gap-4 rounded-xl bg-card p-4">
             <div className="flex min-w-0 items-start gap-3">
-              <Bell size={16} className="mt-0.5 shrink-0 text-ink-secondary" />
+              <HIcon icon={Notification01Icon} size={16} className="mt-0.5 shrink-0 text-ink-secondary" />
               <div>
                 <div className="text-[15px] font-medium text-ink">Notifications</div>
                 <div className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">

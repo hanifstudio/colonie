@@ -3,7 +3,8 @@
 // call runs in a chat that is not on screen, and the same as a chip in the
 // chat header for windows too narrow to show the sidebar. The call bar
 // itself (LiveCallBar) lives in the call's own chat.
-import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
+import { CallEnd01Icon, Mic01Icon, MicOff01Icon, PhoneIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { isMacPlatform } from "@/lib/keyboard-shortcuts";
@@ -57,7 +58,7 @@ export function LiveCallPill({ onOpen, currentBotId, iconOnly = false }: {
       onClick={() => setLiveMuted(!media.muted)}
       className={cn(round, media.muted ? "bg-raised text-ink" : "text-ink-secondary hover:text-ink")}
     >
-      {media.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+      {media.muted ? <HIcon icon={MicOff01Icon} className="size-3.5" /> : <HIcon icon={Mic01Icon} className="size-3.5" />}
     </button>
   );
   const hangUp = (
@@ -70,7 +71,7 @@ export function LiveCallPill({ onOpen, currentBotId, iconOnly = false }: {
       onClick={() => void hangUpLiveCall()}
       className={cn(round, "bg-danger text-white hover:brightness-110 disabled:opacity-60")}
     >
-      <PhoneOff className="size-3.5" />
+      <HIcon icon={CallEnd01Icon} className="size-3.5" />
     </button>
   );
   if (iconOnly) {
@@ -83,7 +84,7 @@ export function LiveCallPill({ onOpen, currentBotId, iconOnly = false }: {
           onClick={() => onOpen(bot.id, threadId)}
           className={cn(round, "relative text-success hover:bg-raised")}
         >
-          <Phone className="size-4" />
+          <HIcon icon={PhoneIcon} className="size-4" />
           <span className="absolute right-0.5 top-0.5 size-1.5 animate-pulse rounded-full bg-success" aria-hidden />
         </button>
         {mute}

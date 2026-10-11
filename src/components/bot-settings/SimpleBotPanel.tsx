@@ -4,7 +4,8 @@
 // the bot has made in this chat. Every field writes through the same path the
 // full fold-out sections use, and "All settings" opens that full view.
 import { useMemo, useState } from "react";
-import { ChevronRight, FileText, Image as ImageIcon, X } from "lucide-react";
+import { ChevronRightIcon, FileTextIcon, Image01Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -124,7 +125,7 @@ export function SimpleBotPanel({
           aria-label={t("botSettings.simple.close")}
           className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
         >
-          <X size={18} className="pointer-events-none" />
+          <HIcon icon={MultiplicationSignIcon} size={18} className="pointer-events-none" />
         </button>
       </div>
 
@@ -299,7 +300,7 @@ export function SimpleBotPanel({
                 {" — "}
                 {acp ? "Appearance, working folder, model and permissions" : t("botSettings.simple.allSettingsHint")}
               </span>
-              <ChevronRight size={15} className="shrink-0" />
+              <HIcon icon={ChevronRightIcon} size={15} className="shrink-0" />
             </button>
           </div>
         ) : (
@@ -311,7 +312,7 @@ export function SimpleBotPanel({
             ) : (
               <div className="flex flex-col gap-1.5">
                 {library.map((item) => {
-                  const Icon = item.kind === "image" ? ImageIcon : FileText;
+                  const Icon = item.kind === "image" ? Image01Icon : FileTextIcon;
                   return (
                     <button
                       key={item.key}
@@ -321,7 +322,7 @@ export function SimpleBotPanel({
                       onClick={() => dispatch({ type: "focusMessage", threadId: bot.threadId, messageId: item.messageId })}
                       className="flex items-center gap-3 rounded-xl border border-hairline/40 bg-inset px-3 py-2.5 text-left hover:bg-raised"
                     >
-                      <Icon size={16} className="shrink-0 text-ink-secondary" />
+                      <HIcon icon={Icon} size={16} className="shrink-0 text-ink-secondary" />
                       <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">{item.name}</span>
                       <span className="shrink-0 text-[12px] text-ink-tertiary">
                         {new Date(item.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}

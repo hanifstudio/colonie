@@ -1,4 +1,5 @@
-import { Code, Eye } from "lucide-react";
+import { CodeIcon, ViewIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 
@@ -30,7 +31,7 @@ export function RawToggleAction({ active, onToggle, className }: RawToggleAction
         className,
       )}
     >
-      {active ? <Eye size={14} aria-hidden="true" /> : <Code size={14} aria-hidden="true" />}
+      {active ? <HIcon icon={ViewIcon} size={14} aria-hidden="true" /> : <HIcon icon={CodeIcon} size={14} aria-hidden="true" />}
     </button>
   );
 }

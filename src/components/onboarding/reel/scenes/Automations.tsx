@@ -8,8 +8,9 @@
 //
 // Drawn to match the real Automations page and the real run receipt card,
 // so a user recognises both when they meet them for real.
+import { CheckmarkCircle02Icon, Cursor02Icon, Loading02Icon, ZapIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../../../HIcon";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, MousePointer2, Zap } from "lucide-react";
 import { MausAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import { reducedMotion } from "@/lib/onboarding";
@@ -45,9 +46,9 @@ function Receipt({ name, running, tone }: { name: string; running: boolean; tone
     >
       <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-inset">
         {running ? (
-          <Loader2 size={14} className={cn("animate-spin", tone === "accent" ? "text-accent" : "text-warning")} />
+          <HIcon icon={Loading02Icon} size={14} className={cn("animate-spin", tone === "accent" ? "text-accent" : "text-warning")} />
         ) : (
-          <CheckCircle2 size={14} className="animate-spot-in text-success" />
+          <HIcon icon={CheckmarkCircle02Icon} size={14} className="animate-spot-in text-success" />
         )}
       </div>
       <div className="min-w-0">
@@ -175,7 +176,7 @@ export function Automations({ playing, onCue, onEnded, label }: SceneProps) {
 
       {/* the pointer that drops the routine in */}
       {(pointer || (dropped && !firing)) && (
-        <MousePointer2
+        <HIcon icon={Cursor02Icon}
           size={16}
           className={cn(
             "absolute z-30 text-ink drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -197,7 +198,7 @@ export function Automations({ playing, onCue, onEnded, label }: SceneProps) {
           <div className="animate-rise flex items-center gap-1.5 rounded-lg border border-hairline/50 bg-panel px-2.5 py-1.5 font-mono text-[9.5px] text-ink-secondary shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)]">
             <span className="font-semibold text-ink">POST</span> …/hooks/wh_7f3a
           </div>
-          <Zap
+          <HIcon icon={ZapIcon}
             size={15}
             fill="currentColor"
             className={cn("text-warning drop-shadow-[0_0_6px_rgba(255,152,0,0.55)]", hookDone ? "opacity-0 transition-opacity duration-300" : "animate-bolt")}

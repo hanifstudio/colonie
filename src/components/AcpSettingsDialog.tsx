@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, X } from "lucide-react";
+import { MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore } from "@/state/store";
 import { useModalDialog } from "@/hooks/use-modal-dialog";
 import type { NativeSettings, NativeSettingChange } from "../../shared/acp-settings";
@@ -46,8 +47,8 @@ export function AcpSettingsDialog({ botId, threadId, onClose }: { botId: string;
         <header className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">Agent options</h2>
           <div className="flex gap-2">
-            <button aria-label="Refresh native settings" disabled={pending} onClick={() => { void load(); }} className="rounded p-2 text-ink-secondary hover:bg-raised disabled:opacity-50"><RefreshCw size={18} /></button>
-            <button aria-label="Close native settings" onClick={onClose} className="rounded p-2 text-ink-secondary hover:bg-raised"><X size={18} /></button>
+            <button aria-label="Refresh native settings" disabled={pending} onClick={() => { void load(); }} className="rounded p-2 text-ink-secondary hover:bg-raised disabled:opacity-50"><HIcon icon={RefreshCwIcon} size={18} /></button>
+            <button aria-label="Close native settings" onClick={onClose} className="rounded p-2 text-ink-secondary hover:bg-raised"><HIcon icon={MultiplicationSignIcon} size={18} /></button>
           </div>
         </header>
         <p className="my-3 text-sm text-ink-secondary">Choose how your agent works in this conversation. Opening these options does not send a message.</p>

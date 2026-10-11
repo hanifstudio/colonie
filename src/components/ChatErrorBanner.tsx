@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { t } from "@/lib/i18n";
 
 /** The chat and room error line. Callers pass the store error; dismissing
@@ -16,7 +17,7 @@ export function ChatErrorBanner({ message, onDismiss }: { message: string | null
           title={t("chat.error.dismiss")}
           className="shrink-0 rounded p-0.5 hover:bg-danger/10"
         >
-          <X size={13} />
+          <HIcon icon={MultiplicationSignIcon} size={13} />
         </button>
       </div>
     </div>

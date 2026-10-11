@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Loader2, PlugZap, RefreshCw, X } from "lucide-react";
+import { Loading02Icon, MultiplicationSignIcon, PlugZapIcon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { api, type Message } from "@/state/store";
 import { t } from "@/lib/i18n";
@@ -124,14 +125,14 @@ export function ConnectorCard({ botId, threadId, message }: { botId: string; thr
       <div data-tour="connector" className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-hairline/50 bg-card shadow-sm">
         <div className="flex items-start gap-3 p-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-control text-[16px] font-semibold text-ink">
-            {connector.label.slice(0, 1).toUpperCase() || <PlugZap size={19} />}
+            {connector.label.slice(0, 1).toUpperCase() || <HIcon icon={PlugZapIcon} size={19} />}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="truncate text-[14px] font-semibold text-ink">{connector.label}</span>
               {connected && (
                 <span className="flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
-                  <Check size={11} /> {t("connectors.card.connected")}
+                  <HIcon icon={Tick01Icon} size={11} /> {t("connectors.card.connected")}
                 </span>
               )}
             </div>
@@ -161,13 +162,13 @@ export function ConnectorCard({ botId, threadId, message }: { botId: string; thr
           </div>
           {!connected && (
             <button onClick={dismiss} aria-label={t("connectors.card.notNow")} title={t("connectors.card.notNow")} className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink">
-              <X size={15} />
+              <HIcon icon={MultiplicationSignIcon} size={15} />
             </button>
           )}
         </div>
         <div className="flex items-center justify-between border-t border-hairline/40 bg-panel/40 px-4 py-2.5">
           <div className="flex items-center gap-1.5 text-[11.5px] text-ink-secondary">
-            {authorizing ? <Loader2 size={12} className="animate-spin" /> : <PlugZap size={12} />}
+            {authorizing ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={PlugZapIcon} size={12} />}
             {authorizing
               ? t("connectors.card.waiting")
               : connected
@@ -180,7 +181,7 @@ export function ConnectorCard({ botId, threadId, message }: { botId: string; thr
               disabled={busy}
               className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              {busy || authorizing ? <Loader2 size={13} className="animate-spin" /> : <PlugZap size={13} />}
+              {busy || authorizing ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={PlugZapIcon} size={13} />}
               {authorizing
                 ? t("connectors.card.openAgain")
                 : connector.status === "failed"
@@ -193,10 +194,10 @@ export function ConnectorCard({ botId, threadId, message }: { botId: string; thr
               disabled={busy}
               className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} {t("connectors.card.continueTask")}
+              {busy ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={13} />} {t("connectors.card.continueTask")}
             </button>
           ) : (
-            <span className="flex items-center gap-1 text-[12px] font-medium text-success"><Check size={13} /> {t("connectors.card.continuing")}</span>
+            <span className="flex items-center gap-1 text-[12px] font-medium text-success"><HIcon icon={Tick01Icon} size={13} /> {t("connectors.card.continuing")}</span>
           )}
         </div>
       </div>

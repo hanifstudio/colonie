@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ChevronLeft, ChevronRight, Clipboard, Keyboard, Maximize, Minimize, Monitor, RefreshCw, Send, X, type LucideIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ClipboardIcon, KeyboardIcon, Maximize01Icon, Minimize01Icon, MonitorIcon, RefreshCwIcon, SentIcon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import RFB from "@novnc/novnc";
 import { t } from "@/lib/i18n";
@@ -151,20 +153,20 @@ export function DesktopViewer() {
       <aside aria-label={t("desktopViewer.controls")} aria-hidden={!expanded} inert={!expanded} className={cn("z-10 flex shrink-0 items-center justify-center py-3", slide, expanded ? "w-[72px]" : "w-0")}>
         <div className={cn("flex max-h-full w-14 shrink-0 flex-col items-center gap-1 overflow-y-auto rounded-2xl border border-hairline bg-panel p-1 shadow-xl", slide, expanded ? "translate-x-0 opacity-100" : "-translate-x-12 opacity-0")}>
           <div className="relative flex h-11 w-11 shrink-0 items-center justify-center text-ink-secondary" title={status}>
-            <Monitor size={20} aria-hidden="true" />
+            <HIcon icon={MonitorIcon} size={20} aria-hidden="true" />
             <span className={cn("absolute right-2 bottom-2 size-2 rounded-full ring-2 ring-panel", connected ? "bg-success" : "bg-warning")} />
           </div>
           <div className="my-1 h-px w-7 shrink-0 bg-hairline" />
-          <ViewerTool id="keyboard" label={t("desktopViewer.keyboard")} icon={Keyboard} disabled={!connected} active={panel === "keyboard"} expanded={panel === "keyboard"} onClick={() => togglePanel("keyboard")} />
-          <ViewerTool id="clipboard" label={t("desktopViewer.clipboard")} icon={Clipboard} disabled={!connected} active={panel === "clipboard"} expanded={panel === "clipboard"} onClick={() => togglePanel("clipboard")} />
-          {document.fullscreenEnabled && <ViewerTool id="fullscreen" label={t(fullscreen ? "desktopViewer.exitFullscreen" : "desktopViewer.fullscreen")} icon={fullscreen ? Minimize : Maximize} onClick={() => { void toggleFullscreen(); }} />}
+          <ViewerTool id="keyboard" label={t("desktopViewer.keyboard")} icon={KeyboardIcon} disabled={!connected} active={panel === "keyboard"} expanded={panel === "keyboard"} onClick={() => togglePanel("keyboard")} />
+          <ViewerTool id="clipboard" label={t("desktopViewer.clipboard")} icon={ClipboardIcon} disabled={!connected} active={panel === "clipboard"} expanded={panel === "clipboard"} onClick={() => togglePanel("clipboard")} />
+          {document.fullscreenEnabled && <ViewerTool id="fullscreen" label={t(fullscreen ? "desktopViewer.exitFullscreen" : "desktopViewer.fullscreen")} icon={fullscreen ? Minimize01Icon : Maximize01Icon} onClick={() => { void toggleFullscreen(); }} />}
           <div className="my-1 h-px w-7 shrink-0 bg-hairline" />
-          <ViewerTool id="retry" label={t("desktopViewer.reconnect")} icon={RefreshCw} onClick={() => { setClipboard(""); setAttempt(value => value + 1); }} />
-          <ViewerTool id="hide-controls" label={t("desktopViewer.hideControls")} icon={ChevronLeft} onClick={() => { setExpanded(false); setPanel(null); focusSoon("show-controls"); }} />
+          <ViewerTool id="retry" label={t("desktopViewer.reconnect")} icon={RefreshCwIcon} onClick={() => { setClipboard(""); setAttempt(value => value + 1); }} />
+          <ViewerTool id="hide-controls" label={t("desktopViewer.hideControls")} icon={ChevronLeftIcon} onClick={() => { setExpanded(false); setPanel(null); focusSoon("show-controls"); }} />
         </div>
       </aside>
       {handleMotion.shown && <div {...handleMotion.exitProps} className={cn("absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-r-2xl border border-l-0 border-hairline bg-panel p-1 shadow-xl", handleMotion.className)}>
-        <ViewerTool id="show-controls" label={t("desktopViewer.showControls")} icon={ChevronRight} onClick={() => { setExpanded(true); focusSoon("hide-controls"); }} />
+        <ViewerTool id="show-controls" label={t("desktopViewer.showControls")} icon={ChevronRightIcon} onClick={() => { setExpanded(true); focusSoon("hide-controls"); }} />
       </div>}
 
       <main className={cn("relative flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-inset", !fullscreen && "my-2 mr-2 rounded-2xl border border-hairline", !fullscreen && !expanded && "ml-2")}>
@@ -183,7 +185,7 @@ export function DesktopViewer() {
         <div className="mb-3 flex items-center justify-between gap-2">
           <h1 className="font-medium">{t(keyboardPanel ? "desktopViewer.keyboard" : "desktopViewer.clipboard")}</h1>
           <button type="button" title={t("desktopViewer.closePanel")} aria-label={t("desktopViewer.closePanel")} onClick={closePanel} className="ui-icon-button shrink-0">
-            <X size={18} aria-hidden="true" />
+            <HIcon icon={MultiplicationSignIcon} size={18} aria-hidden="true" />
           </button>
         </div>
         <form onSubmit={event => {
@@ -207,7 +209,7 @@ export function DesktopViewer() {
             }
           }} />
           {keyboardPanel && <button id="send" type="submit" className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-3 font-medium text-accent-ink transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:opacity-40" disabled={!connected || !text}>
-            <Send size={16} aria-hidden="true" />{t("desktopViewer.send")}
+            <HIcon icon={SentIcon} size={16} aria-hidden="true" />{t("desktopViewer.send")}
           </button>}
         </form>
         {keyboardPanel && <div className="mt-4 grid grid-cols-2 gap-2 border-t border-hairline pt-4">
@@ -220,11 +222,11 @@ export function DesktopViewer() {
   );
 }
 
-function ViewerTool({ id, label, icon: Icon, disabled, active, expanded, onClick }: {
-  id?: string; label: string; icon: LucideIcon; disabled?: boolean; active?: boolean; expanded?: boolean; onClick: () => void;
+function ViewerTool({ id, label, icon, disabled, active, expanded, onClick }: {
+  id?: string; label: string; icon: IconSvgElement; disabled?: boolean; active?: boolean; expanded?: boolean; onClick: () => void;
 }) {
   return <button id={id} type="button" title={label} aria-label={label} aria-pressed={active} aria-expanded={expanded} disabled={disabled} onClick={onClick} className={cn(
     "ui-icon-button size-11 min-h-11 shrink-0 rounded-xl focus-visible:outline-2 focus-visible:outline-focus",
     active ? "bg-accent/15 text-accent-text hover:bg-accent/25" : "text-ink-secondary hover:bg-raised-hover hover:text-ink",
-  )}><Icon size={19} strokeWidth={1.75} aria-hidden="true" /></button>;
+  )}><HIcon icon={icon} size={19} strokeWidth={1.75} aria-hidden="true" /></button>;
 }

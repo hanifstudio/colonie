@@ -1,4 +1,5 @@
-import { Check, Loader2, ShieldCheck, X } from "lucide-react";
+import { Loading02Icon, MultiplicationSignIcon, ShieldCheckIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -67,7 +68,7 @@ export function SharePresetContents({ preview, localSkips }: { preview: PresetSh
         ))}
       </dl>
       <p className="mt-3 flex items-start gap-2 text-[12.5px] leading-relaxed text-ink-secondary">
-        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-success" />
+        <HIcon icon={ShieldCheckIcon} size={15} className="mt-0.5 shrink-0 text-success" />
         <span>{t("presetShare.never")}</span>
       </p>
       {preview.redacted.length > 0 && (
@@ -197,13 +198,13 @@ export function SharePresetDialog({ onClose }: { onClose: () => void }) {
             <h2 id="share-preset-title" className="text-[17px] font-semibold">{t("presetShare.title")}</h2>
             <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">{t("presetShare.intro")}</p>
           </div>
-          <button aria-label={t("presetShare.close")} disabled={saving} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><X size={18} /></button>
+          <button aria-label={t("presetShare.close")} disabled={saving} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><HIcon icon={MultiplicationSignIcon} size={18} /></button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 pt-2">
           {saved ? (
             <>
-              <p className="flex items-center gap-2 text-[13.5px] font-medium text-ink"><Check size={16} className="text-success" />{t("teamShare.saved", { filename: saved.filename })}</p>
+              <p className="flex items-center gap-2 text-[13.5px] font-medium text-ink"><HIcon icon={Tick01Icon} size={16} className="text-success" />{t("teamShare.saved", { filename: saved.filename })}</p>
               <p className="mt-1 text-[12.5px] leading-relaxed text-ink-secondary">{t("presetShare.savedHint")}</p>
               <div className="mt-4"><SharePresetContents preview={saved} localSkips={localSkips} /></div>
             </>
@@ -211,7 +212,7 @@ export function SharePresetDialog({ onClose }: { onClose: () => void }) {
             <>
               {preview
                 ? <SharePresetContents preview={preview} localSkips={localSkips} />
-                : !error && <div className="flex items-center gap-2 py-6 text-[13px] text-ink-secondary"><Loader2 size={15} className="animate-spin" />{t("presetShare.preparing")}</div>}
+                : !error && <div className="flex items-center gap-2 py-6 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={15} className="animate-spin" />{t("presetShare.preparing")}</div>}
               <fieldset className="mt-4 space-y-2 text-[13px]" disabled={saving}>
                 <label className="flex items-center gap-2">
                   <input type="checkbox" className="size-4 accent-accent" checked={includePicture} onChange={(event) => setIncludePicture(event.target.checked)} />
@@ -249,7 +250,7 @@ export function SharePresetDialog({ onClose }: { onClose: () => void }) {
               <button disabled={saving} onClick={onClose} className="rounded-lg px-3 py-2 text-[13px] text-ink-secondary hover:bg-raised">{t("common.cancel")}</button>
               <button disabled={saving || !preview} onClick={() => void save()}
                 className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white disabled:opacity-40">
-                {saving && <Loader2 size={14} className="animate-spin" />}
+                {saving && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}
                 {saving ? t("teamShare.saving") : t("teamShare.save")}
               </button>
             </>

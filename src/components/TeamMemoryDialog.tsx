@@ -4,8 +4,9 @@
 // removes anything. Sits beside the section's shared context, which only
 // the person writes.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BrainIcon, Delete02Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { createPortal } from "react-dom";
-import { Brain, Check, Loader2, Plus, Trash2, X } from "lucide-react";
 
 import { api } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -138,7 +139,7 @@ export function TeamMemoryDialog({ section, label, onClose }: { section: string;
         <header className="flex items-start justify-between gap-4 border-b border-hairline/40 px-6 pb-4 pt-6 sm:px-8 sm:pt-7">
           <div>
             <div className="flex items-center gap-2">
-              <Brain size={19} className="text-accent" />
+              <HIcon icon={BrainIcon} size={19} className="text-accent" />
               <h2 id="team-memory-title" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
                 {label} team memory
               </h2>
@@ -153,14 +154,14 @@ export function TeamMemoryDialog({ section, label, onClose }: { section: string;
             aria-label="Close team memory"
             className="flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink"
           >
-            <X size={19} />
+            <HIcon icon={MultiplicationSignIcon} size={19} />
           </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
           {entries === null && !error && (
             <div className="flex min-h-[200px] items-center justify-center text-ink-secondary">
-              <Loader2 size={20} className="animate-spin" aria-label="Loading team memory" />
+              <HIcon icon={Loading02Icon} size={20} className="animate-spin" aria-label="Loading team memory" />
             </div>
           )}
           {error && <div className="mb-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
@@ -183,7 +184,7 @@ export function TeamMemoryDialog({ section, label, onClose }: { section: string;
                       disabled={busyId !== null}
                       className="flex shrink-0 items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white disabled:opacity-50"
                     >
-                      <Check size={12} /> Remember
+                      <HIcon icon={Tick01Icon} size={12} /> Remember
                     </button>
                     <button
                       onClick={() => void remove(entry)}
@@ -239,7 +240,7 @@ export function TeamMemoryDialog({ section, label, onClose }: { section: string;
                         aria-label={`Remove ${entry.name}`}
                         className="shrink-0 rounded-md p-1 text-ink-secondary hover:text-danger disabled:opacity-50"
                       >
-                        <Trash2 size={13} />
+                        <HIcon icon={Delete02Icon} size={13} />
                       </button>
                     </li>
                   ))}
@@ -299,7 +300,7 @@ export function TeamMemoryDialog({ section, label, onClose }: { section: string;
               onClick={() => setAdding(true)}
               className={cn("flex items-center gap-1.5 text-[12.5px] text-ink-secondary hover:text-ink", entries === null && "hidden")}
             >
-              <Plus size={13} /> Add an entry
+              <HIcon icon={PlusSignIcon} size={13} /> Add an entry
             </button>
           )}
         </div>

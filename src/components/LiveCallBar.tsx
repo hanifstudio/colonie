@@ -2,7 +2,16 @@
 // the person watches the bot work while they talk. The call itself (media)
 // lives app-wide in src/lib/live-call-media.ts; this is only its face.
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, Mic, MicOff, PhoneOff, RotateCcw, Settings, X } from "lucide-react";
+import {
+  CallEnd01Icon,
+  Mic01Icon,
+  MicOff01Icon,
+  MultiplicationSignIcon,
+  RotateCcwIcon,
+  Settings01Icon,
+  SquareArrowUpRightIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { t } from "@/lib/i18n";
 import { isMacPlatform } from "@/lib/keyboard-shortcuts";
@@ -143,18 +152,18 @@ export function LiveCallBar({ bot }: { bot: Bot }) {
 
   if (view.kind === "notice") {
     const action = view.action === "open-in-browser"
-      ? { label: t("call.live.openInBrowser"), Icon: ExternalLink }
-      : view.action === "retry" ? { label: t("call.live.tryAgain"), Icon: RotateCcw } : null;
+      ? { label: t("call.live.openInBrowser"), icon: SquareArrowUpRightIcon }
+      : view.action === "retry" ? { label: t("call.live.tryAgain"), icon: RotateCcwIcon } : null;
     return (
       <div role="status" className={cn(frame, "gap-2 border-hairline/60")}>
         <span className="min-w-0 flex-1 truncate" title={view.text}>{view.text}</span>
         {action && (
           <button type="button" aria-label={action.label} className={cn(button, "bg-raised hover:bg-raised-hover")} onClick={takeLiveCallAction}>
-            <action.Icon className="size-3.5" /> <span className="hidden sm:inline">{action.label}</span>
+            <HIcon icon={action.icon} className="size-3.5" /> <span className="hidden sm:inline">{action.label}</span>
           </button>
         )}
         <button type="button" aria-label={t("call.live.close")} className={cn(button, "text-ink-secondary hover:text-ink")} onClick={dismissLiveNotice}>
-          <X className="size-3.5" />
+          <HIcon icon={MultiplicationSignIcon} className="size-3.5" />
         </button>
       </div>
     );
@@ -172,7 +181,7 @@ export function LiveCallBar({ bot }: { bot: Bot }) {
           className={cn(button, "bg-danger text-white hover:brightness-110")}
           onClick={() => void hangUpRemoteCall(callId, state.liveCallVersion, dispatch)}
         >
-          <PhoneOff className="size-3.5" /> <span className="hidden sm:inline">{t("call.live.hangUp")}</span>
+          <HIcon icon={CallEnd01Icon} className="size-3.5" /> <span className="hidden sm:inline">{t("call.live.hangUp")}</span>
         </button>
       </div>
     );
@@ -215,7 +224,7 @@ export function LiveCallBar({ bot }: { bot: Bot }) {
           className={cn(button, settingsOpen ? "text-ink" : "text-ink-secondary hover:text-ink")}
           onClick={() => setSettingsOpen((open) => !open)}
         >
-          <Settings className="size-3.5" />
+          <HIcon icon={Settings01Icon} className="size-3.5" />
         </button>
         <button
           type="button"
@@ -226,7 +235,7 @@ export function LiveCallBar({ bot }: { bot: Bot }) {
           className={cn(button, view.muted ? "bg-raised text-ink" : "text-ink-secondary hover:text-ink")}
           onClick={() => setLiveMuted(!view.muted)}
         >
-          {view.muted ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+          {view.muted ? <HIcon icon={MicOff01Icon} className="size-3.5" /> : <HIcon icon={Mic01Icon} className="size-3.5" />}
           <span className="hidden sm:inline">{muteLabel}</span>
         </button>
         <button
@@ -238,7 +247,7 @@ export function LiveCallBar({ bot }: { bot: Bot }) {
           className={cn(button, "bg-danger text-white hover:brightness-110 disabled:opacity-60")}
           onClick={() => void hangUpLiveCall()}
         >
-          <PhoneOff className="size-3.5" /> <span className="hidden sm:inline">{t("call.live.hangUp")}</span>
+          <HIcon icon={CallEnd01Icon} className="size-3.5" /> <span className="hidden sm:inline">{t("call.live.hangUp")}</span>
         </button>
       </span>
       {settingsOpen && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, X } from "lucide-react";
+import { BookOpen01Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { BotAvatar } from "./Avatar";
 import { normalizeState } from "@/lib/mascot";
@@ -75,7 +76,7 @@ export function BotInstructionsDialog({ bot, onClose, inline = false }: { bot: B
             />
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-accent-text">
-                <BookOpen size={15} />
+                <HIcon icon={BookOpen01Icon} size={15} />
                 <span className="text-[11px] font-semibold uppercase tracking-[0.08em]">Bot instructions</span>
               </div>
               <h2 id="bot-instructions-title" className="mt-0.5 truncate text-[20px] font-semibold tracking-[-0.01em] text-ink">
@@ -90,7 +91,7 @@ export function BotInstructionsDialog({ bot, onClose, inline = false }: { bot: B
             aria-label="Close bot instructions"
             className="flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink"
           >
-            <X size={19} />
+            <HIcon icon={MultiplicationSignIcon} size={19} />
           </button>
         </header>
 
@@ -101,7 +102,7 @@ export function BotInstructionsDialog({ bot, onClose, inline = false }: { bot: B
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-hairline bg-inset px-5 py-12 text-center">
-              <BookOpen size={22} className="mx-auto text-ink-tertiary" />
+              <HIcon icon={BookOpen01Icon} size={22} className="mx-auto text-ink-tertiary" />
               <p className="mt-3 text-[13px] font-medium text-ink">No instructions yet</p>
               <p className="mt-1 text-[12px] text-ink-secondary">Add them from this bot’s profile.</p>
             </div>

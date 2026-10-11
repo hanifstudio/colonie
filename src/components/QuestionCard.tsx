@@ -9,8 +9,9 @@
 // with their descriptions, an "Other" row for a reply it did not think of,
 // and a single submit that sends every answer back at once — the shape a
 // person can read at a glance and answer without scrolling back up.
+import { MessageCircleQuestionMarkIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useMemo, useState } from "react";
-import { Check, MessageCircleQuestion } from "lucide-react";
 import { useStore, type Bot, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -165,7 +166,7 @@ export function QuestionCard({
                   : "text-ink-secondary hover:bg-control/60 hover:text-ink",
               )}
             >
-              {answered[index] && <Check size={12} className="text-success" />}
+              {answered[index] && <HIcon icon={Tick01Icon} size={12} className="text-success" />}
               {tabLabel(question, index)}
             </button>
           ))}
@@ -244,7 +245,7 @@ export function QuestionCard({
 
       {settled ? (
         <div className="mt-3 flex items-start gap-1.5 text-[13px] text-ink-secondary">
-          <Check size={14} className="mt-0.5 shrink-0 text-success" />
+          <HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0 text-success" />
           <span className="whitespace-pre-wrap break-words">
             {(() => {
               const answer = card.answeredText ?? sent;
@@ -255,7 +256,7 @@ export function QuestionCard({
       ) : (
         <div className="mt-3 flex items-center justify-end gap-3">
           <span className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
-            <MessageCircleQuestion size={14} className="text-accent" />
+            <HIcon icon={MessageCircleQuestionMarkIcon} size={14} className="text-accent" />
             {t("question.status.waiting")}
           </span>
           <button
@@ -285,7 +286,7 @@ function Marker({ checked, multi }: { checked: boolean; multi: boolean }) {
     >
       {checked &&
         (multi ? (
-          <Check size={11} className="text-white" strokeWidth={3} />
+          <HIcon icon={Tick01Icon} size={11} className="text-white" strokeWidth={3} />
         ) : (
           <span className="size-1.5 rounded-full bg-white" />
         ))}

@@ -7,8 +7,9 @@
 // On a workspace whose members the organisation's Admin decides (portal
 // membership), this list decides nothing, so the section turns read-only:
 // who has signed in, what they spent, and a link to Admin → People.
+import { Copy01Icon, Link02Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, ExternalLink, Link2, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { api } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -139,7 +140,7 @@ export function PeopleTable({ people, busy, onRole, onRemove, onLink, readOnly =
             {hasFiniteCost(person.costUsd) ? `${person.estimated ? "~" : ""}${formatUsd(person.costUsd)}` : "—"}
           </span>
           {readOnly ? <span /> : <span className="flex items-center justify-end gap-2 text-[12px]">
-            <button type="button" disabled={busy} onClick={() => onLink(person)} aria-label={t("people.link")} title={t("people.link")} className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"><Link2 size={13} /></button>
+            <button type="button" disabled={busy} onClick={() => onLink(person)} aria-label={t("people.link")} title={t("people.link")} className="rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"><HIcon icon={Link02Icon} size={13} /></button>
             <button type="button" disabled={busy} onClick={() => onRole(person, person.role === "admin" ? "member" : "admin")} className="text-ink-secondary hover:text-ink disabled:opacity-50">
               {person.role === "admin" ? t("people.makeMember") : t("people.makeAdmin")}
             </button>
@@ -160,7 +161,7 @@ export function CopyLink({ link }: { link: string }) {
       <div className="flex items-center gap-2">
         <code className="min-w-0 flex-1 select-all break-all text-ink">{link}</code>
         <button type="button" onClick={copy} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] text-ink-secondary hover:bg-control hover:text-ink">
-          {state === "copied" ? <Check size={13} className="text-success" /> : state === "failed" ? <X size={13} className="text-danger" /> : <Copy size={13} />}
+          {state === "copied" ? <HIcon icon={Tick01Icon} size={13} className="text-success" /> : state === "failed" ? <HIcon icon={MultiplicationSignIcon} size={13} className="text-danger" /> : <HIcon icon={Copy01Icon} size={13} />}
           {t(state === "copied" ? "people.copied" : state === "failed" ? "common.copyFailed" : "people.copy")}
         </button>
       </div>
@@ -184,7 +185,7 @@ export function PortalPeople({ peopleUrl, people }: { peopleUrl: string | null; 
             rel="noopener noreferrer"
             className="flex w-fit items-center gap-2 rounded-lg bg-control px-3 py-2 font-medium text-ink hover:bg-control/70"
           >
-            {t("people.portal.open")} <ExternalLink size={14} aria-hidden="true" />
+            {t("people.portal.open")} <HIcon icon={SquareArrowUpRightIcon} size={14} aria-hidden="true" />
           </a>
         )}
       </div>
@@ -291,9 +292,9 @@ export function PeopleSection() {
           <option value="admin">{t("people.roleAdmin")}</option>
         </select>
         <button type="submit" disabled={busy || !draft.trim()} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-60">
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}{t("people.invite")}
+          {busy ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={PlusSignIcon} size={13} />}{t("people.invite")}
         </button>
-        <button type="button" onClick={() => void load()} disabled={loading || busy} aria-label={t("people.refresh")} title={t("people.refresh")} className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"><RefreshCw size={13} className={cn(loading && "animate-spin")} /></button>
+        <button type="button" onClick={() => void load()} disabled={loading || busy} aria-label={t("people.refresh")} title={t("people.refresh")} className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"><HIcon icon={RefreshCwIcon} size={13} className={cn(loading && "animate-spin")} /></button>
       </form>
       <p className="mt-2 text-[11.5px] leading-relaxed text-ink-secondary">{t("people.inviteHint")}</p>
       {link && <CopyLink link={link} />}

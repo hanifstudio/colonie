@@ -1,4 +1,9 @@
-import { CornerDownRight, Pencil, Trash2 } from "lucide-react";
+import {
+  CornerDownRightIcon,
+  Delete02Icon,
+  PencilIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import type { SteerQueueReason } from "../../shared/wire";
 import { t } from "@/lib/i18n";
@@ -120,7 +125,8 @@ export function QueuedComposerMessages({
         {items.map((item, index) => {
           const label = queuedMessageLabel(item.text);
           return <li key={item.queueId} className="flex min-h-10 min-w-0 items-center gap-2 px-2.5 py-1.5">
-            <CornerDownRight
+            <HIcon
+              icon={CornerDownRightIcon}
               size={14}
               strokeWidth={1.8}
               className="shrink-0 text-ink-secondary"
@@ -138,7 +144,8 @@ export function QueuedComposerMessages({
                 title={steerDescription}
                 className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-ink-secondary outline-none hover:bg-raised-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-wait disabled:opacity-60"
               >
-                <CornerDownRight
+                <HIcon
+                  icon={CornerDownRightIcon}
                   size={13}
                   strokeWidth={2}
                   className={steering ? "animate-pulse" : undefined}
@@ -155,7 +162,7 @@ export function QueuedComposerMessages({
                 title={t("composer.queued.editTitle")}
                 className="flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-secondary outline-none hover:bg-raised-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/60"
               >
-                <Pencil size={14} aria-hidden="true" />
+                <HIcon icon={PencilIcon} size={14} aria-hidden="true" />
               </button>
             )}
             <button
@@ -165,7 +172,7 @@ export function QueuedComposerMessages({
               title={t("composer.queued.deleteTitle")}
               className="flex size-7 shrink-0 items-center justify-center rounded-lg text-ink-secondary outline-none hover:bg-raised-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-accent/60"
             >
-              <Trash2 size={14} aria-hidden="true" />
+              <HIcon icon={Delete02Icon} size={14} aria-hidden="true" />
             </button>
           </li>;
         })}

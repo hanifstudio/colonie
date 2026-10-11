@@ -5,7 +5,8 @@
 // context for its own subtree, so the miniature styles itself and can never
 // drift from what picking it actually does.
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { SKINS, applySkin, readSkin, type SkinId } from "@/lib/skins";
 import { cn } from "@/lib/cn";
 
@@ -103,7 +104,7 @@ export function SkinPicker() {
                   {skin.tagline}
                 </div>
               </div>
-              {selected && <Check size={13} className="mt-0.5 shrink-0 text-accent-text" />}
+              {selected && <HIcon icon={Tick01Icon} size={13} className="mt-0.5 shrink-0 text-accent-text" />}
             </div>
           </button>
         );

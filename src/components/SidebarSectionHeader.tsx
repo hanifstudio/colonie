@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronRight, GripVertical, Trash2 } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, Delete02Icon, GripIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { DragEvent, KeyboardEvent, MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
@@ -33,7 +34,7 @@ export function SidebarSectionHeader({
   onDelete?: () => void;
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
-  const Chevron = collapsed ? ChevronRight : ChevronDown;
+  const Chevron = collapsed ? ChevronRightIcon : ChevronDownIcon;
   const attentionLabel = attention ? sidebarAttentionLabel(attention) : "";
   const onHeaderKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!reorderable || !event.altKey) return;
@@ -69,7 +70,7 @@ export function SidebarSectionHeader({
           <span className="truncate text-[12px] font-semibold text-ink-secondary">
             {name}
           </span>
-          <Chevron size={13} className="shrink-0 text-ink-secondary" aria-hidden="true" />
+          <HIcon icon={Chevron} size={13} className="shrink-0 text-ink-secondary" aria-hidden="true" />
           {attention && attention.waiting > 0 && (
             <span
               aria-hidden="true"
@@ -112,7 +113,7 @@ export function SidebarSectionHeader({
           title={t("sidebar.section.deleteAria", { name })}
           className="flex size-6 shrink-0 items-center justify-center rounded text-ink-secondary hover:bg-danger/10 hover:text-danger"
         >
-          <Trash2 size={13} aria-hidden="true" />
+          <HIcon icon={Delete02Icon} size={13} aria-hidden="true" />
         </button>
       )}
       {reorderable && (
@@ -127,7 +128,7 @@ export function SidebarSectionHeader({
             dragging && "opacity-40",
           )}
         >
-          <GripVertical size={13} />
+          <HIcon icon={GripIcon} size={13} />
         </span>
       )}
     </div>

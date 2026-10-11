@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { Keyboard, Search, X } from "lucide-react";
+import { KeyboardIcon, MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import {
   filterShortcutGroups,
@@ -80,7 +81,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
         <div className="flex items-center justify-between border-b border-hairline/40 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-              <Keyboard size={18} />
+              <HIcon icon={KeyboardIcon} size={18} />
             </span>
             <div>
               <h2 id="shortcuts-dialog-title" className="text-[16px] font-semibold text-ink">
@@ -97,14 +98,14 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
             aria-label="Close keyboard shortcuts"
             className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised hover:text-ink"
           >
-            <X size={18} />
+            <HIcon icon={MultiplicationSignIcon} size={18} />
           </button>
         </div>
 
         {/* Search Input */}
         <div className="border-b border-hairline/30 px-5 py-2.5">
           <div className="flex items-center gap-2 rounded-xl border border-hairline/40 bg-inset px-3 py-1.5 focus-within:border-focus">
-            <Search size={14} className="shrink-0 text-ink-secondary" />
+            <HIcon icon={Search01Icon} size={14} className="shrink-0 text-ink-secondary" />
             <input
               ref={inputRef}
               value={query}

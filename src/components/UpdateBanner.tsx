@@ -5,7 +5,8 @@
 // appears only when there is something to do: a restart to apply (always the
 // person's click), a hand-off to finish, or a failure.
 import { useEffect, useState } from "react";
-import { Loader2, PackageOpen, RefreshCw, Sparkles, X } from "lucide-react";
+import { Loading02Icon, MultiplicationSignIcon, PackageOpenIcon, RefreshCwIcon, SparklesIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useUpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 
@@ -83,7 +84,7 @@ export function UpdateBanner() {
     <div className="animate-panel-in fixed bottom-4 left-4 z-50 w-[300px] rounded-xl border border-hairline/40 bg-panel p-3.5 shadow-2xl shadow-black/50">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-          <Sparkles size={14} />
+          <HIcon icon={SparklesIcon} size={14} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-semibold text-ink">{title}</div>
@@ -97,7 +98,7 @@ export function UpdateBanner() {
             className="shrink-0 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"
             title="Dismiss"
           >
-            <X size={14} />
+            <HIcon icon={MultiplicationSignIcon} size={14} />
           </button>
         )}
       </div>
@@ -114,7 +115,7 @@ export function UpdateBanner() {
             disabled
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-control py-1.5 text-[13px] font-medium text-ink-secondary"
           >
-            <Loader2 size={13} className="animate-spin" /> {handoff ? "Opening…" : "Restarting…"}
+            <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {handoff ? "Opening…" : "Restarting…"}
           </button>
         </div>
       )}
@@ -132,15 +133,15 @@ export function UpdateBanner() {
             >
               {pending === "install" ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" /> {handoff ? "Opening…" : "Restarting…"}
+                  <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> {handoff ? "Opening…" : "Restarting…"}
                 </>
               ) : handoff ? (
                 <>
-                  <PackageOpen size={13} /> Install
+                  <HIcon icon={PackageOpenIcon} size={13} /> Install
                 </>
               ) : (
                 <>
-                  <RefreshCw size={13} /> Restart to update
+                  <HIcon icon={RefreshCwIcon} size={13} /> Restart to update
                 </>
               )}
             </button>
@@ -156,7 +157,7 @@ export function UpdateBanner() {
             >
               {pending === "check" ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" /> Checking…
+                  <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> Checking…
                 </>
               ) : (
                 "Try again"

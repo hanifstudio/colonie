@@ -1,5 +1,190 @@
 # Colonie progress
 
+## Provider-agnostic assistant foundation (implemented, isolated fixture-verified)
+
+- Owner approved a general behavioral foundation after an empty-SOUL Biscuit
+  conversation volunteered connector sign-in during small talk. Runtime code
+  changes are confined to `server/devone/context.ts`; concurrent UI/icon work
+  was inspected and preserved.
+- Factory identity v2 now supplies the agreed task-agnostic foundation: respond
+  to intent, adapt to conversation/persona, progress on actionable requests,
+  ground capability/result claims, and mention operational details when relevant.
+  Removed the application/provider ownership explanation from model-facing text.
+  Capabilities v3 uses shorter factual wording, distinguishes app-selected tools
+  from possible native tools, and makes Composio connection guidance conditional
+  on the requested task being blocked. Persona/SOUL, dispatch and persistence
+  contracts are retained.
+- Verification used Node 25.8.1 via
+  `PATH="/opt/homebrew/opt/node@24/bin:$PATH"` (the local node@24 path currently
+  resolves to that version):
+  - `pnpm exec vitest run server/devone/context.e2e.test.ts
+    server/devone/context-integrity.test.ts server/devone/application.e2e.test.ts
+    server/devone/codex-acp.test.ts` — **23 passed across four files**. Canonical
+    disposable SDK/HTTP fixtures cover both providers, context isolation,
+    exact input, continuation/restart, plain baselines and integrity guards.
+  - `pnpm typecheck` and
+    `pnpm exec oxlint --deny-warnings server/devone/context.ts` — **passed**.
+  - Disposable `colonie-foundation-check.ts` under the approved OpenCode temp
+    directory — **passed**, using canonical `launchVerificationServer` and
+    `runControlOmb` with explicit fixture URL. Two empty-SOUL bots (Claude/Codex)
+    each received greeting, capability and email-draft requests. Six completed
+    receipts prove v2/v3 context delivery, unchanged user messages, empty SOUL,
+    stable native sessions/snapshots and exact fake-agent input.
+    Evidence: `/var/folders/1n/rxzlp39527zgdbz2chq7p41h0000gn/T/openmausbot-verification-evidence/server-1791711062539-5457.log.foundation.json`.
+- This is simulated-provider execution evidence, not proof of real-model answer
+  quality. No live app/data/credentials, real-provider request, renderer/desktop
+  check or package rebuild was involved. Existing conversations retain their
+  pinned factory foundation; dynamic capability text updates per dispatch.
+- **Desktop rebuild required:** `pnpm colonie:package`, then quit/reopen the
+  rebuilt app and use **New conversation** for the new foundation. Packaging is
+  pending while parallel application changes are active. Next: coordinate a
+  combined rebuild/package smoke, then a bounded real-Claude behavioral check in
+  a disposable workspace if requested. The source of the screenshot's six
+  native/account connector claims remains unresolved.
+
+## Bloub global gaze + tight camera for the active bot (implemented, unit-verified)
+
+- Owner request: Bloub eyes should follow the pointer anywhere in the window
+  (active bot only), and the mascot should render larger without touching
+  engine internals.
+- New foundation `src/components/bloub-gaze.ts`: pure `bloubLookForPointer`
+  (per-axis linear gaze saturating at the hover-path maxima, 40 yaw / 25
+  pitch, 320px soft radius), rAF-throttled `useGlobalBloubGaze` hook
+  (mouse/pen only, touch ignored, rests on blur/mouseleave/unmount/disable,
+  honours `prefers-reduced-motion`), and camera helpers (`bloubViewHalf`:
+  tight ±120 at rest, full ±158 while decor arcs are visibly drawn).
+- Measured, not guessed: `bloub-frame-fit.test.ts` sweeps all app-reachable
+  states × shapes × expressions × look extremes — arc-free frames peak at
+  ~105 units (fits tight), visible decor reaches ~155 (needs full, never
+  exceeds it). Future upstream geometry drift fails loudly instead of
+  silently cropping.
+- `Avatar.tsx`: opt-in `followGlobalPointer` (requires `trackPointer` +
+  `animated`). `BloubAvatar.tsx` wires the hook (replaces, not stacks,
+  local hover handlers) and derives the SVG viewBox per sampled frame, so
+  orbit/comet transitions keep their rings. `Sidebar.tsx`: only the selected
+  row stays live + follows globally (one bounded rAF loop); idle rows remain
+  static. `ChatView.tsx` `EmptyChat` hero follows globally.
+  `public/colonie.svg`: viewBox tightened (static idle frame, arc-free).
+- Out of scope: CallView (still hover-tracked); PNG/icns icon regen from the
+  tightened SVG (needs playwright/sips run).
+- Coordination note: parallel HugeIcons work reverted parts of this slice
+  mid-flight (restored from stash, then re-applied after that session's
+  CLEAR); no open conflict remains.
+- Evidence (isolated, no live app/data): `pnpm typecheck` clean;
+  `oxlint --deny-warnings` on all touched files clean; vitest on
+  bloub-gaze/frame-fit/BloubAvatar/Avatar (22 passed) and
+  SidebarBotListItem/simple-mode (56 passed). No renderer, desktop,
+  real-provider, or rebuild check was run for this slice.
+
+## Bloub gaze direction fix + body palette contrast (implemented, unit-verified)
+
+- Owner-reported bug: Bloub's pointer gaze was vertically inverted — a pointer
+  below the avatar made it look up. Horizontal (yaw) was correct.
+- Root cause: screen y grows downward, but the pinned engine reads a POSITIVE
+  pitch as "look up" (`third_party/bloub/src/bot/face.ts`: forward tips toward
+  up). The pointer→pitch mapping did not negate, so both the global gaze
+  (`bloub-gaze.ts` `bloubLookForPointer`) and the local hover path
+  (`BloubAvatar.tsx`) looked the wrong way. Both now negate pitch; `-0` is
+  normalised to `0` so the resting value compares cleanly.
+- `bloub-gaze.test.ts` documented the inverted behaviour; it now asserts the
+  gaze follows the pointer (up-right -> positive pitch, down-left -> negative).
+- Owner-reported concern: the body palette was too pastel and low-contrast
+  against the light `#fcfaff` eyes. `BloubAvatar.tsx` `COLORS` was deepened and
+  saturated: every tone now holds >= 3:1 against the eyes (WCAG non-text
+  minimum; the old set sat at 1.6-3.5:1). The static app-icon ink in
+  `scripts/colonie/icons.ts` was moved to the matching deep purple.
+- Evidence (isolated, no live app/data): `pnpm typecheck`, `pnpm lint`,
+  `git diff --check` clean; `pnpm exec vitest run` on `Avatar.test.ts`,
+  `BloubAvatar.test.ts`, `bloub-gaze.test.ts`, `bloub-frame-fit.test.ts` and
+  `server/devone/branding.test.ts` — 23 passed.
+- Rebuild: `pnpm colonie:package` passed under Node 25.8.1; artifact
+  `release/colonie/mac-arm64/Colonie.app` rebuilt with the deep palette in the
+  production bundle. Packaged smoke `node scripts/devone/package-check.ts`
+  passed with an isolated temp data dir, simulated provider (`real: false`)
+  and zero renderer errors.
+
+## HugeIcons migration — all remaining surfaces (implemented, packaged)
+
+- Owner request: extend the HugeIcons migration to every area still on
+  Lucide, via the shared `src/components/HIcon.tsx` wrapper. All 164
+  remaining `lucide-react` import sites were migrated across seven parallel
+  batches plus lead follow-ups; only `SidebarBotActivity.tsx` needed a shape
+  change (`attentionRowStatus` now returns icon data instead of a component).
+  Co-located tests asserting `lucide-*` classes were updated to HugeIcons
+  path-data markers.
+- Process note: a concurrent session (Herdr pane `bloub-fixes`, Bloub gaze
+  feature) was active in the same tree mid-migration; parallel git operations
+  reverted ~70 files both ways. All icon work was recovered and re-verified;
+  the other session's `Avatar.tsx`/`BloubAvatar.tsx` changes were restored
+  from the leftover stash, and a mutual pause on tracked-file git operations
+  was agreed and cleared through Herdr. Two unused imports in their
+  `BloubAvatar.test.ts` were removed to keep the lint gate green; their
+  gaze/camera tests now pass.
+- Two client tests that still asserted the pre-rename product name while the
+  copy now renders `brand().name` ("Colonie") were updated:
+  `SettingsModal.updates.test.ts` and `OrganisationRow.test.ts`. Tests whose
+  source strings are literally still "OpenMausBot" (server brand default,
+  Cloud/backup copy, PairPage) were left unchanged and still pass.
+- Evidence (isolated, no live app/data): `pnpm typecheck`, `pnpm lint`,
+  `pnpm i18n:check`, `git diff --check` clean. Full unit suite: 13006 passed,
+  16 failed — the failures are pre-existing environment issues (the client
+  environment cannot bundle `node:sqlite`, the Node-24 launcher guard, a
+  fake-engine `pi` engine listing, and four 20s timeouts) plus the two
+  rename assertions fixed above; none were icon-caused. Targeted re-runs of
+  the affected files pass, including the three Bloub gaze tests (20 tests).
+- Rebuild: `pnpm colonie:package` passed under Node 25.8.1; artifact
+  `release/colonie/mac-arm64/Colonie.app` rebuilt with HugeIcons paths in the
+  production bundle. Packaged smoke `node scripts/devone/package-check.ts`
+  passed with an isolated temp data dir, simulated provider (`real: false`)
+  and zero renderer errors (`.devone/evidence/packaged-fixture-check.json`).
+  No real-provider check was run for this slice.
+
+## Profile menu — phone disabled, help/feedback removed (implemented, unit-verified)
+
+- Owner request: keep Connect your phone and Get the phone app visible but
+  disabled, and remove Help Center and Send Feedback from the profile menu.
+- `src/components/SidebarProfileMenu.tsx`: `phoneMenuItems` now marks every
+  phone entry `disabled: true`; the `help`/`feedback` items are removed
+  (Settings, Keyboard shortcuts, Check for updates and About remain).
+- Evidence (isolated, no live app/data): profile/popover suites passed;
+  `pnpm typecheck` and `pnpm lint` clean; disposable check proved all phone
+  items disabled and no `help`/`feedback` keys in the menu source.
+
+## Sidebar plus-menu — only New Bot enabled (implemented, unit-verified)
+
+- Owner request: in the sidebar header plus-menu, disable New group chat,
+  Create team and Templates; New Bot stays enabled.
+- `src/components/Sidebar.tsx`: the three entries now render `disabled`.
+  The archived-bots entry is unchanged.
+- Evidence (isolated, no live app/data): header-menu suites passed; a
+  disposable render check proved New Bot enabled while the other three are
+  disabled.
+
+## HugeIcons migration — composer bar (implemented, packaged)
+
+- Owner request: migrate icons to HugeIcons, starting with the composer bar.
+  Swap-only: layout and behaviour unchanged.
+- Installed `@hugeicons/react` plus `@hugeicons/core-free-icons` (Stroke
+  Rounded, MIT). New `src/components/HIcon.tsx` wrapper mirrors the Lucide
+  call-site shape with `src/components/HIcon.test.ts` covering it.
+- Swapped in `Composer.tsx`, `ApprovalModeSelector.tsx`,
+  `PlaceIcon.tsx`/`PlaceChip.tsx`, `CallView.tsx`, `ComposerAttachments.tsx`
+  and `ComposerQueuedMessages.tsx`.
+- Evidence: unit suites passed; `pnpm colonie:package` passed under Node
+  25.8.1 and the packaged smoke passed with zero renderer errors
+  (`.devone/evidence/packaged-fixture-check.json` at that time).
+
+## HugeIcons migration — profile menu and Settings (implemented, unit-verified)
+
+- Same swap for the profile menu and the Settings modal, plus
+  `cursor-pointer` on each menu row.
+- `SidebarProfileMenu.tsx` (phone, settings, shortcuts, about, update
+  states), `SidebarFooterNav.tsx` (Apps puzzle), `SettingsModal.tsx` (all
+  rail icons, search, close) and `AboutMeSettings.tsx` (About me help).
+  `cursor-pointer` on popover rows and both Settings rail variants.
+- Evidence (isolated): static gates clean; profile/footer/popover suites —
+  83 passed; disposable check proved SVG rendering and cursor-pointer.
+
 ## Current state
 
 M0–M6 are implemented and verified: the built product is **Colonie**, with

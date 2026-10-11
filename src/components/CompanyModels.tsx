@@ -3,7 +3,8 @@
 // No dialog: nothing changes until the button is pressed, and it never moves a
 // bot that works on a personal engine.
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, type InstanceInfo } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { companyInstanceFor, instanceCanRun, planCompanySwitch } from "@/lib/company-models";
@@ -67,7 +68,7 @@ function CompanyEngineReadiness({ instance, instances }: { instance: InstanceInf
   if (!instance) return null;
   if (instance.policy) return <p className="mt-1 text-[12px] text-ink-secondary">{instance.policy.reason}</p>;
   if (instanceCanRun(instance)) {
-    return <p className="mt-1 flex items-center gap-1 text-[12px] text-ink-secondary"><Check size={12} className="text-success" aria-hidden="true" />{t("organization.engineReady")}</p>;
+    return <p className="mt-1 flex items-center gap-1 text-[12px] text-ink-secondary"><HIcon icon={Tick01Icon} size={12} className="text-success" aria-hidden="true" />{t("organization.engineReady")}</p>;
   }
   const local = instance.driverKind === "claudeAgent" || instance.driverKind === "codex"
     ? instances.find((candidate) => candidate.driverKind === instance.driverKind && !candidate.readOnly && candidate.install)

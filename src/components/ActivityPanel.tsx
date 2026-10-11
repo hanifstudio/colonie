@@ -6,7 +6,8 @@
 // thread's runtime events and the decision log into rows (server/activity.ts);
 // this only asks for them, and asks again when a turn settles.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ListChecks, RefreshCw, X } from "lucide-react";
+import { CheckListIcon, MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
@@ -107,7 +108,7 @@ export function ActivityPanel({ bot }: { bot: Bot }) {
     <aside aria-label={`${bot.name} activity`} className="animate-panel-in flex h-full w-[400px] max-w-full shrink-0 flex-col border-l border-hairline/40 bg-panel max-md:absolute max-md:inset-y-0 max-md:right-0 max-md:z-30">
       <div className={cn("flex items-center justify-between px-4 py-3", padClass)}>
         <span className="flex items-center gap-2 text-[15px] font-semibold text-ink">
-          <ListChecks size={16} className="text-ink-secondary" /> Activity
+          <HIcon icon={CheckListIcon} size={16} className="text-ink-secondary" /> Activity
         </span>
         <span className="flex items-center gap-1">
           <button
@@ -116,7 +117,7 @@ export function ActivityPanel({ bot }: { bot: Bot }) {
             title="Reload"
             aria-label="Reload activity"
           >
-            <RefreshCw size={14} />
+            <HIcon icon={RefreshCwIcon} size={14} />
           </button>
           <button
             onClick={() => dispatch({ type: "toggleActivity", open: false })}
@@ -124,7 +125,7 @@ export function ActivityPanel({ bot }: { bot: Bot }) {
             title="Close Activity"
             className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink"
           >
-            <X size={18} />
+            <HIcon icon={MultiplicationSignIcon} size={18} />
           </button>
         </span>
       </div>

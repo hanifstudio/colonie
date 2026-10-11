@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loading02Icon, PlusSignIcon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -27,7 +28,7 @@ export function AddChatGptAccount() {
   };
 
   if (!open) return <button type="button" onClick={() => setOpen(true)} className="flex min-h-8 w-fit items-center gap-1.5 rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] font-medium text-ink-secondary outline-none hover:bg-control hover:text-ink focus-visible:ring-2 focus-visible:ring-accent">
-    <Plus size={13} />{t("engineSetup.chatgpt.addAccount")}
+    <HIcon icon={PlusSignIcon} size={13} />{t("engineSetup.chatgpt.addAccount")}
   </button>;
   return <form className="min-w-0 space-y-3 rounded-xl bg-inset p-4" onSubmit={(event) => { event.preventDefault(); void save(); }}>
     <label className="flex flex-col gap-1 text-[12px] text-ink-secondary">
@@ -38,7 +39,7 @@ export function AddChatGptAccount() {
     {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
     <div className="flex justify-end gap-2">
       <button type="button" onClick={() => setOpen(false)} disabled={saving} className="rounded-lg px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-raised/50 disabled:opacity-50">{t("common.cancel")}</button>
-      <button type="submit" disabled={saving || !displayName.trim()} className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-50">{saving && <Loader2 size={13} className="animate-spin" />}{t("engineSetup.chatgpt.addAccount")}</button>
+      <button type="submit" disabled={saving || !displayName.trim()} className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-50">{saving && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}{t("engineSetup.chatgpt.addAccount")}</button>
     </div>
   </form>;
 }
@@ -89,13 +90,13 @@ export function CodexAccountSettings({ instance }: { instance: InstanceInfo }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-44">
           <span className="flex items-center gap-1.5 font-medium text-success">
-            <Check size={13} className="shrink-0" />
+            <HIcon icon={Tick01Icon} size={13} className="shrink-0" />
             {t(plan ? "engineSetup.chatgpt.connectedAccount" : "engineSetup.device.connectedAccount")}
           </span>
           {email && <p className="mt-1 break-words text-ink-secondary">{email}</p>}
         </div>
         <button type="button" onClick={() => void check()} disabled={busy !== null} className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-ink-secondary outline-none hover:bg-control hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50">
-          <RefreshCw size={12} className={cn(busy === "check" && "animate-spin")} />{t("engines.account.check")}
+          <HIcon icon={RefreshCwIcon} size={12} className={cn(busy === "check" && "animate-spin")} />{t("engines.account.check")}
         </button>
       </div>
       {plan && <ChatGptPlanStatus key={instance.instanceId} instanceId={instance.instanceId} />}

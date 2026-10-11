@@ -3,7 +3,8 @@
 // ledger (server/usage-ledger.ts). The card above it sums live tasks; this
 // one survives restarts and exports for an invoice.
 import { useEffect, useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download01Icon, Loading02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -199,12 +200,12 @@ export function UsageHistory({ load = fetchUsage }: { load?: typeof fetchUsage }
           download
           className="ml-auto flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1 text-[12px] text-ink-secondary hover:bg-raised/50 hover:text-ink"
         >
-          <Download size={13} />{t("usage.history.export")}
+          <HIcon icon={Download01Icon} size={13} />{t("usage.history.export")}
         </a>
       </div>
       {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
       {loading && !summary ? (
-        <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><Loader2 size={14} className="animate-spin" />{t("common.checking")}</div>
+        <div className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={14} className="animate-spin" />{t("common.checking")}</div>
       ) : summary ? (
         <UsageHistoryTable summary={summary} />
       ) : null}

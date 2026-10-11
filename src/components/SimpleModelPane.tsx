@@ -7,7 +7,8 @@
 // when it is very long), so no model needs the full picker; only setup goes
 // there.
 import type { ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, KeyRound, Loader2 } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, Key01Icon, Loading02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { InstanceInfo } from "@/state/store";
 import type { EffortLevel } from "../../shared/wire";
 import { InstanceProviderMark } from "./ProviderIcons";
@@ -132,7 +133,7 @@ export function SimpleModelPane({
                   <InstanceProviderMark instance={provider.target} size={16} />
                   {apiKey && (
                     <span data-simple-key className="absolute -bottom-1 -right-1 flex size-3 items-center justify-center rounded-full bg-panel text-ink-secondary">
-                      <KeyRound size={8} aria-hidden="true" />
+                      <HIcon icon={Key01Icon} size={8} aria-hidden="true" />
                     </span>
                   )}
                 </span>
@@ -176,7 +177,7 @@ export function SimpleModelPane({
                       onClick={onRefresh}
                       className="-mx-1.5 flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-medium text-accent-text hover:bg-control/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-60"
                     >
-                      {refreshing && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}
+                      {refreshing && <HIcon icon={Loading02Icon} size={12} className="animate-spin" aria-hidden="true" />}
                       {t("common.checkAgain")}
                     </button>
                   )}
@@ -209,7 +210,7 @@ export function SimpleModelPane({
                         {option.id === botModelId && (
                           <span data-bot-model className="shrink-0 text-[11.5px] font-normal text-ink-secondary">{t("model.botModelTag")}</span>
                         )}
-                        {current && <Check size={14} className="shrink-0 text-accent-text" aria-hidden="true" />}
+                        {current && <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-accent-text" aria-hidden="true" />}
                       </button>
                     );
                   })}
@@ -225,7 +226,7 @@ export function SimpleModelPane({
                     <span className="min-w-0 flex-1 truncate">
                       {showAll.open ? t("model.showSuggested") : t("model.showAll", { count: showAll.count })}
                     </span>
-                    <ChevronDown size={13} className={cn("shrink-0", showAll.open && "rotate-180")} aria-hidden="true" />
+                    <HIcon icon={ChevronDownIcon} size={13} className={cn("shrink-0", showAll.open && "rotate-180")} aria-hidden="true" />
                   </button>
                 )}
                 {signIn && (
@@ -236,7 +237,7 @@ export function SimpleModelPane({
                     className={cn(row, "mt-0.5 text-[12px] font-medium text-accent-text hover:bg-control/60")}
                   >
                     <span className="min-w-0 flex-1 truncate">{t("model.simple.signInForOwn", { name: signIn.name })}</span>
-                    <ChevronRight size={13} className="shrink-0" aria-hidden="true" />
+                    <HIcon icon={ChevronRightIcon} size={13} className="shrink-0" aria-hidden="true" />
                   </button>
                 )}
               </>
@@ -280,7 +281,7 @@ export function SimpleModelPane({
             className="-mr-1 ml-auto flex shrink-0 items-center gap-0.5 rounded-lg px-1 py-1 text-[12px] font-medium text-accent-text hover:bg-control/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             {t("model.simple.manage")}
-            <ChevronRight size={13} aria-hidden="true" />
+            <HIcon icon={ChevronRightIcon} size={13} aria-hidden="true" />
           </button>
         </div>
       </div>

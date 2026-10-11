@@ -28,7 +28,7 @@ it("shows this app's update where the desktop app answers, with no Download step
   expect(downloading).toContain("disabled");
   // Named: on My Cloud's Settings it is this app that restarts, not the Cloud.
   const ready = render({ status: "downloaded", version: "0.2.0" });
-  expect(ready).toContain("OpenMausBot 0.2.0 is ready — restart the app to apply");
+  expect(ready).toContain("Colonie 0.2.0 is ready — restart the app to apply");
   expect(ready).toContain("Restart and install");
-  expect(render({ status: "downloaded", version: "0.2.0", installMode: "handoff" })).toContain("OpenMausBot 0.2.0 is ready — install it in a terminal");
+  expect(render({ status: "downloaded", version: "0.2.0", installMode: "handoff" })).toContain("Colonie 0.2.0 is ready — install it in a terminal");
 });

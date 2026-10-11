@@ -1,11 +1,12 @@
 import {
-  AlertTriangle,
-  Hand,
-  Loader2,
-  Monitor,
-  RefreshCw,
-  X,
-} from "lucide-react";
+  Alert02Icon,
+  HandIcon,
+  Loading02Icon,
+  MonitorIcon,
+  MultiplicationSignIcon,
+  RefreshCwIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import {
   useCallback,
   useEffect,
@@ -465,7 +466,7 @@ function LocalVmPane({
             disabled={controlPending}
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-2.5 py-2 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
-            {controlPending ? <Loader2 size={13} className="animate-spin" /> : <Hand size={13} />}
+            {controlPending ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={HandIcon} size={13} />}
             Hand back
           </button>
         ) : bot ? (
@@ -476,7 +477,7 @@ function LocalVmPane({
             className="flex shrink-0 items-center gap-1.5 rounded-lg bg-raised px-2.5 py-2 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-45"
             title="Pause only this bot and enable keyboard and pointer input in this pane"
           >
-            {controlPending ? <Loader2 size={13} className="animate-spin" /> : <Hand size={13} />}
+            {controlPending ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : <HIcon icon={HandIcon} size={13} />}
             {heldElsewhere ? "Held elsewhere" : "Take control"}
           </button>
         ) : null}
@@ -490,20 +491,20 @@ function LocalVmPane({
         <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
           {!bot ? (
             <div className="flex max-w-[260px] flex-col items-center gap-2 text-ink-secondary">
-              <Monitor size={22} />
+              <HIcon icon={MonitorIcon} size={22} />
               <span className="text-[12px]">Choose another bot configured for a Local VM.</span>
             </div>
           ) : !status && !error ? (
             <div className="flex items-center gap-2 text-[12px] text-ink-secondary">
-              <Loader2 size={15} className="animate-spin" /> Checking {bot.name}'s VM…
+              <HIcon icon={Loading02Icon} size={15} className="animate-spin" /> Checking {bot.name}'s VM…
             </div>
           ) : status?.ready && nativeState.status !== "error" && !error ? (
             <div className="flex items-center gap-2 text-[12px] text-ink-secondary">
-              <Loader2 size={15} className="animate-spin" /> Connecting live view…
+              <HIcon icon={Loading02Icon} size={15} className="animate-spin" /> Connecting live view…
             </div>
           ) : (
             <div className="flex max-w-[300px] flex-col items-center gap-3 text-ink-secondary">
-              <AlertTriangle size={21} className="text-warning" />
+              <HIcon icon={Alert02Icon} size={21} className="text-warning" />
               <div className="text-[12px] leading-relaxed">
                 {error ??
                   (status?.container === "missing"
@@ -518,7 +519,7 @@ function LocalVmPane({
                   onClick={() => setRetry((value) => value + 1)}
                   className="flex items-center gap-1.5 rounded-lg bg-raised px-3 py-2 text-[12px] text-ink hover:bg-raised-hover"
                 >
-                  <RefreshCw size={13} /> Retry status
+                  <HIcon icon={RefreshCwIcon} size={13} /> Retry status
                 </button>
                 <button
                   type="button"
@@ -769,7 +770,7 @@ export function LocalVmWorkspace({
     <main className="flex h-full min-w-0 flex-1 flex-col bg-app">
       <header className="flex min-h-[60px] items-center gap-3 border-b border-hairline/40 px-5 py-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-          <Monitor size={18} />
+          <HIcon icon={MonitorIcon} size={18} />
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[14px] font-semibold text-ink">Local VM view</h1>
@@ -784,13 +785,13 @@ export function LocalVmWorkspace({
           className="rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-50"
           aria-label="Close Local VM view"
         >
-          <X size={18} />
+          <HIcon icon={MultiplicationSignIcon} size={18} />
         </button>
       </header>
 
       {controlError && (
         <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12px] text-danger">
-          <AlertTriangle size={14} className="shrink-0" /> {controlError}
+          <HIcon icon={Alert02Icon} size={14} className="shrink-0" /> {controlError}
         </div>
       )}
 

@@ -1,5 +1,6 @@
-import { ArrowRight, Loader2 } from "lucide-react";
 
+import { ArrowRight01Icon, Loading02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { routineDateTime } from "@/lib/routine-display";
 import { t } from "@/lib/i18n";
@@ -93,7 +94,7 @@ export function RoutineRunCard({
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <h3 className="truncate text-[14px] font-semibold text-ink">{run.routineName}</h3>
             <span aria-live="polite" className={cn("inline-flex items-center gap-1 text-[11.5px] font-semibold", copy.tone)}>
-              {run.status === "running" && !run.goalStatus && <Loader2 aria-hidden="true" className="size-3 animate-spin" />}
+              {run.status === "running" && !run.goalStatus && <HIcon icon={Loading02Icon} aria-hidden="true" className="size-3 animate-spin" />}
               {copy.label}
             </span>
           </div>
@@ -119,7 +120,7 @@ export function RoutineRunCard({
             )}
           >
             {actionLabel}
-            <ArrowRight aria-hidden="true" size={13} />
+            <HIcon icon={ArrowRight01Icon} aria-hidden="true" size={13} />
           </button>
         )}
       </div>

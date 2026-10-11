@@ -3,7 +3,15 @@
 // first lines instead of flooding the composer; a file dropped anywhere
 // on the window attaches by path.
 import { useEffect, useRef, useState } from "react";
-import { ClipboardPaste, File as FileIcon, Image as ImageIcon, LoaderCircle, MessageSquareText, X } from "lucide-react";
+import {
+  ClipboardPasteIcon,
+  File01Icon,
+  Image01Icon,
+  Loading02Icon,
+  MessageSquareTextIcon,
+  MultiplicationSignIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import {
   attachmentImageUrl,
@@ -127,7 +135,7 @@ export function ComposerAttachments({
             aria-label="Dismiss"
             className="shrink-0 rounded p-0.5"
           >
-            <X size={12} />
+            <HIcon icon={MultiplicationSignIcon} size={12} />
           </button>
         </div>
       )}
@@ -163,7 +171,7 @@ export function ComposerAttachments({
                   aria-label="Display pasted text in chat box"
                   title="Display in chat box"
                 >
-                  <MessageSquareText size={12} aria-hidden="true" />
+                  <HIcon icon={MessageSquareTextIcon} size={12} aria-hidden="true" />
                   <span>Display in chat box</span>
                 </button>
               </Chip>
@@ -190,7 +198,7 @@ export function ComposerAttachments({
                   />
                   {a.uploading && (
                     <span className="absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/65 text-white shadow-sm">
-                      <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+                      <HIcon icon={Loading02Icon} size={14} className="animate-spin" aria-hidden="true" />
                     </span>
                   )}
                 </button>
@@ -201,7 +209,7 @@ export function ComposerAttachments({
             ) : (
               <Chip key={a.id} label="FILE" title={a.path} onRemove={() => onRemove(a.id)}>
                 <div className="flex h-[76px] items-center gap-2">
-                  <FileIcon size={16} className="shrink-0 text-ink-secondary" />
+                  <HIcon icon={File01Icon} size={16} className="shrink-0 text-ink-secondary" />
                   <div className="min-w-0">
                     <div className="truncate text-[12px] text-ink">{a.name}</div>
                     <div className="text-[10.5px] text-ink-tertiary">{formatSize(a.size)}</div>
@@ -228,7 +236,7 @@ function Chip({
   title: string;
   onRemove: () => void;
 }) {
-  const Icon = label === "PASTED" ? ClipboardPaste : label === "IMAGE" ? ImageIcon : FileIcon;
+  const Icon = label === "PASTED" ? ClipboardPasteIcon : label === "IMAGE" ? Image01Icon : File01Icon;
   return (
     <div
       title={title}
@@ -239,7 +247,7 @@ function Chip({
     >
       {children}
       <div className="mt-1 flex items-center gap-1">
-        <Icon size={11} className="text-ink-tertiary" />
+        <HIcon icon={Icon} size={11} className="text-ink-tertiary" />
         <span className="rounded border border-hairline/60 px-1 py-px text-[9.5px] font-medium tracking-wide text-ink-secondary">
           {label}
         </span>
@@ -251,7 +259,7 @@ function Chip({
         aria-label={`Remove ${label === "PASTED" ? "pasted text" : "file"}`}
         className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full border border-hairline/60 bg-panel text-ink-secondary opacity-0 transition-opacity hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100"
       >
-        <X size={11} />
+        <HIcon icon={MultiplicationSignIcon} size={11} />
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
-import { ClipboardList } from "lucide-react";
+import { ClipboardListIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { t } from "@/lib/i18n";
 import type { Message } from "@/state/store";
@@ -25,7 +26,7 @@ export function DigestChip({ message }: { message: Message }) {
         title={message.text ?? t("chat.digestTitle")}
         className="inline-flex max-w-[480px] items-center gap-1.5 rounded-full border border-hairline/40 bg-panel px-3 py-1 text-[12px] text-ink-secondary"
       >
-        <ClipboardList size={12} />
+        <HIcon icon={ClipboardListIcon} size={12} />
         <span className="truncate">{label}</span>
       </span>
     </div>

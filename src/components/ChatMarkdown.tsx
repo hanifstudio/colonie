@@ -19,7 +19,8 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { fromMarkdown, type Options as MarkdownParseOptions } from "mdast-util-from-markdown";
-import { Check, Copy, Download, LoaderCircle, RotateCcw, WrapText, X } from "lucide-react";
+import { Copy01Icon, Download01Icon, Loading02Icon, RotateCcwIcon, TextWrapIcon, Tick01Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useCopyFeedback } from "@/lib/copy-text";
 import { t } from "@/lib/i18n";
 import { remarkMentions, type MentionPeer } from "@/lib/mentions";
@@ -430,7 +431,7 @@ export function CodeBlock({ code, lang }: CodeBlockProps) {
             aria-label={wrapLines ? "Disable line wrapping" : "Wrap long lines"}
             aria-pressed={wrapLines}
           >
-            <WrapText size={12} aria-hidden="true" />
+            <HIcon icon={TextWrapIcon} size={12} aria-hidden="true" />
             <span className="hidden sm:inline">{wrapLines ? "Unwrap" : "Wrap"}</span>
           </button>
           <button
@@ -440,7 +441,7 @@ export function CodeBlock({ code, lang }: CodeBlockProps) {
             title="Download snippet as file"
             aria-label="Download snippet as file"
           >
-            <Download size={12} aria-hidden="true" />
+            <HIcon icon={Download01Icon} size={12} aria-hidden="true" />
             <span className="hidden sm:inline">Save</span>
           </button>
           <button
@@ -452,17 +453,17 @@ export function CodeBlock({ code, lang }: CodeBlockProps) {
           >
             {copied === "failed" ? (
               <>
-                <X size={12} className="text-danger" aria-hidden="true" />
+                <HIcon icon={MultiplicationSignIcon} size={12} className="text-danger" aria-hidden="true" />
                 <span className="text-danger font-medium hidden sm:inline">{t("common.copyFailed")}</span>
               </>
             ) : copied === "copied" ? (
               <>
-                <Check size={12} className="text-success" aria-hidden="true" />
+                <HIcon icon={Tick01Icon} size={12} className="text-success" aria-hidden="true" />
                 <span className="text-success font-medium hidden sm:inline">Copied!</span>
               </>
             ) : (
               <>
-                <Copy size={12} aria-hidden="true" />
+                <HIcon icon={Copy01Icon} size={12} aria-hidden="true" />
                 <span className="hidden sm:inline">Copy</span>
               </>
             )}
@@ -612,7 +613,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
             aria-label={showSource ? "Hide diagram source" : "Show diagram source"}
             aria-pressed={showSource}
           >
-            <WrapText size={12} aria-hidden="true" />
+            <HIcon icon={TextWrapIcon} size={12} aria-hidden="true" />
             <span className="hidden sm:inline">{showSource ? "Hide source" : "Show source"}</span>
           </button>
           <button
@@ -624,17 +625,17 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
           >
             {copied === "failed" ? (
               <>
-                <X size={12} className="text-danger" aria-hidden="true" />
+                <HIcon icon={MultiplicationSignIcon} size={12} className="text-danger" aria-hidden="true" />
                 <span className="text-danger font-medium hidden sm:inline">{t("common.copyFailed")}</span>
               </>
             ) : copied === "copied" ? (
               <>
-                <Check size={12} className="text-success" aria-hidden="true" />
+                <HIcon icon={Tick01Icon} size={12} className="text-success" aria-hidden="true" />
                 <span className="text-success font-medium hidden sm:inline">Copied!</span>
               </>
             ) : (
               <>
-                <Copy size={12} aria-hidden="true" />
+                <HIcon icon={Copy01Icon} size={12} aria-hidden="true" />
                 <span className="hidden sm:inline">Copy</span>
               </>
             )}
@@ -691,13 +692,13 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
       >
         {children}
         {save.state === "saving" ? (
-          <LoaderCircle size={12} className="shrink-0 animate-spin" aria-hidden="true" />
+          <HIcon icon={Loading02Icon} size={12} className="shrink-0 animate-spin" aria-hidden="true" />
         ) : save.state === "saved" ? (
-          <Check size={12} className="shrink-0 text-success" aria-hidden="true" />
+          <HIcon icon={Tick01Icon} size={12} className="shrink-0 text-success" aria-hidden="true" />
         ) : save.state === "failed" ? (
-          <RotateCcw size={12} className="shrink-0" aria-hidden="true" />
+          <HIcon icon={RotateCcwIcon} size={12} className="shrink-0" aria-hidden="true" />
         ) : (
-          <Download size={12} className="shrink-0" aria-hidden="true" />
+          <HIcon icon={Download01Icon} size={12} className="shrink-0" aria-hidden="true" />
         )}
       </button>
       {label && (

@@ -5,7 +5,8 @@
 // own transcript and its own provider session — so sensitive work, a
 // long job and a quick question can sit side by side under one agent.
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Activity, Check, ChevronDown, FolderInput, Pencil, Pin, PinOff, Plus, Search, Trash2 } from "lucide-react";
+import { Activity01Icon, ChevronDownIcon, FolderInputIcon, PencilIcon, PinIcon, PinOffIcon, PlusSignIcon, Search01Icon, Delete02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useStore, type Bot, type BotProject, type Group, type Task } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
@@ -259,14 +260,14 @@ function ConversationTaskPicker({
         <span className={cn("truncate", !conversations && "@max-4xl/chathead:hidden")}>{conversations ? "Conversations" : t("task.switch")}</span>
         {/* folded: just the count in the bubble — the title rides the tooltip */}
         <span className="shrink-0 tabular-nums opacity-60 @max-4xl/chathead:opacity-100">{tasks.length}</span>
-        <ChevronDown size={12} className="shrink-0 @max-4xl/chathead:hidden" />
+        <HIcon icon={ChevronDownIcon} size={12} className="shrink-0 @max-4xl/chathead:hidden" />
       </button>
 
       {motion.shown && (
         <div className={cn("absolute top-full z-40 mt-1 overflow-hidden rounded-xl border border-hairline/50 bg-card py-1 shadow-2xl shadow-black/50", conversations ? "left-0 w-[min(300px,calc(100vw-40px))]" : "right-0 w-[300px]", motion.className)} {...motion.exitProps}>
           <div className="px-2 pb-1 pt-1.5">
             <div className="flex items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-2.5 py-1.5 focus-within:border-focus">
-              <Search size={13} className="shrink-0 text-ink-secondary" />
+              <HIcon icon={Search01Icon} size={13} className="shrink-0 text-ink-secondary" />
               <input
                 autoFocus
                 value={query}
@@ -298,7 +299,7 @@ function ConversationTaskPicker({
           </div>
           <div className="max-h-[320px] overflow-y-auto" role="group" aria-label={conversations ? "Conversation list" : looking ? t("task.matching", { count: results.length }) : t("task.list")}>
             {attentionRows.length > 0 && <div className="pb-1">
-              <div className="flex items-center gap-1.5 px-3 pb-1 pt-1.5 text-[11px] font-medium text-ink-secondary"><Activity size={12} />{t("attention.title")}</div>
+              <div className="flex items-center gap-1.5 px-3 pb-1 pt-1.5 text-[11px] font-medium text-ink-secondary"><HIcon icon={Activity01Icon} size={12} />{t("attention.title")}</div>
               <AttentionThreadRows entries={attentionRows} onJump={(entry) => { onAttentionJump?.(entry); closeMenu(); }} />
             </div>}
             {results.length === 0 ? (
@@ -315,7 +316,7 @@ function ConversationTaskPicker({
                 <div
                   className={cn("group flex items-center gap-2 px-2.5 py-2", active ? "bg-raised/60" : "hover:bg-raised/40")}
                 >
-                  <Check size={13} className={cn("shrink-0", active ? "text-accent" : "opacity-0")} />
+                  <HIcon icon={Tick01Icon} size={13} className={cn("shrink-0", active ? "text-accent" : "opacity-0")} />
                   {renaming === task.threadId ? (
                     <input
                       autoFocus
@@ -382,7 +383,7 @@ function ConversationTaskPicker({
                       title={task.pinned === true ? t("sidebar.bot.unpin") : t("sidebar.bot.pin")}
                       className="rounded p-1 text-ink-secondary opacity-0 hover:bg-raised hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-70"
                     >
-                      {task.pinned === true ? <PinOff size={13} /> : <Pin size={13} />}
+                      {task.pinned === true ? <HIcon icon={PinOffIcon} size={13} /> : <HIcon icon={PinIcon} size={13} />}
                     </button>
                   )}
                   {renaming !== task.threadId && (
@@ -393,11 +394,11 @@ function ConversationTaskPicker({
                       title={t("task.renameTitle")}
                       className="rounded p-1 text-ink-secondary opacity-0 hover:bg-raised hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-70"
                     >
-                      <Pencil size={13} />
+                      <HIcon icon={PencilIcon} size={13} />
                     </button>
                   )}
                   {bot && onMove && (bot.projects?.length ?? 0) > 0 && <label title={t("folder.move")} className="relative rounded p-1 text-ink-secondary opacity-0 hover:bg-raised hover:text-ink focus-within:opacity-100 group-hover:opacity-100 touch:opacity-70">
-                    <FolderInput size={13} />
+                    <HIcon icon={FolderInputIcon} size={13} />
                     <select aria-label={t("folder.moveNamed", { title: task.title })} value={bot.projects?.some((project) => project.id === task.projectId) ? task.projectId : ""}
                       onFocus={clearDismiss} onChange={(event) => { clearDismiss(); onMove(task.threadId, event.target.value || null); }}
                       className="absolute inset-0 w-full cursor-pointer opacity-0">
@@ -413,7 +414,7 @@ function ConversationTaskPicker({
                     title={t("task.deleteTitle")}
                     className="rounded p-1 text-ink-secondary opacity-0 hover:bg-raised hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-20 touch:opacity-70 touch:disabled:opacity-20"
                   >
-                    <Trash2 size={13} />
+                    <HIcon icon={Delete02Icon} size={13} />
                   </button>
                 </div>
                 </Fragment>
@@ -429,7 +430,7 @@ function ConversationTaskPicker({
             disabled={busy}
             className="mt-1 flex w-full items-center gap-2 border-t border-hairline/40 px-3 py-2 text-left text-[13px] text-ink hover:bg-raised/50 disabled:opacity-40"
           >
-            <Plus size={13} className="text-ink-secondary" /> {t("task.newShort")}
+            <HIcon icon={PlusSignIcon} size={13} className="text-ink-secondary" /> {t("task.newShort")}
           </button>}
         </div>
       )}

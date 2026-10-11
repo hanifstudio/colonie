@@ -4,7 +4,8 @@
 // completely functional until the first message, then fails with a raw spawn
 // error. Every engine unavailable is a setup state, not an error state, so it
 // gets a screen that says what to do rather than a bot that can't answer.
-import { ArrowUpRight, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { ArrowUpRight01Icon, Key01Icon, Loading02Icon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { useState } from "react";
 import { useStore } from "@/state/store";
 import { EngineGroupLabel } from "@/components/EngineGroupLabel";
@@ -95,12 +96,12 @@ export function NoEngines() {
                     onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "connections" })}
                     className="flex items-center gap-3 rounded-xl border border-hairline/40 bg-card p-3.5 text-left hover:bg-control/40"
                   >
-                    <KeyRound size={16} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={Key01Icon} size={16} className="shrink-0 text-ink-secondary" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-medium text-ink">{t("cloudSignIn.apiKey")}</span>
                       <span className="block text-[12px] text-ink-secondary">{t("cloudSignIn.apiKeyHint")}</span>
                     </span>
-                    <ArrowUpRight size={14} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={ArrowUpRight01Icon} size={14} className="shrink-0 text-ink-secondary" />
                   </button>
                 )}
                 {custom.length > 0 && <EngineGroupLabel className="px-1 pt-1">{t("engines.local")}</EngineGroupLabel>}
@@ -115,7 +116,7 @@ export function NoEngines() {
           disabled={rechecking}
           className="mt-6 flex items-center gap-2 rounded-lg bg-raised px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-60"
         >
-          {rechecking ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          {rechecking ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={14} />}
           {rechecking ? t("common.checking") : t("common.checkAgain")}
         </button>
       </div>

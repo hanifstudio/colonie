@@ -4,7 +4,8 @@
 // native recognizer has no acoustic echo cancellation. Bot replies are
 // explicitly queued so a fast second member never cuts off the first.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, PhoneOff, X } from "lucide-react";
+import { CallEnd01Icon, Loading02Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { currentCall, deferCallCleanup, endCall, useOnCall } from "@/lib/call";
 import { routeSpokenGroupMessage } from "@/lib/group-call";
@@ -469,7 +470,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
         aria-label="Hang up"
         className="absolute right-5 top-5 rounded-md p-2 text-ink-secondary hover:bg-raised hover:text-ink"
       >
-        <X size={18} />
+        <HIcon icon={MultiplicationSignIcon} size={18} />
       </button>
 
       <div className="max-w-full overflow-x-auto px-4 py-3">
@@ -512,7 +513,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
       <div className="flex flex-col items-center gap-1.5 text-center">
         <div className="text-[20px] font-medium text-ink">{group.name}</div>
         <div className="flex items-center gap-2 text-[13.5px] text-ink-secondary">
-          {(phase === "working" || phase === "sending") && <Loader2 size={13} className="animate-spin" />}
+          {(phase === "working" || phase === "sending") && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}
           {status}
         </div>
       </div>
@@ -559,7 +560,7 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
           onClick={() => endCall(group.id)}
           className="flex items-center gap-2 rounded-full bg-danger px-5 py-2.5 text-[14px] font-medium text-white hover:brightness-110"
         >
-          <PhoneOff size={16} /> Hang up
+          <HIcon icon={CallEnd01Icon} size={16} /> Hang up
         </button>
       </div>
 

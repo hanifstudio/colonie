@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, Trash2, X } from "lucide-react";
+import { Delete02Icon, Loading02Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { CommandAllowRule, CommandAllowlistResponse } from "../../shared/command-allowlist";
 import { api, useStore } from "@/state/store";
 import { t } from "@/lib/i18n";
@@ -143,12 +144,12 @@ export function CommandAllowlistDialog({ botId, botName, threadId, onClose }: {
             <p className="mt-1 text-[12px] text-ink-secondary">{t("commandAllowlist.forBot", { name: botName })}</p>
           </div>
           <button ref={closeRef} type="button" onMouseDown={(event) => event.stopPropagation()} onClick={onClose} aria-label={t("commandAllowlist.close")}
-            className="shrink-0 rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink"><X size={17} className="pointer-events-none" /></button>
+            className="shrink-0 rounded-md p-1.5 text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={MultiplicationSignIcon} size={17} className="pointer-events-none" /></button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
           <p id={scopeId} className="mt-3 text-[12px] leading-relaxed text-ink-secondary">{t("commandAllowlist.scope")}</p>
           {loading && <p role="status" className="mt-5 flex items-center gap-2 text-[13px] text-ink-secondary">
-            <Loader2 size={15} className="animate-spin" aria-hidden="true" />{t("commandAllowlist.loading")}
+            <HIcon icon={Loading02Icon} size={15} className="animate-spin" aria-hidden="true" />{t("commandAllowlist.loading")}
           </p>}
           {error && <div role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">
             <p>{error}</p>
@@ -167,7 +168,7 @@ export function CommandAllowlistDialog({ botId, botName, threadId, onClose }: {
                   aria-label={t("commandAllowlist.removeAria", { command: rule.command })}
                   title={t(saving === rule.id ? "commandAllowlist.removing" : "commandAllowlist.remove")}
                   className="shrink-0 rounded-md p-1.5 text-ink-secondary hover:bg-danger/10 hover:text-danger disabled:opacity-40">
-                  {saving === rule.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                  {saving === rule.id ? <HIcon icon={Loading02Icon} size={15} className="animate-spin" /> : <HIcon icon={Delete02Icon} size={15} />}
                 </button>
               </li>)}
             </ul> : <p className="mt-4 rounded-xl bg-inset px-3 py-4 text-[13px] text-ink-secondary">{t("commandAllowlist.empty")}</p>}

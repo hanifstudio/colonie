@@ -2,7 +2,8 @@
 // /api/search. Self-contained — owns its open state and its global chord,
 // so App.tsx only mounts it.
 import { useEffect, useRef, useState } from "react";
-import { Bot as BotIcon, MessageSquare, Search, Users } from "lucide-react";
+import { BotIcon, MessageSquareIcon, Search01Icon, UsersIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, type Bot, type Group } from "@/state/store";
 import { rankByName } from "@/lib/palette-rank";
 import { cn } from "@/lib/cn";
@@ -160,7 +161,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
         className="flex max-h-[min(480px,70vh)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-hairline/50 bg-card shadow-2xl shadow-black/60"
       >
         <div className="flex items-center gap-3 border-b border-hairline/40 px-4 py-3">
-          <Search size={16} className="shrink-0 text-ink-secondary" />
+          <HIcon icon={Search01Icon} size={16} className="shrink-0 text-ink-secondary" />
           <input
             autoFocus
             value={query}
@@ -189,7 +190,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
               i,
               () => void activate({ kind: "bot", bot }),
               <>
-                <BotIcon size={16} className="shrink-0 text-ink-secondary" />
+                <HIcon icon={BotIcon} size={16} className="shrink-0 text-ink-secondary" />
                 <span className="truncate text-[14px] text-ink">{bot.name}</span>
                 {bot.title && (
                   <span className="min-w-0 truncate text-[12.5px] text-ink-secondary">{bot.title}</span>
@@ -208,7 +209,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
               roomOffset + i,
               () => void activate({ kind: "room", group }),
               <>
-                <Users size={16} className="shrink-0 text-ink-secondary" />
+                <HIcon icon={UsersIcon} size={16} className="shrink-0 text-ink-secondary" />
                 <span className="truncate text-[14px] text-ink">{group.name}</span>
               </>,
             ),
@@ -229,7 +230,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
                 () => void activate({ kind: "message", hit }),
                 <>
                   <span className="flex items-center gap-2 truncate text-[13px] font-medium text-ink">
-                    <MessageSquare size={13} className="shrink-0 text-ink-secondary" />
+                    <HIcon icon={MessageSquareIcon} size={13} className="shrink-0 text-ink-secondary" />
                     {hit.name}
                     {hit.task ? <span className="font-normal text-ink-secondary"> · {hit.task}</span> : null}
                   </span>

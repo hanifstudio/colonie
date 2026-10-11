@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { AlertTriangle } from "lucide-react";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 export const LOCAL_COMPUTER_AUTO_WARNING =
   "Auto mode will let this bot click, type, and run tools on this computer without asking first. Destructive and sensitive actions still stop. Continue only if you are watching.";
@@ -43,7 +44,7 @@ export function LocalComputerAutoWarning({
         className="w-full max-w-[420px] rounded-2xl border border-hairline/50 bg-panel p-5 shadow-2xl"
       >
         <div className="flex items-start gap-3">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
+          <HIcon icon={Alert02Icon} size={18} className="mt-0.5 shrink-0 text-warning" />
           <div>
             <h2 id="local-auto-warning-title" className="text-[15px] font-semibold text-ink">
               Allow Auto mode on this computer?

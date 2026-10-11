@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Ellipsis } from "lucide-react";
+import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { popoverClosesOnKey, usePopoverDismiss } from "@/hooks/use-popover-dismiss";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -105,7 +106,7 @@ export function MessageActions({
           held ? "bg-raised text-ink opacity-100 touch:opacity-100" : "opacity-0",
         )}
       >
-        <Ellipsis size={14} aria-hidden="true" />
+        <HIcon icon={MoreHorizontalIcon} size={14} aria-hidden="true" />
       </button>
       <div
         className={cn(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, LogIn } from "lucide-react";
+import { Loading02Icon, Login01Icon, SquareArrowUpRightIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api } from "@/state/store";
 import { useStore } from "@/state/store";
 import { t } from "@/lib/i18n";
@@ -135,7 +136,7 @@ export function ClaudeSignIn({ instanceId }: { instanceId: string }) {
         link ? (
           <div className="space-y-2 rounded-lg border border-hairline/50 bg-app p-3">
             <a href={link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110">
-              {t("engineSetup.claude.open")} <ExternalLink size={13} />
+              {t("engineSetup.claude.open")} <HIcon icon={SquareArrowUpRightIcon} size={13} />
             </a>
             <label className="block text-[12px] text-ink-secondary" htmlFor={`claude-code-${instanceId}`}>
               {t("engineSetup.claude.codeLabel")}
@@ -154,7 +155,7 @@ export function ClaudeSignIn({ instanceId }: { instanceId: string }) {
               onClick={() => void finish()}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
             >
-              {busy === "finish" ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
+              {busy === "finish" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Login01Icon} size={14} />}
               {busy === "finish" ? t("engineSetup.claude.finishing") : t("engineSetup.claude.finish")}
             </button>
             {auth.expiresAt && Number.isFinite(Date.parse(auth.expiresAt)) ? (
@@ -175,7 +176,7 @@ export function ClaudeSignIn({ instanceId }: { instanceId: string }) {
           onClick={() => void start()}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
-          {busy === "start" ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
+          {busy === "start" ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={Login01Icon} size={14} />}
           {busy === "start" ? t("engineSetup.claude.starting") : t("engineSetup.claude.start")}
         </button>
       ) : null}

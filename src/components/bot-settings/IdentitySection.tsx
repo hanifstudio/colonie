@@ -4,7 +4,8 @@
 // Moved out of SettingsPanel.tsx (its header, avatar card, Name, Title,
 // and Instructions block) with only the label and helper text changed.
 import { useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { useStore, type Bot } from "@/state/store";
 import type { MausMotion, MausState } from "@/lib/mascot";
@@ -86,7 +87,7 @@ export function IdentitySection({
             onClick={() => setInstructionsOpen(true)}
             className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11.5px] font-medium text-accent-text hover:bg-accent/10"
           >
-            <BookOpen size={12} /> View full
+            <HIcon icon={BookOpen01Icon} size={12} /> View full
           </button>
         </div>
         <ProposalStatus bot={bot} kind="chief" />

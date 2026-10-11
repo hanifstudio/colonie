@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CircleAlert, FileText, Loader2, Search } from "lucide-react";
+import { AlertCircleIcon, FileTextIcon, Loading02Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { isRoutineProblemRun, type RoutineRun, type RoutineRunStatusFilter } from "@/lib/routines";
@@ -25,13 +26,13 @@ export function RoutineLogs({ runs, bots, loading, error, routineId, status, onS
   return <section className="mx-auto w-full max-w-5xl space-y-4 p-4 sm:p-6" aria-label={t("routines.logs")}>
     <div><h2 className="text-[17px] font-semibold text-ink">{t("routines.logs")}</h2><p className="mt-1 text-[12px] text-ink-secondary">{t("routines.logsHint")}</p></div>
     <div className="flex flex-wrap items-center gap-2">
-      <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border border-hairline/50 bg-panel px-3 py-2 text-ink-secondary focus-within:border-focus"><Search size={14} /><input aria-label={t("routines.searchLogs")} placeholder={t("routines.searchLogs")} value={query} onChange={(event) => { setQuery(event.target.value); setLimit(50); }} className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none" /></label>
+      <label className="flex min-w-[180px] flex-1 items-center gap-2 rounded-lg border border-hairline/50 bg-panel px-3 py-2 text-ink-secondary focus-within:border-focus"><HIcon icon={Search01Icon} size={14} /><input aria-label={t("routines.searchLogs")} placeholder={t("routines.searchLogs")} value={query} onChange={(event) => { setQuery(event.target.value); setLimit(50); }} className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none" /></label>
       <select aria-label={t("routines.filterStatus")} value={status} onChange={(event) => { onStatusChange(event.target.value as RoutineRunStatusFilter); setLimit(50); }} className="rounded-lg border border-hairline/50 bg-panel px-3 py-2 text-[12px] text-ink"><option value="all">{t("routines.allStatuses")}</option><option value="problems">{t("routines.status.problems")}</option>{(["queued", "running", "waiting", "completed", "failed", "missed", "cancelled"] as const).map((value) => <option key={value} value={value}>{t(`routines.status.${value}`)}</option>)}</select>
     </div>
     {routineId && <div className="flex items-center gap-2 text-[12px] text-ink-secondary">{t("routines.filteredRoutine")}<button type="button" onClick={onClearRoutine} className="text-accent hover:underline">{t("routines.showAll")}</button></div>}
-    {error && <p role="alert" className="flex items-center gap-2 rounded-lg bg-danger/10 p-3 text-[12px] text-danger"><CircleAlert size={14} />{t("routines.loadError")}</p>}
-    {loading && <p role="status" className="flex items-center gap-2 text-[12px] text-ink-secondary"><Loader2 size={14} className="animate-spin" />{t("routines.loading")}</p>}
-    {!loading && !error && filtered.length === 0 && <div className="rounded-xl border border-dashed border-hairline/50 p-10 text-center text-[13px] text-ink-secondary"><FileText size={24} className="mx-auto mb-3 opacity-50" />{runs.length ? t("routines.noMatchingRuns") : t("routines.noRuns")}</div>}
+    {error && <p role="alert" className="flex items-center gap-2 rounded-lg bg-danger/10 p-3 text-[12px] text-danger"><HIcon icon={AlertCircleIcon} size={14} />{t("routines.loadError")}</p>}
+    {loading && <p role="status" className="flex items-center gap-2 text-[12px] text-ink-secondary"><HIcon icon={Loading02Icon} size={14} className="animate-spin" />{t("routines.loading")}</p>}
+    {!loading && !error && filtered.length === 0 && <div className="rounded-xl border border-dashed border-hairline/50 p-10 text-center text-[13px] text-ink-secondary"><HIcon icon={FileTextIcon} size={24} className="mx-auto mb-3 opacity-50" />{runs.length ? t("routines.noMatchingRuns") : t("routines.noRuns")}</div>}
     <div className="space-y-2">{filtered.slice(0, limit).map((run) => {
       const bot = bots.find((candidate) => candidate.id === run.botId);
       return <button type="button" key={run.id} onClick={() => onOpen(run)} aria-label={t("routines.openRun", { name: run.routineName, status: routineRunLabel(run) }) + (isRoutineProblemRun(run) && !run.seenAt ? ` · ${t("routines.unread")}` : "")} className="block w-full rounded-xl border border-hairline/40 bg-card p-4 text-left hover:border-accent/40 hover:bg-raised/40">

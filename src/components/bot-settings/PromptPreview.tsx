@@ -2,7 +2,8 @@
 // GET /api/bots/:id/system-prompt (server/system-prompt.ts's
 // previewSystemPrompt, the same builder a real turn uses). Pure
 // presentational: the dialog owns the fetch and the open/closed state.
-import { ChevronDown } from "lucide-react";
+import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 
 import { cn } from "@/lib/cn";
 
@@ -37,7 +38,7 @@ export function PromptPreview({
             ? `Prompt preview · ${data.totalBytes.toLocaleString()} bytes ≈ ${data.approxTokens.toLocaleString()} tokens`
             : "Prompt preview"}
         </span>
-        <ChevronDown size={16} className={cn("shrink-0 text-ink-secondary transition-transform", open && "rotate-180")} />
+        <HIcon icon={ChevronDownIcon} size={16} className={cn("shrink-0 text-ink-secondary transition-transform", open && "rotate-180")} />
       </button>
 
       {open && !data && error && (

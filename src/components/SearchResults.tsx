@@ -3,7 +3,8 @@
 // across every bot task and room, and a click lands on the message — right
 // bot, right task, right branch — rather than just opening the chat.
 import { useEffect, useState } from "react";
-import { GitBranch, Wrench } from "lucide-react";
+import { GitBranchIcon, WrenchIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { api, useStore, formatTime } from "@/state/store";
 import { BotAvatar } from "./Avatar";
 import { cn } from "@/lib/cn";
@@ -82,14 +83,14 @@ export function SearchResults({ query, onLanded }: { query: string; onLanded: ()
                 <span className="ml-auto shrink-0 tabular-nums">{formatTime(hit.at)}</span>
               </span>
               <span dir="auto" className={cn("mt-0.5 line-clamp-2 text-[12.5px] leading-snug", hit.role === "user" ? "text-ink" : "text-ink-secondary")}>
-                {hit.kind === "activity" && <Wrench size={11} className="mr-1 inline text-ink-secondary" />}
+                {hit.kind === "activity" && <HIcon icon={WrenchIcon} size={11} className="mr-1 inline text-ink-secondary" />}
                 {before}
                 <mark className="rounded-sm bg-accent/25 px-0.5 text-ink">{match}</mark>
                 {after}
               </span>
               {!hit.onActivePath && (
                 <span className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-secondary">
-                  <GitBranch size={10} /> other version
+                  <HIcon icon={GitBranchIcon} size={10} /> other version
                 </span>
               )}
             </span>

@@ -4,7 +4,8 @@
 // hover and a click. Simple mode keeps none of them: scheduling and webhooks
 // are builder tools. Apps sits beside the profile (SidebarAppsButton), except
 // on the avatars-only rail, where it stays a row just above the avatar.
-import { CalendarDays, Network, Puzzle, Zap } from "lucide-react";
+import { Calendar03Icon, NetworkIcon, PuzzleIcon, ZapIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
@@ -80,7 +81,7 @@ export function SidebarAppsButton() {
         state.pluginsOpen ? "bg-raised text-accent" : "text-ink-secondary hover:bg-raised/50 hover:text-ink",
       )}
     >
-      <Puzzle size={18} />
+      <HIcon icon={PuzzleIcon} size={18} />
     </button>
   );
 }
@@ -107,7 +108,7 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
         iconsOnly={iconsOnly}
         active={state.activeView === "routines"}
         attention={routinesNeedYou}
-        icon={(active) => <CalendarDays size={iconSize} className={tone(active)} />}
+        icon={(active) => <HIcon icon={Calendar03Icon} size={iconSize} className={tone(active)} />}
         onClick={() => dispatch({ type: "showRoutines" })}
       />}
       {advanced && <NavRow
@@ -115,7 +116,7 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
         label={t("sidebar.nav.triggers")}
         iconsOnly={iconsOnly}
         active={state.triggersOpen}
-        icon={(active) => <Zap size={iconSize} className={tone(active)} />}
+        icon={(active) => <HIcon icon={ZapIcon} size={iconSize} className={tone(active)} />}
         onClick={() => dispatch({ type: "toggleTriggers", open: true })}
       />}
       {iconsOnly && <NavRow
@@ -124,7 +125,7 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
         tourId="nav-apps"
         iconsOnly={iconsOnly}
         active={state.pluginsOpen}
-        icon={(active) => <Puzzle size={iconSize} className={tone(active)} />}
+        icon={(active) => <HIcon icon={PuzzleIcon} size={iconSize} className={tone(active)} />}
         onClick={() => dispatch({ type: "togglePlugins", open: true })}
       />}
       {advanced && (
@@ -134,7 +135,7 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
           tourId="team-tools"
           iconsOnly={iconsOnly}
           active={state.activeView === "team-map"}
-          icon={(active) => <Network size={iconSize} className={tone(active)} />}
+          icon={(active) => <HIcon icon={NetworkIcon} size={iconSize} className={tone(active)} />}
           onClick={() => dispatch({ type: "showTeamMap" })}
         />
       )}

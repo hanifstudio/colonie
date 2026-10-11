@@ -75,7 +75,7 @@ describe("sidebar bot threads", () => {
     // Dragging from the label must start the same row-owned folder drag.
     expect(markup).toContain('<button type="button" data-sidebar-folder-label="research" draggable="true"');
     expect(markup).toContain("🧪");
-    expect(markup).toContain("lucide-folder");
+    expect(markup).toContain("M8 7H16.75C18.8567");
     expect(markup).toContain('aria-label="New thread in Research"');
     expect(markup).not.toContain('aria-label="Choose folder for new thread"');
     const folderToggle = markup.match(/<button[^>]*aria-label="Collapse Research threads"[^>]*>/)?.[0];

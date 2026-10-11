@@ -3,29 +3,30 @@ import { useAdvancedMode } from "@/lib/interface-mode";
 import { useDeveloperTools } from "@/lib/developer-tools";
 import { useCopyFeedback } from "@/lib/copy-text";
 import {
-  AlertTriangle,
-  ArrowDown,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Bug,
-  Copy,
-  Crown,
-  Download,
-  Gauge,
-  ListChecks,
-  MessageSquareReply,
-  Monitor,
-  MoreHorizontal,
-  Pencil,
-  Pin,
-  PinOff,
-  RefreshCw,
-  Search,
-  Square,
-  Webhook,
-  X,
-} from "lucide-react";
+  Alert02Icon,
+  ArrowDown01Icon,
+  Tick01Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Bug01Icon,
+  Copy01Icon,
+  CrownIcon,
+  Download01Icon,
+  GaugeIcon,
+  CheckListIcon,
+  MessageSquareReplyIcon,
+  MonitorIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PinIcon,
+  PinOffIcon,
+  RefreshCwIcon,
+  Search01Icon,
+  SquareIcon,
+  WebhookIcon,
+  MultiplicationSignIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 import { WorkingDots } from "@/components/WorkingIndicator";
 import { MessageActions, messageActionClass } from "@/components/MessageActions";
 import { useSpeech } from "@/lib/tts/useSpeech";
@@ -214,7 +215,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
         className,
       )}
     >
-      {state === "copied" ? <Check size={14} className="text-success" /> : state === "failed" ? <X size={14} className="text-danger" /> : <Copy size={14} />}
+      {state === "copied" ? <HIcon icon={Tick01Icon} size={14} className="text-success" /> : state === "failed" ? <HIcon icon={MultiplicationSignIcon} size={14} className="text-danger" /> : <HIcon icon={Copy01Icon} size={14} />}
     </button>
   );
 }
@@ -263,7 +264,7 @@ export function ErrorRow({
     <div className="flex justify-start">
       <div className="w-fit max-w-[min(42rem,78%)] rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-[13.5px] text-danger">
         <div className="flex items-start gap-2">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+          <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0" />
           <span className="min-w-0 break-words">{headline}</span>
         </div>
         {headline !== message && <details className="mt-2 text-[12px] text-ink-secondary"><summary className="cursor-pointer">{macCuaReason ? t("computer.mac.permission.driverDetail") : t("chat.error.details")}</summary><p className="mt-1 break-words">{message}</p></details>}
@@ -299,7 +300,7 @@ export function ErrorRow({
               onClick={onRetry}
               className="mt-1.5 flex items-center gap-1.5 rounded-full border border-danger/30 px-2.5 py-1 text-[12.5px] hover:bg-danger/15"
             >
-              <RefreshCw size={12} /> {t("chat.retry")}
+              <HIcon icon={RefreshCwIcon} size={12} /> {t("chat.retry")}
             </button>
           )
         )}
@@ -544,7 +545,7 @@ const Bubble = memo(function Bubble({
                 title={t("chat.editMessage")}
                 className={messageActionClass}
               >
-                <Pencil size={14} />
+                <HIcon icon={PencilIcon} size={14} />
               </button>
             )}
             {Boolean(visibleText.trim()) && <CopyButton text={visibleText} className="opacity-100" />}
@@ -555,7 +556,7 @@ const Bubble = memo(function Bubble({
               title={t("chat.reply")}
               className={messageActionClass}
             >
-              <MessageSquareReply size={14} />
+              <HIcon icon={MessageSquareReplyIcon} size={14} />
             </button>
             <button
               onClick={togglePin}
@@ -563,7 +564,7 @@ const Bubble = memo(function Bubble({
               title={pinned ? t("chat.unpinHint") : t("chat.pinHint")}
               className={cn(messageActionClass, remoteClient && "hidden")}
             >
-              {pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              {pinned ? <HIcon icon={PinOffIcon} size={14} /> : <HIcon icon={PinIcon} size={14} />}
             </button>
           </MessageActions>
         )}
@@ -597,7 +598,7 @@ const Bubble = memo(function Bubble({
           {user && webhookView ? (
             <div className="min-w-[300px] max-w-[520px]">
               <div className="flex items-center gap-2 border-b border-accent/15 bg-accent/[0.055] px-4 py-2.5 text-[11.5px] font-medium text-accent">
-                <Webhook size={13} />
+                <HIcon icon={WebhookIcon} size={13} />
                 <span>{t("chat.webhookTask")}</span>
               </div>
               <div className="chat-text px-4 py-3 whitespace-pre-wrap">{webhookView.task}</div>
@@ -683,7 +684,7 @@ const Bubble = memo(function Bubble({
                 title={t("chat.regenerate")}
                 className={messageActionClass}
               >
-                <RefreshCw size={14} />
+                <HIcon icon={RefreshCwIcon} size={14} />
               </button>
             )}
             <button
@@ -693,7 +694,7 @@ const Bubble = memo(function Bubble({
               title={t("chat.reply")}
               className={messageActionClass}
             >
-              <MessageSquareReply size={14} />
+              <HIcon icon={MessageSquareReplyIcon} size={14} />
             </button>
             <button
               onClick={togglePin}
@@ -701,7 +702,7 @@ const Bubble = memo(function Bubble({
               title={pinned ? t("chat.unpinHint") : t("chat.pinHint")}
               className={cn(messageActionClass, remoteClient && "hidden")}
             >
-              {pinned ? <PinOff size={14} /> : <Pin size={14} />}
+              {pinned ? <HIcon icon={PinOffIcon} size={14} /> : <HIcon icon={PinIcon} size={14} />}
             </button>
           </MessageActions>
         )}
@@ -722,7 +723,7 @@ const Bubble = memo(function Bubble({
             className="rounded p-0.5 hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
             title={t("chat.previousVersion")}
           >
-            <ChevronLeft size={14} />
+            <HIcon icon={ChevronLeftIcon} size={14} />
           </button>
           <span className="tabular-nums">
             {versionIndex + 1}/{forks.length}
@@ -733,7 +734,7 @@ const Bubble = memo(function Bubble({
             className="rounded p-0.5 hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
             title={t("chat.nextVersion")}
           >
-            <ChevronRight size={14} />
+            <HIcon icon={ChevronRightIcon} size={14} />
           </button>
         </div>
       )}
@@ -790,7 +791,7 @@ const ActivityChip = memo(function ActivityChip({ message, place = "auto" }: { m
         >
           <BotAvatar bot={withBot ?? { name: comm.withName, color: comm.withColor }} state="happy" size={16} animated={false} />
           <span className="max-w-[480px] truncate">{tool.name}</span>
-          <ChevronRight size={13} />
+          <HIcon icon={ChevronRightIcon} size={13} />
         </button>
       </div>
     );
@@ -822,7 +823,7 @@ function EmptyChat({ bot }: { bot: Bot }) {
   const advanced = useAdvancedMode();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-24 text-center">
-      <BotAvatar bot={bot} state="idle" size={64} motion="none" motionKey={0} />
+      <BotAvatar bot={bot} state="idle" size={64} motion="none" motionKey={0} followGlobalPointer />
       {/* Simple mode renames in the bot's settings only. */}
       {!advanced ? <div className="text-[17px] font-semibold text-ink">{bot.name}</div> : <RenameTitle
         value={bot.name}
@@ -1065,7 +1066,7 @@ function PinnedBanner({
   return (
     <div className="w-full px-5">
       <div className="mb-2 flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-1.5">
-        <Pin size={12} className="shrink-0 text-accent" />
+        <HIcon icon={PinIcon} size={12} className="shrink-0 text-accent" />
         <button
           onClick={() => onJump(pinned.id)}
           className="flex min-w-0 flex-1 items-baseline gap-2 text-left"
@@ -1080,7 +1081,7 @@ function PinnedBanner({
           title={t("chat.unpin")}
           className="shrink-0 rounded p-0.5 text-ink-secondary hover:bg-raised hover:text-ink"
         >
-          <X size={13} />
+          <HIcon icon={MultiplicationSignIcon} size={13} />
         </button>}
       </div>
     </div>
@@ -1097,7 +1098,7 @@ function chiefOfStaffBadge(bot: Bot) {
   // name keeps the room.
   return (
     <span title={t("chat.chiefOfStaff")} className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent @max-4xl/chathead:px-1.5">
-      <Crown size={11} aria-hidden="true" /> <span className="@max-4xl/chathead:sr-only">{t("chat.chiefOfStaff")}</span>
+      <HIcon icon={CrownIcon} size={11} aria-hidden="true" /> <span className="@max-4xl/chathead:sr-only">{t("chat.chiefOfStaff")}</span>
     </span>
   );
 }
@@ -1429,7 +1430,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               )}
               title={t("chat.stopTurn")}
             >
-              <Square size={12} className="fill-current" />
+              <HIcon icon={SquareIcon} size={12} className="fill-current" />
               <span className="@max-4xl/chathead:hidden">{t("chat.stop")}</span>
             </button>
           )}
@@ -1447,7 +1448,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
             )}
             title={t("chat.computer")}
           >
-            <Monitor size={18} />
+            <HIcon icon={MonitorIcon} size={18} />
           </button>
           {/* Keep threads reachable even when the sidebar is collapsed.
               Less frequent actions share one menu. */}
@@ -1603,7 +1604,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           className="animate-pop-in absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-hairline/40 bg-raised px-3 py-1.5 text-[12.5px] text-ink shadow-lg hover:bg-raised-hover"
           style={{ bottom: composerDock.height }}
         >
-          <ArrowDown size={13} /> {t("chat.jumpToLatest")}
+          <HIcon icon={ArrowDown01Icon} size={13} /> {t("chat.jumpToLatest")}
         </button>
       )}
 
@@ -1730,7 +1731,7 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
     {
       key: "find",
       label: t("chat.find"),
-      icon: <Search size={16} />,
+      icon: <HIcon icon={Search01Icon} size={16} />,
       active: findOpen,
       trailing: <ShortcutHint id="find-conversation" />,
       onSelect: onFind,
@@ -1740,7 +1741,7 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
       heading: t("chat.export.heading"),
       separatorBefore: true,
       label: t("chat.export.copy"),
-      icon: <Copy size={16} />,
+      icon: <HIcon icon={Copy01Icon} size={16} />,
       disabled: !hasMessages,
       keepOpen: true,
       trailing: copyStatus && <span role="status" className="text-[11px] text-ink-secondary">{t(copyStatus === "copied" ? "chat.export.copied" : "chat.export.copyFailed")}</span>,
@@ -1749,14 +1750,14 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
     {
       key: "download",
       label: t("chat.export.download"),
-      icon: <Download size={16} />,
+      icon: <HIcon icon={Download01Icon} size={16} />,
       disabled: !hasMessages,
       onSelect: () => downloadMarkdownTranscript(slugifyTranscriptFilename(bot.name), transcript()),
     },
     ...(usage ? [{
       key: "usage",
       label: t("chat.usage.menu"),
-      icon: <Gauge size={16} />,
+      icon: <HIcon icon={GaugeIcon} size={16} />,
       separatorBefore: true,
       heading: advancedOnly,
       disabled: !advanced,
@@ -1766,14 +1767,14 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
     ...(remoteClient ? [] : [{
       key: "activity",
       label: "Activity",
-      icon: <ListChecks size={16} />,
+      icon: <HIcon icon={CheckListIcon} size={16} />,
       active: state.activityOpen,
       separatorBefore: !usage,
       onSelect: () => dispatch({ type: "toggleActivity" }),
     } satisfies SidebarMenuItem, {
       key: "inspector",
       label: t("chat.inspector"),
-      icon: <Bug size={16} />,
+      icon: <HIcon icon={Bug01Icon} size={16} />,
       active: advanced && state.inspectorOpen,
       separatorBefore: true,
       heading: usage ? undefined : advancedOnly,
@@ -1796,7 +1797,7 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
           )}
           title={t("chat.more")}
         >
-          <MoreHorizontal size={18} />
+          <HIcon icon={MoreHorizontalIcon} size={18} />
         </span>
       )}
     />

@@ -2,7 +2,8 @@
 // offer without putting them on a bot. Adding one puts it on this bot,
 // switched on — the organization's Admin published it. With no organization
 // (or nothing offered) the card is absent.
-import { Building2, Check } from "lucide-react";
+import { Building02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Bot } from "@/state/store";
@@ -68,7 +69,7 @@ export function OrgSkillsCard({ bot, onAdded }: { bot: Bot; onAdded: () => void 
   return (
     <div className="rounded-xl bg-card p-4">
       <div className="flex items-center gap-2">
-        <Building2 size={16} className="text-ink-secondary" />
+        <HIcon icon={Building02Icon} size={16} className="text-ink-secondary" />
         <div className="text-[15px] font-medium text-ink">{t("orgLibrary.tab", { name: organization })}</div>
       </div>
       <div className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("orgLibrary.skillsHint")}</div>
@@ -84,7 +85,7 @@ export function OrgSkillsCard({ bot, onAdded }: { bot: Bot; onAdded: () => void 
             </div>
             {skill.added ? (
               <span className="flex shrink-0 items-center gap-1 text-[12px] text-ink-secondary">
-                <Check size={13} className="text-success" />{t("orgLibrary.added")}
+                <HIcon icon={Tick01Icon} size={13} className="text-success" />{t("orgLibrary.added")}
               </span>
             ) : (
               <button

@@ -5,7 +5,8 @@
 // this window is on a Live call a note cannot be played at all: the call's
 // microphone would pick it up (starting the call already paused it).
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { PauseIcon, PlayIcon } from "@hugeicons/core-free-icons";
+import { HIcon } from "./HIcon";
 
 import { attachmentAudioUrl } from "@/lib/composer-attachments";
 import { t } from "@/lib/i18n";
@@ -122,7 +123,7 @@ export function VoiceNoteBubble({
         title={playing ? t("chat.voiceNote.pause") : onLiveCall ? t("chat.voiceNote.onLiveCall") : t("chat.voiceNote.play")}
         className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-opacity hover:opacity-90 disabled:opacity-40"
       >
-        {playing ? <Pause size={13} className="fill-current" /> : <Play size={13} className="translate-x-px fill-current" />}
+        {playing ? <HIcon icon={PauseIcon} size={13} className="fill-current" /> : <HIcon icon={PlayIcon} size={13} className="translate-x-px fill-current" />}
       </button>
       <input
         type="range"
