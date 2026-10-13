@@ -1,5 +1,127 @@
 # Colonie progress
 
+## 2026-10-14 — M11 step 5 proven, step 4b prepared (not yet run on the host)
+
+Commit `322ad8f5`. The VPS exists: Ubuntu 24.04, x86_64, 8 GB RAM, 4 vCPU,
+160 GB (Linode `g6-dedicated-4`, region ap-south). Above the 4 GB floor, and
+x86_64, which the Codex adapter's per-architecture binary requires.
+
+### Step 5 — `OMB_LOOPBACK_TRUST=service` — proven
+
+Both modes run against an isolated headless fixture (`env -i`, scratchpad
+`HOME` and `OMB_DATA_DIR`), session-less loopback requests:
+
+| route | default (`owner`) | `OMB_LOOPBACK_TRUST=service` |
+|---|---|---|
+| `/api/health` | 200 | 200 |
+| `/api/config` | **200** | **403** |
+| `/api/instances` | **200** | **403** |
+| `/api/sessions` | — | **403** |
+| `/api/usage` | **200** | **403** |
+
+Server log confirms the choice each way: `local requests: owner trust
+(self-hosted default)` versus `local requests: service trust
+(OMB_LOOPBACK_TRUST)`. This matters because every bot's shell is a loopback
+caller: under the default, a workspace member could ask a bot to curl the local
+API and rewrite settings, keys, MCP servers or webhooks as the owner. The
+setting is baked into the systemd unit with that reason written beside it.
+
+### Step 4b — prepared, nothing executed on the host
+
+- `docs/deploy-colonie-vps.md` (190 lines): the runbook. Listener stays on
+  `127.0.0.1`; Tailscale `serve` reaches it over the tailnet, so no public port
+  and no certificate. Windows teammates use a browser, which is why the missing
+  Windows build is not a gap. Engine sign-in is a one-time SSH step for the
+  owner only.
+- `scripts/colonie/provision-vps.sh` (83 lines, `bash -n` clean): idempotent
+  host setup; refuses non-x86_64 and under ~4 GB; installs Tailscale without
+  joining; does not start the service or touch the firewall.
+- `scripts/colonie/colonie.service` (56 lines): Colonie profile, isolated data
+  dir, restart-on-failure with a start limit, systemd hardening with only
+  `/opt/colonie/data` writable.
+
+### Blocker — the fork has no remote of its own
+
+`git remote -v` shows only upstream `milind-soni/OpenMausBot`. Every commit in
+this session, including the ~45k-line retirement, exists **only on the
+development laptop**. That is both a single point of failure and the reason the
+deployment has no clean way to move the code. The runbook's first step is
+`gh repo create <org>/colonie --private --source=. --remote=colonie`, keeping
+`origin` on upstream so future upstream changes can still be fetched.
+
+### Needed from the owner before step 4b runs
+
+1. The private repository (or an explicit decision to use `rsync` instead and
+   accept the laptop as the only copy of the history).
+2. The Linode IPv4 and an `~/.ssh/config` entry so `ssh colonie-vps` resolves.
+3. The engine sign-in, run by the owner on the server. No credential is read or
+   handled here.
+
+### Next concrete action
+
+Run the runbook against the host, in order, recording each step's output. The
+first real turn on Linux is the real-provider check and must be recorded
+separately; the adapters' Linux behaviour has never been exercised.
+
+## 2026-10-14 — M11 step 7: installable macOS build (implemented, artifact-verified)
+
+Commit `2317d4cd`. `release/colonie/Colonie-0.1.101-arm64.dmg` (345 MB) and
+`.zip` (346 MB) now exist. Also commit `cd6cd260`: two stale onboarding
+expectations corrected, so the ACP suite is fully green (333 passed, 0 failed).
+
+### What was actually wrong
+
+- `colonie:package` passed `--dir`, overriding the config, so the build had
+  never produced an installer at all. New `colonie:dist` script; the old one
+  keeps its fast `--dir` build for development.
+- `identity: null` **skips** signing. The bundle carried only Electron's linker
+  signature with `Identifier=Electron`, and `codesign --verify` failed with
+  "code has no resources but signature indicates they must be present" — which a
+  downloader sees as *"Colonie is damaged"*, not as an unidentified developer.
+  `identity: "-"` ad-hoc signs the bundle: `Identifier=com.colonie.desktop`,
+  verify passes.
+- Hardened runtime plus an ad-hoc signature kills the app on launch: library
+  validation refuses the bundle's own helpers, with **no output and no crash
+  report**. Confirmed both ways on a copy before changing the config. It is only
+  required for notarization, so it is off until there is a Developer ID.
+
+### Driver-retirement fallout that typecheck could not see
+
+`scripts/bundle-server.mjs` listed `drivers/{agents,dweb,phone}-proxy.ts` as
+esbuild entry points, and `server/index.ts` and `server/drivers/claude.ts` reach
+them through `SPAWNED_PROXIES`. These are resolved **by path string, not by
+import**, so the M11 step 3 dependency audit missed them and `pnpm typecheck`
+stayed green while `pnpm build:server` failed. The three proxies plus their
+closure (6 files, 2042 lines) are restored and classified retain-shared until
+the features that spawn them are retired. `piMcpExtension` had no consumer and
+is removed from `SPAWNED_PROXIES`, the bundler and both tsconfigs.
+
+Lesson for the remaining retirement slices: an import graph is not the whole
+dependency graph here. Check `SPAWNED_PROXIES`, `scripts/bundle-server.mjs`
+entry points and any path-string resolution before deleting a server file, and
+run `pnpm build:server` — not only `pnpm typecheck`.
+
+### Evidence (Node 24, macOS 26.2)
+
+- `pnpm typecheck` exit 0; `vitest server/proxy-paths.test.ts` 4 passed.
+- `pnpm colonie:dist` exit 0, both artifacts written.
+- `codesign -dv` reports `Identifier=com.colonie.desktop`, `Signature=adhoc`;
+  `codesign --verify --deep --strict` passes.
+- Download simulated end to end: the dmg was marked with Safari's
+  `com.apple.quarantine` attribute, mounted, the app copied out still carrying
+  quarantine (`0283;00000000;;`), and **that quarantined copy launched**.
+
+### Not verified
+
+- A real double-click through LaunchServices. The launch test ran the binary
+  directly, which does not raise the Gatekeeper dialog. On macOS 15+ that dialog
+  is no longer bypassed by Control-click → Open; the receiver must use System
+  Settings → Privacy & Security → **Open Anyway**. The download page was
+  corrected to those steps; its earlier Control-click wording was wrong for this
+  macOS version.
+- Nothing is uploaded yet. The download page still points at a placeholder URL
+  pending the owner's Cloudflare R2 bucket.
+
 ## 2026-10-14 — M11 step 4a: headless operation proven (verification only, no code change)
 
 Colonie was booted with no Electron, no display and no inherited environment
@@ -47,13 +169,6 @@ step in the deployment runbook rather than discovering it on the day.
   a tunnel, Tailscale or an authenticated reverse proxy is still undesigned.
 - **Linux.** Everything above ran on macOS. The VPS is Linux, and the adapters
   and their native dependencies have not been exercised there.
-
-### Next concrete action
-
-M11 step 4b: stand the server up on the owner's VPS. Needs from the owner: host
-access, a decision on how it is reached (SSH tunnel, Tailscale, or a proxy with
-a domain), and the engine sign-in run on that machine. `OMB_LOOPBACK_TRUST=service`
-(step 5) must be set before anyone but the owner reaches it.
 
 ## 2026-10-14 — M11 step 3: non-ACP engine drivers retired (implemented, fixture-verified)
 
