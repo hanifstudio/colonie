@@ -121,7 +121,7 @@ export function composeContext(pin: ContextPin | null, text: string, instanceId:
       : "Cross-bot delegation and automation are not available to this bot.";
   const skillsLine = effective.skills?.text ? " Enabled app-managed guides are listed below; read one through read_skill when a task matches." : "";
   if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain) sections.splice(1, 0,
-    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports chat, continuing this conversation, tool activity, approvals, and Stop. Access is enforced by runtime permissions. ${tools} ${memoryLine} ${delegation}${skillsLine}`, true, "colonie.capabilities.v5"));
+    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports chat, continuing this conversation, tool activity, approvals, and Stop. When you create a file the person needs, write it as a Markdown link with its full path so they can open or save it from chat. Access is enforced by runtime permissions. ${tools} ${memoryLine} ${delegation}${skillsLine}`, true, "colonie.capabilities.v6"));
   if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain && effective.memory?.text) {
     sections.push(contextSection("memory.recall", "Memory · Relevant saved details", "conversation",
       `Colonie memory; entries:${effective.memory.entries.map((entry) => entry.id).join(",")}`,

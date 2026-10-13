@@ -86,6 +86,7 @@ import { ConnectorCard } from "./ConnectorCard";
 import { SecretRequestCard } from "./SecretRequestCard";
 import { hasRoutineExecutionTask, RoutineRunCard } from "./RoutineRunCard";
 import { AttachmentGallery, collectMessageFiles, splitMessageAttachments } from "./AttachmentGallery";
+import { FilePreviewScope } from "./AttachmentPreview";
 import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
 import { RenameTitle } from "./RenameTitle";
@@ -1535,6 +1536,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           ) : null}
           {windowedMessages.length === 0 && !bot.busy && <EmptyChat bot={bot} />}
           <ChatRowsContext.Provider value={rows}>
+            <FilePreviewScope onPreview={(target) => dispatch({ type: "openFilePreview", preview: target })}>
             <MessagesList
               messages={windowedMessages}
               transcript={messages}
@@ -1553,6 +1555,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               onRegenerate={regenerate}
               onReply={selectReply}
             />
+            </FilePreviewScope>
           </ChatRowsContext.Provider>
            {codexAcp && <AcpLiveReply key={bot.threadId} botId={bot.id} threadId={bot.threadId} onProgress={followAcpReply} />}
            {laterCount > 0 && (

@@ -66,6 +66,7 @@ import { SecretRequestCard } from "./SecretRequestCard";
 import { hasRoutineExecutionTask, RoutineRunCard } from "./RoutineRunCard";
 import { GoalRunCard } from "./GoalRunCard";
 import { AttachmentGallery, MessageAttachmentGallery } from "./AttachmentGallery";
+import { FilePreviewScope } from "./AttachmentPreview";
 import { VoiceNoteBubble, type VoiceNoteAttachment } from "./VoiceNoteBubble";
 import { OptionCard } from "./OptionCard";
 import { GroupCallButton, GroupCallOverlay } from "./GroupCallView";
@@ -1497,6 +1498,7 @@ export function GroupView({ group }: { group: Group }) {
               </button>
             </div>
           ) : null}
+          <FilePreviewScope onPreview={(target) => dispatch({ type: "openFilePreview", preview: target })}>
           <Transcript
             group={group}
             members={members}
@@ -1506,6 +1508,7 @@ export function GroupView({ group }: { group: Group }) {
             emergingId={popping?.id}
             onReply={selectReply}
           />
+          </FilePreviewScope>
           {laterCount > 0 && (
             <div className="flex justify-center">
               <button

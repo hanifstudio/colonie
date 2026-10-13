@@ -2,15 +2,18 @@
 // Markdown. Transcript paths are resolved through attachmentImageUrl; model
 // text never gets to turn an arbitrary local path into a browser request.
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeftIcon, ChevronRightIcon, Download01Icon, FileTextIcon, FolderOpenIcon, ImageOffIcon, Loading02Icon, Maximize02Icon, MultiplicationSignIcon, RotateCcwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { ChevronLeftIcon, ChevronRightIcon, Download01Icon, EyeIcon, FileTextIcon, FolderOpenIcon, ImageOffIcon, Loading02Icon, Maximize02Icon, MultiplicationSignIcon, RotateCcwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
 import {
@@ -35,6 +38,58 @@ export interface PreviewImage {
 }
 
 export interface MessageAttachmentContext { threadId: string; messageId: string }
+
+/** A message grant for the file preview panel: the same scope the save button uses. */
+export interface FilePreviewTarget {
+  threadId: string;
+  messageId: string;
+  path: string;
+  name: string;
+}
+
+/** Who opens the reading panel for a file link. Null outside chat: the
+ * preview button stays hidden there, so tests and other surfaces keep
+ * rendering without a store. */
+const FilePreviewScopeContext = createContext<((target: FilePreviewTarget) => void) | null>(null);
+
+export function FilePreviewScope({ onPreview, children }: {
+  onPreview: (target: FilePreviewTarget) => void;
+  children: ReactNode;
+}) {
+  return <FilePreviewScopeContext.Provider value={onPreview}>{children}</FilePreviewScopeContext.Provider>;
+}
+
+/** Markdown cap for the in-app reading panel (1 MB). Downloads stay uncapped. */
+// ponytail: ceiling is arbitrary; raise it (and the panel's virtualization) when large-doc preview is requested.
+export const MARKDOWN_PREVIEW_MAX_BYTES = 1_000_000;
+
+/** Only Markdown opens in the reading panel; every other document stays save-only. */
+export function isMarkdownPreviewPath(path: string): boolean {
+  const stem = path.split(/[?#]/, 1)[0] ?? path;
+  return /\.(?:md|markdown)$/i.test(stem);
+}
+
+/** Bounded text read for the reading panel; mirrors the table preview's size guard. */
+export async function readMarkdownResponse(response: Response, signal: AbortSignal): Promise<string> {
+  if (Number(response.headers.get("content-length")) > MARKDOWN_PREVIEW_MAX_BYTES) {
+    await response.body?.cancel(); throw new Error("size");
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let size = 0, text = "";
+  try {
+    for (;;) {
+      signal.throwIfAborted();
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > MARKDOWN_PREVIEW_MAX_BYTES) throw new Error("size");
+      text += decoder.decode(part.value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
 
 export function previewImage(path: string, name = attachmentBasename(path)): PreviewImage | null {
   const src = attachmentImageUrl(path);
@@ -221,6 +276,27 @@ export async function requestMessageFile(
     throw Object.assign(new Error(body?.error ?? t("attach.downloadFailed")), { code: body?.code });
   }
   return response;
+}
+
+/** A Markdown file's "Preview" button: opens the reading panel instead of downloading. */
+export function MarkdownPreviewButton({ path, name, message }: {
+  path: string;
+  name: string;
+  message: MessageAttachmentContext;
+}) {
+  const onPreview = useContext(FilePreviewScopeContext);
+  if (!onPreview || !isMarkdownPreviewPath(path)) return null;
+  return (
+    <button
+      type="button"
+      className="table-action"
+      title={t("attach.previewFile", { name })}
+      aria-label={t("attach.previewFile", { name })}
+      onClick={() => onPreview({ threadId: message.threadId, messageId: message.messageId, path, name })}
+    >
+      <HIcon icon={EyeIcon} size={14} />
+    </button>
+  );
 }
 
 /** Shared save state for transcript file chips and bot-authored file links. */
@@ -929,6 +1005,7 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
             <HIcon icon={Download01Icon} size={13} className="shrink-0" />
           )}
         </button>
+        <MarkdownPreviewButton path={file.path} name={file.name} message={message} />
         <TableFileButton path={file.path} name={file.name} message={message} />
       </div>
       {save.state !== "idle" && (

@@ -2197,6 +2197,35 @@ describe("activity panel", () => {
   });
 });
 
+describe("file preview panel", () => {
+  const target = { threadId: "thread-1", messageId: "message-1", path: "/workspace/notes.md", name: "notes.md" };
+  it("starts closed", () => {
+    expect(initialState.filePreview).toBeNull();
+  });
+
+  it("openFilePreview opens it and closes the other side panels", () => {
+    const withPanels = { ...initialState, computerOpen: true, inspectorOpen: true, activityOpen: true, appSettingsOpen: true, settingsOpen: true };
+    const next = reducer(withPanels, { type: "openFilePreview", preview: target });
+    expect(next.filePreview).toEqual(target);
+    expect(next.computerOpen).toBe(false);
+    expect(next.inspectorOpen).toBe(false);
+    expect(next.activityOpen).toBe(false);
+    expect(next.appSettingsOpen).toBe(false);
+    expect(next.settingsOpen).toBe(false);
+    expect(reducer(next, { type: "closeFilePreview" }).filePreview).toBeNull();
+  });
+
+  it("opening another side panel closes the preview, and switching conversations clears it", () => {
+    const open = { ...initialState, filePreview: target };
+    expect(reducer(open, { type: "toggleActivity", open: true }).filePreview).toBeNull();
+    expect(reducer(open, { type: "toggleInspector", open: true }).filePreview).toBeNull();
+    expect(reducer(open, { type: "toggleComputer", open: true }).filePreview).toBeNull();
+    expect(reducer(open, { type: "toggleSettings", open: true }).filePreview).toBeNull();
+    expect(reducer(open, { type: "showRoutines" }).filePreview).toBeNull();
+    expect(reducer(open, { type: "showTeamMap" }).filePreview).toBeNull();
+  });
+});
+
 describe("live config frames", () => {
   const baseFrame: ConfigStatusFrame = {
     composio: { configured: false },

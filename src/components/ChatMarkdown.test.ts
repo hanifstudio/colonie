@@ -715,6 +715,39 @@ describe("ChatMarkdown attachments", () => {
     expect(html).toContain("type=\"button\"");
   });
 
+  it("adds no preview button to a Markdown file link without a preview scope", () => {
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, {
+      text: "[Read the notes](/workspace/notes.md)",
+      message: { threadId: "thread-1", messageId: "message-1" },
+    }));
+    expect(html).toContain('title="Save a copy"');
+    expect(html).not.toContain("Preview notes.md");
+  });
+
+  it("adds a preview button to a Markdown file link inside a preview scope", () => {
+    const html = renderToStaticMarkup(createElement(AttachmentPreview.FilePreviewScope, {
+      onPreview: () => {},
+      children: createElement(ChatMarkdown, {
+        text: "[Read the notes](/workspace/notes.md)",
+        message: { threadId: "thread-1", messageId: "message-1" },
+      }),
+    }));
+    expect(html).toContain('title="Save a copy"');
+    expect(html).toContain("Preview notes.md");
+  });
+
+  it("adds no preview button to a non-Markdown link, even in scope", () => {
+    const html = renderToStaticMarkup(createElement(AttachmentPreview.FilePreviewScope, {
+      onPreview: () => {},
+      children: createElement(ChatMarkdown, {
+        text: "[Download the report](/workspace/final-report.pdf)",
+        message: { threadId: "thread-1", messageId: "message-1" },
+      }),
+    }));
+    expect(html).toContain('title="Save a copy"');
+    expect(html).not.toContain("Preview final-report.pdf");
+  });
+
   it("does not nest a preview button in an anchor or block in a paragraph", () => {
     const standalone = renderToStaticMarkup(createElement(ChatMarkdown, {
       text: "![Launch art](https://assets.example/hero.png)",

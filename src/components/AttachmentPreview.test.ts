@@ -5,15 +5,19 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AttachedFileChips,
   AttachedImageGallery,
+  FilePreviewScope,
   MarkdownImagePreview,
+  MarkdownPreviewButton,
   OutsideWorkspaceFile,
   canonicalDownloadFilename,
   contentDispositionFilename,
   imageGalleryLayout,
   isExternalImageSource,
+  isMarkdownPreviewPath,
   messageImagePreviewUrl,
   previewImage,
   previewKeyAction,
+  readMarkdownResponse,
   safeDownloadFilename,
   wrappedImageIndex,
 } from "./AttachmentPreview";
@@ -161,6 +165,62 @@ describe("attachment preview surfaces", () => {
     }));
     expect(html).toContain("Save a copy of Final report.pdf");
     expect(html).toContain("type=\"button\"");
+  });
+});
+
+describe("Markdown file preview", () => {
+  it("recognizes Markdown by extension, ignoring link suffixes", () => {
+    expect(isMarkdownPreviewPath("/workspace/notes.md")).toBe(true);
+    expect(isMarkdownPreviewPath("/workspace/NOTES.MARKDOWN")).toBe(true);
+    expect(isMarkdownPreviewPath("/workspace/notes.md?raw=1")).toBe(true);
+    expect(isMarkdownPreviewPath("/workspace/report.pdf")).toBe(false);
+    expect(isMarkdownPreviewPath("/workspace/data.md.csv")).toBe(false);
+  });
+
+  it("stays hidden without a preview scope, so other surfaces keep rendering", () => {
+    const html = renderToStaticMarkup(createElement(MarkdownPreviewButton, {
+      path: "/workspace/notes.md",
+      name: "notes.md",
+      message: { threadId: "thread-1", messageId: "message-1" },
+    }));
+    expect(html).toBe("");
+  });
+
+  it("offers a preview action for Markdown inside a preview scope", () => {
+    const html = renderToStaticMarkup(createElement(FilePreviewScope, {
+      onPreview: () => {},
+      children: createElement(MarkdownPreviewButton, {
+        path: "/workspace/notes.md",
+        name: "notes.md",
+        message: { threadId: "thread-1", messageId: "message-1" },
+      }),
+    }));
+    expect(html).toContain("Preview notes.md");
+    expect(html).toContain("type=\"button\"");
+  });
+
+  it("offers no preview action for other documents, even in scope", () => {
+    const html = renderToStaticMarkup(createElement(FilePreviewScope, {
+      onPreview: () => {},
+      children: createElement(MarkdownPreviewButton, {
+        path: "/workspace/report.pdf",
+        name: "report.pdf",
+        message: { threadId: "thread-1", messageId: "message-1" },
+      }),
+    }));
+    expect(html).toBe("");
+  });
+
+  it("reads bounded Markdown text and refuses oversized previews", async () => {
+    const text = await readMarkdownResponse(
+      new Response("# Notes"),
+      new AbortController().signal,
+    );
+    expect(text).toBe("# Notes");
+    await expect(readMarkdownResponse(
+      new Response("", { headers: { "content-length": "1000001" } }),
+      new AbortController().signal,
+    )).rejects.toThrow("size");
   });
 });
 
