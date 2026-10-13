@@ -281,7 +281,6 @@ import {
 import type { GroupGoalRunCardData, GroupGoalRunStatus } from "../shared/group-goal-run.ts";
 
 import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
-import { openCodeProviderKeysAllowed, setOpenCodeProviderKeyPolicy } from "./drivers/acp/opencode-go.ts";
 import { getOrCreateChannel, mirrorActivity, mirrorExchange, mirrorReply, type CommsBus } from "./comms-visibility.ts";
 import { readMessageText, recallMessages, recentMessages, searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing } from "./message-db.ts";
 import { briefCrossingLabel, claimRecallCrossings, recallCrossingLabel } from "./recall-disclosure.ts";
@@ -1917,33 +1916,6 @@ const mcpOAuth = new McpOAuthManager({
     return parsed?.ok && isRemoteMcpServer(parsed.server) && parsed.server.url === url ? parsed.server.oauth : undefined;
   },
 });
-// OpenCode reads provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, …) from
-// its environment, as it does in a terminal, but only where that environment
-// is the person's own shell (openCodeProviderKeysAllowed). Wired before the
-// first catalog probe below. Company enrollment arrives later from the
-// desktop parent and is wired in once it can (openCodeOrganisationManaged).
-let openCodeOrganisationManaged = (): boolean => false;
-const openCodeKeysAllowed = (): boolean => openCodeProviderKeysAllowed({
-  cloudHome: Boolean(CLOUD_HOME),
-  hostedWorkspace: HOSTED_WORKSPACE,
-  organisationManaged: openCodeOrganisationManaged(),
-  sharedSignIn: sharedSignIn(signInAllowList()),
-});
-setOpenCodeProviderKeyPolicy(openCodeKeysAllowed);
-let openCodeKeysLastAllowed = openCodeKeysAllowed();
-/** OpenCode lists a provider's models only while it may read that
- * provider's key. When enrollment or the sign-in list changes the answer,
- * list them again, so the picker never offers models its turns lack. */
-function resyncOpenCodeProviderKeys(): void {
-  const allowed = openCodeKeysAllowed();
-  if (allowed === openCodeKeysLastAllowed) return;
-  openCodeKeysLastAllowed = allowed;
-  for (const instance of registry.instances()) {
-    if (instance.driverKind !== "opencodeGo") continue;
-    void registry.refreshModels(instance.instanceId)
-      .then(() => broadcast({ kind: "config", ...configStatus() }), () => {});
-  }
-}
 await registry.load(providerConfigs(), decorateHostedProvider);
 const bundledSkills = loadBundledSkills();
 const availableSkills = () => mergeSkills(bundledSkills, loadUserSkills(join(DATA_DIR, "skills")));
@@ -2088,7 +2060,6 @@ const companyRuntimeStarted = new Promise<void>(resolve => { companyRuntimeReady
  * inert (null) unless Electron's enrolled parent sends one. */
 const managedPolicy = new ManagedDesktopPolicy({ onChange: () => {
   broadcast({ kind: "config", ...configStatus() });
-  resyncOpenCodeProviderKeys();
 } });
 // A key the provider refused, or accepted again, changes what Model
 // providers and the picker show; the config event refreshes /api/instances.
@@ -2115,7 +2086,6 @@ const managedDesktop = new ManagedDesktopProviders({
   migrate: aliases => { store.renameInstances(new Map(aliases.map(({ from, to }) => [from, to]))); },
   onAvailability: () => {
     broadcast({ kind: "config", ...configStatus() });
-    resyncOpenCodeProviderKeys();
   },
   afterReplace: ids => {
     for (const id of providerInstancesChanging) if (managedDesktop.owns(id)) providerInstancesChanging.delete(id);
@@ -2123,11 +2093,8 @@ const managedDesktop = new ManagedDesktopProviders({
     // Existing renderer config events refresh /api/instances as well, so
     // Company grants and revocations appear without reloading the window.
     broadcast({ kind: "config", ...configStatus() });
-    resyncOpenCodeProviderKeys();
   },
 });
-// An organisation-managed desktop's environment is not the person's shell.
-openCodeOrganisationManaged = () => managedPolicy.current() !== null || managedDesktop.enrolled();
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; identity?: unknown } | undefined;
   if (message?.type !== "openmausbot:managed-desktop-identity") return;
@@ -25270,7 +25237,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       let browserReferenceCleanupError: unknown = null;
       if (patch.signIn !== undefined) {
         sessions.revalidateEmailSessions();
-        resyncOpenCodeProviderKeys();
       }
       if (!lendingEnabled()) {
         sharedComputers.close();
