@@ -35,8 +35,30 @@ extraResources:
   - from: third_party/bloub/PROVENANCE.md
     to: licenses/Bloub-PROVENANCE.md
 mac:
-  target: dir
+  # Apple silicon only: every machine on this team is arm64, and a universal
+  # binary would make each person download the half they cannot run.
+  # dmg is what people install from; zip is what an updater would consume.
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
   icon: build/colonie.icns
   category: public.app-category.developer-tools
-  identity: null
+  # No Apple Developer account yet. `identity: "-"` ad-hoc signs the whole
+  # bundle; `null` would SKIP signing, which leaves the app carrying only
+  # Electron's own linker signature. Gatekeeper then rejects it outright
+  # ("code has no resources but signature indicates they must be present"),
+  # and a downloaded copy reads as "Colonie is damaged" rather than as an
+  # app from an unidentified developer. Ad-hoc signing is not notarization:
+  # a downloaded copy is still quarantined and the receiver clears it once.
+  # See PLAN.md M11 step 7.
+  identity: "-"
   notarize: false
+  gatekeeperAssess: false
+  # Hardened runtime is only needed for notarization, and with an ad-hoc
+  # signature it breaks the app: library validation refuses the bundle's own
+  # helpers and the process dies on launch with no output and no crash report.
+  # Verified both ways on 2026-10-14. Turn this back on in the same change
+  # that introduces a real Developer ID and notarization.
+  hardenedRuntime: false

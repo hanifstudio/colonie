@@ -29,6 +29,7 @@
     "colonie:package-check": "node scripts/devone/package-check.ts",
     "colonie:build": "node scripts/colonie/icons.ts && pnpm build && pnpm build:server && node scripts/devone/stage-runtime.mjs",
     "colonie:package": "pnpm colonie:build && electron-builder --config electron-builder.colonie.yml --mac --dir --publish never",
+    "colonie:dist": "pnpm colonie:build && electron-builder --config electron-builder.colonie.yml --mac --arm64 --publish never",
     "devone": "node scripts/devone/start.ts",
     "devone:web": "node scripts/devone/start.ts --web",
     "devone:provider-check": "node scripts/devone/provider-check.ts --real",
