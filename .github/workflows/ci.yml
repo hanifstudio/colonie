@@ -310,10 +310,11 @@ jobs:
   foss:
     needs: static
     if: needs.static.outputs.runtime == 'true'
-    # LICENSING.md promises that deleting enterprise/ leaves a working
-    # open-source edition. Prove it on runtime changes: typecheck, the edition
-    # tests, and a boot that reports "oss" even with a key set.
-    name: open-source edition builds without enterprise/
+    # The enterprise layer was retired on 2026-10-14 (SPEC.md, M11 step 2).
+    # server/enterprise.ts stays as the hook point and must keep reporting the
+    # open-source edition: typecheck, the edition tests, and a boot that says
+    # "oss" even with a key set.
+    name: the open-source edition boots without an enterprise layer
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -324,8 +325,6 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Delete the enterprise folder
-        run: rm -rf enterprise
       - run: pnpm typecheck
       - run: pnpm exec vitest run server/enterprise.test.ts server/brand.test.ts
       - name: The server boots and reports the open-source edition
