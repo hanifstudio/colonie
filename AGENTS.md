@@ -6,6 +6,14 @@ isolated fixture; never verify mutations against the user's live app or data.
 
 More specific `AGENTS.md` files override this note within their directories.
 
+## Start here
+
+`docs/HANDOVER.md` is the current state of the work, the goal in the owner's own
+words, what is verified, what is next, and the traps already hit. Read it before
+`docs/SPEC.md` and `docs/PLAN.md`, and prefer it over the rest of `docs/`: most
+of those pages describe upstream OpenMausBot's product and runtime rather than
+this fork, and following them steers work in the wrong direction.
+
 ## Colonie fork (DevOne compatibility paths)
 
 Read `docs/SPEC.md`, `docs/PLAN.md`, and `docs/PROGRESS.md` before changing
