@@ -94,12 +94,16 @@ sudo -iu colonie
 git clone https://github.com/<your-org>/colonie.git /opt/colonie/app
 cd /opt/colonie/app
 pnpm install --frozen-lockfile
-pnpm colonie:build
+pnpm colonie:build:server
 ```
 
-`pnpm colonie:build` runs the renderer and server builds and stages both ACP
-adapters for `linux-x64`. Expect the install to need several GB transiently; the
-160 GB disk absorbs it comfortably.
+`colonie:build:server` builds the renderer and the server and stages both ACP
+adapters for `linux-x64`. Use it rather than `colonie:build`: that one also
+regenerates the desktop app icon, which renders the mascot through headless
+Chromium, and a server has no browser installed — it fails with
+`browserType.launch: Executable doesn't exist`. The icon is only needed for the
+macOS bundle. Expect the install to need several GB transiently; the 160 GB disk
+absorbs it comfortably.
 
 ## 4. Sign the engines in
 
