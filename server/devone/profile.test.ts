@@ -8,7 +8,10 @@ it("seeds a schema-valid default configuration, isolates the ACP engines from th
   initializeDevoneData(DATA_DIR);
   const config = loadConfig();
   expect(config.defaultModelSelection).toEqual({ instanceId: "codex-acp", model: "agent-default" });
-  expect(config.onboarding?.version).toBe(1);
+  // A fresh install must NOT be marked onboarding-complete. Phase 1 seeded a
+  // completed state to suppress the inherited flow, which hid the welcome
+  // flow from every new user; e6576d55 made the flow decide for itself.
+  expect(config.onboarding).toEqual({ completedAt: "", version: 0, reelSeen: false, hintsSeen: [] });
   expect(config.features?.autoRecall).toBe(false);
   const native = join(DATA_DIR, "native");
   const seeded = devoneInstances(config.instances, native);

@@ -28,7 +28,9 @@ it("boots the documented source launcher with valid isolated Codex defaults", as
     expect(instances.map((entry: any) => entry.driverKind)).toEqual(["codex-acp", "claude-acp"]);
     const config = JSON.parse(readFileSync(join(root, "data", "config.json"), "utf8"));
     expect(config.defaultModelSelection.instanceId).toBe("codex-acp");
-    expect(config.onboarding.hintsSeen).toContain("tour.done");
+    // No hint is pre-dismissed on a fresh install: a new user sees the tour.
+    expect(config.onboarding.hintsSeen).toEqual([]);
+    expect(config.onboarding.completedAt).toBe("");
     expect(stderr).not.toContain("using defaults");
   } finally {
     await waitForExit(child, { signal: "SIGINT" });
