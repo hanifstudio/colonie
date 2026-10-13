@@ -1,5 +1,69 @@
 # Colonie progress
 
+## 2026-10-14 — M11 step 7: installable macOS build (implemented, artifact-verified)
+
+Commit `2317d4cd`. `release/colonie/Colonie-0.1.101-arm64.dmg` (345 MB) and
+`.zip` (346 MB) now exist. Also commit `cd6cd260`: two stale onboarding
+expectations corrected, so the ACP suite is fully green (333 passed, 0 failed).
+
+### What was actually wrong
+
+- `colonie:package` passed `--dir`, overriding the config, so the build had
+  never produced an installer at all. New `colonie:dist` script; the old one
+  keeps its fast `--dir` build for development.
+- `identity: null` **skips** signing. The bundle carried only Electron's linker
+  signature with `Identifier=Electron`, and `codesign --verify` failed with
+  "code has no resources but signature indicates they must be present" — which a
+  downloader sees as *"Colonie is damaged"*, not as an unidentified developer.
+  `identity: "-"` ad-hoc signs the bundle: `Identifier=com.colonie.desktop`,
+  verify passes.
+- Hardened runtime plus an ad-hoc signature kills the app on launch: library
+  validation refuses the bundle's own helpers, with **no output and no crash
+  report**. Confirmed both ways on a copy before changing the config. It is only
+  required for notarization, so it is off until there is a Developer ID.
+
+### Driver-retirement fallout that typecheck could not see
+
+`scripts/bundle-server.mjs` listed `drivers/{agents,dweb,phone}-proxy.ts` as
+esbuild entry points, and `server/index.ts` and `server/drivers/claude.ts` reach
+them through `SPAWNED_PROXIES`. These are resolved **by path string, not by
+import**, so the M11 step 3 dependency audit missed them and `pnpm typecheck`
+stayed green while `pnpm build:server` failed. The three proxies plus their
+closure (6 files, 2042 lines) are restored and classified retain-shared until
+the features that spawn them are retired. `piMcpExtension` had no consumer and
+is removed from `SPAWNED_PROXIES`, the bundler and both tsconfigs.
+
+Lesson for the remaining retirement slices: an import graph is not the whole
+dependency graph here. Check `SPAWNED_PROXIES`, `scripts/bundle-server.mjs`
+entry points and any path-string resolution before deleting a server file, and
+run `pnpm build:server` — not only `pnpm typecheck`.
+
+### Evidence (Node 24, macOS 26.2)
+
+- `pnpm typecheck` exit 0; `vitest server/proxy-paths.test.ts` 4 passed.
+- `pnpm colonie:dist` exit 0, both artifacts written.
+- `codesign -dv` reports `Identifier=com.colonie.desktop`, `Signature=adhoc`;
+  `codesign --verify --deep --strict` passes.
+- Download simulated end to end: the dmg was marked with Safari's
+  `com.apple.quarantine` attribute, mounted, the app copied out still carrying
+  quarantine (`0283;00000000;;`), and **that quarantined copy launched**.
+
+### Not verified
+
+- A real double-click through LaunchServices. The launch test ran the binary
+  directly, which does not raise the Gatekeeper dialog. On macOS 15+ that dialog
+  is no longer bypassed by Control-click → Open; the receiver must use System
+  Settings → Privacy & Security → **Open Anyway**. The download page was
+  corrected to those steps; its earlier Control-click wording was wrong for this
+  macOS version.
+- Nothing is uploaded yet. The download page still points at a placeholder URL
+  pending the owner's Cloudflare R2 bucket.
+
+### Next concrete action
+
+Upload both artifacts to R2 and point the download page at the real URL (needs
+the owner's R2 credentials), or M11 step 4b once the VPS is ready.
+
 ## 2026-10-14 — M11 step 4a: headless operation proven (verification only, no code change)
 
 Colonie was booted with no Electron, no display and no inherited environment
@@ -47,13 +111,6 @@ step in the deployment runbook rather than discovering it on the day.
   a tunnel, Tailscale or an authenticated reverse proxy is still undesigned.
 - **Linux.** Everything above ran on macOS. The VPS is Linux, and the adapters
   and their native dependencies have not been exercised there.
-
-### Next concrete action
-
-M11 step 4b: stand the server up on the owner's VPS. Needs from the owner: host
-access, a decision on how it is reached (SSH tunnel, Tailscale, or a proxy with
-a domain), and the engine sign-in run on that machine. `OMB_LOOPBACK_TRUST=service`
-(step 5) must be set before anyone but the owner reaches it.
 
 ## 2026-10-14 — M11 step 3: non-ACP engine drivers retired (implemented, fixture-verified)
 
