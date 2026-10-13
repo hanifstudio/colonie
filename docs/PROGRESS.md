@@ -1,5 +1,72 @@
 # Colonie progress
 
+## 2026-10-14 — M11 step 3: non-ACP engine drivers retired (implemented, fixture-verified)
+
+Branch `chore/retire-legacy-drivers`, commit `2ddc2898`. 101 files, 43663 deletions.
+
+- Audit first, and it is what made the slice safe: the two surviving ACP drivers
+  (`server/devone/codex-acp.ts`, `claude-acp.ts`) import **nothing** from
+  `server/drivers/`. `server/devone/profile.ts` already filtered every configured
+  instance through `isColonieAcpDriver`, so the inherited drivers have been
+  unreachable at runtime since M8-C. 93 files and ~42k lines removed.
+- `server/drivers/builtIn.ts` is now the two ACP drivers and nothing else.
+- The OpenCode provider-key policy in `server/index.ts` served only the retired
+  `opencodeGo` driver; removed with it, which also freed `acp/opencode-go.ts`.
+- Retained under `server/drivers/` because core still imports them: `claude.ts`,
+  `codex-identity.ts`, `retry.ts`, `agents-catalog.ts`, `antigravity-temp.ts` and
+  the `acp/core.ts` chain. Each is reached from `claude-accounts.ts`,
+  `plan-usage.ts`, `harness-capabilities.ts`, `tts/speech-text.ts`,
+  `shared/tool-name.ts` or `server/index.ts`. Retiring them changes core modules
+  and the surfaces above them, so they are a later slice.
+- Test rule applied: a test whose subject is a retired driver is retired with it;
+  a file mixing subjects keeps the surviving blocks. `local-inject.test.ts` and
+  `hosted-models.test.ts` removed whole; retired blocks removed from
+  `cli-setup.test.ts` (the whole `API onboarding` describe, 275 lines, which
+  drives API-key engines), `managed-desktop.test.ts`, `model-providers-docs.test.ts`
+  and `acp/quiet-status.test.ts`. No assertion weakened, nothing skipped.
+
+### Evidence (Node 24 via /opt/homebrew/opt/node@24)
+
+- `pnpm typecheck` — exit 0.
+- `pnpm exec vitest run server/devone server/drivers server/cli-setup.test.ts
+  server/managed-desktop.test.ts server/model-providers-docs.test.ts
+  server/config.test.ts server/enterprise.test.ts server/brand.test.ts`
+  — 29 files: **588 passed, 1 skipped, 2 failed**.
+
+### The 2 failures are pre-existing, not caused by this slice
+
+`server/devone/profile.test.ts` (expects `config.onboarding?.version` to be 1,
+gets 0) and `server/devone/start.e2e.test.ts` (expects `tour.done`, gets `[]`)
+fail **identically on `main`**, confirmed by running them in a detached
+`git worktree` at `main`. They belong to the onboarding work in `e6576d55` and
+are an open bug independent of driver retirement.
+
+### Not verified
+
+- The full `pnpm test` suite, the renderer, and any packaged or desktop path.
+- No real-provider check was run for this slice.
+
+### Delegation attempt — failed, no damage
+
+A Codex worker was launched with a 76-line brief to run the suites and fix only
+mechanical fallout. It changed no files and produced no report: the repository's
+own `AGENTS.md` directs every agent to read `SPEC.md`, `PLAN.md` and
+`PROGRESS.md` before changing the fork, and the worker spent its run doing that.
+Lesson for the next delegation: a worker in this repo inherits `AGENTS.md`, which
+outranks a narrow brief, so the brief must state that the lead has already done
+the required reading. Running the suites directly with the output piped through
+`grep`/`tail` turned out to be cheap, so the test run itself is not worth
+delegating; fixing a large failure set still would be.
+
+### Next concrete action
+
+M11 step 3b or step 4. Leftovers found and deliberately not touched: 60
+references to retired engines in `server/config.ts` (the `DEFAULT_FLEET`,
+`API_KEY_FLEET` and `CUSTOM_ONLY` maps and the `opencodeGo` settings schema) and
+35 files under `src/`/`shared/`. Those reach persisted settings and the UI, so
+they need their own slice with data-compatibility rules. Branch
+`chore/retire-legacy-drivers` is not merged to `main` yet.
+
 ## 2026-10-14 — M11 step 2: enterprise layer retired (implemented, fixture-verified)
 
 Branch `chore/retire-enterprise`, commit `578730f2`. 28 files, 1974 deletions.
@@ -97,13 +164,6 @@ than to this slice.
 
 - A one-page download page for the team, published privately as a Claude Artifact.
   Its download target is still a placeholder pending the R2 URL.
-
-### Next concrete action
-
-M11 step 3: audit and retire the non-ACP engine drivers under `server/drivers/`
-(~17k non-test lines) plus the superseded `server/drivers/acp/` client (~6.2k).
-Owner approved delegating this slice to a worker model; the lead keeps the audit,
-review and evidence. Branch `chore/retire-enterprise` is not merged to `main` yet.
 
 ## Markdown file preview in chat (implemented, isolated fixture-verified)
 

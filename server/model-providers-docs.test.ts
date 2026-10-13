@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PROVIDER_CREDENTIAL_ENV, WORKSPACE_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "./config.ts";
-import { discoverOpenCodeModels, ensureOpenCodeInjectModel, resetOpenCodeModelCache } from "./drivers/acp/opencode-go.ts";
 import { readClaudeAuthSettings, readClaudeModelCatalog } from "./drivers/claude.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
@@ -40,7 +39,6 @@ const scratch = (prefix: string) => {
 };
 
 afterEach(async () => {
-  resetOpenCodeModelCache();
   for (const dir of scratchDirs.splice(0)) await removeTempDir(dir);
 });
 
@@ -116,64 +114,6 @@ describe("Claude Code section", () => {
     const home = settingsHome(providerEnv);
     expect(readClaudeAuthSettings({ HOME: home }, { ANTHROPIC_API_KEY: "connections-fake-key" })).toEqual({});
     expect(section("### Claude Code")).toContain("It applies only while no Anthropic API key is saved in Connections.");
-  });
-});
-
-describe("OpenCode 2.x section", () => {
-  it("lists provider models from ACP even when OpenCode 2 rejects models --verbose", async () => {
-    const dir = scratch("omb-docs-opencode2-");
-    const catalog = await discoverOpenCodeModels({
-      ...process.env, HOME: dir, USERPROFILE: dir,
-      XDG_CONFIG_HOME: join(dir, "config"), XDG_DATA_HOME: join(dir, "data"),
-      FAKE_ACP_MODELS_LIST: "v2",
-      FAKE_ACP_MODELS: "openrouter/deepseek/deepseek-chat,opencode/longcat-2.5-preview-free",
-    }, join(ROOT, "server", "testing", "fake-acp-cli.ts"));
-    expect(catalog.options.map((option) => option.id)).toEqual([
-      "openrouter/deepseek/deepseek-chat", "opencode/longcat-2.5-preview-free",
-    ]);
-    expect(section("### OpenCode")).toContain("OpenMausBot reads the model list from an ACP session on both OpenCode 1.x and 2.x.");
-    expect(section("## OpenCode 2.x")).not.toContain("picker shows only OpenCode's free models");
-  });
-});
-
-describe("OpenCode config file", () => {
-  // The provider example on the page, exactly as a reader would paste it.
-  const example = (page = PAGE) => {
-    const block = /```json\r?\n([\s\S]*?)```/u.exec(page.slice(page.indexOf("### OpenCode")));
-    expect(block, "the OpenCode section has no json example").not.toBeNull();
-    return block![1]!.replace(/^ {3}/gmu, "");
-  };
-  const configHome = (content: string) => {
-    const home = scratch("omb-docs-opencode-json-");
-    const dir = join(home, ".config", "opencode");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "opencode.json"), content);
-    return { home, path: join(dir, "opencode.json") };
-  };
-  const addLocalModel = (home: string) => ensureOpenCodeInjectModel("omlx::GLM-5.2-fp8", { HOME: home });
-
-  it.each(["\n", "\r\n"])("keeps the page's plain-JSON provider with %j line endings", (lineEnding) => {
-    const source = example(PAGE.replace(/\r?\n/gu, lineEnding));
-    const pasted = JSON.parse(source) as { provider: Record<string, unknown> };
-    const { home, path } = configHome(source);
-
-    expect(addLocalModel(home)).toBe("omlx/GLM-5.2-fp8");
-    const after = JSON.parse(readFileSync(path, "utf8")) as { provider: Record<string, unknown> };
-    expect(after.provider.myrouter).toEqual(pasted.provider.myrouter);
-    expect(after.provider.omlx).toBeTruthy();
-  });
-
-  it("loses a provider written with a comment, which is why the page asks for plain JSON", () => {
-    const commented = example().replace("\"myrouter\": {", "// my router\n    \"myrouter\": {");
-    const { home, path } = configHome(commented);
-
-    addLocalModel(home);
-    const after = JSON.parse(readFileSync(path, "utf8")) as { provider: Record<string, unknown> };
-    expect(after.provider.myrouter).toBeUndefined();
-
-    expect(section("### OpenCode")).toContain(
-      "Keep this file plain JSON, with no comments or trailing commas. OpenMausBot edits it when an OpenCode bot uses a model running on this computer.",
-    );
   });
 });
 

@@ -8,7 +8,6 @@ import { removeTempDir } from "../../testing/cleanup.ts";
 import {
   classifyQuiet, describeQuiet, LogTail, parseQwenLogLine, quietKey, sampleProcessTree, treePids,
 } from "./quiet-status.ts";
-import { qwenDebugLogPath } from "./qwen.ts";
 
 // Lines copied from a real Qwen Code 0.24.7 debug log, captured against a
 // model endpoint that answered 429.
@@ -141,12 +140,3 @@ describe("process probe", () => {
   });
 });
 
-describe("qwenDebugLogPath", () => {
-  it("follows Qwen's runtime-dir rules and respects the log being turned off", () => {
-    expect(qwenDebugLogPath({ QWEN_DEBUG_LOG_FILE: "1", HOME: "/h" }, "abc-1")).toBe(join("/h", ".qwen", "debug", "abc-1.txt"));
-    expect(qwenDebugLogPath({ QWEN_DEBUG_LOG_FILE: "1", QWEN_HOME: "/q" }, "abc")).toBe(join("/q", "debug", "abc.txt"));
-    expect(qwenDebugLogPath({ QWEN_DEBUG_LOG_FILE: "1", QWEN_HOME: "/q", QWEN_RUNTIME_DIR: "/r" }, "abc")).toBe(join("/r", "debug", "abc.txt"));
-    expect(qwenDebugLogPath({ QWEN_DEBUG_LOG_FILE: "0" }, "abc")).toBeNull();
-    expect(qwenDebugLogPath({ QWEN_DEBUG_LOG_FILE: "1" }, "../escape")).toBeNull();
-  });
-});

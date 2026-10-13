@@ -1,47 +1,9 @@
-// Built-in driver registration — upstream builtInDrivers.ts: a static
-// array, nothing more. Adding a driver = write drivers/<x>.ts, append.
+// Built-in driver registration — a static array, nothing more.
+// Colonie is ACP-only: the two maintained adapters are the whole fleet, and
+// server/devone/profile.ts refuses any other driver in a config. The inherited
+// native/legacy-ACP drivers were retired on 2026-10-14 (PLAN.md M11 step 3).
 import type { AnyProviderDriver } from "../contracts.ts";
 import { CodexAcpDriver } from "../devone/codex-acp.ts";
 import { ClaudeAcpDriver } from "../devone/claude-acp.ts";
-import { devoneProfile } from "../devone/profile.ts";
-import { AntigravityDriver } from "./antigravity.ts";
-import { ClaudeDriver } from "./claude.ts";
-import { CodexDriver } from "./codex.ts";
-import { GrokDriver } from "./grok.ts";
-import { GrokAgentDriver } from "./acp/grok.ts";
-import { GeminiAgentDriver } from "./acp/gemini.ts";
-import { KimiAgentDriver } from "./acp/kimi.ts";
-import { DroidAgentDriver } from "./acp/droid.ts";
-import { CursorAgentDriver } from "./acp/cursor.ts";
-import { OpenCodeDriver } from "./acp/opencode-go.ts";
-import { QwenAgentDriver } from "./acp/qwen.ts";
-import { CustomAcpDriver } from "./acp/custom.ts";
-import { HermesAgentDriver } from "./acp/hermes.ts";
-import { OpenAICompatDriver } from "./openai-compat.ts";
-import { PiDriver } from "./pi.ts";
-import { MistralDriver } from "./mistral.ts";
-import { CerebrasDriver } from "./cerebras.ts";
-import { MinimaxDriver } from "./minimax.ts";
 
-export const BUILT_IN_DRIVERS: readonly AnyProviderDriver[] = devoneProfile() ? [CodexAcpDriver, ClaudeAcpDriver] : [
-  ClaudeAcpDriver,
-  CodexAcpDriver,
-  GrokDriver,
-  GrokAgentDriver,
-  GeminiAgentDriver,
-  KimiAgentDriver,
-  DroidAgentDriver,
-  CursorAgentDriver,
-  OpenCodeDriver,
-  QwenAgentDriver,
-  HermesAgentDriver,
-  CustomAcpDriver,
-  PiDriver,
-  OpenAICompatDriver,
-  ClaudeDriver,
-  CodexDriver,
-  AntigravityDriver,
-  MinimaxDriver,
-  MistralDriver,
-  CerebrasDriver,
-];
+export const BUILT_IN_DRIVERS: readonly AnyProviderDriver[] = [CodexAcpDriver, ClaudeAcpDriver];
