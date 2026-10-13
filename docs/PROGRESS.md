@@ -1,5 +1,60 @@
 # Colonie progress
 
+## 2026-10-14 — M11 step 4a: headless operation proven (verification only, no code change)
+
+Colonie was booted with no Electron, no display and no inherited environment
+(`env -i`), from an isolated `HOME` and `OMB_DATA_DIR` under the session
+scratchpad, on port 18891, with `COLONIE_PROFILE=1` and `OMB_STATIC_DIR` pointed
+at a freshly built `dist/`. This is the first evidence for the claim; it was
+previously carried only by inherited `docs/self-hosting.md`, which describes
+OpenMausBot and not this fork.
+
+### Proven
+
+- `pnpm build` succeeds after the driver retirement (exit 0, `vite build` ok).
+- `GET /api/health` answers `{"app":"openmausbot","static":true,...}`. The
+  server serves the renderer itself; no separate web server is involved.
+- `GET /` returns the built React document, and its 3.8 MB entry bundle
+  (`/assets/index-DRHPKXNx.js`) answers `200` with the full body.
+- `GET /api/instances` lists exactly `codex-acp` and `claude-acp`, both
+  `state: "available"`, `codex-acp 2.1.1`. No retired engine appears.
+- No Electron process exists while the server runs (`pgrep` empty).
+- The listener binds `127.0.0.1` only. Nothing is published to a public
+  interface by default, which is the behaviour a VPS deployment must preserve:
+  reach it through SSH, a private network or an authenticated proxy.
+
+### Engine sign-in on a server — works, with a condition
+
+Colonie's ACP sign-in is a **terminal** route by design (`server/contracts.ts`,
+`AcpRuntime.signInCommand()` in `server/devone/acp-runtime.ts`, surfaced by
+`POST` handling at `server/index.ts:24447`, which returns
+`{ terminal: { command } }`). The command carries the isolated config dir, e.g.
+`CLAUDE_CONFIG_DIR="<data>/native/claude" claude /login`.
+
+On a VPS this still works, but it means the owner signs the engines in **over
+SSH on the server**, once, not from the desktop window. Team members never do
+this; they use the workspace's already signed-in engines. Record this as a setup
+step in the deployment runbook rather than discovering it on the day.
+
+### Not proven
+
+- An actual agent turn headless against a real engine. The isolated fixture has
+  no engine login (`authenticated: false` for both), and signing one in would
+  need the owner's credentials. The `server/devone/*.e2e.test.ts` suites do
+  exercise the full conversation path in Node without Electron against the fake
+  engine, and they pass, but that is not a real-provider claim.
+- Reaching the server from another machine. The loopback binding is deliberate;
+  a tunnel, Tailscale or an authenticated reverse proxy is still undesigned.
+- **Linux.** Everything above ran on macOS. The VPS is Linux, and the adapters
+  and their native dependencies have not been exercised there.
+
+### Next concrete action
+
+M11 step 4b: stand the server up on the owner's VPS. Needs from the owner: host
+access, a decision on how it is reached (SSH tunnel, Tailscale, or a proxy with
+a domain), and the engine sign-in run on that machine. `OMB_LOOPBACK_TRUST=service`
+(step 5) must be set before anyone but the owner reaches it.
+
 ## 2026-10-14 — M11 step 3: non-ACP engine drivers retired (implemented, fixture-verified)
 
 Branch `chore/retire-legacy-drivers`, commit `2ddc2898`. 101 files, 43663 deletions.
@@ -57,15 +112,6 @@ outranks a narrow brief, so the brief must state that the lead has already done
 the required reading. Running the suites directly with the output piped through
 `grep`/`tail` turned out to be cheap, so the test run itself is not worth
 delegating; fixing a large failure set still would be.
-
-### Next concrete action
-
-M11 step 3b or step 4. Leftovers found and deliberately not touched: 60
-references to retired engines in `server/config.ts` (the `DEFAULT_FLEET`,
-`API_KEY_FLEET` and `CUSTOM_ONLY` maps and the `opencodeGo` settings schema) and
-35 files under `src/`/`shared/`. Those reach persisted settings and the UI, so
-they need their own slice with data-compatibility rules. Branch
-`chore/retire-legacy-drivers` is not merged to `main` yet.
 
 ## 2026-10-14 — M11 step 2: enterprise layer retired (implemented, fixture-verified)
 
