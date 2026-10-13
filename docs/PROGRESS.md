@@ -1,5 +1,99 @@
 # Colonie progress
 
+## 2026-10-14 — product direction change recorded (documentation only, no code change)
+
+- Owner decision this session: Colonie becomes a shared always-on workspace for
+  one internal team, not a single person's desktop app. Long-term intent is people
+  and agents working together; replacing a team chat tool is an ambition, not a
+  milestone. Written to `SPEC.md` (*Product direction change*) and `PLAN.md` (M11).
+- Pi Durable (Earendil, published 2026-10-01) evaluated and rejected: a framework
+  rather than a hosted service, published examples target OpenAI not Claude,
+  self-described as experimental with a changing API, and adopting it would replace
+  the ACP boundary M1-M10 are built on. Execution stays on ACP.
+- Owner also rejected a broad rewrite of inherited infrastructure in favour of
+  retire-what-is-unused plus rewrite-on-contact. Recorded in `SPEC.md`.
+
+### Findings read from this fork's own source (not from inherited docs)
+
+- `enterprise/` is reachable only through `server/enterprise.ts` (247 lines); core
+  callers are `brand.ts`, `spend.ts`, `cloud-home.ts`, `cli.ts`, `hosted-models.ts`
+  and `index.ts`. Its `LICENSE` forbids hosting for third parties, reselling and
+  white-labelling without a written agreement. `FEATURES` places multiple
+  workspaces (`admin`), the workspace spend cap (`budgets`) and SSO inside it.
+- `OMB_LOOPBACK_TRUST` is honoured in `server/request-auth.ts:116`, independent of
+  `enterprise/`. The self-hosted default is `owner` trust, under which every bot
+  shell is an owner-trusted loopback caller.
+- `WireMessage` (`shared/wire.ts:399`) carries `role: "bot" | "user"` and no author
+  field; no `workspaceId` exists in `shared/wire.ts` or `server/store.ts`.
+- `server/index.ts:16481` serves non-`/api/` GETs from `OMB_STATIC_DIR`
+  (`server/index.ts:672`), so the server can deliver the built UI itself.
+- `electron-builder.colonie.yml` sets `mac: target: dir`, `identity: null`,
+  `notarize: false`, and has no `win` section. It therefore produces no installer,
+  is refused by Gatekeeper on another machine, and offers no Windows build.
+- Non-test line counts: `server/drivers` excluding `acp/` 17143, `server/drivers/acp`
+  6205, `server/devone` + `server/colonie` 4690, `server` total 135570, `src` 89776,
+  `server/index.ts` 26100.
+
+### Unverified — must be proven before they enter a plan
+
+- Headless operation of this fork on a server, and the built UI delivered from a
+  remote server to a browser. The code path exists; the behaviour is not tested.
+  Inherited `docs/self-hosting.md` claims it for OpenMausBot, not for Colonie.
+- Whether retiring the non-ACP drivers is dependency-complete; no audit has run.
+
+### Blockers
+
+- No distributable macOS artifact exists (see build config above). The team cannot
+  install Colonie until M11 step 7 lands.
+- Cloudflare R2 credentials for publishing artifacts are not yet shared by the owner.
+
+### Artifacts produced this session
+
+- A one-page download page for the team, published privately as a Claude Artifact.
+  Its download target is still a placeholder pending the R2 URL.
+
+### Next concrete action
+
+M11 step 2: audit and retire `enterprise/`, keeping `server/enterprise.ts` and its
+six core callers working, with isolated evidence for the OSS boot path and
+`GET /api/edition`. No code has been changed yet.
+
+## Markdown file preview in chat (implemented, isolated fixture-verified)
+
+- Owner request: bot-authored text files arrive as plain prose or save-only
+  chips — no clickable handoff and no in-app reading. Markdown attachments
+  (`.md`/`.markdown`) now get a Preview button beside Save, opening a 400px
+  right-side reading panel (same slot as Activity/Inspector) that renders the
+  document with the chat's Markdown through the existing message-scoped grant.
+  PDF and other documents stay save-only; CSV/TSV keep their table dialog.
+- Model handoff: the ACP capabilities line now asks the agent to write created
+  files as full-path Markdown links (`colonie.capabilities.v6`), so links
+  become clickable file cards instead of inert prose. No `attach_file` tool
+  exists on the ACP path; authorization reuses the message-link grant.
+- Files: `server/devone/context.ts` (v5→v6), `src/state/store.tsx`
+  (`filePreview` + `openFilePreview`/`closeFilePreview`, exclusive with the
+  other side panels, cleared on select/switchTask/view change),
+  `src/components/AttachmentPreview.tsx` (`FilePreviewScope`,
+  `MarkdownPreviewButton`, `isMarkdownPreviewPath`, 1 MB
+  `readMarkdownResponse`), `src/components/FilePreviewPanel.tsx` (new),
+  `ChatMarkdown.tsx` (button on `.md` links), `AttachmentPreview.tsx` chip,
+  `ChatView.tsx` + `GroupView.tsx` (scope), `App.tsx` + `lazy-screens.tsx`
+  (panel mount), 7 `attach.preview*` English keys (other locales fall back).
+- Actual checks under Node 24:
+  - `pnpm exec vitest run` on FilePreviewPanel/AttachmentPreview/ChatMarkdown/
+    store/lazy-screens/locales/context-e2e/context-integrity — **all passed**
+    (307 unit + 3 context + 9 locale).
+  - `pnpm exec tsc --noEmit`, `pnpm lint`, `pnpm i18n:check` (3714 strings) —
+    **passed**.
+  - `node --experimental-strip-types scripts/colonie/file-preview-check.ts` —
+    **passed** against the disposable fake-engine fixture with real renderer:
+    scripted reply links one `.md` + one `.pdf`; only the `.md` gains Preview
+    buttons (gallery card + inline link); the panel renders the Markdown body
+    through the message grant; Close removes the panel; zero renderer errors.
+- Not covered: real-provider model behavior (the handoff line is prompt text,
+  not a tool), packaged desktop/Electron, PDF/Office inline viewing, panel on
+  mobile widths beyond the existing overlay pattern.
+
 ## M9-B + M10 — singleton default Chief and ACP skills (in progress)
 
 - Owner clarified Chief as the first bot by default, exactly one per workspace,

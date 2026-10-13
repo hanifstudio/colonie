@@ -24,6 +24,9 @@ M9-A memory is implemented with isolated SDK/HTTP, renderer/desktop and bounded
 real-Claude evidence. M9-B Chief and M10 skills are now approved and in progress;
 group chat is deferred for a separate discussion. Full
 frontend/backend legacy retirement remains deferred architecture milestone D1.
+**2026-10-14: the product direction changed** — Colonie becomes a shared
+always-on workspace for one internal team. See M11 below and *Product direction
+change* in `SPEC.md`. Milestones above predate that decision.
 
 ## Next phase
 
@@ -277,6 +280,12 @@ unreachable and removable without dangling dependencies, retained shared modules
 have clear ownership, and the named continuity matrix passes. This is broader than
 M8-C UX cleanup and should have its own implementation/review/verification plan.
 
+2026-10-14: M11 steps 2 and 3 bring two retirement slices forward — `enterprise/`
+and the non-ACP engine drivers — because the shared-workspace work needs them gone
+first. They follow D1's classify-then-retire rule and do not complete D1. The
+inherited `docs/` audit named in `SPEC.md` is added to D1's inventory: those pages
+describe OpenMausBot's runtime, not this fork's.
+
 ### M9 — memory, Chief coordination and routines (proposed)
 
 Split into independently verifiable slices: controlled cross-session memory;
@@ -327,6 +336,48 @@ manage guides through scoped tools. Deliver a dynamic bounded index plus exact
 skill-body retrieval through scoped MCP, so user-selected cwd and both maintained
 adapters work without writing app instructions into native projects/global homes.
 Detailed worker/lead contracts and acceptance: `plans/2026-10-12-chief-and-skills.md`.
+
+### M11 — shared always-on workspace (approved 2026-10-14)
+
+Owner decision: Colonie becomes a shared always-on workspace for one internal
+team. Direction, rejected alternatives and deferred scope: *Product direction
+change* in `SPEC.md`. Pi Durable was evaluated and rejected; execution stays on
+ACP. Steps are ordered so each one is useful on its own.
+
+1. **Record the decisions.** This entry and the `SPEC.md` section. Done first so
+   later slices are not planned against the superseded personal-desktop framing.
+2. **Retire `enterprise/`.** Licensing makes it unusable for this team and its
+   features are unwanted. `server/enterprise.ts` stays and reports the
+   open-source edition; core callers (`brand.ts`, `spend.ts`, `cloud-home.ts`,
+   `cli.ts`, `hosted-models.ts`, `index.ts`) must keep working unchanged. Verify
+   the OSS boot path and `GET /api/edition`, not compilation alone.
+3. **Retire non-ACP engine drivers.** The native drivers under `server/drivers/`
+   that Colonie does not support, plus the superseded `server/drivers/acp/`
+   client. Remove registrations in `server/config.ts` with them. Dependency-complete
+   slices; record retained references and why. This is a D1 slice brought forward,
+   not a replacement for D1.
+4. **Prove headless operation, then deploy to the owner's VPS.** The UI/server
+   split already exists, and `server/index.ts` serves the built UI from
+   `OMB_STATIC_DIR`, but neither headless operation nor remote UI delivery is
+   verified for this fork. Verify both against an isolated deployment before
+   planning around them. Engine sign-in happens on the server.
+5. **Enforce `OMB_LOOPBACK_TRUST=service`** on any server a second person reaches,
+   with evidence that session-less loopback is refused the owner routes. Required
+   before anyone else is admitted; not required for the owner's solo always-on use.
+6. **Message author.** Attribution only: who wrote a message, who approved an
+   action, whose unread state. No per-person permissions and no per-person memory;
+   memory stays workspace-shared.
+7. **Distributable macOS build.** `electron-builder.colonie.yml` currently sets
+   `mac: target: dir` with `identity: null` and `notarize: false`, so it produces
+   no installer and Gatekeeper refuses it elsewhere. Add dmg/zip for arm64 only.
+   Signing and notarization need an Apple Developer account; until then the
+   download page documents the right-click-Open path. Publish to Cloudflare R2 and
+   point the download page at it.
+
+Windows members are served by the browser against the shared server; no Windows
+desktop build is planned. Done when the owner's bots stay reachable with every
+laptop closed, the team can reach the same workspace, and each step above carries
+isolated evidence in `PROGRESS.md`.
 
 ### Later — computer/VM, voice and office deployment
 

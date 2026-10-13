@@ -9,6 +9,11 @@ and the full Claude core-workflow integration are implemented and verified.
 Current app: `release/colonie/mac-arm64/Colonie.app`. Legacy data/source/protocol
 paths and command aliases are retained deliberately; see `COLONIE.md`.
 
+**2026-10-14: the product direction changed.** Colonie is becoming a shared
+always-on workspace for one internal team rather than a single person's desktop
+app. Read *Product direction change* at the end of this document before planning
+work; the personal-desktop framing in the sections below predates it.
+
 ## Goal
 
 Keep the OpenMausBot chat/agent desktop experience while replacing its agent
@@ -427,3 +432,97 @@ Implementation plan and disjoint worker ownership:
 `plans/2026-10-12-chief-and-skills.md`. The implementation also hardens memory boot
 so unreadable stored memory leaves the app usable and explicitly memory-unavailable,
 without overwriting unknown data. All workflow claims require isolated evidence.
+
+## Product direction change — shared always-on workspace (2026-10-14)
+
+Owner decision. Colonie moves from one person's desktop app toward a shared
+always-on workspace for one internal team. The long-term intent is a place where
+people and agents work together rather than a personal assistant; replacing a team
+chat tool is a stated ambition, not a current milestone. Everything below is scope
+for the owner's own team only. Colonie is not sold or hosted for third parties.
+
+### Execution stays on ACP
+
+Pi Durable (Earendil, published 2026-10-01) was evaluated and rejected. It is a
+framework for building agent harnesses, not a hosted service, so it supplies no
+cloud by itself; its published examples target OpenAI rather than Claude; it
+describes itself as experimental with a changing API; and adopting it would
+replace the ACP boundary M1-M10 are built on. The existing ACP runner already
+separates the UI from the server over HTTP/SSE, so running the server elsewhere
+implies no execution change.
+
+### Decided scope
+
+- The server runs on the owner's VPS. Desktop clients and browsers attach to it.
+  Headless operation is **not yet proven for this fork** and must be verified with
+  an isolated deployment before the move is planned around it.
+- `enterprise/` is removed. Its license forbids hosting for third parties,
+  reselling and white-labelling without a written agreement with the copyright
+  holder, and the team does not need its features. `server/enterprise.ts` stays as
+  the hook point and reports the open-source edition. Multiple workspaces and the
+  workspace spend cap live in that folder and become owned work if wanted later.
+- `OMB_LOOPBACK_TRUST=service` is required on any server more than one person
+  reaches. The self-hosted default trusts every loopback caller as the owner, and
+  every bot shell is a loopback caller, so a member could otherwise drive a bot
+  into changing settings, keys, MCP servers or webhooks. The setting lives in
+  `server/request-auth.ts` and is independent of the removed folder.
+- Messages gain an author, so the agent knows who is speaking, approvals record
+  who allowed an action, and unread state can distinguish members. This is
+  attribution only; it is not a per-person permission system.
+- Memory stays workspace-shared. Per-person memory is explicitly not wanted:
+  the team wants one shared way of working. Skills, MCP and connected tools remain
+  bot-level configuration, which this change does not alter.
+- Windows members use the browser against the shared server. No Windows desktop
+  build is planned; `electron-builder.colonie.yml` carries no `win` section.
+- A distributable macOS build is required for the team. The current config
+  produces `mac: target: dir` only, is unsigned (`identity: null`) and is not
+  notarized, so it yields no installer and is refused by Gatekeeper on another
+  machine. Artifacts are published to Cloudflare R2 behind a one-page download
+  link. Apple silicon only; no Intel build is needed for this team.
+
+### Deferred, by owner decision
+
+Multiple workspaces; per-person identity and permissions; per-person memory;
+workspace spend cap; Chief archive-instead-of-delete; group chat; replacing a team
+chat tool. The spend cap and the Chief archive guard are wanted before the team is
+admitted in numbers, not before the owner's own always-on use.
+
+### Cleanup stance — replace, do not rewrite
+
+The owner's preference is to understand the code rather than inherit it. That is
+served by removing what is unused and rewriting what is being changed, not by
+rebuilding what already works. Three tiers:
+
+- **Retire now**: `enterprise/`, and the non-ACP engine drivers under
+  `server/drivers/` including the superseded `server/drivers/acp/` client.
+- **Rewrite on contact**: modules touched for the shared-workspace work. They are
+  understood by changing them, which is where the ownership benefit actually comes
+  from.
+- **Keep**: React UI, HTTP/SSE, persistence and Electron infrastructure. Rewriting
+  working infrastructure buys no product behavior and reintroduces solved defects.
+
+### Delegation policy (updated 2026-10-14)
+
+The earlier approval covered bounded frontend UX cleanup only and explicitly
+excluded broad backend removal. The owner now extends delegation to backend
+retirement and build work, to reduce lead token cost. Conditions are unchanged
+from the M9-A pattern: a complete written brief, disjoint file ownership,
+one-pass worker reporting, and lead review.
+
+Delegation is chosen by shape, not by preference. Work that is bulky and
+repetitive goes to a worker; work that is small, investigative or
+security-relevant stays with the lead, because the brief and the review then cost
+more than the task. Mechanical bulk goes to a free or cheap model; anything
+touching runtime semantics goes to a stronger one.
+
+The lead always retains review and end-to-end evidence, for every slice and
+regardless of which model performed the edit. A worker's report is never evidence
+on its own.
+
+### Evidence discipline for inherited documentation
+
+Inherited `docs/` pages describe OpenMausBot's product decisions and its runtime,
+not this fork's. Source presence and documentation presence are both separate from
+runtime support here. Any claim taken from inherited documentation is marked as
+unverified until it is re-checked against this fork, and must not enter a plan on
+the strength of the inherited page alone. Auditing those pages belongs to D1.
