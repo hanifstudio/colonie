@@ -135,27 +135,6 @@ await build({
   logLevel: "info",
 });
 
-// The enterprise layer (enterprise/LICENSE; delete the folder for pure OSS).
-// A package or image has no TypeScript runtime, so ship it bundled to
-// dist-server/enterprise/server/index.js, where server/enterprise.ts finds it
-// inside the server root: the Docker image and the packaged desktop carry
-// dist-server/ alone. The npm package also copies it to
-// <package>/enterprise/server/index.js, beside the server. Its own license
-// travels with it either way.
-if (existsSync(join(root, "enterprise", "server", "index.ts"))) {
-  await build({
-    entryPoints: [join(root, "enterprise", "server", "index.ts")],
-    bundle: true,
-    platform: "node",
-    target: "node20",
-    format: "esm",
-    outfile: join(root, "dist-server", "enterprise", "server", "index.js"),
-    allowOverwrite: true,
-    logLevel: "info",
-  });
-  copyFileSync(join(root, "enterprise", "LICENSE"), join(root, "dist-server", "enterprise", "LICENSE"));
-}
-
 // The packaged desktop forks this bootstrap rather than index.js
 // (electron/server-child-launch.mjs): it turns on Node's compile cache for the
 // server process, then imports index.js beside it. Copied, not bundled:

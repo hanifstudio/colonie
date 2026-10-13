@@ -1,5 +1,51 @@
 # Colonie progress
 
+## 2026-10-14 — M11 step 2: enterprise layer retired (implemented, fixture-verified)
+
+Branch `chore/retire-enterprise`, commit `578730f2`. 28 files, 1974 deletions.
+
+- Removed `enterprise/` (10 files) and everything that existed only for it:
+  `server/hosted-access.test.ts`, `server/hosted-models-api.test.ts`, `CLA.md`,
+  `.github/workflows/contributors.yml`, the bundler and npm-package branches
+  that shipped the layer, the electron-builder filters that excluded it, and its
+  `tsconfig.server.json` / `vite.config.ts` / shard-weight entries.
+- `server/enterprise.ts` and `server/enterprise.test.ts` stay. The six core
+  callers (`brand.ts`, `spend.ts`, `cloud-home.ts`, `cli.ts`, `hosted-models.ts`,
+  `index.ts`) were not touched and did not need to be.
+- `LICENSING.md` rewritten, `README.md` / `CONTRIBUTING.md` / `CODEOWNERS`
+  updated: the repository is now a single Apache 2.0 tree with no carve-out.
+- The CI job that proved the deletion works was kept and repurposed as a
+  standing proof that the open-source edition boots; only its own `rm -rf
+  enterprise` step was dropped.
+
+### Evidence (Node 24 via /opt/homebrew/opt/node@24, isolated fixture)
+
+- `pnpm typecheck` — exit 0.
+- `pnpm exec vitest run server/enterprise.test.ts server/brand.test.ts` —
+  2 files, 19 tests passed.
+- `pnpm exec vitest run server/spend-cap-api.test.ts server/license-expiry-api.test.ts`
+  — 2 files, 11 tests passed. Both drive a stand-in layer through the surviving
+  hook, so they prove the hook still grants and expires entitlements correctly.
+- Isolated boot (`OMB_DATA_DIR` and `HOME` under the session scratchpad, port
+  18797) with `OMB_LICENSE_KEY=omb1.not.real`, then `GET /api/edition`:
+  `{"edition":"oss","features":[],"notice":"OMB_LICENSE_KEY is set but no
+  enterprise layer exists at .../enterprise or .../server/enterprise"}`.
+  Both CI assertions reproduced: `"edition":"oss"` and the missing-layer notice.
+
+### Not verified
+
+- `.github/workflows/docker.yml` and `.github/workflows/npm-package.yml` were
+  edited but not executed locally. They need a CI run or a local container build.
+- The full `pnpm test` suite was not run; only the four suites above plus the
+  whole-repo typecheck.
+
+### Follow-up noted, not scheduled
+
+`server/enterprise.ts` (247 lines) is now a hook with nothing to load: `entitled()`
+always returns false and `editionStatus()` always reports oss. Retiring it would
+touch its six core callers including `server/index.ts`, so it belongs to D1 rather
+than to this slice.
+
 ## 2026-10-14 — product direction change recorded (documentation only, no code change)
 
 - Owner decision this session: Colonie becomes a shared always-on workspace for
@@ -54,9 +100,10 @@
 
 ### Next concrete action
 
-M11 step 2: audit and retire `enterprise/`, keeping `server/enterprise.ts` and its
-six core callers working, with isolated evidence for the OSS boot path and
-`GET /api/edition`. No code has been changed yet.
+M11 step 3: audit and retire the non-ACP engine drivers under `server/drivers/`
+(~17k non-test lines) plus the superseded `server/drivers/acp/` client (~6.2k).
+Owner approved delegating this slice to a worker model; the lead keeps the audit,
+review and evidence. Branch `chore/retire-enterprise` is not merged to `main` yet.
 
 ## Markdown file preview in chat (implemented, isolated fixture-verified)
 

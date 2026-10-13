@@ -17,7 +17,7 @@ extraResources:
     to: ui
   - from: dist-server
     to: server
-    filter: ["**/*", "!enterprise/**", "!server/enterprise/**", "!server/**/*.test.*", "!server/devone/testing/**"]
+    filter: ["**/*", "!server/**/*.test.*", "!server/devone/testing/**"]
   - from: dist-devone/codex-acp
     to: codex-acp
   - from: dist-devone/codex-acp/node_modules/@openai/codex
