@@ -441,6 +441,45 @@ people and agents work together rather than a personal assistant; replacing a te
 chat tool is a stated ambition, not a current milestone. Everything below is scope
 for the owner's own team only. Colonie is not sold or hosted for third parties.
 
+### Two modes, chosen at onboarding (owner requirement from the start)
+
+This was stated in the owner's second message of the 2026-10-14 session and was
+**omitted from the first version of this section**, which recorded only the
+shared workspace. It is a requirement, not an open question:
+
+> *"ketika user onboarding dia bisa pilih mau pake apps ini secara local atau
+> secara cloud"* — at onboarding the person chooses whether to use Colonie
+> locally or in the cloud.
+
+- **Local mode.** Colonie runs on the person's own machine. They sign their own
+  engines in, and their bots, conversations and memory are theirs alone. This is
+  exactly how Colonie behaves today, so local mode needs no new work beyond
+  being presented as a choice.
+- **Cloud mode.** The person points Colonie at the team's server. They sign no
+  engine in and need no AI subscription of their own: the workspace's engines,
+  signed in once by the owner, serve everyone. Bots, conversations and memory
+  are the workspace's and are shared.
+
+Cloud mode is what removes the two things that would otherwise stop a
+non-technical teammate: a per-person AI subscription, and a terminal command to
+sign in. Neither mode replaces the other, and the choice is made in the welcome
+flow rather than buried in settings.
+
+What this requires, against the code as it stands:
+
+- The welcome flow (`src/components/onboarding/WelcomeFlow.tsx`) has the steps
+  `hello`, `engines`, `permissions`, `bot`. A mode choice step does not exist
+  and must come before `engines`, because cloud mode skips engine sign-in.
+- Cloud mode **through a browser already works**: the renderer fetches `/api/...`
+  relatively and the server serves the renderer itself, so opening the server's
+  address gives a working Colonie with no client build at all. This is how
+  Windows teammates are served.
+- Cloud mode **in the desktop app** needs one change: `electron/main.mjs` loads
+  `http://127.0.0.1:${SERVER_PORT}` unconditionally. It must load a configured
+  workspace address instead when the person chose cloud, and pair that client so
+  the session is authorised.
+- `OMB_LOOPBACK_TRUST=service` belongs to cloud mode's server, not to local mode.
+
 ### Execution stays on ACP
 
 Pi Durable (Earendil, published 2026-10-01) was evaluated and rejected. It is a

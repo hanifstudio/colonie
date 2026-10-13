@@ -367,7 +367,13 @@ ACP. Steps are ordered so each one is useful on its own.
 6. **Message author.** Attribution only: who wrote a message, who approved an
    action, whose unread state. No per-person permissions and no per-person memory;
    memory stays workspace-shared.
-7. **Distributable macOS build.** `electron-builder.colonie.yml` currently sets
+7. **Two modes in the welcome flow.** A choice step before `engines`: use this
+   machine, or connect to the team's workspace. Local mode is today's behaviour
+   and needs only the choice. Cloud mode needs a workspace address, client
+   pairing, and `electron/main.mjs` to load that address rather than
+   `127.0.0.1`. Browser cloud access already works and needs nothing. Omitted
+   from the first write-up of M11; see *Two modes* in `SPEC.md`.
+8. **Distributable macOS build.** `electron-builder.colonie.yml` currently sets
    `mac: target: dir` with `identity: null` and `notarize: false`, so it produces
    no installer and Gatekeeper refuses it elsewhere. Add dmg/zip for arm64 only.
    Signing and notarization need an Apple Developer account; until then the
