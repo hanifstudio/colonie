@@ -5,6 +5,10 @@ Description=Colonie server
 Documentation=file:///opt/colonie/app/docs/deploy-colonie-vps.md
 After=network-online.target
 Wants=network-online.target
+# A build or a bad config should not spin forever; after this many failures in
+# the interval systemd gives up and `systemctl status` says why.
+StartLimitBurst=5
+StartLimitIntervalSec=120
 
 [Service]
 Type=simple
@@ -29,13 +33,12 @@ Environment=OMB_STATIC_DIR=/opt/colonie/app/dist
 # servers or webhooks as you. Do not remove it to debug something.
 Environment=OMB_LOOPBACK_TRUST=service
 
-ExecStart=/usr/bin/node --experimental-strip-types server/index.ts
+# The maintained headless CLI gives its child a private stdin capability to
+# create the initial pairing code even under service trust. The code is printed
+# to the service journal; paired admin sessions can create later invitations.
+ExecStart=/usr/bin/node --experimental-strip-types server/openmausbot.ts serve --port ${OMB_PORT} --data-dir ${OMB_DATA_DIR} --no-open
 Restart=on-failure
 RestartSec=5
-# A build or a bad config should not spin forever; after this many failures in
-# the interval systemd gives up and `systemctl status` says why.
-StartLimitBurst=5
-StartLimitIntervalSec=120
 
 # The service needs its own data dir and the app tree, and nothing else.
 NoNewPrivileges=true

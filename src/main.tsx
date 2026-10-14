@@ -1,6 +1,5 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
 import {
   BROWSER_SIGN_IN_FAILED, previewBrowserSignIn, readSessionState, SERVICE_TRUST_REASON, takeBrowserSignInFromLocation, takePairingCodeFromLocation, takeInvitedEmailFromLocation,
 } from "./lib/session";
@@ -31,6 +30,23 @@ applyFont(readFont());
  * device"; on the owner's own machine the server trusts loopback and this
  * check is a single fast request. */
 async function chooseRoot(): Promise<React.ReactNode> {
+  const nativeWorkspace = await window.ogb?.colonieWorkspaces?.info().catch(() => null);
+  if (nativeWorkspace?.local) {
+    const { default: App } = await import("./App");
+    return <>
+      <div className="fixed right-3 top-2 z-[90] flex items-center gap-2 rounded-lg border border-hairline bg-panel px-2 py-1 text-xs text-ink shadow-sm">
+        <span>{nativeWorkspace.local.name}</span>
+        <button className="rounded px-2 py-1 hover:bg-hover" onClick={() => { void window.ogb?.colonieWorkspaces?.cloud(); }}>Workspaces</button>
+      </div>
+      <App />
+    </>;
+  }
+  const platform = nativeWorkspace ?? await fetch("/api/colonie/bootstrap", { signal: AbortSignal.timeout(2000) })
+    .then(async (response) => response.ok ? response.json() as Promise<{ mode?: string; origin?: string }> : null).catch(() => null);
+  if (nativeWorkspace || (platform && "mode" in platform && platform.mode === "platform")) {
+    const { PlatformApp } = await import("./components/colonie-platform/PlatformApp");
+    return <PlatformApp platformOrigin={platform?.origin} />;
+  }
   if (location.pathname === "/pair") {
     // The OMB Cloud page's "Use in your browser": whose Cloud it is, then one Continue.
     const signIn = takeBrowserSignInFromLocation();
@@ -49,6 +65,7 @@ async function chooseRoot(): Promise<React.ReactNode> {
     const { DesktopViewer } = await import("./components/DesktopViewer");
     return <DesktopViewer />;
   }
+  const { default: App } = await import("./App");
   return <App />;
 }
 

@@ -76,6 +76,7 @@ export function WelcomeFlow({
   dictation,
   entrance = "arrive",
   hosted = false,
+  localWorkspace = false,
 }: {
   /** The seeded bot the exit beat names; null when the roster is empty. */
   bot: Bot | null;
@@ -94,11 +95,14 @@ export function WelcomeFlow({
   entrance?: Motion;
   /** A hosted team workspace: the hosted beat set, no email field. */
   hosted?: boolean;
+  /** A Local workspace created after global account signup starts at engines. */
+  localWorkspace?: boolean;
 }) {
   const { dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
-  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted });
-  const [beat, setBeat] = useState<BeatId>(() => (initialBeat && beats.includes(initialBeat) ? initialBeat : "hello"));
+  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted })
+    .filter((id) => !localWorkspace || (id !== "hello" && id !== "reel"));
+  const [beat, setBeat] = useState<BeatId>(() => (initialBeat && beats.includes(initialBeat) ? initialBeat : beats[0] ?? "hello"));
   const [mascot, setMascot] = useState<MausState>(MASCOT_FOR_BEAT[beat]);
   const [motion, setMotion] = useState<{ kind: Motion; key: number }>({ kind: "blink", key: 0 });
   const cardRef = useRef<HTMLDivElement>(null);

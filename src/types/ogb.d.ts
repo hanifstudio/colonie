@@ -114,6 +114,12 @@ const __APP_VERSION__: string;
   interface Window {
     ogb?: {
       platform: NodeJS.Platform;
+      colonieWorkspaces?: import("../../electron/colonie-workspaces.mjs").ColonieWorkspacesBridge & {
+        info(): Promise<{ origin: string; local: { id: string; name: string; origin: string } | null }>;
+        cloud(): Promise<void>;
+        signOut(): Promise<void>;
+        authorizeApp(redirectUrl: string): Promise<void>;
+      };
       organization?: import("../../electron/managed-desktop.mjs").ManagedDesktopBridge;
       cloudAccount?: import("../../electron/cloud-account.mjs").CloudAccountBridge;
       /** Copy this computer here: this computer's page names a saved server (or

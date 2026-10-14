@@ -1,5 +1,84 @@
 # Handover — Colonie, 2026-10-14
 
+**Current release state (October 15):** Colonie 0.2.0 beta is deployed at
+`https://172.104.33.55` with ordinary account signup/sign-in. The new
+`colonie-platform` service uses a dedicated Neon schema and loopback port 19091;
+the old service/data are retained on 18891. The HTTPS gateway now serves the
+new platform and the Mac download. The Apple silicon installer is available at
+`/downloads/Colonie-0.2.0-arm64.dmg`; its complete HTTPS download matches the
+local SHA-256. The packaged app passed isolated Cloud and Local signup/onboarding,
+chat and switching with deterministic providers. Actual Linux Cloud Claude
+text turns passed separately in disposable Neon schemas, using inherited
+native auth read-only. The public signup page was rendered read-only; no agent
+created a production account or tested a mutation against live data.
+
+See `docs/RELEASE-0.2.0.md` for the current user flow and `docs/PROGRESS.md` for
+exact commands/results. `docs/WORKSPACE-PLAN.md` records the owner's direction;
+the historical pairing steps below are superseded. Final source refinements
+for long history and view concurrency passed; the release suite is 255 tests
+plus 61 native checks. Source branch: `colonie/multi-workspace-beta`.
+Real Composio provisioning/OAuth/tool use, a recipient's real
+Local engine login/turn, physical-phone use and quarantined/notarized Mac
+installation remain unverified. The deployment has no Composio org key.
+R2 is optional and unused because no endpoint/account ID was supplied.
+
+**Current direction supersedes the historical next steps below:** The owner
+approved a Slack-like multi-workspace product: humans and bots are members,
+Groups and private human/bot DMs, global signup/sign-in without mandatory email
+confirmation, and Local/Cloud selected separately for each new workspace.
+Cloud invitations enter the intended workspace without engine setup. Ordinary
+people use account sign-in, not pairing codes. The owner explicitly authorized
+implementation and deployment and supplied Neon/R2 infrastructure credentials.
+Read `docs/WORKSPACE-PLAN.md` for the confirmed journeys and implementation
+boundaries. Secrets are held outside the repo and are never included in docs or
+delegated prompts. Isolated tests still precede deployment; do not test writes
+against the owner's existing conversations or credential files. The earlier
+pairing deployment is historical infrastructure evidence, not the target UX.
+
+**Latest phone-access update (2026-10-14):** The owner requested phone access
+using the VPS IP, with no domain. `https://172.104.33.55` is now publicly served
+with a valid Let's Encrypt IP certificate by a dedicated Caddy gateway. The
+app remains loopback-only and now runs under `OMB_LOOPBACK_TRUST=service`;
+the earlier single-owner override was removed. The app unit now launches via
+the maintained headless CLI, which can generate its initial pairing invitation
+under service trust. Isolated TLS/proxy checks proved pairing, Secure/HttpOnly
+cookies, authorized access, rejection of unpaired and cross-origin requests,
+and session persistence. Production public checks were read-only. Phone
+pairing and a phone conversation remain for the owner to confirm; no renderer
+QA was possible because no browser surface was available. Full evidence is
+appended to PROGRESS and `.devone/evidence/public-ip-pairing-2026-10-14.json`.
+The initial owner invite is single-use and expires five minutes after app
+startup; its value is not stored in docs. Next: owner pairs the phone, then
+continues local/cloud desktop onboarding. Claude remains quota-blocked until
+its reported 05:10 WIB reset. Earlier owner-trust notes below are historical.
+
+**Latest provider update (2026-10-14, 03:47 WIB):** The owner completed both
+engine sign-ins personally. An isolated Linux HTTP -> ACP -> real Codex turn
+passed: exact `COLONIE_CODEX_LINUX_OK` reply, persisted history, completed input
+receipt, 4.6 seconds. Claude authenticated but rejected its one test request
+because its session quota was exhausted; it reported reset at 05:10 WIB.
+Do not report Claude conversation success. The owner's data was mounted
+read-only during the real-provider checks; all conversation/workspace state
+was disposable. Evidence is appended to `docs/PROGRESS.md` and retained in
+`.devone/evidence/vps-real-turn-2026-10-14.json`. A temporary owner-only SSH
+tunnel currently exposes the VPS at `http://127.0.0.1:18991` on the Mac (exec
+session 11990). Next: owner browser interaction, retry Claude after quota reset,
+then step 4. Renderer/desktop cloud mode and teammate access remain unverified;
+the single-owner trust override still must be removed before sharing access.
+The commissioning update below describes the earlier state before sign-in.
+
+**Codex commissioning update (2026-10-14):** Step 1 is complete for single-owner
+access. The VPS service is enabled, running, and survived an explicit service
+restart; both ports remain loopback-only. The installed unit has a deliberate
+single-owner `OMB_LOOPBACK_TRUST=owner` drop-in. Isolated Linux checks proved
+headless HTTP pairing, paired-session persistence after switching to `service`,
+and CLI `serve` bootstrap under `service`; the raw-index unit cannot create its
+first pairing code in `service`. Prepare an admin session and remove the owner
+override before anyone else gets access. No engine sign-in or real turn was
+performed. Actual commands/results and the staged-binary owner login commands
+are appended to `docs/PROGRESS.md`. **Next action is step 2, performed by the
+owner.** The original build-in-flight and step 1 text below is historical.
+
 Written for the next agent (Codex) taking over from the Claude session that did
 the work below. Read this file and `docs/SPEC.md`'s *Product direction change*
 section. You do not need to read the rest of `docs/`; most of it describes

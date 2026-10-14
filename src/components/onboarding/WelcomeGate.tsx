@@ -89,6 +89,7 @@ export function WelcomeGate({ viewer }: { viewer: WelcomeViewer | null }) {
       bot={bot}
       replay={replay}
       hosted={viewer.hosted}
+      localWorkspace={localDesktopPage() && Boolean(window.ogb?.colonieWorkspaces)}
       onDone={() => {
         setDismissed(true);
         dispatch({ type: "toggleWelcome", open: false });

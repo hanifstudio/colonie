@@ -1800,3 +1800,760 @@ Repeat real Codex native-controls/scoped-context checks when quota becomes
 available as a separate follow-up. Chief coordination, memory and routines remain
 M9; naming/configuring a Chief does not establish delegation. Product-authored
 context, UI and documentation continue to use English (US).
+
+
+## 2026-10-14 — VPS commissioning completed; owner engine sign-in is next
+
+Scope: finish HANDOVER step 1 only. No provider sign-in, credentials request,
+real-provider turn, onboarding changes, or publication. Followed the owner's
+explicit instruction to consult HANDOVER rather than the other product docs.
+
+### Build observation
+
+- `ssh colonie-vps 'pgrep -f "colonie:build:server|vite build|tsc |stage-runtime" >/dev/null && echo building || tail -5 /opt/colonie/build.log'`
+  printed `building`. This pattern can match the remote shell running the probe.
+- Follow-up: `ssh colonie-vps 'ps -eo pid,ppid,user,etimes,args | grep -E "[c]olonie:build:server|[v]ite build|[t]sc |[s]tage-runtime"; tail -15 /opt/colonie/build.log; du -sh /opt/colonie/app/dist /opt/colonie/app/dist-server'`.
+  No matching build process remained. The final log entries were both successful
+  staging manifests: Linux/x64, codex-acp 2.1.1 / Codex 0.159.3 and claude-acp
+  0.88.0 / SDK 0.3.293. `dist` was 15M; `dist-server` was 20M.
+  The original build process exit status was not available; this observation
+  alone is not claimed as proof of a complete agent workflow.
+- VPS Node: v24.21.0. VPS source revision, read as user `colonie`:
+  `e86662b281cbf9d0e9e4042a2e7962ddde71e8c8`. Local starting revision:
+  `744da8df48f27fd062e2595234d363bba6af0713`. No source pull or push performed.
+
+### Isolated Linux HTTP pairing evidence (no agent turn)
+
+Added `scripts/colonie/verify-headless-pairing.mjs`, then ran its contents on
+VPS as the service user:
+
+```bash
+ssh colonie-vps 'cd /opt/colonie/app && runuser -u colonie -- /usr/bin/node --input-type=module' < scripts/colonie/verify-headless-pairing.mjs
+```
+
+Exit 0. Fixture: `/tmp/colonie-headless-pairing-SQXm1e`, app port 44043,
+webhook port 46827. HOME, XDG directories, temporary files, and both server
+and provider data directories belonged to the disposable fixture. The child
+received an explicit environment, not the operator's authentication or keys.
+No login or message endpoint was called. All fixture processes stopped and
+its temporary directory was removed.
+
+Observed results:
+
+| Check | Result |
+| --- | --- |
+| Raw `server/index.ts`, `service`, no session: config, instances, sessions, usage | All HTTP 403 |
+| Same server: create initial pairing code | HTTP 403; cannot bootstrap itself |
+| `owner`: create and redeem admin pairing into a browser cookie | HTTP 200 / 200; admin + client scopes |
+| `owner`: create and redeem client pairing into a browser cookie | HTTP 200 / 200; client scope |
+| Restart same fixture data in `service`: paired admin reads config | HTTP 200 |
+| Same restart: paired client reads bots | HTTP 200 |
+| Paired client tries creating another pairing | HTTP 403 |
+| Paired admin creates another pairing | HTTP 200 |
+| Separate clean fixture, `openmausbot serve`, `service`: CLI bootstrap code redeemed | HTTP 200; admin + client scopes |
+| CLI fixture: paired cookie reads config; sessionless pairing creation | HTTP 200 / 403 |
+
+Decision: keep the repository unit's default `service` setting for shared use.
+For this single-owner commissioning, the installed unit deliberately has
+`/etc/systemd/system/colonie.service.d/10-single-owner.conf` overriding it to
+`OMB_LOOPBACK_TRUST=owner`. The existing raw-index unit has no startup pairing
+capability; choosing `service` without preparing an admin session would leave
+the owner unable to bootstrap access. Headless pairing itself works: the
+supported CLI `serve` path supplies its own limited pairing capability, or an
+admin can pair in `owner` and that session survives transition to `service`.
+
+**Before a second person gets access:** prepare and confirm an admin paired
+session, remove the single-owner override, restart, and confirm paired access
+plus rejection of sessionless administrative requests. That transition has
+only been tested in disposable data, not performed on the owner's workspace.
+
+### Installed server evidence
+
+Installed `/opt/colonie/app/scripts/colonie/colonie.service` as
+`/etc/systemd/system/colonie.service`. `systemd-analyze verify` found the original
+`StartLimitIntervalSec` in the wrong section and ignored it. Moved both start
+limit settings to `[Unit]` in the installed file and the local source template.
+Verification of the installed unit then exited 0 without warnings.
+
+Commands:
+
+```bash
+ssh colonie-vps 'systemd-analyze verify /etc/systemd/system/colonie.service && systemctl daemon-reload && systemctl enable --now colonie'
+ssh colonie-vps 'curl -sf http://127.0.0.1:18891/api/health; systemctl show colonie -p ActiveState -p SubState -p UnitFileState -p MainPID -p NRestarts -p StartLimitBurst -p StartLimitIntervalUSec; ss -ltnp "( sport = :18891 or sport = :18892 )"'
+ssh colonie-vps 'systemctl restart colonie'
+ssh colonie-vps 'curl -sf http://127.0.0.1:18891/api/health; systemctl show colonie -p ActiveState -p SubState -p MainPID -p NRestarts; ss -ltnp "( sport = :18891 or sport = :18892 )"'
+```
+
+Readiness was polled up to 20 times with a one-second interval after startup
+and restart. Before restart: PID 10597, `active/running`, `enabled`,
+`NRestarts=0`, `StartLimitBurst=5`, `StartLimitIntervalUSec=2min`; health reported
+`static:true`. After explicit restart: PID 10878, `active/running`,
+`NRestarts=0`, health again reported `static:true`. Both ports listened only on
+127.0.0.1. GET `/` and `/pair` returned HTTP 200 initially; GET `/` returned
+HTTP 200 after restart. Effective trust was confirmed as `owner`.
+
+No application mutation was tested against `/opt/colonie/data`. Production
+checks were health/static responses, listening sockets, and service state.
+Automatic startup is configured (`enabled`); an actual VPS reboot was not tested.
+
+### Validation and next action
+
+- Ran bundled Codex `login --help` and bundled Claude `auth login --help` as
+  user `colonie`, exit 0. Codex supports `--device-auth`; Claude supports
+  `auth login`. Help commands do not sign either engine in. The owner commands
+  below use the already staged binaries and isolated provider directories;
+  Codex device sign-in avoids requiring a browser callback tunnel to the VPS.
+- VPS oxlint on the verification script: **0 warnings, 0 errors, 1 file**, exit 0.
+  Local `git diff --check`: exit 0. The local `pnpm exec oxlint` attempt stalled
+  and was interrupted (exit 130); its newly created scratch store was removed.
+- Not verified: provider login success, a real Linux agent turn, renderer
+  interaction or pairing UI, desktop cloud mode, teammate access, a VPS reboot,
+  and download publication. HTTP 200 and successful pairing are not evidence
+  that an agent can reply.
+
+Next action belongs to the owner (HANDOVER step 2). Run these personally:
+
+```bash
+ssh colonie-vps
+sudo -iu colonie
+export OMB_DATA_DIR=/opt/colonie/data
+CODEX_HOME="$OMB_DATA_DIR/native/codex" node /opt/colonie/app/dist-devone/codex-acp/node_modules/@openai/codex/bin/codex.js login --device-auth
+CLAUDE_CONFIG_DIR="$OMB_DATA_DIR/native/claude" /opt/colonie/app/dist-devone/claude-acp/claude-native auth login
+```
+
+Stop here until owner sign-in is complete. Then HANDOVER step 3 must prove one
+bounded real turn in a disposable working folder through the server, separately
+from the HTTP evidence above. No commit or push was made in this session.
+
+
+## 2026-10-14 — Owner sign-in confirmed; real Linux Codex turn passed, Claude quota blocked
+
+The owner personally completed Codex device sign-in and Claude `auth login`,
+then reported success for each. The agent did not initiate any login or request,
+read, copy, or display credential contents. File-existence checks confirmed the
+expected authentication paths existed; file existence alone was not treated as
+proof of sign-in. The isolated server's ACP snapshots subsequently reported
+both providers `available` and `authenticated:true`.
+
+Added `scripts/colonie/verify-real-turn.mjs`. This verifies the actual deployed
+HTTP message route -> maintained ACP adapter -> real provider -> persisted
+conversation and application-authored prompt receipt. It is not the simulated
+fixture suite and does not merely call the CLI directly. Each provider request
+is bounded to 90 seconds, asks for one exact marker, and forbids tool/file/network
+actions. Tool permission requests are denied. New temporary app state and bot
+workspaces are created for every run. App awareness and bot persona remain at
+their defaults; no production configuration or conversation is changed.
+
+Existing native authentication is inherited through file-only symlinks into the
+fixture's provider homes. The script does not read or copy the files. The
+transient systemd unit makes `/opt/colonie/data` read-only and the whole system
+read-only, with private writable temporary directories, so fixture engines
+cannot rewrite the owner's login files or application data. Both engines and
+the fixture run as `colonie`; native sessions and transcripts are temporary.
+
+Actual upload and first execution:
+
+```bash
+ssh colonie-vps 'cat > /run/colonie-real-turn-check.mjs && chmod 644 /run/colonie-real-turn-check.mjs && systemd-run --unit=colonie-real-turn-check --wait --pipe --collect -p User=colonie -p Group=colonie -p WorkingDirectory=/opt/colonie/app -p PrivateTmp=yes -p ProtectSystem=strict -p ProtectHome=true -p NoNewPrivileges=true -p ReadOnlyPaths=/opt/colonie/data -p RuntimeMaxSec=240 /usr/bin/node /run/colonie-real-turn-check.mjs --real --auth-root /opt/colonie/data/native' < scripts/colonie/verify-real-turn.mjs
+```
+
+Three attempts were made, at approximately 03:46–03:47 WIB on October 14
+(20:46–20:47 UTC on October 13):
+
+1. Initial fixture `/tmp/colonie-real-turn-8bzIsn`, ports 40321/33943.
+   Codex produced `COLONIE_CODEX_LINUX_OK` and its receipt was `completed`
+   after 4,286 ms. The checker incorrectly concatenated the app's pre-existing
+   greeting, `Hi! What would you like help with?`, with the new answer and exited
+   1 before attempting Claude. This was a checker bug, not a provider failure.
+   Corrected it to exclude message IDs that already existed before dispatch.
+   Added `--provider` so one provider can be checked without repeating the other.
+2. Reuploaded the corrected script and ran the same unit command with
+   `--provider claude-acp`. Fixture `/tmp/colonie-real-turn-kBn6sU`, ports
+   44039/39151. Claude failed after 4,297 ms with:
+   `You've hit your session limit · resets 10:10pm (UTC)`.
+   Receipt status `failed`, native model/mode `default/default`; thread and
+   prompt were recorded. Exit 1. This is quota evidence, not a successful turn.
+   The provider's reported reset corresponds to 05:10 WIB on October 14.
+   No additional Claude requests were made after that response.
+3. Ran the corrected unit with `--provider codex-acp`. Fixture
+   `/tmp/colonie-real-turn-Y2s8Hx`, ports 36601/37559. **Exit 0**; answer exactly
+   `COLONIE_CODEX_LINUX_OK`, receipt `completed`, elapsed 4,598 ms. Native model
+   `gpt-6.1-sol`, mode `read-only`, effort `low`, fast mode `off`.
+   Thread `62b7d2f5-aa4f-4d52-8151-b6ced9eb0228`; turn
+   `45d86295-0408-4bc5-ac3e-b2b88e0dac89`; native session
+   `01a13704-c924-7273-9e51-c5edca312289`.
+
+Exact user request (the final prompt block was checked for byte equality):
+
+```text
+Reply with exactly COLONIE_CODEX_LINUX_OK. Do not use tools, read files, write files, or make network requests. This is a bounded connectivity test.
+```
+
+The successful receipt also preserves the full app identity, effective
+capabilities, bot name, and enabled-guides blocks before the literal user
+request. No app-managed tools were mounted and `connectedToolCalls` was empty.
+All returned observations and full application-authored prompt receipts,
+including both failed checks, are saved locally in
+`.devone/evidence/vps-real-turn-2026-10-14.json` (ignored by Git, mode 0600).
+No credential contents are included.
+
+Validation/cleanup:
+
+- VPS source remained `e86662b281cbf9d0e9e4042a2e7962ddde71e8c8`;
+  Node v24.21.0, Linux/x64, same staged adapters as commissioning.
+- VPS oxlint: `node node_modules/oxlint/bin/oxlint --deny-warnings /run/colonie-real-turn-check.mjs`:
+  0 warnings, 0 errors, 1 file, exit 0.
+- All three temporary roots removed; the transient systemd unit became inactive
+  and its cgroup was stopped. Removed the uploaded `/run` script after testing.
+- Main `colonie` service remained `active/running`, PID 10878, `NRestarts=0`;
+  its health response still reported `static:true`. No service restart needed.
+- Local `git diff --check`: exit 0. No commit or push performed.
+
+For the owner's next manual interaction, started a loopback-only SSH tunnel on
+the Mac, in exec session 11990:
+
+```bash
+ssh -N -L 127.0.0.1:18991:127.0.0.1:18891 -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 colonie-vps
+```
+
+Port 18991 was checked unused first, avoiding any installed local app on 18891.
+`curl -sf --max-time 5 http://127.0.0.1:18991/api/health` reached the VPS service;
+`lsof` confirmed SSH listened only on 127.0.0.1:18991. The owner can open
+`http://127.0.0.1:18991` while this tunnel remains alive. This manual production
+access is offered for intended owner use, not used for automated mutation tests.
+
+Not verified: a successful Claude response (quota blocked), a real turn in the
+production conversation store, renderer/desktop interaction, tools or file
+operations, real-provider continuation after restart, teammate access, and
+publication. No claim of a complete shared desktop workflow is made.
+
+Next concrete action: owner opens the forwarded browser UI and uses Codex;
+repeat only the bounded Claude fixture after its provider quota resets. Then
+continue HANDOVER step 4 (local/cloud onboarding and desktop connection), and
+prepare paired admin access + service trust before giving anyone else access.
+
+
+## 2026-10-14 — Public IP HTTPS and owner phone pairing prepared
+
+Owner request: access Colonie from a phone, using the existing VPS IP because
+there is no owned domain. No domain purchase, DNS changes, provider sign-in,
+or additional provider turns were performed.
+
+Current official documentation confirms public IP certificates are available:
+[Let's Encrypt IP certificate availability](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability)
+and [Caddy ACME profile configuration](https://caddyserver.com/docs/caddyfile/directives/tls).
+IP certificates require the `shortlived` profile. This deployment uses Caddy's
+native issuance and renewal; it does not install a private CA on the phone.
+
+### Installed gateway and access mode
+
+- Downloaded the existing source-pinned Caddy 2.11.4 via `ensureCaddy` from
+  `server/caddy.ts`, with its pinned SHA-512 check. Installed the binary as
+  `/usr/local/bin/colonie-caddy`, root-owned, mode 0755.
+- New dedicated system user/group `colonie-https`. Gateway state and certificate
+  keys live under `/var/lib/colonie-https`, mode 0700, owned by that user.
+  The gateway does not share the engine user's authentication directories.
+- Installed `scripts/colonie/colonie-https.service` to systemd and
+  `scripts/colonie/Caddyfile.ip` as `/etc/colonie/Caddyfile`.
+  `/etc/colonie/https.env` supplies `COLONIE_PUBLIC_IP=172.104.33.55`.
+  The gateway is enabled, uses only CAP_NET_BIND_SERVICE, and has a read-only
+  system with writable dedicated TLS state. Its administrative API is disabled.
+- HTTPS binds the public IPv4 address on 443 and proxies to the existing
+  127.0.0.1:18891 app listener with immediate SSE flushing. Port 80 redirects to
+  HTTPS and supports ACME validation. The app and webhook listeners remain
+  loopback-only. No webhook ingress was added.
+- Updated the app unit's launcher to the maintained `openmausbot serve` CLI,
+  which supplies its child the existing private stdin capability and can mint
+  the initial owner pairing code under `service` trust. This bootstrap was
+  proven in isolated fixtures; no reusable admin token is added to the unit.
+  The local source unit and installed unit both use this launcher.
+- Removed `/etc/systemd/system/colonie.service.d/10-single-owner.conf` and set
+  `OMB_PUBLIC_URL=https://172.104.33.55` in `20-public-access.conf`. Effective
+  `OMB_LOOPBACK_TRUST` is now `service`, including all sessionless bot loopback
+  calls. New owner bootstrap invitations appear in the service journal; a
+  successfully paired admin can create later device invitations through UI.
+
+Initial gateway attempts failed with systemd `203/EXEC` / Permission denied:
+Caddy's source download directories were root-only, and the later dedicated
+user could not traverse `/opt/colonie` (0750). Corrected by installing the
+root-owned executable under `/usr/local/bin` and moving TLS state to
+`/var/lib/colonie-https`; the owner's parent-directory permissions were not
+relaxed. Reset the failed unit and verified the corrected service. The first
+external probe timed out during those failed starts; this is not omitted from
+the evidence. Later probes succeeded.
+
+### Isolated HTTPS pairing verification
+
+The public gateway initially served a maintenance response on 443 and a
+separate, temporary TLS fixture route on 19443 -> 127.0.0.1:19491. This allowed
+real TLS/proxy/session testing without mutating the owner's app state.
+
+Extended `scripts/colonie/verify-headless-pairing.mjs` with `--port` and
+`--public-origin`. Actual command after uploading it to `/run`:
+
+```bash
+ssh colonie-vps 'systemd-run --unit=colonie-public-pairing-check --wait --pipe --collect -p User=colonie -p Group=colonie -p WorkingDirectory=/opt/colonie/app -p PrivateTmp=yes -p ProtectSystem=strict -p ProtectHome=true -p NoNewPrivileges=true -p ReadOnlyPaths=/opt/colonie/data -p RuntimeMaxSec=240 /usr/bin/node /run/colonie-public-pairing-check.mjs --port 19491 --public-origin https://172.104.33.55:19443'
+```
+
+Exit 0. Fixture root `/tmp/colonie-headless-pairing-JAMJEy`, ports 19491/42003,
+Linux/x64, Node v24.21.0. The existing raw-service, owner-pairing, paired-session
+restart, client/admin scope, and CLI-service bootstrap checks all passed again.
+Additional checks through the actual HTTPS Caddy proxy:
+
+| Check | Observed |
+| --- | --- |
+| Redeem disposable pairing code into browser cookie | HTTP 200 |
+| Session cookie attributes | Secure and HttpOnly |
+| Paired admin reads fixture config over HTTPS | HTTP 200 |
+| Sessionless config / pairing creation | HTTP 403 / 403 |
+| Spoofed localhost Host and forwarded protocol | HTTP 403; no config exposed |
+| Paired cookie with a foreign Origin attempts pairing mutation | HTTP 403 |
+
+Only fixture pairings were redeemed by the agent. No user-provider credentials
+were inherited by this fixture, and no real provider requests were made.
+The fixture and its transient service were stopped, its temporary root removed,
+and the uploaded `/run` script removed. The temporary public 19443 listener and
+loopback 19491 route were removed before switching to the owner's main app.
+VPS oxlint: 0 warnings, 0 errors, 1 file, exit 0. `git diff --check`: exit 0.
+
+### Production read-only evidence
+
+Both installed units passed `systemd-analyze verify`; Caddy validated the final
+configuration. After restarting the app into service mode and restarting the
+gateway with its final config:
+
+- App: active/running, CLI PID 15302, actual server PID 15310, NRestarts=0.
+  Its journal confirmed an initial pairing code was generated (value redacted).
+  Sessionless direct-loopback GET `/api/config` returned HTTP 403.
+- Gateway: active/running, enabled, PID 15636, NRestarts=0.
+- Listening sockets: public IP 80/443; 127.0.0.1 app 18891 and webhook 18892;
+  no 19443 or 19491 listener remains.
+- From the owner's Mac, using the public IP rather than the SSH tunnel:
+
+```bash
+curl -sS --max-time 10 -o /tmp/colonie-ip-page.html -w 'Public app HTTP %{http_code}; TLS verify %{ssl_verify_result}\n' https://172.104.33.55/
+curl -sS --max-time 10 -o /dev/null -w 'Public config without session HTTP %{http_code}\n' https://172.104.33.55/api/config
+curl -sS --max-time 10 -o /dev/null -w 'Public pairing page HTTP %{http_code}\n' https://172.104.33.55/pair
+curl -sS --max-time 10 -o /dev/null -w 'HTTP redirect %{http_code}; next %{redirect_url}\n' http://172.104.33.55/
+openssl s_client -connect 172.104.33.55:443 < /dev/null 2>/dev/null | openssl x509 -noout -issuer -dates -ext subjectAltName
+```
+
+Results: app HTTP 200, TLS verify 0; config HTTP 403; pairing page HTTP 200;
+HTTP 308 to the same IP over HTTPS. Public certificate issuer Let's Encrypt
+YE2, IP SAN 172.104.33.55, valid October 13 20:00:22 UTC through October 20
+12:00:21 UTC. Caddy renewal is configured; an actual future renewal and VPS
+reboot have not been observed.
+
+Detailed non-secret evidence is retained in
+`.devone/evidence/public-ip-pairing-2026-10-14.json` (Git-ignored, mode 0600).
+Production writes were deployment configuration and the application's own
+startup invitation, not automated test conversations or session redemption.
+No owner invitation is included in docs or evidence artifacts.
+
+Browser QA attempt: the computer-use tool reported that IAB was unavailable;
+its browser inventory was empty. Therefore rendering is not claimed. Neither
+physical phone pairing nor an actual phone conversation has yet been verified.
+Codex's earlier isolated real-provider success still stands; Claude's earlier
+session-quota blocker was not retried. Desktop cloud onboarding and publication
+remain unfinished. No commit or push was made.
+
+Historical next action: owner opens the current, single-use pairing link on the phone and
+presses Connect, then uses a Codex-backed bot. The link expires five minutes
+after app startup and works for one browser. Retain only a redacted invitation
+record. If it expires before the first admin browser pairs, the CLI startup
+bootstrap can be reissued by a controlled app restart; once paired, the admin
+UI can generate future invitations without restarting the workspace.
+
+Owner invitation refresh: the first startup invite had only 92 seconds left after deployment verification. Performed one controlled `systemctl restart colonie` to issue a fresh five-minute invitation for the owner; health returned and the pairing page remained available over verified HTTPS. Read the invitation only from the current systemd invocation, preventing selection of an older code. No invitation value is retained in docs or evidence, and no production invitation was redeemed by the agent.
+
+## 2026-10-14 — Multi-workspace implementation authorized
+
+The owner approved the product direction in `WORKSPACE-PLAN.md`, supplied
+infrastructure credentials, and explicitly asked to proceed with all work.
+They also requested delegating suitable work to DeepSeek through Herdr to
+reduce OpenAI token use. Three DeepSeek workers were started in a balanced
+four-pane layout in the existing workspace: Cloud API, responsive account/chat
+UI, and Local workspace registry/supervision. No separate checkout was created.
+They received code tasks and synthetic test requirements, not infrastructure
+credentials, native authentication files, or customer data.
+
+Credentials are saved outside the repository in an owner-readable private
+configuration directory (directory 0700; file 0600). They are consumed by
+scripts without printing their contents. `pnpm add -w better-auth pg
+@neondatabase/serverless` and `pnpm add -Dw @types/pg` completed successfully;
+the earlier root-workspace guard rejected the first install attempt and no
+success was claimed from it.
+
+An isolated read-only Node/pg connectivity probe consumed the private Neon
+configuration and executed `select current_database(), current_user(),
+version()`. Actual result: connected=true, database=neondb, PostgreSQL 17.11.
+No schema migration or application write was performed by this probe. This
+proves database connectivity only, not signup, invitations, persistence,
+chat, tenant isolation, or a real provider turn.
+
+The current Cloud runtime implementation uses the maintained ACP SDK and
+Claude adapter with `tools: []`, `settingSources: []`, no filesystem/terminal
+capabilities, a minimal child environment, and separate conversation roots.
+This policy is supported by the installed maintained adapter's implementation;
+it is not yet evidence from a running provider. Local execution keeps the
+existing maintained ACP boundary. Exact application input is saved before
+dispatch. Provider success, renderer flows, Mac app integration, R2 operations,
+Composio provisioning, and the new production deployment are not yet verified.
+
+Next: finish and review the delegated API/UI/Local changes; run isolated
+fixture and PostgreSQL account/conversation checks; connect the Cloud runtime
+and native desktop bridge; then evaluate deployment from those results.
+
+### Isolated implementation verification and delegation interruption
+
+Executed from the repository with `/opt/homebrew/opt/node@24/bin` prefixed to
+PATH (the resolved Node executable reports v25.8.1):
+
+```bash
+pnpm exec vitest run server/colonie/platform/platform.test.ts server/colonie/platform/runtime.test.ts
+pnpm exec vitest run src/lib/colonie-platform.test.ts src/components/colonie-platform/platform-flow.test.ts
+node --test electron/colonie-workspaces.node-test.mjs electron/colonie-workspaces-credentials.node-test.mjs electron/colonie-platform.node-test.mjs
+```
+
+Actual results: backend/runtime 27/27 passed; renderer/client 25/25 passed;
+Local registry, process supervision, vault and account-controller 26/26 passed.
+These use synthetic accounts, isolated directories and deterministic providers.
+Renderer tests prove simulated interactions, not production browser/phone or
+packaged Mac behavior. ACP fixture tests prove exact per-DM input receipts,
+separate context, disabled built-in tools, denied permissions, secret-free child
+environment, cancellation and rejection of results after revocation.
+
+Review found and corrected initial live-event routing and replay authorization
+problems: workspace routing is now explicit, every replay record is audience
+checked, and an owner's workspace role does not expose private DMs or another
+member's personal connection metadata. The fixture tests cover these rules;
+their PostgreSQL/live-provider equivalents are still pending.
+
+The real Neon workflow command is:
+
+```bash
+node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /Users/riaenriala/.config/colonie-development/infra.json
+```
+
+It creates a random `colonie_fixture_*` schema, temporary files, and synthetic
+accounts; it drops that schema and removes its files in cleanup. Both first
+runs proved four independent Better Auth signups without email verification
+and working cookie sessions. Run 1 then failed because the verification script
+incorrectly expected HTTP 201 while the published API returns HTTP 200; the
+checker was corrected. Run 2 failed on invitation acceptance with HTTP 500
+while the delegated source files were being changed. It is not reported as a
+successful invitation or full database workflow. A stable-source rerun with
+sanitized fixture-only diagnostic output is the next check.
+
+The DeepSeek backend CLI exited with `ClientError: Transport: The operation
+timed out`; its files and session were preserved. Verified its pane had returned
+to zsh, then restarted the same `ses_ec8c99f8effej2sN5HU7lLK92O` session via
+Herdr. UI and Local agent processes were separately verified still running.
+No unrelated user's panes or workspaces were modified. A restarted agent or a
+worker's completion report is not workflow evidence.
+
+Cloud/native integration code is present but is not yet claimed as a completed
+Mac journey. Ordinary signup replaces pairing in the new platform shell;
+the existing production service remains running and has not been replaced.
+No new production account/conversation was created by these tests. Actual Cloud
+AI, Composio OAuth/provisioning, Group proactivity, packaged desktop, physical
+phone use, and the complete release remain unverified or unfinished.
+
+### Neon, real Cloud provider and renderer milestones
+
+The stable-source isolated Neon workflow passed. The later recovery-enabled
+run used this command with a private configuration file (contents never printed):
+
+```bash
+PATH=/opt/homebrew/opt/node@24/bin:$PATH node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /Users/riaenriala/.config/colonie-development/infra.json
+```
+
+Actual results in `/tmp/colonie-neon-workflow-recovery.log`: four independent
+Better Auth accounts, signup without email verification, Cloud invitation
+acceptance into the intended workspace, cross-workspace denial, human DM
+reads limited to participants (including owner-denied replay), private Group
+audiences, masked personal connection metadata hidden from the workspace
+owner, persistence after host restart, removed-member denial, and one-time
+account recovery with old-password/session rejection. This is real PostgreSQL
+and auth evidence; the ordinary bot runtime in this run is simulated. The
+random fixture schema and files were removed in cleanup.
+
+Copied source to a separate `/opt/colonie/platform-app` on the VPS, installed
+dependencies there, and executed one bounded real Cloud turn with the owner's
+existing native Claude authentication mounted read-only:
+
+```bash
+ssh colonie-vps 'systemd-run --unit=colonie-platform-real-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+```
+
+Actual result: maintained `claude-acp` returned exactly
+`COLONIE_PLATFORM_CLAUDE_OK`; the reply persisted in the disposable Cloud
+conversation. One paid request, no engine login performed, service exit 0,
+8.698 seconds, disposable schema removed. Log:
+`/tmp/colonie-platform-real-provider.log`. This proves a bounded text turn,
+not real external-app tools or universal runtime isolation.
+
+```bash
+pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts server/composio.test.ts server/composio-availability.test.ts
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop
+```
+
+Combined fixture suite: 156 tests in 8 files passed at that source milestone.
+Real Chromium with synthetic identities/provider replies passed Cloud signup,
+recovery-key display, workspace and first bot creation, message/reply and
+reload persistence, and an invited signup that skipped workspace/engine setup
+at a 390×844 viewport. Evidence: `.devone/evidence/platform-browser-ui.json`
+and screenshots. This is browser rendering evidence, not a physical phone.
+
+The initial Electron check failed on a checker selector, then another run
+timed out waiting for signup. Neither was counted as success. A fresh isolated
+rerun explicitly selected account mode and passed Cloud signup/chat/reload,
+Local creation, opening its separate loopback server, and the main process's
+account-ownership check. Evidence: `.devone/evidence/platform-native-ui.json`.
+This milestone did not yet test a Local bot turn or a packaged app; the
+checker is now being extended for both. All profiles and accounts are fixtures.
+
+The UI DeepSeek mini process also exited with a transport timeout. Its pane
+foreground process was verified to be zsh, then the same session was resumed.
+Source changes were preserved. The API and Local workers are running scoped
+follow-up reviews and the connected-tool broker. No unrelated panes were used.
+
+Still unverified: real Composio project provisioning/OAuth/tool use (no usable
+project or organization key supplied), the complete packaged Mac journey,
+physical phone use, R2 delivery (endpoint/account ID unavailable), and the new
+production platform deployment. The existing production app has not been
+replaced. Current next action: complete Local chat/switching and connected-app
+integration fixtures, then package and deploy from the verified result.
+
+## Composio resolver + callback hardening (fixtures)
+
+Scoped audit of `server/colonie/platform/composio.ts` plus the invitation and
+replay paths. Changes:
+
+- `completeLink` now rejects expired/failed/disconnected links (never revived
+  by replay), requires a nonempty `sessionUri`, expires a pending link older
+  than 10 minutes, re-checks actor membership after the awaited provider call,
+  fails the link when Composio verifies a different toolkit, and re-checks the
+  workspace key reference/version after the call so a swap or removal cannot
+  activate. Failed validation still preserves the prior key.
+- Per-workspace key mutex serializes provision/set/remove so references cannot
+  cross or leak. Removed the unenforced "idempotent provisioning" claim. No
+  header or state logging added.
+- Server-only `resolveToolAccess(accountId, workspaceId, scope)` returns the raw
+  key + `keyRef` + `keyVersion` and only active linked descriptors; personal
+  scope is the caller's own identity only, shared scope resolves the service
+  identity for any member (configuring a shared link stays admin-only).
+  `checkToolAccess(snapshot, connection)` re-checks key ref + active link +
+  membership. Neither is exposed by a route (fixture asserts 404). Root's
+  `tool-provider.ts` calls both.
+- Repository `acceptInvitation` re-checks revoked/expired/already-used under the
+  row lock (PG and the memory fixture) and raises `InvitationConflictError`,
+  which the service maps to the same 410/409 errors.
+- `replay` reads one past the page and appends a `resync` frame when the page is
+  truncated, so a workspace replay cannot silently skip events; private records
+  are still dropped per-record.
+
+Verification (fixtures only, no credentials, no live data):
+
+```bash
+npx tsc -p tsconfig.server.json --noEmit   # clean for platform files
+npx vitest run server/colonie/platform/    # 6 files, 130 tests passed
+npx oxlint --deny-warnings server/colonie/platform/composio.ts \
+  server/colonie/platform/composio.test.ts server/colonie/platform/service.ts \
+  server/colonie/platform/contracts.ts server/colonie/platform/pg-repository.ts \
+  server/colonie/platform/memory-repository.ts \
+  server/colonie/platform/platform.test.ts server/colonie/platform/index.ts   # exit 0
+```
+
+`composio.test.ts` is 51 tests and `platform.test.ts` is 32 tests; the new
+fixtures cover callback hardening, key serialization, server-only tool access
+(a member may use a deliberately shared grant; a revoked actor is denied),
+the locked invitation re-check, and replay resync/private-event handling. The
+only remaining `tsc` error is in root-owned `tools.test.ts` (`McpServer.headers`),
+not touched here. Still unverified: `PgComposioStore`/`PgPlatformRepository`
+against a real Postgres, the Composio callback verifier configuration, and any
+real provider tool call.
+
+## 2026-10-15 — Release checks and deployment preparation
+
+Local onboarding now starts at the engine step after global signup. An
+isolated native Mac run completed Cloud signup/first-bot chat, Local workspace
+creation, maintained-SDK deterministic ACP reply `1: LOCAL_WORKSPACE_UI_OK`,
+and switching back to Cloud with the Local conversation absent there. No
+native engine sign-in or real Local provider request was performed.
+
+The first packaged-app check exposed an actual lifecycle bug: a `closed`
+handler accessed a destroyed BrowserWindow's webContents during switching.
+The handler now captures the original contents while the window is alive.
+An earlier fixture also exposed the missing `cloudHomeOrigin` clipboard
+permission callback; it was fixed before packaging. Neither failure is
+reported as a passing journey.
+
+Actual commands/results:
+
+```bash
+pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts server/composio.test.ts server/composio-availability.test.ts
+node --test electron/colonie-workspaces.node-test.mjs electron/colonie-workspaces-credentials.node-test.mjs electron/colonie-platform.node-test.mjs electron/app-permissions.node-test.mjs
+PLAYWRIGHT_BROWSERS_PATH=.devone/browsers pnpm colonie:build
+pnpm exec electron-builder --config electron-builder.colonie.yml --mac --arm64 --publish never
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop --executable release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie
+```
+
+At this milestone: 239 fixture tests passed in 11 files; 61 native unit checks
+passed. Typecheck, complete UI/server/native-adapter build and ad-hoc signing
+completed. The final isolated packaged Mac check passed Cloud signup/chat/reload,
+Local creation/onboarding/ACP chat, and switching with separate histories.
+Evidence: `/tmp/colonie-platform-packaged-check-final.log` and
+`.devone/evidence/platform-native-ui.json`. The DM and Local provider replies
+in this renderer check are simulated; it does not prove real Local login,
+quarantined installation, or a physical phone.
+
+Connected-app implementation now has a parent-held, per-turn MCP lease broker,
+fixed account/identity execution, revocation checks before and after calls,
+and an explicit read-action catalog for Gmail, Google Calendar and Google Drive.
+Native filesystem/terminal tools remain disabled in Cloud. A maintained SDK
+fixture successfully requested an approved read tool over real loopback HTTP,
+returned its result through the ACP turn, and rejected the released lease.
+Write/send/delete actions and arbitrary toolkit/meta execution are unavailable.
+Provider key material is absent from the native child environment and MCP
+schemas. Composio vendor calls in these checks are simulated.
+
+The expanded isolated Neon check passed actual encrypted project-key storage,
+failed key replacement preserving the previous key, personal callback ownership,
+deliberately shared read identity accessible to ordinary members, persistence
+across restart, and refusal to revive a disconnected link (HTTP 410).
+`/tmp/colonie-platform-neon-app-storage-3.log` records the complete result and
+disposable-schema cleanup. One earlier run timed out and is not counted as
+success. This uses synthetic project keys and verifier responses, not live OAuth.
+
+Built both Cloud host and verifier as Node 24 bundles, installed the locked
+dependencies on the VPS, and ran the compiled Linux verifier under an isolated
+systemd unit:
+
+```bash
+node scripts/colonie/build-platform.mjs
+ssh colonie-vps 'systemd-run --unit=colonie-platform-release-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-neon.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+```
+
+Actual result: full PostgreSQL workflow passed and real Claude returned exactly
+`COLONIE_PLATFORM_CLAUDE_OK`, persisted; one paid request, no engine login,
+service exit 0, 10.534 seconds, disposable schema removed. The auth donor was
+read-only. No real app tool was exercised by this bounded text-only check.
+
+The separate `colonie-platform` service is now enabled and listening only at
+127.0.0.1:19091. Its private production config is mode 0600 outside the repo,
+uses a new `colonie_cloud_v1` schema, and has independent signing/encryption
+keys. Its native auth directory contains a read-only donor link, not copied
+credential bytes. Initial read-only bootstrap returned the expected platform
+origin. This service startup alone is not conversation evidence; that evidence
+is the isolated compiled-provider check above.
+
+`Colonie-0.2.0-arm64.dmg` (343 MB) was uploaded to the VPS's public download
+directory. The HTTPS gateway configuration validates, but the public switch
+and download verification are still pending at this milestone. R2 was not used
+because its endpoint/account ID is unavailable. No existing VPS conversations
+were reassigned to public accounts. Live production checks remain read-only.
+
+Next: finish the final Cloud view concurrency/provisioning checks, publish the
+account shell and download over HTTPS, verify them read-only, and record the
+final artifact hash. Still not verified: actual Composio OAuth/provisioning/tool
+use, physical-phone use, real Local engine login/turn on a recipient's Mac,
+and notarized/Gatekeeper installation. No claim of universal privacy or product
+correctness is made by these bounded checks.
+
+## Cloud workspace provisioning hook (fixtures)
+
+Added optional `PlatformServiceConfig.workspaceCreated(workspace, actorId)`.
+`createWorkspace` awaits it only for a Cloud workspace, after the membership and
+principal rows exist, and swallows any rejection: a provisioning failure never
+fails or blocks the workspace's first chat, and no key status is set. Root wires
+it to `WorkspaceComposioService.provisionProjectKey` in `host.ts` (not touched
+here). Fixtures: each Cloud workspace invokes the hook separately with its owner
+account; a Local workspace never does; a throwing hook still leaves the
+workspace usable (bot DM turn succeeds); no hook configured is fine; a failed
+`provisionProjectKey` leaves `status.configured === false` and no key record.
+
+Verification: `npx vitest run server/colonie/platform/` → 7 files, 139 tests
+passed (`composio.test.ts` 52, `platform.test.ts` 36). `tsc` and `oxlint` clean
+for platform files; the only remaining `tsc` error is root-owned `tools.test.ts`.
+
+### Final beta publication and evidence reconciliation
+
+The older worker notes about `tools.test.ts` and unverified PostgreSQL are
+historical. The ACP server-union test was narrowed correctly; full typecheck
+and build passed. The final combined suite passed **255 tests in 11 files**;
+the native registry/controller/vault/permission suite passed **61 tests**.
+Oxlint and the locale catalog check passed. The scope remains a beta, with the
+real-provider and device limitations below.
+
+Final refinements include guarded conversation opening/sending across fast
+conversation or workspace switches, active-message reload after replay resync,
+the most recent page on reopening long conversations, and **Load earlier
+messages**. Deferred-response fixtures cover stale open/send completions and
+earlier-page merging/failure. Cloud provider prompts now request the latest 60
+authorized messages explicitly, so a message after the first 100 cannot vanish
+from the native input. A chunked, oversized account-body fixture returned 413
+without destroying the response socket. Vendor map-format tool schemas are
+converted to valid JSON Schema and checked with Ajv.
+
+Composio auto-provisioning is a best-effort background hook after Cloud workspace
+creation when an org key exists. A deferred-hook fixture proved workspace
+creation does not wait for that provider. The deployment has no org key, and
+this is not a claim of real project provisioning. An admin can use project-key
+setup; ordinary members see a plain explanation instead of server details.
+
+Actual final commands:
+
+```bash
+pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts server/composio.test.ts server/composio-availability.test.ts
+pnpm build
+pnpm exec oxlint --deny-warnings .
+pnpm i18n:check
+node scripts/colonie/build-platform.mjs
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop --executable release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie
+NODE_ENV=production node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /Users/riaenriala/.config/colonie-development/infra.json --public-origin https://172.104.33.55
+```
+
+The final browser run passed Cloud signup/first bot/chat/reload, invited signup
+at 390×844, and messages/replies between independent human browser contexts.
+The final packaged Mac run passed Cloud and Local chats and switching; the
+Local reply was deterministic ACP, without real engine sign-in. Logs:
+`/tmp/colonie-platform-ship-renderer.log` and
+`/tmp/colonie-platform-shipped-mac-check.log`. The production-origin Neon
+fixture passed actual auth/tenant/conversation/recovery/app-storage workflows
+with Secure HttpOnly session cookies. Its first run deliberately burst four
+signups from one address and hit the production signup limit (429); separate
+synthetic client IPs then reproduced the trusted proxy headers and passed.
+That was an isolated fixture, not a write against production accounts.
+
+The HTTPS gateway was switched to the new platform at 127.0.0.1:19091 after
+configuration validation. Read-only public checks returned platform bootstrap,
+401 for unauthenticated workspaces, 403 for a foreign Origin, and TLS verify 0.
+Public Chromium rendered the signup screen without pairing; no account was
+created. The Mac download initially returned 403 because the HTTPS service
+could not traverse the private app parent directory. Public artifacts were
+moved to `/var/www/colonie/downloads`, preserving that private boundary; the
+download then returned HTTP 200, `application/x-apple-diskimage`.
+
+The final installer was rebuilt, retested, and uploaded. A complete HTTPS GET
+was streamed through SHA-256 and matched the local file:
+
+```text
+f54448b4ce79946ded8244aa657ccfe4ed1d74920c2ea85a536c958dd1c4f0ee
+```
+
+URL: `https://172.104.33.55/downloads/Colonie-0.2.0-arm64.dmg`.
+The earlier `626a47…` digest belongs to the superseded artifact. The app is
+ad-hoc signed, not notarized. The source is on `colonie/multi-workspace-beta`;
+provided infrastructure secrets were checked against the 80 changed/new files:
+zero matches, without printing credential values or inspecting native auth.
+
+Unverified or outstanding: real Composio provisioning/OAuth/tool execution,
+physical-phone use, a recipient's real Local engine login/turn, quarantined
+Mac installation, and migration of existing VPS conversations into global
+accounts. R2 is unused because no endpoint/account ID was supplied; download
+delivery uses the VPS. Jev, write actions, billing, workspace mode conversion
+and cross-workspace forwarding are not included. The beta can now be tried via
+ordinary signup; broad production correctness is not inferred from these tests.

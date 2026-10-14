@@ -38,7 +38,7 @@ const results: Record<string, unknown> = { desktop, fixture: fixture.info, previ
 try {
   if (desktop) {
     const env = { ...process.env, ...verificationServerEnvironment({}, fixture.info.dataDir, Number(new URL(fixture.info.url).port)),
-      DEVONE_PROFILE: "1", DEVONE_USER_DATA: join(fixture.info.dataDir, "electron-profile"), ELECTRON_START_URL: preview.previewUrl };
+      DEVONE_PROFILE: "1", COLONIE_PLATFORM_DISABLED: "1", DEVONE_USER_DATA: join(fixture.info.dataDir, "electron-profile"), ELECTRON_START_URL: preview.previewUrl };
     delete env.ELECTRON_RUN_AS_NODE;
     electron = await _electron.launch({ args: [resolve(".")], env, timeout: 30_000 });
     const deadline = Date.now() + 30_000;

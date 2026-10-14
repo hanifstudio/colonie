@@ -15,6 +15,7 @@ import {
   serializeConnectorServiceSlugs,
 } from "./connector-advertisement.ts";
 import { serviceSlugFor, serviceSlugForCandidates } from "./connector-verdict.ts";
+import { composioKeyRejection } from "./colonie/connections/key-permissions.ts";
 
 const DEFAULT_BACKEND_ORIGIN = "https://backend.composio.dev";
 
@@ -300,7 +301,7 @@ export type ConnectorSetup = "ready" | "needs-setup" | "service-unavailable";
 
 export function connectorSetup(
   cfg: AppConfig,
-  desktopManaged: boolean = process.env.OMB_DESKTOP_PARENT === "1",
+  desktopManaged: boolean = process.env.OMB_DESKTOP_PARENT === "1" && process.env.COLONIE_PROFILE !== "1",
 ): ConnectorSetup {
   if (configured(cfg)) return "ready";
   return desktopManaged ? "service-unavailable" : "needs-setup";
@@ -527,7 +528,7 @@ export async function prepareProjectSession(
     body: JSON.stringify(sessionRequest),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw new Error(await responseError(res, `Composio rejected this key (HTTP ${res.status})`));
+  if (!res.ok) throw composioKeyRejection(await responseError(res, ""), res.status, trimmed);
   const session = parseSessionResponse(sessionResponseSchema.parse(await res.json()));
   // If Composio does not echo the configs back, a later check would ask for
   // the same creation again — remember this attempt so it happens once.

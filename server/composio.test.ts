@@ -88,6 +88,11 @@ beforeAll(async () => {
       transportSessionId: String(req.headers["mcp-session-id"] ?? ""),
     });
 
+    if (url.pathname.endsWith("/tool_router/session") && req.method === "POST" && req.headers["x-api-key"] === "ak_read_only_fixture") {
+      res.writeHead(403, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: { message: 'This route requires "session_management" write access, but the key has read access for "session_management".' } }));
+    }
+
     if (url.pathname.startsWith("/broker/")) {
       // c/d/e/f back the cache-identity tests; b stays invalid so a token
       // switch can be made to fail on purpose.
@@ -733,6 +738,15 @@ describe.sequential("Composio Sessions", () => {
   it("accepts only project API keys", async () => {
     await expect(prepareProjectSession("old_key")).rejects.toThrow(/start with ak_/i);
     await expect(prepareProjectSession("ak_wrong")).rejects.toThrow(/invalid project key/i);
+  });
+
+  it("explains session write permission and preserves the previous configuration when a read-only key is rejected", async () => {
+    const previous = { apiKey: "ak_existing_fixture", userId: "existing-human", sessionId: "existing-session" };
+    await expect(prepareProjectSession("ak_read_only_fixture", previous, {})).rejects.toMatchObject({
+      code: "composio_session_write_required", status: 422,
+      message: expect.stringContaining("session_management Write access"),
+    });
+    expect(previous).toEqual({ apiKey: "ak_existing_fixture", userId: "existing-human", sessionId: "existing-session" });
   });
 
   it("creates one stable per-installation session and reuses it", async () => {

@@ -1,0 +1,27 @@
+# Install as /etc/colonie/Caddyfile. Set COLONIE_PUBLIC_IP in https.env.
+# Public IP certificates require the shortlived ACME profile. Caddy renews them.
+{
+	admin off
+	log {
+		level WARN
+	}
+}
+
+https://{$COLONIE_PUBLIC_IP} {
+	bind {$COLONIE_PUBLIC_IP}
+	tls {
+		issuer acme {
+			profile shortlived
+		}
+	}
+	encode zstd gzip
+	handle /downloads/* {
+		root * /var/www/colonie
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:19091 {
+			flush_interval -1
+		}
+	}
+}
