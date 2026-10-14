@@ -2557,3 +2557,14 @@ accounts. R2 is unused because no endpoint/account ID was supplied; download
 delivery uses the VPS. Jev, write actions, billing, workspace mode conversion
 and cross-workspace forwarding are not included. The beta can now be tried via
 ordinary signup; broad production correctness is not inferred from these tests.
+
+Source publication: `git commit -m 'Add account-based Cloud and Local workspace
+beta'` created `a42556f5`; `git push -u colonie colonie/multi-workspace-beta`
+completed, including the required lint/locale pre-push checks. The upstream
+`origin` remote was not pushed. `gh pr create --repo hanifstudio/colonie --base
+main --head colonie/multi-workspace-beta --draft --title 'Add account-based
+Cloud and Local workspaces' --body-file /tmp/colonie-workspace-pr.md` created
+draft PR https://github.com/hanifstudio/colonie/pull/1. It is not merged.
+The final full typecheck and the Ajv schema fixture passed after correcting the
+test's constructor import. The working tree was clean after the implementation
+commit; this closing evidence note is the only subsequent documentation change.
