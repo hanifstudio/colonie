@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import type { BotVisibility, CardAnswerer, CloudBackend, ConnectorToolGrant, EffortLevel, InstalledPackageMetadata, LiveCallState, LiveSettings, ServerFrame, GroupThreadUsage, SteerQueueReason } from "../../shared/wire";
+import type { BotVisibility, CardAnswerer, CloudBackend, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, GroupThreadUsage, SteerQueueReason } from "../../shared/wire";
 import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
@@ -503,7 +503,6 @@ export interface Bot {
   /** Who may see this bot on a shared workspace; only admins receive it. */
   visibility?: BotVisibility;
   /** Where a shared or organization package put this bot (its provenance line). */
-  installedPackage?: InstalledPackageMetadata;
   messages: Message[];
   /** The server answered a bounded page and older messages remain in storage.
    * Absent on an unpaged response, which always carries the whole thread. */

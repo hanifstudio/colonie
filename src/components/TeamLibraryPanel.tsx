@@ -2,8 +2,6 @@ import { track } from "@/lib/analytics";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { teamImportPreview, type PendingTeamImport } from "@/lib/team-import";
-import { orgCardAction, orgPackagePreview, type OrgLibraryListing, type OrgLibraryPackage } from "@/lib/org-library";
-import type { PackageDocument } from "../../shared/package-format";
 import type { Routine } from "@/lib/routines";
 import { api, useStore, type Bot, type Group } from "@/state/store";
 import {
@@ -31,7 +29,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ShareTeamDialog } from "./ShareTeamDialog";
-import { OrgLibraryTab } from "./TeamLibraryPanelOrg";
 import { MAX_TEAM_BACKUP_BYTES, TEAM_BACKUP_EXCLUSIONS } from "../../shared/team-backup";
 import { takeImportName } from "../../shared/import-name";
 const COMMUNITY_TEAMS_REPOSITORY = "https://github.com/milind-soni/openmausbot-teams";
@@ -67,7 +64,7 @@ export interface TeamImportResult {
 }
 
 type ImportSource = "library" | "file" | "github";
-type TeamTab = "org" | "explore" | "import" | "scout" | "share";
+type TeamTab = "explore" | "import" | "scout" | "share";
 
 /** the scout endpoint's answer, as far as this panel renders it — the
  * manifest itself stays opaque and goes back to the server verbatim */
@@ -134,11 +131,9 @@ function TeamGlyph({ index }: { index: number }) {
 }
 
 /** Everything an import will add, before anything is added. Pure, for tests. */
-export function TeamImportDetails({ pending, importedNames, org = false }: {
+export function TeamImportDetails({ pending, importedNames }: {
   pending: PendingTeamImport;
   importedNames: string[];
-  /** From the organization's library: its skills arrive switched on. */
-  org?: boolean;
 }) {
   return (
     <>
@@ -169,9 +164,9 @@ export function TeamImportDetails({ pending, importedNames, org = false }: {
       )}
       {Boolean(pending.skills?.length) && (
         <div className="mt-4 rounded-xl border border-hairline px-4 py-3 text-[12.5px] text-ink-secondary">
-          <div className="font-medium text-ink">{org ? t("orgLibrary.skillsOn") : pending.version === 2 ? t("teamImport.skillsOff") : "Included skills — disabled on import"}</div>
+          <div className="font-medium text-ink">{pending.version === 2 ? t("teamImport.skillsOff") : "Included skills — disabled on import"}</div>
           <p className="mt-1 break-words">{pending.skills?.join(", ")}</p>
-          {!org && <p className="mt-1">{pending.version === 2 ? t("teamImport.skillsReview") : "Review each skill in its bot profile before enabling it. Imported instructions do not run automatically."}</p>}
+          <p className="mt-1">{pending.version === 2 ? t("teamImport.skillsReview") : "Review each skill in its bot profile before enabling it. Imported instructions do not run automatically."}</p>
         </div>
       )}
       {pending.library && Boolean(pending.presets?.length) && (
@@ -220,8 +215,6 @@ export function TeamImportDetails({ pending, importedNames, org = false }: {
         <p>
           {pending.kind === "backup"
             ? `${TEAM_BACKUP_EXCLUSIONS} ${pending.archivedBots ? `${pending.archivedBots} archived bots will remain archived.` : ""}`
-            : org
-            ? pending.members.length ? t("orgLibrary.teamSafety") : t("orgLibrary.librarySafety")
             : pending.library
             ? t("teamImport.librarySafety")
             : pending.version === 2
@@ -275,14 +268,6 @@ export function TeamLibraryPanel({
   const [creating, setCreating] = useState(false);
   // The team being shared; its dialog sits above this panel.
   const [sharing, setSharing] = useState<string | null>(null);
-  // The organization's shelf: null until loaded, {organization: null}
-  // without an organization (then there is no tab at all).
-  const [orgListing, setOrgListing] = useState<OrgLibraryListing | null>(null);
-  const [orgBusy, setOrgBusy] = useState<string | null>(null);
-  const [orgNotice, setOrgNotice] = useState("");
-  const [orgError, setOrgError] = useState("");
-  // Set while the preview shows a package from the organization.
-  const [pendingOrg, setPendingOrg] = useState<OrgLibraryPackage | null>(null);
   const tabChosen = useRef(false);
   // monotonically increasing scout token: a late response from an older
   // scout (including its lazy directory call) must never overwrite state
@@ -311,23 +296,6 @@ export function TeamLibraryPanel({
     void loadCatalog();
   }, [loadCatalog]);
 
-  const loadOrgLibrary = useCallback(async () => {
-    try {
-      // SAFETY: this endpoint is owned by the app and returns OrgLibraryListing.
-      const listing = (await api("/api/org-library")) as OrgLibraryListing;
-      setOrgListing(listing);
-      // The organization's shelf is the first tab, and opens first.
-      if (listing.organization && !tabChosen.current) setTab("org");
-    } catch {
-      // No shelf is the same as no organization: the other tabs still work.
-      setOrgListing({ organization: null, packages: [] });
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadOrgLibrary();
-  }, [loadOrgLibrary]);
-
   useEffect(() => {
     dialogRef.current?.focus();
     return () => returnFocusRef.current?.focus();
@@ -342,7 +310,6 @@ export function TeamLibraryPanel({
         event.stopPropagation();
         if (pending) {
           setPending(null);
-          setPendingOrg(null);
         } else onClose();
         return;
       }
@@ -468,64 +435,6 @@ export function TeamLibraryPanel({
     }
   };
 
-  const loadOrgDetails = async (entry: OrgLibraryPackage) => {
-    setOrgBusy(entry.packageId);
-    setOrgError("");
-    try {
-      // SAFETY: this endpoint is owned by the app and returns the verified release.
-      const preview = (await api(`/api/org-library/packages/${entry.packageId}`)) as { document: PackageDocument };
-      setPending(orgPackagePreview(preview.document));
-      setPendingOrg(entry);
-      setError("");
-    } catch (cause) {
-      setOrgError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setOrgBusy(null);
-    }
-  };
-
-  /** One click adds it; there is no confirmation step. */
-  const addOrgPackage = async (entry: OrgLibraryPackage) => {
-    setOrgBusy(entry.packageId);
-    setImporting(true);
-    setOrgError("");
-    setOrgNotice("");
-    setError("");
-    try {
-      // SAFETY: this endpoint is owned by the app and returns the added records.
-      const response = (await api("/api/org-library/add", {
-        method: "POST",
-        body: JSON.stringify({ packageId: entry.packageId }),
-      })) as { alreadyAdded: boolean; bots?: Bot[]; groups?: Group[]; routines?: Routine[]; connections?: unknown[] };
-      for (const bot of response.bots ?? []) dispatch({ type: "botAdded", bot });
-      for (const group of response.groups ?? []) dispatch({ type: "groupPatched", group });
-      for (const routine of response.routines ?? []) dispatch({ type: "routinePatched", routine });
-      const first = response.bots?.find((bot) => !bot.hidden);
-      track("team_imported", { members: response.bots?.length ?? 0, source: "organization", mode: "add", format: "package" });
-      if (first) {
-        dispatch({ type: "select", id: first.id });
-        onImported({
-          name: entry.name,
-          members: response.bots!.length,
-          ...(response.connections?.length ? { connections: response.connections.length } : {}),
-        });
-        return;
-      }
-      setPending(null);
-      setPendingOrg(null);
-      if (!response.alreadyAdded) setOrgNotice(t("orgLibrary.addedSkills", { name: entry.name }));
-      await loadOrgLibrary();
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : String(cause);
-      if (pendingOrg) setError(message);
-      else setOrgError(message);
-      await loadOrgLibrary();
-    } finally {
-      setOrgBusy(null);
-      setImporting(false);
-    }
-  };
-
   const scoutTarget = scoutFolder.trim();
 
   const runScout = async (folder: string) => {
@@ -644,7 +553,6 @@ export function TeamLibraryPanel({
                 <button
                   onClick={() => {
                     setPending(null);
-                    setPendingOrg(null);
                     setError("");
                   }}
                   disabled={importing}
@@ -698,7 +606,7 @@ export function TeamLibraryPanel({
         {pending ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-6 sm:px-8">
-              <TeamImportDetails pending={pending} importedNames={importedNames} org={pendingOrg !== null} />
+              <TeamImportDetails pending={pending} importedNames={importedNames} />
               {error && <div role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{error}</div>}
             </div>
 
@@ -713,23 +621,7 @@ export function TeamLibraryPanel({
                   ? ""
                   : t("teamImport.newSection", { name: pending.teamName ?? pending.name })}
               </div>
-              {pendingOrg ? (
-                orgCardAction(pendingOrg) === "add" ? (
-                  <button
-                    onClick={() => void addOrgPackage(pendingOrg)}
-                    disabled={importing}
-                    aria-label={t("orgLibrary.addAria", { name: pendingOrg.name })}
-                    className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
-                  >
-                    {importing && <HIcon icon={Loading02Icon} size={15} className="animate-spin" />}
-                    {importing ? t("orgLibrary.adding") : t("orgLibrary.add")}
-                  </button>
-                ) : (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-raised px-4 py-2 text-[13px] text-ink-secondary">
-                    <HIcon icon={Tick01Icon} size={14} className="text-success" />{t("orgLibrary.added")}
-                  </span>
-                )
-              ) : <button
+              <button
                 onClick={() => void importTeam()}
                 disabled={importing}
                 className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
@@ -738,30 +630,13 @@ export function TeamLibraryPanel({
                 {importing
                   ? "Importing…"
                   : pending.kind === "backup" ? "Import backup" : pending.library ? t("teamImport.addPresets") : "Add team"}
-              </button>}
+              </button>
             </footer>
           </>
         ) : (
           <>
             <div className="flex flex-col gap-3 px-6 pb-4 pt-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
               <div className="flex w-fit rounded-xl bg-raised/70 p-1" role="tablist" aria-label="Template source">
-                {orgListing?.organization && (
-                  <button
-                    role="tab"
-                    aria-selected={tab === "org"}
-                    onClick={() => {
-                      tabChosen.current = true;
-                      setTab("org");
-                      setError("");
-                    }}
-                    className={cn(
-                      "max-w-[220px] truncate rounded-lg px-4 py-2 text-[13.5px] transition-colors",
-                      tab === "org" ? "bg-card text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
-                    )}
-                  >
-                    {t("orgLibrary.tab", { name: orgListing.organization.name })}
-                  </button>
-                )}
                 <button
                   role="tab"
                   aria-selected={tab === "explore"}
@@ -838,16 +713,6 @@ export function TeamLibraryPanel({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-7 pt-5 sm:px-8">
-              {tab === "org" && orgListing?.organization && (
-                <OrgLibraryTab
-                  listing={orgListing as OrgLibraryListing & { organization: { id: string; name: string } }}
-                  busy={orgBusy}
-                  notice={orgNotice}
-                  error={orgError}
-                  onAdd={(entry) => void addOrgPackage(entry)}
-                  onDetails={(entry) => void loadOrgDetails(entry)}
-                />
-              )}
               {tab === "explore" && (
                 <div>
                   <div className="mb-3 text-[12px] font-medium text-ink-secondary">
