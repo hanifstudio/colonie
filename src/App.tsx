@@ -29,12 +29,23 @@ import { CloudSetup } from "@/components/CloudSetup";
 import { engineReady } from "@/components/EngineLibrary";
 import { CommandPalette } from "@/components/CommandPalette";
 import { setLocale } from "@/lib/i18n";
-import { shouldOpenKeyboardShortcuts } from "@/lib/keyboard-shortcuts";
+import { useAppKeyboardShortcuts } from "@/lib/use-app-keyboard-shortcuts";
 import { effectiveLanguage, useLanguageChoice } from "@/lib/language-preference";
 import { botShowsUnread } from "@/lib/bot-unread";
 import { phonePairingSettingsAction, takePhonePairingRequest } from "@/lib/phone-pairing";
+import type { AppShellAccountPort } from "@/lib/app-shell-account";
 
-function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
+/** The one original shell. `Application` below renders it for Local with no
+ * `account` port, which is the unchanged original behavior; an account (Cloud)
+ * workspace mounts it directly under its own store and supplies the data-backed
+ * surfaces. Every layout, chrome, drawer, shortcut and palette behavior here is
+ * shared by both. */
+export function Shell({ viewer = null, account }: {
+  viewer?: WelcomeViewer | null;
+  /** Present only for an account workspace; its absence is Local. */
+  account?: AppShellAccountPort;
+}) {
+  const accountWorkspace = Boolean(account);
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const unreadCount =
@@ -44,7 +55,9 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const twoSidePanelsFit = useMediaQuery(TWO_SIDE_PANELS_FIT, true);
   const sidebarAndPanelFit = useMediaQuery(SIDEBAR_AND_PANEL_FIT, true);
   useEffect(() => {
-    if (!window.ogb?.environments) return;
+    // An account workspace has no local server and no native settings
+    // deep-links: its controller owns navigation entirely.
+    if (accountWorkspace || !window.ogb?.environments) return;
     // A saved server's Computer access panel, or ("copy") its Copy this computer here panel.
     const open = (computerId?: string | null, panel?: "copy") => {
       if (computerId) {
@@ -67,16 +80,17 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
       else open();
     }
     return window.ogb.environments.onOpenSettings?.(open);
-  }, [dispatch]);
+  }, [dispatch, accountWorkspace]);
   // "Use your Cloud on your phone" opens the Cloud in this window at
   // /?desktop-settings=phone: its own phone pairing, in any window, on any
   // server. It only opens Settings there; no code is made until a click.
   useEffect(() => {
+    if (accountWorkspace) return;
     const rest = takePhonePairingRequest(window.location.href);
     if (rest === null) return;
     window.history.replaceState(null, "", rest);
     dispatch(phonePairingSettingsAction());
-  }, [dispatch]);
+  }, [dispatch, accountWorkspace]);
   // Mobile-only drawer state. Above md, none of these properties are emitted
   // at all — Sidebar scopes every mobile class with max-md: rather than
   // cancelling them with md:, which would still emit a translate value and
@@ -104,7 +118,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   // A side panel beside the full sidebar leaves the default 1100px window a
   // ~330px chat. Fold the sidebar to its avatar rail for as long as a panel
   // is open and the window is not wide enough for all three.
-  const sidePanelOpen = Boolean(bot) && Boolean(state.settingsOpen || state.computerOpen || state.inspectorOpen || state.activityOpen || state.filePreview);
+  const sidePanelOpen = account ? Boolean(account.sidePanelOpen) : Boolean(bot) && Boolean(state.settingsOpen || state.computerOpen || state.inspectorOpen || state.activityOpen || state.filePreview);
   const collapseSidebar = sidePanelOpen && !sidebarAndPanelFit;
   const calendarFocus = state.activeView === "routines";
   // Turning Advanced mode off closes the inspector it no longer offers.
@@ -126,40 +140,13 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   const cloudSignIn = cloudSignInDue(viewer, state, engineReady);
 
   // App-wide shortcuts: ⌘N new bot · ⌘1–9 jump to bot · ⌘⇧[ / ⌘⇧] prev/next · ⌘/ or ? shortcuts cheat sheet.
-  // Kept deliberately small; every panel already closes on Esc.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.isComposing || state.shortcutsOpen) return;
-      if (shouldOpenKeyboardShortcuts(e)) {
-        e.preventDefault();
-        dispatch({ type: "toggleShortcuts", open: true });
-        return;
-      }
-
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      const bots = state.bots.filter((b) => !b.hidden);
-      if (e.key === "n" && !e.shiftKey) {
-        e.preventDefault();
-        dispatch({ type: "toggleNewBot", open: true });
-      } else if (/^[1-9]$/.test(e.key)) {
-        const target = bots[Number(e.key) - 1];
-        if (target) {
-          e.preventDefault();
-          dispatch({ type: "select", id: target.id });
-        }
-      } else if (e.shiftKey && (e.key === "[" || e.key === "]")) {
-        const idx = bots.findIndex((b) => b.id === state.selectedId);
-        const next = bots[(idx + (e.key === "]" ? 1 : -1) + bots.length) % bots.length];
-        if (next) {
-          e.preventDefault();
-          dispatch({ type: "select", id: next.id });
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [state.bots, state.selectedId, state.shortcutsOpen, dispatch]);
+  // Shared with the account workspace so both shells bind the same keys.
+  useAppKeyboardShortcuts({
+    bots: state.bots,
+    selectedId: state.selectedId,
+    shortcutsOpen: state.shortcutsOpen,
+    dispatch,
+  });
 
   useEffect(() => {
     window.ogb?.setUnreadCount?.(unreadCount);
@@ -169,9 +156,11 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   // The modal then opens with the correct Connect/Add account buttons and
   // quietly revalidates instead of rediscovering every account from scratch.
   useEffect(() => {
-    if (!state.connected) return;
+    // The connected-account inventory is a legacy local-server route; an
+    // account workspace reads its own apps through its controller.
+    if (accountWorkspace || !state.connected) return;
     void preloadConnectedApps().catch(() => {});
-  }, [state.connected]);
+  }, [state.connected, accountWorkspace]);
 
   // Settings, Routines and the other on-request screens stay out of the
   // launch bundle; fetch them once the first paint is done and the app is idle.
@@ -244,16 +233,19 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   // "cloud" is openmausbot://cloud (the Cloud page's "Open in the app"):
   // OMB Cloud, marked as opened by the link so that view signs in or connects.
   useEffect(() => {
-    return window.ogb?.onOpenAppSettings?.(section => dispatch(section === "cloud" && window.ogb?.cloudAccount && !remoteClient
+    return window.ogb?.onOpenAppSettings?.(section => dispatch(!accountWorkspace && section === "cloud" && window.ogb?.cloudAccount && !remoteClient
       ? CLOUD_LINK_SETTINGS
-      : section === "cloud-settings" && window.ogb?.cloudAccount && !remoteClient
+      : !accountWorkspace && section === "cloud-settings" && window.ogb?.cloudAccount && !remoteClient
         ? { type: "toggleAppSettings", open: true, section: "cloudAccount" }
-        : { type: "toggleAppSettings", open: true, ...(section === "organization" && window.ogb?.organization && !remoteClient ? { section } : {}) }));
-  }, [dispatch]);
+        : { type: "toggleAppSettings", open: true, ...(!accountWorkspace && section === "organization" && window.ogb?.organization && !remoteClient ? { section } : {}) }));
+  }, [dispatch, accountWorkspace]);
 
   // The viewer outlives ComputerPanel and can target any bot, so release control
   // here (always mounted) when a bot's viewer closes. release() is idempotent.
   useEffect(() => {
+    // A legacy native-server release call; an account workspace has no such
+    // viewer and its controller owns computer state.
+    if (accountWorkspace) return;
     return window.ogb?.desktopViewer?.onState((viewer) => {
       if (viewer.open || !viewer.contextId) return;
       const botId = viewer.contextId;
@@ -273,13 +265,13 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         body: "{}",
       }).catch(() => {});
     });
-  }, [dispatch]);
+  }, [dispatch, accountWorkspace]);
 
   return (
     <div className="flex h-full flex-col">
       {/* fixed-position popup, bottom-left — outside the layout flow */}
       <UpdateBanner />
-      <ProIntroduction quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} />
+      {!accountWorkspace && <ProIntroduction quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} />}
       <div className="relative flex min-h-0 flex-1">
       {!calendarFocus && <button
         type="button"
@@ -298,15 +290,24 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           className="absolute inset-0 z-30 bg-black/50 md:hidden"
         />
       )}
-      {!calendarFocus && <Sidebar
-        collapseToIcons={collapseSidebar}
-        open={drawerOpen}
-        onClose={() => {
-          setDrawerOpen(false);
-          menuButtonRef.current?.focus();
-        }}
-      />}
-      {state.activeView === "team-map" ? (
+      {!calendarFocus && (account
+        ? account.sidebar({
+          open: drawerOpen,
+          onClose: () => {
+            setDrawerOpen(false);
+            menuButtonRef.current?.focus();
+          },
+          collapseToIcons: collapseSidebar,
+        })
+        : <Sidebar
+          collapseToIcons={collapseSidebar}
+          open={drawerOpen}
+          onClose={() => {
+            setDrawerOpen(false);
+            menuButtonRef.current?.focus();
+          }}
+        />)}
+      {account ? account.main : state.activeView === "team-map" ? (
         <TeamMapPage />
       ) : state.activeView === "routines" ? (
         <RoutinesPage onBack={closeCalendar} onOpenRoom={openCalendarRoom} />
@@ -349,6 +350,11 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           sidebar leave the default 1100px window a sliver of chat, so until
           the window is wide enough to seat both, settings floats over the
           chat instead and the other panel is still there when it closes. */}
+      {/* An account workspace mounts its own panels and dialogs here. The
+          legacy-API panels below are the Local shell's, so they are skipped
+          rather than pointed at a server that is not there; the cheat sheet
+          and the command palette stay mounted for both. */}
+      {account ? account.panels : <>
       {state.settingsOpen && bot && (
         remoteClient
           ? <RemoteAgentSettingsPanel bot={bot} overlay={state.computerOpen && !twoSidePanelsFit} />
@@ -375,6 +381,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}
+      </>}
       {state.shortcutsOpen && (
         <KeyboardShortcutsModal
           open={state.shortcutsOpen}

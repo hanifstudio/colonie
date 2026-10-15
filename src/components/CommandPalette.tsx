@@ -4,11 +4,11 @@
 import { useEffect, useRef, useState } from "react";
 import { BotIcon, MessageSquareIcon, Search01Icon, UsersIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { api, useStore, type Bot, type Group } from "@/state/store";
+import { useStore, type Bot, type Group } from "@/state/store";
 import { rankByName } from "@/lib/palette-rank";
 import { cn } from "@/lib/cn";
 import type { SearchHit } from "@/lib/search-hit";
-import { landOnSearchHit } from "@/lib/focus-message";
+import { useTranscriptSearch } from "@/lib/colonie-search";
 
 type PaletteEntry =
   | { kind: "bot"; bot: Bot }
@@ -17,6 +17,7 @@ type PaletteEntry =
 
 export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const { state, dispatch } = useStore();
+  const { search, land: openHit } = useTranscriptSearch();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [messageHits, setMessageHits] = useState<SearchHit[]>([]);
@@ -64,15 +65,15 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
     setMessageHits([]);
     let alive = true;
     const timer = setTimeout(() => {
-      api(`/api/search?q=${encodeURIComponent(q)}&limit=12`)
-        .then((result: { hits?: SearchHit[] }) => alive && setMessageHits(result.hits ?? []))
+      search(q, 12)
+        .then((hits) => alive && setMessageHits(hits))
         .catch(() => alive && setMessageHits([]));
     }, 150);
     return () => {
       alive = false;
       clearTimeout(timer);
     };
-  }, [open, q]);
+  }, [open, q, search]);
 
   useEffect(() => setCursor(0), [q]);
 
@@ -97,7 +98,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
     if (entry.kind === "message") {
       const hit = entry.hit;
       try {
-        await landOnSearchHit(hit, state, dispatch);
+        await openHit(hit, state, dispatch);
       } catch (error) {
         dispatch({ type: "error", message: error instanceof Error ? error.message : String(error) });
       }

@@ -8,8 +8,8 @@ import {
   connectionLinkLabel, connectionLinkTone,
   conversationTitle, initialsOf, invitationLinkFor, invitationTokenFromLocation, isComposioCallback,
   mergeMessages, mergeWorkspaceViews, outranks, partitionConversations, platformUrl, PlatformApiError,
-  PlatformClient, rememberLinkState, roleLabel, route, sseData, takeLinkState, totalUnread,
-  type PlatformConnectionLink, type PlatformConversation, type PlatformMessage,
+  PlatformClient, rememberLinkState, roleLabel, route, searchHitFromPlatform, sseData, takeLinkState, totalUnread,
+  type PlatformConnectionLink, type PlatformConversation, type PlatformMessage, type PlatformSearchHit,
 } from "./colonie-platform";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -372,5 +372,84 @@ describe("SSE", () => {
     const seen: Array<{ type: string; sequence: number }> = [];
     await client.stream("w1", { onEvent: (event, sequence) => seen.push({ type: event.type, sequence }) });
     expect(seen).toEqual([{ type: "resync", sequence: 0 }]);
+  });
+});
+
+// ── transcript search wire ─────────────────────────────────────────────────
+
+function searchHit(overrides: Partial<PlatformSearchHit> = {}): PlatformSearchHit {
+  return {
+    conversationId: "c1", conversationKind: "dm", title: "Bob", messageId: "m1", sequence: 7,
+    senderPrincipalId: "p-alice", senderKind: "human", senderName: "Alice",
+    snippet: "dinner plan", matchStart: 0, matchLength: 6, createdAt: "2026-02-01T10:00:00.000Z", ...overrides,
+  };
+}
+
+describe("PlatformClient transcript search", () => {
+  it("GETs the workspace-scoped search route with a bounded query and reads the hits", async () => {
+    const seen: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      seen.push(`${init.method} ${url}`);
+      return jsonResponse({ hits: [searchHit()] });
+    });
+    const client = new PlatformClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    const hits = await client.search("w 1", "hello world", { limit: 12 });
+    expect(seen).toEqual(["GET /api/colonie/platform/workspaces/w%201/search?q=hello+world&limit=12"]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.messageId).toBe("m1");
+  });
+
+  it("omits the limit when none is given", async () => {
+    const seen: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      seen.push(`${init.method} ${url}`);
+      return jsonResponse({ hits: [] });
+    });
+    const client = new PlatformClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    await client.search("w1", "q");
+    expect(seen).toEqual(["GET /api/colonie/platform/workspaces/w1/search?q=q"]);
+  });
+
+  it("pages a conversation with after/limit and stays compatible without options", async () => {
+    const seen: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      seen.push(`${init.method} ${url}`);
+      return jsonResponse({ conversation: conversation({}), messages: [message({})] });
+    });
+    const client = new PlatformClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    await client.getConversation("c1");
+    await client.getConversation("c1", { after: 4, limit: 50 });
+    expect(seen).toEqual([
+      "GET /api/colonie/platform/conversations/c1",
+      "GET /api/colonie/platform/conversations/c1?after=4&limit=50",
+    ]);
+  });
+});
+
+describe("searchHitFromPlatform", () => {
+  it("maps a human DM hit without inventing a bot identity", () => {
+    const hit = searchHitFromPlatform(searchHit());
+    expect(hit.name).toBe("Bob");
+    expect(hit.threadId).toBe("c1");
+    expect(hit.messageId).toBe("m1");
+    expect(hit.sequence).toBe(7);
+    expect(hit.role).toBe("user");
+    expect(hit.from).toBe("Alice");
+    expect(hit.botId).toBeUndefined();
+    expect(hit.groupId).toBeUndefined();
+    expect(hit.onActivePath).toBe(true);
+    expect(hit.snippet.length).toBeGreaterThan(0);
+  });
+
+  it("attributes a Group hit to the conversation and a bot DM hit to the bot", () => {
+    const group = searchHitFromPlatform(searchHit({ conversationKind: "group", title: "Launch Room" }));
+    expect(group.groupId).toBe("c1");
+    expect(group.botId).toBeUndefined();
+    expect(group.name).toBe("Launch Room");
+
+    const botDm = searchHitFromPlatform(searchHit({ botId: "bot-9", senderKind: "bot", senderName: "Atlas", title: "Atlas" }));
+    expect(botDm.botId).toBe("bot-9");
+    expect(botDm.groupId).toBeUndefined();
+    expect(botDm.role).toBe("bot");
   });
 });

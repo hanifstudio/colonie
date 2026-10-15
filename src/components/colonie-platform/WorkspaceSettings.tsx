@@ -1,20 +1,19 @@
 // Workspace settings: the workspace name, and this workspace's apps. App setup
 // belongs to owners and admins and happens through the workspace's own Composio
 // project; nothing here asks a member for a raw provider key.
-import { useState } from "react";
-import { Button, Field, Modal, Notice, TextInput } from "./ui";
+import { useCallback, useRef, useState } from "react";
+import { Button, Field, Notice, TextInput } from "./ui";
+import { SettingsModal } from "@/components/SettingsModal";
+import { Card } from "@/components/SettingsPrimitives";
+import { BotEditorStore, useStore, type Action, type AppSettingsSection } from "@/state/store";
 import { ConnectedApps } from "./ConnectedApps";
 import { roleLabel, type PlatformClient, type PlatformWorkspace } from "@/lib/colonie-platform";
 
-export function WorkspaceSettings({
-  open,
-  onClose,
-  workspace,
-  client,
-  canRename,
-  canManageApps,
-  onRename,
-}: {
+export function WorkspaceSettings(props: WorkspaceSettingsProps) {
+  return props.open ? <OpenWorkspaceSettings key={props.workspace.id} {...props} /> : null;
+}
+
+interface WorkspaceSettingsProps {
   open: boolean;
   onClose: () => void;
   workspace: PlatformWorkspace;
@@ -22,7 +21,27 @@ export function WorkspaceSettings({
   canRename: boolean;
   canManageApps: boolean;
   onRename: (name: string) => Promise<void>;
-}) {
+}
+
+function OpenWorkspaceSettings({
+  onClose,
+  workspace,
+  client,
+  canRename,
+  canManageApps,
+  onRename,
+}: WorkspaceSettingsProps) {
+  const parent = useStore();
+  const parentDispatch = useRef(parent.dispatch);
+  parentDispatch.current = parent.dispatch;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const [section, setSection] = useState<AppSettingsSection>(parent.state.appSettingsSection);
+  const dispatch = useCallback((action: Action) => {
+    if (action.type !== "toggleAppSettings") return;
+    if (action.open === false) closeRef.current();
+    else if (action.section) { setSection(action.section); parentDispatch.current(action); }
+  }, []);
   const [name, setName] = useState(workspace.name);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +60,8 @@ export function WorkspaceSettings({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Workspace settings" description={`${workspace.kind === "cloud" ? "Cloud" : "Local"} workspace · you are ${roleLabel(workspace.myRole)}`} wide>
+    <BotEditorStore value={{ ...parent, state: { ...parent.state, appSettingsSection: section }, dispatch }}>
+    <SettingsModal workspace={{ general: <Card title="Workspace" subtitle={`${workspace.kind === "cloud" ? "Cloud" : "Local"} workspace · you are ${roleLabel(workspace.myRole)}`}>
       <div className="space-y-6">
         {error && <Notice tone="error">{error}</Notice>}
 
@@ -63,8 +83,8 @@ export function WorkspaceSettings({
           </Field>
         </section>
 
-        {open ? <ConnectedApps workspaceId={workspace.id} canManage={canManageApps} client={client} /> : null}
       </div>
-    </Modal>
+    </Card>, connections: <ConnectedApps workspaceId={workspace.id} canManage={canManageApps} client={client} /> }} />
+    </BotEditorStore>
   );
 }

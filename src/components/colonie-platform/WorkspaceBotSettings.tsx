@@ -7,8 +7,9 @@ import { classicBot } from "@/lib/colonie-classic-ui";
 import type { PlatformBot, PlatformClient } from "@/lib/colonie-platform";
 import { platformBotUpdateSchema, type PlatformBotUpdate } from "../../../shared/colonie-bot-profile";
 
-export function WorkspaceBotSettings({ bot, client, canEdit, onSaved, onClose }: {
+export function WorkspaceBotSettings({ bot, client, canEdit, onSaved, onClose, overlay = false }: {
   bot: PlatformBot; client: PlatformClient; canEdit: boolean;
+  overlay?: boolean;
   onSaved: (bot: PlatformBot) => void; onClose: () => void;
 }) {
   const parent = useStore();
@@ -85,7 +86,7 @@ export function WorkspaceBotSettings({ bot, client, canEdit, onSaved, onClose }:
     <BotEditorContext.Provider value={{ workspace: true, readOnly: !canEdit,
       request: (() => Promise.reject(new Error("This profile does not use a local bot API."))) as typeof api,
       uploadAvatar: (file) => client.uploadBotAvatar(bot.workspaceId, bot.id, file) }}>
-      <BotSettingsDialog bot={presented} overlay saveStatus={<div className="shrink-0 border-t border-hairline/40 px-4 py-3 text-[12px] text-ink-secondary">
+      <BotSettingsDialog bot={presented} overlay={overlay} saveStatus={<div className="shrink-0 border-t border-hairline/40 px-4 py-3 text-[12px] text-ink-secondary">
         {!canEdit ? <p>Only workspace owners and admins can edit this bot.</p> : status === "error" ? <div role="alert">
           <p className="text-danger">{error} Your changes have not been saved.</p>
           <button type="button" className="mt-2 rounded-lg bg-control px-3 py-1.5 text-ink" onClick={() => void flush().catch(() => {})}>Retry save</button>

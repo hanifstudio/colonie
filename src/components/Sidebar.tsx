@@ -2693,7 +2693,8 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
               </div>
             );
           })}
-          {workspace ? workspace.people(q, density) : <SearchResults query={query} onLanded={() => setQuery("")} />}
+          {workspace?.people(q, density)}
+          <SearchResults query={query} onLanded={() => setQuery("")} />
           {showPinnedCircleThreads && (
             <PinnedCircleThreadSection
               bots={pinnedBots}

@@ -620,6 +620,7 @@ describe("workspace apps", () => {
     await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
 
     await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
     const dialog = host.querySelector('[role="dialog"]')!;
 
     expect(dialog.textContent).toContain("Waiting for confirmation");
@@ -641,6 +642,7 @@ describe("workspace apps", () => {
     await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
 
     await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
     const dialog = host.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain("Apps are not set up in this workspace yet");
     expect(dialog.textContent).toContain("no Composio organization key");
@@ -663,6 +665,7 @@ describe("workspace apps", () => {
     await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
 
     await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
     const dialog = host.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain("This server can create one for it");
 
@@ -693,6 +696,7 @@ describe("workspace apps", () => {
 
     await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
     await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
 
     const dialog = host.querySelector('[role="dialog"]')!;
     setSelect(dialog.querySelector<HTMLSelectElement>('[aria-label="App toolkit"]')!, "googlecalendar");
@@ -722,6 +726,7 @@ describe("workspace apps", () => {
     try {
       await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
       await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
       await click(button("Connect"));
       await flush();
 
@@ -742,6 +747,7 @@ describe("workspace apps", () => {
     });
     await render(createElement(PlatformApp, { ...baseProps, client: fake.client }));
     await click(button("Workspace settings"));
+    await click(host.querySelector('[data-settings-page="ai"], [data-settings-section="connections"]')!);
 
     const dialog = host.querySelector('[role="dialog"]')!;
     const options = [...dialog.querySelectorAll<HTMLOptionElement>('[aria-label="App toolkit"] option')].map((option) => option.value);

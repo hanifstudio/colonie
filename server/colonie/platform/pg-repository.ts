@@ -466,6 +466,26 @@ export class PgPlatformRepository implements PlatformRepository {
     const { rows } = await this.pool.query<Row>("SELECT COALESCE(MAX(sequence),0) AS max FROM platform_messages WHERE conversation_id=$1", [conversationId]);
     return num(rows[0]?.max ?? 0);
   }
+  /**
+   * Literal, case-insensitive substring search. `strpos` treats the query as
+   * text, so `%`, `_` and every other character is matched literally — no LIKE
+   * wildcard can widen the result. The participant join is the authorization:
+   * only conversations this principal belongs to are scanned.
+   * ponytail: a lower() scan cannot use a btree index; add a pg_trgm GIN index
+   * when a workspace's message volume outgrows it.
+   */
+  async searchMessages(workspaceId: string, principalId: string, query: string, limit: number, conversationId?: string): Promise<MessageRecord[]> {
+    const { rows } = await this.pool.query<Row>(
+      `SELECT m.* FROM platform_messages m
+       JOIN platform_participants p ON p.conversation_id = m.conversation_id AND p.principal_id = $2
+       WHERE m.workspace_id = $1 AND strpos(lower(m.body), lower($3)) > 0
+       AND ($5::text IS NULL OR m.conversation_id = $5)
+       ORDER BY m.created_at DESC, m.sequence DESC, m.id ASC
+       LIMIT $4`,
+      [workspaceId, principalId, query, limit, conversationId ?? null],
+    );
+    return rows.map(rowToMessage);
+  }
 
   async setReadCursor(record: ReadCursorRecord): Promise<void> {
     await this.pool.query(

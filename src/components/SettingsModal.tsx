@@ -2,7 +2,7 @@
 // Per-bot settings (persona, model, computer) live in BotSettingsDialog — this
 // is the stuff shared by every bot: who you are, your keys, and the
 // machine your bots can borrow.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArchiveIcon,
   BookOpen01Icon,
@@ -771,10 +771,10 @@ function DiagnosticsRow() {
   );
 }
 
-export function SettingsModal() {
+export function SettingsModal({ workspace }: { workspace?: { general: ReactNode; connections: ReactNode } } = {}) {
   const { state, dispatch } = useStore();
   const advanced = useAdvancedMode();
-  const remoteActive = window.ogb?.remoteClient?.active === true;
+  const remoteActive = !workspace && window.ogb?.remoteClient?.active === true;
   const section: AppSettingsSection =
     (remoteActive && !["appearance", "desktopWorkspaces"].includes(state.appSettingsSection)) || state.appSettingsSection === "remote"
       ? "companion"
@@ -785,9 +785,10 @@ export function SettingsModal() {
   useEffect(() => window.ogb?.environments?.onOpenSettings?.(() => setQuery("")), []);
   useEffect(() => window.ogb?.onOpenAppSettings?.(() => setQuery("")), []);
   const q = query.trim().toLowerCase();
-  const ownerOrAdmin = useOwnerOrAdmin();
+  const ownerOrAdmin = useOwnerOrAdmin(!workspace);
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance" || entry.id === "desktopWorkspaces")
+    .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
     .filter((entry) => entry.id !== "desktopWorkspaces" || Boolean(window.ogb?.environments))
     .filter((entry) => entry.id !== "organization" || Boolean(window.ogb?.organization))
@@ -899,6 +900,11 @@ export function SettingsModal() {
             onConnectPhone={() => dispatch(phonePairingSettingsAction())} />
           : null;
       case "general":
+        if (workspace) return <>
+          <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1"><AdvancedModeRow /></div>
+          <LanguageRow />
+          {workspace.general}
+        </>;
         return (
           <>
             <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1">
@@ -944,18 +950,21 @@ export function SettingsModal() {
               {remoteActive && <AdvancedModeRow />}
               <FontRow />
               <SidebarDensityRow />
+              {!workspace && <>
                <ShowThreadsRow />
               <PinnedCirclesRow />
               <UniversalPinsRow />
               <NotificationSoundsRow />
               {!remoteActive && <ToolCallsRow />}
               <RunCardRow />
+              </>}
             </div>
           </>
         );
       case "experimental":
         return <ExperimentalFeaturesRow />;
       case "connections":
+        if (workspace) return workspace.connections;
         if (colonieFleet) return <ConnectedToolsSettings />;
         return (
           <Card

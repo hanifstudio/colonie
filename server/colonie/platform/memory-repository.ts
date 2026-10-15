@@ -215,6 +215,19 @@ export class MemoryPlatformRepository implements PlatformRepository {
   async lastSequence(conversationId: string): Promise<number> {
     return this.messages.filter((m) => m.conversationId === conversationId).reduce((max, m) => Math.max(max, m.sequence), 0);
   }
+  /** Only messages in conversations the principal participates in; literal,
+   * case-insensitive substring match with no wildcard interpretation. */
+  async searchMessages(workspaceId: string, principalId: string, query: string, limit: number, conversationId?: string): Promise<MessageRecord[]> {
+    const conversationIds = new Set(
+      this.participants.filter((p) => p.principalId === principalId).map((p) => p.conversationId),
+    );
+    const needle = query.toLowerCase();
+    return this.messages
+      .filter((m) => m.workspaceId === workspaceId && (!conversationId || m.conversationId === conversationId) && conversationIds.has(m.conversationId) && m.body.toLowerCase().includes(needle))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.sequence - a.sequence || a.id.localeCompare(b.id))
+      .slice(0, limit)
+      .map(clone);
+  }
 
   async setReadCursor(record: ReadCursorRecord): Promise<void> {
     this.cursors.set(this.cursorKey(record.conversationId, record.accountId), clone(record));

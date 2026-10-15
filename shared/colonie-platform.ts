@@ -37,6 +37,8 @@ export const PLATFORM_ROUTES = {
   workspaceInvitations: `${PLATFORM_API_BASE}/workspaces/:id/invitations`,
   workspaceConnections: `${PLATFORM_API_BASE}/workspaces/:id/connections`,
   workspaceStream: `${PLATFORM_API_BASE}/workspaces/:id/stream`,
+  /** Authorized transcript search; only transcripts this account participates in. */
+  workspaceSearch: `${PLATFORM_API_BASE}/workspaces/:id/search`,
 
   // ── account recovery (no SMTP) ──
   accountRecoveryKey: `${PLATFORM_API_BASE}/account/recovery-key`,
@@ -128,6 +130,30 @@ export interface PlatformMessage {
   senderName: string;
   sequence: number;
   body: string;
+  createdAt: string;
+}
+
+/**
+ * One authorized transcript hit. Only conversations this account's workspace
+ * principal participates in can produce one. `sequence` is the message's
+ * position in `conversationId`, so the client can page around an older hit.
+ */
+export interface PlatformSearchHit {
+  conversationId: string;
+  conversationKind: ConversationKind;
+  /** A Group title, or the peer's display name for a DM. */
+  title: string;
+  /** The bot the DM is with, when the conversation is a bot DM. */
+  botId?: string;
+  messageId: string;
+  sequence: number;
+  senderPrincipalId: string;
+  senderKind: PrincipalKind;
+  senderName: string;
+  /** Bounded excerpt that contains the match. */
+  snippet: string;
+  matchStart: number;
+  matchLength: number;
   createdAt: string;
 }
 

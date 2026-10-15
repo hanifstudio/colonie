@@ -1149,7 +1149,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
   useEffect(() => setFindOpen(false), [bot.threadId]);
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
-      if (accountConversation) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         setFindOpen(true);
@@ -1449,7 +1448,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               <span className="@max-4xl/chathead:hidden">{t("chat.stop")}</span>
             </button>
           )}
-          {accountConversation ? accountConversation.actions : <>
+          {accountConversation ? <>{accountConversation.actions}<ChatHeaderMenu bot={bot} messages={messages} findOpen={findOpen} onFind={() => setFindOpen((open) => !open)} accountWorkspace /></> : <>
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
           {codexAcp && <button aria-label="Open native settings" disabled={bot.busy} onClick={() => setAcpSettingsOpen(true)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-40">Agent options</button>}
           {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}
@@ -1732,11 +1731,12 @@ function usageSummary(bot: Bot, instances: AppState["instances"]): { short: stri
 
 /** The header's "more" menu: find, export, usage and the inspector, behind
  * one button that opens on hover. */
-function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
+function ChatHeaderMenu({ bot, messages, findOpen, onFind, accountWorkspace = false }: {
   bot: Bot;
   messages: readonly Message[];
   findOpen: boolean;
   onFind: () => void;
+  accountWorkspace?: boolean;
 }) {
   const { state, dispatch } = useStore();
   const remoteClient = window.ogb?.remoteClient?.active === true;
@@ -1785,7 +1785,7 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind }: {
       trailing: <span title={usage.detail} data-testid="usage-chip" className={cn("tabular-nums text-[12px]", usage.tone === "danger" ? "text-danger" : usage.tone === "warning" ? "text-warning" : "text-ink-secondary")}>{usage.short}</span>,
       onSelect: () => dispatch({ type: "toggleSettings", open: true, section: "usage" }),
     } satisfies SidebarMenuItem] : []),
-    ...(remoteClient ? [] : [{
+    ...(remoteClient || accountWorkspace ? [] : [{
       key: "activity",
       label: "Activity",
       icon: <HIcon icon={CheckListIcon} size={16} />,

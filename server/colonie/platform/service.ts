@@ -23,6 +23,7 @@ import type {
   PlatformParticipant,
   PlatformRecoverySecret,
   PlatformRole,
+  PlatformSearchHit,
   PlatformStreamEvent,
   PlatformStreamFrame,
   PlatformWorkspace,
@@ -51,6 +52,10 @@ const MAX_REPLAY = 500;
 const DEFAULT_HISTORY = 20;
 const DEFAULT_INVITE_HOURS = 72;
 const MAX_INVITE_HOURS = 24 * 30;
+const MAX_SEARCH_QUERY = 200;
+const MAX_SEARCH_LIMIT = 50;
+/** Characters of message text kept on each side of a search match. */
+const SNIPPET_RADIUS = 80;
 
 export interface PlatformServiceConfig extends PlatformConfig {
   /** Used to build invitation links. Defaults to a relative link. */
@@ -85,6 +90,20 @@ function escapeRegex(value: string): string {
 export function mentionsBot(body: string, botName: string): boolean {
   if (!botName.trim()) return false;
   return new RegExp(`@${escapeRegex(botName.trim())}(?![\\p{L}\\p{N}_])`, "iu").test(body);
+}
+
+/**
+ * A bounded excerpt around the first literal (case-insensitive) match, plus the
+ * match offsets relative to the excerpt. Pure and deterministic: the same body
+ * and query always give the same triple.
+ */
+export function snippetAround(body: string, query: string): { snippet: string; matchStart: number; matchLength: number } {
+  const index = body.toLowerCase().indexOf(query.toLowerCase());
+  if (index < 0) return { snippet: body.slice(0, SNIPPET_RADIUS * 2), matchStart: 0, matchLength: 0 };
+  const start = Math.max(0, index - SNIPPET_RADIUS);
+  const end = Math.min(body.length, index + query.length + SNIPPET_RADIUS);
+  const prefix = start > 0 ? "…" : "";
+  return { snippet: `${prefix}${body.slice(start, end)}${end < body.length ? "…" : ""}`, matchStart: prefix.length + (index - start), matchLength: query.length };
 }
 
 export class PlatformService implements PlatformTurnSink {
@@ -587,6 +606,74 @@ export class PlatformService implements PlatformTurnSink {
     const bounded = Math.min(Math.max(limit, 1), 500);
     const records = await this.repository.listMessages(conversationId, Math.max(after, 0), bounded);
     return Promise.all(records.map((record) => this.messageView(record)));
+  }
+
+  /**
+   * Authorized transcript search. The caller must be a member of the workspace,
+   * and the repository only returns conversations that member's workspace
+   * principal participates in, so an owner never sees another person's private
+   * DM. Query and limit are bounded here as well as in the repository.
+   */
+  async search(accountId: string, workspaceId: string, query: string, limit = 20, conversationId?: string): Promise<PlatformSearchHit[]> {
+    await this.membershipOrThrow(accountId, workspaceId);
+    const principal = await this.humanPrincipalOrThrow(accountId, workspaceId);
+    const q = query.trim();
+    if (!q) throw new PlatformError(400, "Enter something to search for.", "empty_query");
+    if (q.length > MAX_SEARCH_QUERY) throw new PlatformError(400, `Search is limited to ${MAX_SEARCH_QUERY} characters.`, "query_too_long");
+    if (conversationId && !await this.authorizeFrame({ accountId, workspaceId, conversationId })) throw new PlatformError(403, "You cannot search this conversation.", "forbidden");
+    const bounded = Math.min(Math.max(Number.isFinite(limit) ? Math.floor(limit) : 20, 1), MAX_SEARCH_LIMIT);
+    const records = await this.repository.searchMessages(workspaceId, principal.id, q, bounded, conversationId);
+
+    const conversations = new Map<string, ConversationRecord>();
+    const principals = new Map<string, PrincipalRecord>();
+    const principalById = async (id: string): Promise<PrincipalRecord | null> => {
+      const cached = principals.get(id);
+      if (cached) return cached;
+      const found = await this.repository.getPrincipal(id);
+      if (found) principals.set(id, found);
+      return found;
+    };
+    const conversationById = async (id: string): Promise<ConversationRecord | null> => {
+      const cached = conversations.get(id);
+      if (cached) return cached;
+      const found = await this.repository.getConversation(id);
+      if (found) conversations.set(id, found);
+      return found;
+    };
+
+    const hits: PlatformSearchHit[] = [];
+    for (const message of records) {
+      const conversation = await conversationById(message.conversationId);
+      // A message whose conversation vanished is not a hit.
+      if (!conversation || conversation.workspaceId !== workspaceId) continue;
+      const sender = await principalById(message.senderPrincipalId);
+      let peer: PrincipalRecord | null = null;
+      if (conversation.kind === "dm") {
+        const participants = await this.repository.listParticipants(conversation.id);
+        const peerId = participants.find((p) => p.principalId !== principal.id)?.principalId;
+        if (peerId) peer = await principalById(peerId);
+      }
+      const title = conversation.kind === "group"
+        ? (conversation.title?.trim() || "Group")
+        : (peer?.displayName ?? "Direct message");
+      const snippet = snippetAround(message.body, q);
+      hits.push({
+        conversationId: conversation.id,
+        conversationKind: conversation.kind,
+        title,
+        ...(peer?.kind === "bot" && peer.botId ? { botId: peer.botId } : {}),
+        messageId: message.id,
+        sequence: message.sequence,
+        senderPrincipalId: message.senderPrincipalId,
+        senderKind: sender?.kind ?? "bot",
+        senderName: sender?.displayName ?? "Unknown",
+        snippet: snippet.snippet,
+        matchStart: snippet.matchStart,
+        matchLength: snippet.matchLength,
+        createdAt: message.createdAt,
+      });
+    }
+    return hits;
   }
 
   async sendMessage(accountId: string, conversationId: string, body: string): Promise<PlatformMessage> {

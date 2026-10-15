@@ -175,6 +175,14 @@ async function dispatch(service: PlatformService, ctx: Ctx, human: { id: string;
     return void json(res, 405, { error: "Method not allowed.", code: "method_not_allowed" });
   }
 
+  // ── transcript search (workspace-scoped, participant-only) ──
+  if ((m = path.match(/^\/api\/colonie\/platform\/workspaces\/([\w-]+)\/search$/)) && method === "GET") {
+    const q = url.searchParams.get("q") ?? "";
+    const rawLimit = url.searchParams.get("limit");
+    const limit = rawLimit === null ? 20 : Number(rawLimit);
+    return void json(res, 200, { hits: await service.search(accountId, m[1]!, q, Number.isFinite(limit) ? limit : 20, url.searchParams.get("conversationId") || undefined) });
+  }
+
   // ── groups ──
   if ((m = path.match(/^\/api\/colonie\/platform\/workspaces\/([\w-]+)\/groups$/))) {
     if (method === "GET") {
@@ -200,9 +208,14 @@ async function dispatch(service: PlatformService, ctx: Ctx, human: { id: string;
     if (method === "GET") {
       const raw = url.searchParams.get("after");
       const after = raw === null ? undefined : Number(raw);
+      const rawLimit = url.searchParams.get("limit");
+      const limit = rawLimit === null ? undefined : Number(rawLimit);
       // An absent cursor must reach the service's latest-page default; only a
       // finite explicit cursor keeps cursor semantics.
-      return void json(res, 200, await service.getConversation(accountId, m[1]!, after !== undefined && Number.isFinite(after) ? { after } : {}));
+      return void json(res, 200, await service.getConversation(accountId, m[1]!, {
+        ...(after !== undefined && Number.isFinite(after) ? { after } : {}),
+        ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {}),
+      }));
     }
     return void json(res, 405, { error: "Method not allowed.", code: "method_not_allowed" });
   }

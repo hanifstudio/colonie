@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon, MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
-import { landOnSearchHit } from "@/lib/focus-message";
+import { useTranscriptSearch } from "@/lib/colonie-search";
 import { t } from "@/lib/i18n";
 import type { SearchHit } from "@/lib/search-hit";
-import { api, useStore } from "@/state/store";
+import { useStore } from "@/state/store";
 
 export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: () => void }) {
   const { state, dispatch } = useStore();
+  const { search, land: openHit } = useTranscriptSearch();
   const inputRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef(0);
   const [query, setQuery] = useState("");
@@ -32,10 +33,10 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
     }
     setLoading(true);
     const timer = window.setTimeout(() => {
-      void api(`/api/search?q=${encodeURIComponent(trimmed)}&limit=100&threadId=${encodeURIComponent(threadId)}`)
-        .then((body) => {
+      void search(trimmed, 100, undefined, threadId)
+        .then((found) => {
           if (request !== requestRef.current) return;
-          setHits(Array.isArray(body?.hits) ? body.hits : []);
+          setHits(found);
           setIndex(0);
         })
         .catch((error) => {
@@ -48,13 +49,13 @@ export function ChatFindBar({ threadId, onClose }: { threadId: string; onClose: 
         });
     }, 180);
     return () => window.clearTimeout(timer);
-  }, [dispatch, query, threadId]);
+  }, [dispatch, query, threadId, search]);
 
   const land = (next: number) => {
     const hit = hits[next];
     if (!hit) return;
     setIndex(next);
-    void landOnSearchHit(hit, state, dispatch).catch((error) =>
+    void openHit(hit, state, dispatch).catch((error) =>
       dispatch({ type: "error", message: error instanceof Error ? error.message : t("chat.find.unavailable") }),
     );
   };

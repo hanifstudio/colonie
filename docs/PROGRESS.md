@@ -2963,3 +2963,93 @@ it loads the updated Cloud UI. Actual production-account interaction, a real
 Cloud AI turn, every image format/size, pointer-drag framing and a physical
 phone are still unverified. The user said "continue" during publication;
 next work is the original application settings, starting with Appearance.
+
+## 2026-10-15 — Owner requires complete UI fidelity; DeepSeek work resumed
+
+The owner reaffirmed that the entire original UI must return faithfully and
+requested lower-cost model work. The goal is now explicitly tracked in
+`UI-RECOVERY.md`; incremental delivery does not reduce it to selected panels.
+
+The Herdr skill was read at
+`/Users/riaenriala/.claude/skills/herdr/SKILL.md`. Although the inherited
+`HERDR_ENV` was 1, `herdr pane current --current` returned `pane_not_found`.
+No panes were created, closed, reused or changed. Following the skill's rule
+against controlling Herdr from outside the agent's pane, delegation uses
+the installed OpenCode CLI in its own processes instead. Model availability
+was confirmed with `opencode models --standalone` before use.
+
+Commands use `opencode run --standalone --auto --agent plan|build --model
+9router/alitp-intl/deepseek-v4.1-flash --format json`, with source-only briefs,
+bounded ownership, no credentials, no SSH/live data, no deployment and no
+other agent calls. Two initial read-only audits exited 0. A separate baseline
+gate audit also exited 0 after reading `git show 744da8df:<source>`.
+The lead rejected overcounts in the initial reports: Stop is already rendered
+and mapped, ACP native-history edit/regenerate was already withheld, and the
+original ACP settings/footer gates must be respected. Current missing Cloud
+transport is not an owner-approved reason to retire an original feature.
+The corrected report is still static source evidence, not runtime proof.
+
+A DeepSeek worker extracted the original App global keyboard listener into a
+shared hook without changing the App layout. It reports 13 isolated keyboard
+tests passing; lead integration/independent verification is still pending.
+It is now making the original App Shell reusable with explicit account-data
+ports. Another DeepSeek worker is implementing workspace-authorized search,
+keeping the original SearchResults/CommandPalette presentation and avoiding
+legacy API/global-store effects. Those implementation changes are WIP and
+have not been committed or deployed.
+
+The lead's Settings WIP now mounts the original SettingsModal for workspace
+settings and Appearance (skin/font/sidebar density), with existing app
+connections on the original AI page. Exact focused command:
+
+```sh
+export PATH=/opt/homebrew/opt/node@24/bin:$PATH
+pnpm exec vitest run src/components/colonie-platform/platform-flow.test.ts src/components/SettingsModal.appearance.test.ts src/components/SettingsModal.simple.test.ts src/components/SettingsModal.groups.test.ts src/components/SettingsModal.connections.test.ts
+# 5 files / 91 tests passed; unit/DOM fixtures only, not a renderer workflow.
+```
+
+Completed audit/extraction reports are retained under
+`.devone/evidence/ui-recovery-20261015/`. The root owns Cloud controller,
+settings and verification-script integration; workers have nonoverlapping
+file scopes. Next: review/integrate the shared original shell and scoped
+search, finish renderer/desktop/tenant checks on frozen source, then continue
+the complete baseline checklist. The profile publication is still the latest
+live change. Real Cloud AI authentication remains unresolved; no engine
+sign-in, credential contents or additional paid provider turns were used.
+
+
+## 2026-10-15 — Owner requested immediate stop for machine heat
+
+Stopped all remaining task build/typecheck process trees with SIGTERM; checked
+the selected process IDs afterward (none remained alive). The DeepSeek workers
+had already been interrupted with exit 130 at the earlier owner-review boundary.
+Their unfinished Composer and bot-document source is retained, with hashes, in
+`.devone/evidence/ui-recovery-20261015/deferred-workers/`; those partial edits
+were removed from the review checkpoint without discarding their backup.
+No review server or new browser/app was launched, and nothing from this
+checkpoint was deployed. Work is stopped at the owner's request.
+
+The disposable PostgreSQL search check completed and removed its schema; its
+log is `/tmp/colonie-ui-checkpoint-neon.log`. It exercised scoped/private search
+and persistence across restart, with simulated providers only. The final
+build/browser/desktop checkpoint has not been established as passing. The
+latest deployed slice remains bot profiles from `892c508d`. Full UI recovery
+and real Cloud AI replies remain unverified. Resume only after owner direction,
+using one bounded check at a time to reduce machine load.
+
+
+### Preview preparation stopped after owner concern
+
+Owner authorized a preview. Ran only `nice -n 15 env GOMAXPROCS=2
+UV_THREADPOOL_SIZE=2 pnpm exec vite build --outDir .devone/ui-preview-dist`;
+no worker or parallel test was started. Packaging still took too long for
+the requested review, so stopped the remaining preview build tree. No review
+server/browser was launched; no live data or deployment changed. Preview is
+not available yet. Earlier checkpoint test log was inspected and actually
+records 13 files / 164 tests passed (189.33 seconds); the interrupted full
+build must not be reported as passing.
+
+The final log tail reports Vite completed its renderer bundle in 3m23s
+before the stop signal reached the remaining launcher processes. This is
+bundle evidence only: no renderer workflow or preview startup occurred.
+A follow-up process check found no selected preview processes remaining.

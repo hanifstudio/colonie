@@ -25,18 +25,36 @@ function AlwaysOn() {
  * The dropdown is native: a remote workspace cannot choose a destination
  * itself or read the other workspaces saved on this computer. Outside the
  * desktop app there is nothing to switch; a Cloud home still says what it is,
- * and whose it is when this browser signed in from the Cloud page (`owner`). */
+ * and whose it is when this browser signed in from the Cloud page (`owner`).
+ * In Colonie's account desktop the same button names this window's own Local
+ * workspace and opens its Cloud, still through the native bridge. */
 export function DesktopWorkspaceSwitcher({ compact = false, inline = false, cloudHome = false, owner = null }: { compact?: boolean; inline?: boolean; cloudHome?: boolean; owner?: string | null }) {
+  // Colonie's account desktop answers with this window's own Local workspace
+  // and opens its Cloud from the same button. A plain desktop never runs that
+  // controller, so its probe rejects and the saved-server bridge below behaves
+  // exactly as before.
+  const colonie = window.ogb?.colonieWorkspaces;
   const bridge = window.ogb?.workspaces;
   const [current, setCurrent] = useState<{ local: boolean; name: string; origin?: string } | null>(null);
+  const [colonieOwns, setColonieOwns] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     let alive = true;
-    void bridge?.state().then((state) => { if (alive) setCurrent(state); }).catch(() => {});
+    const savedServer = () => { void bridge?.state().then((state) => { if (alive) setCurrent(state); }).catch(() => {}); };
+    if (colonie) {
+      void colonie.info().then((info) => {
+        if (!alive) return;
+        setColonieOwns(true);
+        // No root, path or port reaches the UI; only the person's own name.
+        setCurrent({ local: info.local !== null, name: info.local?.name ?? t("cloudSetup.myCloud") });
+      }).catch(savedServer);
+    } else {
+      savedServer();
+    }
     return () => { alive = false; };
-  }, [bridge]);
-  if (!bridge) {
+  }, [colonie, bridge]);
+  if (!colonie && !bridge) {
     if (!cloudHome) return null;
     const whose = owner ? t("sidebar.cloudOwner", { email: owner }) : "";
     const label = `${t("cloudSetup.myCloud")} · ${t("cloudSetup.alwaysOn")}${whose ? ` · ${whose}` : ""}`;
@@ -63,7 +81,8 @@ export function DesktopWorkspaceSwitcher({ compact = false, inline = false, clou
   const openMenu = () => {
     if (open) return;
     setError(""); setOpen(true);
-    void bridge.menu().catch(() => setError(t("sidebar.switchServerError"))).finally(() => setOpen(false));
+    const action = colonieOwns && colonie ? colonie.cloud() : bridge?.menu();
+    void Promise.resolve(action).catch(() => setError(t("sidebar.switchServerError"))).finally(() => setOpen(false));
   };
   if (inline) return <div data-workspace-switcher="inline" className="flex min-w-0">
     <button type="button" aria-label={label} aria-haspopup="menu" aria-expanded={open} data-cloud-home-indicator={cloudHome || undefined}

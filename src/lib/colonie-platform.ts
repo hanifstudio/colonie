@@ -20,12 +20,14 @@ import {
   type PlatformMessage,
   type PlatformRole,
   type PlatformRecoverySecret,
+  type PlatformSearchHit,
   type PlatformStreamEvent,
   type PlatformWorkspace,
   type WorkspaceKind,
 } from "../../shared/colonie-platform";
 import { MAUS_COLOR_NAMES, type MausColor } from "@/lib/mascot";
 import { PLATFORM_AVATAR_MAX_BYTES, type PlatformBotUpdate } from "../../shared/colonie-bot-profile";
+import type { SearchHit } from "@/lib/search-hit";
 
 export {
   PLATFORM_API_BASE,
@@ -44,6 +46,7 @@ export type {
   PlatformParticipant,
   PlatformRole,
   PlatformRecoverySecret,
+  PlatformSearchHit,
   PlatformStreamEvent,
   PlatformWorkspace,
   PrincipalKind,
@@ -408,8 +411,24 @@ export class PlatformClient {
     const body = await this.request<{ conversation: PlatformConversation }>(route(PLATFORM_ROUTES.opens, id), { method: "POST", body: { kind: "dm", ...input } });
     return body.conversation;
   }
-  async getConversation(id: string): Promise<{ conversation: PlatformConversation; messages: PlatformMessage[] }> {
-    return this.request(route(PLATFORM_ROUTES.conversation, id));
+  async getConversation(id: string, opts: { after?: number; limit?: number; signal?: AbortSignal } = {}): Promise<{ conversation: PlatformConversation; messages: PlatformMessage[] }> {
+    const query = new URLSearchParams();
+    if (opts.after !== undefined) query.set("after", String(opts.after));
+    if (opts.limit !== undefined) query.set("limit", String(opts.limit));
+    const suffix = query.size ? `?${query}` : "";
+    return this.request(`${route(PLATFORM_ROUTES.conversation, id)}${suffix}`, { signal: opts.signal });
+  }
+  /**
+   * Workspace-scoped transcript search. The server returns only conversations
+   * this account's workspace principal participates in, so the scope is never
+   * decided here.
+   */
+  async search(id: string, query: string, opts: { limit?: number; signal?: AbortSignal; conversationId?: string } = {}): Promise<PlatformSearchHit[]> {
+    const params = new URLSearchParams({ q: query });
+    if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+    if (opts.conversationId) params.set("conversationId", opts.conversationId);
+    const body = await this.request<{ hits: PlatformSearchHit[] }>(`${route(PLATFORM_ROUTES.workspaceSearch, id)}?${params}`, { signal: opts.signal });
+    return body.hits ?? [];
   }
   async listMessages(id: string, opts: { after?: number; limit?: number; signal?: AbortSignal } = {}): Promise<PlatformMessage[]> {
     const query = new URLSearchParams();
@@ -768,6 +787,31 @@ export function mergeMessages(existing: PlatformMessage[], incoming: PlatformMes
   const byId = new Map(existing.map((m) => [m.id, m]));
   for (const message of incoming) byId.set(message.id, message);
   return [...byId.values()].sort((a, b) => a.sequence - b.sequence);
+}
+
+/**
+ * Adapt one authorized Cloud search hit to the message-hit shape the original
+ * SearchResults and CommandPalette render. `threadId` is the conversation id,
+ * so a Cloud navigation port opens it directly; `groupId`/`botId` are set only
+ * where a Group or a bot DM really has them, never to fake a human DM as a bot.
+ */
+export function searchHitFromPlatform(hit: PlatformSearchHit): SearchHit {
+  return {
+    ...(hit.conversationKind === "group" ? { groupId: hit.conversationId } : {}),
+    ...(hit.botId ? { botId: hit.botId } : {}),
+    name: hit.title,
+    threadId: hit.conversationId,
+    messageId: hit.messageId,
+    sequence: hit.sequence,
+    role: hit.senderKind === "human" ? "user" : "bot",
+    kind: "text",
+    from: hit.senderName,
+    at: Date.parse(hit.createdAt),
+    snippet: hit.snippet,
+    matchStart: hit.matchStart,
+    matchLength: hit.matchLength,
+    onActivePath: true,
+  };
 }
 
 /** A stable bot body colour from its id, so a bot looks the same everywhere. */

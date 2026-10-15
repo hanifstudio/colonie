@@ -14,11 +14,18 @@ import type { Page, Browser, ElectronApplication } from "playwright";
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
 const { chromium, _electron } = await import("playwright");
 const desktop = process.argv.includes("--desktop");
+const review = process.argv.includes("--review");
+let reviewCookies: string[] = [];
+const cancelledFixtureTurns: string[] = [];
 const root = await mkdtemp(join(tmpdir(), "colonie-platform-ui-"));
 const evidenceDir = resolve(".devone/evidence");
 await mkdir(evidenceDir, { recursive: true });
 const app = createPlatformApp({ repository: new MemoryPlatformRepository(), auth: new MemoryPlatformAuth(),
   runtime: { onTurn: async (request) => {
+    if (request.message.body === "UI_STOP_FIXTURE") {
+      await app.service.publishTurnState({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId, state: "typing" });
+      return;
+    }
     if (request.message.body === "UI_AUTH_ERROR_FIXTURE") {
       await app.service.publishTurnState({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId,
         state: "error", error: "The workspace AI connection needs attention. Your workspace owner can reconnect it; your message is saved." });
@@ -26,13 +33,20 @@ const app = createPlatformApp({ repository: new MemoryPlatformRepository(), auth
     }
     await app.service.postBotMessage({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId,
       initiatorAccountId: request.initiatorAccountId, body: "UI_PROVIDER_FIXTURE_REPLY" });
-  } },
+  }, cancelConversation: (id) => { cancelledFixtureTurns.push(id); } },
 });
-const staticRoot = resolve("dist");
+const staticArg = process.argv.indexOf("--static-dir");
+const staticRoot = resolve(staticArg < 0 ? "dist" : process.argv[staticArg + 1]!);
 let origin = "";
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   try {
+    // This shortcut exists only on this disposable, loopback-only review
+    // server. It opens the synthetic owner, never a production session.
+    if (review && url.pathname === "/__fixture/review" && reviewCookies.length) {
+      res.writeHead(302, { "set-cookie": reviewCookies, location: "/" });
+      return res.end();
+    }
     if (url.pathname === "/api/colonie/bootstrap") return json(res, 200, { mode: "platform", origin });
     if (await app.handle(req, res)) return;
     if (url.pathname.startsWith("/api/")) return json(res, 404, { error: "Fixture has no such endpoint." });
@@ -147,6 +161,74 @@ async function botProfile(page: Page) {
   report.originalBotProfileIdentitySoulAvatarSaveReloadAndRetry = true;
 }
 
+async function appearance(page: Page) {
+  const row = page.locator('[data-sidebar-bot-row]').first();
+  const comfortable = (await row.boundingBox())!.height;
+  await page.getByRole("button", { name: "Workspace settings", exact: true }).last().click();
+  let settings = page.getByRole("dialog", { name: "Settings", exact: true });
+  await settings.getByRole("button", { name: "Appearance", exact: true }).click();
+  await settings.getByRole("button", { name: /^Atelier/ }).click();
+  await settings.getByLabel("Interface font", { exact: true }).selectOption("serif");
+  await settings.getByLabel("Choose sidebar density", { exact: true }).selectOption("compact");
+  await settings.getByRole("button", { name: "Close settings", exact: true }).click();
+  assert.ok((await row.boundingBox())!.height < comfortable, "Compact appearance must change the actual sidebar geometry");
+  await page.reload();
+  await page.getByRole("button", { name: "Workspace settings", exact: true }).last().waitFor();
+  assert.equal(await page.locator("html").getAttribute("data-skin"), "atelier");
+  assert.equal(await page.locator("html").getAttribute("data-font"), "serif");
+  await page.getByRole("button", { name: "Workspace settings", exact: true }).last().click();
+  settings = page.getByRole("dialog", { name: "Settings", exact: true });
+  await settings.getByRole("button", { name: "Appearance", exact: true }).click();
+  assert.equal(await settings.getByRole("button", { name: /^Atelier/ }).getAttribute("aria-pressed"), "true");
+  assert.equal(await settings.getByLabel("Interface font", { exact: true }).inputValue(), "serif");
+  assert.equal(await settings.getByLabel("Choose sidebar density", { exact: true }).inputValue(), "compact");
+  await settings.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-settings-appearance.png" : "platform-browser-settings-appearance.png") });
+  await settings.getByRole("button", { name: /^Midnight/ }).click();
+  await settings.getByLabel("Interface font", { exact: true }).selectOption("skin");
+  await settings.getByLabel("Choose sidebar density", { exact: true }).selectOption("comfortable");
+  await settings.getByRole("button", { name: "Close settings", exact: true }).click();
+  await page.getByRole("button", { name: /Atlas/ }).first().click();
+  report.originalSettingsSkinFontDensityPersistAfterReload = true;
+}
+
+async function searchAndShortcuts(page: Page) {
+  const session = await page.evaluate(async () => (await fetch("/api/colonie/auth/get-session")).json());
+  const workspace = (await app.service.listWorkspaces(session.user.id))[0]!;
+  const group = await app.service.createGroup(session.user.id, workspace.id, { title: "History search fixture", memberPrincipalIds: [] });
+  const oldest = await app.service.sendMessage(session.user.id, group.id, "EARLY_UI_BEACON from the original conversation");
+  for (let i = 2; i <= 175; i++) await app.service.sendMessage(session.user.id, group.id, `History fixture message ${i}`);
+  const sidebar = page.locator("[data-sidebar]");
+  await sidebar.locator(`[data-sidebar-group-row="${group.id}"]`).click();
+  await page.getByRole("log").getByText("History fixture message 175", { exact: true }).waitFor();
+  assert.equal(await page.locator(`[data-mid="${oldest.id}"]`).count(), 0, "The search target starts outside the current history page");
+  const search = sidebar.getByRole("textbox", { name: "Search bots and messages", exact: true });
+  await search.fill("EARLY_UI_BEACON");
+  await sidebar.getByRole("button").filter({ hasText: "EARLY_UI_BEACON" }).click();
+  await page.locator(`[data-mid="${oldest.id}"]`).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "Latest messages", exact: true }).click();
+  await page.getByRole("log").getByText("History fixture message 175", { exact: true }).waitFor();
+  await page.keyboard.press("ControlOrMeta+f");
+  await page.getByRole("textbox", { name: "Find in this conversation", exact: true }).fill("EARLY_UI_BEACON");
+  await page.locator(`[data-mid="${oldest.id}"]`).waitFor({ state: "visible" });
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-original-find.png" : "platform-browser-original-find.png") });
+  await page.getByRole("button", { name: "Close find", exact: true }).click();
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Command palette", exact: true });
+  await palette.getByRole("textbox").fill("EARLY_UI_BEACON");
+  await palette.getByRole("button").filter({ hasText: "EARLY_UI_BEACON" }).waitFor();
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-original-palette.png" : "platform-browser-original-palette.png") });
+  await palette.getByRole("textbox").press("Enter");
+  await page.locator(`[data-mid="${oldest.id}"]`).waitFor({ state: "visible" });
+  await page.keyboard.press("ControlOrMeta+/");
+  await page.getByRole("button", { name: "Close keyboard shortcuts", exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Search shortcuts", exact: true }).fill("New bot");
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-original-shortcuts.png" : "platform-browser-original-shortcuts.png") });
+  await page.getByRole("button", { name: "Close keyboard shortcuts", exact: true }).click();
+  await sidebar.locator("[data-sidebar-bot-row]").filter({ hasText: "Atlas" }).first().click();
+  report.originalSearchOlderMessageLandingFindPaletteAndShortcuts = true;
+}
+
 try {
   let page: Page;
   if (desktop) {
@@ -181,6 +263,14 @@ try {
   await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
   report.signupCloudBotChatAndReload = true;
   await botProfile(page);
+  await appearance(page);
+  await searchAndShortcuts(page);
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("UI_STOP_FIXTURE");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ state: "hidden" });
+  assert.ok(cancelledFixtureTurns.length, "The original Stop control must reach cancellation in the isolated runtime");
+  report.originalStopCancelsSimulatedTurn = true;
   await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-cloud.png" : "platform-browser-cloud.png") });
 
   if (browser) {
@@ -193,12 +283,17 @@ try {
     invited.on("pageerror", (error) => errors.push(error.message));
     await invited.goto(`${origin}/invite/${invitation.token}`);
     await signup(invited, "Member", true);
-    await invited.getByRole("button", { name: "Open navigation", exact: true }).click();
+    await invited.getByRole("button", { name: "Open bot list", exact: true }).click();
     assert.ok(await invited.getByText("Renderer team", { exact: true }).count());
     assert.equal(await invited.getByText("Create your first workspace", { exact: true }).count(), 0);
     await invited.screenshot({ path: join(evidenceDir, "platform-mobile-invited.png") });
     report.invitationSkipsCreationAndEngineSetup = true;
     report.mobileViewport = { width: 390, height: 844 };
+    const privateSearch = invited.getByRole("textbox", { name: "Search bots and messages", exact: true });
+    await privateSearch.fill("EARLY_UI_BEACON");
+    await invited.getByText("No messages match “EARLY_UI_BEACON”", { exact: true }).waitFor();
+    await privateSearch.fill("");
+    report.mobileSearchHidesUnjoinedPrivateGroup = true;
     // An ordinary invited member must see the workspace bot before having a
     // DM with it. The rejected shell listed only already-open bot DMs.
     await invited.getByRole("button", { name: /Atlas/ }).first().click();
@@ -214,7 +309,7 @@ try {
     await invited.screenshot({ path: join(evidenceDir, "platform-mobile-bot-profile.png") });
     await profile.getByRole("button", { name: "Close settings", exact: true }).click();
     report.invitedMemberBotProfileReadOnly = true;
-    await invited.getByRole("button", { name: "Open navigation", exact: true }).click();
+    await invited.getByRole("button", { name: "Open bot list", exact: true }).click();
     await page.getByRole("button", { name: "New direct message", exact: true }).first().click();
     await page.getByRole("dialog", { name: "New direct message", exact: true }).getByRole("button", { name: /^Member/ }).click();
     await page.getByPlaceholder("Message Member", { exact: true }).fill("HUMAN_DM_UI_ONLY");
@@ -244,7 +339,8 @@ try {
     assert.ok(local, "Native Local creation must open its own loopback server");
     activePage = local;
     local.on("pageerror", (error) => errors.push(error.message));
-    await local.getByRole("button", { name: "Workspaces", exact: true }).waitFor();
+    const localSwitcher = local.locator('[data-workspace-switcher="inline"] button').or(local.getByRole("button", { name: "Workspaces", exact: true })).first();
+    await localSwitcher.waitFor();
     const nativeInfo = await local.evaluate(async () => window.ogb!.colonieWorkspaces!.info());
     assert.equal(nativeInfo.local?.name, "Private Local fixture");
     await local.screenshot({ path: join(evidenceDir, "platform-native-local.png") });
@@ -267,7 +363,8 @@ try {
       .getByText("1: LOCAL_WORKSPACE_UI_OK", { exact: true }).waitFor({ timeout: 30_000 });
     report.nativeLocalOnboardingAndAcpChat = true;
     await local.screenshot({ path: join(evidenceDir, "platform-native-local-chat.png") });
-    await local.getByRole("button", { name: "Workspaces", exact: true }).click();
+    report.originalLocalWorkspaceSwitcher = await local.locator('[data-workspace-switcher="inline"] button').count() > 0;
+    await localSwitcher.click();
     const cloudAgain = await nativeWindow((candidate) => candidate.url().startsWith(origin));
     assert.ok(cloudAgain, "Switching back must open the account platform");
     activePage = cloudAgain;
@@ -279,6 +376,15 @@ try {
   assert.deepEqual(errors, [], "The renderer must not throw JavaScript errors");
   report.completed = true;
   console.log(JSON.stringify(report));
+  if (review) {
+    reviewCookies = (await page.context().cookies(origin)).map((cookie) => `${cookie.name}=${cookie.value}; Path=/; HttpOnly; SameSite=Lax`);
+    await browser?.close();
+    browser = undefined;
+    const reviewUrl = `${origin}/__fixture/review`;
+    await writeFile(join(evidenceDir, "ui-recovery-review.json"), JSON.stringify({ url: reviewUrl, isolated: true, syntheticAccount: true, realProvider: false }, null, 2), { mode: 0o600 });
+    console.log(JSON.stringify({ reviewUrl, pausedForOwnerReview: true, syntheticDataOnly: true }));
+    await new Promise<void>((done) => { process.once("SIGINT", done); process.once("SIGTERM", done); });
+  }
 } catch (error) {
   // Only synthetic accounts and isolated fixture pages are visited here.
   if (activePage && !activePage.isClosed()) {

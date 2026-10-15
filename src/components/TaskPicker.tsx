@@ -458,7 +458,7 @@ export function BotActivityPicker({ bot }: { bot: Bot }) {
         className="max-w-[180px] shrink-0 truncate rounded-full border border-hairline/40 bg-panel px-2.5 py-1 text-[12.5px] text-ink-secondary"
       >
         <option value="" disabled>{t("task.otherActivity", { count: activity.length })}</option>
-        {activity.map((task) => <option key={task.threadId} value={task.threadId}>
+        {activity.map((task) => <option dir="auto" key={task.threadId} value={task.threadId}>
           {task.title} · {task.activity === "waiting-on-you" ? t("task.waiting") : task.waitingForTeammates ? t("task.waitingOnTeammate") : task.busy || task.activity === "working" ? t("chat.activity.working") : task.queued ? t("task.queued") : t("task.unread")}
         </option>)}
       </select>

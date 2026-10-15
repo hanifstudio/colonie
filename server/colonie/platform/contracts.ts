@@ -254,6 +254,13 @@ export interface PlatformRepository {
   getMessage(messageId: string): Promise<MessageRecord | null>;
   listMessages(conversationId: string, afterSequence: number, limit: number): Promise<MessageRecord[]>;
   lastSequence(conversationId: string): Promise<number>;
+  /**
+   * Case-insensitive literal substring search over messages in this workspace,
+   * restricted to conversations the given principal participates in. The query
+   * is matched literally (no LIKE wildcards); most recent first, bounded by
+   * `limit`, with a deterministic order.
+   */
+  searchMessages(workspaceId: string, principalId: string, query: string, limit: number, conversationId?: string): Promise<MessageRecord[]>;
 
   // read cursors
   setReadCursor(record: ReadCursorRecord): Promise<void>;

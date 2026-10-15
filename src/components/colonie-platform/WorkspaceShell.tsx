@@ -4,14 +4,14 @@
 // frames into state; the frame cursor is replayed on reconnect.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown01Icon, Chatting01Icon, CloudIcon, ComputerIcon, Key01Icon, Logout01Icon, Menu01Icon,
+  ArrowDown01Icon, Chatting01Icon, CloudIcon, ComputerIcon, Key01Icon, Logout01Icon,
   MessageMultiple01Icon, PlusSignIcon, Robot01Icon, Settings01Icon, UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "@/components/HIcon";
 import { AvatarFor, Badge, Button, EmptyState, IconButton, Notice, Spinner } from "./ui";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarSectionHeader } from "@/components/SidebarSectionHeader";
-import { BotEditorStore, type Action } from "@/state/store";
+import { BotEditorStore, type Action, type AppState, type AppSettingsSection } from "@/state/store";
 import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { classicWorkspaceState } from "@/lib/colonie-classic-ui";
@@ -22,6 +22,10 @@ import { MembersPanel } from "./MembersPanel";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 import { RecoveryKeyDialog } from "./AccountRecovery";
 import { cn } from "@/lib/cn";
+import { Shell } from "@/App";
+import type { AppShellSidebarControls } from "@/lib/app-shell-account";
+import { createPlatformSearchPort, PlatformSearchProvider } from "@/lib/colonie-search";
+import type { SearchHit } from "@/lib/search-hit";
 import {
   canManageBots, canManageConnections, canManageMembers, dmPeer,
   mergeMessages, partitionConversations, totalUnread, invitationLinkFor, PlatformApiError,
@@ -56,12 +60,13 @@ export function WorkspaceShell({
   stopConversation?: (conversationId: string) => Promise<void>;
 }) {
   const active = workspaces.find((w) => w.id === activeId) ?? workspaces[0]!;
-
   const [workspace, setWorkspace] = useState<PlatformWorkspace | null>(null);
   const [members, setMembers] = useState<PlatformMember[]>([]);
   const [bots, setBots] = useState<PlatformBot[]>([]);
   const [invitations, setInvitations] = useState<PlatformInvitation[]>([]);
   const [conversations, setConversations] = useState<PlatformConversation[]>([]);
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -77,7 +82,12 @@ export function WorkspaceShell({
   const [turnErrors, setTurnErrors] = useState<Record<string, string>>({});
 
   const [panel, setPanel] = useState<"members" | "settings" | "group" | "dm" | "bot" | "group-members" | "recovery" | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebarRef = useRef<(() => void) | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [appSettingsSection, setAppSettingsSection] = useState<AppSettingsSection>("general");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [focusMessage, setFocusMessage] = useState<AppState["focusMessage"]>(null);
+  const focusNonce = useRef(0);
   const [settingsBotId, setSettingsBotId] = useState<string | null>(null);
 
   const activeIdRef = useRef<string | null>(null);
@@ -158,6 +168,11 @@ export function WorkspaceShell({
     setLoadError(null);
     setActiveConversation(null);
     setSettingsBotId(null);
+    setPanel(null);
+    setFocusMessage(null);
+    setChatError(null);
+    setShortcutsOpen(false);
+    setMessages([]);
     (async () => {
       try {
         await refresh(controller.signal);
@@ -254,7 +269,7 @@ export function WorkspaceShell({
     }
   }, [client, stopConversation]);
 
-  const openConversation = useCallback(async (conversation: PlatformConversation) => {
+  const openConversation = useCallback(async (conversation: PlatformConversation, hit?: SearchHit) => {
     // This open owns the view from here: any earlier open's response is dropped.
     const generation = ++openGenerationRef.current;
     const forWorkspace = workspaceIdRef.current;
@@ -263,30 +278,48 @@ export function WorkspaceShell({
     // next render, especially when opening follows an async DM lookup.
     activeIdRef.current = conversationId;
     setActiveConversation(conversation);
-    setSidebarOpen(false);
+    closeSidebarRef.current?.();
     setSendError(null);
     setEarlierPage(null);
     setMessagesLoading(true);
     setMessagesError(null);
+    setFocusMessage(null);
     setMessages([]);
     try {
-      const detail = await client.getConversation(conversationId);
-      if (!stillOpen(conversationId, forWorkspace, generation)) return;
+      const detail = await client.getConversation(conversationId, hit?.sequence
+        ? { after: Math.max(0, hit.sequence - 26), limit: 100 } : undefined);
+      if (!stillOpen(conversationId, forWorkspace, generation)) return false;
+      if (detail.conversation.workspaceId !== forWorkspace) throw new Error("That conversation is no longer available.");
       setActiveConversation(detail.conversation);
       setMessages(detail.messages ?? []);
+      if (hit) {
+        if (!detail.messages.some((message) => message.id === hit.messageId)) throw new Error("That message is no longer available.");
+        setFocusMessage({ threadId: conversationId, messageId: hit.messageId,
+          matchText: hit.snippet.slice(hit.matchStart, hit.matchStart + hit.matchLength), nonce: ++focusNonce.current, consumed: false });
+      }
       if (detail.conversation.unreadCount > 0) {
-        const updated = await client.markRead(conversationId, detail.conversation.lastSequence);
+        const updated = await client.markRead(conversationId, detail.messages.at(-1)?.sequence ?? 0);
         // A read mark for a conversation the person has left is not written.
-        if (!stillOpen(conversationId, forWorkspace, generation)) return;
+        if (!stillOpen(conversationId, forWorkspace, generation)) return false;
         setConversations((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       }
+      return true;
     } catch (cause) {
       if (!stillOpen(conversationId, forWorkspace, generation)) return;
       setMessagesError(cause instanceof Error ? cause.message : "This conversation could not be opened.");
+      return false;
     } finally {
       if (stillOpen(conversationId, forWorkspace, generation)) setMessagesLoading(false);
     }
   }, [client]);
+
+  const searchPort = useMemo(() => createPlatformSearchPort({ client, workspaceId: active.id,
+    land: async (hit) => {
+      const conversation = conversationsRef.current.find((entry) => entry.id === hit.threadId && entry.workspaceId === active.id);
+      if (!conversation || workspaceIdRef.current !== active.id) throw new Error("That conversation is no longer available.");
+      if (!await openConversation(conversation, hit)) throw new Error("That message could not be opened.");
+    },
+  }), [active.id, client, openConversation]);
 
   const loadEarlier = useCallback(async () => {
     const conversation = activeConversation;
@@ -357,15 +390,27 @@ export function WorkspaceShell({
     }
   }
 
-  const classicState = classicWorkspaceState({ bots, conversations, self: selfPrincipalId, active: activeConversation, messages, working });
+  const classicState = useMemo(() => ({ ...classicWorkspaceState({ bots, conversations, self: selfPrincipalId, active: activeConversation, messages, working }),
+    settingsOpen: Boolean(settingsBotId), appSettingsOpen: panel === "settings", appSettingsSection,
+    shortcutsOpen, newBotOpen: panel === "bot", error: chatError, focusMessage,
+  }), [bots, conversations, selfPrincipalId, activeConversation, messages, working, settingsBotId, panel, appSettingsSection, shortcutsOpen, chatError, focusMessage]);
   const settingsBot = bots.find((bot) => bot.id === settingsBotId && bot.workspaceId === active.id);
-  const classicDispatch = (action: Action) => {
+  const dispatchHandler = useRef<(action: Action) => void>(() => {});
+  const classicDispatch = useCallback((action: Action) => dispatchHandler.current(action), []);
+  dispatchHandler.current = (action: Action) => {
     if (action.type === "select") {
       const conversation = conversations.find((c) => c.id === action.id);
       if (conversation) void openConversation(conversation);
       else if (bots.some((bot) => bot.id === action.id)) void openPeer({ withBotId: action.id });
     } else if (action.type === "interrupt" && action.threadId) void stop(action.threadId);
-    else if (action.type === "toggleNewBot") setPanel("bot");
+    else if (action.type === "toggleNewBot") setPanel(action.open === false ? null : "bot");
+    else if (action.type === "toggleShortcuts") setShortcutsOpen((previous) => action.open ?? !previous);
+    else if (action.type === "toggleAppSettings") {
+      if (action.section) setAppSettingsSection(action.section);
+      setPanel(action.open === false ? null : "settings");
+    } else if (action.type === "error") setChatError(action.message);
+    else if (action.type === "focusMessage") setFocusMessage({ ...action, nonce: ++focusNonce.current, consumed: false });
+    else if (action.type === "focusMessageConsumed") setFocusMessage((previous) => previous?.nonce === action.nonce ? { ...previous, consumed: true } : previous);
     else if (action.type === "toggleSettings") setSettingsBotId(action.open === false ? null : action.botId ?? classicState.selectedId);
     else if (action.type === "loadOlderMessages") void loadEarlier();
     else if (action.type === "updateBot" && action.patch.name) {
@@ -375,22 +420,17 @@ export function WorkspaceShell({
     }
   };
 
-  return (
-    <BotEditorStore value={{ state: classicState, dispatch: classicDispatch, flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} }}>
-    <DesktopCapabilitiesProvider>
-    <ThreadRefsProvider>
-    <div className="relative flex h-dvh min-h-0 bg-app text-ink">
-      {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" /> : null}
-
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspace={{
+  const renderSidebar = (controls: AppShellSidebarControls) => {
+    closeSidebarRef.current = controls.onClose;
+    return <Sidebar {...controls} workspace={{
         switcher: <WorkspaceSwitcher active={active} workspaces={workspaces} unread={unread}
-          onSwitch={(id) => { onSwitchWorkspace(id); setSidebarOpen(false); }} onNewWorkspace={onNewWorkspace} />,
+          onSwitch={(id) => { onSwitchWorkspace(id); closeSidebarRef.current?.(); }} onNewWorkspace={onNewWorkspace} />,
         createMenu: <>
           {canManageBots(active.myRole) ? <SidebarAction icon={Robot01Icon} label="Create a bot" onClick={() => setPanel("bot")} /> : null}
           <SidebarAction icon={UserGroupIcon} label="New group" onClick={() => setPanel("group")} />
           <SidebarAction icon={Chatting01Icon} label="New direct message" onClick={() => setPanel("dm")} />
         </>,
-        onBotMenu: (id) => { setSettingsBotId(id); setSidebarOpen(false); },
+        onBotMenu: (id) => { setSettingsBotId(id); closeSidebarRef.current?.(); },
         onGroupMenu: (id) => { const group = conversations.find((c) => c.id === id); if (group) void openConversation(group).then(() => setPanel("group-members")); },
         people: (query, density) => <div className="pt-3">
           <div className="flex items-center">
@@ -421,18 +461,15 @@ export function WorkspaceShell({
           </details>
           <IconButton label="Workspace settings" icon={Settings01Icon} onClick={() => setPanel("settings")} />
         </div>,
-      }} />
-
-      <main className="flex min-w-0 flex-1 flex-col">
+      }} />;
+  };
+  const main = <main className="flex min-w-0 flex-1 flex-col">
         {loading ? (
           <div className="flex h-full items-center justify-center gap-2 text-[13px] text-ink-secondary"><Spinner /> Loading workspace…</div>
         ) : loadError ? (
           <div className="p-6"><Notice tone="error">{loadError}</Notice></div>
         ) : activeConversation ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="absolute left-3 top-3 z-30 md:hidden">
-              <IconButton label="Open navigation" icon={Menu01Icon} onClick={() => setSidebarOpen(true)} />
-            </div>
             <div className="min-h-0 flex-1">
               <ConversationView
                 // Keyed by id so nothing about the previous conversation — its
@@ -453,20 +490,20 @@ export function WorkspaceShell({
                 profile={bots.find((bot) => bot.id === dmPeer(activeConversation, selfPrincipalId)?.botId)}
                 onOpenProfile={(id) => setSettingsBotId(id)}
                 headerAction={
-                  activeConversation.kind === "group" ? (
+                  <>
+                  {(messages.at(-1)?.sequence ?? activeConversation.lastSequence) < activeConversation.lastSequence ? <Button variant="ghost" className="px-2 py-1 text-[12px]" onClick={() => void openConversation(activeConversation)}>Latest messages</Button> : null}
+                  {activeConversation.kind === "group" ? (
                     <Button variant="ghost" className="px-2 py-1 text-[12px]" icon={UserGroupIcon} aria-label="Group members" onClick={() => setPanel("group-members")}>
                       Members
                     </Button>
-                  ) : null
+                  ) : null}
+                  </>
                 }
               />
             </div>
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="absolute left-3 top-3 z-30 md:hidden">
-              <IconButton label="Open navigation" icon={Menu01Icon} onClick={() => setSidebarOpen(true)} />
-            </div>
             <div className="min-h-0 flex-1">
               <EmptyState
                 icon={MessageMultiple01Icon}
@@ -491,9 +528,9 @@ export function WorkspaceShell({
             </div>
           </div>
         )}
-      </main>
-
-      {settingsBot ? <WorkspaceBotSettings
+      </main>;
+  const panels = <>
+{settingsBot ? <WorkspaceBotSettings
         key={`${active.id}:${settingsBotId}`} bot={settingsBot}
         client={client} canEdit={canManageBots(active.myRole)} onClose={() => setSettingsBotId(null)}
         onSaved={(saved) => { if (saved.workspaceId === workspaceIdRef.current) setBots((previous) => previous.map((bot) => bot.id === saved.id ? saved : bot)); }}
@@ -548,7 +585,7 @@ export function WorkspaceShell({
             canManageApps={canManageConnections(active.myRole)}
             onRename={async (name) => {
               const updated = await client.renameWorkspace(active.id, name);
-              setWorkspace(updated);
+              if (updated.id === workspaceIdRef.current) setWorkspace(updated);
             }}
           />
 
@@ -622,7 +659,15 @@ export function WorkspaceShell({
           await openConversation(conversation);
         }}
       />
-    </div>
+  </>;
+
+  return (
+    <BotEditorStore value={{ state: classicState, dispatch: classicDispatch, flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} }}>
+    <DesktopCapabilitiesProvider>
+    <ThreadRefsProvider>
+    <PlatformSearchProvider port={searchPort}>
+      <Shell account={{ sidebar: renderSidebar, main, panels, sidePanelOpen: Boolean(settingsBot) }} />
+    </PlatformSearchProvider>
     </ThreadRefsProvider>
     </DesktopCapabilitiesProvider>
     </BotEditorStore>

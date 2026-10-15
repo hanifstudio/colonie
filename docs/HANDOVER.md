@@ -1,5 +1,15 @@
 # Handover — Colonie, 2026-10-14
 
+**Owner reaffirmed complete fidelity (October 15):** Restoring only fragments
+is insufficient. The target is the complete pre-change Colonie UI, including
+layout, navigation and interactions, with workspace/account additions using
+that original foundation. See `docs/UI-RECOVERY.md` for the current recovery
+contract and reviewed milestone status. Full recovery is **not complete**.
+DeepSeek is now auditing and implementing scoped work through OpenCode; the
+lead retains integration, evidence and publication responsibility. Settings,
+shared-shell and search work is currently uncommitted/WIP; the deployed
+profile slice below is still the latest publication.
+
 **Incremental restoration, first slice published (October 15):** The owner said to restore
 the remaining original UI one part at a time. The first slice is the existing
 BotSettingsDialog / SimpleBotPanel, Identity and Soul editors, with actual

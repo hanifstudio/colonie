@@ -5,17 +5,18 @@
 import { useEffect, useState } from "react";
 import { GitBranchIcon, WrenchIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { api, useStore, formatTime } from "@/state/store";
+import { useStore, formatTime } from "@/state/store";
 import { BotAvatar } from "./Avatar";
 import { cn } from "@/lib/cn";
 import type { SearchHit } from "@/lib/search-hit";
-import { landOnSearchHit } from "@/lib/focus-message";
+import { useTranscriptSearch } from "@/lib/colonie-search";
 
 export const MIN_QUERY = 2;
 const DEBOUNCE_MS = 250;
 
 export function SearchResults({ query, onLanded }: { query: string; onLanded: () => void }) {
   const { state, dispatch } = useStore();
+  const { search, land: openHit } = useTranscriptSearch();
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const q = query.trim();
@@ -32,21 +33,21 @@ export function SearchResults({ query, onLanded }: { query: string; onLanded: ()
     setError(null);
     let alive = true;
     const t = setTimeout(() => {
-      api(`/api/search?q=${encodeURIComponent(q)}&limit=40`)
-        .then((r: { hits: SearchHit[] }) => alive && (setHits(r.hits), setError(null)))
+      search(q, 40)
+        .then((found) => alive && (setHits(found), setError(null)))
         .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)));
     }, DEBOUNCE_MS);
     return () => {
       alive = false;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [q, search]);
 
   if (q.length < MIN_QUERY) return null;
 
   const land = async (hit: SearchHit) => {
     try {
-      await landOnSearchHit(hit, state, dispatch);
+      await openHit(hit, state, dispatch);
       onLanded();
     } catch (e) {
       dispatch({ type: "error", message: e instanceof Error ? e.message : String(e) });
