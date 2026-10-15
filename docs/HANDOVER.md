@@ -1,12 +1,15 @@
 # Handover — Colonie, 2026-10-14
 
-**Incremental restoration authorized (October 15):** The owner said to restore
+**Incremental restoration, first slice published (October 15):** The owner said to restore
 the remaining original UI one part at a time. The first slice is the existing
 BotSettingsDialog / SimpleBotPanel, Identity and Soul editors, with actual
 workspace-scoped profile and avatar persistence. Isolated PostgreSQL, SDK,
 Chromium and packaged Mac checks passed; see PROGRESS.md for commands and
-explicit limits. Publication is next; do not claim deployment or complete UI
-recovery from this note. The real Claude authentication blocker below is unchanged.
+explicit limits. The profile slice from `892c508d` is now deployed, with public
+HTML and PlatformApp module hashes matching the tested artifacts. Reload Cloud
+to receive it. This is not complete UI recovery. The real Claude authentication
+blocker below is unchanged. The owner's subsequent "continue" authorizes the
+next incremental slice: the original application settings, starting with Appearance.
 
 **Owner correction after the partial recovery (October 15):** The owner rejects
 the claim that restoring Sidebar/ChatView restored the original product UI.

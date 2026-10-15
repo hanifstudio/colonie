@@ -2918,3 +2918,48 @@ credential-content read, production conversation test or real OAuth flow was
 performed. A physical phone, quarantined install and Apple notarization remain
 unverified. Next: publish this tested profile slice with rollback artifacts
 retained, then restore the remaining original surfaces incrementally.
+
+### Profile slice published; next slice authorized
+
+Source commit: `892c508d` on `colonie/restore-existing-ui`. Final host typecheck
+and `node scripts/colonie/build-platform.mjs` exited 0. Final browser and packaged
+Mac runs against the frozen renderer again exited 0 with `errors: []`.
+
+Deployment commands/results:
+
+```sh
+rsync -az --exclude '.DS_Store' dist/ colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/dist/
+rsync -az dist-platform/ colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/dist-platform/
+scp .devone/evidence/bot-profile-20261015/SHA256SUMS colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/SHA256SUMS
+ssh colonie-vps 'bash -s' < /tmp/colonie-bot-profile-deploy.sh
+# Manifest verified all 211 files; script exited 0; colonie-platform active.
+```
+
+The script checked the prior HTML/host hashes before changing code, retained
+old hashed assets, backed up the previous index/host/map outside the public
+root at `/opt/colonie/platform-app/recovery-20261015-bot-profile` (0700),
+installed the new host, restarted only `colonie-platform`, then published the
+new index after a successful readiness response. The additive profile/avatar
+migration ran on service startup. No account, conversation or credential
+configuration was changed for verification.
+
+Verified installed/public hashes:
+
+- HTML: `8956b99b26e8dbeca9738105cb11fc3497b1c9437c0be75f1a85f7f42658c439`.
+- Host: `9a5929b2025d0e12716132f88411d7842f96b58517257df36c0edd35f294ebca`.
+- Public `PlatformApp-Dj-X8c-Y.js`: `ae687782798fec3779fc8bbe488ad7b4e719a4fef3d5dbc3c54c8ad9b83b4c09`.
+
+A read-only Python HTTPS check fetched `/`, the actual PlatformApp module,
+`/api/colonie/bootstrap` and a nonexistent avatar path without a session:
+HTML/module matched local SHA-256 values, bootstrap was the platform origin,
+and the anonymous avatar read returned 401. Evidence, exact deployment script,
+manifest and final logs are preserved under
+`.devone/evidence/bot-profile-20261015/`; public check JSON explicitly records
+`realAgentTurnVerified: false` and `productionConversationMutation: false`.
+Readiness/health is deployment evidence only, not a conversation test.
+
+The existing Mac installer was not rebuilt: its isolated desktop check proved
+it loads the updated Cloud UI. Actual production-account interaction, a real
+Cloud AI turn, every image format/size, pointer-drag framing and a physical
+phone are still unverified. The user said "continue" during publication;
+next work is the original application settings, starting with Appearance.

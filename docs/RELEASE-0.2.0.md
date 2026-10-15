@@ -2,7 +2,12 @@
 
 October 15 recovery: the existing Colonie sidebar and chat UI are restored for
 Cloud. Reload the installed Mac app to receive that UI; reinstalling is not
-required. The current server's Claude connection fails authentication, so real
+required. The original bot profile panel is now connected to Cloud: click the
+bot's name above its chat to edit its name, role, description, standing
+instructions and avatar. Owners/admins can edit; members can view. Changes
+are saved automatically, with a visible retry if saving fails. The other
+original application surfaces are still being restored incrementally.
+The current server's Claude connection fails authentication, so real
 AI replies remain unavailable until the platform owner reconnects it and a
 fresh isolated provider check passes.
 
