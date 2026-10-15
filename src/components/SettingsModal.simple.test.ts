@@ -65,7 +65,6 @@ vi.mock("./ActivitySection", () => ({ ActivitySection: marker("activity") }));
 vi.mock("./UsageSection", () => ({ UsageSection: marker("usage") }));
 vi.mock("./WorkspaceBackupSettings", () => ({ WorkspaceBackupSettings: marker("backups") }));
 vi.mock("./RoomTurnTimeoutSettings", () => ({ RoomTurnTimeoutSettings: () => null }));
-vi.mock("./CompanyBackupSettings", () => ({ CompanyBackupSettings: () => null }));
 
 const desktop = { ogb: { environments: {}, organization: {}, cloudAccount: {} } };
 

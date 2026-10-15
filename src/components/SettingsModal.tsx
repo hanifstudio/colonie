@@ -66,7 +66,6 @@ import { AutomaticRecoverySettings } from "./AutomaticRecoverySettings";
 import { ThreadCleanupSettings } from "./ThreadCleanupSettings";
 import { DefaultBotSettings } from "./NewBotDialog";
 import { WorkspaceBackupSettings } from "./WorkspaceBackupSettings";
-import { CompanyBackupSettings } from "./CompanyBackupSettings";
 import { cn } from "@/lib/cn";
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
 import { setNotificationSounds, useNotificationSounds } from "@/lib/notification-preferences";
@@ -1016,7 +1015,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
       case "engines":
         return <EnginesSettings />;
       case "backups":
-        return <><WorkspaceBackupSettings /><CompanyBackupSettings /></>;
+        return <WorkspaceBackupSettings />;
       case "companion": {
         // "Connect your phone" lands on the one pairing that fits this window:
         // this computer's phone flow, or this server's (or Cloud's) pairing code.

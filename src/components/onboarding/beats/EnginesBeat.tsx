@@ -5,10 +5,6 @@
 // a glance and offers Check again, because the user often installs from a
 // terminal and comes back. The guide reacts to the result.
 //
-// On the packaged desktop, a first row offers organisation sign-in for
-// people who use the app at work; a signed-in Company engine then counts as
-// ready, so an employee with only company models is not told to set up
-// personal engines. Without that bridge the beat is exactly as before.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDownIcon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../../HIcon";
@@ -85,7 +81,7 @@ export function EnginesBeat({ onNext, setMascot, bump }: BeatProps) {
     };
   }, [refresh]);
 
-  const summary = engineSummary(instances ?? [], engineReady, { company: false });
+  const summary = engineSummary(instances ?? [], engineReady);
   const { ready, setup } = summary;
   const allReady = instances !== null && summary.allReady;
   const expanded = open;

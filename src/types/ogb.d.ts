@@ -1,24 +1,6 @@
 // The narrow bridge the Electron preload exposes. Absent in the browser.
 
 declare global {
-  type CompanyBackupEntry = Omit<import("../../electron/company-backups.mjs").CompanyBackupMetadata, "status"> & { status: "creating" | "uploading" | "completing" | "ready" | "cleanup" };
-  interface CompanyBackupScheduleState {
-    enabled: boolean;
-    status: "off" | "waiting" | "running" | "paused" | "error";
-    nextBackupAt?: number;
-    lastAttemptAt?: number;
-    lastBackupAt?: number;
-    message?: string;
-  }
-  interface CompanyBackupState {
-    busy: boolean;
-    pendingRestore?: boolean;
-    kind?: "backup" | "restore";
-    progress?: import("../../electron/company-backups.mjs").CompanyBackupProgress;
-    message?: string;
-    lastBackupAt?: number;
-    schedule?: CompanyBackupScheduleState;
-  }
 /** The package.json version, inlined by Vite's define at build time. */
 const __APP_VERSION__: string;
 
@@ -111,7 +93,6 @@ const __APP_VERSION__: string;
   interface Window {
     ogb?: {
       platform: NodeJS.Platform;
-      organization?: import("../../electron/managed-desktop.mjs").ManagedDesktopBridge;
       cloudAccount?: import("../../electron/cloud-account.mjs").CloudAccountBridge;
       /** Copy this computer here: this computer's page names a saved server (or
        * "cloud"); a server's own page is answered about itself only, and its
@@ -119,17 +100,6 @@ const __APP_VERSION__: string;
       cloudMove?: import("../../electron/cloud-move.mjs").CloudMoveBridge;
       /** Settings on the person's own Cloud: the plan, read only. */
       cloudPlan?: import("../../electron/cloud-account.mjs").CloudPlanBridge;
-      companyBackups?: {
-        state(): Promise<CompanyBackupState>;
-        list(): Promise<{ backups: CompanyBackupEntry[]; usedBytes: number; limits: { ownerQuotaBytes: number; retainedSnapshots: number } }>;
-        create(input: { clientState: import("../../shared/workspace-backup").WorkspaceBackupClientState }): Promise<CompanyBackupEntry>;
-        configureSchedule?(input: { enabled: false } | { enabled: true; confirmation: "BACK UP THIS WORKSPACE DAILY" }): Promise<CompanyBackupState>;
-        prepareRestore(input: { id: string; password?: string }): Promise<{ id: string; summary: import("../../shared/workspace-backup").WorkspaceBackupSummary }>;
-        restore(input: { id: string; confirmation: "REPLACE" }): Promise<{ restoreId: string }>;
-        delete(input: { id: string; confirmation: "DELETE" }): Promise<unknown>;
-        cancel(): Promise<void>;
-        onState(callback: (state: CompanyBackupState) => void): () => void;
-      };
       workspaces?: {
         state: () => Promise<{ local: boolean; name: string; origin?: string }>;
         menu: () => Promise<void>;

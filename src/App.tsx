@@ -58,12 +58,11 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
     };
     const url = new URL(window.location.href);
     const requestedSettings = url.searchParams.get("desktop-settings");
-    if (requestedSettings === "workspaces" || (requestedSettings === "organization" && window.ogb.organization && !remoteClient) ||
+    if (requestedSettings === "workspaces" ||
       ((requestedSettings === "cloud" || requestedSettings === "cloud-settings") && window.ogb.cloudAccount && !remoteClient)) {
       url.searchParams.delete("desktop-settings");
       window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-      if (requestedSettings === "organization") dispatch({ type: "toggleAppSettings", open: true, section: "organization" });
-      else if (requestedSettings === "cloud") dispatch(CLOUD_LINK_SETTINGS);
+      if (requestedSettings === "cloud") dispatch(CLOUD_LINK_SETTINGS);
       // The lending menu-bar item: Settings → OMB Cloud, with no automatic action.
       else if (requestedSettings === "cloud-settings") dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" });
       else open();
@@ -222,7 +221,7 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
       ? CLOUD_LINK_SETTINGS
       : section === "cloud-settings" && window.ogb?.cloudAccount && !remoteClient
         ? { type: "toggleAppSettings", open: true, section: "cloudAccount" }
-        : { type: "toggleAppSettings", open: true, ...(section === "organization" && window.ogb?.organization && !remoteClient ? { section } : {}) }));
+        : { type: "toggleAppSettings", open: true }));
   }, [dispatch]);
 
   // The viewer outlives ComputerPanel and can target any bot, so release control

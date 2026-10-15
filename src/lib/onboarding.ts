@@ -181,49 +181,22 @@ export function flowDotsShown(beat: BeatId): boolean {
   return beat !== "reel";
 }
 
-// ── engines and organisation sign-in ───────────────────────────────────
-
-/** The Admin portal the welcome flow signs in to. Another address is an
- * advanced choice made in Settings → Organisation, never here. */
-export const DEFAULT_ADMIN_ORIGIN = "https://admin.openmausbot.com";
-
-/** The organisation sign-in bridge, when this window may offer it. Only the
- * packaged local desktop has one; a desktop acting as a remote client of
- * another server, a browser and a hosted workspace never do. */
-export function organisationSignIn<Bridge>(
-  ogb: { organization?: Bridge; remoteClient?: { active?: boolean } } | undefined,
-  options: { hosted: boolean },
-): Bridge | undefined {
-  if (options.hosted || !ogb || ogb.remoteClient?.active === true) return undefined;
-  return ogb.organization;
-}
-
-/** How many models the organisation approved for this computer. */
-export function companyModelCount(state: { providers?: Array<{ configured: boolean; models: string[] }> } | null): number {
-  return (state?.providers ?? []).reduce((total, provider) => total + (provider.configured ? provider.models.length : 0), 0);
-}
+// ── engines ────────────────────────────────────────────────────────────
 
 interface SummaryInstance {
   install?: unknown;
-  /** Set on Company instances: the organisation this desktop signed in to. */
-  managed?: unknown;
 }
 
-/** What the engines beat counts. Personal engines are the rows; Company
- * instances have nothing to install and are not rows, but one that is signed
- * in means bots can run, so an employee with only company models has nothing
- * left to set up. `company` is off wherever organisation sign-in is not
- * offered, which keeps those counts exactly as they were. */
+/** What the engines beat counts: the engines that can run, and the ones still
+ * needing setup. */
 export function engineSummary<Instance extends SummaryInstance>(
   instances: readonly Instance[],
   ready: (instance: Instance) => boolean,
-  options: { company: boolean },
-): { ready: Instance[]; setup: Instance[]; company: number; allReady: boolean } {
+): { ready: Instance[]; setup: Instance[]; allReady: boolean } {
   const engines = instances.filter((instance) => instance.install);
   const personal = engines.filter(ready);
   const setup = engines.filter((instance) => !ready(instance));
-  const company = options.company ? instances.filter((instance) => instance.managed && ready(instance)).length : 0;
-  return { ready: personal, setup, company, allReady: company > 0 || (personal.length > 0 && setup.length === 0) };
+  return { ready: personal, setup, allReady: personal.length > 0 && setup.length === 0 };
 }
 
 /** Whether a Cloud home shows its engine sign-in in place of a chat: the

@@ -4,7 +4,6 @@ import {
   beatsFor,
   cloudSignInDue,
   flowDotsShown,
-  companyModelCount,
   completionPatch,
   EMPTY_ONBOARDING,
   engineSummary,
@@ -14,7 +13,6 @@ import {
   hintSeenPatch,
   LOCAL_VIEWER,
   nextBeat,
-  organisationSignIn,
   previousBeat,
   welcomeDue,
   welcomeViewer,
@@ -133,57 +131,23 @@ describe("first run on an OMB Cloud home", () => {
   });
 });
 
-describe("organisation sign-in in the engines beat", () => {
-  const bridge = { begin: () => {} };
-
-  it("is offered only by the packaged local desktop", () => {
-    expect(organisationSignIn({ organization: bridge }, { hosted: false })).toBe(bridge);
-    expect(organisationSignIn(undefined, { hosted: false })).toBeUndefined();
-    expect(organisationSignIn({}, { hosted: false })).toBeUndefined();
-    expect(organisationSignIn({ organization: bridge, remoteClient: { active: true } }, { hosted: false })).toBeUndefined();
-    expect(organisationSignIn({ organization: bridge }, { hosted: true })).toBeUndefined();
-    expect(organisationSignIn({ organization: bridge, remoteClient: { active: false } }, { hosted: false })).toBe(bridge);
-  });
-
-  it("counts the models the organisation approved", () => {
-    expect(companyModelCount(null)).toBe(0);
-    expect(companyModelCount({})).toBe(0);
-    expect(companyModelCount({ providers: [
-      { configured: true, models: ["a", "b"] },
-      { configured: false, models: ["c"] },
-      { configured: true, models: ["d"] },
-    ] })).toBe(3);
-  });
-});
-
 describe("engineSummary", () => {
-  type Row = { id: string; install?: object; managed?: object; ok: boolean };
+  type Row = { id: string; install?: object; ok: boolean };
   const ok = (row: Row) => row.ok;
   const personal = (id: string, ready: boolean): Row => ({ id, install: {}, ok: ready });
-  const company = (id: string, ready: boolean): Row => ({ id, managed: { organizationId: "org", organizationName: "Org" }, ok: ready });
 
-  it("counts a signed-in Company engine as ready when nothing personal is", () => {
-    const rows = [personal("claude", false), personal("codex", false), company("company.claude", true)];
-    const summary = engineSummary(rows, ok, { company: true });
-    expect(summary.allReady).toBe(true);
-    expect(summary.company).toBe(1);
-    // personal rows stay listed, below, as before
-    expect(summary.ready.map((row) => row.id)).toEqual([]);
-    expect(summary.setup.map((row) => row.id)).toEqual(["claude", "codex"]);
-  });
-
-  it("does not count a Company engine that cannot run", () => {
-    const summary = engineSummary([personal("claude", false), company("company.claude", false)], ok, { company: true });
-    expect(summary.company).toBe(0);
+  it("splits the engines into those that can run and those still needing setup", () => {
+    const rows = [personal("claude", true), personal("codex", false)];
+    const summary = engineSummary(rows, ok);
+    expect(summary.ready.map((row) => row.id)).toEqual(["claude"]);
+    expect(summary.setup.map((row) => row.id)).toEqual(["codex"]);
     expect(summary.allReady).toBe(false);
   });
 
-  it("counts exactly as before where organisation sign-in is not offered", () => {
-    const rows = [personal("claude", true), personal("codex", false), company("company.claude", true)];
-    const summary = engineSummary(rows, ok, { company: false });
-    expect(summary).toEqual({ ready: [rows[0]], setup: [rows[1]], company: 0, allReady: false });
-    expect(engineSummary([personal("claude", true)], ok, { company: false }).allReady).toBe(true);
-    expect(engineSummary([], ok, { company: false }).allReady).toBe(false);
+  it("is ready only when at least one engine runs and none needs setup", () => {
+    expect(engineSummary([personal("claude", true)], ok).allReady).toBe(true);
+    expect(engineSummary([personal("claude", false)], ok).allReady).toBe(false);
+    expect(engineSummary([], ok).allReady).toBe(false);
   });
 });
 
