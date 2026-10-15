@@ -2744,3 +2744,13 @@ Then the agent may run one bounded isolated invited-member real-provider check
 against that read-only native auth root using `dist-platform/verify-cloud-chat.mjs`.
 Do not sign in on the owner's behalf or request credential contents. The next
 provider success must be recorded before saying the AI outage is resolved.
+
+Source checkpoint: `git commit -m 'Restore the existing Colonie UI for Cloud
+workspaces'` created `b1afbd2d`. `git push -u colonie
+colonie/restore-existing-ui` completed; the pre-push lint, full typecheck and
+locale checks passed (the hook's default Node 22 emitted the engine-version
+warning; the application builds/checks above used the explicit Node 24 path).
+Only the owner's `colonie` remote was pushed; upstream `origin` was untouched.
+The code change is separate from the earlier beta commit and remains unmerged.
+Aggregate recovery evidence is `.devone/evidence/ui-recovery-2026-10-15.json`,
+including explicit `realAiAvailable: false` and the pending owner reconnect.
