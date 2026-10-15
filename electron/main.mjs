@@ -24,10 +24,6 @@ import { activateExistingWindow, releaseSingleInstanceLock } from "./single-inst
 import { pollServerIdentity } from "./server-boot-probe.mjs";
 import { createServerSupervisor } from "./server-supervisor.mjs";
 import { serverChildLaunch } from "./server-child-launch.mjs";
-import { createLocalWorkspaceSupervisor, localWorkspaceEnvironment } from "./colonie-workspaces.mjs";
-import { createWorkspaceCredentialVault, workspaceCredentialEnvironment } from "./colonie-workspaces-credentials.mjs";
-import { createColoniePlatformController, coloniePlatformSenderAllowed } from "./colonie-platform.mjs";
-import { initializeColonieData } from "./colonie-config.mjs";
 import { packageUrlFromCommandLine, packageUrlFromDeepLink } from "./package-link.mjs";
 import { createOrganizationEntry, isOrganizationDeepLink, takeOrganizationDeepLink, organizationRestartIntent, withOrganizationRestartIntent, withoutOrganizationRestartIntent } from "./organization-entry.mjs";
 import { windowChromeOptions } from "./window-chrome.mjs";
@@ -37,13 +33,6 @@ import { createSystemTray } from "./system-tray.mjs";
 import { createLendingIndicator } from "./lending-indicator.mjs";
 let startupScreen = null;
 let desktopTray = null;
-let coloniePlatformController = null;
-let colonieLocalSupervisor = null;
-let colonieAppOAuthContents = null;
-const colonieWorkspaceVaults = new Map();
-const colonieWorkspaceCredentialWrites = new Map();
-const colonieLocalProcesses = new Map();
-const colonieAccountMode = process.env.COLONIE_PROFILE === "1" && process.env.COLONIE_PLATFORM_DISABLED !== "1";
 import { collisionFreeDownloadPath, defaultSaveName, revealDownloadWhenDone, revealInFolder, withSavableFile } from "./save-file.mjs";
 import { desktopViewerPermissionAllowed } from "./desktop-viewer-permissions.mjs";
 import { appPermissionHandlers, externalWebUrl } from "./app-permissions.mjs";
@@ -380,8 +369,6 @@ const serverSupervisor = createServerSupervisor({
 });
 
 function desktopDataDir() {
-  const selectedRoot = coloniePlatformController?.localRoot();
-  if (selectedRoot) return selectedRoot;
   // Match the historical desktop fallback for an unset or empty override,
   // then pass this exact resolved path to the utility child. server/config.ts
   // intentionally treats an empty OMB_DATA_DIR differently, so inheriting it
@@ -1273,9 +1260,9 @@ function installDesktopMutationHeader() {
     let ownsTarget = false;
     try {
       const target = new URL(details.url);
-      ownsTarget = (coloniePlatformController?.ownsLocalOrigin(target.origin) === true) || (serverReady && target.protocol === "http:" &&
+      ownsTarget = serverReady && target.protocol === "http:" &&
         target.hostname === "127.0.0.1" &&
-        Number(target.port || 80) === SERVER_PORT);
+        Number(target.port || 80) === SERVER_PORT;
     } catch {}
     if (!ownsTarget) {
       callback({ requestHeaders: details.requestHeaders });
@@ -1502,8 +1489,6 @@ const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
 
 function rendererOrigin() {
-  const local = coloniePlatformController?.info().local;
-  if (local) return local.origin;
   return new URL(app.isPackaged || desktopRemoteAccess ? `http://127.0.0.1:${SERVER_PORT}` : DEV_URL).origin;
 }
 
@@ -1890,25 +1875,6 @@ function activeOrigin() {
 
 
 function refreshApplicationMenu() {
-  if (colonieAccountMode) {
-    Menu.setApplicationMenu(Menu.buildFromTemplate([
-      ...(process.platform === "darwin" ? [{ role: "appMenu", label: "Colonie" }] : []),
-      { label: "Workspace", submenu: [{ label: "All workspaces", click: () => {
-        if (!coloniePlatformController || !mainWindow || mainWindow.isDestroyed()) return;
-        const contents = mainWindow.webContents;
-        void coloniePlatformController.cloud({ sender: contents, senderFrame: contents.mainFrame }).catch(() => {});
-      } }, { label: "Add existing Local workspace", enabled: fs.existsSync(path.join(process.env.OMB_DATA_DIR, "config.json")), click: () => {
-        if (!coloniePlatformController || !mainWindow || mainWindow.isDestroyed()) return;
-        const contents = mainWindow.webContents;
-        const event = { sender: contents, senderFrame: contents.mainFrame };
-        void coloniePlatformController.adoptExisting(event)
-          .then((workspace) => coloniePlatformController.open(event, workspace.id))
-          .catch((error) => dialog.showErrorBox("Local workspace could not be added", error.message));
-      } }] },
-      { role: "editMenu" }, { role: "viewMenu" }, { role: "windowMenu" },
-    ]));
-    return;
-  }
   Menu.setApplicationMenu(
     buildApplicationMenu({
       environments: environmentsState.environments,
@@ -2304,27 +2270,12 @@ function createWindow({ deferNavigation = false } = {}) {
     try {
       origin = new URL(url).origin;
     } catch {}
-    if (coloniePlatformController) {
-      if (origin === (coloniePlatformController.info().local?.origin ?? coloniePlatformController.origin)) return;
-      // OAuth keeps the initiating tab's cookie session and link attempt.
-      // Foreign origins receive a reduced preload and cannot call workspace IPC.
-      if (colonieAppOAuthContents === win.webContents && !coloniePlatformController.info().local) {
-        try {
-          const destination = new URL(url);
-          if (destination.protocol === "https:" && !destination.username && !destination.password) return;
-        } catch {}
-      }
-    } else if (workspaceNavigationAllowed(url, environmentsState, rendererOrigin())) return;
+    if (workspaceNavigationAllowed(url, environmentsState, rendererOrigin())) return;
     event.preventDefault();
     slog(`blocked navigation to ${origin ?? "an invalid address"}`);
   };
   win.webContents.on("will-navigate", guardNavigation);
   win.webContents.on("will-redirect", guardNavigation);
-  const colonieWindowContents = win.webContents;
-  win.webContents.on("did-navigate", (_event, url) => {
-    if (colonieAppOAuthContents === win.webContents && new URL(url).origin === coloniePlatformController?.origin) colonieAppOAuthContents = null;
-  });
-  win.once("closed", () => { if (colonieAppOAuthContents === colonieWindowContents) colonieAppOAuthContents = null; });
   // Subframes: a page may not embed the local server, or any other saved
   // server, inside this preload-bearing window.
   win.webContents.on("will-frame-navigate", (details) => {
@@ -2477,12 +2428,10 @@ function createWindow({ deferNavigation = false } = {}) {
   }
 
   const remote = activeEnvironment(environmentsState);
-  if (!colonieAccountMode && !serverReady && (desktopRemoteAccess || (app.isPackaged && !remote))) serverUnavailableWindows.add(win);
+  if (!serverReady && (desktopRemoteAccess || (app.isPackaged && !remote))) serverUnavailableWindows.add(win);
   // The confirmed native organisation action supplies the fixed local URL.
   if (deferNavigation) return win;
-  if (coloniePlatformController) {
-    void win.loadURL(coloniePlatformController.info().local?.origin ?? coloniePlatformController.origin).catch(() => {});
-  } else if (desktopRemoteAccess) {
+  if (desktopRemoteAccess) {
     win.loadURL(serverReady ? `http://127.0.0.1:${SERVER_PORT}` : buildErrorPage({ allPortsOccupied: serverStartConflictOnly }));
   } else if (remote) {
     void win.loadURL(remote.origin).catch(() => {});
@@ -3276,11 +3225,6 @@ ipcMain.handle("environments:forget", localWorkspaceOnly("environments:forget", 
 ipcMain.handle("workspaces:state", workspaceOnly(() => workspaceSummary(environmentsState)));
 let workspaceMenuOpen = false;
 ipcMain.handle("workspaces:menu", workspaceOnly(async () => {
-  if (coloniePlatformController) {
-    const contents = mainWindow?.webContents;
-    if (contents) await coloniePlatformController.cloud({ sender: contents, senderFrame: contents.mainFrame });
-    return;
-  }
   if (workspaceMenuOpen) return;
   workspaceMenuOpen = true;
   try {
@@ -3319,38 +3263,11 @@ const CREDENTIAL_PATCH = {
 };
 
 async function saveWorkspaceCredential(name, value) {
-  if (colonieAccountMode && !coloniePlatformController?.info().local) throw new Error("Open a Local workspace before changing its credentials.");
   const patchFor = CREDENTIAL_PATCH[name];
   if (!patchFor || typeof value !== "string") {
     throw new Error("Unsupported credential");
   }
   const secret = value.trim();
-  if (coloniePlatformController?.info().local) {
-    const root = coloniePlatformController.localRoot();
-    const origin = coloniePlatformController.info().local.origin;
-    const previousWrite = colonieWorkspaceCredentialWrites.get(root) ?? Promise.resolve();
-    const save = previousWrite.catch(() => {}).then(async () => {
-      const vault = colonieWorkspaceVaults.get(root);
-      if (!vault) throw new Error("This workspace's credential store is not available.");
-      const previous = await vault.read();
-      if (previous.status === "unavailable") throw new Error("This workspace's saved credentials could not be read. Try restarting Colonie.");
-      const next = { ...previous.credentials };
-      if (secret) next[name] = secret; else delete next[name];
-      await vault.save(next);
-      try {
-        const response = await fetch(`${origin}/api/config?secretStorage=external&composioSource=secure-store`, {
-          method: "PUT", headers: { "content-type": "application/json", [DESKTOP_MUTATION_HEADER]: desktopMutationToken },
-          body: JSON.stringify(patchFor(secret)),
-        });
-        const result = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(result?.error ?? "The key could not be saved.");
-        return result;
-      } catch (error) { await vault.save(previous.credentials, { rollback: true }); throw error; }
-    });
-    colonieWorkspaceCredentialWrites.set(root, save);
-    void save.finally(() => { if (colonieWorkspaceCredentialWrites.get(root) === save) colonieWorkspaceCredentialWrites.delete(root); }).catch(() => {});
-    return save;
-  }
   const runtimeFallback = name === "composioApiKey" && !secret ? process.env.COMPOSIO_API_KEY?.trim() ?? "" : "";
   const effectiveSecret = runtimeFallback || secret;
   const source = runtimeFallback ? "environment" : "secure-store";
@@ -3406,12 +3323,10 @@ ipcMain.handle("credential:set", localOnly("credential:set", (_event, name, valu
 ipcMain.handle("approvals:set-trusted-mode", localOnly("approvals:set-trusted-mode", (_event, botId, mode, options) => {
   // Development uses a separately launched server, which is intentionally
   // outside this trust path. Never degrade this grant to loopback HTTP.
-  const selectedId = coloniePlatformController?.info().local?.id;
-  const selectedProcess = selectedId ? colonieLocalProcesses.get(selectedId) : null;
-  if (!selectedProcess && (!app.isPackaged || !serverProc)) {
+  if (!app.isPackaged || !serverProc) {
     throw new Error("Full and Custom approval modes require the embedded desktop server");
   }
-  return trustedApprovalMode.request(selectedProcess ?? serverProc, botId, mode, options);
+  return trustedApprovalMode.request(serverProc, botId, mode, options);
 }));
 
 async function broadcastDesktopCapabilities() {
@@ -3438,110 +3353,6 @@ setCuaStateListener((connection) => {
   });
 });
 
-async function startColonieAccountDesktop() {
-  installDesktopMutationHeader();
-  if (process.platform === "darwin") app.dock.setIcon(APP_ICON);
-  const staticDir = app.isPackaged ? path.join(process.resourcesPath, "ui") : path.join(app.getAppPath(), "dist");
-  const childEntry = app.isPackaged
-    ? serverChildLaunch({ resourcesPath: process.resourcesPath, userData: app.getPath("userData") }).entry
-    : path.join(app.getAppPath(), "dist-server", "index.js");
-  colonieLocalSupervisor = createLocalWorkspaceSupervisor({
-    ownerToken: desktopMutationToken,
-    environment: ({ root, port }) => localWorkspaceEnvironment({
-      root, port, staticDir, resourcesPath: process.resourcesPath, appVersion: app.getVersion(),
-      extra: {
-        ...(process.env.DEVONE_ACP_ENTRY ? { DEVONE_ACP_ENTRY: process.env.DEVONE_ACP_ENTRY } : {}),
-        ...(process.env.COLONIE_CLAUDE_ACP_ENTRY ? { COLONIE_CLAUDE_ACP_ENTRY: process.env.COLONIE_CLAUDE_ACP_ENTRY } : {}),
-        ...(process.env.CLAUDE_CODE_EXECUTABLE ? { CLAUDE_CODE_EXECUTABLE: process.env.CLAUDE_CODE_EXECUTABLE } : {}),
-        // An explicit verification flag selects deterministic ACP fixtures;
-        // it never supplies provider authentication or ambient credentials.
-        ...(process.env.COLONIE_TEST_ACP_FIXTURE === "1" ? {
-          DEVONE_FAKE_STATE: path.join(root, "acp-fixture-state.json"),
-          OMB_TEST_SEALED_PATH: "1",
-        } : {}),
-      },
-    }),
-    launch: async ({ workspace, env }) => {
-      initializeColonieData(workspace.root);
-      const vault = createWorkspaceCredentialVault({ root: workspace.root, safeStorage, log: slog });
-      colonieWorkspaceVaults.set(workspace.root, vault);
-      const stored = await vault.read();
-      const proc = utilityProcess.fork(childEntry, [], {
-        env: { ...env, ...workspaceCredentialEnvironment(stored.credentials), OMB_CREDENTIAL_STORE: stored.status === "unavailable" ? "unavailable" : "ok" },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      colonieLocalProcesses.set(workspace.id, proc);
-      proc.stdout?.on("data", (data) => slog(`[local out] ${String(data).trimEnd()}`));
-      proc.stderr?.on("data", (data) => slog(`[local err] ${String(data).trimEnd()}`));
-      proc.on("message", (message) => trustedApprovalMode.receive(proc, message));
-      proc.on("exit", () => { trustedApprovalMode.rejectProcess(proc); if (colonieLocalProcesses.get(workspace.id) === proc) colonieLocalProcesses.delete(workspace.id); });
-      return proc;
-    },
-    log: slog,
-  });
-  const replaceWindow = () => {
-    setLocalOrigin(rendererOrigin());
-    const previous = mainWindow;
-    const next = createWindow();
-    if (previous && previous !== next && !previous.isDestroyed()) previous.destroy();
-  };
-  coloniePlatformController = createColoniePlatformController({
-    origin: process.env.COLONIE_PLATFORM_ORIGIN,
-    registryFile: path.join(app.getPath("userData"), "colonie-workspaces.json"),
-    workspaceDir: path.join(app.getPath("userData"), "local-workspaces"),
-    supervisor: colonieLocalSupervisor,
-    legacyRoot: process.env.OMB_DATA_DIR,
-    legacyAvailable: () => fs.existsSync(path.join(process.env.OMB_DATA_DIR, "config.json")),
-    adoptLocal: async (root) => {
-      // Only the person's explicit native menu action reaches this migration.
-      // Native CLI state stays in place and is never opened by Colonie.
-      const marker = path.join(root, "colonie-vault-adopted.json");
-      if (fs.existsSync(marker)) return;
-      const vault = createWorkspaceCredentialVault({ root, safeStorage, log: slog });
-      const current = await vault.read();
-      if (current.status === "unavailable") throw new Error("The Mac credential store is unavailable. Try again shortly.");
-      if (current.status === "empty") {
-        const existing = await loadSecureCredentials();
-        if (credentialStoreUnavailable) throw new Error("The existing Mac credential store could not be opened. Try again shortly.");
-        if (Object.keys(existing).length) await vault.save(existing);
-      }
-      fs.writeFileSync(marker, JSON.stringify({ version: 1 }), { mode: 0o600 });
-    },
-    invalidateLocal: () => { setLocalOrigin(null); colonieWorkspaceVaults.clear(); },
-    fetch: (...args) => session.defaultSession.fetch(...args),
-    senderAllowed: (event, origins) => coloniePlatformSenderAllowed(event, mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null, origins),
-    openLocal: async () => { setTimeout(replaceWindow, 0); },
-    openCloud: async () => { setTimeout(replaceWindow, 0); },
-    openApp: async (url) => {
-      const contents = mainWindow?.webContents;
-      if (!contents || contents.isDestroyed()) throw new Error("The app sign-in window is unavailable.");
-      colonieAppOAuthContents = contents;
-      try { await contents.loadURL(url); }
-      catch { colonieAppOAuthContents = null; throw new Error("The app sign-in page could not be opened."); }
-    },
-  });
-  ipcMain.handle("colonie-workspaces:info", (event) => {
-    if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== event.sender.mainFrame) throw new Error("Colonie workspace information is not available to this page.");
-    const origin = new URL(event.senderFrame.url).origin;
-    const info = coloniePlatformController.info();
-    if (origin !== info.origin && origin !== info.local?.origin) throw new Error("This page cannot read Colonie workspace information.");
-    return info;
-  });
-  for (const method of ["list", "create", "open", "cloud", "signOut", "authorizeApp"]) ipcMain.handle(`colonie-workspaces:${method}`, (event, input) => coloniePlatformController[method](event, input));
-  setLocalOrigin(rendererOrigin());
-  registerCuaIpc();
-  registerUpdaterIpc({ pageAllowed: updaterPageAllowed });
-  appPermissions = appPermissionHandlers({ rendererOrigin,
-    mainContents: () => mainWindow?.webContents ?? null,
-    activeRemoteOrigin: () => coloniePlatformController.info().local ? null : coloniePlatformController.origin,
-    cloudHomeOrigin: () => coloniePlatformController.origin,
-  });
-  session.defaultSession.setPermissionRequestHandler(appPermissions.request);
-  session.defaultSession.setPermissionCheckHandler(appPermissions.check);
-  createWindow();
-  refreshApplicationMenu();
-  app.on("activate", () => { if (!mainWindow || mainWindow.isDestroyed()) createWindow(); });
-}
 
 app.whenReady().then(async () => {
   // Cached-before-the-fix attachment responses outlive `no-store`: entries
@@ -3581,10 +3392,6 @@ app.whenReady().then(async () => {
     item.setSavePath(collisionFreeDownloadPath(app.getPath("downloads"), item.getFilename()));
     revealDownloadWhenDone(item, (filePath) => shell.showItemInFolder(filePath));
   });
-  if (colonieAccountMode) {
-    await startColonieAccountDesktop();
-    return;
-  }
   if (app.isPackaged) {
     try {
       // Acquire before either plaintext credential migration reads or writes
@@ -3878,7 +3685,6 @@ app.on("before-quit", (e) => {
   ]);
   const cleanup = Promise.all([
     ownedHelperCleanup,
-    coloniePlatformController?.shutdown().catch(() => {}),
     stoppingServer.then((stopped) => {
       if (!stopped) slog("server child did not stop before desktop exit; retaining the data-directory lease");
     }),

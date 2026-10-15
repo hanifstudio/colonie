@@ -42,7 +42,7 @@ const isLocalPage = !localOrigin || location.origin === localOrigin;
 // cloudPlan: only that verified Cloud (its setup checklist, its plan line).
 /** A saved server's id, forwarded only from this computer's own page. */
 const savedServer = id => isLocalPage && typeof id === "string" && /^[\w-]{1,64}$/.test(id) ? [id] : [];
-const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "colonieWorkspaces", "cloudMove", "cloudLending", "cloudPlan"]);
+const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudMove", "cloudLending", "cloudPlan"]);
 // updater: this app's updates, so the person sees "Restart to update" on My
 // Cloud too; a remote page restarts only on a click. Main says, once as the
 // page loads, whether it answers this page: pages built before it answered My
@@ -84,15 +84,6 @@ if (isLocalPage && !desktopRemoteClient && process.argv.includes("--omb-company-
 const bridge = {
   /** Host platform ("darwin" | "win32" | "linux") — for platform-aware UI. */
   platform: process.platform,
-  colonieWorkspaces: {
-    info: () => ipcRenderer.invoke("colonie-workspaces:info"),
-    list: () => ipcRenderer.invoke("colonie-workspaces:list"),
-    create: (input) => ipcRenderer.invoke("colonie-workspaces:create", input),
-    open: (id) => ipcRenderer.invoke("colonie-workspaces:open", id),
-    cloud: () => ipcRenderer.invoke("colonie-workspaces:cloud"),
-    signOut: () => ipcRenderer.invoke("colonie-workspaces:signOut"),
-    authorizeApp: (url) => ipcRenderer.invoke("colonie-workspaces:authorizeApp", url),
-  },
   // Safe even on a cloud page: the user chooses in a native menu owned by
   // Electron. No direct switching, saved-list reads, host files or secrets.
   workspaces: {
