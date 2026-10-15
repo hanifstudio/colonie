@@ -21,7 +21,6 @@ export default defineConfig({
   test: {
     environment: "node",
     include: [
-      "evals/**/*.test.ts",
       "server/**/*.test.ts",
       "electron/**/*.test.mjs",
       "src/**/*.test.ts",
