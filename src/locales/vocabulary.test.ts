@@ -155,11 +155,8 @@ describe("one name per thing", () => {
     const serverMenuLocal = /\{ label: "([^"]+)", type: "radio", checked: !active/.exec(source("electron/menu.mjs"))?.[1];
     expect([myCloud, thisComputer, serverMenuLocal]).toEqual([e["cloudSetup.myCloud"], e["place.local"], e["place.local"]]);
     const pointers: Array<[string, string[]]> = [
-      ["cloudSetup.lend.hint", [e["cloudHome.connect"]!]],
       ["cloudHome.connectHelp", [e["place.local"]!]],
       ["cloudPhone.step1", [myCloud!]],
-      ["lending.status.connectFirst", [e["cloudHome.connect"]!]],
-      ["computer.worksOnHintCloudHome", [e["lending.title"]!, settings]],
       ["cloudAccount.onCloudSignIn", [e["cloudAccount.signInAgain"]!, settings]],
       ["cloudAccount.storageFailed", [e["cloudAccount.signOut"]!]],
       ["cloudAccount.codeExpired", [e["cloudAccount.signIn"]!]],

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { CloudAccountBridge, CloudAccountState, CloudPlanBridge, CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
+import type { CloudAccountState, CloudPlanBridge, CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
 import type { CloudMachine } from "../../electron/cloud-home.mjs";
 import { CloudMoveSettings } from "./CloudMove";
 import { activeLocale, t } from "@/lib/i18n";
 import { cloudPlanLabel, cloudPlanLine, cloudPlanView, type CloudPlanView } from "@/lib/cloud-plan";
 import type { LocaleKey } from "@/locales";
 import { Card } from "./SettingsPrimitives";
-import { CloudLending } from "./CloudLending";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 
 export { cloudPlanLabel };
@@ -40,7 +39,7 @@ function setupSteps(machine: CloudMachine) {
 /** The person's Cloud machine: where it stands, and one way in. Status and
  * address come only from the verified native snapshot; the pairing code
  * never reaches this page. A render helper (no hooks), part of the card. */
-function cloudHomeCard({ machine, busy, failed, onConnect, lending }: { machine: CloudMachine; busy: boolean; failed: boolean; onConnect: () => void; lending?: CloudAccountBridge["lending"] }) {
+function cloudHomeCard({ machine, busy, failed, onConnect }: { machine: CloudMachine; busy: boolean; failed: boolean; onConnect: () => void }) {
   const connectable = machine.status === "ready";
   const text = machine.status === "failed" && machine.retryAt ? t("cloudHome.failedRetry", { time: time(machine.retryAt) })
     : machine.status === "provisioning" && machine.setup?.slow ? t("cloudHome.slow") : t(MACHINE_TEXT[machine.status]);
@@ -53,8 +52,6 @@ function cloudHomeCard({ machine, busy, failed, onConnect, lending }: { machine:
         <p className="text-[12px] text-ink-secondary">{t("cloudHome.connectHelp")}</p>
       </>}
       {failed && <p role="alert" className="text-[13px] text-danger">{t("cloudHome.connectFailed")}</p>}
-      {/* Part of connecting: lend this Mac to the Cloud, or not. A switch, never a dialog. */}
-      {lending && <CloudLending bridge={lending} />}
     </div>
   </Card>;
 }
@@ -282,7 +279,7 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, onCon
       {error && <p role="alert" className="mt-3 text-[13px] text-danger">{t("cloudAccount.actionFailed")}</p>}
       {!account && <button type="button" disabled={busy} className="ui-button mt-3" onClick={() => void perform(() => bridge.state())}>{t("organization.refresh")}</button>}
     </Card>
-    {machine && cloudHomeCard({ machine, busy, failed: homeFailed, onConnect: connectHome, lending: bridge.lending })}
+    {machine && cloudHomeCard({ machine, busy, failed: homeFailed, onConnect: connectHome })}
     {signed && view.kind === "paid" && cloudPhoneCard({ ready: machine?.status === "ready", busy, failed: phoneFailed, onUse: openOnPhone })}
     {machine?.status === "ready" && <CloudMoveSettings destination="cloud" />}
   </>;

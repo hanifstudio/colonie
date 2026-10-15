@@ -44,13 +44,6 @@ export function routinesInConversationEnabled(config: FeatureFlagConfig | null |
   return config?.features?.routinesInConversation === true;
 }
 
-/** Opt-in computer sharing — lending this desktop's folders, terminal or
- * computer control to a connected workspace. Off unless this server was
- * explicitly switched on in its config.json; there is no Settings toggle, so
- * the controls simply are not offered. */
-export function sharedComputersEnabled(config: FeatureFlagConfig | null | undefined): boolean {
-  return config?.features?.sharedComputers === true;
-}
 
 /** Claude bots also see the MCP servers of this machine's own Claude Code
  * setup (Plugins → MCP servers). Off by default — every extra tool costs

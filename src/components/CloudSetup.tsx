@@ -6,7 +6,7 @@
 // sign-in, Copy this computer here, the chat's composer, the lending switch. No
 // dialogs. Desktop and self-hosted installs never see it; they keep the welcome
 // flow, and an empty one gets the same Copy this computer here card.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckmarkCircle02Icon, CircleIcon, CloudIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { cloudMoveOffer, CloudMoveSuggestion, moveNextSteps, useCloudMove } from "@/components/CloudMove";
@@ -20,27 +20,8 @@ import type { LocaleKey } from "@/locales";
 import { api, useStore } from "@/state/store";
 
 const TITLE: Record<CloudSetupStep, LocaleKey> = {
-  engine: "cloudSetup.engine.title", move: "cloudSetup.move.title", try: "cloudSetup.try.title", lend: "cloudSetup.lend.title",
+  engine: "cloudSetup.engine.title", move: "cloudSetup.move.title", try: "cloudSetup.try.title",
 };
-
-/** Whether the Cloud lists a computer lent to it (GET /api/shared-computers,
- * the owner's own view), asked again when the window comes back to the front. */
-function useLentComputer(active: boolean): boolean | null {
-  const [lent, setLent] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (!active) return;
-    let alive = true;
-    const check = () => {
-      void api<{ computers?: unknown }>("/api/shared-computers")
-        .then((body) => { if (alive) setLent(Array.isArray(body?.computers) && body.computers.length > 0); })
-        .catch(() => {});
-    };
-    check();
-    window.addEventListener?.("focus", check);
-    return () => { alive = false; window.removeEventListener?.("focus", check); };
-  }, [active]);
-  return lent;
-}
 
 function draftHas(id: string, text: string): boolean {
   try { return getDraft(globalThis.localStorage, id).includes(text); } catch { return false; }
@@ -51,7 +32,6 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
   const [hidden, setHidden] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [moveSkipped, setMoveSkipped] = useState(false);
-  const [lendFailed, setLendFailed] = useState(false);
   // One step open at a time: the first one not done, or the one chosen.
   const [chosen, setChosen] = useState<CloudSetupStep | null>(null);
   const record = state.config?.onboarding;
@@ -65,8 +45,6 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
   const shown = stage === "shown";
   const moveBridge = shown ? window.ogb?.cloudMove : undefined;
   const move = useCloudMove(moveBridge);
-  const lendBridge = shown && window.ogb?.platform === "darwin" ? window.ogb.cloudLending : undefined;
-  const lent = useLentComputer(Boolean(lendBridge));
   // Anywhere but the checklist (any other server, or the checklist hidden or
   // finished): the one-time Copy this computer here card, which shows only
   // when main suggests it. Not while this page is still finding out what it is.
@@ -75,7 +53,6 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
   const items = cloudSetupItems({
     ...facts,
     move: moveBridge && move.overview ? { phase: move.state.phase, action: move.state.action, suggest: move.overview.suggest } : null,
-    ...(lendBridge ? { lend: { lent } } : {}),
   });
   const moveItem = items.find((item) => item.id === "move");
   const todo = items.filter((item) => item.status === "todo");
@@ -120,11 +97,7 @@ export function CloudSetup({ viewer }: { viewer: WelcomeViewer | null }) {
       <p className="mt-1.5 rounded-lg bg-inset px-2.5 py-2 text-[12.5px] leading-relaxed text-ink">{t("cloudSetup.try.example")}</p>
       {facts.engineReady && action("cloudSetup.try.action", tryIt)}
     </>;
-    return <>
-      {hint("cloudSetup.lend.hint")}
-      {action("cloudSetup.lend.action", () => { setLendFailed(false); void lendBridge?.open().catch(() => setLendFailed(true)); })}
-      {lendFailed && <p role="alert" className="mt-1.5 text-[12px] text-danger">{t("cloudSetup.lend.failed")}</p>}
-    </>;
+    return null;
   };
   const row = (item: CloudSetupItem) => {
     const pending = item.status === "todo", open = item.id === current;

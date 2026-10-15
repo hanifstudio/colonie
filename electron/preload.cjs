@@ -42,7 +42,7 @@ const isLocalPage = !localOrigin || location.origin === localOrigin;
 // cloudPlan: only that verified Cloud (its setup checklist, its plan line).
 /** A saved server's id, forwarded only from this computer's own page. */
 const savedServer = id => isLocalPage && typeof id === "string" && /^[\w-]{1,64}$/.test(id) ? [id] : [];
-const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudMove", "cloudLending", "cloudPlan"]);
+const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudMove", "cloudPlan"]);
 // updater: this app's updates, so the person sees "Restart to update" on My
 // Cloud too; a remote page restarts only on a click. Main says, once as the
 // page loads, whether it answers this page: pages built before it answered My
@@ -332,13 +332,6 @@ const bridge = {
       ipcRenderer.on("cloud-account:state-changed", handler);
       return () => ipcRenderer.removeListener("cloud-account:state-changed", handler);
     },
-    // "Let my Cloud use this Mac": main decides the Cloud; no argument names it.
-    lending: {
-      state: () => ipcRenderer.invoke("lending:state"),
-      chooseFolder: () => ipcRenderer.invoke("lending:folder"),
-      save: input => ipcRenderer.invoke("lending:save", input),
-      stop: () => ipcRenderer.invoke("lending:stop"),
-    },
   } : undefined,
   /** Copy this computer here: this computer's workspace to a server the
    * person added (their Cloud included). Only this computer's own page names
@@ -358,12 +351,6 @@ const bridge = {
       ipcRenderer.on("cloud-move:state-changed", handler);
       return () => ipcRenderer.removeListener("cloud-move:state-changed", handler);
     },
-  } : undefined,
-  /** The Cloud's setup checklist: "Let your Cloud use this Mac" opens the
-   * lending switch in this app's own Settings → OMB Cloud. No arguments; it
-   * shows the switch and changes nothing. */
-  cloudLending: process.argv.includes("--omb-company-desktop=1") ? {
-    open: () => ipcRenderer.invoke("cloud-lending:open"),
   } : undefined,
   /** The plan, read only, in Settings on the person's own Cloud: its name and
    * whether it is active, Manage (the Plan page in the browser) and
@@ -404,13 +391,6 @@ const bridge = {
       return () => ipcRenderer.removeListener("company-backups:state-changed", handler);
     },
   } : undefined,
-  computerSharing: {
-    state: id => ipcRenderer.invoke("sharing:state", id),
-    chooseFolder: () => ipcRenderer.invoke("sharing:folder"),
-    save: (id, grant) => ipcRenderer.invoke("sharing:save", id, grant),
-    revoke: id => ipcRenderer.invoke("sharing:revoke", id),
-    activity: id => ipcRenderer.invoke("sharing:activity", id),
-  },
   confirm: message => ipcRenderer.invoke("dialog:confirm", message),
 };
 

@@ -57,7 +57,7 @@ function mainRule() {
     // ensureCloudAccount's world: a packaged app, and a sign-in client whose state the test sets.
     app: { isPackaged: true, getPath: () => "/unused", getVersion: () => "1.0.0" }, process: { platform: "darwin" },
     path: { join: (...parts) => parts.join("/") }, os: { hostname: () => "mac" }, shell: {}, safeStorage: {},
-    createCloudAccountStore: () => ({}), rememberCloudHome: () => {}, rememberedCloudHome, computerSharing: null,
+    createCloudAccountStore: () => ({}), rememberCloudHome: () => {}, rememberedCloudHome,
     sendUpdaterState: () => {},
     createCloudAccountClient: (options) => {
       signIn.options = options;
