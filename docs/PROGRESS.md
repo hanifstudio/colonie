@@ -1,5 +1,58 @@
 # Colonie progress
 
+## 2026-10-15 — local-only pruning: platform, accounts, Organization UI, evals/docs site, Cloudflare, lending
+
+Branch `colonie/local-only`, based on the owner WIP snapshot `94cc3689`.
+
+| commit | what went |
+|---|---|
+| `6802b429` | `src/components/colonie-platform/`, `server/colonie/platform/`, `shared/colonie-platform.ts`, `src/lib/colonie-platform.ts`, `colonie-classic-ui.ts`, `app-shell-account.ts`; second UI shell |
+| `a0a207f3` | `electron/colonie-platform.mjs`, `colonie-workspaces*.mjs`; the desktop Cloud account mode and its IPC, credential vault path and `window.ogb.colonieWorkspaces` |
+| `23772cf8` | `evals/` (upstream behavior-eval harness), `apps/docs/` (published guide), their scripts, workflows, workspace package and the two tests that read them |
+| `ca49a7bd` | the Organization settings surface: `OrganizationSettings`, `OrganizationIdentity`, `use-organization-branding`, its rail entry, deep link and the avatar icon picker |
+| `b6af3313` | `cloudflare/` (Colonie Cloud control plane + Composio broker), the `broker:*`/`control-plane:*` scripts and their CI jobs |
+| `2982ec22` | desktop computer sharing and lending: `electron/computer-sharing.mjs`, `shared-computer-access.mjs`, `lending-*.mjs`, the sharing/lending IPC and preload bridges, `CloudLending`/`LendingActivity`/`ComputerSharingSettings`, the Cloud-setup lending step, lending locale keys, `shared-terminal-smoke.yml` |
+
+Each commit kept the tree compiling and the focused checks green.
+
+### Verified after `2982ec22`
+
+| check | result |
+|---|---|
+| `pnpm exec tsc --noEmit -p tsconfig.json` | clean |
+| `pnpm i18n:check` | valid, 10 languages, 3675 English strings |
+| `pnpm colonie:ui-check` | `{"ok":true}` |
+| `pnpm colonie:desktop-check` | `{"ok":true}` |
+| `pnpm test:electron` | 600 passed, 0 failed |
+| vitest, touched surfaces | 107 passed (CloudSetup, cloud-setup, feature-flags, SettingsModal appearance/simple/groups, ConnectedWorkspacesSettings, CloudAccountContent, locales) |
+| `pnpm exec vitest run` (whole suite) | 150 files failed / 807 passed |
+
+### About those 150 failing files
+
+They are inherited, not caused by this branch. Triaged individually:
+
+- 121 under `server/`, 23 under `scripts/testing/` — `*.e2e.test.ts` and `*-ui.e2e.test.ts` needing a live CLI agent, a real browser or a hosted fixture.
+- `scripts/testing/verification-docs.test.ts` reads `enterprise/server/workspace-access.ts`, absent from this fork.
+- `scripts/testing/index-route-ratchet.test.ts` counts server/index.ts request paths above the recorded baseline (owner WIP added routes).
+- `shared/place-view.test.ts` wants en.json to still say "OpenMausBot Cloud" while the catalog says "Colonie Cloud" — half-finished rebrand.
+- `CallView.journeys` / `live-call-media` want "Open OpenMausBot at a secure https address" while the app says "Colonie".
+- `lazy-screens` expects `App.tsx` in the launch bundle; `main.tsx` imports it dynamically (already true at `94cc3689`).
+- `electron/credential-persistence.test.mjs` is a `node --test` file caught by the vitest glob.
+- `server/colonie/chief/chief.e2e.test.ts` fails the same way on `94cc3689`.
+
+One was ours and is fixed in `2982ec22`: `SettingsModal.appearance.test.ts` still asserted the Organization page removed in `ca49a7bd`.
+
+### Next, in order
+
+1. Organization/branding in Electron and the server: `organization-entry`, `organization-branding`, `managed-desktop`, `company-backups*`, `org-library`, `managed-policy`, `server/managed-desktop.ts`, and the welcome flow's `OrganisationRow`.
+2. Cloud account, engine sign-in and plan: `CloudAccountSettings`, `CloudEngineSignIn`, `ProIntroduction`, `CloudBackendPicker`, `cloud-plan`, and the plan/Boat fields in `shared/place-view.ts` and `src/lib/place-view.ts`.
+3. Cloud computer/VM: `shared/cloud-computer.ts`, the Cloud move and backup surfaces (`CloudMove`, `ConnectedWorkspacesSettings`, `WorkspaceBackupSettings` cloud half).
+4. The desktop Cloud bridges: `cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs`, `cloud-move.mjs`.
+5. The server's hosted half: `CLOUD_HOME`/`HOSTED_WORKSPACE` modes, `cloud-secrets-boot`, `server/cloud-lending.ts`, `server/lending-memory.ts`, `server/managed-desktop.ts`.
+6. Directories: `deploy/` (container/self-host targets). `companion/` stays: it is remote access to the local app, not Cloud.
+7. Docs and the `openmausbot`/`devone` → `colonie` rename, including the half-finished "Colonie Cloud" strings above.
+8. VPS `172.104.33.55`: stop the services, then delete the data. Last, irreversible, and only with explicit confirmation.
+
 ## 2026-10-14 — M11 step 5 proven, step 4b prepared (not yet run on the host)
 
 Commit `322ad8f5`. The VPS exists: Ubuntu 24.04, x86_64, 8 GB RAM, 4 vCPU,
