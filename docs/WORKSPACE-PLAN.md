@@ -1,5 +1,16 @@
 # Colonie workspace product and implementation plan
 
+## Owner correction — preserve the existing UI (October 15)
+
+The owner rejected the separate 0.2.0 Cloud shell after installing it. Account,
+workspace and collaboration features must extend the existing Colonie UI; they
+do not authorize a redesign. Restore the existing Sidebar, ChatView, avatars,
+glass surfaces, chat bubbles and composer as the base for Cloud as well as
+Local. Add only controls required for the new account/workspace behavior.
+Do not call chat functional until an invited member can actually send, receive
+and see messages, and a real AI request succeeds separately. The owner reported
+AI errors and inability to chat with the joined team; both need evidence.
+
 Status: implementation authorized, October 14, 2026. After reviewing the
 direction, the owner supplied infrastructure credentials and explicitly asked
 to proceed with all work. Suitable code and isolated tests are delegated to

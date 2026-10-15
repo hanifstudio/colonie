@@ -1,7 +1,7 @@
 import { track } from "@/lib/analytics";
 import { OrganizationIdentity } from "./OrganizationIdentity";
 import { approvalCardOutcome } from "./ApprovalCard";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity01Icon,
@@ -1209,6 +1209,7 @@ export function BotThreadList({ bot, selected, density, query, pendingQueued, re
  * per store event (botRowProps) and the row is memoized on them, so an event
  * re-renders only the rows whose bot, or whose part of these, changed. */
 export interface BotRowProps {
+  accountWorkspace?: boolean;
   bot: Bot;
   selected: boolean;
   deleting: boolean;
@@ -1382,7 +1383,8 @@ function PinnedBotRoster({
 
 export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   const { bot, selected, deleting, mascotMotion, reveal, pendingQueued, instances, liveCall, density, quiet, query, dispatch, onMenu } = props;
-  const showThreads = useShowThreads();
+  const threadsPreference = useShowThreads();
+  const showThreads = !props.accountWorkspace && threadsPreference;
   const advanced = useAdvancedMode();
   const liveMedia = useLiveMedia();
   const remoteClient = typeof window !== "undefined" && window.ogb?.remoteClient?.active === true;
@@ -1882,7 +1884,18 @@ export function TeamMenuItems({ onAddBots, onRename, onShare, onDelete }: {
   );
 }
 
-export function Sidebar({ open, onClose, collapseToIcons = false }: {
+/** Account workspaces supply only the added controls. The existing sidebar,
+ * density, search, bot/Group rows, glass and window chrome stay the base UI. */
+export interface WorkspaceSidebarControls {
+  switcher: ReactNode;
+  createMenu: ReactNode;
+  footer: ReactNode;
+  people: (query: string, density: SidebarDensity) => ReactNode;
+  onBotMenu: (id: string) => void;
+  onGroupMenu: (id: string) => void;
+}
+
+export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
   open: boolean;
   onClose: () => void;
   /** Show the avatar rail regardless of the saved density: a side panel is
@@ -1890,6 +1903,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
    * panel (App decides). The saved choice is untouched and returns when the
    * panel closes or the window grows. */
   collapseToIcons?: boolean;
+  workspace?: WorkspaceSidebarControls;
 }) {
   const { state, dispatch } = useStore();
   const now = useRelativeNow();
@@ -2236,7 +2250,8 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
   // of the built-in pinned-bots section, which only ever covered whole bots.
   const pinnedThreads = crossBotPinnedThreads(state.bots, state.groups, state.pendingQueued);
   const pendingBotUndo = teamFeedback?.restoreBot;
-  const botRow = (bot: Bot) => botRowProps(state, dispatch, bot, { density, quiet: quietRows, query: q, onMenu: setMenu });
+  const botRow = (bot: Bot) => ({ ...botRowProps(state, dispatch, bot, { density, quiet: quietRows, query: q,
+    onMenu: workspace ? ({ botId }) => workspace.onBotMenu(botId) : setMenu }), accountWorkspace: Boolean(workspace) });
 
   return (
     <aside
@@ -2316,7 +2331,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
             {/* Gives way first when the row is tight; only the switcher's own
                 button opts out of the drag region. */}
             <div data-sidebar-top-switcher className="flex min-w-0 max-w-[140px] items-center">
-              <DesktopWorkspaceSwitcher inline cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />
+              {workspace?.switcher ?? <DesktopWorkspaceSwitcher inline cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />}
             </div>
           </div>
         )}
@@ -2398,7 +2413,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
                 density === "icons" ? "left-0" : "right-0",
                 plusMotion.className,
               )} {...plusMotion.exitProps}>
-                <button
+                {workspace ? <div onClick={() => setPlusOpen(false)}>{workspace.createMenu}</div> : <><button
                   onClick={() => {
                     setPlusOpen(false);
                     dispatch({ type: "toggleNewBot", open: true });
@@ -2453,6 +2468,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
                   </button>
                 )}
                 </>}
+                </>}
               </div>
             </>
           )}
@@ -2460,8 +2476,8 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
         </div>
       </div>
 
-      {density === "icons" && <DesktopWorkspaceSwitcher compact cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />}
-      <OrganizationIdentity compact={density === "icons"} />
+      {density === "icons" && (workspace?.switcher ?? <DesktopWorkspaceSwitcher compact cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />)}
+      {!workspace && <OrganizationIdentity compact={density === "icons"} />}
       {/* Search */}
       <div className={cn("pt-1 pb-3", density === "icons" ? "hidden" : "px-3")}>
         <div className="flex items-center gap-2 rounded-md border border-hairline/40 bg-inset/40 px-2.5 py-1.5 focus-within:border-focus">
@@ -2616,7 +2632,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
                 )}
                 {density !== "icons" && (
                   <SidebarSectionHeader
-                    name={sectionLabel(id)}
+                    name={workspace && id === CHANNELS_SECTION_ID ? "Groups" : sectionLabel(id)}
                     onContextMenu={!remoteClient && layoutInteractive && sectionName ? (event) => {
                       event.preventDefault();
                       teamMenuReturn.current = event.currentTarget.querySelector<HTMLElement>("button") ?? event.currentTarget;
@@ -2652,7 +2668,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
                         density={density}
                         quiet={quietRows}
                         query={q}
-                        onMenu={setRoomMenu}
+                        onMenu={workspace ? ({ groupId }) => workspace.onGroupMenu(groupId) : setRoomMenu}
                       />
                     ))}
                     {id === PINNED_SECTION_ID ? (
@@ -2677,7 +2693,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
               </div>
             );
           })}
-          <SearchResults query={query} onLanded={() => setQuery("")} />
+          {workspace ? workspace.people(q, density) : <SearchResults query={query} onLanded={() => setQuery("")} />}
           {showPinnedCircleThreads && (
             <PinnedCircleThreadSection
               bots={pinnedBots}
@@ -2703,6 +2719,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
 
       {/* Footer */}
       <div className={cn("pb-3 pt-2", density === "icons" ? "px-2" : "px-3")}>
+        {workspace ? workspace.footer : <>
         <SidebarFooterNav density={density} />
         {density === "icons" && (
           <SidebarPhoneButton
@@ -2737,6 +2754,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
             <SidebarAppsButton />
           </div>
         )}
+        </>}
       </div>
       </GlassBar>
       </GlassScrollFrame>

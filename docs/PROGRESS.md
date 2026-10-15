@@ -2568,3 +2568,179 @@ draft PR https://github.com/hanifstudio/colonie/pull/1. It is not merged.
 The final full typecheck and the Ajv schema fixture passed after correcting the
 test's constructor import. The working tree was clean after the implementation
 commit; this closing evidence note is the only subsequent documentation change.
+
+## October 15 — owner rejected the Cloud UI; recovery in progress
+
+The owner installed 0.2.0 and reported a wholesale UI change, AI errors and
+inability to chat in a joined workspace. They explicitly require the existing
+Colonie UI as the base. No git reset/revert, production data rollback or
+conversation migration has been performed. Initial `git status --short --branch`
+was clean on `colonie/multi-workspace-beta`; source UI from before `a42556f5`
+remains in Sidebar.tsx, ChatView.tsx, Composer.tsx and App.tsx. The new Cloud
+entry selects a different shell. This was a product regression despite the
+previous fixture passes.
+
+Read-only diagnostic commands:
+
+```sh
+ssh colonie-vps 'systemctl is-active colonie colonie-platform colonie-https; journalctl -u colonie-platform --since "12 hours ago" --no-pager -o cat | tail -60'
+ssh colonie-vps 'stat -c "%F %a %U %s %n" /opt/colonie/platform-data/native-claude/.credentials.json /opt/colonie/data/native/claude/.credentials.json; test -r /opt/colonie/platform-data/native-claude/.credentials.json && echo production-auth-file-present'
+```
+
+All services were active. The journal contained lifecycle/startup messages,
+not the reason for failed turns: runtime errors were swallowed. Both native
+auth paths existed; metadata only was inspected, never credential contents.
+The production auth entry is now a regular file, not the original symlink.
+
+Added a fixed-category diagnostic boundary (phase, reason, exit code only;
+no provider stderr/error text, messages, account data or credentials logged) and
+an explicit `verify-cloud-chat.ts` fixture. It uses real Better Auth/Neon with
+a random disposable schema, two synthetic accounts, the default app-tool
+resolver, and one bounded AI prompt from an invited member. The native CLI
+alone follows a read-only auth donor link in an isolated temporary directory.
+
+```sh
+node scripts/colonie/build-platform.mjs
+scp dist-platform/verify-cloud-chat.mjs colonie-vps:/opt/colonie/platform-app/dist-platform/verify-cloud-chat.mjs
+ssh colonie-vps 'systemd-run --unit=colonie-invited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/platform-data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/platform-data/native-claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+ssh colonie-vps 'systemd-run --unit=colonie-inherited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+```
+
+Both fixtures proved the invited-member human DM and reply through real HTTP
+and PostgreSQL. Both AI requests **failed** at `prompt`, categorized
+`authentication`; unit exit 1, 6.442 seconds / 5.241 seconds respectively.
+Both disposable schemas and runtime directories were removed. This supersedes
+the earlier successful provider check as evidence of current availability.
+No login/sign-in was performed and no production conversation was read/written.
+The added verifier is installed; the production host/UI has not been replaced
+at this milestone. Do not describe the AI outage as repaired.
+
+UI recovery is being implemented by adapting account data to the existing
+Sidebar and ChatView, without mounting the old global store/transport. New
+members will be able to select teammates directly from People; the old empty
+state offered the new-DM action only to bot managers. Initial updated tests
+exposed an absent ResizeObserver in the DOM fixture, and typecheck found an
+unused import; these are not passes. Next: complete the adapter, verify actual
+renderer invitation/DM/bot-error paths and Local compatibility, then build a
+reviewable recovery installer. A recipient's real UI/chat remains unverified.
+
+### UI recovery published; AI reconnection remains owner-only
+
+Recovery uses the original `Sidebar`, `BotListItem`, `GroupListItem`,
+`ChatView`, message Markdown/bubbles, glass surfaces and composer styling.
+The account controller adapts authorized Cloud data into that view without
+mounting the legacy global transport. Cloud's added controls are workspace
+switching, account/membership settings, Groups and People. All workspace bots
+are visible in the roster before a person has a bot DM; teammates can be
+selected directly from People. Ordinary members now have the new-DM action
+on an empty workspace too. No account/session/secret schema was changed.
+
+Fixed a real renderer race: `openConversation` previously updated its current
+conversation ref only on React's next render. An immediately resolved request
+following an async DM lookup could be discarded as stale and leave the view
+loading. The ref now owns the view before the first await, and existing DMs
+are opened directly. The existing stale-open/send/resync tests pass. Account
+messages also receive presentation-only parent links so separate messages are
+not displayed as edited versions of one another in the old renderer.
+
+Actual checks:
+
+```sh
+pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts src/lib/cloud-guest.test.ts src/components/Sidebar.rows.test.ts src/components/Sidebar.header.test.ts src/components/SidebarBotListItem.test.ts src/components/ChatView.rows.test.ts src/components/ChatView.controls.test.ts src/components/ChatView.follow.test.ts src/components/Avatar.test.ts
+pnpm exec vitest run src/components/colonie-platform/platform-flow.test.ts src/components/ChatView.rows.test.ts
+pnpm build
+pnpm exec oxlint --deny-warnings .
+pnpm i18n:check
+node scripts/colonie/build-platform.mjs
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop --executable release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie
+```
+
+The broad suite passed **317 tests in 17 files**. After the final adapter and
+mobile-header refinements, the focused suite passed **32 tests in two files**;
+these overlap the broad suite and are not additional distinct tests. Full
+typecheck/Vite build, lint, locale check and Cloud host bundle passed. Initial
+DOM-fixture failures were repaired by supplying browser observer globals,
+keeping avatar animation in real-browser QA, and finding accessible button
+roles/log-scoped content. The restored sidebar displays message previews, so
+unscoped text locators could match a preview as well as the transcript; those
+checks now target the real conversation log. No failed run is counted as a pass.
+
+Final Chromium report (`/tmp/colonie-ui-recovery-browser-shipped.log`, exit 0):
+signup/first Cloud bot/chat/reload, streamed AI error displayed while the sent
+message remains, invitation skips workspace/engine setup, newly invited
+ordinary member opens the existing workspace bot and receives a simulated
+reply, and human DM/reply between independent browser contexts at 390×844.
+Final Mac report (`/tmp/colonie-ui-recovery-desktop-shipped.log`, exit 0): the
+same shipped 0.2.0 executable loaded the recovered Cloud UI, displayed chat
+and the simulated error, created/opened Local, completed deterministic ACP
+Local chat and returned to the separate Cloud history. No real native login.
+Screenshots in `.devone/evidence/platform-native-cloud.png` and
+`platform-mobile-human-dm.png` were visually inspected. The mobile screenshot
+waits for the drawer's closing animation to finish. The OS emitted a nonfatal
+task-policy warning; the renderer reported no JavaScript errors.
+
+Deployment kept the installed DMG unchanged. The final `dist/` was staged with
+`rsync -az dist/ colonie-vps:/opt/colonie/platform-app/ui-recovery-dist/`; the
+Cloud bundle was staged separately as `dist-platform/host-ui-recovery.mjs`.
+The following was run over `ssh colonie-vps 'bash -s'` with `set -eu`:
+
+```sh
+colonie_recovery_dir=/opt/colonie/platform-app/recovery-20261015-ui
+test ! -e "$colonie_recovery_dir"
+install -d -m 700 "$colonie_recovery_dir"
+cp -p /opt/colonie/platform-app/dist/index.html "$colonie_recovery_dir/index.html"
+cp -p /opt/colonie/platform-app/dist-platform/host.mjs "$colonie_recovery_dir/host.mjs"
+# The existing host source map was also backed up when present.
+# Staged backend map/verifier were moved out before syncing the static tree.
+rsync -a --exclude=index.html /opt/colonie/platform-app/ui-recovery-dist/ /opt/colonie/platform-app/dist/
+install -o colonie -g colonie -m 644 /opt/colonie/platform-app/ui-recovery-dist/index.html /opt/colonie/platform-app/dist/.index-ui-recovery-next
+mv /opt/colonie/platform-app/dist/.index-ui-recovery-next /opt/colonie/platform-app/dist/index.html
+mv /opt/colonie/platform-app/dist-platform/host-ui-recovery.mjs /opt/colonie/platform-app/dist-platform/host.mjs
+# Installed the matching host map and updated isolated verifier; restored code ownership.
+systemctl restart colonie-platform
+systemctl is-active colonie-platform colonie colonie-https
+```
+
+All three services returned `active`. Old hashed browser assets remain, and
+the previous HTML/host/map are backed up outside the static root. Backend
+source maps/verifier were not published as frontend assets. No production
+account, message or credential file was changed by this recovery deployment.
+The deployed HTML and host SHA-256 match the verified local build:
+
+```text
+b5b82b3e59c3fdb8563a7628bf7451d7f275437952d90ec00e608529c793f820  dist/index.html
+3a6aa1ffd0b4d0121c070799a2afaf222e90021f9953169d774ef0d9dc52baa0  dist-platform/host.mjs
+```
+
+Public checks were read-only:
+
+```sh
+curl --fail --silent --show-error https://172.104.33.55/ --output /tmp/colonie-ui-recovery-public-index.html
+shasum -a 256 /tmp/colonie-ui-recovery-public-index.html
+curl --silent --show-error --output /tmp/colonie-ui-recovery-public-bootstrap.json --write-out 'bootstrap HTTP %{http_code}; TLS verify %{ssl_verify_result}\n' https://172.104.33.55/api/colonie/bootstrap
+curl --silent --show-error --output /dev/null --write-out 'workspaces without sign-in HTTP %{http_code}\n' https://172.104.33.55/api/colonie/platform/workspaces
+curl --silent --show-error --output /dev/null --header 'Origin: https://foreign.example' --write-out 'foreign Origin HTTP %{http_code}\n' https://172.104.33.55/api/colonie/platform/workspaces
+```
+
+The complete public HTML matched `b5b82b…f820`; bootstrap was 200 with platform
+mode and the expected HTTPS origin, TLS verify 0; unsigned workspace read 401;
+foreign Origin 403. These are publication/auth boundary checks, not AI evidence.
+
+**Still blocked/unverified:** real Cloud AI replies currently fail native
+Claude authentication. No owner reconnect has been performed or requested as
+a credential disclosure. Recipient's actual joined-workspace UI/chat, physical
+phone use, real Local engine login/turn and the previously listed Composio and
+offline-startup limitations remain unverified. The preceding successful real
+Claude release check is historical, not a current availability claim.
+
+Next action, performed by the owner (not the agent):
+
+```sh
+ssh -t colonie-vps 'sudo -u colonie env CLAUDE_CONFIG_DIR=/opt/colonie/platform-data/native-claude /opt/colonie/app/dist-devone/claude-acp/claude-native auth login'
+```
+
+Then the agent may run one bounded isolated invited-member real-provider check
+against that read-only native auth root using `dist-platform/verify-cloud-chat.mjs`.
+Do not sign in on the owner's behalf or request credential contents. The next
+provider success must be recorded before saying the AI outage is resolved.

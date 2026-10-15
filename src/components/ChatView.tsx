@@ -158,6 +158,7 @@ interface ChatRows {
   /** Editing, regenerating and switching versions wait for the turn. */
   busy: boolean;
   nativeHistoryOnly?: boolean;
+  accountWorkspace?: boolean;
   /** Every bot, for who wrote a relayed line or sits across a bot⇄bot chip. */
   bots: readonly Bot[];
   /** Every other bot, for @mentions. */
@@ -476,7 +477,7 @@ const Bubble = memo(function Bubble({
   replyTarget?: Message;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, mentionPeers, focus, dispatch, onBranch } = useChatRows();
+  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch } = useChatRows();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
@@ -534,6 +535,7 @@ const Bubble = memo(function Bubble({
 
   return (
     <div className={cn("group flex w-full flex-col", user ? "animate-msg-in items-end" : "items-start")}>
+      {message.sender && !user && <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}{message.sender.kind === "bot" ? " · Bot" : ""}</span>}
       {peer && <PeerLabel peer={peer} />}
       <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
         {user && (
@@ -551,7 +553,7 @@ const Bubble = memo(function Bubble({
               </button>
             )}
             {Boolean(visibleText.trim()) && <CopyButton text={visibleText} className="opacity-100" />}
-            <button
+            {!accountWorkspace && <button
               type="button"
               onClick={() => onReply(message)}
               aria-label={t("chat.replyToMessage")}
@@ -559,15 +561,15 @@ const Bubble = memo(function Bubble({
               className={messageActionClass}
             >
               <HIcon icon={MessageSquareReplyIcon} size={14} />
-            </button>
-            <button
+            </button>}
+            {!accountWorkspace && <button
               onClick={togglePin}
               aria-label={pinned ? t("chat.unpinMessage") : t("chat.pinMessage")}
               title={pinned ? t("chat.unpinHint") : t("chat.pinHint")}
               className={cn(messageActionClass, remoteClient && "hidden")}
             >
               {pinned ? <HIcon icon={PinOffIcon} size={14} /> : <HIcon icon={PinIcon} size={14} />}
-            </button>
+            </button>}
           </MessageActions>
         )}
         <div
@@ -676,7 +678,7 @@ const Bubble = memo(function Bubble({
           <MessageActions side="bot" forceOpen={viewRaw || speaking}>
             {text && <CopyButton text={text} className="opacity-100" />}
             {text && <RawToggleAction active={viewRaw} onToggle={() => setViewRaw((r) => !r)} className="opacity-100" />}
-            {message.kind === "text" && text && !peer && (
+            {!accountWorkspace && message.kind === "text" && text && !peer && (
               <SpeakButton text={text} botId={botId} messageId={message.id} voiceId={voiceId} tts={tts} localVoice={localVoice} className="opacity-100" />
             )}
             {!busy && !nativeHistoryOnly && onRegenerate && (
@@ -689,7 +691,7 @@ const Bubble = memo(function Bubble({
                 <HIcon icon={RefreshCwIcon} size={14} />
               </button>
             )}
-            <button
+            {!accountWorkspace && <button
               type="button"
               onClick={() => onReply(message)}
               aria-label={t("chat.replyToMessage")}
@@ -697,15 +699,15 @@ const Bubble = memo(function Bubble({
               className={messageActionClass}
             >
               <HIcon icon={MessageSquareReplyIcon} size={14} />
-            </button>
-            <button
+            </button>}
+            {!accountWorkspace && <button
               onClick={togglePin}
               aria-label={pinned ? t("chat.unpinMessage") : t("chat.pinMessage")}
               title={pinned ? t("chat.unpinHint") : t("chat.pinHint")}
               className={cn(messageActionClass, remoteClient && "hidden")}
             >
               {pinned ? <HIcon icon={PinOffIcon} size={14} /> : <HIcon icon={PinIcon} size={14} />}
-            </button>
+            </button>}
           </MessageActions>
         )}
         <span
@@ -1091,7 +1093,7 @@ function PinnedBanner({
 }
 
 /** The chat header's bot pill: the model chip's shape and tint. */
-const CHATHEAD_PILL = "flex min-w-0 items-center gap-2 rounded-full border border-hairline/40 bg-control/60 py-0.5 pl-1.5 text-ink";
+export const CHATHEAD_PILL = "flex min-w-0 items-center gap-2 rounded-full border border-hairline/40 bg-control/60 py-0.5 pl-1.5 text-ink";
 
 function chiefOfStaffBadge(bot: Bot) {
   if (!bot.chiefOfStaff) return null;
@@ -1105,7 +1107,17 @@ function chiefOfStaffBadge(bot: Bot) {
   );
 }
 
-export function ChatView({ bot: profile }: { bot: Bot }) {
+/** The account API supplies data/added controls; this remains the same chat
+ * surface used by Local: header pill, bubbles, Markdown, glass and composer. */
+export interface AccountConversationControls {
+  composer: ReactNode;
+  identity?: ReactNode;
+  actions?: ReactNode;
+  beforeMessages?: ReactNode;
+  empty?: ReactNode;
+}
+
+export function ChatView({ bot: profile, accountConversation }: { bot: Bot; accountConversation?: AccountConversationControls }) {
   const bot = useMemo(() => currentTaskBot(profile), [profile]);
   const { state, dispatch } = useStore();
   const remoteClient = window.ogb?.remoteClient?.active === true;
@@ -1118,7 +1130,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   const composerDock = useComposerDockPad(composerDockRef);
   const advanced = useAdvancedMode();
   // A guest on an OMB Cloud home writes only in conversations it opened.
-  const canWrite = useCanWriteIn(bot.threadId);
+  const canWrite = useCanWriteIn(bot.threadId, Boolean(accountConversation));
 
   const computerStarting = computerStartLine(state.computerStarts[bot.id], bot.name);
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
@@ -1126,7 +1138,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   const [acpContextOpen, setAcpContextOpen] = useState(false);
   const developerTools = useDeveloperTools();
   const [acpSettingsOpen, setAcpSettingsOpen] = useState(false);
-  const codexAcp = isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
+  const codexAcp = !accountConversation && isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
   useEffect(() => setAcpContextOpen(false), [bot.threadId]);
   useEffect(() => setAcpSettingsOpen(false), [bot.threadId, bot.modelSelection.instanceId]);
   const { replyTo, selectReply, clearReply, consumeReply, restoreReply } = useReplyDraft(
@@ -1137,6 +1149,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   useEffect(() => setFindOpen(false), [bot.threadId]);
   useEffect(() => {
     const onFind = (event: KeyboardEvent) => {
+      if (accountConversation) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         setFindOpen(true);
@@ -1144,7 +1157,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
     };
     window.addEventListener("keydown", onFind);
     return () => window.removeEventListener("keydown", onFind);
-  }, []);
+  }, [accountConversation]);
 
   // only the active branch is rendered; forks stay reachable via ‹ › nav.
   // Keyed on the transcript alone: a bot frame that leaves it untouched
@@ -1217,8 +1230,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   branch.current = messages;
   const onBranch = useCallback((messageId: string) => branch.current.some((m) => m.id === messageId), []);
   const rows = useMemo<ChatRows>(
-    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, nativeHistoryOnly: codexAcp, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
-    [bot.id, bot.threadId, bot.name, bot.voice, tts, localVoice, busy, codexAcp, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch],
+    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, nativeHistoryOnly: codexAcp || Boolean(accountConversation), accountWorkspace: Boolean(accountConversation), bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
+    [bot.id, bot.threadId, bot.name, bot.voice, tts, localVoice, busy, codexAcp, accountConversation, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch],
   );
   // Where this conversation works, for the place icon on screen and page tools.
   const place = effectivePlace(bot, bot.tasks?.find((task) => task.threadId === bot.threadId));
@@ -1316,7 +1329,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   return (
     <main className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
       {/* A take-turns call covers the thread while the bot is on the line */}
-      <CallOverlay bot={bot} />
+      {!accountConversation && <CallOverlay bot={bot} />}
       {/* The transcript scrolls on under the header (and the banners that
           hang from it), which is liquid glass tinted with the chat's own
           background, and under the composer, which already floats. */}
@@ -1353,7 +1366,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               Simple mode makes the whole pill that one button; Advanced keeps
               the rename pencil inside it, so the avatar and the name stay
               their own buttons (a button cannot hold another). */}
-          {advanced ? (
+          {accountConversation?.identity ?? (advanced ? (
             <div data-chathead-pill className={cn(CHATHEAD_PILL, "pr-1")}>
               <button
                 type="button"
@@ -1412,7 +1425,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               {chiefOfStaffBadge(bot)}
               {bot.busy && <WorkingDots className="text-ink-secondary" />}
             </button>
-          )}
+          ))}
           {!bot.busy && bot.waitingForTeammates && <span className="truncate text-[12px] text-ink-secondary" role="status">Teammates working</span>}
         </div>
         <div
@@ -1436,6 +1449,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               <span className="@max-4xl/chathead:hidden">{t("chat.stop")}</span>
             </button>
           )}
+          {accountConversation ? accountConversation.actions : <>
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
           {codexAcp && <button aria-label="Open native settings" disabled={bot.busy} onClick={() => setAcpSettingsOpen(true)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-40">Agent options</button>}
           {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}
@@ -1455,11 +1469,12 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           {/* Keep threads reachable even when the sidebar is collapsed.
               Less frequent actions share one menu. */}
           <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} messages={messages} findOpen={findOpen} onFind={() => setFindOpen((open) => !open)} />
+          </>}
         </div>
         </div>
       </div>
 
-      {codexAcp ? <div data-conversation-navigation className="flex min-w-0 flex-wrap items-center gap-2 px-5 py-2">
+      {accountConversation ? null : codexAcp ? <div data-conversation-navigation className="flex min-w-0 flex-wrap items-center gap-2 px-5 py-2">
         <TaskPicker bot={bot} conversations />
         <span dir="auto" className="min-w-0 flex-1 truncate text-xs text-ink-secondary">{conversationTitle(bot.tasks?.find((task) => task.threadId === bot.threadId)?.title)}</span>
         <NewThreadButton bot={bot} label="New conversation" className="shrink-0 border border-hairline/40" />
@@ -1534,7 +1549,8 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               </button>
             </div>
           ) : null}
-          {windowedMessages.length === 0 && !bot.busy && <EmptyChat bot={bot} />}
+          {accountConversation?.beforeMessages}
+          {windowedMessages.length === 0 && !bot.busy && (accountConversation?.empty ?? <EmptyChat bot={bot} />)}
           <ChatRowsContext.Provider value={rows}>
             <FilePreviewScope onPreview={(target) => dispatch({ type: "openFilePreview", preview: target })}>
             <MessagesList
@@ -1547,7 +1563,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               editingId={editingId}
               lastBotTextId={lastBotTextId}
               emergingId={popping}
-              canRetryLast={!bot.busy && Boolean(lastUserMessage)}
+              canRetryLast={!accountConversation && !bot.busy && Boolean(lastUserMessage)}
               engine={state.instances.find((i) => i.instanceId === bot.modelSelection.instanceId)}
               onStartEdit={startEdit}
               onCancelEdit={cancelEdit}
@@ -1644,7 +1660,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           composer so the transcript stays in view. In the dock, so the
           transcript pad grows with it. */}
       <LiveCallBar bot={bot} />
-      {canWrite === false ? (
+      {accountConversation ? accountConversation.composer : canWrite === false ? (
         <NewConversationInstead onNew={() => dispatch({ type: "newTask", botId: bot.id })} />
       ) : (
       <Composer
@@ -1659,7 +1675,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           : undefined}
       />
       )}
-      {canWrite !== false && (
+      {!accountConversation && canWrite !== false && (
       <CitationSelectionToolbar
         key={`${bot.id}:${bot.threadId}`}
         viewportRef={scrollRef}

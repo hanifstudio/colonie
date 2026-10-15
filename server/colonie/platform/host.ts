@@ -118,6 +118,7 @@ export async function startPlatformHost(input: PlatformHostConfig, dependencies:
     root: config.runtimeRoot, claudeConfigDir: config.claudeConfigDir, adapterEntry: config.claudeAdapterEntry, claudeExecutable: config.claudeExecutable,
     sink: app.service,
     toolBroker,
+    failure: (failure) => console.warn(JSON.stringify({ event: "cloud-turn-failed", ...failure })),
     authorize: (request) => app.service.canPublish({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId, initiatorAccountId: request.initiatorAccountId }),
     botProfile: async (request) => {
       const bot = await repository.getBot(request.botId);

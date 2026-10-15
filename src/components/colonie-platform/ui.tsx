@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Alert02Icon, InformationCircleIcon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HIcon, type HIconElement } from "@/components/HIcon";
-import { MausAvatar } from "@/components/Avatar";
+import { BotAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
 import { botColor, initialsOf, type PrincipalKindUnion } from "@/lib/colonie-platform";
 
@@ -240,7 +240,7 @@ export function HumanAvatar({ name, size = 28 }: { name: string; size?: number }
 }
 
 export function BotAvatarView({ id, name, size = 28 }: { id: string; name: string; size?: number }) {
-  return <MausAvatar color={botColor(id)} label={name} size={size} animated={false} />;
+  return <BotAvatar bot={{ color: botColor(id), name }} label={name} size={size} animated={false} />;
 }
 
 export function AvatarFor({ kind, id, name, size = 28 }: { kind: PrincipalKindUnion; id: string; name: string; size?: number }) {

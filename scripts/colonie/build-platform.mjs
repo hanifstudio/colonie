@@ -7,3 +7,7 @@ await build({ entryPoints: ["scripts/colonie/verify-platform-neon.ts"], bundle: 
   packages: "external", platform: "node", format: "esm", target: "node24",
   outfile: "dist-platform/verify-neon.mjs", sourcemap: true,
 });
+await build({ entryPoints: ["scripts/colonie/verify-cloud-chat.ts"], bundle: true,
+  packages: "external", platform: "node", format: "esm", target: "node24",
+  outfile: "dist-platform/verify-cloud-chat.mjs", sourcemap: true,
+});

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { CloudAcpRuntime, cloudRuntimeEnvironment, type CloudTurnState } from "./runtime.ts";
+import { CloudAcpRuntime, cloudRuntimeEnvironment, type CloudFailure, type CloudTurnState } from "./runtime.ts";
 import type { BotTurnRequest, PlatformTurnSink } from "./contracts.ts";
 import { CloudToolBroker } from "./tools.ts";
 
@@ -30,7 +30,8 @@ async function fixture(authorize = async () => true, toolBroker?: CloudToolBroke
   const root = await mkdtemp(join(tmpdir(), "colonie-cloud-runtime-"));
   roots.push(root);
   const posted: Array<{ conversationId: string; body: string; initiatorAccountId?: string }> = [];
-  const states: Array<{ conversationId: string; state: CloudTurnState }> = [];
+  const states: Array<{ conversationId: string; state: CloudTurnState; message?: string }> = [];
+  const failures: CloudFailure[] = [];
   const sink: PlatformTurnSink = {
     canPublish: async () => true,
     postBotMessage: async (input) => { posted.push(input); return { ...request(input.conversationId).message, senderKind: "bot", body: input.body }; },
@@ -38,13 +39,26 @@ async function fixture(authorize = async () => true, toolBroker?: CloudToolBroke
   };
   const runtime = new CloudAcpRuntime({ root, claudeConfigDir: join(root, "unused-native-auth"), sink,
     authorize, toolBroker, adapterEntry: resolve("scripts/colonie/testing/cloud-chat-agent.ts"), timeoutMs: 8_000,
-    state: async (value, state) => { states.push({ conversationId: value.conversationId, state }); },
+    state: async (value, state, message) => { states.push({ conversationId: value.conversationId, state, message }); },
+    failure: (failure) => failures.push(failure),
   });
   runtimes.push(runtime);
-  return { root, runtime, posted, states };
+  return { root, runtime, posted, states, failures };
 }
 
 describe("Cloud conversation ACP boundary", () => {
+  it.each([
+    ["AUTH_FAILURE_FIXTURE", "authentication", "connection needs attention"],
+    ["QUOTA_FAILURE_FIXTURE", "quota", "usage limit"],
+  ])("reports %s without exposing native error/account details", async (body, reason, publicMessage) => {
+    const f = await fixture();
+    f.runtime.onTurn(request("private-failure", body));
+    await expect.poll(() => f.states.some((state) => state.state === "failed"), { timeout: 10_000 }).toBe(true);
+    expect(f.posted).toEqual([]);
+    expect(f.states.find((state) => state.state === "failed")?.message).toContain(publicMessage);
+    expect(f.failures).toEqual([{ phase: "prompt", reason, exitCode: null }]);
+    expect(JSON.stringify([f.states, f.failures])).not.toContain("fixture-private");
+  });
   it("uses its leased read tool through the SDK, publishes the result and revokes the lease after the turn", async () => {
     const broker = new CloudToolBroker({ authorize: async () => true, resolve: async () => [{
       name: "read_fixture", description: "Read a synthetic item", inputSchema: { type: "object", properties: { query: { type: "string" } } },

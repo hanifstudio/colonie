@@ -1,4 +1,7 @@
 import { track } from "@/lib/analytics";
+export const COMPOSER_PILL = "@container/composer relative z-[1] rounded-3xl bg-composer px-2 py-1.5 ring-1 ring-composer-ring";
+export const COMPOSER_ROW = "flex items-end gap-1 @max-[30rem]/composer:flex-wrap";
+export const COMPOSER_INPUT = "block max-h-[9rem] min-h-6 w-full resize-none overflow-y-auto bg-transparent px-1 py-1 text-[15px] leading-6 placeholder:text-ink-secondary focus:outline-none";
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
   ArrowUp01Icon,
@@ -989,8 +992,8 @@ export function Composer({
             made the box tall to fit them. Below the container width where the
             chips and the placeholder cannot share a line, the editor takes a
             full line of its own above the chips instead. */}
-        <div data-tour="composer" className="@container/composer relative z-[1] rounded-3xl bg-composer px-2 py-1.5 ring-1 ring-composer-ring">
-        <div data-composer-row className="flex items-end gap-1 @max-[30rem]/composer:flex-wrap">
+        <div data-tour="composer" className={COMPOSER_PILL}>
+        <div data-composer-row className={COMPOSER_ROW}>
           <input
             ref={fileInput}
             type="file"
@@ -1182,7 +1185,7 @@ export function Composer({
                   : t("composer.placeholder.bot", { name: bot?.name ?? "" })
           }
           aria-label={t("composer.placeholder.bot", { name: group ? group.name : (bot?.name ?? "") })}
-            className="block max-h-[9rem] min-h-6 w-full resize-none overflow-y-auto bg-transparent px-1 py-1 text-[15px] leading-6 placeholder:text-ink-secondary focus:outline-none"
+            className={COMPOSER_INPUT}
           />
           <div data-composer-actions className="flex items-center gap-1 @max-[30rem]/composer:ml-auto">
           {/* Stop stays a stop. Stop-then-steer is named beside the queued

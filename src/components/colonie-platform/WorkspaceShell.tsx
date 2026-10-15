@@ -2,13 +2,19 @@
 // readable conversation, and the member/settings panels. One SSE subscription
 // per active workspace folds message, read, turn, membership and revocation
 // frames into state; the frame cursor is replayed on reconnect.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown01Icon, Chatting01Icon, CloudIcon, ComputerIcon, HashtagIcon, Key01Icon, Logout01Icon, Menu01Icon,
+  ArrowDown01Icon, Chatting01Icon, CloudIcon, ComputerIcon, Key01Icon, Logout01Icon, Menu01Icon,
   MessageMultiple01Icon, PlusSignIcon, Robot01Icon, Settings01Icon, UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "@/components/HIcon";
-import { AvatarFor, Badge, Button, EmptyState, IconButton, Notice, SectionLabel, Spinner } from "./ui";
+import { AvatarFor, Badge, Button, EmptyState, IconButton, Notice, Spinner } from "./ui";
+import { Sidebar } from "@/components/Sidebar";
+import { SidebarSectionHeader } from "@/components/SidebarSectionHeader";
+import { BotEditorStore, type Action } from "@/state/store";
+import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
+import { ThreadRefsProvider } from "@/components/ThreadRefs";
+import { classicWorkspaceState } from "@/lib/colonie-classic-ui";
 import { ConversationView } from "./ConversationView";
 import { BotDialog, DmDialog, GroupDialog, GroupMembersDialog } from "./ComposerDialogs";
 import { MembersPanel } from "./MembersPanel";
@@ -16,7 +22,7 @@ import { WorkspaceSettings } from "./WorkspaceSettings";
 import { RecoveryKeyDialog } from "./AccountRecovery";
 import { cn } from "@/lib/cn";
 import {
-  canManageBots, canManageConnections, canManageMembers, conversationHasUnread, conversationTitle,
+  canManageBots, canManageConnections, canManageMembers, dmPeer,
   mergeMessages, partitionConversations, totalUnread, invitationLinkFor, PlatformApiError,
   type PlatformAccount, type PlatformBot, type PlatformClient,
   type PlatformConversation, type PlatformInvitation, type PlatformMember, type PlatformMessage,
@@ -250,6 +256,9 @@ export function WorkspaceShell({
     const generation = ++openGenerationRef.current;
     const forWorkspace = workspaceIdRef.current;
     const conversationId = conversation.id;
+    // Own the view before the first await. A fast response can beat React's
+    // next render, especially when opening follows an async DM lookup.
+    activeIdRef.current = conversationId;
     setActiveConversation(conversation);
     setSidebarOpen(false);
     setSendError(null);
@@ -326,73 +335,89 @@ export function WorkspaceShell({
   const unread = totalUnread(conversations);
   const canManage = canManageMembers(active.myRole);
 
+  async function openPeer(input: { withAccountId?: string; withBotId?: string }) {
+    const existing = conversations.find((conversation) => {
+      if (conversation.kind !== "dm") return false;
+      const peer = dmPeer(conversation, selfPrincipalId);
+      return input.withBotId ? peer?.botId === input.withBotId : peer?.accountId === input.withAccountId;
+    });
+    if (existing) { await openConversation(existing); return; }
+    const forWorkspace = workspaceIdRef.current;
+    const generation = ++openGenerationRef.current;
+    try {
+      const conversation = await client.openDm(forWorkspace, input);
+      if (workspaceIdRef.current !== forWorkspace || generation !== openGenerationRef.current) return;
+      setConversations((prev) => prev.some((c) => c.id === conversation.id) ? prev : [conversation, ...prev]);
+      await openConversation(conversation);
+    } catch (cause) {
+      if (workspaceIdRef.current === forWorkspace && generation === openGenerationRef.current) setSendError(cause instanceof Error ? cause.message : "This conversation could not be opened.");
+    }
+  }
+
+  const classicState = classicWorkspaceState({ bots, conversations, self: selfPrincipalId, active: activeConversation, messages, working });
+  const classicDispatch = (action: Action) => {
+    if (action.type === "select") {
+      const conversation = conversations.find((c) => c.id === action.id);
+      if (conversation) void openConversation(conversation);
+      else if (bots.some((bot) => bot.id === action.id)) void openPeer({ withBotId: action.id });
+    } else if (action.type === "interrupt" && action.threadId) void stop(action.threadId);
+    else if (action.type === "toggleNewBot") setPanel("bot");
+    else if (action.type === "toggleSettings") setPanel("members");
+    else if (action.type === "loadOlderMessages") void loadEarlier();
+    else if (action.type === "updateBot" && action.patch.name) {
+      void client.updateBot(active.id, action.botId, { name: action.patch.name })
+        .then((updated) => setBots((prev) => prev.map((bot) => bot.id === updated.id ? updated : bot)))
+        .catch((cause) => setSendError(cause instanceof Error ? cause.message : "The bot could not be renamed."));
+    }
+  };
+
   return (
-    <div className="flex h-dvh min-h-0 bg-app text-ink">
+    <BotEditorStore value={{ state: classicState, dispatch: classicDispatch, flushBotPatches: async () => null, refreshInstances: async () => {}, refreshModels: async () => {} }}>
+    <DesktopCapabilitiesProvider>
+    <ThreadRefsProvider>
+    <div className="relative flex h-dvh min-h-0 bg-app text-ink">
       {sidebarOpen ? <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" /> : null}
 
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col border-r border-hairline bg-panel transition-transform md:static md:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <WorkspaceSwitcher
-          active={active}
-          workspaces={workspaces}
-          unread={unread}
-          onSwitch={(id) => { onSwitchWorkspace(id); setSidebarOpen(false); }}
-          onNewWorkspace={() => { onNewWorkspace(); setSidebarOpen(false); }}
-        />
-
-        <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto px-2 py-3">
-          <div>
-            <SectionLabel action={<IconButton label="New group" icon={PlusSignIcon} onClick={() => setPanel("group")} />}>Groups</SectionLabel>
-            <ConversationList
-              conversations={groups}
-              selfPrincipalId={selfPrincipalId}
-              activeId={activeConversation?.id ?? null}
-              icon={<HIcon icon={HashtagIcon} size={16} aria-hidden="true" />}
-              empty="No groups yet."
-              onOpen={openConversation}
-            />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} workspace={{
+        switcher: <WorkspaceSwitcher active={active} workspaces={workspaces} unread={unread}
+          onSwitch={(id) => { onSwitchWorkspace(id); setSidebarOpen(false); }} onNewWorkspace={onNewWorkspace} />,
+        createMenu: <>
+          {canManageBots(active.myRole) ? <SidebarAction icon={Robot01Icon} label="Create a bot" onClick={() => setPanel("bot")} /> : null}
+          <SidebarAction icon={UserGroupIcon} label="New group" onClick={() => setPanel("group")} />
+          <SidebarAction icon={Chatting01Icon} label="New direct message" onClick={() => setPanel("dm")} />
+        </>,
+        onBotMenu: () => setPanel("members"),
+        onGroupMenu: (id) => { const group = conversations.find((c) => c.id === id); if (group) void openConversation(group).then(() => setPanel("group-members")); },
+        people: (query, density) => <div className="pt-3">
+          <div className="flex items-center">
+            {density !== "icons" ? <div className="min-w-0 flex-1"><SidebarSectionHeader name="People" collapsed={false} reorderable={false} dragging={false} /></div> : null}
+            <IconButton label="New direct message" icon={PlusSignIcon} onClick={() => setPanel("dm")} />
           </div>
-
-          <div>
-            <SectionLabel action={<IconButton label="New direct message" icon={PlusSignIcon} onClick={() => setPanel("dm")} />}>Direct messages</SectionLabel>
-            <ConversationList
-              conversations={humanDms}
-              selfPrincipalId={selfPrincipalId}
-              activeId={activeConversation?.id ?? null}
-              empty="No messages with people yet."
-              onOpen={openConversation}
-            />
-            {botDms.length ? (
-              <div className="mt-1">
-                <SectionLabel>Bots</SectionLabel>
-                <ConversationList
-                  conversations={botDms}
-                  selfPrincipalId={selfPrincipalId}
-                  activeId={activeConversation?.id ?? null}
-                  onOpen={openConversation}
-                />
-              </div>
-            ) : null}
-          </div>
-        </nav>
-
-        <div className="shrink-0 space-y-1 border-t border-hairline px-2 py-2">
-          {canManageBots(active.myRole) ? (
-            <SidebarAction icon={Robot01Icon} label="Create a bot" onClick={() => setPanel("bot")} />
-          ) : null}
-          <SidebarAction icon={UserGroupIcon} label="Members" onClick={() => setPanel("members")} />
-          <SidebarAction icon={Settings01Icon} label="Workspace settings" onClick={() => setPanel("settings")} />
-          <SidebarAction icon={Key01Icon} label="Account recovery" onClick={() => setPanel("recovery")} />
-          <div className="flex items-center gap-2 px-2 pt-1">
-            <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-tertiary">{account.email}</span>
-            <IconButton label="Sign out" icon={Logout01Icon} onClick={onSignOut} />
-          </div>
-        </div>
-      </aside>
+          {members.filter((person) => person.accountId !== account.id && (!query || person.displayName.toLowerCase().includes(query))).map((person) => {
+            const dm = humanDms.find((c) => dmPeer(c, selfPrincipalId)?.accountId === person.accountId);
+            return <button key={person.accountId} type="button" aria-current={dm?.id === activeConversation?.id ? "page" : undefined}
+              aria-label={person.displayName} onClick={() => void openPeer({ withAccountId: person.accountId })}
+              className={cn("flex w-full items-center rounded-md text-left hover:bg-raised/40", density === "icons" ? "justify-center py-2" : "gap-3 px-2 py-2.5", dm?.id === activeConversation?.id && "bg-raised/70")}>
+              <AvatarFor kind="human" id={person.principalId} name={person.displayName} size={density === "icons" ? 44 : 40} />
+              {density !== "icons" ? <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{person.displayName}</span> : null}
+              {dm?.unreadCount ? <span className="size-2 shrink-0 rounded-full bg-accent" /> : null}
+            </button>;
+          })}
+        </div>,
+        footer: <div className="flex items-center gap-2">
+          <AvatarFor kind="human" id={account.id} name={account.name} size={28} />
+          <details className="relative min-w-0 flex-1">
+            <summary className="cursor-pointer truncate rounded-xl px-2 py-2 text-[14px] hover:bg-raised/50">{account.name}</summary>
+            <div className="absolute bottom-full left-0 z-40 mb-2 w-56 rounded-xl border border-hairline/40 bg-menu p-1.5 shadow-xl">
+              <SidebarAction icon={UserGroupIcon} label="Members" onClick={() => setPanel("members")} />
+              <SidebarAction icon={Settings01Icon} label="Workspace settings" onClick={() => setPanel("settings")} />
+              <SidebarAction icon={Key01Icon} label="Account recovery" onClick={() => setPanel("recovery")} />
+              <SidebarAction icon={Logout01Icon} label="Sign out" onClick={onSignOut} />
+            </div>
+          </details>
+          <IconButton label="Workspace settings" icon={Settings01Icon} onClick={() => setPanel("settings")} />
+        </div>,
+      }} />
 
       <main className="flex min-w-0 flex-1 flex-col">
         {loading ? (
@@ -401,7 +426,7 @@ export function WorkspaceShell({
           <div className="p-6"><Notice tone="error">{loadError}</Notice></div>
         ) : activeConversation ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-hairline px-3 py-2 md:hidden">
+            <div className="absolute left-3 top-3 z-30 md:hidden">
               <IconButton label="Open navigation" icon={Menu01Icon} onClick={() => setSidebarOpen(true)} />
             </div>
             <div className="min-h-0 flex-1">
@@ -433,7 +458,7 @@ export function WorkspaceShell({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 px-3 py-2 md:hidden">
+            <div className="absolute left-3 top-3 z-30 md:hidden">
               <IconButton label="Open navigation" icon={Menu01Icon} onClick={() => setSidebarOpen(true)} />
             </div>
             <div className="min-h-0 flex-1">
@@ -450,9 +475,9 @@ export function WorkspaceShell({
                     {canManageBots(active.myRole) ? (
                       <>
                         <Button variant="primary" icon={Robot01Icon} onClick={() => setPanel("bot")}>Create a bot</Button>
-                        <Button variant="secondary" icon={Chatting01Icon} onClick={() => setPanel("dm")}>New direct message</Button>
                       </>
                     ) : null}
+                    <Button variant="secondary" icon={Chatting01Icon} onClick={() => setPanel("dm")}>New direct message</Button>
                     <Button variant="secondary" icon={PlusSignIcon} onClick={() => setPanel("group")}>New group</Button>
                   </div>
                 }
@@ -586,63 +611,14 @@ export function WorkspaceShell({
         }}
       />
     </div>
+    </ThreadRefsProvider>
+    </DesktopCapabilitiesProvider>
+    </BotEditorStore>
   );
 }
 
 function invitationLink(origin: string, token: string): string {
   return invitationLinkFor(origin || (typeof location !== "undefined" ? location.origin : ""), token);
-}
-
-function ConversationList({
-  conversations,
-  selfPrincipalId,
-  activeId,
-  onOpen,
-  icon,
-  empty,
-}: {
-  conversations: PlatformConversation[];
-  selfPrincipalId: string;
-  activeId: string | null;
-  onOpen: (conversation: PlatformConversation) => void;
-  icon?: ReactNode;
-  empty?: string;
-}) {
-  if (!conversations.length) {
-    return empty ? <p className="px-2 py-1 text-[12px] text-ink-tertiary">{empty}</p> : null;
-  }
-  return (
-    <ul className="space-y-0.5">
-      {conversations.map((conversation) => {
-        const isActive = conversation.id === activeId;
-        const unread = conversationHasUnread(conversation);
-        const peer = conversation.participants.find((p) => p.principalId !== selfPrincipalId);
-        return (
-          <li key={conversation.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(conversation)}
-              aria-current={isActive ? "true" : undefined}
-              className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
-                isActive ? "bg-accent/15 text-ink" : "text-ink-secondary hover:bg-raised hover:text-ink",
-              )}
-            >
-              {icon ? (
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-raised text-ink-secondary">{icon}</span>
-              ) : peer ? (
-                <AvatarFor kind={peer.kind} id={peer.botId ?? peer.accountId ?? peer.principalId} name={peer.displayName} size={24} />
-              ) : (
-                <span className="flex size-6 items-center justify-center rounded-md bg-raised text-ink-secondary"><HIcon icon={Chatting01Icon} size={14} aria-hidden="true" /></span>
-              )}
-              <span className={cn("min-w-0 flex-1 truncate text-[13px]", unread && "font-semibold text-ink")}>{conversationTitle(conversation, selfPrincipalId)}</span>
-              {unread ? <Badge tone="accent">{conversation.unreadCount}</Badge> : null}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
 }
 
 function WorkspaceSwitcher({
@@ -660,27 +636,24 @@ function WorkspaceSwitcher({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative border-b border-hairline p-2">
+    <div className="relative min-w-0" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12.5px] hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-          <HIcon icon={active.kind === "cloud" ? CloudIcon : ComputerIcon} size={16} aria-hidden="true" />
-        </span>
+        <HIcon icon={active.kind === "cloud" ? CloudIcon : ComputerIcon} size={15} className="shrink-0 text-ink-secondary" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-semibold">{active.name}</span>
-          <span className="block text-[11px] text-ink-tertiary">{active.kind === "cloud" ? "Cloud workspace" : "Local workspace"}</span>
+          <span className="block truncate">{active.name}</span>
         </span>
         {unread ? <Badge tone="accent">{unread}</Badge> : null}
         <HIcon icon={ArrowDown01Icon} size={15} className="text-ink-tertiary" aria-hidden="true" />
       </button>
 
       {open ? (
-        <div role="menu" className="absolute left-2 right-2 z-50 mt-1 overflow-hidden rounded-xl border border-hairline bg-menu py-1 shadow-xl">
+        <div role="menu" className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-xl border border-hairline/40 bg-menu py-1 shadow-xl">
           {workspaces.map((workspace) => (
             <button
               key={workspace.id}

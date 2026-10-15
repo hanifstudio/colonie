@@ -20,6 +20,25 @@ const require = createRequire(import.meta.url);
 const pathPart = (id: string) => createHash("sha256").update(id).digest("hex");
 
 export type CloudTurnState = "working" | "completed" | "cancelled" | "failed";
+export type CloudFailureReason = "authentication" | "quota" | "runtime" | "unavailable";
+export interface CloudFailure { phase: string; reason: CloudFailureReason; exitCode: number | null }
+
+// Provider errors can include account details, prompts or tokens. Only a fixed
+// category leaves this boundary; never forward/log the original stderr/error.
+export function cloudFailureReason(error: unknown, stderr: string): CloudFailureReason {
+  if ((error as { code?: unknown } | null)?.code === -32000) return "authentication";
+  const description = `${error instanceof Error ? error.message : ""}\n${stderr}`;
+  if (/usage limit|rate.?limit|quota|too many requests|429|hit your limit/i.test(description)) return "quota";
+  if (/authenticat|not logged in|login required|invalid.*token|expired.*token|401|403|oauth/i.test(description)) return "authentication";
+  if (/ENOENT|EACCES|could not start|cannot find module|permission denied|read.only file/i.test(description)) return "runtime";
+  return "unavailable";
+}
+
+export function cloudFailureMessage(reason: CloudFailureReason): string {
+  if (reason === "quota") return "The workspace AI has reached its usage limit. Please try again after the limit resets.";
+  if (reason === "authentication") return "The workspace AI connection needs attention. Your workspace owner can reconnect it; your message is saved.";
+  return "The bot could not reply. Your message is saved. Try again shortly; if this continues, ask your workspace owner to check the AI service.";
+}
 export interface CloudRuntimeOptions {
   root: string;
   /** Provider-owned login directory, never a renderer-supplied path. */
@@ -36,6 +55,7 @@ export interface CloudRuntimeOptions {
   botProfile?(request: BotTurnRequest): Promise<{ name: string; purpose?: string }>;
   history?(request: BotTurnRequest): Promise<BotTurnRequest["history"]>;
   state?(request: BotTurnRequest, state: CloudTurnState, message?: string): Promise<void>;
+  failure?(failure: CloudFailure): void;
   toolBroker?: Pick<CloudToolBroker, "open">;
   /** Test seam: production always uses node child_process.spawn. */
   spawn?: typeof spawn;
@@ -116,9 +136,12 @@ export class CloudAcpRuntime implements BotRuntime {
     let text = "";
     let timer: ReturnType<typeof setTimeout> | undefined;
     let status: CloudTurnState = "failed";
+    let phase = "prepare";
+    let stderr = "";
     try {
       if (!(await this.allowed(turn))) return;
       await mkdir(join(root, "home"), { recursive: true, mode: 0o700 });
+      phase = "tools";
       turn.tools = await this.options.toolBroker?.open(request);
       const profile = await this.options.botProfile?.(request) ?? { name: "Colonie bot" };
       const history = await this.options.history?.(request) ?? request.history;
@@ -127,6 +150,7 @@ export class CloudAcpRuntime implements BotRuntime {
       await this.receipt(root, { id: receiptId, status: "prepared", request, prompt, toolNames: turn.tools?.toolNames });
       await this.options.state?.(request, "working");
       if (!(await this.allowed(turn))) { status = "cancelled"; return; }
+      phase = "spawn";
       const child = (this.options.spawn ?? spawn)(this.options.node ?? process.execPath,
         [this.options.adapterEntry ?? require.resolve("@agentclientprotocol/claude-agent-acp/dist/index.js")],
         { cwd: root, env: { ...cloudRuntimeEnvironment(this.options.claudeConfigDir, join(root, "home")),
@@ -134,7 +158,7 @@ export class CloudAcpRuntime implements BotRuntime {
           stdio: ["pipe", "pipe", "pipe"] }) as ChildProcessWithoutNullStreams;
       turn.child = child;
       // Consume stderr without logging provider internals or authentication.
-      child.stderr.resume();
+      child.stderr.on("data", (chunk) => { stderr = (stderr + String(chunk)).slice(-8192); });
       const connection = client({ name: "Colonie Cloud" })
         .onNotification(methods.client.session.update, ({ params }) => {
           const value = params as SessionNotification;
@@ -155,27 +179,33 @@ export class CloudAcpRuntime implements BotRuntime {
       turn.connection = connection;
       timer = setTimeout(() => { turn.cancelled = true; connection.close(new Error("Cloud turn timed out")); }, this.options.timeoutMs ?? 120_000);
       child.on("error", () => connection.close(new Error("The AI runtime could not start")));
+      phase = "initialize";
       await connection.agent.request(methods.agent.initialize, {
         protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie Cloud", version: "0.1.101" },
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
       });
+      phase = "session";
       const session = await connection.agent.request(methods.agent.session.new, {
         cwd: root, mcpServers: turn.tools?.servers ?? [],
         _meta: { claudeCode: { options: { tools: [], settingSources: [], strictMcpConfig: true, persistSession: false } } },
       });
       turn.sessionId = session.sessionId;
       if (!(await this.allowed(turn))) { status = "cancelled"; return; }
+      phase = "prompt";
       const result = await connection.agent.request(methods.agent.session.prompt, {
         sessionId: session.sessionId, prompt: [{ type: "text", text: prompt }],
       });
       if (result.stopReason === "cancelled" || !(await this.allowed(turn))) { status = "cancelled"; return; }
       if (!text.trim()) throw new Error("The AI did not return a message");
+      phase = "publish";
       await this.options.sink.postBotMessage({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId, initiatorAccountId: request.initiatorAccountId, body: text.trim() });
       status = "completed";
-    } catch {
+    } catch (error) {
       status = turn.cancelled ? "cancelled" : "failed";
       if (!turn.cancelled && await this.allowed(turn).catch(() => false)) {
-        await this.options.state?.(request, "failed", "The bot could not reply. Try again shortly; if this continues, ask your workspace owner to check the AI service.").catch(() => {});
+        const reason = cloudFailureReason(error, stderr);
+        this.options.failure?.({ phase, reason, exitCode: turn.child?.exitCode ?? null });
+        await this.options.state?.(request, "failed", cloudFailureMessage(reason)).catch(() => {});
       }
     } finally {
       clearTimeout(timer);

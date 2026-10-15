@@ -1,5 +1,5 @@
 /** Isolated ACP fixture. Never authenticates or contacts a model provider. */
-import { agent, methods, ndJsonStream, PROTOCOL_VERSION, type NewSessionRequest } from "@agentclientprotocol/sdk";
+import { agent, methods, ndJsonStream, PROTOCOL_VERSION, RequestError, type NewSessionRequest } from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -15,6 +15,8 @@ agent({ name: "Colonie Cloud fixture" })
   .onNotification(methods.agent.session.cancel, () => { stop?.(); })
   .onRequest(methods.agent.session.prompt, async ({ params, client }) => {
     const text = params.prompt.flatMap((part) => part.type === "text" ? [part.text] : []).join("");
+    if (text.includes("AUTH_FAILURE_FIXTURE")) throw RequestError.authRequired({ token: "fixture-private-token" });
+    if (text.includes("QUOTA_FAILURE_FIXTURE")) throw new RequestError(-32001, "Usage limit reached", { account: "fixture-private-account" });
     const outcome = await client.request(methods.client.session.requestPermission, {
       sessionId: params.sessionId, toolCall: { toolCallId: "permission", title: "Run a command", kind: "execute", status: "pending" },
       options: [{ optionId: "yes", kind: "allow_once", name: "Allow" }],

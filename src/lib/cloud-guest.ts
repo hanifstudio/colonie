@@ -20,9 +20,12 @@ export function canWriteIn(state: SessionState | null, threadId: string): boolea
   return state.openedThreads?.includes(threadId) === true;
 }
 
-export function useCanWriteIn(threadId: string): boolean | null {
+export function useCanWriteIn(threadId: string, accountWorkspace = false): boolean | null {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
+    // Account workspaces authorize every read/write at their own API. They do
+    // not have the old device-pairing/guest session endpoint.
+    if (accountWorkspace) { setAllowed(true); return; }
     let alive = true;
     setAllowed(null);
     void read().then(async (state) => {
@@ -34,6 +37,6 @@ export function useCanWriteIn(threadId: string): boolean | null {
     return () => {
       alive = false;
     };
-  }, [threadId]);
+  }, [threadId, accountWorkspace]);
   return allowed;
 }

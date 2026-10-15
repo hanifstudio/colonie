@@ -19,6 +19,11 @@ const evidenceDir = resolve(".devone/evidence");
 await mkdir(evidenceDir, { recursive: true });
 const app = createPlatformApp({ repository: new MemoryPlatformRepository(), auth: new MemoryPlatformAuth(),
   runtime: { onTurn: async (request) => {
+    if (request.message.body === "UI_AUTH_ERROR_FIXTURE") {
+      await app.service.publishTurnState({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId,
+        state: "error", error: "The workspace AI connection needs attention. Your workspace owner can reconnect it; your message is saved." });
+      return;
+    }
     await app.service.postBotMessage({ botPrincipalId: request.botPrincipalId, conversationId: request.conversationId,
       initiatorAccountId: request.initiatorAccountId, body: "UI_PROVIDER_FIXTURE_REPLY" });
   } },
@@ -80,7 +85,7 @@ async function firstBot(page: Page) {
   await page.getByRole("button", { name: "Create bot", exact: true }).click();
   await page.getByRole("textbox", { name: "Message", exact: true }).fill("Hello from the actual renderer");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
-  await page.getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
+  await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
 }
 
 try {
@@ -105,9 +110,16 @@ try {
   await signup(page, "Owner");
   await cloudWorkspace(page, "Renderer team");
   await firstBot(page);
+  // Exercise an actual failure event through the HTTP/SSE/UI boundary: the
+  // sent message stays visible and the error must reach the composer.
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("UI_AUTH_ERROR_FIXTURE");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await page.getByText(/The workspace AI connection needs attention/).waitFor();
+  await page.getByRole("log").getByText("UI_AUTH_ERROR_FIXTURE", { exact: true }).waitFor();
+  report.aiErrorShownAndSentMessagePreserved = true;
   await page.reload();
   await page.getByRole("button", { name: /Atlas/ }).first().click();
-  await page.getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
+  await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
   report.signupCloudBotChatAndReload = true;
   await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-cloud.png" : "platform-browser-cloud.png") });
 
@@ -127,6 +139,14 @@ try {
     await invited.screenshot({ path: join(evidenceDir, "platform-mobile-invited.png") });
     report.invitationSkipsCreationAndEngineSetup = true;
     report.mobileViewport = { width: 390, height: 844 };
+    // An ordinary invited member must see the workspace bot before having a
+    // DM with it. The rejected shell listed only already-open bot DMs.
+    await invited.getByRole("button", { name: /Atlas/ }).first().click();
+    await invited.getByRole("textbox", { name: "Message", exact: true }).fill("Invited member can reach the bot");
+    await invited.getByRole("button", { name: "Send message", exact: true }).click();
+    await invited.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
+    report.invitedMemberCanOpenAndChatWithExistingBot = true;
+    await invited.getByRole("button", { name: "Open navigation", exact: true }).click();
     await page.getByRole("button", { name: "New direct message", exact: true }).first().click();
     await page.getByRole("dialog", { name: "New direct message", exact: true }).getByRole("button", { name: /^Member/ }).click();
     await page.getByPlaceholder("Message Member", { exact: true }).fill("HUMAN_DM_UI_ONLY");
@@ -136,8 +156,9 @@ try {
     await invited.getByPlaceholder("Message Owner", { exact: true }).fill("HUMAN_DM_UI_REPLY");
     await invited.getByRole("button", { name: "Send message", exact: true }).click();
     await page.getByText("HUMAN_DM_UI_REPLY", { exact: true }).waitFor();
-    assert.equal(await page.getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).count(), 0);
+    assert.equal(await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).count(), 0);
     report.humanDmBetweenIndependentBrowserContexts = true;
+    await invited.waitForFunction(() => (document.querySelector("[data-sidebar]")?.getBoundingClientRect().right ?? 0) <= 1);
     await invited.screenshot({ path: join(evidenceDir, "platform-mobile-human-dm.png") });
     await invitedContext.close();
   } else if (electron) {
@@ -183,7 +204,7 @@ try {
     assert.ok(cloudAgain, "Switching back must open the account platform");
     activePage = cloudAgain;
     await cloudAgain.getByRole("button", { name: /Atlas/ }).first().click();
-    await cloudAgain.getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
+    await cloudAgain.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
     assert.equal(await cloudAgain.getByText("LOCAL_WORKSPACE_UI_OK", { exact: true }).count(), 0);
     report.nativeCloudLocalSwitchPreservesSeparateChats = true;
   }

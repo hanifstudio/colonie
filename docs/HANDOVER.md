@@ -1,5 +1,25 @@
 # Handover — Colonie, 2026-10-14
 
+**Latest correction (October 15):** The owner rejected the redesigned 0.2.0
+Cloud shell. Cloud now uses the existing Colonie Sidebar and ChatView, with
+account/workspace controls added there. It is deployed; the existing Mac
+installer loads this UI on reload, so no new DMG is needed for Cloud. Source
+branch: `colonie/restore-existing-ui`. Accounts and stored conversations were
+not rolled back or migrated. Invited members can select all workspace bots and
+teammates, including before a DM exists. A fast-response conversation-open race
+was also fixed. Isolated Chromium invitation/bot-chat/human-DM/error journeys
+and the unchanged packaged Mac's Cloud/Local switching passed with deterministic
+providers. Detailed commands and deployed artifact hashes are in PROGRESS.md.
+
+**Current real AI is blocked, not proven working:** Two fresh disposable Neon
+checks proved invited-member human DMs but failed at the native Claude prompt
+with an authentication failure, using each existing server auth location
+read-only. The earlier real Claude success below is historical. No engine was
+signed in by the agent. The owner must reconnect the platform's Claude account;
+the owner-only command is in PROGRESS.md. Then run exactly one disposable
+`verify-cloud-chat.mjs --real` check before claiming AI replies are restored.
+No mutation test was run against a production account or conversation.
+
 **Current release state (October 15):** Colonie 0.2.0 beta is deployed at
 `https://172.104.33.55` with ordinary account signup/sign-in. The new
 `colonie-platform` service uses a dedicated Neon schema and loopback port 19091;

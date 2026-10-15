@@ -24,7 +24,7 @@ setGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 for (const key of [
   "HTMLElement", "HTMLInputElement", "HTMLTextAreaElement", "Element", "Node", "Event", "MouseEvent",
   "CustomEvent", "KeyboardEvent", "PointerEvent", "SVGElement", "getComputedStyle",
-  "requestAnimationFrame", "cancelAnimationFrame",
+  "requestAnimationFrame", "cancelAnimationFrame", "ResizeObserver", "MutationObserver",
 ]) {
   setGlobal(key, (testWindow as unknown as Record<string, unknown>)[key] ?? globals[key]);
 }
@@ -32,7 +32,10 @@ for (const key of [
 import { act, createElement, type ReactNode } from "react";
 const { createRoot } = await import("react-dom/client");
 type Root = import("react-dom/client").Root;
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Animation and layout need a real browser; the Playwright fixture exercises
+// them. Keep these DOM tests focused on account/conversation behavior.
+vi.mock("@/components/BloubAvatar", async (original) => ({ ...await original<object>(), BloubAvatar: () => null }));
 import { PlatformApp } from "./PlatformApp";
 import { WorkspaceShell } from "./WorkspaceShell";
 
@@ -273,10 +276,10 @@ async function render(node: ReactNode) {
   await flush();
 }
 
-function button(text: string): HTMLButtonElement {
-  const found = [...host.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().includes(text));
+function button(text: string): HTMLElement {
+  const found = [...host.querySelectorAll("button, [role=button]")].find((b) => (b.textContent ?? "").trim().includes(text));
   if (!found) throw new Error(`No button containing "${text}". Buttons: ${[...host.querySelectorAll("button")].map((b) => b.textContent).join(" | ")}`);
-  return found as HTMLButtonElement;
+  return found as HTMLElement;
 }
 
 /** The button with exactly this text, inside the list row containing `rowText`. */
@@ -374,6 +377,13 @@ describe("Cloud journey", () => {
     await click(byLabel("Send message"));
     expect(fake.calls.sendMessage).toEqual([{ id: "c-bot", body: "Hello Atlas" }]);
     expect(text()).toContain("Hello Atlas");
+    setValue(composer, "A separate follow-up");
+    await click(byLabel("Send message"));
+    const transcript = host.querySelector('[role="log"]')!;
+    expect(transcript.textContent).toContain("Hello Atlas");
+    expect(transcript.textContent).toContain("A separate follow-up");
+    expect(transcript.querySelector('[title="Previous version"]')).toBeNull();
+    expect(transcript.querySelector('[title="Next version"]')).toBeNull();
   });
 });
 
@@ -391,7 +401,7 @@ describe("private human DM", () => {
 
     expect(fake.calls.openDm).toEqual([{ withAccountId: "acc-sam" }]);
     expect(text()).toContain("Sam Rivers");
-    expect(text()).toContain("Direct message");
+    expect(host.querySelector('[role="log"]')?.getAttribute("aria-label")).toContain("Sam Rivers");
   });
 });
 
@@ -859,7 +869,8 @@ describe("earlier messages", () => {
     expect(fake.calls.listMessages).toEqual([{ id: "c-bot", after: 0, limit: 9 }]);
     expect(text()).toContain("Fourth line");
     expect(text()).toContain("Tenth line");
-    expect(text().indexOf("Fourth line")).toBeLessThan(text().indexOf("Tenth line"));
+    const transcript = host.querySelector('[role="log"]')?.textContent ?? "";
+    expect(transcript.indexOf("Fourth line")).toBeLessThan(transcript.indexOf("Tenth line"));
 
     // A failure says so in plain words and leaves the messages in place.
     fake.control.listMessagesError = new Error("Request failed with status 500");
