@@ -46,7 +46,6 @@ import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { RemoteComputerSection } from "./RemoteComputerSection";
 import { ConnectedWorkspacesSettings } from "./ConnectedWorkspacesSettings";
-import { OrganizationSettings } from "./OrganizationSettings";
 import { CloudAccountSettings } from "./CloudAccountSettings";
 import { ProSettingsCard } from "./ProIntroduction";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
@@ -113,7 +112,6 @@ export const SECTIONS: Array<{
   { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building02Icon, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "cloudAccount", group: "account", labelKey: "settings.section.cloudAccount", icon: UserIcon, keywords: ["cloud", "account", "personal", "sign in", "pro", "subscription", "billing"] },
-  { id: "organization", group: "account", labelKey: "settings.section.organization", icon: Building02Icon, keywords: ["company", "organization", "organisation", "sign in", "enroll", "managed", "models", "disconnect"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
   { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
   { id: "people", group: "account", labelKey: "settings.section.people", icon: UsersIcon, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
@@ -137,7 +135,7 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
   { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "decisionModel"] },
   { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["companion", "desktopWorkspaces", "computer"] },
-  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["cloudAccount", "organization", "people", "activity"] },
+  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["cloudAccount", "people", "activity"] },
 ];
 
 /** Advanced-only pages. A deep link to one still opens it in Simple mode, as
@@ -791,7 +789,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
     .filter((entry) => entry.id !== "desktopWorkspaces" || Boolean(window.ogb?.environments))
-    .filter((entry) => entry.id !== "organization" || Boolean(window.ogb?.organization))
     // On the person's own Cloud in this app's window, the plan shows read only (cloudPlan);
     // never on any other server open here (a VPS, a hosted workspace, someone else's).
     .filter((entry) => entry.id !== "cloudAccount" || Boolean(window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true)))
@@ -892,8 +889,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
     switch (id) {
       case "desktopWorkspaces":
         return <ConnectedWorkspacesSettings />;
-      case "organization":
-        return window.ogb?.organization && !remoteActive ? <OrganizationSettings /> : null;
       case "cloudAccount":
         return (window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true)) && !remoteActive
           ? <CloudAccountSettings linkRequest={state.appSettingsCloudLink} cloudHome={state.config?.cloudHome === true}

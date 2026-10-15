@@ -60,7 +60,6 @@ vi.mock("./ServerPairingCard", () => ({ ServerPairingCard: () => null }));
 vi.mock("./ConnectedWorkspacesSettings", () => ({ ConnectedWorkspacesSettings: marker("desktopWorkspaces") }));
 vi.mock("./LocalComputerSection", () => ({ LocalComputerSection: marker("computer") }));
 vi.mock("./CloudAccountSettings", () => ({ CloudAccountSettings: marker("cloudAccount") }));
-vi.mock("./OrganizationSettings", () => ({ OrganizationSettings: marker("organization") }));
 vi.mock("./PeopleSection", () => ({ PeopleSection: marker("people") }));
 vi.mock("./ActivitySection", () => ({ ActivitySection: marker("activity") }));
 vi.mock("./UsageSection", () => ({ UsageSection: marker("usage") }));
@@ -147,11 +146,11 @@ describe("Settings in Simple mode", () => {
     expect(html).toContain('aria-label="Enable the built-in browser"');
   });
 
-  it("stacks OMB Cloud and Organization on Account in the desktop app", () => {
+  it("shows OMB Cloud on Account in the desktop app", () => {
     fixture.section = "cloudAccount";
     const html = render();
     expect(currentPage(html)).toBe("account");
-    expect(blocks(html)).toEqual(["cloudAccount", "organization"]);
+    expect(blocks(html)).toEqual(["cloudAccount"]);
   });
 
   it("adds People and Activity to Account for a hosted workspace's admins in a browser", () => {
@@ -192,7 +191,6 @@ describe("Settings in Simple mode", () => {
     ["desktopWorkspaces", "computers"],
     ["computer", "computers"],
     ["cloudAccount", "account"],
-    ["organization", "account"],
   ])("lands a deep link to %s on %s", (section, page) => {
     fixture.section = section;
     const html = render();
