@@ -30,20 +30,6 @@ applyFont(readFont());
  * device"; on the owner's own machine the server trusts loopback and this
  * check is a single fast request. */
 async function chooseRoot(): Promise<React.ReactNode> {
-  // A Local workspace and its Cloud live in the original sidebar switcher
-  // (DesktopWorkspaceSwitcher), not in added floating chrome: this only picks
-  // which original shell to mount.
-  const nativeWorkspace = await window.ogb?.colonieWorkspaces?.info().catch(() => null);
-  if (nativeWorkspace?.local) {
-    const { default: App } = await import("./App");
-    return <App />;
-  }
-  const platform = nativeWorkspace ?? await fetch("/api/colonie/bootstrap", { signal: AbortSignal.timeout(2000) })
-    .then(async (response) => response.ok ? response.json() as Promise<{ mode?: string; origin?: string }> : null).catch(() => null);
-  if (nativeWorkspace || (platform && "mode" in platform && platform.mode === "platform")) {
-    const { PlatformApp } = await import("./components/colonie-platform/PlatformApp");
-    return <PlatformApp platformOrigin={platform?.origin} />;
-  }
   if (location.pathname === "/pair") {
     // The OMB Cloud page's "Use in your browser": whose Cloud it is, then one Continue.
     const signIn = takeBrowserSignInFromLocation();
