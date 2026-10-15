@@ -214,11 +214,10 @@ describe("threadModelFallback", () => {
     expect(threadModelFallback(spare, sonnet, engines({}))).toBeNull();
   });
 
-  it("gives way when the engine is gone, disabled, unavailable, or not allowed", () => {
+  it("gives way when the engine is gone, disabled, unavailable, or not allowed here", () => {
     expect(threadModelFallback(spare, sonnet, engines({ spare: undefined }))).toBe("unavailable");
     expect(threadModelFallback(spare, sonnet, engines({ spare: engine("spare", { enabled: false }) }))).toBe("unavailable");
     expect(threadModelFallback(spare, sonnet, engines({ spare: engine("spare", { snapshot: { state: "unavailable", reason: "missing" } }) }))).toBe("unavailable");
-    expect(threadModelFallback(spare, sonnet, engines({}), { refusal: (instance) => instance.instanceId === "spare" ? "not allowed" : undefined })).toBe("unavailable");
     expect(threadModelFallback(spare, sonnet, engines({}), { allows: (selection) => selection.instanceId !== "spare" })).toBe("unavailable");
   });
 

@@ -335,8 +335,6 @@ import {
 } from "./send-idempotency.ts";
 import { EventBus } from "./harness/bus.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
-import { ManagedDesktopProviders } from "./managed-desktop.ts";
-import { computerKindForResource, ManagedDesktopPolicy, type ComputerKind } from "./managed-policy.ts";
 import { hostedModelPolicy, HOSTED_MODEL_POLICY_HEADER, HOSTED_PROVIDER_SETTINGS_ERROR } from "./hosted-models.ts";
 import {
   CLOUD_HOME_SECRET_KEYS, CLOUD_IGNORED_KEYS, CLOUD_PAIRING_PATH, cloudHomeConfiguration, cloudHomeOffersPlace, cloudHomePlaceRefusal,
@@ -2054,63 +2052,26 @@ utilityParentPort?.on("message", (event) => {
 
 const bus = new EventBus();
 bus.attach(registry.instances());
-let companyRuntimeReady!: () => void;
-const companyRuntimeStarted = new Promise<void>(resolve => { companyRuntimeReady = resolve; });
-/** The enrolled organisation's desktop policy: in memory only, read-only, and
- * inert (null) unless Electron's enrolled parent sends one. */
-const managedPolicy = new ManagedDesktopPolicy({ onChange: () => {
-  broadcast({ kind: "config", ...configStatus() });
-} });
 // A key the provider refused, or accepted again, changes what Model
 // providers and the picker show; the config event refreshes /api/instances.
 onKeyRejectionChange(() => broadcast({ kind: "config", ...configStatus() }));
+/** The computer kind a turn's claimed resource belongs to (bindTurnComputer).
+ * computer:box: and computer:box-bot: are Boat's historical resource prefixes. */
+function computerKindForResource(resource: string): ComputerPlaceKind | undefined {
+  if (resource === "computer:host") return "thisComputer";
+  if (resource.startsWith("computer:vm:")) return "localVm";
+  if (resource.startsWith("computer:box:") || resource.startsWith("computer:box-bot:")) return "box";
+  if (resource.startsWith("computer:vps:")) return "vps";
+}
+type ComputerPlaceKind = "thisComputer" | "localVm" | "box" | "vps";
+
 /** A computer kind this server will not use, refused before anything is
  * prepared: a Cloud home never offers this computer or a Local VM
- * (cloud-home.ts), and an enrolled organisation may disallow any kind. */
-function computerPlaceRefusal(kind: ComputerKind): { message: string; code: "cloud_home" | "managed_policy" } | undefined {
+ * (cloud-home.ts). */
+function computerPlaceRefusal(kind: ComputerPlaceKind): { message: string; code: "cloud_home" } | undefined {
   const cloudHome = CLOUD_HOME ? cloudHomePlaceRefusal(kind === "thisComputer" ? "local" : kind === "localVm" ? "vm" : "cloud") : undefined;
-  if (cloudHome) return { message: cloudHome, code: "cloud_home" };
-  const managed = managedPolicy.computerRefusal(kind);
-  return managed ? { message: managed, code: "managed_policy" } : undefined;
+  return cloudHome ? { message: cloudHome, code: "cloud_home" } : undefined;
 }
-/** Why the organisation refuses this instance for bots, or undefined. */
-function policyModelRefusal(instance: { instanceId: string; driverKind: string }): string | undefined {
-  const engine = BUILT_IN_DRIVERS.find(driver => driver.driverKind === instance.driverKind)?.metadata.displayName;
-  return managedPolicy.modelRefusal({ driverKind: instance.driverKind, displayName: engine }, managedDesktop.owns(instance.instanceId));
-}
-const managedDesktop = new ManagedDesktopProviders({
-  registry,
-  dataDirectory: DATA_DIR,
-  beforeReplace: stopCompanyInstances,
-  // Ids became stable across re-enrolment; carry old references forward once.
-  migrate: aliases => { store.renameInstances(new Map(aliases.map(({ from, to }) => [from, to]))); },
-  onAvailability: () => {
-    broadcast({ kind: "config", ...configStatus() });
-  },
-  afterReplace: ids => {
-    for (const id of providerInstancesChanging) if (managedDesktop.owns(id)) providerInstancesChanging.delete(id);
-    bus.attach(ids.flatMap(id => { const instance = registry.get(id); return instance ? [instance] : []; }));
-    // Existing renderer config events refresh /api/instances as well, so
-    // Company grants and revocations appear without reloading the window.
-    broadcast({ kind: "config", ...configStatus() });
-  },
-});
-utilityParentPort?.on("message", event => {
-  const message = event.data as { type?: unknown; requestId?: unknown; identity?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop-identity") return;
-  const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
-  void companyRuntimeStarted.then(() => managedDesktop.migrateIdentity(message.identity)).then(() => true, () => false).then(ok => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
-  });
-});
-utilityParentPort?.on("message", event => {
-  const message = event.data as { type?: unknown; requestId?: unknown; policy?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop-policy") return;
-  const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
-  let ok = true;
-  try { managedPolicy.apply(message.policy); } catch { ok = false; }
-  utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
-});
 // The organization library (server/org-library.ts): Electron relays the
 // verified catalog; the runtime swaps it and acknowledges at once, then
 // reconciles and reports on its own. A relay that arrives before the library
@@ -2125,18 +2086,6 @@ utilityParentPort?.on("message", event => {
   if (orgLibrary) ok = orgLibrary.applyRelay(message.library ?? null).ok;
   else pendingOrgLibraryRelay = { library: message.library ?? null };
   utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
-});
-// Only Electron owns this port. There is deliberately no HTTP equivalent or
-// config patch for its organization identity, endpoint, or model capability.
-utilityParentPort?.on("message", event => {
-  const message = event.data as { type?: unknown; requestId?: unknown; connection?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop") return;
-  const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
-  void companyRuntimeStarted.then(() => managedDesktop.apply(message.connection)).then(() => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok: true });
-  }, () => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok: false, error: "Company connection could not be applied. Reconnect from desktop Settings." });
-  });
 });
 
 // ── peer-agent comms wiring ────────────────────────────────────────────
@@ -3334,15 +3283,11 @@ function runColonieAssignment(job: ChiefAssignment, signal: AbortSignal): Promis
 }
 
 // New bots honor setup's saved choice; without one, an engine that can run a
-// turn now (Claude first). While enrolled, a Company model that can run beats
-// a signed-out personal engine, and the organisation's policy is respected;
-// otherwise inert. `null` leaves the saved choice out (moveOffComputerEngine).
+// turn now (Claude first). `null` leaves the saved choice out
+// (moveOffComputerEngine).
 async function defaultSelection(saved: ModelSelection | null = cfg.defaultModelSelection ?? null) {
   if (hostedModels) return hostedModels.select(saved ?? undefined);
-  return selectDefaultModelSelection(await registry.describe(), saved ?? undefined, {
-    company: (instanceId) => managedDesktop.owns(instanceId),
-    refusal: (instance) => policyModelRefusal(instance),
-  });
+  return selectDefaultModelSelection(await registry.describe(), saved ?? undefined);
 }
 
 /** The Computer engine was removed: it ran a whole turn on Boat's own agent.
@@ -3542,10 +3487,8 @@ function threadModelGivingWay(botId: string, threadId: string): ModelSelection |
   const bot = store.bot(botId);
   const own = store.taskByThread(botId, threadId)?.modelSelection;
   if (!bot || !own) return null;
-  return threadModelFallback(own, bot.modelSelection, threadEngine, {
-    refusal: policyModelRefusal,
-    ...(hostedModels ? { allows: (selection: ModelSelection) => hostedModels!.allows(selection) } : {}),
-  }) ? own : null;
+  return threadModelFallback(own, bot.modelSelection, threadEngine,
+    hostedModels ? { allows: (selection: ModelSelection) => hostedModels!.allows(selection) } : {}) ? own : null;
 }
 
 /** The model a turn in this thread would run on now (healThreadModel). */
@@ -3695,7 +3638,7 @@ function packageImportDeps(selection: ModelSelection): PackageImportDeps {
     routines: routines!,
     skills: { install: installSkill, setEnabled: setSkillEnabled, installOrg: installOrgSkill },
     memory: { writeIndex: writeMemoryFile, writeTopic: writeMemoryTopic },
-    mcp: { servers: () => cfg.mcpServers ?? {}, refusal: mcpPolicyRefusal, persist: persistMcpServers },
+    mcp: { servers: () => cfg.mcpServers ?? {}, persist: persistMcpServers },
     sections: { writeBrief: (section, text) => void writeSectionContext(section, text) },
     images: {
       save: (bytes, mime) => {
@@ -3842,7 +3785,7 @@ const colonieChief = new ColonieChief({
 type AcpToolMounts = { tools: import("./colonie/connections/contracts.ts").AcpToolMount; extra?: import("./colonie/connections/contracts.ts").AcpToolMount };
 async function acpToolMount(botId: string, threadId: string, instanceId: string): Promise<AcpToolMounts> {
   const policy = botAppPolicy(botId);
-  const custom = managedPolicy.filterMcp(customMcpServers(cfg, policy.customServers));
+  const custom = customMcpServers(cfg, policy.customServers);
   if (policy.customServers.some((name) => !custom[name])) throw new Error("A custom MCP server selected for this bot is disabled or missing. Update Connected apps in its profile.");
   const signedIn = await withMcpSignIn(custom, mcpOAuth);
   if (policy.customServers.some((name) => !signedIn[name])) throw new Error("Sign in to the custom MCP server in app settings before using it.");
@@ -6401,7 +6344,7 @@ try {
     bot: (id) => {
       const bot = store.bot(id);
       const instance = bot && registry.get(bot.modelSelection.instanceId);
-      return bot && instance && isColonieAcpDriver(instance.driverKind) && !policyModelRefusal(instance) ? bot : undefined;
+      return bot && instance && isColonieAcpDriver(instance.driverKind) ? bot : undefined;
     },
     owns: (botId, threadId) => {
       const pin = contextPin(threadId);
@@ -6411,7 +6354,7 @@ try {
     analyze: async (botId, prompt, signal) => {
       const bot = store.bot(botId);
       const instance = bot && registry.get(bot.modelSelection.instanceId);
-      if (!bot || !instance || !(instance.adapter instanceof AcpRuntime) || policyModelRefusal(instance)) throw new Error("The selected provider cannot process memory right now.");
+      if (!bot || !instance || !(instance.adapter instanceof AcpRuntime)) throw new Error("The selected provider cannot process memory right now.");
       assertWithinBudget(cfg, DATA_DIR);
       return instance.adapter.analyzeMemory(prompt, { model: bot.modelSelection.model, signal });
     },
@@ -6471,8 +6414,7 @@ const memoryUpkeep = createMemoryUpkeep({
   engine: (botId) => {
     const bot = store.bot(botId);
     const instance = bot ? registry.get(bot.modelSelection.instanceId) : undefined;
-    // an engine the organisation disallows never receives memory text
-    if (!bot || !instance || isColonieAcpDriver(instance.driverKind) || policyModelRefusal(instance)) return null;
+    if (!bot || !instance || isColonieAcpDriver(instance.driverKind)) return null;
     const generate = instance.generateText?.bind(instance);
     return generate ? {
       generateText: async (prompt, options) => {
@@ -7451,10 +7393,6 @@ async function selectableComputers(bot: BotRecord) {
         reason = "The built-in browser is disabled, not installed, or unsupported by this model.";
       }
     } catch (error) { reason = error instanceof Error ? error.message : String(error); }
-    // Not offered at all when the organisation disallows it.
-    const kind = surface === "local" ? "thisComputer" : surface === "vm" ? "localVm" : surface === "cloud" ? (bot.cloudBackend === "vps" ? "vps" : "box") : undefined;
-    const managed = kind && managedPolicy.computerRefusal(kind);
-    if (managed) return { surface, label: surfaceLabel(surface), available: false, ready: false, canStart: false, canCreate: false, reason: managed };
     const available = ready || canStart || canCreate;
     return { surface, label: surfaceLabel(surface), available, ready, canStart, canCreate, ...(!available ? { reason } : {}) };
   }));
@@ -9890,8 +9828,6 @@ async function startTurn(
       { status: 409 },
     );
   }
-  const policyRefusal = policyModelRefusal(instance);
-  if (policyRefusal) throw Object.assign(new Error(policyRefusal), { status: 409, code: "managed_policy" });
   const toolScope = toolScopeForTurn(bot.id);
   // On a Cloud home a guest's turn never gets a shell or reads outside its
   // own folder (docs/cloud-pro.md): an engine that cannot run it that way is
@@ -10379,8 +10315,8 @@ async function startTurn(
       // choice, so those ignore the pin.
       const dispatchTask = store.taskByThread(bot.id, threadId);
       const wants = plan.computer;
-      // A place the organisation disallows, or a Cloud home never offers, is
-      // refused before anything is prepared; Auto below simply skips them.
+      // A place a Cloud home never offers is refused before anything is
+      // prepared; Auto below simply skips it.
       const wantedKind = teamComputer ? "box" : wants === "local" ? "thisComputer" : wants === "vm" ? "localVm"
         : wants === "cloud" ? (cloudBackend === "vps" ? "vps" : "box") : undefined;
       const placeRefusal = wantedKind && computerPlaceRefusal(wantedKind);
@@ -10695,7 +10631,7 @@ async function startTurn(
         // Explicit Cloud may prepare/start it. Auto remains read-only unless
         // the person explicitly opted this bot into remote lifecycle actions.
         // On Auto an engine that cannot use a computer simply skips it.
-        if ((wants === "cloud" || (wants === undefined && managedPolicy.computerAllowed("vps"))) && cloudBackend === "vps" &&
+        if ((wants === "cloud" || wants === undefined) && cloudBackend === "vps" &&
             canWorkOnCloud(cloudEngine(instance))) {
           // The VPS "computer" is the desktop inside this bot's managed
           // container, and only screen work needs that desktop to itself.
@@ -11079,7 +11015,7 @@ async function startTurn(
         // must still deliver their note (SendTurnInput.mentionTurn)
         mentionTurn: tagged.length > 0,
         integrations,
-        mcpFromUserConfig: claudeUserMcpEnabled(cfg) && !managedPolicy.restrictsMcp(),
+        mcpFromUserConfig: claudeUserMcpEnabled(cfg),
         mcpCallTimeoutMs: mcpCallTimeoutMinutes(cfg) * 60_000,
         cwd,
       }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
@@ -11239,7 +11175,7 @@ async function startTurn(
         const target = checked.ok ? registry.get(checked.selection.instanceId) : null;
         const refusal = !checked.ok ? checked.error : !target || !target.enabled ? "The backup engine is unavailable."
           : !store.taskByThread(bot.id, threadId)?.cwd ? "This older thread has no pinned working folder. Choose its backup manually."
-          : policyModelRefusal(target) ?? recoveryCapabilityError(
+          : recoveryCapabilityError(
             { driverKind: instance.driverKind, capabilities: instance.adapter.capabilities },
             { driverKind: target.driverKind, capabilities: target.adapter.capabilities });
         if (!refusal && checked.ok && target) {
@@ -12829,7 +12765,7 @@ async function runGroupMemberTurn(
   }
   const roomPolicyRefusal = isColonieAcpDriver(instance?.driverKind)
     ? "The transparent ACP connection supports direct conversations; room orchestration is not enabled."
-    : instance ? policyModelRefusal(instance) : undefined;
+    : undefined;
   // A room turn a guest drives on a Cloud home is confined like a guest's
   // own conversation, or refused on an engine that cannot be.
   if (!groupSpeakers.has(threadId)) guestDrivenTurns.delete(threadId);
@@ -13554,7 +13490,7 @@ async function runGroupMemberTurn(
         systemVolatile: roomSystem.volatile,
         cwd,
         integrations,
-        mcpFromUserConfig: claudeUserMcpEnabled(cfg) && !managedPolicy.restrictsMcp(),
+        mcpFromUserConfig: claudeUserMcpEnabled(cfg),
         mcpCallTimeoutMs: mcpCallTimeoutMinutes(cfg) * 60_000,
         ...(instance.instanceId === readyBot.modelSelection.instanceId
           ? memberTurnSelection(readyBot.modelSelection)
@@ -14340,8 +14276,7 @@ function startGroupTurn(
   const titleText = extractTurnImages(text).text;
   const startTitle = (titleBot: (typeof members)[number]) => {
     const titleInstance = registry.get(titleBot.modelSelection.instanceId);
-    // An engine the organisation disallows never receives the text, even for a title.
-    if (titled && snippet && titleText.trim() && llmThreadTitlesEnabled(cfg) && titleInstance?.generateText && !policyModelRefusal(titleInstance)) {
+    if (titled && snippet && titleText.trim() && llmThreadTitlesEnabled(cfg) && titleInstance?.generateText) {
       void generateThreadTitle(titleInstance, titleText)
         .then((title) => {
           if (title) store.retitleGroupTask(group.id, threadId, snippet, title);
@@ -15739,8 +15674,6 @@ function configStatus() {
     live: liveSettingsFor(cfg),
     // not a secret — the sidebar shows it
     profile: { name: cfg.profile?.name ?? "", email: cfg.profile?.email ?? "", aboutMe: cfg.profile?.aboutMe ?? "" },
-    // the enrolled organisation's read-only desktop policy; null when not enrolled
-    managedPolicy: managedPolicy.summary(),
     // an OMB Cloud home (cloud-home.ts): the app offers no this computer and
     // no Local VM here
     ...(CLOUD_HOME ? { cloudHome: true } : {}),
@@ -15818,22 +15751,14 @@ function configForAccess(status: ReturnType<typeof configStatus>, admin: boolean
 }
 
 function mcpServerResponse() {
-  // While enrolled with custom servers off, say which servers stay configured
-  // but never reach bots, and why. Nothing here is written to config.json.
-  const policy = managedPolicy.current();
   const servers = listMcpServers(cfg.mcpServers).map((server) => {
     if (!("url" in server)) return server;
     const auth = mcpOAuth.authState(server.name, server.url);
     // the redirect URI to register with a pre-registered sign-in app
     const listed = server.oauth ? { ...server, oauth: { ...server.oauth, redirectUri: mcpOAuthRedirectUri(server.url) } } : server;
     return auth === "none" ? listed : { ...listed, auth };
-  }).map(server =>
-    managedPolicy.mcpAllowed(server.name, "url" in server ? server.url : undefined) ? server : { ...server, managedBy: policy!.organizationName });
-  return { servers, ...(policy && !policy.mcp.allowCustom ? { managed: { organizationName: policy.organizationName, allowlist: policy.mcp.allowlist } } : {}) };
-}
-/** Adding or editing a server the organisation has not approved is refused. */
-function mcpPolicyRefusal(name: string, server: object): string | undefined {
-  return managedPolicy.mcpRefusal(name, "url" in server && typeof server.url === "string" ? server.url : undefined);
+  });
+  return { servers };
 }
 
 /** The fields a new server may set, in whichever shape the form sent — a
@@ -15849,10 +15774,9 @@ function mcpServerBody(body: unknown): Record<string, unknown> {
   return out;
 }
 
-/** Configured MCP servers that may reach this bot's engine. While enrolled,
- * the organisation's allow-list filters them; config.json is never changed. */
+/** Configured MCP servers that may reach this bot's engine. */
 function engineMcpServers(bot: BotRecord) {
-  return withoutPendingSignIn(managedPolicy.filterMcp(customMcpServers(cfg, bot.mcpServers)), mcpOAuth);
+  return withoutPendingSignIn(customMcpServers(cfg, bot.mcpServers), mcpOAuth);
 }
 
 function persistMcpServers(next: Record<string, unknown>): void {
@@ -15880,86 +15804,28 @@ async function describeInstances() {
     if (hostedModels) return { ...described, readOnly: true,
       install: undefined, authentication: undefined, cli: undefined, cliCandidates: [],
     };
-    const policyReason = policyModelRefusal(instance);
-    const policy = policyReason ? { policy: { organizationName: managedPolicy.current()!.organizationName, reason: policyReason } } : {};
-    if (managedDesktop.owns(instance.instanceId)) return {
-      ...described, ...policy, readOnly: true, managed: managedDesktop.info(instance.instanceId),
-      install: undefined, authentication: undefined, cli: undefined, cliCandidates: [],
-    };
     // Windows keeps what Antigravity's runtime unpacked whenever it is
     // stopped by force; its Settings card offers to clear that.
-    if (instance.driverKind === "antigravityAgent" && process.platform === "win32") return { ...described, ...policy, freeUpSpace: true };
-    if (entry?.driver !== "claudeAgent") return { ...described, ...policy };
+    if (instance.driverKind === "antigravityAgent" && process.platform === "win32") return { ...described, freeUpSpace: true };
+    if (entry?.driver !== "claudeAgent") return described;
     // Claude on the workspace API key has no account to sign in to.
     if (instance.instanceId === CLAUDE_API_INSTANCE) {
-      return { ...described, ...policy, authentication: undefined, install: { ...instance.install, signInCommand: undefined } };
+      return { ...described, authentication: undefined, install: { ...instance.install, signInCommand: undefined } };
     }
     try {
       const claudeAccount = claudeAccountInfo(instance.instanceId, entry, instance.cli ?? instance.cliDefault ?? "claude");
-      return { ...described, ...policy, claudeAccount, install: { ...instance.install, signInCommand: claudeAccount.signInCommand } };
+      return { ...described, claudeAccount, install: { ...instance.install, signInCommand: claudeAccount.signInCommand } };
     } catch {
       // A malformed saved config remains a repairable shadow, never takes
       // the model picker down or offers a login for the wrong directory.
-      return { ...described, ...policy, install: { ...instance.install, signInCommand: undefined } };
+      return { ...described, install: { ...instance.install, signInCommand: undefined } };
     }
   });
 }
 
-/** Set once graceful shutdown begins: quitting disposes Company instances
- * without writing "connection changed" cards or failing routine runs. */
-let companyShutdown = false;
-/** End only Company conversations before replacing their native instances. */
-async function stopCompanyInstances(ids: string[]) {
-  if (!ids.length) return;
-  if (providerFleetReloading || companyShutdown) {
-    for (const id of ids) { providerAuthSessions.clearInstance(id); bus.detach(id); }
-    return;
-  }
-  const selected = new Set(ids);
-  for (const id of ids) providerInstancesChanging.add(id);
-  const direct = store.bots.flatMap(bot => store.tasks(bot.id)
-    .filter(task => threadBusy(bot.id, task.threadId) && selected.has(botForThread(bot.id, task.threadId)!.modelSelection.instanceId))
-    .map(task => ({ botId: bot.id, threadId: task.threadId, owner: turnResourceOwners.get(task.threadId), generation: directTurnGenerationByThread.get(task.threadId) })));
-  await Promise.all(direct.map(task => interruptDirectThread(task.botId, task.threadId)));
-  for (const { botId, threadId, owner, generation } of direct) {
-    releaseTurnResources(owner);
-    settleDirectFollowup(owner?.generation);
-    // Another member of this cancellation batch can settle slowly while a
-    // completed thread starts a personal turn. Never clear that new owner.
-    if (directTurnGenerationByThread.get(threadId) !== generation) continue;
-    stopScreenPoller(botId, threadId); releaseLocalVmThread(threadId);
-    watchdog.settle(threadId); closeOpenApprovals(threadId); directTurnBots.delete(threadId);
-    finalizeDelegationWatch(threadId, false, "", "Company connection changed");
-    routines?.failThread(threadId, "Company connection changed while this thread was running");
-    if (store.taskByThread(botId, threadId)) {
-      store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: "Company connection changed — choose whether to reconnect or use a personal model", ok: false } });
-      store.setTaskActivity(botId, threadId, "idle");
-    }
-  }
-  // Freeze this cancellation batch across interruptTurn's asynchronous yield.
-  // oxlint-disable-next-line unicorn/no-useless-spread
-  for (const [threadId, speaker] of [...groupSpeakers]) {
-    if (groupSpeakers.get(threadId) !== speaker) continue;
-    const bot = store.bot(speaker.botId);
-    if (!bot || !selected.has(bot.modelSelection.instanceId)) continue;
-    const group = store.groupByThread(threadId);
-    const owner = turnResourceOwners.get(threadId);
-    if (group) cancelGroupTurnOperations(group.id, threadId);
-    revokeInternalCapabilitiesForThread(threadId);
-    await runningTurnInstance(bot, threadId)?.adapter.interruptTurn(threadId);
-    const stillOwned = groupSpeakers.get(threadId) === speaker &&
-      turnResourceOwners.get(threadId)?.generation === owner?.generation;
-    releaseTurnResources(owner);
-    if (!stillOwned) continue;
-    releaseLocalVmThread(threadId);
-    watchdog.settle(threadId); closeOpenApprovals(threadId);
-    groupSpeakers.delete(threadId);
-    if (group) store.patchGroup(group.id, { busyBotId: null });
-    store.setActivity(bot.id, "idle");
-  }
-  for (const id of ids) { providerAuthSessions.clearInstance(id); bus.detach(id); }
-}
-
+/** Set once graceful shutdown begins: startup work stops rather than racing
+ * the teardown. */
+let shuttingDown = false;
 async function persistProviderInstance(instanceId: string, instances: NonNullable<AppConfig["instances"]>) {
   saveConfig({ instances }, { replaceInstances: true });
   cfg.instances = instances;
@@ -15999,11 +15865,7 @@ async function reloadProviders() {
   try {
     await registry.disposeAll();
     await registry.load(providerConfigs(), decorateHostedProvider);
-    // Personal providers are usable independently of the optional Company
-    // overlay. Subscribe them before restoring that overlay so a broken or
-    // expired Company runtime cannot leave the rebuilt personal fleet mute.
     bus.attach(registry.instances());
-    await managedDesktop.restore();
   } finally {
     // Settle every exact conversation, not whichever one is selected now.
     // Teardown can swallow terminal events; no task may remain busy forever.
@@ -16190,7 +16052,7 @@ ROUTES.push(createChiefRoutes({ chief: colonieChief, exists: (botId) => Boolean(
 ROUTES.push(connectedToolsRoutes({
   exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task) => threadBusy(botId, task.threadId)
     || registry.instances().some((instance) => instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(task.threadId))),
-  configured: () => Boolean(cfg.composio?.apiKey), customNames: () => Object.keys(managedPolicy.filterMcp(customMcpServers(cfg))),
+  configured: () => Boolean(cfg.composio?.apiKey), customNames: () => Object.keys(customMcpServers(cfg)),
   invalidateBot: (botId) => connectedTools.invalidateBot(botId),
 }));
 ROUTES.push(createAcpContextRoutes({
@@ -16423,12 +16285,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       } else if (path.startsWith("/api/auth/hosted/") || path === "/pair" || (path === "/" && (!isLoopbackHost(req.headers.host) || isProxied(req)))) {
         return json(res, 503, { error: "Workspace sign-in is unavailable." });
       }
-    }
-    // An enrolled organisation that turns remote access off refuses new pairing
-    // codes and new remote sessions. Existing sessions and this app are unchanged.
-    if (method === "POST" && ["/api/auth/pair", "/api/pair", "/api/auth/pairing", "/api/auth/email/start", "/api/auth/email/verify"].includes(path)) {
-      const refusal = managedPolicy.remoteAccessRefusal();
-      if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
     }
     // An MCP server's sign-in, started in a browser on another computer,
     // comes back here (server/mcp-oauth.ts). Public like the loopback
@@ -16790,10 +16646,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (body.action === "release") sharedComputerControl.release(body.id);
       else if (body.action === "renew") sharedComputerControl.renew(body.id);
       else {
-        // The desktop's own screen, lent to another computer: the organisation's
-        // "this computer" setting applies here as it does to bot turns.
-        const refusal = managedPolicy.computerRefusal("thisComputer");
-        if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
         sharedComputerControl.acquire(body.id);
       }
       return json(res, 200, { ok: true });
@@ -19034,8 +18886,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           const body = await readInternalBody();
           const added = addDisabledMcpServer(cfg.mcpServers ?? {}, body);
           if (!added.ok) return json(res, added.status, { error: added.error });
-          const refusal = mcpPolicyRefusal(added.name, added.server);
-          if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
           persistMcpServers(added.next);
           const server = added.server;
           const remote = isRemoteMcpServer(server);
@@ -23038,9 +22888,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           error: `provider instance "${rerunSelection.instanceId}" is unavailable — pick another model in settings`,
         });
       }
-      const rerunInstance = registry.get(rerunSelection.instanceId)!;
-      const rerunRefusal = policyModelRefusal(rerunInstance);
-      if (rerunRefusal) return json(res, 409, { error: rerunRefusal });
       // startTurn admits the rerun before branching. A shared-resource or
       // concurrency-limit refusal must leave the original transcript intact.
       const replyTo = source.replyToId ? resolveReplyTarget(bot.threadId, source.replyToId) : undefined;
@@ -23641,9 +23488,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (hostedModels && !hostedModels.allows(current.modelSelection)) return json(res, 409, { error: hostedModels.error() });
       const instance = registry.get(current.modelSelection.instanceId);
       if (!instance?.generateText) return json(res, 409, { error: "this bot's model can't generate a title — rename the thread instead" });
-      // An engine the organisation disallows never receives the text, even for a title.
-      const refusal = policyModelRefusal(instance);
-      if (refusal) return json(res, 409, { error: refusal });
       if (titleRegenerations.has(m[2])) return json(res, 409, { error: "a new title is already being generated for this thread" });
       const excerpt = titleConversationExcerpt(store.messagesTail(m[2], 200).messages);
       if (!excerpt) return json(res, 409, { error: "this thread has no messages to take a title from yet" });
@@ -24678,8 +24522,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }
         const parsed = parseMcpServerMutation(name, mcpServerBody(body));
         if (!parsed.ok) return json(res, 400, { error: parsed.error });
-        const refusal = mcpPolicyRefusal(name, parsed.server);
-        if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
         persistMcpServers({ ...current, [name]: parsed.server });
         return json(res, 201, mcpServerResponse());
       } finally {
@@ -24713,8 +24555,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (Object.keys(current).length + names.length > MAX_MCP_SERVERS) {
           return json(res, 400, { error: `You can add at most ${MAX_MCP_SERVERS} MCP servers.` });
         }
-        const refused = names.filter(name => mcpPolicyRefusal(name, parsed.servers[name] as object));
-        if (refused.length) return json(res, 403, { error: `${mcpPolicyRefusal(refused[0]!, parsed.servers[refused[0]!] as object)} Not approved: ${refused.join(", ")}.`, code: "managed_policy" });
         persistMcpServers({ ...current, ...parsed.servers });
         return json(res, 201, { ...mcpServerResponse(), added: names });
       } finally {
@@ -24755,8 +24595,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
         const parsed = parseMcpServerMutation(name, body, existing.server);
         if (!parsed.ok) return json(res, 400, { error: parsed.error });
-        const refusal = mcpPolicyRefusal(name, parsed.server);
-        if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
         persistMcpServers({ ...current, [name]: parsed.server });
         // a sign-in belongs to one address; a token never follows the entry elsewhere
         const before = isRemoteMcpServer(existing.server) ? existing.server.url : null;
@@ -24806,8 +24644,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (!checked.ok) return json(res, checked.status, { error: checked.error });
         const target = registry.get(checked.selection.instanceId)!;
         if (!target.enabled) return json(res, 400, { error: "Enable the backup engine before selecting it for recovery." });
-        const refusal = policyModelRefusal(target);
-        if (refusal) return json(res, 403, { error: refusal, code: "managed_policy" });
         patch.automaticRecovery.backup = checked.selection;
       }
       if (!Object.keys(patch).length) return json(res, 400, { error: "nothing to save" });
@@ -25947,7 +25783,6 @@ restoreChannelMessages();
 }
 
 server.listen(PORT, "127.0.0.1", async () => {
-  companyRuntimeReady();
   console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
   // Words queued before the restart start first, ahead of anything sent from
   // now on. Their turns wait for the engines read at start like every turn.
@@ -25959,7 +25794,7 @@ server.listen(PORT, "127.0.0.1", async () => {
   // out: it starts once the read is done.
   if (enginesRead) {
     await enginesRead;
-    if (companyShutdown) return;
+    if (shuttingDown) return;
   }
   // Startup work uses the same turn dispatcher and local tool endpoint as
   // ordinary chat. Start only once every registry is initialized and the
@@ -26004,7 +25839,7 @@ const gracefulShutdown = createGracefulShutdown({
   cleanup: [
     () => {
       followupsReady = false;
-      companyShutdown = true;
+      shuttingDown = true;
       if (workspaceAccessTimer) clearInterval(workspaceAccessTimer);
       // Child MCP processes and the HTTP listener can remain alive while the
       // asynchronous shutdown jobs drain. Invalidate their turn bearers before
@@ -26025,7 +25860,7 @@ const gracefulShutdown = createGracefulShutdown({
       webhookIngress?.server.close();
       tunnelListener?.close();
     },
-    async () => { await managedDesktop.close(); await registry.disposeAll(); },
+    async () => { await registry.disposeAll(); },
     async () => {
       await Promise.all([...temporaryBrowserSessions.keys()].map((botId) => forgetTemporaryBrowser(botId)));
       await browserRuntime.closeAll();

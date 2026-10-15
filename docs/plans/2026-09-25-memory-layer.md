@@ -55,8 +55,8 @@ shows in the Memory panel and **Undo** works on it.
 Recall and the index are prompt text, so every engine reads them. The
 capture/contradiction steps need a one-shot model call; an engine without
 one is skipped honestly and the Memory panel says "needs Claude or a chat
-engine" rather than pretending. An engine the organisation policy refuses
-(`policyModelRefusal`) never receives memory text.
+engine" rather than pretending. An engine that cannot run here never receives
+memory text.
 
 ## Design
 
