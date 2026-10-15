@@ -1,4 +1,4 @@
-import { createManagedDesktopStore, retryDelay, unreadableRecord } from "./managed-desktop.mjs";
+import { createEncryptedRecordStore, retryDelay, unreadableRecord } from "./encrypted-record-store.mjs";
 import { CLOUD_MACHINE_CONNECTABLE, parseCloudPurchase, parseCloudSummary, parsePairingGrant } from "./cloud-home.mjs";
 
 export const CLOUD_ORIGIN = "https://cloud.openmausbot.com";
@@ -27,9 +27,9 @@ export function cloudOrigin(value = CLOUD_ORIGIN, fixture = false) {
   }
   return value;
 }
-// Reuse the encrypted, atomic, serialized record mechanism, not organization identity.
-// The caller supplies a DIFFERENT file; no entitlement is persisted in this record.
-export const createCloudAccountStore = createManagedDesktopStore;
+// The shared encrypted, atomic, serialized record mechanism. The caller
+// supplies the file; no entitlement is persisted in this record.
+export const createCloudAccountStore = options => createEncryptedRecordStore({ ...options, label: "Cloud sign-in" });
 // oxlint-disable-next-line no-control-regex
 const text = (value, max) => typeof value === "string" && value.length > 0 && value.length <= max && !/[\x00-\x1f\x7f]/.test(value);
 const timestamp = value => Number.isSafeInteger(value) && value > 0;

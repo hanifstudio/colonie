@@ -39,17 +39,7 @@ the standing instructions, then checks:
   what New bot offers (the organization library's own state decides; the
   second test withdraws a release through the library);
 - an unknown or malformed preset, and a file with skills but no presets, are
-  refused without creating anything; an imported preset can be removed, an
-  organization's cannot (`409`).
-
-A second test in the same file goes through the organization library itself
-(`OMB_TEST_ORG_LIBRARY_KEY` and `POST /api/testing/org-library`, as in
-[org-library.md](org-library.md)): the library fixture relayed in a catalog
-and added from the shelf answers with its preset, `state.json` records it
-under the install's `presets` with its release hash, New bot offers it under
-Acme Partners with skills on, adding the package again is a no-op, and once
-the catalog lists the release as withdrawn the preset is neither offered
-nor usable while the bot made from it stays, with its skill switched off.
+  refused without creating anything; an imported preset can be removed.
 
 The printed JSON line names the fixture's data directory and server log.
 

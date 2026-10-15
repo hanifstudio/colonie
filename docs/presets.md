@@ -5,11 +5,9 @@ new bot's name, title, description, standing instructions and look, and when
 you press **Create bot** it also brings the preset's skills, playbooks and
 starter notes. You can change every field before creating the bot.
 
-Presets come from a shared file (a team file or a preset file someone sent
-you) or from your organization's shelf (**Templates → From {Organization}**,
-see [org-library.md](org-library.md)). In New bot's **Starting role** list,
-your organization's presets come first under **From {Organization}**, then
-**Imported presets**, then the built-in roles.
+Presets come from a shared file — a team file, or a preset file someone sent
+you. In New bot's **Starting role** list, **Imported presets** come first,
+then the built-in roles.
 
 ## What a preset holds
 

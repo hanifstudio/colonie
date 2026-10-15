@@ -46,9 +46,8 @@ export function excludedWorkspaceAuthPath(path: string): boolean {
     /^(?:vm-home|vm-homes\/[^/]+)\/\.browser-profiles(?:\/|$)/.test(path);
 }
 
-/** The Organization library files Electron main downloads and verifies
- * (docs/desktop-library.md): the catalog, a catalog write in progress, and the
- * cached release files. Main fetches them again from Admin, and sign-out
+/** The Organization library files Electron main downloads and verifies:
+ * the catalog, a catalog write in progress, and the cached release files. Main fetches them again from Admin, and sign-out
  * deletes them, so a backup never keeps an Organization's package bytes. The
  * runtime's own `org-library/state.json` and `presets.json` are backed up. Like
  * the hook tokens below, an archive that holds them still restores. */

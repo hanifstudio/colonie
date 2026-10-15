@@ -55,14 +55,13 @@ These endpoints belong to the remote Cloud service, not the local app server.
   Sign-out does not cancel the subscription or disconnect the organization.
 
 There is no credential-bearing deep link and no checkout-result callback.
-Device polling completes browser approval automatically. The existing
-`openmausbot://organization` action is unchanged.
+Device polling completes browser approval automatically.
 
 ## Automated fixtures
 
 ```sh
-node --test electron/cloud-account.node-test.mjs electron/cloud-account-ipc.node-test.mjs electron/organization-reopen.node-test.mjs
-pnpm exec vitest run src/components/CloudAccountSettings.test.ts src/components/SettingsModal.appearance.test.ts src/components/OrganizationSettings.test.ts
+node --test electron/cloud-account.node-test.mjs electron/cloud-account-ipc.node-test.mjs
+pnpm exec vitest run src/components/CloudAccountSettings.test.ts src/components/SettingsModal.appearance.test.ts
 pnpm exec tsc --noEmit
 pnpm check:electron
 pnpm i18n:check

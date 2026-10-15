@@ -26,7 +26,7 @@ test("a local native main frame remains local while its frame URL is briefly emp
     senderFrame: mainFrame,
     sender: {
       mainFrame,
-      getURL: () => "http://127.0.0.1:8799/?desktop-settings=organization",
+      getURL: () => "http://127.0.0.1:8799/?desktop-settings=cloud",
     },
   };
   assert.equal(lo.senderOrigin(event), "http://127.0.0.1:8799");

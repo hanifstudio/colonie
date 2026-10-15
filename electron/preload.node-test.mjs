@@ -92,14 +92,14 @@ test("onOpenAppSettings subscribes to the exact app:open-settings channel, forwa
   assert.equal(cbCalls.length, 2);
 });
 
-test("an organisation action arriving before React subscriptions is delivered exactly once after mount", async () => {
-  emit("app:open-settings", "organization");
+test("a Cloud settings action arriving before React subscriptions is delivered exactly once after mount", async () => {
+  emit("app:open-settings", "cloud-settings");
   const calls = [];
   const unsubscribe = exposed.api.onOpenAppSettings(section => calls.push(["app", section]));
   const unsubscribePanel = exposed.api.onOpenAppSettings(section => calls.push(["panel", section]));
   assert.deepEqual(calls, []);
   await Promise.resolve();
-  assert.deepEqual(calls, [["app", "organization"], ["panel", "organization"]]);
+  assert.deepEqual(calls, [["app", "cloud-settings"], ["panel", "cloud-settings"]]);
   unsubscribe(); unsubscribePanel();
   const late = exposed.api.onOpenAppSettings(section => calls.push(["late", section]));
   await Promise.resolve();
@@ -108,29 +108,28 @@ test("an organisation action arriving before React subscriptions is delivered ex
 });
 
 test("a transient subscription cannot consume a cold-start action before the actual mount", async () => {
-  emit("app:open-settings", "organization");
+  emit("app:open-settings", "cloud-settings");
   const calls = [];
   exposed.api.onOpenAppSettings(section => calls.push(section))();
   await Promise.resolve();
   assert.deepEqual(calls, []);
   const unsubscribe = exposed.api.onOpenAppSettings(section => calls.push(section));
   await Promise.resolve();
-  assert.deepEqual(calls, ["organization"]);
+  assert.deepEqual(calls, ["cloud-settings"]);
   unsubscribe();
 });
 
-test("native Settings requests accept only the fixed organisation section, Cloud link and plain Cloud settings", () => {
+test("native Settings requests accept only the fixed Cloud link and plain Cloud settings", () => {
   const calls = [];
   const unsubscribe = exposed.api.onOpenAppSettings(section => calls.push(section));
-  emit("app:open-settings", "organization");
   emit("app:open-settings", "cloud");
   emit("app:open-settings", "cloud-settings");
   emit("app:open-settings", "https://other.example");
   emit("app:open-settings", "cloudAccount");
   emit("app:open-settings", "openmausbot://cloud");
-  emit("app:open-settings", { section: "organization", url: "https://other.example" });
+  emit("app:open-settings", { section: "cloud", url: "https://other.example" });
   emit("app:open-settings", ["cloud"]);
-  assert.deepEqual(calls, ["organization", "cloud", "cloud-settings", undefined, undefined, undefined, undefined, undefined]);
+  assert.deepEqual(calls, ["cloud", "cloud-settings", undefined, undefined, undefined, undefined, undefined]);
   unsubscribe();
 });
 

@@ -15,10 +15,10 @@ ipcRenderer.on("package:install", (_event, url) => {
 });
 
 // Main can finish loading the document before React subscribes. Retain only
-// the fixed actions (Organisation, the openmausbot://cloud link, and plain
-// Settings → OMB Cloud from the lending menu-bar item), never a destination
-// supplied by a renderer.
-const FIXED_SETTINGS_ACTIONS = new Set(["organization", "cloud", "cloud-settings"]);
+// the fixed actions (the openmausbot://cloud link, and plain Settings → OMB
+// Cloud from the lending menu-bar item), never a destination supplied by a
+// renderer.
+const FIXED_SETTINGS_ACTIONS = new Set(["cloud", "cloud-settings"]);
 let pendingSettingsAction = null;
 const appSettingsListeners = new Set();
 ipcRenderer.on("app:open-settings", (_event, section) => {
@@ -53,33 +53,6 @@ function updaterOffered() {
 }
 const remoteKeys = isLocalPage ? REMOTE_SAFE : new Set([...REMOTE_SAFE, ...(updaterOffered() ? ["updater"] : [])]);
 
-// Sandboxed preload cannot import TS or sibling modules. Keep this list in
-// parity with shared/workspace-backup-client.ts (covered by the preload test).
-// Only main can request a fresh snapshot; there is no renderer-callable method.
-const COMPANY_BACKUP_CLIENT_KEYS = [
-  "omb-drafts", "omb-draft-attachments", "omb-draft-send-ids", "omb-draft-channel-modes",
-  "omb-skin", "omb-show-threads", "omb-show-run-card", "openmausbot.sidebarDensity",
-  "openmausbot.sidebarCollapsedSections.v1", "openmausbot.sidebarSectionOrder.v1",
-  "omb-analytics-opt-out", "openmausbot.remote-voice.v1",
-];
-if (isLocalPage && !desktopRemoteClient && process.argv.includes("--omb-company-desktop=1")) {
-  ipcRenderer.on("company-backups:collect-client-state", (_event, request) => {
-    if (!request || typeof request.requestId !== "string" || !/^[a-f0-9-]{36}$/.test(request.requestId)) return;
-    try {
-      // Check the origin again; a later navigation must not export remote data.
-      if (!localOrigin || location.origin !== localOrigin) throw new Error("Not the local workspace");
-      const clientState = {};
-      for (const key of COMPANY_BACKUP_CLIENT_KEYS) {
-        const value = localStorage.getItem(key);
-        if (value !== null) clientState[key] = value;
-      }
-      if (new TextEncoder().encode(JSON.stringify(clientState)).byteLength > 2 * 1024 ** 2) throw new Error("Browser state too large");
-      ipcRenderer.send("company-backups:client-state", { requestId: request.requestId, clientState });
-    } catch {
-      ipcRenderer.send("company-backups:client-state", { requestId: request.requestId, unavailable: true });
-    }
-  });
-}
 
 const bridge = {
   /** Host platform ("darwin" | "win32" | "linux") — for platform-aware UI. */
@@ -316,7 +289,7 @@ const bridge = {
       return () => ipcRenderer.removeListener("workspaces:open-settings", handler);
     },
   },
-  cloudAccount: process.argv.includes("--omb-company-desktop=1") ? {
+  cloudAccount: process.argv.includes("--omb-desktop-bridges=1") ? {
     state: () => ipcRenderer.invoke("cloud-account:state"),
     begin: () => ipcRenderer.invoke("cloud-account:begin"),
     signInAgain: () => ipcRenderer.invoke("cloud-account:signInAgain"),
@@ -339,7 +312,7 @@ const bridge = {
    * main answers it about itself, and its Copy (only from the person's own
    * click) opens this computer's Settings on that copy, or, on the verified
    * Cloud, starts it. */
-  cloudMove: process.argv.includes("--omb-company-desktop=1") ? {
+  cloudMove: process.argv.includes("--omb-desktop-bridges=1") ? {
     state: id => ipcRenderer.invoke("cloud-move:state", ...savedServer(id)),
     start: id => isLocalPage ? ipcRenderer.invoke("cloud-move:start", ...savedServer(id))
       : navigator.userActivation?.isActive === true ? ipcRenderer.invoke("cloud-move:start") : Promise.reject(new Error("Choose Copy to start copying.")),
@@ -355,41 +328,12 @@ const bridge = {
   /** The plan, read only, in Settings on the person's own Cloud: its name and
    * whether it is active, Manage (the Plan page in the browser) and
    * back to this computer. No arguments; a remote page acts only on a click. */
-  cloudPlan: process.argv.includes("--omb-company-desktop=1") ? {
+  cloudPlan: process.argv.includes("--omb-desktop-bridges=1") ? {
     state: () => ipcRenderer.invoke("cloud-plan:state"),
     manage: () => isLocalPage || navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("cloud-plan:manage") : Promise.reject(new Error("Choose Manage to open your Plan page.")),
     useThisComputer: () => isLocalPage || navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("cloud-plan:local") : Promise.reject(new Error("Choose Use this computer to switch.")),
-  } : undefined,
-  organization: process.argv.includes("--omb-company-desktop=1") ? {
-    settingsOpened: () => ipcRenderer.invoke("organization:settings-opened"),
-    state: () => ipcRenderer.invoke("organization:state"),
-    begin: input => ipcRenderer.invoke("organization:begin", input),
-    reopen: () => ipcRenderer.invoke("organization:reopen"),
-    cancelEnrollment: () => ipcRenderer.invoke("organization:cancel"),
-    refresh: () => ipcRenderer.invoke("organization:refresh"),
-    disconnect: () => ipcRenderer.invoke("organization:disconnect"),
-    onState: cb => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("organization:state-changed", handler);
-      return () => ipcRenderer.removeListener("organization:state-changed", handler);
-    },
-  } : undefined,
-  companyBackups: process.argv.includes("--omb-company-desktop=1") ? {
-    state: () => ipcRenderer.invoke("company-backups:state"),
-    list: () => ipcRenderer.invoke("company-backups:list"),
-    create: input => ipcRenderer.invoke("company-backups:create", input),
-    configureSchedule: input => ipcRenderer.invoke("company-backups:configure-schedule", input),
-    prepareRestore: input => ipcRenderer.invoke("company-backups:preview", input),
-    restore: input => ipcRenderer.invoke("company-backups:restore", input),
-    delete: input => ipcRenderer.invoke("company-backups:delete", input),
-    cancel: () => ipcRenderer.invoke("company-backups:cancel"),
-    onState: cb => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("company-backups:state-changed", handler);
-      return () => ipcRenderer.removeListener("company-backups:state-changed", handler);
-    },
   } : undefined,
   confirm: message => ipcRenderer.invoke("dialog:confirm", message),
 };

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { patchOrganizationUpdater } from "../scripts/patch-organization-updater.mjs";
 import { CLOUD_DEEP_LINK, createCloudEntry, isCloudDeepLink, takeCloudDeepLink } from "./cloud-entry.mjs";
 
 const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8").replace(/\r\n/g, "\n");
@@ -28,13 +27,13 @@ test("the Cloud protocol is a fixed action without URL routing or credentials", 
     "openmausbot://cloud?code=ABCDE-FGHJK", "openmausbot://cloud#code=ABCD-EFGH-JKLM", "openmausbot://cloud?url=https://home.example",
     "openmausbot://cloud/pair", "openmausbot://user@cloud", "openmausbot://cloud:443", "openmausbot://cloud.evil", "openmausbot://CLOUD",
     "OPENMAUSBOT://cloud", "openmausbot:cloud", "openmausbot:///cloud", "https://cloud", " openmausbot://cloud", "openmausbot://cloud ",
-    "openmausbot://%63loud", "openmausbot://organization", "openmausbot://install?url=https://github.com/x/y"]) {
+    "openmausbot://%63loud", "openmausbot://install?url=https://github.com/x/y"]) {
     assert.equal(isCloudDeepLink(value), false, String(value));
   }
 });
 
 test("consuming a launch action prevents it replaying on a later restart without changing other arguments", () => {
-  const original = ["/Applications/OpenMausBot", "--profile=fixture", "openmausbot://cloud?ignored", "openmausbot://organization", "openmausbot://install/example"];
+  const original = ["/Applications/OpenMausBot", "--profile=fixture", "openmausbot://cloud?ignored", "openmausbot://install/example"];
   const argv = [...original, "openmausbot://cloud", "openmausbot://cloud"];
   assert.equal(takeCloudDeepLink(argv), true);
   assert.deepEqual(argv, original);
@@ -88,7 +87,7 @@ test("once ready, open-url and a second instance open immediately and consume th
 test("anything else is left to the other link handlers without revealing or opening", async () => {
   const h = fixture();
   await h.entry.ready();
-  for (const url of ["openmausbot://organization", "openmausbot://install?url=https://github.com/x/y", "openmausbot://cloud?code=X", "openmausbot://cloud/"]) {
+  for (const url of ["openmausbot://install?url=https://github.com/x/y", "openmausbot://cloud?code=X", "openmausbot://cloud/"]) {
     assert.equal(h.entry.fromUrl(url), false);
     const argv = ["/app", url];
     assert.equal(h.entry.fromArgs(argv), false);
@@ -109,7 +108,7 @@ test("a failed open is contained and a later link still opens", async () => {
   assert.deepEqual(h.calls, ["open", "reveal", "open"]);
 });
 
-test("a consumed launch link is not replayed by the companion or updater relaunch", () => {
+test("a consumed launch link is not replayed by the companion relaunch", () => {
   const argv = ["/fixture/OpenMausBot", "--fixture", "openmausbot://cloud", "openmausbot://cloud?ignored"];
   takeCloudDeepLink(argv);
   const calls = [];
@@ -117,26 +116,23 @@ test("a consumed launch link is not replayed by the companion or updater relaunc
     desktopShutdownStarted: false, process: { argv }, setTimeout: callback => { callback(); return {}; },
     app: { relaunch: options => calls.push(options.args), quit: () => {} },
   });
-  const patched = patchOrganizationUpdater("      relaunch() {\n        this.app.relaunch();\n      }");
-  runInNewContext(`({ app, ${patched} }).relaunch();`, { process: { argv }, app: { relaunch: options => calls.push(options.args) } });
-  assert.deepEqual(calls, [["--fixture", "openmausbot://cloud?ignored"], ["--fixture", "openmausbot://cloud?ignored"]]);
+  assert.deepEqual(calls, [["--fixture", "openmausbot://cloud?ignored"]]);
 });
 
 test("main takes the link from launch arguments, open-url and a second instance", () => {
   assert.ok(main.indexOf("cloudEntry.fromLaunch(process.argv);") < main.indexOf("app.requestSingleInstanceLock()"),
     "the launch argument is consumed before anything can relaunch");
-  assert.match(between('app.on("open-url"', "});"), /!queueOrganizationEntry\(url\) && !cloudEntry\.fromUrl\(url\) && !queuePackageInstall\(url\)/);
+  assert.match(between('app.on("open-url"', "});"), /if \(!cloudEntry\.fromUrl\(url\) && !queuePackageInstall\(url\)\) return;/);
   const secondInstance = between('app.on("second-instance"', "\n});");
-  assert.ok(secondInstance.indexOf("if (cloudEntry.fromArgs(commandLine)) return;") > secondInstance.indexOf("takeOrganizationDeepLink(commandLine)"));
   assert.ok(secondInstance.indexOf("if (cloudEntry.fromArgs(commandLine)) return;") < secondInstance.indexOf("packageUrlFromCommandLine(commandLine)"));
 });
 
 test("startup delivers a pending Cloud link before default navigation", () => {
-  const startup = between("  let restoredOrganizationEntry = false;", "  // Reconcile incomplete setup");
+  const startup = between("  // A cold-start action owns its first navigation.", "  // Reconcile incomplete setup");
   const delivered = startup.indexOf("const deliveredCloudEntry = await cloudEntry.ready();");
-  assert.ok(delivered > startup.indexOf("await deliverOrganizationEntry()"));
+  assert.ok(delivered !== -1);
   assert.ok(delivered < startup.indexOf("createWindow()"));
-  assert.ok(main.indexOf("cloudAccountStarted = ensureCloudAccount().start()") < main.indexOf("  let restoredOrganizationEntry = false;"),
+  assert.ok(main.indexOf("cloudAccountStarted = ensureCloudAccount().start()") < main.indexOf("  // A cold-start action owns its first navigation."),
     "the saved sign-in starts restoring before the link is delivered");
 });
 

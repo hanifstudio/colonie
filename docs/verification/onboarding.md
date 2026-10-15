@@ -66,6 +66,5 @@ behaviour below still stands.
 workspace and is otherwise unchanged (`server/hosted-access.test.ts`,
 `server/email-signin.test.ts`).
 
-Not covered here: the real Electron preload bridge, a real Admin enrolment (see
-[organization connection](organization-settings.md)), and a real hosted
+Not covered here: the real Electron preload bridge and a real hosted
 tenant's browser.

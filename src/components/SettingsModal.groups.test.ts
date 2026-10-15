@@ -110,7 +110,7 @@ describe("Settings rail groups", () => {
   });
 
   it("shows every desktop page under its labelled group", () => {
-    vi.stubGlobal("window", { ogb: { environments: {}, organization: {}, cloudAccount: {} } });
+    vi.stubGlobal("window", { ogb: { environments: {}, cloudAccount: {} } });
     const html = render();
     for (const label of ["You", "AI", "Computers", "Account"]) expect(html).toContain(`>${label}</div>`);
     expect(html).toContain("glass-surface");
@@ -134,7 +134,7 @@ describe("Settings rail groups", () => {
   });
 
   it("shows a paired remote client only Appearance, Remote access and Servers", () => {
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, environments: {}, organization: {}, cloudAccount: {} } });
+    vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, environments: {}, cloudAccount: {} } });
     expect(rail(render())).toEqual({ you: ["appearance", "companion"], computers: ["desktopWorkspaces"] });
   });
 
