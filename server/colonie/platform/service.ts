@@ -43,6 +43,7 @@ import { InvitationConflictError, PlatformError } from "./contracts.ts";
 import { StreamHub } from "./events.ts";
 import { SecretBox } from "./secrets.ts";
 import { chooseGroupBot } from "./participation.ts";
+import { PLATFORM_AVATAR_MAX_BYTES, platformBotCreateSchema, platformBotProfileSchema, platformBotUpdateSchema, type PlatformBotUpdate } from "../../../shared/colonie-bot-profile.ts";
 
 const ROLE_RANK: Record<PlatformRole, number> = { owner: 3, admin: 2, member: 1 };
 const MAX_BODY = 16_384;
@@ -410,35 +411,73 @@ export class PlatformService implements PlatformTurnSink {
   // ── bots ─────────────────────────────────────────────────────────────
 
   private async botView(record: BotRecord): Promise<PlatformBot> {
-    return { id: record.id, workspaceId: record.workspaceId, principalId: record.principalId, name: record.name, ...(record.purpose ? { purpose: record.purpose } : {}), createdAt: record.createdAt };
+    return { ...record };
   }
 
-  async createBot(accountId: string, workspaceId: string, input: { name: string; purpose?: string }): Promise<PlatformBot> {
+  async createBot(accountId: string, workspaceId: string, input: PlatformBotUpdate & { name: string }): Promise<PlatformBot> {
     await this.requireRole(accountId, workspaceId, "admin");
-    const name = input.name.trim();
-    if (!name || name.length > 80) throw new PlatformError(400, "A bot name is required.", "invalid_name");
+    const checked = platformBotCreateSchema.safeParse(input);
+    if (!checked.success) throw new PlatformError(400, "The bot profile is not valid.", "invalid_profile");
+    input = checked.data;
+    const name = input.name;
+    // An uploaded avatar must belong to an existing bot in this workspace.
+    if (input.avatarUrl) throw new PlatformError(400, "Upload an avatar after creating the bot.", "invalid_avatar");
     const at = this.timestamp();
     const botId = this.makeId();
     const principalId = this.makeId();
     await this.repository.createPrincipal({ id: principalId, workspaceId, kind: "bot", botId, displayName: name, createdAt: at });
-    await this.repository.createBot({ id: botId, workspaceId, principalId, name, ...(input.purpose ? { purpose: input.purpose.slice(0, 500) } : {}), createdAt: at });
+    const record = { ...platformBotProfileSchema.strip().parse(input), id: botId, workspaceId, principalId, name, ...(input.purpose ? { purpose: input.purpose } : {}), createdAt: at };
+    await this.repository.createBot(record);
     await this.publish(workspaceId, undefined, { type: "membership", workspaceId, at });
-    return { id: botId, workspaceId, principalId, name, ...(input.purpose ? { purpose: input.purpose.slice(0, 500) } : {}), createdAt: at };
+    return this.botView(record);
   }
 
-  async updateBot(actorAccountId: string, workspaceId: string, botId: string, input: { name?: string; purpose?: string }): Promise<PlatformBot> {
+  async updateBot(actorAccountId: string, workspaceId: string, botId: string, input: PlatformBotUpdate): Promise<PlatformBot> {
     await this.requireRole(actorAccountId, workspaceId, "admin");
     const bot = await this.repository.getBot(botId);
     if (!bot || bot.workspaceId !== workspaceId) throw new PlatformError(404, "No such bot.", "not_found");
-    // Keep the stable bot and principal ids; only the display fields change.
+    const checked = platformBotUpdateSchema.safeParse(input);
+    if (!checked.success) throw new PlatformError(400, "The bot profile is not valid.", "invalid_profile");
+    input = checked.data;
+    if (input.avatarUrl) {
+      const image = await this.repository.getBotAvatar(input.avatarUrl.split("/").pop()!);
+      const expected = `/api/colonie/platform/workspaces/${workspaceId}/bots/${botId}/avatars/${image?.id}`;
+      if (!image || image.workspaceId !== workspaceId || image.botId !== botId || input.avatarUrl !== expected) {
+        throw new PlatformError(400, "Choose an image uploaded for this bot.", "invalid_avatar");
+      }
+    }
+    // Merge only submitted fields, including explicit empty instructions.
     const name = input.name === undefined ? bot.name : input.name.trim();
-    if (!name || name.length > 80) throw new PlatformError(400, "A bot name is required.", "invalid_name");
     const rawPurpose = input.purpose === undefined ? bot.purpose : input.purpose.trim();
     const purpose = rawPurpose ? rawPurpose.slice(0, 500) : undefined;
-    const record: BotRecord = { id: bot.id, workspaceId: bot.workspaceId, principalId: bot.principalId, name, ...(purpose ? { purpose } : {}), createdAt: bot.createdAt };
-    await this.repository.updateBot(record, name);
+    const record: BotRecord = { ...bot, ...input, name, purpose };
+    await this.repository.updateBot(record, name, input);
     await this.publish(workspaceId, undefined, { type: "membership", workspaceId, at: this.timestamp() });
-    return this.botView(record);
+    return this.botView((await this.repository.getBot(botId))!);
+  }
+
+  async saveBotAvatar(accountId: string, workspaceId: string, botId: string, bytes: Uint8Array, contentType: string): Promise<string> {
+    await this.requireRole(accountId, workspaceId, "admin");
+    const bot = await this.repository.getBot(botId);
+    if (!bot || bot.workspaceId !== workspaceId) throw new PlatformError(404, "No such bot.", "not_found");
+    const data = Buffer.from(bytes);
+    const detected = data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ? "image/png"
+      : data[0] === 255 && data[1] === 216 && data[2] === 255 ? "image/jpeg"
+      : /^(GIF87a|GIF89a)$/.test(data.subarray(0, 6).toString("ascii")) ? "image/gif"
+      : data.subarray(0, 4).toString("ascii") === "RIFF" && data.subarray(8, 12).toString("ascii") === "WEBP" ? "image/webp" : null;
+    if (!data.length || data.length > PLATFORM_AVATAR_MAX_BYTES || detected !== contentType || !detected) {
+      throw new PlatformError(400, "Choose a PNG, JPEG, GIF, or WebP image up to 10 MB.", "invalid_avatar");
+    }
+    const id = this.makeId();
+    await this.repository.saveBotAvatar({ id, workspaceId, botId, bytes: data, contentType: detected });
+    return `/api/colonie/platform/workspaces/${workspaceId}/bots/${botId}/avatars/${id}`;
+  }
+
+  async getBotAvatar(accountId: string, workspaceId: string, botId: string, id: string) {
+    await this.membershipOrThrow(accountId, workspaceId);
+    const image = await this.repository.getBotAvatar(id);
+    if (!image || image.workspaceId !== workspaceId || image.botId !== botId) throw new PlatformError(404, "No such image.", "not_found");
+    return image;
   }
 
   async listBots(accountId: string, workspaceId: string): Promise<PlatformBot[]> {

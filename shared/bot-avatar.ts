@@ -49,6 +49,9 @@ export const botAvatarUrlSchema = z
     "must be a stored PNG, JPEG, GIF, or WebP attachment",
   );
 
+/** Account-workspace images require membership on every read. */
+export const platformBotAvatarUrlSchema = z.string().regex(/^\/api\/colonie\/platform\/workspaces\/[\w-]+\/bots\/[\w-]+\/avatars\/[\w-]+$/);
+
 export function botAvatarUrlFromStoredPath(path: string): string | null {
   const name = path.replaceAll("\\", "/").split("/").pop();
   if (!name) return null;
@@ -71,7 +74,7 @@ export function botAvatarProfile(value: BotAvatarProfileInput): BotAvatarProfile
   const profile: BotAvatarProfile = {
     avatarCrop: botAvatarCropSchema.safeParse(value.avatarCrop).data ?? "mascot",
   };
-  const url = botAvatarUrlSchema.safeParse(value.avatarUrl);
+  const url = z.union([botAvatarUrlSchema, platformBotAvatarUrlSchema]).safeParse(value.avatarUrl);
   if (url.success) profile.avatarUrl = url.data;
   return profile;
 }

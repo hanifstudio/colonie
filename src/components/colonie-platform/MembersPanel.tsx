@@ -202,7 +202,7 @@ function BotRow({
   const [name, setName] = useState(bot.name);
   return (
     <li className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-raised/60">
-      <AvatarFor kind="bot" id={bot.id} name={bot.name} size={30} />
+      <AvatarFor kind="bot" id={bot.id} name={bot.name} size={30} profile={bot} />
       <div className="min-w-0 flex-1">
         {editing ? (
           <div className="flex items-center gap-2">

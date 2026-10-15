@@ -9,6 +9,7 @@
 import { InvitationConflictError, PlatformError } from "./contracts.ts";
 import type {
   BotRecord,
+  BotAvatarRecord,
   ConnectionRecord,
   ConversationRecord,
   InvitationRecord,
@@ -25,6 +26,7 @@ import type {
   StreamEventRecord,
   WorkspaceRecord,
 } from "./contracts.ts";
+import type { PlatformBotUpdate } from "../../../shared/colonie-bot-profile.ts";
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -34,6 +36,7 @@ export class MemoryPlatformRepository implements PlatformRepository {
   private readonly memberships = new Map<string, MembershipRecord>();
   private readonly principals = new Map<string, PrincipalRecord>();
   private readonly bots = new Map<string, BotRecord>();
+  private readonly botAvatars = new Map<string, BotAvatarRecord>();
   private readonly conversations = new Map<string, ConversationRecord>();
   private readonly participants: ParticipantRecord[] = [];
   private readonly messages: MessageRecord[] = [];
@@ -125,10 +128,17 @@ export class MemoryPlatformRepository implements PlatformRepository {
   async createBot(record: BotRecord): Promise<void> {
     this.bots.set(record.id, clone(record));
   }
-  async updateBot(record: BotRecord, principalDisplayName: string): Promise<void> {
-    this.bots.set(record.id, clone(record));
+  async updateBot(record: BotRecord, principalDisplayName: string, patch: PlatformBotUpdate): Promise<void> {
+    const previous = this.require(this.bots.get(record.id), "Bot");
+    this.bots.set(record.id, clone({ ...previous, ...patch, ...(patch.purpose !== undefined ? { purpose: record.purpose } : {}) }));
     const principal = this.principals.get(record.principalId);
-    if (principal) this.principals.set(principal.id, clone({ ...principal, displayName: principalDisplayName }));
+    if (principal && patch.name !== undefined) this.principals.set(principal.id, clone({ ...principal, displayName: principalDisplayName }));
+  }
+  async saveBotAvatar(record: BotAvatarRecord): Promise<void> {
+    this.botAvatars.set(record.id, clone(record));
+  }
+  async getBotAvatar(id: string): Promise<BotAvatarRecord | null> {
+    return clone(this.botAvatars.get(id) ?? null);
   }
   async getBot(botId: string): Promise<BotRecord | null> {
     return clone(this.bots.get(botId) ?? null);
@@ -139,6 +149,7 @@ export class MemoryPlatformRepository implements PlatformRepository {
   async removeBot(botId: string): Promise<void> {
     const bot = this.bots.get(botId);
     this.bots.delete(botId);
+    for (const [id, image] of this.botAvatars) if (image.botId === botId) this.botAvatars.delete(id);
     if (bot) {
       this.principals.delete(bot.principalId);
       for (let i = this.participants.length - 1; i >= 0; i -= 1) {

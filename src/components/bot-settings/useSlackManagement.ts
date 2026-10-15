@@ -20,9 +20,10 @@ export function slackManagementUrl(response: unknown): string | null {
 
 /** Null while loading, on a local install, and when the read fails: in all
  * three there is nothing to offer, so the section simply is not there. */
-export function useSlackManagementUrl(botId: string): string | null {
+export function useSlackManagementUrl(botId: string, enabled = true): string | null {
   const [loaded, setLoaded] = useState<{ botId: string; url: string | null } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     void api(`/api/bots/${encodeURIComponent(botId)}/slack-management`, { signal: controller.signal, timeoutMs: 10_000 })
       .then((response: unknown) => {
@@ -32,7 +33,7 @@ export function useSlackManagementUrl(botId: string): string | null {
         if (!controller.signal.aborted) setLoaded({ botId, url: null });
       });
     return () => controller.abort();
-  }, [botId]);
+  }, [botId, enabled]);
   // A late answer for another bot must never surface as this bot's link.
-  return loaded?.botId === botId ? loaded.url : null;
+  return enabled && loaded?.botId === botId ? loaded.url : null;
 }

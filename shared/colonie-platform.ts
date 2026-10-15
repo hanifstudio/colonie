@@ -6,6 +6,8 @@
 // and are shown to the person as-is. Nothing in this file carries a secret:
 // connection responses expose masked metadata only.
 
+import type { PlatformBotProfile } from "./colonie-bot-profile.ts";
+
 /** Better Auth owns sign-in; it is mounted here. */
 export const PLATFORM_AUTH_BASE = "/api/colonie/auth";
 
@@ -85,7 +87,7 @@ export interface PlatformMember {
 }
 
 /** A workspace-owned bot identity and its workspace principal. */
-export interface PlatformBot {
+export interface PlatformBot extends PlatformBotProfile {
   id: string;
   workspaceId: string;
   principalId: string;

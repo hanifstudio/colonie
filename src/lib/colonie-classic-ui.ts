@@ -10,9 +10,11 @@ export function classicMessages(messages: PlatformMessage[], self: string): Mess
     sender: { name: message.senderName, kind: message.senderKind } }));
 }
 
-export function classicBot(bot: Pick<PlatformBot, "id" | "name" | "purpose">, conversation?: PlatformConversation, messages: Message[] = [], working = false): Bot {
-  return { id: bot.id, name: bot.name, title: "", description: bot.purpose ?? "", soul: bot.purpose,
-    threadId: conversation?.id ?? `bot:${bot.id}`, messages, color: botColor(bot.id),
+export function classicBot(bot: Pick<PlatformBot, "id" | "name"> & Partial<PlatformBot>, conversation?: PlatformConversation, messages: Message[] = [], working = false): Bot {
+  return { id: bot.id, name: bot.name, title: bot.title ?? "", description: bot.description ?? bot.purpose ?? "", soul: bot.soul ?? "",
+    avatarUrl: bot.avatarUrl, avatarCrop: bot.avatarCrop, avatarZoom: bot.avatarZoom, avatarFocusX: bot.avatarFocusX, avatarFocusY: bot.avatarFocusY,
+    mascotBody: bot.mascotBody, mascotExpression: bot.mascotExpression,
+    threadId: conversation?.id ?? `bot:${bot.id}`, messages, color: bot.color ?? botColor(bot.id),
     notifications: true, unread: Boolean(conversation?.unreadCount), busy: working,
     activity: working ? "working" : "idle", computer: "off", modelSelection: { instanceId: "platform", model: "default" } };
 }

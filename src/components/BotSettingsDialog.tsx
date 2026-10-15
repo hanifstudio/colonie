@@ -2,7 +2,7 @@
 // same shell pattern as InspectorPanel. Every section lives under
 // bot-settings/; this dialog owns only the fetches (overview, system-prompt,
 // history) and which accordion row is expanded.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDownIcon, ChevronLeftIcon, MultiplicationSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
 
 import { api, useStore, type Bot } from "@/state/store";
@@ -40,6 +40,7 @@ import { isColonieAcpDriver } from "../../shared/devone";
 import { AcpContextDialog } from "./AcpContextDialog";
 import { useDeveloperTools } from "@/lib/developer-tools";
 import { BotConnectedTools } from "./BotConnectedTools";
+import { useBotEditor } from "./bot-settings/BotEditorContext";
 
 const sectionLabel = (entry: (typeof BOT_SECTIONS)[number]) => (entry.labelKey ? t(entry.labelKey) : entry.label);
 
@@ -53,14 +54,16 @@ function sectionMatches(entry: (typeof BOT_SECTIONS)[number], query: string): bo
   return [entry.label, sectionLabel(entry), ...entry.keywords].some((part) => part.toLowerCase().includes(query));
 }
 
-export function BotSettingsDialog({ bot, overlay = false }: {
+export function BotSettingsDialog({ bot, overlay = false, saveStatus }: {
   bot: Bot;
+  saveStatus?: ReactNode;
   /** Float over the chat instead of taking a column: the inspector or
    * computer panel is open too and the window cannot seat both (App). */
   overlay?: boolean;
 }) {
   const { state, dispatch, flushBotPatches } = useStore();
-  const codexAcp = isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
+  const { workspace, readOnly } = useBotEditor();
+  const codexAcp = workspace || isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
   const section = state.botSettingsSection;
   const derived = useBotSettingsDerived(bot);
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -86,11 +89,12 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   const simpleView = !advanced && !showAll;
   // Slack is offered only where the server has an Admin page to link to
   // (a hosted organisation workspace); otherwise its row does not exist.
-  const slackUrl = useSlackManagementUrl(bot.id);
+  const slackUrl = useSlackManagementUrl(bot.id, !workspace);
   // Who can see a bot matters only where several people sign in: a browser
   // on a served workspace, and there only to an admin.
-  const ownerOrAdmin = useOwnerOrAdmin();
+  const ownerOrAdmin = useOwnerOrAdmin(!workspace);
   const sections = BOT_SECTIONS
+    .filter((entry) => !workspace || SIMPLE_PANEL_SECTIONS.has(entry.id))
     .filter((entry) => !codexAcp || ["overview", "identity", "soul", "skills", "memory", "access", "model", "permissions"].includes(entry.id))
     .filter((entry) => entry.id !== "slack" || slackUrl !== null)
     .filter((entry) => entry.id !== "visibility" || (!window.ogb && ownerOrAdmin === true));
@@ -157,7 +161,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   // returning from either editor must reload their overview/prompt too.
   // Await the existing write queue instead of racing a second debounce.
   useEffect(() => {
-    if (section !== "overview" || simpleView) return;
+    if (workspace || section !== "overview" || simpleView) return;
     let cancelled = false;
     const fetchOverviewAndPrompt = async () => {
       await flushBotPatches(bot.id);
@@ -186,7 +190,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
     return () => {
       cancelled = true;
     };
-  }, [bot.id, section, simpleView, factsSignature, state.routines, state.webhooks, flushBotPatches]);
+  }, [bot.id, section, simpleView, factsSignature, state.routines, state.webhooks, flushBotPatches, workspace]);
 
   // Read the file-backed history only when its section is opened. A newer
   // load (or leaving History) invalidates older rows, revision, and errors.
@@ -276,6 +280,7 @@ export function BotSettingsDialog({ bot, overlay = false }: {
   const renderSectionBody = (id: (typeof BOT_SECTIONS)[number]["id"]) => {
     switch (id) {
       case "overview":
+        if (workspace) return <p className="rounded-xl bg-card p-4 text-sm text-ink-secondary">Your bot uses its saved profile and standing instructions automatically, starting with your next message. Edit its name, role and description in Identity, and its instructions in Soul.</p>;
         if (codexAcp) return (
           <div className="space-y-3">
             <p className="rounded-xl bg-card p-4 text-sm text-ink-secondary">Your bot uses its profile and saved instructions automatically. Edit its name, role and description in Identity, and its standing instructions in Soul. Start a new conversation to use profile updates.</p>
@@ -495,13 +500,14 @@ export function BotSettingsDialog({ bot, overlay = false }: {
                     {renderSectionBody("memory")}
                   </div>
                 ) : (
-                  open && <div className="px-4 pb-4 pt-1">{renderSectionBody(id)}</div>
+                  open && <fieldset disabled={readOnly} className="px-4 pb-4 pt-1">{renderSectionBody(id)}</fieldset>
                 )}
               </div>
             );
           })}
         </div>
         </>}
+        {saveStatus}
       </aside>
       <ConfirmDialog
         open={rollbackTarget !== null}

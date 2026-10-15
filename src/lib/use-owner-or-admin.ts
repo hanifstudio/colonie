@@ -13,9 +13,10 @@ function ownerOrAdmin(): Promise<boolean> {
   return pending;
 }
 
-export function useOwnerOrAdmin(): boolean | null {
+export function useOwnerOrAdmin(enabled = true): boolean | null {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     void ownerOrAdmin().then((value) => {
       if (alive) setAllowed(value);
@@ -23,6 +24,6 @@ export function useOwnerOrAdmin(): boolean | null {
     return () => {
       alive = false;
     };
-  }, []);
-  return allowed;
+  }, [enabled]);
+  return enabled ? allowed : false;
 }

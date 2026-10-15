@@ -9,6 +9,7 @@ import { json, readBody } from "../../harness/http.ts";
 import type { PlatformAuth } from "./contracts.ts";
 import { PlatformError } from "./contracts.ts";
 import type { PlatformService } from "./service.ts";
+import { PLATFORM_AVATAR_MAX_BODY_BYTES, platformBotCreateSchema, platformBotUpdateSchema } from "../../../shared/colonie-bot-profile.ts";
 
 interface Ctx {
   req: IncomingMessage;
@@ -42,8 +43,6 @@ async function body<T>(req: IncomingMessage, schema: z.ZodType<T>): Promise<T> {
 const createWorkspaceSchema = z.object({ name: z.string().trim().min(1).max(120), kind: z.enum(["local", "cloud"]) }).strict();
 const renameSchema = z.object({ name: z.string().trim().min(1).max(120) }).strict();
 const roleSchema = z.object({ role: z.enum(["owner", "admin", "member"]) }).strict();
-const botSchema = z.object({ name: z.string().trim().min(1).max(80), purpose: z.string().max(500).optional() }).strict();
-const botUpdateSchema = z.object({ name: z.string().trim().min(1).max(80).optional(), purpose: z.string().max(500).optional() }).strict();
 const groupSchema = z.object({ title: z.string().trim().min(1).max(120), memberPrincipalIds: z.array(z.string().min(1)).max(500).optional() }).strict();
 const openDmSchema = z.object({ kind: z.literal("dm"), withAccountId: z.string().min(1).optional(), withBotId: z.string().min(1).optional() }).strict();
 const messageSchema = z.object({ body: z.string().trim().min(1).max(16_384) }).strict();
@@ -141,19 +140,37 @@ async function dispatch(service: PlatformService, ctx: Ctx, human: { id: string;
   if ((m = path.match(/^\/api\/colonie\/platform\/workspaces\/([\w-]+)\/bots$/))) {
     if (method === "GET") return void json(res, 200, { bots: await service.listBots(accountId, m[1]!) });
     if (method === "POST") {
-      const input = await body(req, botSchema);
+      const input = await body(req, platformBotCreateSchema);
       return void json(res, 200, { bot: await service.createBot(accountId, m[1]!, input) });
     }
     return void json(res, 405, { error: "Method not allowed.", code: "method_not_allowed" });
   }
   if ((m = path.match(/^\/api\/colonie\/platform\/workspaces\/([\w-]+)\/bots\/([\w-]+)$/))) {
     if (method === "PATCH") {
-      const input = await body(req, botUpdateSchema);
+      const input = await body(req, platformBotUpdateSchema);
       return void json(res, 200, { bot: await service.updateBot(accountId, m[1]!, m[2]!, input) });
     }
     if (method === "DELETE") {
       await service.removeBot(accountId, m[1]!, m[2]!);
       return void json(res, 200, { ok: true });
+    }
+    return void json(res, 405, { error: "Method not allowed.", code: "method_not_allowed" });
+  }
+
+  if ((m = path.match(/^\/api\/colonie\/platform\/workspaces\/([\w-]+)\/bots\/([\w-]+)\/avatars(?:\/([\w-]+))?$/))) {
+    if (method === "POST" && !m[3]) {
+      const input = z.object({ contentType: z.string(), base64: z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/) }).strict()
+        .safeParse(await readBody(req, PLATFORM_AVATAR_MAX_BODY_BYTES));
+      if (!input.success) throw new PlatformError(400, "The image upload is not valid.", "invalid_avatar");
+      const avatarUrl = await service.saveBotAvatar(accountId, m[1]!, m[2]!, Buffer.from(input.data.base64, "base64"), input.data.contentType);
+      return void json(res, 200, { avatarUrl });
+    }
+    if (method === "GET" && m[3]) {
+      const image = await service.getBotAvatar(accountId, m[1]!, m[2]!, m[3]);
+      res.writeHead(200, { "content-type": image.contentType, "content-length": image.bytes.length,
+        "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'" });
+      res.end(Buffer.from(image.bytes));
+      return;
     }
     return void json(res, 405, { error: "Method not allowed.", code: "method_not_allowed" });
   }

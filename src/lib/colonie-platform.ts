@@ -25,6 +25,7 @@ import {
   type WorkspaceKind,
 } from "../../shared/colonie-platform";
 import { MAUS_COLOR_NAMES, type MausColor } from "@/lib/mascot";
+import { PLATFORM_AVATAR_MAX_BYTES, type PlatformBotUpdate } from "../../shared/colonie-bot-profile";
 
 export {
   PLATFORM_API_BASE,
@@ -365,13 +366,26 @@ export class PlatformClient {
     const body = await this.request<{ bots: PlatformBot[] }>(route(PLATFORM_ROUTES.workspaceBots, id));
     return body.bots ?? [];
   }
-  async createBot(id: string, input: { name: string; purpose?: string }): Promise<PlatformBot> {
+  async createBot(id: string, input: PlatformBotUpdate & { name: string }): Promise<PlatformBot> {
     const body = await this.request<{ bot: PlatformBot }>(route(PLATFORM_ROUTES.workspaceBots, id), { method: "POST", body: input });
     return body.bot;
   }
-  async updateBot(id: string, botId: string, input: { name?: string; purpose?: string }): Promise<PlatformBot> {
+  async updateBot(id: string, botId: string, input: PlatformBotUpdate): Promise<PlatformBot> {
     const body = await this.request<{ bot: PlatformBot }>(`${route(PLATFORM_ROUTES.workspaceBots, id)}/${encodeURIComponent(botId)}`, { method: "PATCH", body: input });
     return body.bot;
+  }
+  async uploadBotAvatar(id: string, botId: string, file: File): Promise<string> {
+    if (!file.size || file.size > PLATFORM_AVATAR_MAX_BYTES || !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(file.type)) {
+      throw new Error("Choose a PNG, JPEG, GIF, or WebP image up to 10 MB.");
+    }
+    const base64 = await new Promise<string>((done, fail) => {
+      const reader = new FileReader();
+      reader.onload = () => done(String(reader.result).split(",")[1]!);
+      reader.onerror = () => fail(new Error("The image could not be read."));
+      reader.readAsDataURL(file);
+    });
+    const result = await this.request<{ avatarUrl: string }>(`${route(PLATFORM_ROUTES.workspaceBots, id)}/${encodeURIComponent(botId)}/avatars`, { method: "POST", body: { contentType: file.type, base64 } });
+    return result.avatarUrl;
   }
   async deleteBot(id: string, botId: string): Promise<void> {
     await this.request(`${route(PLATFORM_ROUTES.workspaceBots, id)}/${encodeURIComponent(botId)}`, { method: "DELETE" });

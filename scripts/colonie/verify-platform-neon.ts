@@ -120,6 +120,27 @@ try {
   await call(outsider, "GET", `${API}/workspaces/${workspace.id}`, undefined, 403);
   await call(member, "GET", `${API}/workspaces/${otherWorkspace.id}`, undefined, 403);
   result("workspace-and-invites", { inviteAcceptedIntoCorrectWorkspace: true, crossWorkspaceDenied: true });
+  const botBase = `${API}/workspaces/${workspace.id}/bots`;
+  const profileBot = (await call(owner, "POST", botBase, { name: "Profile fixture", purpose: "Legacy purpose" })).bot;
+  const legacyProfile = (await call(owner, "GET", botBase)).bots.find((item: { id: string }) => item.id === profileBot.id);
+  assert.equal(legacyProfile.purpose, "Legacy purpose");
+  // Exercise the real host's upload envelope above its ordinary 128 KB JSON
+  // cap. The separate renderer fixture verifies PNG decoding/crop controls.
+  const imageBase64 = Buffer.concat([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVfoAAAAASUVORK5CYII=", "base64"), Buffer.alloc(150_000)]).toString("base64");
+  const image = await call(owner, "POST", `${botBase}/${profileBot.id}/avatars`, { contentType: "image/png", base64: imageBase64 });
+  const profile = { title: "Researcher", description: "Find useful sources", soul: "SAVED_NEON_SOUL", color: "purple", mascotBody: "star", avatarUrl: image.avatarUrl, avatarCrop: "rounded", avatarZoom: 1.5 };
+  await call(owner, "PATCH", `${botBase}/${profileBot.id}`, profile);
+  await call(member, "PATCH", `${botBase}/${profileBot.id}`, { soul: "Forbidden" }, 403);
+  await call(outsider, "PATCH", `${API}/workspaces/${otherWorkspace.id}/bots/${profileBot.id}`, { soul: "Wrong workspace" }, 404);
+  await Promise.all([
+    call(owner, "PATCH", `${botBase}/${profileBot.id}`, { title: "Updated researcher" }),
+    call(owner, "PATCH", `${botBase}/${profileBot.id}`, { soul: "UPDATED_NEON_SOUL" }),
+  ]);
+  const persistedProfile = (await call(owner, "GET", botBase)).bots.find((item: { id: string }) => item.id === profileBot.id);
+  assert.equal(persistedProfile.title, "Updated researcher");
+  assert.equal(persistedProfile.soul, "UPDATED_NEON_SOUL");
+  assert.equal(persistedProfile.description, profile.description);
+  result("bot-profile-storage", { originalProfileFieldsSaved: true, concurrentPartialEditsPreserved: true, memberEditDenied: true, wrongWorkspaceDenied: true });
   const dm = (await call(member, "POST", `${API}/workspaces/${workspace.id}/conversations/open`, { kind: "dm", withAccountId: admin.id }, 200)).conversation;
   await call(member, "POST", `${API}/conversations/${dm.id}/messages`, { body: "PRIVATE_DM_FIXTURE" }, 200);
   assert.equal((await call(admin, "GET", `${API}/conversations/${dm.id}`)).messages[0].body, "PRIVATE_DM_FIXTURE");
@@ -166,6 +187,14 @@ try {
   assert.deepEqual((await call(member, "GET", `${API}/conversations/${dm.id}`)).messages, snapshot.messages);
   assert.equal((await call(owner, "GET", apps)).maskedHint, configured.maskedHint);
   assert.equal((await call(member, "GET", `${apps}/connections`)).links.find((link: { id: string }) => link.id === completed.link.id).status, "active");
+  assert.deepEqual((await call(owner, "GET", botBase)).bots.find((item: { id: string }) => item.id === profileBot.id), persistedProfile);
+  const avatarResponse = await fetch(origin + image.avatarUrl, { headers: { cookie: member.cookie, origin: publicOrigin, host: new URL(publicOrigin).host } });
+  assert.equal(avatarResponse.status, 200);
+  assert.equal(avatarResponse.headers.get("content-type"), "image/png");
+  assert.equal(Buffer.from(await avatarResponse.arrayBuffer()).toString("base64"), imageBase64);
+  const outsiderImage = await fetch(origin + image.avatarUrl, { headers: { cookie: outsider.cookie, origin: publicOrigin, host: new URL(publicOrigin).host } });
+  assert.equal(outsiderImage.status, 403);
+  result("bot-profile-restart", { profileUnchangedAfterRestart: true, uploadedImageBytesPersisted: true, uploadAboveOrdinaryJsonCap: true, avatarDeniedToOutsider: true });
   await call(member, "DELETE", `${apps}/connections/${completed.link.id}`);
   await call(member, "POST", `${apps}/connections/complete`, { state: started.state, sessionUri }, 410);
   result("restart-persistence", { sessionStillValid: true, messageHistoryUnchanged: true });

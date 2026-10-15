@@ -6,6 +6,9 @@ import { api } from "@/state/store";
 export const BotEditorContext = createContext<{
   request: typeof api;
   draft?: boolean;
+  /** Account workspace profiles are database-backed, without local mirrors. */
+  workspace?: boolean;
+  readOnly?: boolean;
   uploadAvatar?: (file: File) => Promise<string>;
 }>({ request: api });
 

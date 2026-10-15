@@ -8,23 +8,31 @@ import { classicConversation } from "@/lib/colonie-classic-ui";
 import { cn } from "@/lib/cn";
 import { conversationTitle, dmPeer, type PlatformConversation, type PlatformMessage } from "@/lib/colonie-platform";
 import { AvatarFor, Button, Notice, Spinner } from "./ui";
+import { BotAvatar } from "@/components/Avatar";
+import { classicBot } from "@/lib/colonie-classic-ui";
+import type { PlatformBot } from "@/lib/colonie-platform";
+import { stateForBot } from "@/lib/mascot";
 
 export function ConversationView({ conversation, selfPrincipalId, messages, working, loading, loadError, sendError,
-  onSend, onStop: _onStop, onLoadEarlier, loadingEarlier, earlierError, headerAction,
+  onSend, onStop: _onStop, onLoadEarlier, loadingEarlier, earlierError, headerAction, profile, onOpenProfile,
 }: {
   conversation: PlatformConversation; selfPrincipalId: string; messages: PlatformMessage[];
   working: boolean; loading: boolean; loadError: string | null; sendError: string | null;
   onSend: (body: string) => Promise<void>; onStop?: () => void; onLoadEarlier?: () => void;
   loadingEarlier?: boolean; earlierError?: string | null; headerAction?: ReactNode;
+  profile?: PlatformBot; onOpenProfile?: (botId: string) => void;
 }) {
-  const title = conversationTitle(conversation, selfPrincipalId);
+  const title = profile?.name ?? conversationTitle(conversation, selfPrincipalId);
   const peer = dmPeer(conversation, selfPrincipalId);
-  const bot = classicConversation(conversation, selfPrincipalId, loadError ? [] : messages, working);
+  const conversationBot = classicConversation(conversation, selfPrincipalId, loadError ? [] : messages, working);
+  const bot = profile ? { ...classicBot(profile), threadId: conversation.id, messages: conversationBot.messages, busy: working } : conversationBot;
+  const identity = <>
+    {profile ? <BotAvatar bot={bot} state={stateForBot(bot)} size={24} animated={false} /> : peer ? <AvatarFor kind={peer.kind} id={peer.botId ?? peer.principalId} name={peer.displayName} size={24} /> : <HIcon icon={UserGroupIcon} size={18} />}
+    <span className="min-w-0 truncate text-[14px] font-semibold">{profile?.name ?? title}</span>
+  </>;
   return <ChatView bot={bot} accountConversation={{
-    identity: <span className={cn(CHATHEAD_PILL, "pr-3.5")}>
-      {peer ? <AvatarFor kind={peer.kind} id={peer.botId ?? peer.principalId} name={peer.displayName} size={24} /> : <HIcon icon={UserGroupIcon} size={18} />}
-      <span className="min-w-0 truncate text-[14px] font-semibold">{title}</span>
-    </span>,
+    identity: profile && onOpenProfile ? <button type="button" aria-label={`Open ${profile.name} profile`} className={cn(CHATHEAD_PILL, "pr-3.5 hover:bg-control")} onClick={() => onOpenProfile(profile.id)}>{identity}</button>
+      : <span className={cn(CHATHEAD_PILL, "pr-3.5")}>{identity}</span>,
     actions: headerAction,
     beforeMessages: <>
       {loading ? <div className="flex justify-center py-8"><Spinner /></div> : null}

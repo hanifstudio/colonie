@@ -2754,3 +2754,167 @@ Only the owner's `colonie` remote was pushed; upstream `origin` was untouched.
 The code change is separate from the earlier beta commit and remains unmerged.
 Aggregate recovery evidence is `.devone/evidence/ui-recovery-2026-10-15.json`,
 including explicit `realAiAvailable: false` and the pending owner reconnect.
+
+### Owner rejected the partial recovery — full UI remains unrestored
+
+The owner states that only a small part of the original UI was recovered.
+They are correct. The preceding publication proved selected fixture journeys
+and deployment of reused components; it did not prove restoration of the full
+pre-change Colonie product or its feature set. Application code changes and
+deployments are paused for discussion/source comparison in this response.
+No new runtime/provider or live-user verification was performed.
+
+Read-only comparison commands included:
+
+```sh
+git status --short --branch
+git log -5 --oneline
+git diff --stat 744da8df..HEAD -- src/App.tsx src/main.tsx src/components/onboarding electron/main.mjs
+git diff --quiet 744da8df HEAD -- src/App.tsx
+git diff 744da8df HEAD -- src/main.tsx
+rg -n 'classicDispatch|toggleSettings|toggleAppSettings|togglePlugins|accountConversation|New direct message|<.*Dialog|<.*Panel' src/components/colonie-platform/WorkspaceShell.tsx src/components/colonie-platform/ConversationView.tsx
+rg -n 'accountConversation \?|!accountWorkspace|!accountConversation|workspace \?' src/components/ChatView.tsx src/components/Sidebar.tsx
+```
+
+Findings from source, not new functional verification:
+
+- App.tsx is unchanged relative to the pre-workspace snapshot `744da8df`.
+  Cloud routing bypasses that application and still selects PlatformApp.
+- The original App mounts BotSettingsDialog, SettingsModal, PluginsPanel,
+  the original NewBotDialog, GroupView and the rest of its application shell.
+  The Cloud shell does not mount that complete application.
+- The original fork's bot settings include Identity/SOUL and ACP-specific
+  Skills/Memory/Access/Model/Permissions sections. The Cloud wire bot currently
+  exposes a name and purpose; the recovery's toggleSettings action opens
+  Members rather than those bot settings.
+- Original app settings include General, Appearance, Engines, Connections
+  and Backups for the ACP fork. The Cloud replacement settings offer workspace
+  naming and connected apps, not the complete original settings UI.
+- Account-conversation overrides suppress original conversation navigation,
+  native/model controls and several message actions. The original Composer is
+  replaced with a plain-text account composer. Reusing its styling does not
+  restore attachments or the original interaction set.
+- The owner's requirement is to retain the existing Colonie application as
+  the foundation. Restoring isolated visual fragments is insufficient; the
+  account/workspace integration and feature data contracts need to support
+  that application. Previously retired upstream engines/enterprise behavior
+  must not be revived as an accidental side effect.
+
+No further application code, server configuration, credential or production
+conversation was changed for this audit. Only these correction notes were
+updated locally; no new commit/push/deployment was performed. Next: agree on
+the full recovery approach using the pre-change application as the baseline,
+before another implementation or deployment. Real Cloud AI authentication
+also remains unresolved; its earlier status has not changed.
+
+## 2026-10-15 — Incremental UI recovery: original bot profile (verification)
+
+The owner authorized restoring the remaining original UI one part at a time.
+This slice reconnects the existing BotSettingsDialog, SimpleBotPanel,
+IdentitySection, SoulSection and BotProfileAvatarCard to Cloud workspace data.
+It is not a full application UI restoration. Cloud still enters PlatformApp /
+WorkspaceShell; App.tsx remains the pre-change source for the other surfaces.
+
+Implemented scope:
+
+- Name, role/title, description, standing instructions, mascot color/body/
+  expression, custom image upload/removal, crop and framing use the original
+  controls. The bot header and sidebar menu open the actual settings panel.
+- Workspace owners/admins can edit; ordinary members can view a disabled
+  profile. The service independently checks the role and exact workspace/bot.
+  Avatar reads check current membership and use private, no-store responses.
+- PostgreSQL adds a default-empty profile JSON column and a scoped binary
+  avatar table. Existing bot records and their purpose remain valid. Partial
+  updates merge submitted fields, including explicit clears, rather than
+  overwriting unrelated concurrent edits. No R2 credentials are involved.
+- Serialized saves retain failed drafts, show a retry, and preserve edits
+  made while an older save is in flight. Closing waits for successful saving.
+- Cloud dispatch reads the saved name, role, description and SOUL for each
+  turn and records the exact application-authored prompt. No inspector setup
+  is required. Native provider/project instructions remain provider-owned.
+
+Commands/results (all local commands used
+`export PATH=/opt/homebrew/opt/node@24/bin:$PATH`):
+
+```sh
+pnpm exec vitest run server/colonie/platform/platform.test.ts server/colonie/platform/runtime.test.ts src/components/colonie-platform/platform-flow.test.ts src/components/BotSettingsDialog.simple.test.ts
+# 4 files / 96 tests passed (initial focused run).
+pnpm exec vitest run src/components/colonie-platform/platform-flow.test.ts
+# 27 passed after adding in-flight-save and failed-save/retry journeys.
+pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts src/lib/cloud-guest.test.ts src/components/Sidebar.rows.test.ts src/components/Sidebar.header.test.ts src/components/SidebarBotListItem.test.ts src/components/ChatView.rows.test.ts src/components/ChatView.controls.test.ts src/components/ChatView.follow.test.ts src/components/Avatar.test.ts src/components/BotSettingsDialog.simple.test.ts
+# Final run: 18 files / 343 tests passed, including the pending-close regression.
+pnpm exec vitest run src/components/BotProfileAvatarCard.test.ts src/components/BotSettingsDialog.caption.test.ts server/bot-avatar.test.ts
+# 3 additional files / 15 tests passed (358 distinct tests across these suites).
+pnpm build
+# Final run passed TypeScript and Vite; existing CSS/chunk warnings remain.
+# The first run found one NodeNext import missing its .ts extension; corrected.
+pnpm exec tsc -b && pnpm exec vite build
+# Exited 0; final frozen renderer includes saved mascot state in bot headers.
+pnpm exec oxlint --deny-warnings .
+pnpm i18n:check
+# Both exited 0; 10 locale catalogs valid, 3,714 English strings.
+node scripts/colonie/build-platform.mjs
+# Host and verification bundles built successfully.
+node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /Users/riaenriala/.config/colonie-development/infra.json --public-origin https://172.104.33.55
+# Exited 0: real Better Auth + PostgreSQL, original profile fields saved,
+# concurrent partial edits retained, member edit and wrong-workspace access
+# denied, profile and uploaded PNG bytes survived host restart, outsider image
+# read denied, existing private-DM/recovery/revocation checks passed.
+# Disposable schema removed. Provider and app integrations were simulated.
+```
+
+A final host inspection found the ordinary 128 KB JSON-body guard would also
+reject larger avatar uploads. The larger bounded envelope is now allowed only
+on the exact authenticated avatar-upload route; all other routes keep their
+existing cap. The repeated Neon fixture uploaded a 150,068-byte synthetic PNG
+payload above that ordinary cap and read the exact bytes after restart. PNG
+decoding itself is covered by the separate small-image renderer fixture.
+`pnpm exec tsc -p tsconfig.server.json && node scripts/colonie/build-platform.mjs`
+checks the updated host before publication; its completion is recorded below.
+
+The maintained ACP SDK fixture completed two turns with different saved SOUL
+values. Each dispatched prompt matched its input receipt exactly and contained
+the current role/description/SOUL; the previous SOUL and legacy purpose did not
+bleed into the later input. This proves dispatch wiring with a simulated ACP
+provider, not successful reasoning or replies from a real Cloud provider.
+
+An additional renderer regression check covers leaving a bot profile while
+its close is waiting for a save: that old response cannot dismiss the profile
+of another bot opened in the meantime. The new test passed in the 343-test run.
+
+Initial Chromium HTTP/SSE renderer check exited 0, including profile/PNG upload,
+crop/zoom, save/reload/removal, failed-save draft retention/retry, invited-member
+read-only profile, bot chat, human DM, and visible provider-failure handling.
+Final browser and packaged desktop checks also passed against the final build:
+
+```sh
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts
+node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop --executable release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie
+# Both exited 0, completed=true, errors=[].
+```
+
+Chromium covered the complete original-profile edit/upload/reload/remove/retry
+journey, plus an ordinary invited member's read-only profile at 390 × 844.
+The unchanged 0.2.0 packaged Mac executable loaded the final Cloud fixture UI
+and completed the same profile journey. Its separate disposable Local server
+also completed deterministic ACP onboarding/chat and switched back to Cloud
+without crossing message histories. No native engine login was performed.
+The checks used isolated accounts/data; no production conversation was touched.
+
+JSON evidence is `.devone/evidence/platform-browser-ui.json` and
+`platform-native-ui.json`. Profile, identity and SOUL screenshots are the
+`platform-browser-bot-*.png` / `platform-native-bot-*.png` files, with the
+read-only mobile view in `platform-mobile-bot-profile.png`. The final browser
+capture waits for the original panel's entrance animation before taking a
+screenshot. PNG decode/crop and zoom to 101% were exercised; arbitrary uploaded
+images, every accepted file format and pointer-drag framing were not verified.
+Publication has not happened at this verification milestone.
+
+Explicitly not restored in this slice: Skills, Memory, bot model/permissions,
+connected-tool settings inside the original panel, generated avatars, Library,
+full app settings, attachments/search and the remaining conversation controls.
+Real Cloud Claude replies remain authentication-blocked. No engine sign-in,
+credential-content read, production conversation test or real OAuth flow was
+performed. A physical phone, quarantined install and Apple notarization remain
+unverified. Next: publish this tested profile slice with rollback artifacts
+retained, then restore the remaining original surfaces incrementally.

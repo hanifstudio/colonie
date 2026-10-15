@@ -9,7 +9,9 @@ import { Alert02Icon, InformationCircleIcon, Cancel01Icon } from "@hugeicons/cor
 import { HIcon, type HIconElement } from "@/components/HIcon";
 import { BotAvatar } from "@/components/Avatar";
 import { cn } from "@/lib/cn";
-import { botColor, initialsOf, type PrincipalKindUnion } from "@/lib/colonie-platform";
+import { botColor, initialsOf, type PrincipalKindUnion, type PlatformBot } from "@/lib/colonie-platform";
+import { classicBot } from "@/lib/colonie-classic-ui";
+import { stateForBot } from "@/lib/mascot";
 
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 
@@ -239,10 +241,11 @@ export function HumanAvatar({ name, size = 28 }: { name: string; size?: number }
   );
 }
 
-export function BotAvatarView({ id, name, size = 28 }: { id: string; name: string; size?: number }) {
-  return <BotAvatar bot={{ color: botColor(id), name }} label={name} size={size} animated={false} />;
+export function BotAvatarView({ id, name, size = 28, profile }: { id: string; name: string; size?: number; profile?: PlatformBot }) {
+  const bot = profile ? classicBot(profile) : null;
+  return <BotAvatar bot={bot ?? { color: botColor(id), name }} state={bot ? stateForBot(bot) : undefined} label={name} size={size} animated={false} />;
 }
 
-export function AvatarFor({ kind, id, name, size = 28 }: { kind: PrincipalKindUnion; id: string; name: string; size?: number }) {
-  return kind === "bot" ? <BotAvatarView id={id} name={name} size={size} /> : <HumanAvatar name={name} size={size} />;
+export function AvatarFor({ kind, id, name, size = 28, profile }: { kind: PrincipalKindUnion; id: string; name: string; size?: number; profile?: PlatformBot }) {
+  return kind === "bot" ? <BotAvatarView id={id} name={name} size={size} profile={profile} /> : <HumanAvatar name={name} size={size} />;
 }

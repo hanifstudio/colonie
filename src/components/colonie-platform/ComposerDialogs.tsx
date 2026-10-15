@@ -141,6 +141,7 @@ export function GroupDialog({
               <PrincipalRow
                 key={bot.principalId}
                 kind="bot"
+                profile={bot}
                 id={bot.id}
                 name={bot.name}
                 checked={selected.has(bot.principalId)}
@@ -220,9 +221,10 @@ export function DmDialog({
                 <li key={bot.principalId}>
                   <PickRow
                     kind="bot"
+                    profile={bot}
                     id={bot.id}
                     name={bot.name}
-                    sub={bot.purpose}
+                    sub={bot.description ?? bot.purpose}
                     busy={busy === bot.principalId}
                     onClick={() => void startDm(bot.principalId, { withBotId: bot.id })}
                   />
@@ -238,12 +240,12 @@ export function DmDialog({
   );
 }
 
-function PrincipalRow({ kind, id, name, checked, onToggle }: { kind: "human" | "bot"; id: string; name: string; checked: boolean; onToggle: () => void }) {
+function PrincipalRow({ kind, id, name, checked, onToggle, profile }: { kind: "human" | "bot"; id: string; name: string; checked: boolean; onToggle: () => void; profile?: PlatformBot }) {
   return (
     <li>
       <label className={cn("flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5", checked ? "bg-accent/10" : "hover:bg-raised/60")}>
         <input type="checkbox" checked={checked} onChange={onToggle} className="size-4 accent-[var(--color-accent)]" />
-        <AvatarFor kind={kind} id={id} name={name} size={26} />
+        <AvatarFor kind={kind} id={id} name={name} size={26} profile={profile} />
         <span className="truncate text-[13.5px]">{name}</span>
       </label>
     </li>
@@ -301,7 +303,7 @@ export function GroupMembersDialog({
               const self = participant.principalId === selfPrincipalId;
               return (
                 <li key={participant.principalId} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-                  <AvatarFor kind={participant.kind} id={participant.botId ?? participant.accountId ?? participant.principalId} name={participant.displayName} size={28} />
+                  <AvatarFor kind={participant.kind} id={participant.botId ?? participant.accountId ?? participant.principalId} name={participant.displayName} size={28} profile={bots.find((bot) => bot.id === participant.botId)} />
                   <span className="min-w-0 flex-1 truncate text-[13.5px]">
                     {participant.displayName}
                     {participant.kind === "bot" ? <span className="ml-1.5 text-[11.5px] text-ink-tertiary">Bot</span> : null}
@@ -339,7 +341,7 @@ export function GroupMembersDialog({
               ))}
               {addableBots.map((bot) => (
                 <li key={bot.principalId} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-                  <AvatarFor kind="bot" id={bot.id} name={bot.name} size={28} />
+                  <AvatarFor kind="bot" id={bot.id} name={bot.name} size={28} profile={bot} />
                   <span className="min-w-0 flex-1 truncate text-[13.5px]">{bot.name}</span>
                   <Button variant="secondary" icon={UserAdd01Icon} busy={busy === bot.principalId} onClick={() => void run(bot.principalId, () => onAdd(bot.principalId))}>
                     Add
@@ -356,7 +358,7 @@ export function GroupMembersDialog({
   );
 }
 
-function PickRow({ kind, id, name, sub, busy, onClick }: { kind: "human" | "bot"; id: string; name: string; sub?: string; busy: boolean; onClick: () => void }) {
+function PickRow({ kind, id, name, sub, busy, onClick, profile }: { kind: "human" | "bot"; id: string; name: string; sub?: string; busy: boolean; onClick: () => void; profile?: PlatformBot }) {
   return (
     <button
       type="button"
@@ -364,7 +366,7 @@ function PickRow({ kind, id, name, sub, busy, onClick }: { kind: "human" | "bot"
       disabled={busy}
       className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-raised/60 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
     >
-      <AvatarFor kind={kind} id={id} name={name} size={28} />
+      <AvatarFor kind={kind} id={id} name={name} size={28} profile={profile} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13.5px]">{name}</span>
         {sub ? <span className="block truncate text-[12px] text-ink-tertiary">{sub}</span> : null}

@@ -451,6 +451,65 @@ describe("bot turns", () => {
 // ── bot management ─────────────────────────────────────────────────────
 
 describe("bot management", () => {
+  it("persists the original identity, mascot and SOUL fields, including explicit clears", async () => {
+    const h = harness();
+    const { owner, workspace } = await seedWorkspace(h.service, h.auth);
+    const bot = await h.service.createBot(owner.id, workspace.id, { name: "Scout", purpose: "Legacy purpose" });
+    const updated = await h.service.updateBot(owner.id, workspace.id, bot.id, { title: "Researcher", description: "Find useful sources", soul: "Keep answers brief.", color: "purple", mascotBody: "star", mascotExpression: "happy" });
+    expect((await h.service.listBots(owner.id, workspace.id))[0]).toEqual(updated);
+    expect(updated).toMatchObject({ title: "Researcher", description: "Find useful sources", soul: "Keep answers brief.", color: "purple", mascotBody: "star", mascotExpression: "happy", purpose: "Legacy purpose" });
+    await Promise.all([
+      h.service.updateBot(owner.id, workspace.id, bot.id, { title: "New role" }),
+      h.service.updateBot(owner.id, workspace.id, bot.id, { soul: "" }),
+    ]);
+    expect((await h.service.listBots(owner.id, workspace.id))[0]).toMatchObject({ title: "New role", soul: "", description: "Find useful sources" });
+    await expect(h.service.updateBot(owner.id, workspace.id, bot.id, { soul: "😀".repeat(6001) })).rejects.toMatchObject({ status: 400 });
+    await expect(h.service.updateBot(owner.id, workspace.id, bot.id, { name: "bad\nname" })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("authorizes avatar reads and updates in the exact workspace and bot", async () => {
+    const h = harness();
+    const { owner, workspace } = await seedWorkspace(h.service, h.auth);
+    const bot = await h.service.createBot(owner.id, workspace.id, { name: "Scout" });
+    const otherBot = await h.service.createBot(owner.id, workspace.id, { name: "Other" });
+    const member = h.auth.seed("member@avatars.test", "password1234");
+    await h.service.createInvitation(owner.id, workspace.id, {}).then(({ token }) => h.service.acceptInvitation(member.id, member, token));
+    const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVfoAAAAASUVORK5CYII=", "base64");
+    const avatarUrl = await h.service.saveBotAvatar(owner.id, workspace.id, bot.id, bytes, "image/png");
+    const id = avatarUrl.split("/").pop()!;
+    const saved = await h.service.updateBot(owner.id, workspace.id, bot.id, { avatarUrl, avatarCrop: "rounded", avatarZoom: 1.5, avatarFocusX: 0.3 });
+    expect(saved.avatarUrl).toBe(avatarUrl);
+    expect(Buffer.from((await h.service.getBotAvatar(member.id, workspace.id, bot.id, id)).bytes)).toEqual(bytes);
+    await expect(h.service.updateBot(owner.id, workspace.id, otherBot.id, { avatarUrl })).rejects.toMatchObject({ status: 400 });
+    await expect(h.service.saveBotAvatar(member.id, workspace.id, bot.id, bytes, "image/png")).rejects.toMatchObject({ status: 403 });
+    const foreign = await h.service.createWorkspace(owner.id, owner, { name: "Other workspace", kind: "cloud" });
+    await expect(h.service.getBotAvatar(owner.id, foreign.id, bot.id, id)).rejects.toMatchObject({ status: 404 });
+    await expect(h.service.updateBot(owner.id, foreign.id, bot.id, { soul: "Wrong tenant" })).rejects.toMatchObject({ status: 404 });
+    await expect(h.service.saveBotAvatar(owner.id, workspace.id, bot.id, Buffer.from("<svg/>"), "image/png")).rejects.toMatchObject({ status: 400 });
+    await h.service.removeMember(owner.id, workspace.id, member.id);
+    await expect(h.service.getBotAvatar(member.id, workspace.id, bot.id, id)).rejects.toMatchObject({ status: 403 });
+    await h.service.updateBot(owner.id, workspace.id, bot.id, { avatarUrl: null, avatarCrop: "mascot" });
+    expect((await h.service.listBots(owner.id, workspace.id))[0]?.avatarUrl).toBeNull();
+  });
+
+  it("serves uploaded image bytes only through the authenticated avatar route", async () => {
+    const h = await start();
+    const owner = await signup(h.base, "owner@avatar-http.test");
+    const workspace = (await call(h.base, "/api/colonie/platform/workspaces", { method: "POST", body: { name: "Avatars", kind: "cloud" }, cookie: owner.cookie })).body.workspace;
+    const base = `/api/colonie/platform/workspaces/${workspace.id}/bots`;
+    const bot = (await call(h.base, base, { method: "POST", body: { name: "Scout" }, cookie: owner.cookie })).body.bot;
+    const base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVfoAAAAASUVORK5CYII=";
+    const uploaded = await call(h.base, `${base}/${bot.id}/avatars`, { method: "POST", body: { contentType: "image/png", base64 }, cookie: owner.cookie });
+    expect(uploaded.status).toBe(200);
+    const image = await fetch(h.base + uploaded.body.avatarUrl, { headers: { cookie: owner.cookie } });
+    expect(image.headers.get("content-type")).toBe("image/png");
+    expect(image.headers.get("cache-control")).toBe("private, no-store");
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(Buffer.from(base64, "base64"));
+    expect((await fetch(h.base + uploaded.body.avatarUrl)).status).toBe(401);
+    const unknown = await call(h.base, `${base}/${bot.id}`, { method: "PATCH", body: { credentials: "not-a-profile-field" }, cookie: owner.cookie });
+    expect(unknown.status).toBe(400);
+  });
+
   it("renames a bot and its principal while keeping the stable ids", async () => {
     const h = harness();
     const { owner, workspace } = await seedWorkspace(h.service, h.auth);

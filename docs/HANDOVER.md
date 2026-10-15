@@ -1,5 +1,25 @@
 # Handover — Colonie, 2026-10-14
 
+**Incremental restoration authorized (October 15):** The owner said to restore
+the remaining original UI one part at a time. The first slice is the existing
+BotSettingsDialog / SimpleBotPanel, Identity and Soul editors, with actual
+workspace-scoped profile and avatar persistence. Isolated PostgreSQL, SDK,
+Chromium and packaged Mac checks passed; see PROGRESS.md for commands and
+explicit limits. Publication is next; do not claim deployment or complete UI
+recovery from this note. The real Claude authentication blocker below is unchanged.
+
+**Owner correction after the partial recovery (October 15):** The owner rejects
+the claim that restoring Sidebar/ChatView restored the original product UI.
+Full UI restoration is **not complete**. Cloud still enters PlatformApp and
+WorkspaceShell rather than the original App.tsx. Original application/bot
+settings, conversation controls and other existing surfaces are not wired to
+the Cloud account model. The latest recovery below reused only part of the UI.
+Do not repeat it as a full restoration or treat Claude reconnection as the
+resolution of this product regression. The owner wants the complete pre-change
+Colonie application as the base, with workspace/account additions integrated
+into it. The owner subsequently authorized the incremental work above. That
+authorization does not make the earlier partial recovery a complete restoration.
+
 **Latest correction (October 15):** The owner rejected the redesigned 0.2.0
 Cloud shell. Cloud now uses the existing Colonie Sidebar and ChatView, with
 account/workspace controls added there. It is deployed; the existing Mac

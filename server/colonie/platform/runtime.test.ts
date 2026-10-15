@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { CloudAcpRuntime, cloudRuntimeEnvironment, type CloudFailure, type CloudTurnState } from "./runtime.ts";
+import { CloudAcpRuntime, cloudRuntimeEnvironment, type CloudFailure, type CloudTurnState, type CloudRuntimeOptions } from "./runtime.ts";
 import type { BotTurnRequest, PlatformTurnSink } from "./contracts.ts";
 import { CloudToolBroker } from "./tools.ts";
 
@@ -26,7 +26,7 @@ function request(id = "private-one", body = "PRIVATE_ONE"): BotTurnRequest {
     initiatorAccountId: `account-${id}`, trigger: "dm", message, history: [message] };
 }
 
-async function fixture(authorize = async () => true, toolBroker?: CloudToolBroker) {
+async function fixture(authorize = async () => true, toolBroker?: CloudToolBroker, botProfile?: CloudRuntimeOptions["botProfile"]) {
   const root = await mkdtemp(join(tmpdir(), "colonie-cloud-runtime-"));
   roots.push(root);
   const posted: Array<{ conversationId: string; body: string; initiatorAccountId?: string }> = [];
@@ -38,7 +38,7 @@ async function fixture(authorize = async () => true, toolBroker?: CloudToolBroke
     publishTurnState: async () => {},
   };
   const runtime = new CloudAcpRuntime({ root, claudeConfigDir: join(root, "unused-native-auth"), sink,
-    authorize, toolBroker, adapterEntry: resolve("scripts/colonie/testing/cloud-chat-agent.ts"), timeoutMs: 8_000,
+    authorize, toolBroker, botProfile, adapterEntry: resolve("scripts/colonie/testing/cloud-chat-agent.ts"), timeoutMs: 8_000,
     state: async (value, state, message) => { states.push({ conversationId: value.conversationId, state, message }); },
     failure: (failure) => failures.push(failure),
   });
@@ -47,6 +47,27 @@ async function fixture(authorize = async () => true, toolBroker?: CloudToolBroke
 }
 
 describe("Cloud conversation ACP boundary", () => {
+  it("dispatches the saved identity and SOUL on each turn and records the exact profile input", async () => {
+    let soul = "SAVED_SOUL_ONE: answer briefly";
+    const f = await fixture(async () => true, undefined, async () => ({ name: "Scout", title: "Researcher", description: "Find useful sources", soul, purpose: "LEGACY_PURPOSE_NOT_USED" }));
+    f.runtime.onTurn(request("profile-one"));
+    await expect.poll(() => f.states.filter((item) => item.state === "completed").length, { timeout: 10_000 }).toBe(1);
+    soul = "SAVED_SOUL_TWO: ask before sending";
+    f.runtime.onTurn(request("profile-two"));
+    await expect.poll(() => f.states.filter((item) => item.state === "completed").length, { timeout: 10_000 }).toBe(2);
+    const paths = await files(f.root);
+    const receipts = await Promise.all(paths.filter((path) => path.endsWith("input-receipt.json")).map(async (path) => JSON.parse(await readFile(path, "utf8"))));
+    const dispatched = await Promise.all(paths.filter((path) => path.endsWith("fixture-state.json")).map(async (path) => JSON.parse(await readFile(path, "utf8"))));
+    expect(receipts.map((value) => value.applicationPrompt).sort()).toEqual(dispatched.map((value) => value.text).sort());
+    expect(receipts.some((value) => value.applicationPrompt.includes("SAVED_SOUL_ONE") && !value.applicationPrompt.includes("SAVED_SOUL_TWO"))).toBe(true);
+    expect(receipts.some((value) => value.applicationPrompt.includes("SAVED_SOUL_TWO") && !value.applicationPrompt.includes("SAVED_SOUL_ONE"))).toBe(true);
+    for (const receipt of receipts) {
+      expect(receipt.applicationPrompt).toContain("Role: Researcher");
+      expect(receipt.applicationPrompt).toContain("Find useful sources");
+      expect(receipt.applicationPrompt).not.toContain("LEGACY_PURPOSE_NOT_USED");
+    }
+    expect(f.posted.map((message) => message.body)).toEqual(["CLOUD_FIXTURE_OK", "CLOUD_FIXTURE_OK"]);
+  });
   it.each([
     ["AUTH_FAILURE_FIXTURE", "authentication", "connection needs attention"],
     ["QUOTA_FAILURE_FIXTURE", "quota", "usage limit"],

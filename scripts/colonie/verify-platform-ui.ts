@@ -88,6 +88,65 @@ async function firstBot(page: Page) {
   await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
 }
 
+async function botProfile(page: Page) {
+  await page.getByRole("button", { name: "Open Atlas profile", exact: true }).click();
+  let panel = page.getByRole("dialog", { name: "Atlas", exact: true });
+  await panel.locator('input[id^="simple-bot-job-"]').fill("Researcher");
+  await panel.getByLabel("About this bot", { exact: true }).fill("Find useful sources");
+  await panel.locator('textarea[id^="bot-soul-"]').fill("SAVED_RENDERER_SOUL: answer briefly and ask before sending.");
+  await panel.getByText("All changes saved", { exact: true }).waitFor();
+  await panel.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-bot-profile.png" : "platform-browser-bot-profile.png") });
+  await panel.locator("[data-simple-all-settings]").click();
+  await panel.getByRole("button", { name: "Identity", exact: true }).click();
+  await panel.getByRole("button", { name: "Use purple mascot color", exact: true }).click();
+  await panel.getByRole("button", { name: "Use happy expression", exact: true }).click();
+  await panel.getByRole("button", { name: "Use the Star body", exact: true }).click();
+  await panel.getByText("All changes saved", { exact: true }).waitFor();
+  const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aVfoAAAAASUVORK5CYII=", "base64");
+  await panel.locator('input[type="file"]').setInputFiles({ name: "fixture.png", mimeType: "image/png", buffer: pixel });
+  await panel.getByRole("button", { name: "Remove custom avatar image", exact: true }).waitFor();
+  await panel.getByRole("button", { name: "Rounded", exact: true }).click();
+  await panel.getByLabel("Zoom avatar", { exact: true }).focus();
+  await panel.getByLabel("Zoom avatar", { exact: true }).press("ArrowRight");
+  await panel.getByText("All changes saved", { exact: true }).waitFor();
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLImageElement>('img[src*="/avatars/"]')].some((image) => image.complete && image.naturalWidth > 0));
+  await panel.locator(".overflow-y-auto").first().evaluate((element) => { element.scrollTop = 0; });
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-bot-identity.png" : "platform-browser-bot-identity.png") });
+  await panel.getByRole("button", { name: "Close settings", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: /Atlas/ }).first().click();
+  await page.getByRole("button", { name: "Open Atlas profile", exact: true }).click();
+  panel = page.getByRole("dialog", { name: "Atlas", exact: true });
+  assert.equal(await panel.locator('input[id^="simple-bot-job-"]').inputValue(), "Researcher");
+  assert.equal(await panel.locator('textarea[id^="bot-soul-"]').inputValue(), "SAVED_RENDERER_SOUL: answer briefly and ask before sending.");
+  // A rejected save must keep the text and offer a working retry.
+  await page.route("**/api/colonie/platform/workspaces/*/bots/*", async (route) => {
+    if (route.request().method() === "PATCH") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic save failure." }) });
+    else await route.continue();
+  });
+  await panel.getByLabel("About this bot", { exact: true }).fill("Retain this draft through a save failure");
+  await panel.getByText(/Your changes have not been saved/).waitFor();
+  assert.equal(await panel.getByLabel("About this bot", { exact: true }).inputValue(), "Retain this draft through a save failure");
+  await page.unroute("**/api/colonie/platform/workspaces/*/bots/*");
+  await panel.getByRole("button", { name: "Retry save", exact: true }).click();
+  await panel.getByText("All changes saved", { exact: true }).waitFor();
+  await panel.locator("[data-simple-all-settings]").click();
+  await panel.getByRole("button", { name: "Identity", exact: true }).click();
+  assert.equal(await panel.getByRole("button", { name: "Rounded", exact: true }).getAttribute("aria-pressed"), "true");
+  assert.equal(await panel.getByLabel("Zoom avatar", { exact: true }).inputValue(), "1.01");
+  await panel.getByRole("button", { name: "Remove custom avatar image", exact: true }).click();
+  await panel.getByText("All changes saved", { exact: true }).waitFor();
+  assert.equal(await panel.getByRole("button", { name: "Use purple mascot color", exact: true }).getAttribute("aria-pressed"), "true");
+  assert.equal(await panel.getByRole("button", { name: "Use happy expression", exact: true }).getAttribute("aria-pressed"), "true");
+  assert.equal(await panel.getByRole("button", { name: "Use the Star body", exact: true }).getAttribute("aria-pressed"), "true");
+  await panel.getByRole("button", { name: "Soul", exact: true }).click();
+  assert.equal(await panel.getByLabel("Standing instructions (SOUL.md)", { exact: true }).inputValue(), "SAVED_RENDERER_SOUL: answer briefly and ask before sending.");
+  await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-bot-soul.png" : "platform-browser-bot-soul.png") });
+  await panel.getByRole("button", { name: "Close settings", exact: true }).click();
+  report.originalBotProfileIdentitySoulAvatarSaveReloadAndRetry = true;
+}
+
 try {
   let page: Page;
   if (desktop) {
@@ -121,6 +180,7 @@ try {
   await page.getByRole("button", { name: /Atlas/ }).first().click();
   await page.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
   report.signupCloudBotChatAndReload = true;
+  await botProfile(page);
   await page.screenshot({ path: join(evidenceDir, desktop ? "platform-native-cloud.png" : "platform-browser-cloud.png") });
 
   if (browser) {
@@ -146,6 +206,14 @@ try {
     await invited.getByRole("button", { name: "Send message", exact: true }).click();
     await invited.getByRole("log").getByText("UI_PROVIDER_FIXTURE_REPLY", { exact: true }).waitFor();
     report.invitedMemberCanOpenAndChatWithExistingBot = true;
+    await invited.getByRole("button", { name: "Open Atlas profile", exact: true }).click();
+    const profile = invited.getByRole("dialog", { name: "Atlas", exact: true });
+    assert.equal(await profile.locator('input[id^="simple-bot-job-"]').isDisabled(), true);
+    assert.equal(await profile.locator('input[id^="simple-bot-job-"]').inputValue(), "Researcher");
+    await profile.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+    await invited.screenshot({ path: join(evidenceDir, "platform-mobile-bot-profile.png") });
+    await profile.getByRole("button", { name: "Close settings", exact: true }).click();
+    report.invitedMemberBotProfileReadOnly = true;
     await invited.getByRole("button", { name: "Open navigation", exact: true }).click();
     await page.getByRole("button", { name: "New direct message", exact: true }).first().click();
     await page.getByRole("dialog", { name: "New direct message", exact: true }).getByRole("button", { name: /^Member/ }).click();

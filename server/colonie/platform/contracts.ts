@@ -11,6 +11,7 @@
 //
 // Authorization is always enforced in the service layer. The repository only
 // enforces workspace scoping and uniqueness/ordering invariants.
+import type { PlatformBotProfile, PlatformBotUpdate } from "../../../shared/colonie-bot-profile.ts";
 import type {
   ConnectionAudience,
   ConversationKind,
@@ -83,13 +84,21 @@ export interface PrincipalRecord {
   createdAt: string;
 }
 
-export interface BotRecord {
+export interface BotRecord extends PlatformBotProfile {
   id: string;
   workspaceId: string;
   principalId: string;
   name: string;
   purpose?: string;
   createdAt: string;
+}
+
+export interface BotAvatarRecord {
+  id: string;
+  workspaceId: string;
+  botId: string;
+  contentType: string;
+  bytes: Uint8Array;
 }
 
 export interface ConversationRecord {
@@ -222,7 +231,9 @@ export interface PlatformRepository {
   // bots
   createBot(record: BotRecord): Promise<void>;
   /** Rename a bot and its principal in one step so the two never disagree. */
-  updateBot(record: BotRecord, principalDisplayName: string): Promise<void>;
+  updateBot(record: BotRecord, principalDisplayName: string, patch: PlatformBotUpdate): Promise<void>;
+  saveBotAvatar(record: BotAvatarRecord): Promise<void>;
+  getBotAvatar(id: string): Promise<BotAvatarRecord | null>;
   getBot(botId: string): Promise<BotRecord | null>;
   listBots(workspaceId: string): Promise<BotRecord[]>;
   removeBot(botId: string): Promise<void>;

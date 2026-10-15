@@ -129,7 +129,8 @@ function makeFake(options: FakeOptions = {}) {
   const conversations = options.conversations ?? [];
   const messages: Record<string, PlatformMessage[]> = options.conversationsById ?? {};
   /** Test controls for the reload path (a gate and an injected failure). */
-  const control = { getConversationError: null as unknown, gateFor: null as string | null, gate: null as Promise<void> | null, gateSendFor: null as string | null, gateSend: null as Promise<void> | null, listMessagesError: null as unknown };
+  const control = { getConversationError: null as unknown, gateFor: null as string | null, gate: null as Promise<void> | null, gateSendFor: null as string | null, gateSend: null as Promise<void> | null, listMessagesError: null as unknown,
+    updateBotError: null as unknown, gateUpdateBot: null as Promise<void> | null };
   /** Earlier pages, keyed by conversation id. */
   const earlierPages: Record<string, PlatformMessage[]> = {};
   /** Mutable Composio status, so provisioning is observable. */
@@ -137,7 +138,7 @@ function makeFake(options: FakeOptions = {}) {
   const subscribers: Array<(event: { type: string }, sequence: number) => void> = [];
   const calls = {
     signUp: [] as unknown[], signIn: [] as unknown[], acceptInvitation: [] as string[],
-    createWorkspace: [] as unknown[], openDm: [] as unknown[], createBot: [] as unknown[], sendMessage: [] as unknown[],
+    createWorkspace: [] as unknown[], openDm: [] as unknown[], createBot: [] as unknown[], sendMessage: [] as unknown[], updateBot: [] as unknown[],
     recoverAccount: [] as unknown[], addGroupMember: [] as unknown[], removeGroupMember: [] as unknown[],
     setComposioKey: [] as string[], connectApp: [] as unknown[], completeAppConnection: [] as unknown[],
     provisionComposio: [] as string[], listMessages: [] as unknown[],
@@ -237,6 +238,14 @@ function makeFake(options: FakeOptions = {}) {
       return created;
     },
     createBot: async (_ws: string, input: Record<string, unknown>) => { calls.createBot.push(input); return { ...BOT, name: String(input.name) }; },
+    updateBot: async (workspaceId: string, botId: string, patch: Partial<PlatformBot>) => {
+      calls.updateBot.push({ workspaceId, botId, patch });
+      if (control.gateUpdateBot) await control.gateUpdateBot;
+      if (control.updateBotError) throw control.updateBotError;
+      const index = bots.findIndex((bot) => bot.id === botId);
+      bots[index] = { ...bots[index]!, ...patch };
+      return bots[index]!;
+    },
     createGroup: async () => ({ id: "c-group", workspaceId: "w1", kind: "group" as const, title: "Group", createdByPrincipalId: "p-me", createdAt: "", participants: [], lastReadSequence: 0, lastSequence: 0, unreadCount: 0 }),
     stream: async (_id: string, opts: { signal?: AbortSignal; onEvent: (event: { type: string }, sequence: number) => void }) => {
       subscribers.push(opts.onEvent);
@@ -384,6 +393,70 @@ describe("Cloud journey", () => {
     expect(transcript.textContent).toContain("A separate follow-up");
     expect(transcript.querySelector('[title="Previous version"]')).toBeNull();
     expect(transcript.querySelector('[title="Next version"]')).toBeNull();
+  });
+});
+
+describe("original bot profile in a Cloud workspace", () => {
+  it("does not let an old pending close dismiss another bot's profile", async () => {
+    const other = { ...BOT, id: "bot-other", principalId: "p-other", name: "Other bot" };
+    const fake = makeFake({ workspaces: [workspace()], members: [SELF], bots: [{ ...BOT }, other], conversations: [botDmConversation()] });
+    await render(createElement(WorkspaceShell, { client: fake.client, account: ACCOUNT, workspaces: [workspace()], activeId: "w1", onSwitchWorkspace: () => {}, onNewWorkspace: () => {}, onSignOut: () => {} }));
+    await click(button("Atlas"));
+    await click(byLabel("Open Atlas profile"));
+    let release!: () => void;
+    fake.control.gateUpdateBot = new Promise<void>((done) => { release = done; });
+    await act(async () => { setValue(host.querySelector<HTMLInputElement>('[id^="simple-bot-job-"]')!, "Researcher"); });
+    await click(byLabel("Close settings"));
+    expect(fake.calls.updateBot).toHaveLength(1);
+    await act(async () => {
+      host.querySelector('[data-sidebar-bot-row="bot-other"]')!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+    });
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("Other bot");
+    await act(async () => { release(); await new Promise((done) => setTimeout(done, 20)); });
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("Other bot");
+    expect(fake.bots[0]?.title).toBe("Researcher");
+  });
+
+  it("keeps newer edits when an earlier save finishes and persists them in order", async () => {
+    const fake = makeFake({ workspaces: [workspace()], members: [SELF], bots: [{ ...BOT }], conversations: [botDmConversation()] });
+    await render(createElement(WorkspaceShell, { client: fake.client, account: ACCOUNT, workspaces: [workspace()], activeId: "w1", onSwitchWorkspace: () => {}, onNewWorkspace: () => {}, onSignOut: () => {} }));
+    await click(button("Atlas"));
+    await click(byLabel("Open Atlas profile"));
+    const name = host.querySelector<HTMLInputElement>('[id^="simple-bot-name-"]')!;
+    const job = host.querySelector<HTMLInputElement>('[id^="simple-bot-job-"]')!;
+    let release!: () => void;
+    fake.control.gateUpdateBot = new Promise<void>((done) => { release = done; });
+    await act(async () => { setValue(job, "Researcher"); await new Promise((done) => setTimeout(done, 450)); });
+    expect(fake.calls.updateBot).toHaveLength(1);
+    await act(async () => { setValue(name, "Atlas II"); });
+    await act(async () => { release(); await new Promise((done) => setTimeout(done, 20)); });
+    expect(name.value).toBe("Atlas II");
+    expect(fake.bots[0]).toMatchObject({ name: "Atlas II", title: "Researcher" });
+    expect(text()).toContain("All changes saved");
+    expect(fake.calls.updateBot).toEqual([
+      { workspaceId: "w1", botId: BOT.id, patch: { title: "Researcher" } },
+      { workspaceId: "w1", botId: BOT.id, patch: { name: "Atlas II" } },
+    ]);
+  });
+
+  it("keeps a rejected draft visible, blocks close, then retries the exact edit", async () => {
+    const fake = makeFake({ workspaces: [workspace()], members: [SELF], bots: [{ ...BOT }], conversations: [botDmConversation()] });
+    await render(createElement(WorkspaceShell, { client: fake.client, account: ACCOUNT, workspaces: [workspace()], activeId: "w1", onSwitchWorkspace: () => {}, onNewWorkspace: () => {}, onSignOut: () => {} }));
+    await click(button("Atlas"));
+    await click(byLabel("Open Atlas profile"));
+    fake.control.updateBotError = new Error("Synthetic save failure");
+    const instructions = host.querySelector<HTMLTextAreaElement>('[id^="bot-soul-"]')!;
+    await act(async () => { setValue(instructions, "Retain my standing instructions"); await new Promise((done) => setTimeout(done, 450)); });
+    expect(instructions.value).toBe("Retain my standing instructions");
+    expect(text()).toContain("Your changes have not been saved");
+    await click(byLabel("Close settings"));
+    expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+    fake.control.updateBotError = null;
+    await click(button("Retry save"));
+    expect(fake.bots[0]?.soul).toBe("Retain my standing instructions");
+    expect(text()).toContain("All changes saved");
+    await click(byLabel("Close settings"));
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
   });
 });
 

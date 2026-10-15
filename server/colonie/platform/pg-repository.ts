@@ -8,6 +8,7 @@
 import { Pool, type PoolClient } from "pg";
 import type {
   BotRecord,
+  BotAvatarRecord,
   ConnectionRecord,
   ConversationRecord,
   InvitationRecord,
@@ -25,6 +26,7 @@ import type {
   WorkspaceRecord,
 } from "./contracts.ts";
 import { InvitationConflictError } from "./contracts.ts";
+import { platformBotProfileSchema, type PlatformBotUpdate } from "../../../shared/colonie-bot-profile.ts";
 
 export const PLATFORM_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS platform_accounts (
@@ -72,6 +74,15 @@ CREATE TABLE IF NOT EXISTS platform_bots (
   name text NOT NULL,
   purpose text,
   created_at text NOT NULL
+);
+
+ALTER TABLE platform_bots ADD COLUMN IF NOT EXISTS profile jsonb NOT NULL DEFAULT '{}'::jsonb;
+CREATE TABLE IF NOT EXISTS platform_bot_avatars (
+  id text PRIMARY KEY,
+  workspace_id text NOT NULL REFERENCES platform_workspaces(id) ON DELETE CASCADE,
+  bot_id text NOT NULL REFERENCES platform_bots(id) ON DELETE CASCADE,
+  content_type text NOT NULL,
+  bytes bytea NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS platform_conversations (
@@ -334,17 +345,19 @@ export class PgPlatformRepository implements PlatformRepository {
 
   async createBot(record: BotRecord): Promise<void> {
     await this.pool.query(
-      `INSERT INTO platform_bots (id, workspace_id, principal_id, name, purpose, created_at) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [record.id, record.workspaceId, record.principalId, record.name, record.purpose ?? null, record.createdAt],
+      `INSERT INTO platform_bots (id, workspace_id, principal_id, name, purpose, created_at, profile) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [record.id, record.workspaceId, record.principalId, record.name, record.purpose ?? null, record.createdAt, JSON.stringify(platformBotProfileSchema.strip().parse(record))],
     );
   }
-  async updateBot(record: BotRecord, principalDisplayName: string): Promise<void> {
+  async updateBot(record: BotRecord, principalDisplayName: string, patch: PlatformBotUpdate): Promise<void> {
     // One transaction so the bot row and its principal never disagree.
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query("UPDATE platform_bots SET name=$2, purpose=$3 WHERE id=$1", [record.id, record.name, record.purpose ?? null]);
-      await client.query("UPDATE platform_principals SET display_name=$2 WHERE id=$1", [record.principalId, principalDisplayName]);
+      await client.query(`UPDATE platform_bots SET name=CASE WHEN $5 THEN $2 ELSE name END,
+        purpose=CASE WHEN $6 THEN $3 ELSE purpose END, profile=profile || $4::jsonb WHERE id=$1 AND workspace_id=$7`,
+      [record.id, record.name, record.purpose ?? null, JSON.stringify(platformBotProfileSchema.strip().parse(patch)), patch.name !== undefined, patch.purpose !== undefined, record.workspaceId]);
+      if (patch.name !== undefined) await client.query("UPDATE platform_principals SET display_name=$2 WHERE id=$1", [record.principalId, principalDisplayName]);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -352,6 +365,15 @@ export class PgPlatformRepository implements PlatformRepository {
     } finally {
       client.release();
     }
+  }
+  async saveBotAvatar(record: BotAvatarRecord): Promise<void> {
+    await this.pool.query("INSERT INTO platform_bot_avatars (id,workspace_id,bot_id,content_type,bytes) VALUES ($1,$2,$3,$4,$5)",
+      [record.id, record.workspaceId, record.botId, record.contentType, Buffer.from(record.bytes)]);
+  }
+  async getBotAvatar(id: string): Promise<BotAvatarRecord | null> {
+    const { rows } = await this.pool.query<Row>("SELECT * FROM platform_bot_avatars WHERE id=$1", [id]);
+    const row = rows[0];
+    return row ? { id: str(row.id), workspaceId: str(row.workspace_id), botId: str(row.bot_id), contentType: str(row.content_type), bytes: row.bytes as Uint8Array } : null;
   }
   async getBot(botId: string): Promise<BotRecord | null> {
     const { rows } = await this.pool.query<Row>("SELECT * FROM platform_bots WHERE id=$1", [botId]);
@@ -646,7 +668,7 @@ function rowToPrincipal(row: Row): PrincipalRecord {
   return { id: str(row.id), workspaceId: str(row.workspace_id), kind: str(row.kind) as PrincipalRecord["kind"], accountId: optStr(row.account_id), botId: optStr(row.bot_id), displayName: str(row.display_name), createdAt: str(row.created_at) };
 }
 function rowToBot(row: Row): BotRecord {
-  return { id: str(row.id), workspaceId: str(row.workspace_id), principalId: str(row.principal_id), name: str(row.name), purpose: optStr(row.purpose), createdAt: str(row.created_at) };
+  return { ...platformBotProfileSchema.parse(row.profile ?? {}), id: str(row.id), workspaceId: str(row.workspace_id), principalId: str(row.principal_id), name: str(row.name), purpose: optStr(row.purpose), createdAt: str(row.created_at) };
 }
 function rowToConversation(row: Row): ConversationRecord {
   return { id: str(row.id), workspaceId: str(row.workspace_id), kind: str(row.kind) as ConversationRecord["kind"], title: optStr(row.title), createdByPrincipalId: str(row.created_by_principal_id), createdAt: str(row.created_at) };

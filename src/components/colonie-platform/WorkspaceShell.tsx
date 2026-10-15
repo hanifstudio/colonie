@@ -16,6 +16,7 @@ import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { classicWorkspaceState } from "@/lib/colonie-classic-ui";
 import { ConversationView } from "./ConversationView";
+import { WorkspaceBotSettings } from "./WorkspaceBotSettings";
 import { BotDialog, DmDialog, GroupDialog, GroupMembersDialog } from "./ComposerDialogs";
 import { MembersPanel } from "./MembersPanel";
 import { WorkspaceSettings } from "./WorkspaceSettings";
@@ -77,6 +78,7 @@ export function WorkspaceShell({
 
   const [panel, setPanel] = useState<"members" | "settings" | "group" | "dm" | "bot" | "group-members" | "recovery" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsBotId, setSettingsBotId] = useState<string | null>(null);
 
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activeConversation?.id ?? null;
@@ -155,6 +157,7 @@ export function WorkspaceShell({
     setLoading(true);
     setLoadError(null);
     setActiveConversation(null);
+    setSettingsBotId(null);
     (async () => {
       try {
         await refresh(controller.signal);
@@ -355,6 +358,7 @@ export function WorkspaceShell({
   }
 
   const classicState = classicWorkspaceState({ bots, conversations, self: selfPrincipalId, active: activeConversation, messages, working });
+  const settingsBot = bots.find((bot) => bot.id === settingsBotId && bot.workspaceId === active.id);
   const classicDispatch = (action: Action) => {
     if (action.type === "select") {
       const conversation = conversations.find((c) => c.id === action.id);
@@ -362,7 +366,7 @@ export function WorkspaceShell({
       else if (bots.some((bot) => bot.id === action.id)) void openPeer({ withBotId: action.id });
     } else if (action.type === "interrupt" && action.threadId) void stop(action.threadId);
     else if (action.type === "toggleNewBot") setPanel("bot");
-    else if (action.type === "toggleSettings") setPanel("members");
+    else if (action.type === "toggleSettings") setSettingsBotId(action.open === false ? null : action.botId ?? classicState.selectedId);
     else if (action.type === "loadOlderMessages") void loadEarlier();
     else if (action.type === "updateBot" && action.patch.name) {
       void client.updateBot(active.id, action.botId, { name: action.patch.name })
@@ -386,7 +390,7 @@ export function WorkspaceShell({
           <SidebarAction icon={UserGroupIcon} label="New group" onClick={() => setPanel("group")} />
           <SidebarAction icon={Chatting01Icon} label="New direct message" onClick={() => setPanel("dm")} />
         </>,
-        onBotMenu: () => setPanel("members"),
+        onBotMenu: (id) => { setSettingsBotId(id); setSidebarOpen(false); },
         onGroupMenu: (id) => { const group = conversations.find((c) => c.id === id); if (group) void openConversation(group).then(() => setPanel("group-members")); },
         people: (query, density) => <div className="pt-3">
           <div className="flex items-center">
@@ -446,6 +450,8 @@ export function WorkspaceShell({
                 loadingEarlier={earlierPage?.conversationId === activeConversation.id && earlierPage.loading}
                 earlierError={earlierPage?.conversationId === activeConversation.id ? earlierPage.error : null}
                 onStop={() => void stop(activeConversation.id)}
+                profile={bots.find((bot) => bot.id === dmPeer(activeConversation, selfPrincipalId)?.botId)}
+                onOpenProfile={(id) => setSettingsBotId(id)}
                 headerAction={
                   activeConversation.kind === "group" ? (
                     <Button variant="ghost" className="px-2 py-1 text-[12px]" icon={UserGroupIcon} aria-label="Group members" onClick={() => setPanel("group-members")}>
@@ -486,6 +492,12 @@ export function WorkspaceShell({
           </div>
         )}
       </main>
+
+      {settingsBot ? <WorkspaceBotSettings
+        key={`${active.id}:${settingsBotId}`} bot={settingsBot}
+        client={client} canEdit={canManageBots(active.myRole)} onClose={() => setSettingsBotId(null)}
+        onSaved={(saved) => { if (saved.workspaceId === workspaceIdRef.current) setBots((previous) => previous.map((bot) => bot.id === saved.id ? saved : bot)); }}
+      /> : null}
 
       {workspace ? (
         <>

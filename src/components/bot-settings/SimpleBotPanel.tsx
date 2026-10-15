@@ -27,6 +27,7 @@ import { BotConnectedTools } from "../BotConnectedTools";
 import { ColonieMemorySection } from "./ColonieMemorySection";
 import { ColonieSkillsSection } from "./ColonieSkillsSection";
 import { ChiefControls } from "../ChiefControls";
+import { useBotEditor } from "./BotEditorContext";
 
 export const simpleInputCls =
   "w-full rounded-xl border border-hairline/40 bg-inset px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-tertiary focus:border-accent-border focus:outline-none";
@@ -87,9 +88,10 @@ export function SimpleBotPanel({
   acp?: boolean;
 }) {
   const { dispatch } = useStore();
+  const { workspace, readOnly } = useBotEditor();
   const [tab, setTab] = useState<"details" | "library">("details");
   const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
-  const skills = useManagedSkills(bot, !acp);
+  const skills = useManagedSkills(bot, !acp && !workspace);
   const { patch, approvalMode, engine, trustedModesAvailable } = derived;
   // Match the full selector: old Antigravity Auto still executes as Ask.
   // Display that behavior without changing the saved mode or granting Full.
@@ -152,7 +154,7 @@ export function SimpleBotPanel({
             >
               {t("botSettings.simple.details")}
             </button>
-            <button
+            {!workspace && <button
               type="button"
               role="tab"
               aria-selected={tab === "library"}
@@ -161,12 +163,13 @@ export function SimpleBotPanel({
               className={tabCls(tab === "library")}
             >
               {t("botSettings.simple.library")}
-            </button>
+            </button>}
           </div>
         </div>
 
         {tab === "details" ? (
           <div role="tabpanel" className="mt-5 flex flex-col gap-5">
+            <fieldset disabled={readOnly} className="contents">
             <div className="grid grid-cols-2 gap-3">
               <div className="min-w-0">
                 <label htmlFor={`simple-bot-name-${bot.id}`} className={labelCls}>{t("botSettings.simple.name")}</label>
@@ -204,18 +207,18 @@ export function SimpleBotPanel({
                 placeholder: t("botSettings.simple.instructionsPlaceholder", { name: bot.name }),
               }}
             />
-            {acp && <p className="-mt-3 text-xs text-ink-secondary">Your bot uses its profile and saved instructions automatically. Changes apply to new conversations.</p>}
-            {acp && <ChiefControls bot={bot} />}
-            {acp && <BotConnectedTools bot={bot} />}
-            {acp && <ColonieSkillsSection bot={bot} />}
-            {acp && <ColonieMemorySection bot={bot} />}
+            {acp && <p className="-mt-3 text-xs text-ink-secondary">{workspace ? "Your bot uses its saved profile and instructions starting with your next message." : "Your bot uses its profile and saved instructions automatically. Changes apply to new conversations."}</p>}
+            {acp && !workspace && <ChiefControls bot={bot} />}
+            {acp && !workspace && <BotConnectedTools bot={bot} />}
+            {acp && !workspace && <ColonieSkillsSection bot={bot} />}
+            {acp && !workspace && <ColonieMemorySection bot={bot} />}
 
             {/* The bot's model, in the same plain-words picker as the chat
                 header, shown in place (a floating popover would be clipped by
                 this scrolling panel). A pick is the bot's model: groups and
                 every thread without its own model move with it, like the full
                 Model section, and the line below counts the threads that don't. */}
-            <div data-simple-default-model>
+            {!workspace && <><div data-simple-default-model>
               <ModelPicker
                 bot={bot}
                 contained
@@ -258,7 +261,8 @@ export function SimpleBotPanel({
               )}
             </div>
 
-            {!acp && <div>
+            </>}
+            {!acp && !workspace && <div>
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <span className="text-[12px] text-ink-secondary">{t("botSettings.simple.skills")}</span>
                 <button
@@ -295,6 +299,7 @@ export function SimpleBotPanel({
               )}
             </div>}
 
+            </fieldset>
             <button
               type="button"
               data-simple-all-settings
@@ -304,7 +309,7 @@ export function SimpleBotPanel({
               <span className="min-w-0 flex-1">
                 <span className="font-semibold text-ink">{acp ? "More profile options" : t("botSettings.simple.allSettings")}</span>
                 {" — "}
-                {acp ? "Appearance, working folder, model and permissions" : t("botSettings.simple.allSettingsHint")}
+                {workspace ? "Avatar, identity and standing instructions" : acp ? "Appearance, working folder, model and permissions" : t("botSettings.simple.allSettingsHint")}
               </span>
               <HIcon icon={ChevronRightIcon} size={15} className="shrink-0" />
             </button>

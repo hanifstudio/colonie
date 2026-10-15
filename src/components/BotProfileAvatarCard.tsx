@@ -138,8 +138,8 @@ export function BotProfileAvatarCard({
   onPatch: (patch: AvatarPatch) => void;
 }) {
   const { flushBotPatches } = useStore();
-  const { request: api, uploadAvatar } = useBotEditor();
-  const organization = useOrganizationBranding();
+  const { request: api, uploadAvatar, workspace, readOnly } = useBotEditor();
+  const organization = useOrganizationBranding(!workspace);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [savingConnection, setSavingConnection] = useState(false);
@@ -148,7 +148,7 @@ export function BotProfileAvatarCard({
   const crop = bot.avatarCrop ?? "mascot";
   const cropRef = useRef(crop);
   cropRef.current = crop;
-  const busy = uploading || generating || savingConnection;
+  const busy = uploading || generating || savingConnection || Boolean(readOnly);
 
   const upload = async (file: File | undefined) => {
     if (!file || busy) return;
@@ -382,13 +382,13 @@ export function BotProfileAvatarCard({
           </>
         )}
 
-        <AvatarImageGenerator
+        {!workspace && <AvatarImageGenerator
           botLabel={bot.title || bot.name}
           disabled={uploading}
           generating={generating}
           onGenerate={generate}
           onSavingChange={setSavingConnection}
-        />
+        />}
 
         {error && <div role="alert" className="mt-3 text-[12px] text-danger">{error}</div>}
       </div>

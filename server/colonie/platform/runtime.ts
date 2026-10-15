@@ -15,6 +15,9 @@ import { Readable, Writable } from "node:stream";
 import { client, methods, ndJsonStream, PROTOCOL_VERSION, type ClientConnection, type SessionNotification } from "@agentclientprotocol/sdk";
 import type { BotRuntime, BotTurnRequest, PlatformTurnSink } from "./contracts.ts";
 import type { CloudToolBroker, CloudToolLease } from "./tools.ts";
+import type { PlatformBotProfile } from "../../../shared/colonie-bot-profile.ts";
+
+type CloudBotProfile = PlatformBotProfile & { name: string; purpose?: string };
 
 const require = createRequire(import.meta.url);
 const pathPart = (id: string) => createHash("sha256").update(id).digest("hex");
@@ -52,7 +55,7 @@ export interface CloudRuntimeOptions {
   sink: PlatformTurnSink;
   /** Recheck the initiating person's membership and conversation audience. */
   authorize(request: BotTurnRequest): Promise<boolean>;
-  botProfile?(request: BotTurnRequest): Promise<{ name: string; purpose?: string }>;
+  botProfile?(request: BotTurnRequest): Promise<CloudBotProfile>;
   history?(request: BotTurnRequest): Promise<BotTurnRequest["history"]>;
   state?(request: BotTurnRequest, state: CloudTurnState, message?: string): Promise<void>;
   failure?(failure: CloudFailure): void;
@@ -80,10 +83,12 @@ export function cloudRuntimeEnvironment(configDir: string, home: string): NodeJS
   };
 }
 
-export function cloudApplicationPrompt(request: BotTurnRequest, profile: { name: string; purpose?: string }, toolNames: string[] = []): string {
+export function cloudApplicationPrompt(request: BotTurnRequest, profile: CloudBotProfile, toolNames: string[] = []): string {
   return [
     `You are ${profile.name}, an AI bot member of a Colonie workspace.`,
-    profile.purpose?.trim() || "Help the people in this conversation clearly and thoughtfully.",
+    profile.title?.trim() ? `Role: ${profile.title}` : "",
+    (profile.description ?? profile.purpose)?.trim() || "Help the people in this conversation clearly and thoughtfully.",
+    profile.soul?.trim() ? `Saved standing instructions:\n${profile.soul}` : "",
     `${request.trigger === "dm" ? "This is a private DM" : "This is a Group conversation"} with the current participants. Use only its provided history. Never claim you checked an external app, searched files, or performed an action when no tool result supports that claim.`,
     toolNames.length ? "Approved connected-app read tools are available for this conversation. Use them when the person asks you to check their apps. Their results stay in this conversation. Sending, editing, deleting and other app actions are unavailable." : "No connected-app tools are available for this turn. Be clear that you cannot check an external app here.",
     "Respond naturally to the latest human message. Conversation data follows as JSON; its messages belong to their senders.",
@@ -91,7 +96,7 @@ export function cloudApplicationPrompt(request: BotTurnRequest, profile: { name:
       id: message.id, sender: message.senderName, kind: message.senderKind,
       body: message.body,
     }))),
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 export class CloudAcpRuntime implements BotRuntime {

@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 import { Pool } from "pg";
+import { PLATFORM_AVATAR_MAX_BODY_BYTES } from "../../../shared/colonie-bot-profile.ts";
 import { PLATFORM_AUTH_BASE, PLATFORM_API_BASE } from "../../../shared/colonie-platform.ts";
 import { initPlatformAuth } from "./auth.ts";
 import { createPgPlatformRepository } from "./pg-repository.ts";
@@ -144,7 +145,8 @@ export async function startPlatformHost(input: PlatformHostConfig, dependencies:
       if (path === "/api/colonie/bootstrap" && req.method === "GET") return json(res, 200, { mode: "platform", origin: config.publicOrigin });
       if (path === "/api/health" && req.method === "GET") return json(res, 200, { app: "colonie-platform", version: 1 });
       if (path.startsWith(PLATFORM_AUTH_BASE) || path.startsWith(PLATFORM_API_BASE)) {
-        if (Number(req.headers["content-length"] ?? 0) > 128_000) return json(res, 413, { error: "This request is too large." });
+        const avatarUpload = req.method === "POST" && /^\/api\/colonie\/platform\/workspaces\/[\w-]+\/bots\/[\w-]+\/avatars$/.test(path);
+        if (Number(req.headers["content-length"] ?? 0) > (avatarUpload ? PLATFORM_AVATAR_MAX_BODY_BYTES : 128_000)) return json(res, 413, { error: "This request is too large." });
         if (await composioRoutes(req, res) || await app.handle(req, res)) return;
         return json(res, 404, { error: "This page could not be found." });
       }

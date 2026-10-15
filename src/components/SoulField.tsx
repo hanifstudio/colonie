@@ -29,7 +29,7 @@ export function SoulField({
   contextNote?: string;
 }) {
   const { dispatch, flushBotPatches } = useStore();
-  const { request: api } = useBotEditor();
+  const { request: api, workspace } = useBotEditor();
   const limit = BOT_PROFILE_LIMITS.soul;
   const [draft, setDraft] = useState(bot.soul ?? "");
   const [info, setInfo] = useState<SoulRead | null>(null);
@@ -53,7 +53,7 @@ export function SoulField({
       .then((read: SoulRead) => setInfo(read))
       .catch(() => setInfo(null));
   };
-  useEffect(() => { void refresh(); }, [bot.id, bot.soulDrift, flushBotPatches]);
+  useEffect(() => { if (!workspace) void refresh(); }, [bot.id, bot.soulDrift, flushBotPatches, workspace]);
 
   const bytes = utf8Bytes(draft);
   const over = bytes > limit;
