@@ -78,6 +78,17 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — packaged server smoke repaired (two inherited faults)
+
+CI's "packaged server smoke" failed on every OS, before and after today's commits.
+Reproduced locally with `pnpm test:packaged-server` (it builds `dist-server`, then
+runs the packaged server from a temp directory; no installed data touched).
+
+- `server/proxy-paths.ts` still listed `vpsContainerMcp` → `vps-container-mcp.js`, a retired-hosting proxy that is no longer bundled and has no source or other reference. Removed the entry. Release builds run the same smoke, so this also blocked a release.
+- `scripts/smoke-packaged-server.mjs` read 16 bytes of the backup header but the format is `COLONIE-WORKSPACE-1\n` (20 bytes) since the rename; the server's format was right. Now reads 20.
+- After both: exit 0, six checks green (server starts without node_modules, 10 proxy paths resolve, MCP stdio, encrypted backup export, container launcher, desktop entry).
+- Not reproduced here: the same job on Windows and macOS, the macOS Electron smokes, the Ubuntu package smoke, the renderer UI e2e, and the Linux/Windows vitest shards.
+
 ## 2026-10-17 — E04.2 retired drivers deleted
 
 Deleted the ten unreachable `server/drivers/` modules (`claude`, `claude-login-auth`,
