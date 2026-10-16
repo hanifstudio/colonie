@@ -1,118 +1,92 @@
-// Verification recipes are followed by hand, so nothing else notices when a
-// command, file, route or link they cite stops existing. This reads every
-// recipe under docs/verification and checks each citation against the tree.
+// Documentation checks read repository files only: no application imports,
+// servers, providers, browsers, or historical feature-count requirements.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { HELP } from "../control-colonie.ts";
-
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const DOCS = join(ROOT, "docs", "verification");
-const recipes = readdirSync(DOCS).filter((name) => name.endsWith(".md")).sort();
-const text = (recipe: string) => readFileSync(join(DOCS, recipe), "utf8");
-// Paths inside external links belong to other repositories.
-const withoutUrls = (markdown: string) => markdown.replace(/https?:\/\/\S+/g, " ");
-const cited = (pattern: RegExp) => {
-  const hits: string[] = [];
-  for (const recipe of recipes) {
-    for (const match of withoutUrls(text(recipe)).matchAll(pattern)) hits.push(`${recipe}: ${match[1]!}`);
+const DOCS = join(ROOT, "docs");
+const VERIFICATION = join(DOCS, "verification");
+
+function markdownFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? markdownFiles(path) : entry.name.endsWith(".md") ? [path] : [];
+  }).sort();
+}
+
+const documents = [
+  join(ROOT, "AGENTS.md"),
+  join(ROOT, "README.md"),
+  ...["CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", ".github/pull_request_template.md"]
+    .map((path) => join(ROOT, path)).filter(existsSync),
+  ...markdownFiles(DOCS),
+];
+const recipes = markdownFiles(VERIFICATION);
+const text = (path: string) => readFileSync(path, "utf8");
+const withoutFences = (markdown: string) => markdown.replace(/^```[^\n]*\n[\s\S]*?^```\s*$/gm, "");
+const external = (link: string) => /^[a-z][\w+.-]*:/i.test(link);
+const links = (markdown: string) => [...withoutFences(markdown).matchAll(/!?\[[^\]]*\]\(([^)\n]+)\)/g)]
+  .map((match) => match[1]!.trim().replace(/^<|>$/g, "")).filter((link) => !external(link));
+
+function headings(markdown: string): Set<string> {
+  const anchors = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const [, heading] of withoutFences(markdown).matchAll(/^#{1,6}\s+(.+)$/gm)) {
+    const base = heading!.trim().toLowerCase().replace(/[^\w\- ]/g, "").replace(/\s+/g, "-");
+    const count = counts.get(base) ?? 0;
+    anchors.add(count ? `${base}-${count}` : base);
+    counts.set(base, count + 1);
   }
-  return hits;
-};
-const target = (hit: string) => hit.slice(hit.indexOf(": ") + 2);
+  return anchors;
+}
 
-// The verbs `help` prints, minus the shell line under "isolated fixture".
-const helpVerbs = new Set([...HELP.matchAll(/^ {2}([a-z][\w-]*)(?= |$)/gm)].map((match) => match[1]!).filter((verb) => verb !== "node"));
-helpVerbs.add("help");
+function destination(document: string, link: string) {
+  const [path, anchor] = decodeURIComponent(link).split("#", 2);
+  return { path: path ? resolve(document, "..", path) : document, anchor };
+}
 
-// Routes are registered in server/index.ts and, for anything newer, in the
-// modules under server/routes (server/routes/README.md). Tests there quote
-// paths without registering them, so they do not count.
-const ROUTES_DIR = join(ROOT, "server", "routes");
-const routeModules = readdirSync(ROUTES_DIR).filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts")).sort();
-const serverSource = [join(ROOT, "server", "index.ts"), ...routeModules.map((name) => join(ROUTES_DIR, name))]
-  .map((file) => readFileSync(file, "utf8")).join("\n");
-const hooksSource = readFileSync(join(ROOT, "server", "webhook-ingress.ts"), "utf8");
-const hostedSource = readFileSync(join(ROOT, "enterprise", "server", "workspace-access.ts"), "utf8");
-// Only constants named in the public handler's accepted-path guard are routes.
-// Outbound post("/api/handoff/...") calls belong to the identity service, not us.
-const hostedConstants = new Map([...hostedSource.matchAll(/const ([A-Z_]+) = "(\/api\/[^"\n]+)";/g)].map(match => [match[1]!, match[2]!]));
-const hostedPublicRoutes = new Set((hostedSource.match(/!\[([^\]]+)\]\.includes\(path\)/)?.[1] ?? "")
-  .split(",").map(name => hostedConstants.get(name.trim())).filter((path): path is string => path !== undefined));
-// server/index.ts matches routes two ways: `path === "/api/x"` and
-// `path.match(/^\/api\/x\/(a|b)$/)`. Collect the regex form too.
-const routePatterns = [...serverSource.matchAll(/\/(\^\\\/api\\\/(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[]|\\.)*)\/[a-z]*/g)].map((match) => new RegExp(match[1]!));
-const PLACEHOLDER = /^(ID|:[\w-]+|<[^>]+>|\{[^}]+\})$/;
-
-const slug = (heading: string) => heading.trim().toLowerCase().replace(/[^\w\- ]/g, "").replace(/\s+/g, "-");
-
-describe("docs/verification recipes cite things that exist", () => {
-  it("use control:colonie verbs that help lists", () => {
-    const used = cited(/pnpm control:colonie ([a-z][\w-]*)/g);
-    expect(used.length).toBeGreaterThan(0);
-    expect(used.filter((hit) => !helpVerbs.has(target(hit)))).toEqual([]);
-    // the launcher form may also name `launch`, which pnpm cannot run
-    const direct = cited(/scripts\/control-colonie\.ts ([a-z][\w-]*)/g);
-    expect(direct.filter((hit) => target(hit) !== "launch" && !helpVerbs.has(target(hit)))).toEqual([]);
-  });
-
-  it("cite source files that exist", () => {
-    const refs = cited(/(?<![\w/.-])((?:scripts|server|src|shared|electron|companion|enterprise)\/[\w./-]+\.(?:ts|tsx|mjs|cjs|py))(?![\w/])/g);
-    expect(refs.length).toBeGreaterThan(50);
-    expect([...new Set(refs.filter((hit) => !existsSync(join(ROOT, target(hit)))))]).toEqual([]);
-  });
-
-  it("cite test files that exist", () => {
-    const refs = cited(/(?<![\w/.-])([\w./-]+\.test\.(?:ts|mjs))(?![\w/])/g);
-    expect(refs.length).toBeGreaterThan(20);
-    expect([...new Set(refs.filter((hit) => !existsSync(join(ROOT, target(hit)))))]).toEqual([]);
-  });
-
-  it("cite API routes the server registers", () => {
-    const refs = cited(/(?<!\w)(\/(?:api|hooks)\/[\w./:{}<>-]+)/g);
-    expect(refs.length).toBeGreaterThan(5);
-    const registered = (route: string) => {
-      const path = route.replace(/[.,;:]+$/, "");
-      if (hostedPublicRoutes.has(path)) return true;
-      const source = path.startsWith("/hooks/") ? hooksSource : serverSource;
-      const segments = path.split("/").slice(1);
-      const literal = segments.findIndex((segment) => PLACEHOLDER.test(segment));
-      if (literal === -1) return source.includes(`"${path}"`) || routePatterns.some((pattern) => pattern.test(path));
-      // a placeholder path is known by its first two segments
-      const prefix = `/${segments.slice(0, Math.min(2, literal)).join("/")}`;
-      return source.includes(`"${prefix}`) || source.includes(`${prefix}/`)
-        || routePatterns.some((pattern) => pattern.test(segments.map((segment) => PLACEHOLDER.test(segment) ? "x-1" : segment).join("/").replace(/^/, "/")));
-    };
-    expect([...new Set(refs.filter((hit) => !registered(target(hit))))]).toEqual([]);
-  });
-
-  it("distinguishes delegated public routes from external identity backchannels", () => {
-    expect([...hostedPublicRoutes]).toEqual(["/api/auth/hosted/start", "/api/auth/hosted/callback"]);
-    expect(hostedPublicRoutes.has("/api/handoff/consume")).toBe(false);
-    expect(hostedPublicRoutes.has("/api/handoff/check")).toBe(false);
-  });
-
-  it("are all reachable from README.md", () => {
-    const linked = new Set([...text("README.md").matchAll(/\]\(([^)#\s]+\.md)/g)].map((match) => match[1]!));
-    expect(recipes.filter((recipe) => recipe !== "README.md" && !linked.has(recipe))).toEqual([]);
-  });
-
-  it("link to files and headings that exist", () => {
-    const broken: string[] = [];
-    for (const recipe of recipes) {
-      for (const [, link] of text(recipe).matchAll(/\]\(([^)\s]+)\)/g)) {
-        if (/^(https?:|mailto:|#)/.test(link!)) continue;
-        const [file, anchor] = link!.split("#");
-        const resolved = resolve(DOCS, file!);
-        if (!existsSync(resolved)) { broken.push(`${recipe}: ${link}`); continue; }
-        if (anchor && resolved.endsWith(".md")) {
-          const headings = [...readFileSync(resolved, "utf8").matchAll(/^#+\s+(.+)$/gm)].map((match) => slug(match[1]!));
-          if (!headings.includes(anchor)) broken.push(`${recipe}: ${link} (no such heading)`);
-        }
-      }
-    }
+describe("current documentation references", () => {
+  it("links to existing local files and directories", () => {
+    const broken = documents.flatMap((document) => links(text(document)).flatMap((link) => {
+      const target = destination(document, link);
+      return existsSync(target.path) ? [] : [`${relative(ROOT, document)}: ${link}`];
+    }));
     expect(broken).toEqual([]);
+  });
+
+  it("links to existing Markdown headings, including same-page anchors", () => {
+    const broken = documents.flatMap((document) => links(text(document)).flatMap((link) => {
+      const target = destination(document, link);
+      if (!target.anchor || !target.path.endsWith(".md") || !existsSync(target.path)) return [];
+      return headings(text(target.path)).has(target.anchor) ? [] : [`${relative(ROOT, document)}: ${link}`];
+    }));
+    expect(broken).toEqual([]);
+  });
+
+  it("cites source and test files that exist in verification methods", () => {
+    const source = /(?<![\w/.-])((?:scripts|server|src|shared|electron)\/[\w./-]+\.(?:ts|tsx|mjs|cjs|py))(?![\w/])/g;
+    const broken = recipes.flatMap((recipe) => {
+      const markdown = text(recipe).replace(/https?:\/\/\S+/g, " ");
+      return [...markdown.matchAll(source)].flatMap((match) => existsSync(join(ROOT, match[1]!))
+        ? [] : [`${relative(ROOT, recipe)}: ${match[1]}`]);
+    });
+    expect(broken).toEqual([]);
+  });
+
+  it("uses package commands defined in the current package manifest", () => {
+    const { scripts } = JSON.parse(text(join(ROOT, "package.json"))) as { scripts: Record<string, string> };
+    const builtin = new Set(["install", "exec"]);
+    const unknown = documents.flatMap((document) => [...text(document).matchAll(/\bpnpm\s+([a-z][\w:-]*)/g)]
+      .flatMap((match) => builtin.has(match[1]!) || Object.hasOwn(scripts, match[1]!)
+        ? [] : [`${relative(ROOT, document)}: pnpm ${match[1]}`]));
+    expect(unknown).toEqual([]);
+  });
+
+  it("lists every current verification method in its index", () => {
+    const index = join(VERIFICATION, "README.md");
+    const linked = new Set(links(text(index)).map((link) => destination(index, link).path));
+    expect(recipes.filter((recipe) => recipe !== index && !linked.has(recipe)).map((recipe) => relative(ROOT, recipe))).toEqual([]);
   });
 });

@@ -1,53 +1,56 @@
 # Colonie agent notes
 
-Before claiming a server or conversation change works, follow
-[`docs/verification/README.md`](docs/verification/README.md). Always launch an
-isolated fixture; never verify mutations against the user's live app or data.
+## Read for the task
 
-More specific `AGENTS.md` files override this note within their directories.
+The owner's latest instruction takes priority. For project continuation, start
+with [HANDOVER](docs/HANDOVER.md): current state, active task, and next action.
+For a focused question, inspect its relevant source directly. Read other context
+only when needed:
 
-## Start here
+- [Blueprint](docs/COLONIE-BLUEPRINT.md): relevant product/architecture sections when scope or intended behavior matters. It is provisional, not implementation evidence.
+- [Verification](docs/verification/README.md): before choosing or running checks.
+- [Progress](docs/PROGRESS.md): the relevant recent entry when previous evidence matters.
+- [Docs index](docs/README.md): to locate a specific guide, not to load every document.
 
-`docs/HANDOVER.md` is the current state of the work, the goal in the owner's own
-words, what is verified, what is next, and the traps already hit. Read it before
-`docs/SPEC.md` and `docs/PLAN.md`, and prefer it over the rest of `docs/`: most
-of those pages describe the upstream project's product and runtime rather than
-this fork, and following them steers work in the wrong direction.
+More specific directory AGENTS.md files apply within their directories.
 
-## Colonie fork
+## Development loop
 
-Read `docs/SPEC.md`, `docs/PLAN.md`, and `docs/PROGRESS.md` before changing
-the fork. The target is macOS desktop and Codex/Claude through the upstream ACP
-SDK and their maintained `@agentclientprotocol/*-acp` adapters. Do not build on the legacy
-`server/drivers/acp/` client or the native Codex driver.
+1. Keep one milestone and one task active. For planned implementation, record the outcome, scope, acceptance, and bounded checks in HANDOVER before editing.
+2. Inspect current source and WIP. Preserve unrelated changes and third-party attribution; never sweep them into a commit, revert, or cleanup.
+3. Decide reversible technical details within authorized scope. Investigate technical questions before asking the owner. Existing permission persists; escalate unresolved product choices or actions beyond it.
+4. Implement a small unit, verify it, and review its diff against behavior and [structural/consistency acceptance](docs/COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance). Diagnose failures before retrying; do not weaken checks or requirements to claim success. Choose a bounded repair budget for the task and checkpoint if exhausted.
+5. Update HANDOVER and recent PROGRESS at milestones and before ending work: actual commands/results, material decisions, missing evidence, blockers, and next action. Keep both short; resume unfinished work rather than repeating completed tasks.
+6. Continue the next ready task within the authorized milestone without routine approval prompts. Capture new ideas separately; explicit reprioritization overrides the queue and requires a recoverable checkpoint. A question or new topic alone is not cancellation.
 
-Preserve useful upstream UI, persistence, HTTP/SSE, and Electron infrastructure.
-Keep our ACP execution boundary independently understandable. User messages
-must not acquire Colonie personas, memory, recall, team, or automation
-instructions. Native Codex/project instructions remain agent-owned. Record the
-exact application-authored prompt before dispatch so it can be inspected.
+## Product boundaries
 
-Use isolated data directories and fixtures for all verification. Never read
-credential contents or mutate the user's installed Colonie. A real-provider
-check must use a disposable workspace, inherited CLI authentication, and a
-clearly bounded request. Distinguish simulated, real-provider, renderer, and
-desktop evidence in `docs/PROGRESS.md`.
+- Today's foundation is a local macOS app. Server workspaces, invitations, and companion capabilities are future targets. Do not reactivate retired hosting or integrations from historical instructions.
+- Use the upstream ACP SDK and maintained `@agentclientprotocol/*-acp` Claude/Codex adapters. Keep that boundary clear; do not restore the retired legacy ACP client or native Codex driver.
+- Preserve useful native UI, persistence, HTTP/SSE, and Electron infrastructure.
+- Preserve user message text. Default app awareness and bot persona/SOUL follow the scoped Colonie profile/context contract; do not restore unrelated inherited persona, memory, team, recall, or automation prompt pipelines.
+- Provider/project instructions remain agent-owned. Record exact application-authored input before dispatch with protected values redacted; do not claim access to provider-internal prompts.
+- Normal bot profile configuration must suffice. ACP context is an opt-in developer inspector; transport, receipt, and hash details stay out of default UX.
 
-Update progress after each milestone and before ending a work session. Record
-actual commands/results, unresolved blockers, and the next concrete action.
-Do not claim a workflow passed on the strength of compilation alone.
+## Verification boundaries
 
-## Communication
+Use isolated fixtures for server/conversation checks, never the live app, installed
+data, or normal development instance. Never read credential contents. Real-provider
+checks require disposable workspaces, supported inherited CLI authentication, and
+a bounded task. Follow the verification guide for methods and evidence categories.
 
-Respond to the user in Bahasa Indonesia. Keep implementation status, remaining
-scope, and verification evidence explicit; do not promise universal correctness.
+Run one heavy local job at a time, including child processes; set duration/process
+limits and clean up owned fixtures. Documentation edits need document checks, not
+builds or E2E. Report inherited failures and missing evidence; compilation or a
+simulated provider is not proof of a complete real-provider/desktop workflow.
 
-Product-authored UI copy, factory/application context, built-in persona/SOUL
-templates, help text and product/project documentation must be in English (US).
-The primary audience is US users. This is separate from the working conversation
-language. Keep user-authored content and native provider output under their owners.
+## Documentation and communication
 
-Colonie's primary users are nontechnical people. App awareness and saved bot
-persona/SOUL are enabled by default; configuring a bot profile must be enough to
-use them. ACP context is an opt-in developer inspector, never a required setup
-step. Keep technical transport, receipt and hash details out of the default UX.
+Keep product planning in the blueprint, current work in HANDOVER, and evidence in
+PROGRESS. Avoid duplicate rules/specifications, archives, and redirect-only files;
+use Git history only for a specific historical question. Preserve external names
+and URLs. The docs guide execution; they do not schedule or wake agents.
+
+Respond to the owner in natural Bahasa Indonesia and explain status/evidence for
+a nontechnical reader. Product UI, app-authored context, built-in personas/SOUL,
+help, and project docs use English (US); preserve user language and provider output.

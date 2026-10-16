@@ -1,5 +1,10 @@
 # Memory in Colonie
 
+This guide describes the current local ACP memory implementation. Methods and
+actual evidence are separate: see [memory verification](verification/colonie-memory.md)
+and [recent progress](PROGRESS.md). This documentation cleanup did not rerun the
+provider or desktop workflows.
+
 Colonie can carry useful details between a bot's conversations. Open a bot's
 profile and look for **Memory** in Details. Full bot settings also have a Memory
 section. Developer tools are not needed.

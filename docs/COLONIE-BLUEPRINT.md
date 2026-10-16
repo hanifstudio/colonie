@@ -1,12 +1,55 @@
 # Colonie product blueprint
 
+## Quick orientation
+
+This is the **single provisional product target**, not today's feature list.
+The current implementation is a local macOS ACP app; see [HANDOVER](HANDOVER.md).
+The intended product preserves the native UI, bot identities/skills, browser and
+computer use, integrations, automation, and human/bot collaboration. Free Local
+workspaces and owner-funded Server workspaces are the working direction.
+
+- Every new Local workspace follows the same J01 journey, regardless of membership elsewhere.
+- Server workspaces are a future target: owner supplies infrastructure, engine access, and workspace integrations; invitees use that workspace.
+- Composio credentials are user-supplied per workspace. Different workspaces can use different keys/accounts.
+- Behaviors marked Proposal/Open are not final owner decisions. Research is documentation-based, not a competitor parity certification.
+- Read relevant sections only. Validate current code against the target before planning implementation.
+- The [architecture audit](#architecture-audit-october-17-2026) identifies the main structural problems and target boundaries. Its first shared-rule extraction is implemented with static/unit evidence; see [recent progress](PROGRESS.md) for current results and limits.
+
+The blueprint owns product, architecture, and roadmap decisions. Current status
+lives in HANDOVER; actual recent results belong in PROGRESS. Only current guidance
+is kept in the documentation tree.
+
+### Architecture audit in one minute
+
+The main problem is mixed responsibilities and implicit ownership. The server's
+22,876-line entry point combines startup, work coordination, and many API/tool
+paths. Data and connection configuration largely belong to one process. Some
+server helpers still live in UI modules, while retired agent implementations
+remain imported for small utility functions.
+
+Keep the existing native UI, maintained ACP execution, HTTP/live events, and useful
+storage infrastructure. Recommended order:
+
+1. Move shared message/attachment rules into a neutral shared module.
+2. Make each workspace's data, configuration, credential access, and lifetime explicit.
+3. Separate work coordination from HTTP and startup wiring.
+4. Remove legacy implementation after detaching its useful helpers; split UI state internals while preserving the visible experience.
+
+Start with one runtime per workspace as a proposal, without introducing several
+workspaces into today's global process state. The first extraction has removed
+the three audited server-to-UI imports, with focused content-compatibility checks.
+Read the [diagram, source findings, and retain/adapt/remove map](#architecture-audit-october-17-2026)
+for the technical detail. The audit was static; subsequent extraction evidence is
+in PROGRESS and does not establish complete runtime or desktop behavior.
+
+
 Status: working draft for owner review. Last researched: October 16, 2026.
 
 This document brings the intended product, reference research, architecture proposal, business model, and delivery plan into one place. It describes the destination while the repository is being cleaned up. Existing code and old upstream documentation do not define that destination.
 
 Nothing here turns a provisional conversation into an irreversible decision. A documented competitor feature is not evidence that Colonie already implements it. Architecture and delivery recommendations remain proposals until reviewed.
 
-For the next product review, start with [Walkthrough W01](#walkthrough-w01-a-team-completes-real-work). It turns the target into one concrete story, including approval, delegation, interruptions, and recovery. Its proposed behavior is ready to discuss; it has not been implemented or accepted as final policy.
+For a short technical orientation, start with the [architecture audit](#architecture-audit-october-17-2026). For product behavior, read [Walkthrough W01](#walkthrough-w01-a-team-completes-real-work). Both describe proposals and evidence limits, not completed implementation.
 
 ## Contents
 
@@ -88,8 +131,6 @@ Public adoption reports and customer stories are useful demand signals. They do 
 
 This is a documentation review, not a hands-on evaluation of a paid Grok Bot installation. Primary product/help pages are the main evidence; dated staff forum answers fill custom-MCP gaps. Upstream project documentation is a secondary discovery reference for useful capabilities the owner may not have encountered. It does not dictate Colonie's architecture. External source names and URLs retain their real identity; a Colonie branding change must not rename a cited source.
 
-A subsequent narrow, read-only inspection of Colonie's ACP/tool dispatch supports the readiness snapshot in section 9. It is not a complete repository audit or runtime verification.
-
 Documentation changes and rollouts can disagree. For example, older template instructions refer to settings that newer bot-editing guidance has removed. Preserve the intended capability, record the source/date, and verify the actual interaction before claiming exact parity. No competitor documentation establishes Colonie's implementation status.
 
 ### Three important feasibility boundaries
@@ -134,9 +175,9 @@ flowchart LR
     T[Invited people using Colonie] --> S
 ```
 
-### Journey J01: first Local workspace
+### Journey J01: create a Local workspace
 
-1. Download and open Colonie.
+1. Open Colonie; download and install it first if needed.
 2. Choose to create a workspace and select Local.
 3. Name the workspace and provide a local display profile if requested.
 4. Connect Claude Code and/or Codex using the supported native authentication flow.
@@ -144,6 +185,8 @@ flowchart LR
 6. Start work. Add Composio or custom MCP only when needed; these are not prerequisites for a basic chat.
 
 No Colonie account or payment is required. Secrets should use protected setup fields or provider-owned authentication, rather than chat messages.
+
+Every new Local workspace follows this same journey, whether it is the person's first workspace or they already own or belong to other workspaces. Membership elsewhere does not create a different onboarding flow. Configure the new workspace's own engine access and any integrations it needs; another workspace's credentials and history are not automatically imported. Personal automation is one possible use of a Local workspace, not a separate workspace type or journey.
 
 ### Journey J02: owner creates a Server workspace
 
@@ -165,10 +208,6 @@ No Colonie account or payment is required. Secrets should use protected setup fi
 4. Use existing bots and workspace connections immediately, without buying Colonie or connecting a personal AI subscription.
 
 Deep-link handling, expired invitations, revocation, and an already-installed app must be covered. The member is joining an existing environment, not provisioning another server.
-
-### Journey J04: a member wants personal automation
-
-Create a new Local workspace and go through its own Claude/Codex onboarding. Supply that workspace's own Composio key or custom MCP, connect personal email there, and create the routine there. The shared workspace's connections and history are not automatically imported.
 
 ### Journey J05: switch, resume, and recover
 
@@ -274,7 +313,7 @@ Maya can steer Nova while it works. A follow-up such as “Use a more casual ton
 
 **An event-triggered version:** an authorized CRM event or webhook creates a recorded run. Show the incoming event, deduplicate retries as designed, and separate event acceptance from task completion. Define behavior when many events arrive, the runtime is offline, or its queue is full.
 
-**A personal version:** Maya switches to a new Local workspace, connects her own Claude/Codex, supplies its own Composio configuration, and connects her personal email there. The work runs on her selected local environment. Launch Team's credentials, bots, and private history are not silently copied. When the local runtime is asleep or stopped, explain which work cannot proceed and apply the selected missed-schedule policy after recovery.
+**Personal-work example (the same J01 journey):** Maya creates a Local workspace by following J01, just like anyone else. She can then connect her personal email and create automation there. The work runs on her selected local environment. Launch Team's credentials, bots, and private history are not silently copied. When the local runtime is asleep or stopped, explain which work cannot proceed and apply the selected missed-schedule policy after recovery.
 
 **A companion version:** an authorized device can inspect work and answer the decisions supported by that client. Closing the phone app, losing its network, and stopping the workspace runtime are different states. Voice/dictation and mobile notifications need their own verified services/device behavior; they are not assumed to appear simply because chat works.
 
@@ -373,31 +412,117 @@ An owner controlling the actual server can potentially access its stored data. U
 
 This section proposes boundaries for the target. It is not an instruction to reorganize the current repository immediately.
 
+### Architecture audit: October 17, 2026
+
+**Finding:** Colonie has useful reusable foundations, but responsibilities remain concentrated in the server entry point and shared process state. Start by enforcing dependency and workspace boundaries, then split orchestration and retire legacy paths. Preserve the native UI and existing storage formats throughout this sequence.
+
+**Evidence:** read-only TypeScript AST scan of 936 non-test source/tooling files under `src`, `server`, `shared`, `electron`, and `scripts`, with selected source tracing; checkout HEAD `aa38ecc9` plus existing WIP. The scan resolves relative and configured `@/` imports, excluding type-only edges. It does not execute modules or resolve every computed import, spawned executable, external dependency, or generated asset. No runtime, performance, or security certification follows from these observations.
+
+| Structural problem | Current evidence and consequence | Recommended treatment |
+|---|---|---|
+| Oversized composition/orchestration hub | [Server entry point](../server/index.ts): 22,876 physical lines, 255 import declarations/literal import calls, and 234 direct first-party value dependencies in the scan. It initializes data/config, wires services, admits work, assembles tools, and handles many routes. Changes cross unrelated responsibilities. | **Adapt:** retain a small bootstrap/composition root; extract application services and HTTP adapters with explicit dependencies. Existing [route factories](../server/routes/README.md) provide a useful pattern. |
+| Workspace ownership is implicit in the process | [Config](../server/config.ts) computes `DATA_DIR` from process environment; 52 non-test/tooling modules import it as a value dependency. [Message storage](../server/message-db.ts) owns module-level database/search handles. [Connection sessions](../server/colonie/connections/manager.ts) and [ACP receipts](../server/acp/receipts.ts) also reach for the global directory. | **Adapt:** make paths, configuration, credential access, and lifetime explicit at workspace bootstrap. This is consistent with today's single workspace; it does not yet implement independent future workspaces. |
+| Backend depends on renderer implementation | Three direct value-import declarations go from server code into `src/lib`: `escapeAttribute`/`splitTranscriptAttachments` from composer helpers, and `threadRefUrl` from thread helpers. [Backup logic](../server/workspace-backup.ts) consequently shares a module containing uploads, previews, and focus behavior. | **Extract first:** put the genuinely shared content-format rules in `shared`; keep browser/DOM behavior in `src`. This removes a concrete dependency inversion without redesigning the UI. |
+| Retired drivers remain helper dependencies | Only [the two ACP providers](../server/drivers/builtIn.ts) are registered, but the server imports `autoCompactWindow` from the 2,707-line [legacy Claude driver](../server/drivers/claude.ts); account/usage code imports its helpers too. That module imports version helpers from the 2,355-line legacy ACP core. | **Retire in order:** lift still-used helpers into small neutral/provider-support modules, update their consumers, then check imports, proxy paths, packaging, and checks before deleting retired implementation. |
+| Feature surfaces and execution are disconnected | The maintained ACP branch rejects automation/coordination admission and returns before later inherited browser/computer assembly. Session setup reads `acpTools.servers`, while an extra workspace/skills mount is tracked separately. | **Adapt and verify:** define one authorized run-admission/tool-delivery contract. Test the mount payload discrepancy separately. Do not enable routines/groups by deleting guards or reviving inherited prompt assembly. |
+| UI state and transport share one large hub | [Renderer store](../src/state/store.tsx): 4,091 lines and 136 first-party value importers. It combines state folding, commands, SSE handling, notifications, and other effects. Two small UI dependency cycles also appear, including lazy-screen imports. | **Retain UI; adapt internals:** extract a workspace API/event client, feature reducers, and effects behind existing hooks. Cycles are candidates for helper separation, not proof of runtime failure. |
+| Cleanup crosses dynamic/runtime boundaries | Removed `remoteClient` bridge reads remain in renderer code; obsolete verification scripts reference retired providers. Process entry paths live in [the proxy manifest](../server/proxy-paths.ts) and [the bundler](../scripts/bundle-server.mjs), outside a simple import graph. | **Remove after dependency checks:** stale remote-only branches/checks; **decide separately:** gated people/sign-in/domain/operator code. Source reachability alone cannot prove a subprocess entry or auth helper is unused. |
+
+No large backend value-import cycle appeared in this scan. The stronger observed coupling is through global ownership, callbacks, and the entry-point hub. A high import count or long file alone is not a defect; the mixed responsibilities and concrete backward dependencies are the reasons to restructure.
+
+### Target responsibility boundaries
+
+**Proposal:** begin with one workspace runtime per process. A desktop can later select the appropriate runtime; a Server workspace runs its runtime on owner-funded infrastructure. This avoids requiring multiple independent workspaces to share today's global database/config state inside one process. It does not require one physical VM per workspace or start multiple processes now.
+
+At bootstrap, supply the workspace identity, data/artifact paths, provider configuration homes, credential-access interface, and lifecycle ownership. Application services receive the dependencies they need. Storage implementations preserve existing SQLite/JSON/file formats initially. Local display identity and future Server membership policy remain distinct.
+
+The dependency direction is: clients → HTTP/events → application services → execution, tool, and repository interfaces. Bootstrap supplies the concrete implementations. Shared contracts/content rules must not import UI, server startup, Electron, or provider implementation. Server code may use portable platform helpers currently located under `electron`; isolate those helpers before treating directory names as proof of an Electron-runtime dependency.
+
 ### One workspace runtime, different places to run it
 
 Use the same workspace application core locally and on a server. Native clients display its state and request actions. The workspace runtime owns authoritative membership checks, persistence, run coordination, scheduling, integrations, and execution. Local mode can omit remote-account onboarding without creating a separate product implementation.
 
 ```mermaid
 flowchart TB
-    D[Native desktop clients] --> API[Workspace API and live events]
+    D[Existing native UI and desktop shell] --> API
     M[Future companion clients] --> API
-    API --> W[Workspace application core]
-    W --> ID[Membership and access]
-    W --> C[Conversations, bots, memory, skills]
-    W --> R[Runs, queues, routines, approvals]
-    W --> DB[Workspace database and artifact storage]
-    R --> E[ACP execution boundary]
-    E --> AC[Maintained Claude ACP adapter]
-    E --> AX[Maintained Codex ACP adapter]
-    AC --> CP[Claude provider service]
-    AX --> OP[OpenAI provider service]
-    R --> TO[Workspace tool and environment layer]
-    TO --> MCP[Custom MCP servers]
-    TO --> CO[Composio using this workspace's key]
-    TO --> ENV[Browser, desktop, files, terminal]
+    B[Local or Server bootstrap] --> CTX[Workspace paths, configuration, credential access]
+    subgraph WS[One workspace runtime]
+        API[HTTP API and live events] --> APP[Bot, conversation, knowledge and routine services]
+        APP --> RUN[Run admission, authorization, queue and approvals]
+        APP --> REPO[Repositories and artifact storage]
+        RUN --> ACP[Independent ACP execution boundary]
+        RUN --> TOOLS[Scoped tools and environment gateway]
+    end
+    CTX -. supplies dependencies .-> APP
+    CTX -. scopes .-> REPO
+    CTX -. scopes .-> TOOLS
+    ACP --> PROVIDERS[Maintained Claude and Codex adapters]
+    TOOLS --> MCP[Custom MCP and workspace Composio]
+    TOOLS --> ENV[Browser, computer, files and terminal]
 ```
 
 The diagram shows responsibility, not a requirement to turn every box into a separate service. Prefer a modular workspace service with clear internal boundaries first. Remote database adoption and microservice splits need evidence rather than being prerequisites for invitations or cloud execution.
+
+### Retain, adapt, remove and implementation order
+
+**Retain:** native UI/interactions, HTTP/SSE contracts, maintained ACP boundary, scoped profile/receipt behavior, atomic writes, SQLite transcripts, and useful JSON/file persistence. Source presence does not establish workflow correctness.
+
+**Adapt:** workspace bootstrap/credential ownership; server application/run orchestration; connections, knowledge and environment interfaces; renderer state/transport internals. Reuse the scoped `server/colonie/` modules where their responsibilities fit.
+
+**Remove after checks:** retired driver bodies after helper extraction; stale remote-client branches; unsupported-provider verification scripts after reviewing their callers. Gated hosted/team capabilities need an explicit decision and dependency review. Preserve useful auth, migration, packaging, and third-party attribution work; none is deleted by this audit.
+
+### Engineering roadmap: architecture and consistency
+
+Owner direction: architecture, folder/file organization, and code/design consistency
+must improve deliberately as features develop. This is the engineering track for
+product stage P1 and later feature delivery. Its queue is defined here; HANDOVER
+selects one active task. Exact module APIs and extraction scopes require current
+source inspection. M0 shared-content work has static/unit evidence; the following
+stages remain planned, not implemented or verified by writing this roadmap.
+
+| Stage | Change and first bounded task | Dependencies and evidence required to finish |
+|---|---|---|
+| E01: establish enforceable architecture checks | Inventory current guards, CI selection, and supported checks. Start with the existing content-boundary guard and index-route ratchet; record inherited failures separately. | First engineering stage; keep incomplete M0 evidence explicit. A bad dependency is rejected and a valid change accepted. Required guards cannot silently disappear through CI selection. Verify actual remote merge requirements/bypass settings before claiming merge enforcement; configuration files alone are insufficient. No workflow/settings changes follow from this planning task. |
+| E02: explicit workspace ownership | Put workspace paths, configuration, credential references, repository construction, and shutdown ownership at bootstrap. First migrate one existing store/connection boundary that currently reads global config; inspect `server/config.ts` and `server/message-db.ts`. | Needs E01's local baseline, not an unrelated suite rewrite. Test two disposable scopes for the migrated boundary, restart/close behavior, and the existing Local path (A01/A02/A07 where applicable). Finish only when runtime-owned resources follow this ownership; a single injected path proves only that slice. Future Server support remains separate. |
+| E03: separate HTTP, application work, and ACP | Extract one supported send/Stop path from `server/index.ts` into a feature service with explicit dependencies; route adapters validate/authorize/translate. Keep provider sessions in `server/acp/`. | E02 ownership must be sufficient for the chosen path. Show send, events, saved input/receipts, approval/cancellation behavior in bounded fixtures (A03/A10); add provider evidence if provider semantics change. Remove the old implementation after moving callers. The entry point composes services and starts/stops them rather than retaining the extracted business logic. |
+| E04: finish legacy removal safely | Lift a still-used legacy helper, migrate consumers, then retire the obsolete implementation. Start from the remaining `autoCompactWindow` import; reconcile concurrent cleanup before choosing work. | Dependency checks cover imports, subprocess manifests, packaging, persisted formats, and relevant verification scripts. Prove the maintained path still works. Every removal has a reason; removing a retired implementation does not drop a planned product capability. Do not delete valid workflow coverage to obtain green checks. |
+| E05: organize renderer work by feature | Separate API/SSE transport, feature state transitions, and effects behind current hooks. Start with one feature slice in `src/state/store.tsx`; migrate its callers without a broad UI move. | Depends on stable contracts for that slice. Verify event folding, reconnect/selection behavior, and affected UI interactions. The extracted state/effects actually leave the hub, duplicated implementations disappear, and feature modules have clear owners with no new dependency cycles. |
+| E06: consolidate code and native UI patterns | Apply the consistency rules below to an existing repeated flow first. Reuse maintained controls and skin tokens; consolidate real duplication while preserving the owner's native UI. | Follow E05 for state changes; begin safe local improvements earlier where independent. Demonstrate compatibility on the affected skin/layout/keyboard flow, relevant token/contrast checks, and no new parallel implementation of the same control or protocol. Review usability and maintenance explicitly; automated checks alone do not settle these judgments. |
+
+Split each stage into independently verifiable tasks in HANDOVER as work reaches
+it; do not pre-generate dozens of task documents. A stage is not complete merely
+because files moved or wrappers were added. Record which responsibility left its
+old owner, where callers now go, which duplicate/legacy path was removed, and the
+behavior evidence. File size/import counts support the review but are not quality
+scores. Unrelated failures remain explicit; they do not justify weakening checks.
+Remote enforcement gaps remain open even if local refactoring can safely proceed.
+
+#### E01 baseline and next proof
+
+October 17 source inspection completed E01.1's inventory. E01.2 then named both
+architecture guards in the static CI job's "Enforce architecture boundaries" step,
+protected that step with a workflow contract check, and proved accept/reject cases
+in disposable copies (local evidence only; see PROGRESS). E01 remains open until
+remote merge requirements are inspected. Reuse existing checks before adding tools.
+
+| Existing check | Coverage and gap found in source | Positive/negative proof to run in E01 |
+|---|---|---|
+| `scripts/testing/content-boundaries.test.ts` | Two server consumers and two shared content modules; direct static imports/re-exports only. Runs in the static CI step (E01.2). | Proven locally: a shared import passes; renderer-from-server and server-from-shared imports fail. Keep computed/transitive coverage limits explicit. |
+| `scripts/testing/index-route-ratchet.test.ts` | Limits known path-guard spellings in `server/index.ts`; its own counts are editable and alternate syntax can evade it. Runs in the static CI step (E01.2). | Inherited stale counts (150/82, real 143/80 since the pairing removal) were lowered; a disposable added route guard fails. Lower counts after extraction; do not raise them to excuse new hub logic. |
+| Type/lint and UI checks | CI invokes type/lint. `src/lib/skins.test.ts` checks registered skins/tokens in the general suite. `check:contrast` exists but is not invoked by this CI workflow. These do not establish broad architecture or visual quality. | Deliberate type/token violations fail the relevant focused check; valid examples pass. Palette changes need their contrast check and affected visual/interaction evidence. |
+| `scripts/ci-scope.mjs`, `scripts/ci-workflow.test.ts`, CI gate | Source selection keeps non-document changes in runtime checks; aggregation rejects unexpected job results. The static job always runs regardless of selection; a contract test now fails if either guard leaves its step or the step becomes skippable. | Removing the step, dropping one guard, or adding `if:` failed in disposable copies. Check source/guard changes select required checks and failed/missing outcomes cannot yield a successful aggregate; preserve the intended docs-only policy. |
+| Local hook and remote protection | `scripts/git-hooks/pre-push` can be skipped. CODEOWNERS names `.github` but not the architecture guard files. On October 17 the private plan returned HTTP 403 for rulesets; the owner then made `hanifstudio/colonie` public. No ruleset exists yet, so CI is advisory. | Inspect effective remote settings read-only before claiming enforcement. Changes to protected rules need separate review; never infer remote protection from a local file. Remote configuration changes require an explicit concrete proposal. |
+
+After the initial foundation slices, feature work continues against the same
+boundaries. Each feature names its existing capability/journey and structural
+owner; structural cleanup gets a bounded task when needed. Do not postpone all
+product work until every file is reorganized, or let feature work bypass the
+engineering acceptance below.
+
+**First extraction, implemented October 17 with static/unit evidence:** pure attachment/transcript rules now live in `shared/transcript-attachments.ts`; canonical thread-address rules live in `shared/thread-address.ts`. The server/backup consumers import them directly, while renderer exports remain compatible. The moved bodies are unchanged; uploads, clipboard/DOM focus, blob previews, and rendering remain in the UI. Existing [attachment](../src/lib/composer-attachments.test.ts), [server attachment](../server/composer-attachments.test.ts), and [thread-reference](../src/lib/thread-refs.test.ts) checks cover content compatibility. The new [boundary guard](../scripts/testing/content-boundaries.test.ts) checks direct static dependencies. Exact results are in PROGRESS; this does not establish desktop, provider, or backup end-to-end behavior.
+
+The MCP mount discrepancy remains an independent correctness question to verify in a bounded fixture. This structural sequence does not certify it as fixed or defer a reproduced correctness failure behind a large refactor. No numeric CPU/RAM limits or performance improvements were measured by this audit.
 
 ### Runtime versus serverless services
 
@@ -457,62 +582,83 @@ Back up workspace data and working artifacts according to a documented policy; s
 
 ## 7. Repository and instruction structure
 
-### Proposed folder responsibilities
+### Folder responsibilities for the engineering track
 
-The aim is an understandable dependency structure, not a large rename for its own sake. The following is a possible destination, to refine after mapping useful existing code:
+Keep the current roots and organize by responsibility/feature as slices migrate.
+This is a target map, not a claim all directories exist. Create a directory when
+real code moves into it; retain useful existing feature folders. Broad moves and
+an `apps`/`packages` conversion require a demonstrated sharing/deployment need.
 
 ```text
-apps/
-  desktop/                 Electron shell and desktop packaging
-  companion/               Future mobile/companion clients
-packages/
-  ui/                      Shared presentation and interaction components
-  contracts/               Versioned API/events and shared validation
-  workspace/               Application core, grouped by product feature
-    identity/
-    conversations/
-    bots/
-    knowledge/
-    runs/
-    routines/
-    integrations/
-    environments/
-  execution-acp/           SDK session lifecycle and provider adapter boundary
-  persistence/             Database, migrations, artifacts, backup interfaces
-  runtime/                 Process lifecycle and local/server composition
-deployment/                Supported provisioning and upgrade recipes
-scripts/                   Small build, release, and verification entry points
-tests/
-  fixtures/                Disposable fake providers, data, and environments
-  journeys/                Cross-boundary desktop/server acceptance scenarios
-docs/
-  COLONIE-BLUEPRINT.md      Target, decisions, research, and roadmap
-  HANDOVER.md              Current state and next concrete action
-  PROGRESS.md              Actual implementation and verification evidence
-  verification/            How to verify safely and within resource budgets
-AGENTS.md                  Concise development rules and reading order
+server/
+  index.ts                 Composition and process entry point
+  runtime/                 Workspace bootstrap and resource lifetime
+  routes/                  HTTP adapters and shared route infrastructure
+  colonie/<feature>/       Feature services, local contracts, tests, and adapters
+  acp/                     Provider execution boundary and maintained adapters
+  persistence/             Storage implementations and migrations when extracted
+src/
+  features/<feature>/      Feature UI, state, and effects when extracted
+  components/              Reusable presentation and controls
+  lib/                     Focused UI helpers and API/event client
+  state/                   Cross-feature composition and compatible public hooks
+shared/                    Portable contracts and pure rules used by both sides
+electron/                  Native shell and platform adapters
+scripts/                   Build, release, diagnostics, and verification tools
+scripts/testing/           Cross-boundary guards and disposable test fixtures
+docs/                      Product reference, current work, and recent evidence
+AGENTS.md                  Short working rules and reading entry point
 ```
 
-Feature-specific tests can remain beside their code. `tests/journeys` is for behavior spanning modules, not a requirement to move every test. The UI depends on contracts and application interfaces; it should not import credential storage, SQL internals, or provider adapter implementation. Domain modules should not depend on Electron or a specific VPS vendor.
+Tests for one feature stay beside that feature; checks spanning boundaries use
+existing verification tooling. Feature-owned route adapters may remain beside
+their services, as in `server/colonie/memory/`; reuse the common route contract.
+Shared code cannot depend on UI, startup, or provider implementations. Services
+must not import `server/index.ts`; UI must not import SQL/credential/provider
+internals. Extract portable platform helpers before imposing blanket rules on
+existing `electron` paths. New general-purpose folders or layers need real shared
+responsibility; one feature's code should have a discoverable home.
 
-### Proposed instruction relationship
+### Code and design consistency acceptance
+
+| Area | Working standard and reference | Required evidence for a changed area |
+|---|---|---|
+| HTTP and application logic | Explicit-dependency route factories following [the route guide](../server/routes/README.md); validate untrusted input at boundaries and keep business decisions in services. | Contract tests preserve status/error/event behavior. Route/service ownership is clear; no new route logic in the startup hub. |
+| Types, errors, and asynchronous work | Reuse existing shared contracts and maintained ACP adapters. Handle errors at the owning boundary; cancellation, cleanup, and retries have explicit owners. Standardize conflicting patterns within a scoped task, preserving public behavior. | Focused type/lint checks plus behavior tests for the changed failure or cancellation path; avoid duplicate schemas and catch-and-ignore failures. |
+| State and files | Group feature-specific state/effects with their feature; keep cross-feature composition thin. Name files for the responsibility they own. Preserve current hooks while migrating consumers. | Callers use one implementation; the old body is removed. Dependency/cycle checks cover the changed boundary. Moving files alone is insufficient. |
+| Native UI and visual language | Reuse existing components, [skin registry](../src/lib/skins.ts), and `src/styles.css` tokens. [ConfirmDialog](../src/components/ConfirmDialog.tsx) is an existing confirmation reference, not a universal replacement for every dialog. | Relevant [skin checks](../src/lib/skins.test.ts), contrast checks for changed palettes, and isolated interaction/visual evidence for affected layouts. Preserve focus, keyboard behavior, loading/errors, and selected skin. Explicitly review usability. |
+
+Every implementation task reports its structural effect alongside its user-visible
+result: ownership, dependency direction, duplication removed/introduced, applicable
+patterns, and verification. A reviewer must reject a claimed extraction that leaves
+the same decisions in the old hub, or a new parallel UI pattern without a reason.
+Convert repeated objective violations into narrow executable checks. Protect guard
+changes from being used to excuse the implementation; legitimate rule changes need
+their own rationale and review. Deterministic checks enforce defined constraints,
+not every aspect of maintainability or visual quality.
+
+### Active instruction relationship
 
 ```mermaid
 flowchart TD
-    O[Owner's latest instructions] --> A[AGENTS.md: working rules and reading order]
-    A --> B[COLONIE-BLUEPRINT.md: intended product]
-    A --> H[HANDOVER.md: implementation state and next action]
-    A --> V[verification/README.md: evidence and isolation]
-    H --> P[PROGRESS.md: commands and actual results]
-    B --> I[Scoped implementation task]
-    H --> I
-    V --> I
-    I --> N[More specific directory AGENTS.md, when applicable]
+    O[Owner's latest instructions] --> A[AGENTS: concise working rules]
+    A --> H[HANDOVER: current state and next task]
+    A -->|When product or architecture matters| B[Blueprint: relevant target sections]
+    A -->|Before choosing or running checks| V[Verification policy: isolated evidence]
+    H -->|When prior evidence matters| P[PROGRESS: relevant recent results]
+    H --> T[Scoped task]
+    B --> T
+    V --> T
 ```
 
-This diagram is a proposed future organization. Writing this document does **not** rewrite the current `AGENTS.md` reading order or make existing SPEC/PLAN instructions disappear. A later documentation-consolidation change should point steering files at the agreed target, reconcile current status, and retire duplicate plans explicitly. Until then, follow the actual applicable instructions and the owner's current request.
+This reading structure was implemented during documentation cleanup on October 17,
+2026. It does not approve the proposed product architecture or change implementation
+status. More specific directory instructions still apply where present. Keep only
+current guidance in this tree and load only what the task needs.
 
-Keep one target document with an integrated decision log rather than several competing visions. Keep actual implementation evidence separately so aspirations cannot be mistaken for completed behavior.
+AGENTS contains the development loop; HANDOVER contains the active M0 trial and
+next action. Other documents are read on demand. This does not approve provisional
+product choices or establish that autonomous development works.
 
 ### Cleanup method
 
@@ -572,7 +718,7 @@ This is a proposed sequence of outcomes. It does not authorize a code rewrite or
 | Stage | Outcome | Evidence required to advance |
 |---|---|---|
 | P0: agree on the destination | Review owner direction, intentional differences, full inventory, and critical unknowns in this document. | Clear decisions on the few unresolved items that affect feasibility; no generic re-interview of known preferences. |
-| P1: map and stabilize foundations | Compare useful current UI/runtime against the target; establish workspace boundaries and a small migration path. | Dependency map, keep/adapt/remove list, readable module boundaries, and a bounded local user journey. |
+| P1: map and stabilize foundations | Execute the [engineering track E01–E06](#engineering-roadmap-architecture-and-consistency) in bounded slices, starting with enforced boundaries and explicit workspace ownership. | Each stage's structural and behavior evidence; later product work continues with the same [consistency acceptance](#code-and-design-consistency-acceptance). Folder moves and green compilation alone do not complete P1. |
 | P2: demonstrate the working assistant | A bot with persona/skills uses Claude/Codex, browser/computer/files, workspace integrations, approvals, memory, and observable runs. | Disposable end-to-end tasks on each advertised provider/capability combination; identify unsupported combinations plainly. |
 | P3: prove autonomous continuity | Routines, event triggers, delegation, interruption, restart/recovery, and resource budgets work together. | Demonstrate scheduled/event work, shared-resource contention, interrupted work, and no blind duplicate side effects. |
 | P4: prove owner-funded Server mode | Supported deployment, headless provider setup, persistent workspace, cost visibility, backup/resize/recovery. | Successful new-owner journey on a clean supported server plus failure/retry/removal cases. Validate provider entitlement before advertising shared subscription use. |
@@ -615,33 +761,17 @@ The following is a **proposal** to reconcile reliable evidence with the owner's 
 
 Current verification requirements still live in [the verification guide](verification/README.md). This research task runs no application, browser, Electron, or real-provider tests and makes no implementation-success claim.
 
-### Read-only readiness snapshot for W01
+### Feasibility validation priorities
 
-Inspected on October 16, 2026 with HEAD `fb8bedbc` and an existing dirty working tree. This snapshot records selected source observations, not a frozen release audit. The target above remains the destination; the local-only implementation described by HANDOVER is the present foundation. This planning work does not restore retired cloud infrastructure.
+After the architecture audit, choose small isolated proofs for the boundaries
+that matter: the actual MCP tool payload reaching each maintained ACP adapter;
+browser/computer actions and human takeover; authorized scheduled/group work;
+and Stop across a task and its delegated work. Inspect current code before
+selecting a check rather than treating an old source observation as an active bug.
 
-| ID | W01 dependency | What the inspected source shows | Implication and next evidence |
-|---|---|---|---|
-| R01 | Native engine connection | `package.json` pins the ACP SDK and both maintained adapters. The [provider profile](../server/acp/profile.ts) gives engines separate native config directories; both provider definitions use the [shared ACP runtime](../server/acp/acp-runtime.ts). | A useful execution boundary exists. This does not prove current sign-in, provider entitlement, or Server sharing. Keep it as a candidate to retain and verify. |
-| R02 | Skills and delegation tools reach the agent | The [dispatch helper](../server/index.ts) returns connected tools and a separate workspace/skills tool mount. The runtime's `mountsOf` tracks both, but the inspected session-creation block sets `mcpServers` from `input.acpTools?.servers` alone. | Static discrepancy to verify first: leasing/recording an extra mount is not proof its server reaches the agent. Check the actual session payload before changing implementation or claiming delegation/skill-tool support. |
-| R03 | Built-in browser/computer access through ACP | The direct ACP branch in [server dispatch](../server/index.ts) returns before the later browser/computer integration assembly. It explicitly supplies connected/custom MCP plus the extra workspace mount. A browser helper elsewhere does not establish delivery on this branch. | Verify the intended supported browser/desktop tool path for each native engine. Native tools or a custom MCP may provide capability, but the presence of the inherited UI/helper alone is insufficient evidence. |
-| R04 | Scheduled/event/group-originated ACP work | The inspected direct ACP branch explicitly rejects `automationSource`, `coordination`, `unattended`, and `peerAsk` requests. Separate Chief assignments also exist. | The full W01 automation/group journey is not established by today's ordinary user chat path. Design authorized run admission/context for the target instead of removing the guard or copying legacy prompts blindly. |
-| R05 | Independent Composio configuration per workspace | The [connected-tool manager](../server/colonie/connections/manager.ts) receives credentials via a callback, leases access per thread/instance, and checks policy changes. Its current server composition reads one `cfg.composio` configuration. | Useful connection machinery exists. Logical multi-workspace selection/isolation still needs an explicit composition/storage boundary and a two-workspace proof. A workspace can also be isolated by its own runtime; this inspection does not choose between deployment models. |
-| R06 | Stop and delegated work | The [ACP runtime](../server/acp/acp-runtime.ts) cancels the selected thread's native session and pending permissions. The [Chief manager](../server/colonie/chief/manager.ts) separately has assignment cancellation and lease lifecycle controls, with Chief-specific authority. | Reusable pieces exist, but the general human/group/descendant Stop proposal needs a combined test. Chief-specific delegation must not silently become a product-wide mandatory coordinator policy. |
-| R07 | Server invitations and member permissions | [Current HANDOVER](HANDOVER.md) describes a local-only cleaned foundation. W01 describes the future owner-funded Server product from D09–D16. | Treat deployment/identity/member approval as future target work. Do not reactivate removed upstream hosting simply to make the walkthrough resemble existing code. |
-
-### Smallest proposed feasibility checks
-
-These checks are specified, not executed. Start with E01 because it can clarify a concrete dispatch discrepancy without an AI bill, a browser, or a server deployment. Expand only when the preceding evidence warrants it.
-
-| ID | Question to answer | Bounded check and evidence |
-|---|---|---|
-| E01 | Which tool servers actually reach an ACP session? | Use one disposable fake-agent fixture and two stub MCP mounts. Capture new/load session payloads, check the intended connected and extra tools, and verify cleanup after cancellation. No external API, real engine, or outgoing message. |
-| E02 | Can each native engine use an authorized workspace tool? | After E01 and provider/auth prerequisites, run one disposable application task per provider, sequentially, against a harmless local marker tool. Set a 60-second wall-clock limit per task, clean up its processes, and preserve request/tool/result evidence. One application task can involve multiple provider-internal model calls; do not describe it as one token-free request. |
-| E03 | Can the native agent operate and yield the intended browser/desktop? | After the supported tool path is explicit, use a generated local page and a disposable file in a supported test environment. Demonstrate a real action, authorized takeover, and resumption with one environment/job at a time and a 120-second wall-clock limit. Do not use personal browser profiles or real email. Provider/device coverage remains separate. |
-| E04 | Can work be admitted with the right authority when no human is typing? | Use a fake-provider fixture for one scheduled trigger, one synthetic event, and one directed group request. Confirm attribution, context audience, approval ownership, and duplicate-event behavior. Do not bypass the existing ACP admission guard as a substitute for defining the contract. |
-| E05 | Does Stop settle the selected work and its children honestly? | Simulate one parent, one delegated child, a waiting approval, and one unrelated task. Cancel the selected tree, inspect permission/tool cleanup and uncertain external outcomes, and confirm the unrelated task is not accidentally canceled. No real side effects. |
-
-The proposed 60/120-second limits are budgets for these small proofs, not product execution limits or measured guarantees. Define timeout/cleanup enforcement in the fixture before starting. Run one check at a time under the existing verification guide; stop and record the result when a budget is reached.
+Use harmless local fixtures before real providers, one job at a time, with an
+explicit time/process/request budget and owned cleanup. Prove the actual action
+and result; do not infer capability from a UI, catalog entry, or model claim.
 
 ## 10. Open decisions and next work
 
@@ -665,26 +795,36 @@ These are specific gaps, not a request to repeat the product interview. Research
 
 ### Recommended next actions
 
-1. Review the concrete W01 walkthrough and its B01–B07 proposed defaults against the owner's intent. Keep unresolved choices explicit rather than treating permission to write the walkthrough as final product approval.
-2. Inspect provider/adapter contracts and current implementation read-only to identify the smallest feasibility checks for W01. Separate technical questions from product choices that need the owner's judgment.
-3. Perform a hands-on reference walkthrough with a feature checklist, especially computer takeover, teaching skills, delegation/Stop, recovery, voice, and companion access. Documentation research cannot settle every behavior.
-4. Map the repository to this target and produce a bounded retain/adapt/remove plan. Do not let inherited folder names decide the product.
-5. Validate the riskiest execution journey in isolation: a saved bot persona → native ACP engine → workspace integration/browser/computer → observable approval/result → interruption/restart. Use separate provider evidence and measure resource use.
-6. Reconcile steering files with the reviewed target and implement one observable journey at a time. Keep decision changes in this document and actual verification in PROGRESS.
+1. Use HANDOVER's active task and recent evidence. The initial architecture audit and shared-rule extraction already exist; do not repeat them as unstarted work or reopen known owner preferences.
+2. Execute the [engineering roadmap](#engineering-roadmap-architecture-and-consistency), starting with E01.1's bounded guard/CI inventory. Record unresolved M0 session-pickup evidence; it does not block scoped architecture preparation or certify unattended execution.
+3. Select relevant capability/journey proofs as feature work advances. Prioritize the maintained ACP tool payload, browser/computer takeover, saved persona, cancellation, and recovery; use disposable fixtures and separate native-provider evidence. The structural roadmap does not certify these product capabilities.
+4. Resolve only material product unknowns from W01/B01–B07 and Q01–Q11 when their dependency becomes relevant. Use hands-on reference research where documentation is insufficient; technical investigation precedes owner questions.
 
-The next implementation task should be selected only after the target review and critical feasibility checks. No code, deployment, destructive cleanup, credential inspection, or runtime verification is authorized merely by writing this blueprint.
+Implementation follows the owner's current scope and HANDOVER's task contract.
+This blueprint alone does not authorize deployment, destructive cleanup, credential
+inspection, external writes, or a repository-wide rewrite.
 
 ### Decision and research log
 
 | Date | Entry | Status |
 |---|---|---|
-| 2026-10-16 | Consolidated the owner's described Colonie direction and researched Grok Bot, selected upstream capabilities, ACP/provider setup, Composio funding, and hosting primitives. | Documentation draft; not hands-on parity or implementation verification. |
-| 2026-10-16 | Owner clarified that Composio API keys are supplied by users per workspace; different workspaces may use different Composio accounts. | Owner direction D12; incorporated into setup, architecture, costs, and acceptance A07. |
-| 2026-10-16 | Owner agreed to the next step of developing a concrete end-to-end journey. Added W01 with 12 steps, human/bot collaboration, approvals, steering/Stop, failure paths, and routine/Local/companion variants. | B01–B07 are recommendations for review, not final owner decisions or implemented behavior. |
-| 2026-10-16 | Rechecked upstream source pages and restored research URLs that had been renamed to `docs.colonie.com`. Added primary Composio references distinguishing the project key from connected-service authorization. | Citation corrections only; no application identity change or provider/runtime verification. |
-| 2026-10-16 | Inspected selected ACP, connection, delegation, and dispatch source read-only at HEAD `fb8bedbc` plus existing WIP. Added R01–R07 observations and E01–E05 bounded proof proposals. | Static evidence only. In particular, the extra MCP mount/session payload discrepancy has not been reproduced or fixed. No tests or provider requests were run. |
+| 2026-10-17 | Owner asked to turn the architecture audit into deliberate improvement of architecture, folders/files, and code/design consistency. | Engineering stages E01–E06 and implementation acceptance are now defined; remaining stages and enforcement are not certified by this planning work. |
+| 2026-10-17 | Owner agreed to trial consistent agent development, then challenged duplicated guidance and context load. | Rules consolidated into AGENTS; active M0 remains in HANDOVER. Other docs are references read on demand. Framework adoption and autonomous execution remain unproven. |
+| 2026-10-17 | Owner requested a physically clean documentation tree, retaining only needed current documents and removing in-repository history/duplicate entry points. | Documentation scope; product proposals remain provisional. |
+| 2026-10-17 | Every new Local workspace follows J01, regardless of membership in other workspaces. Personal automation is a use case, not a special onboarding journey. | Owner clarification; reflected in J01 and the walkthrough. |
+| 2026-10-16 | Composio keys are user-supplied per workspace; different workspaces can use different accounts. | Owner direction D12. |
+| 2026-10-16 | Researched the reference capabilities and drafted the shared Local/Server product target and W01 walkthrough. | Documentation research; no competitor parity or implementation certification. |
 
 ## 11. Source register
+
+### Development workflow references
+
+These informed the working agreement; no framework integration is claimed.
+
+- [Superpowers task execution](https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/SKILL.md)
+- [pstack overnight work](https://github.com/cursor/plugins/blob/main/pstack/docs/guide/07-overnight.md)
+- [GSD autonomous workflow](https://github.com/gsd-build/get-shit-done/blob/main/get-shit-done/workflows/autonomous.md)
+- [OpenAI workflow guidance](https://developers.openai.com/cookbook/examples/codex/iterating-development-workflows-with-codex)
 
 All external sources below were reviewed for this research on October 16, 2026. They can change independently of this draft. Product pages/help are primary evidence unless labeled otherwise. Forum answers are dated implementation guidance, not permanent contractual guarantees.
 

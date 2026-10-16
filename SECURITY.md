@@ -2,37 +2,51 @@
 
 ## Reporting a vulnerability
 
-Please **do not open a public issue** for security problems.
+Do not open a public issue for a security problem. If GitHub private vulnerability
+reporting is enabled for this repository, use it:
+<https://github.com/hanifstudio/colonie/security/advisories/new>. Otherwise, use the
+private channel already established with the repository owner.
 
-- **Email** **soni.mil2001@gmail.com** with the details.
-- **Or, if it is enabled on this repository,** use GitHub's private vulnerability reporting:
-  <https://github.com/hanifstudio/colonie/security/advisories/new>. The report stays visible
-  only to you and the maintainers until a fix is published.
+Include the affected boundary, impact, and reproduction using disposable data.
+Never include credentials, tokens, or private conversations in a public report.
 
-You'll get a response as soon as possible, normally within a few days.
+## Scope
 
-## Scope notes for researchers
+The currently supported application is a local **macOS** app. It can read files and run
+tools with the permissions of the user running it; local execution is **not** a security
+sandbox. Review the bind and authentication boundaries and the per-turn tool grants when
+assessing a report.
 
-- The harness server binds **127.0.0.1 only**. Packaged builds allow anonymous loopback reads, but
-  public mutations require either the desktop's private per-launch capability or a paired session;
-  built-in agent integrations use narrower per-turn capabilities. Anything that makes it reachable
-  from off-machine without a paired session, lets one bot reuse another turn's capability, or lets
-  a local *unprivileged other user* drive it is a vulnerability. On a hosted or shared workspace
-  (service loopback trust) a session-less loopback caller — which
-  includes every bot's shell — may use only the routes in `SERVICE_ALLOW`
-  (`server/request-auth.ts`); reaching an admin route or approving a card that way is a
-  vulnerability. Known and documented, not yet closed: that caller keeps the Slack worker's
-  guarded routes, so a bot's shell can post into an existing Full-access thread, or open one while
-  shared Full access is on, and get Full-access work done without a card. A worker-only relay token
-  is the planned fix.
-- API keys live in `~/.colonie/config.json` and are write-only through the API (`configured`
-  booleans out, never values). Any path that echoes a stored secret back — API response, SSE event,
-  log line, argv visible in `ps` — is a vulnerability.
-- Agents run real CLIs (`claude`, `codex`) with the user's own privileges, and the permission broker
-  is the consent layer for risky actions. Bypasses of the broker (approving without a user decision,
-  spoofing the broker socket) are vulnerabilities unless that bot is explicitly set to **Full
-  access**. Full access is a standing user decision to approve provider permission requests; it must
-  never answer questions or silently broaden product-level confirmations such as credentials,
-  routines, skills, or peer communication.
-- Spawning must never route user-influenced strings through a shell. Report any `shell: true` /
-  `cmd.exe` string-building you find.
+Keep two kinds of approval distinct:
+
+- Normal provider permission requests, authorized by the human operator, and
+- Product-level confirmations.
+
+Full access is a standing decision to approve provider permission requests. It must never
+silently broaden unrelated credential, configuration, or approval operations.
+
+This section describes the boundaries we want and the reports we care about. It is not a
+certification that every gate currently passes.
+
+## Protected data
+
+Application data under `~/.colonie` can include credentials, configuration, and history.
+Actual engine stores are owned by the provider and are app-isolated. Never read or publish
+token contents. Logs and receipts must be redacted.
+
+Do not assume that all secrets are held in plaintext or that all secrets are encrypted;
+storage mechanisms differ.
+
+## Research
+
+Use disposable home directories and workspaces with isolated fixtures. Do not test
+mutations against an installed user app. Confirm the real action and result, and follow
+[`docs/verification/README.md`](docs/verification/README.md).
+
+Source presence of gated hosted or team routes does not mean a hosted Colonie service is
+supported today. Future server workspace security is described in
+[`docs/COLONIE-BLUEPRINT.md`](docs/COLONIE-BLUEPRINT.md) and requires its own review. Do
+not present a historical shared-service vulnerability as a deployed fact.
+
+See [`AGENTS.md`](AGENTS.md) and [`docs/HANDOVER.md`](docs/HANDOVER.md) for the actual
+current limitations.

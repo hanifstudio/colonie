@@ -1,84 +1,449 @@
 # Colonie recent progress
 
-This is the short active evidence log. Product direction belongs in the
-[blueprint](COLONIE-BLUEPRINT.md); current implementation and next action belong in
-[HANDOVER](HANDOVER.md). Earlier evidence is preserved in the
-[pre-cleanup history](archive/2026-10-17/docs/PROGRESS.md). Read historical entries
-only for a specific investigation.
+Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
+and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
-## 2026-10-17 — ACP fixture engine restored; per-turn usage crosses the ACP boundary
+## 2026-10-17 — landing M0, E01.2, and the documentation clean slate
 
-The verification fixture still configured its `claude` engine with the retired
-`claudeAgent` driver, so every fixture test died before reaching its subject
-(`unknown driver "claudeAgent"`, inherited from the 2026-10-14 driver
-retirement). The fixture now runs the scripted ACP fake
-(`server/testing/fake-acp-cli.ts`) behind `claude-acp`, and that fake now also
-answers the legacy `modes` block the runtime validates `set_mode` against.
+Main CI `0d5bc3fd` failed in the static job: committed `verification-docs.test.ts`
+read deleted `enterprise/server/workspace-access.ts`; the fix was uncommitted WIP.
+Landed three commits from this work line only: M0 shared extraction, E01.2, and
+documentation (including `CONTRIBUTING.md`/`CODE_OF_CONDUCT.md` removal, which cited
+retired files). Excluded: concurrent approval-mode WIP (`server/acp/*`,
+`shared/approval-mode.ts`, `ApprovalModeSelector`, their tests) and the deletion
+of `LICENSE`/`NOTICE`/`LICENSING.md` (attribution needs an owner decision).
 
-Migrating the ledger test surfaced a real gap: the new ACP runtime never carried
-per-turn token usage, so every ACP turn booked `input: 0, output: 0,
-costUsd: null` — the usage ledger, spend cap and attribution were bookkeeping on
-nothing. The runtime now reads `usage`/`_meta` from the prompt result
-(`inputTokens`, `outputTokens`, `cachedReadTokens`, `totalTokens`, the same wire
-shapes the retired ACP client read) and emits it on `turn.completed`; the
-harness already books that figure.
+Proof on an exported tree of HEAD plus exactly those paths (scratchpad, `node_modules`
+symlinked): static selection/docs tests 79/79, guards 5/5, locale check, `tsc -b` +
+server tsc (24 s), `oxlint --deny-warnings .`, Electron syntax check (108 modules),
+`vite build` (16.7 s), M0 focused tests 88/88. A first run showed 24 false failures
+from an exported `GIT_INDEX_FILE` leaking into `ci-scope` git calls; rerun without it
+passed. The vitest shards and smokes were not run locally.
 
-Commands/results (isolated fixtures only):
+## 2026-10-17 — E01.2 architecture guards in the static CI step
 
-- `pnpm typecheck`, `pnpm lint`: clean.
-- `pnpm exec vitest run server/acp/ server/routes/bot-memory.test.ts server/email-signin.test.ts server/usage-ledger-api.test.ts`: 17 files, 65 passed / 2 failed — both were `server/acp/application.e2e.test.ts` asserting the exact instance list now that the fixture adds its own `claude` instance; narrowed to the registered driver kinds and re-run green (2 passed).
-- `server/usage-ledger-api.test.ts`: green, booking the ACP turn's 10/5 tokens unpriced, because the OSS edition is not entitled to operator prices.
+Claude Code picked up from HANDOVER in a fresh session and inspected the checkout
+(ci.yml/contract test had no WIP; `content-boundaries.test.ts` is untracked M0 work).
+Budget: one job at a time, `--maxWorkers=1`, 120 s per command, two repairs.
 
-Remaining: about 50 test files still declare a retired driver in their own
-fixture config (95 × `claudeAgent`, 43 × `grokAgent`, 19 × `codex`). Owner
-decision: migrate the files whose subject is live behaviour, delete the ones
-whose subject is the retired driver or protocol. Next concrete action: migrate
-the feature e2e files in batches, starting with usage attribution, spend cap,
-tool scope and MCP selection.
+- Baseline: `vitest run scripts/ci-workflow.test.ts scripts/testing/content-boundaries.test.ts scripts/testing/index-route-ratchet.test.ts` — ratchet failed: `path === "/` 143 vs 150, `path.match(` 80 vs 82. HEAD's `server/index.ts` has the same 143/80, so this is inherited from the pairing-removal commit `5eff19bc`, not WIP. Lowered the counts as the ratchet instructs.
+- Change: ci.yml static job adds step "Enforce architecture boundaries" running both guards; `ci-workflow.test.ts` asserts the exact command, no `if`/`continue-on-error`, and that both files exist.
+- After: same three files 24/24 passed. The static step's existing command (`ci-scope`, `ci-workflow`, `verification-docs`) 79/79; the new step's command 5/5. `oxlint --deny-warnings` on the two edited tests and `git diff --check` passed.
+- Disposable proof (scratchpad copy of only the files the checks read, `node_modules` symlinked, deleted afterwards): unchanged copy passed; a shared import in `server/index.ts` passed; a renderer import in `server/index.ts`, a server import in `shared/thread-address.ts`, an added `path === "/api/e01-probe"` guard, the step removed, one guard dropped, and `if: false` on the step each failed the intended test.
+- Remote, read-only: `gh api` on `hanifstudio/colonie` rules/rulesets/branch protection returned HTTP 403 (private repository, plan lacks the feature). No required check exists there. `gh` defaults to `origin` = retired `milind-soni/OpenMausBot`, whose `main-ci-gate` ruleset does not apply to this repository.
 
-Blocker unchanged: the Linode instance `172.104.33.55` still needs deleting in
-the console (no CLI or token here).
+- Owner decision: `gh repo edit hanifstudio/colonie --visibility public` (now `PUBLIC`) after a filename-only history scan found no key or `.env` files (only `.env.example`). Removed remote `origin` (retired `milind-soni/OpenMausBot`) and renamed `colonie` to `origin`; branch tracking followed. `gh api .../rulesets` now returns `[]`; no ruleset created. Owner then approved the push: `git push origin main` fast-forwarded `744da8df..0d5bc3fd` (62 commits; they modify, not delete, NOTICE/LICENSING.md). The included 0.1.101→0.2.0 bump started Release run 38963869064, which failed at "Pin the release commit" with every build/draft job skipped; `gh release list` is empty. CI run on `0d5bc3fd` was in progress at entry time. The E01.2 edits stay uncommitted: the new CI step needs the untracked M0 files (`content-boundaries.test.ts`, `shared/*.ts`) committed with it.
 
-## 2026-10-17 — documentation consolidation
+Limits: local evidence only; GitHub Actions did not run this change. Guards stay
+static-import and spelling based (computed/transitive imports and alternate route
+syntax can evade them). No typecheck/build run: only test files and YAML changed.
 
-Owner requested removing old project context so agents can work from a consistent
-set of instructions. The lead owns the plan and review. Scoped documentation
-implementation was delegated through Herdr/OpenCode; the initial three root
-guides finished on `9router/alitp-intl/deepseek-v4.1-flash` before the owner requested
-the free model. Subsequent worker work uses
-`opencode/deepseek-v4.1-flash-free`. Workers were not assigned product planning.
+## 2026-10-17 — Codex to Claude Code handoff
 
-### Scope
+Owner requested continuation in Claude Code via the herdr skill. Verified the
+Herdr environment and installed CLI; started Claude Code as `colonie-next` in
+pane `w2T:pF`, same checkout and tab, without changing another agent's pane.
+Herdr confirmed interactive readiness. The transfer brief directs Claude to read
+AGENTS/HANDOVER, inspect the current diff, and continue E01.2; preserve concurrent
+room/test recovery and existing CI changes. No new steering file or worktree.
 
-- Preserved pre-cleanup Markdown originals and their hashes in `archive/2026-10-17/`.
-- Shortened AGENTS, HANDOVER, docs index, and this log. SPEC/PLAN are redirects to the single provisional blueprint.
-- Removed old verification/feature recipes from the active reading path. History is opt-in and excluded from default ripgrep discovery.
-- Kept active ACP/memory verification methods and the current memory/connected-tools guides, without declaring runtime success.
-- Updated root development/security/conduct documentation and the PR template to remove unsupported engine/release instructions and automatic full-test requirements.
-- Preserved the owner's single-J01 clarification and other existing blueprint edits.
+Completed work and limits remain in the entries below. E01.1 is source inventory;
+E01.2 guard inclusion/proof and later E02–E06 are unfinished. M0 fresh-session
+pickup/review needs observed evidence from the receiving session, not a pass
+inferred merely from launching another agent. Remote merge protection is unknown.
+This entry records startup/transfer context, not Claude's implementation result.
+
+## 2026-10-17 — every approval level maps to a real adapter mode on ACP
+
+Owner decision: enable "Approve for me" (and the other levels) for the ACP
+fleet. Cause, read from the code: `shared/approval-mode.ts:15` allowed only Ask
+and Full for `claude-acp`/`codex-acp`, so a PATCH asking for `autoApprove: true`
+left the bot on Ask, `autoVerdict` never took its `mode === "auto"` branch, and
+an unattended run whose engine asked waited for a person who was not there.
+
+The implementations are the adapters' own modes, read from the installed
+packages rather than assumed:
+
+- claude-agent-acp `dist/session-mode.js` `buildAvailableModes`: `default`
+  ("Manual — always ask"), `acceptEdits` ("Accept edits"), `plan`, `auto`
+  ("Claude handles permission decisions"), `bypassPermissions`.
+- codex-acp `dist/index.js` `AgentMode`: `read-only`, `workspace-write`
+  ("Workspace access"), `agent` ("Auto review — only ask for actions detected
+  as potentially unsafe"), `agent-full-access` ("Full access").
+
+So `AcpFlavor` gained optional `editsMode`/`autoMode`, `AcpRuntime.modeForApproval`
+resolves a level through them, and Ask/Full keep their exact previous behaviour
+including the 409 for a Full an adapter does not offer. Auto and Accept edits,
+being new for ACP, keep Ask when the adapter does not advertise them — a level
+never falls upward into more access. Custom stays off (an ACP adapter carries
+settings, not a provider config).
+
+Also updated: the approval selector no longer hardcodes ask/full for ACP
+(`src/components/ApprovalModeSelector.tsx`), and it displays the level the
+adapter will actually run, so a saved Custom reads as Ask;
+`hasNativeAutoReview` counts both ACP kinds, because their Auto is a provider
+reviewer and not the Ask fallback the chat-completions family gets.
+
+Evidence: `server/approval-mode.test.ts` 22/22 with a new ACP case;
+`server/acp/` green after the fixture adapter was taught to clamp Auto to Ask by
+the id each flavour uses (Claude `auto`, Codex `agent`) and to advertise
+`acceptEdits`/`workspace-write`; `decision-log-wiring`'s two
+"logged as the provider's own request" cases now reach `native-approval`
+(`FAKE_ACP_ALLOW_ALWAYS=1` supplies the "always allow" the card asserts).
+`pnpm exec tsc --noEmit -p tsconfig.json` exits 0.
+
+`decision-log-wiring` is 6/7. The last case, "a question card carries its
+questions and logs the row without an origin", is the ACP question gap: the ACP
+path emits no `event.questions`, so the card reads as a permission card with a
+tool. The only producer of `questions` was the retired native Claude driver
+(`server/drivers/claude.ts:1819`); ACP's own elicitation request is not handled
+anywhere in `server/acp/`. The test itself records that this "arrives with the
+ACP normalization change, which stacks independently".
+
+## 2026-10-17 — routines and webhooks run again on the ACP fleet
+
+Owner decision: keep routines and webhooks and make them work on ACP (not
+retire them). Cause was measured first, then fixed.
+
+Before: a manual routine run posted into the bot's own thread
+`Routine "Hourly report" failed — This ACP connection supports direct native
+sessions…`, from two guards that refused every automated turn for an ACP driver
+(`server/index.ts`, the dispatch guard and the ACP branch's own check, both
+keyed on `automationSource`/`unattended`).
+
+Change: both guards now refuse only `editedMessageId`, `task.rewound`,
+`compactOnly`, `coordination` and `peerAsk` — the kinds that need a native
+session Colonie can rewind. A scheduled or webhook run is a plain forward turn
+in the bot's own thread, so it takes the same ACP path a typed message takes.
+
+Verified with the real server and the scripted ACP engine
+(`$TMPDIR/opencode/probe-routine.mjs`, disposable home): the same probe that
+printed `failed` before now prints `Routine "Hourly report" completed` followed
+by the engine's reply. Vitest: `server/webhook-ingress.test.ts` 11/11,
+`server/webhook-idempotency.test.ts` 9/9, `server/routine-run-broadcast.e2e.test.ts`
+1/1. `pnpm exec tsc --noEmit -p tsconfig.json` exits 0.
+
+Also fixed while verifying: `server/acp/acp-runtime.ts` announced a permission
+request's tool as the ACP *category* (`execute`), so the decision log, the
+approval card and the always-allow key read `execute` where they expect the tool
+identity. A shell-command ask now folds to `shell` with the command as its
+summary, exactly as the retired native drivers folded it (key `shell:echo hi`);
+otherwise the agent's own programmatic tool name is used. `decision-log-wiring`
+went 2/7 → 4/7 on that change alone.
+
+Still red in that file, with the cause now known:
+`native-approval` vs `no-grant` (the approval-source classification the ACP path
+does not reach) and the structured question payload — the test itself records
+that the ACP question normalization "stacks independently of this one" and has
+not landed. `routine-cron.e2e.test.ts` and the other plan-scripted files rely on
+`FAKE_CLAUDE_ROOM_PLAN`, a retired native fake's scripting hook that the
+launcher still sets (`scripts/control-colonie.ts:480`) and the ACP fixture
+ignores; scripting tool calls through the ACP fixture is not built.
+
+Why `native-approval` cannot be reached, read from the code rather than guessed:
+`shared/approval-mode.ts:15` gives the ACP drivers only Ask and Full access
+(`if (driverKind === "codex-acp" || driverKind === "claude-acp") return mode ===
+"ask" || mode === "full"`), because only those permission mappings exist on the
+adapter. A PATCH asking for `autoApprove: true` therefore leaves an ACP bot on
+Ask, `autoVerdict` never takes its `mode === "auto"` branch, and the card is the
+person's to answer. Consequence beyond the test: an unattended routine or webhook
+run whose engine asks is waiting for a person who is not there.
+
+## 2026-10-17 — what the ACP-only fleet refuses, measured
+
+A disposable probe (`$TMPDIR/opencode/probe-routine.mjs`: real server, temp
+`HOME`, scripted ACP engine) ran a bot's direct message and then a manual routine
+run. The direct turn answered `hello from fake acp`; the routine run posted into
+the bot's own thread:
+
+```
+bot:Routine "Hourly report" failed
+
+This ACP connection supports ...
+```
+
+The service-side refusal is one guard, `server/index.ts:8655`:
+
+```
+if (isColonieAcpDriver(instance.driverKind) && (opts?.editedMessageId ||
+    task.rewound || opts?.compactOnly || opts?.automationSource ||
+    opts?.coordination || opts?.unattended || opts?.peerAsk))
+  throw ... "This ACP connection supports direct native sessions." (409)
+```
+
+A second guard at `server/index.ts:8652` refuses a turn when the thread already
+holds user history on another instance (`nativeHistoryConflict`), and
+`server/index.ts:11152` refuses a room turn ("room orchestration is not
+enabled"). Both guards arrived with the fork commit `fa3306c0`, not with a later
+retirement.
+
+Consequence, stated plainly: on an ACP-only fleet the app runs direct, attended,
+single-engine conversation only. Routines (`automationSource`, `unattended`),
+webhooks (`unattended`), message edits and reruns, bot-to-bot peer asks and
+aside turns, coordinated/Chief turns, and rooms are all refused at dispatch —
+every one user-visible. This is the cause of most remaining red tests:
+`branching` (edit 409), `decision-log-wiring`'s webhook case,
+`card-answerers`' handoff case, `automatic-recovery`'s cross-instance history
+case, `bot-visibility` (room turn), and the `steer-queue` drain cases whose turns
+carry `unattended`.
+
+Separate clean-slate finding: the retired brand token `maus` still runs through
+the routines/webhooks plumbing (~304 occurrences; `RoutineRunOn = "maus" |
+"cloud"`, `runOn` defaults, the `run_on` MCP tool argument, the system prompt,
+and `data-welcome-maus` / `[maus-debug]` in `src/onboarding-preview.tsx`). The
+field is vestigial: `src/components/WebhooksPanel.tsx:73` and
+`src/components/RoutineCalendarPage.tsx:377` record that the "cloud computer
+place" was removed and the UI now hardcodes `"maus"`.
+
+## 2026-10-17 — architecture and consistency delivery plan
+
+Owner requested deliberate architecture, folder/file organization, and code/design
+consistency improvement. Replaced the generic structural sequence in blueprint
+section 6 with E01–E06: enforceable guards, workspace ownership, HTTP/application/ACP
+separation, legacy retirement, renderer state organization, and code/native-UI
+consolidation. Each stage names a first task, dependencies, and structural/behavior
+exit evidence. Section 7 defines responsibilities within current roots and
+consistency acceptance; the speculative monorepo tree was removed. No new steering
+file was introduced. AGENTS links implementation review to those standards.
+
+HANDOVER selects E01.2 next and retains M0's open session-pickup/review checkpoint.
+This owner-driven priority change does not mark M0 complete. Concurrent test/room
+retirement guidance and source WIP were preserved rather than rewritten.
+
+E01.1 inventory is complete as source inspection only. Content and route guards
+are discovered by the general suite, not named in the fast static CI step. Route
+guards are spelling/count-based; content guards cover direct static edges. Contrast
+tooling exists but is not invoked by this workflow. Local hooks are bypassable;
+remote required-check/review/bypass settings remain uninspected. Coverage gaps and
+positive/negative proof recipes are in the blueprint's E01 table.
+
+Verification: `python3 /tmp/colonie-m0-check.py vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` ran `pnpm exec` with a
+60-second process-group limit and owned cleanup: 1 file, 5 tests passed (415 ms;
+wrapper 1.73 seconds, exit 0). Final repeat after concurrent document updates:
+5/5 passed (355 ms; wrapper 1.46 seconds, exit 0). Scoped `git diff --check` passed. All 10 inspected
+source/config hashes matched `/tmp/colonie-engineering-plan-snapshot.json` at the
+recheck (HEAD `0d5bc3fd` plus WIP). These checks establish document consistency,
+not architecture implementation, CI execution, or product workflow correctness.
+This task changed only documentation; no app/provider/build/E2E check, dependency
+installation, or remote-setting mutation was performed.
+
+Next: E01.2's scoped fast-CI inclusion and workflow contract proof, after reconciling
+existing CI/test-recovery edits. E02–E06 and remote enforcement remain unimplemented
+or unverified. Use the existing queue and task-specific reference sections.
+
+## 2026-10-17 — ACP-only test recovery, first batch
+
+Owner-authorized clean slate: no retired native drivers, no old-brand identity,
+and a maintained suite that runs against the live ACP boundary. Commits on
+`main`: `249e9fbb` (dead doc pointers), `a03526f1` (fixture engine), `0d5bc3fd`
+(first e2e batch).
+
+The scripted fixture engine `server/testing/fake-acp-cli.ts` was emitting four
+shapes the ACP SDK rejects, so every one was dropped without a reply and turns
+looked mute rather than broken: an update with no `sessionId`, a chunk whose
+`content` was a bare `{text}` instead of a discriminated ContentBlock, a
+permission request with no `sessionId`, and permission options with no `name`.
+All four are fixed, plus a new `FAKE_ACP_PROMPTS_FILE` that appends one JSON line
+per prompt for tests that must read what the engine was handed.
+
+Verified with Vitest against disposable homes (no live app or installed data):
+`server/acp/` 16 files / 55 tests, `server/usage-ledger-api.test.ts`,
+`server/usage-attribution.e2e.test.ts` (5), `server/bot-wire-privacy.e2e.test.ts`
+(2), `server/notification-wiring.test.ts` (1), `server/respond-replay.e2e.test.ts`
+(1), `server/routine-run-broadcast.e2e.test.ts` (1), `server/steer-queue.test.ts`
+29/33. `pnpm exec tsc --noEmit -p tsconfig.json` exits 0.
+
+Still red, each with a diagnosed cause rather than a fixture that has not been
+tried:
+
+- `server/branching.test.ts` — editing a settled thread answers 409 and version
+  switching is refused for ACP by design (`server/index.ts` active-branch route).
+- `server/decision-log-wiring.test.ts` (2/7) — the permission event carries the
+  ACP tool *kind* (`execute`) where the decision log expects a tool identity
+  (`shell`): `server/acp/acp-runtime.ts` sets `tool: request.toolCall.kind`.
+  Suspected product bug, not verified as one.
+- `server/card-answerers.e2e.test.ts` (6/7) — one cross-thread handoff case.
+- `server/bot-visibility.e2e.test.ts` — its fixture needs a room turn.
+- `server/acp-recovery.e2e.test.ts` and `server/automatic-recovery.e2e.test.ts`
+  are migrated but not yet run to completion.
+
+Two behaviours the app refuses for the ACP-only fleet, so tests for them cannot
+pass and must be deleted or the feature rebuilt: room/group orchestration
+(`server/index.ts` answers a room turn with "The transparent ACP connection
+supports direct conversations; room orchestration is not enabled.") and native
+history/version switching on the active-branch route.
+
+Scale: the earlier inventory of 57 files that *declare* a retired driver
+understates the work. About 50 more test files reach the retired native CLI
+fakes through API overrides without naming a driver (`server/delta-context.e2e.test.ts`
+points the claude-acp instance at `fake-claude-cli.ts`), and many retired modules
+still sit in the tree: `server/drivers/acp/core.ts` (~1400 lines, imported only
+for two version helpers), `server/drivers/claude.ts`, `server/drivers/native.ts`,
+and the `fake-claude-cli.ts` / `fake-codex-app-server.ts` / `fake-pi-cli.ts` /
+`fake-grok-login-cli.ts` fixtures. Removing them is dead-code work separate from
+the test migration and is not done.
+
+## 2026-10-17 — M0.3 shared thread addresses and combined verification
+
+Moved 69 lines of canonical thread URL formatting/parsing, UUID recognition, and
+types/constants into `shared/thread-address.ts`. Renderer exports remain compatible;
+the server imports shared rules directly. All three audited server-to-renderer
+content imports are removed. Existing behavior test files are unchanged.
+
+Checks used `/tmp/colonie-m0-check.py` (60-second process-group budget, one Vitest
+worker, disposable test homes, no app/provider launch):
+
+- `vitest run src/lib/thread-refs.test.ts --maxWorkers=1`: baseline 23/23 passed (402 ms).
+- Thread plus expanded boundary checks: 27/27 passed (1.03 seconds).
+- `tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --skipLibCheck --target ES2023 --lib ES2023 --types node --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions shared/transcript-attachments.ts shared/thread-address.ts`: exit 0 (1.31 seconds).
+- The same focused type check with `--lib ES2023,DOM,DOM.Iterable`, adding both renderer helper files: exit 0 (1.47 seconds).
+- `oxlint --deny-warnings shared/transcript-attachments.ts shared/thread-address.ts src/lib/composer-attachments.ts src/lib/thread-refs.ts scripts/testing/content-boundaries.test.ts`: exit 0 (1.19 seconds).
+- Final `vitest run src/lib/composer-attachments.test.ts server/composer-attachments.test.ts src/lib/thread-refs.test.ts scripts/testing/content-boundaries.test.ts --maxWorkers=1`: four files, 98/98 passed (1.33 seconds; wrapper 2.43 seconds). The four boundary cases cover direct static imports/re-exports; computed/transitive dependencies are not certified by this guard.
+- `vitest run scripts/testing/verification-docs.test.ts --maxWorkers=1`: 5/5 passed (353 ms; wrapper 1.30 seconds). Scoped whitespace checks passed.
+- Both moved blocks match their pre-extraction snapshots byte-for-byte. Checked-source hashes are recorded in `/tmp/colonie-m0-verified-files.json` for HEAD `de7c2bf3` plus scoped WIP; all 10 source/test hashes still matched on recheck. Original behavior tests are unchanged. The final unrelated-WIP check detected a concurrent change to `server/testing/fake-acp-cli.ts`; it was left intact and is outside these pure-helper checks. No claim of a globally unchanged checkout is made.
+
+This is static/unit evidence and self-review, not provider, rendered UI, desktop,
+package, or backup end-to-end proof. M0.2 continued into M0.3 without owner technical
+clarifications. Planned failing boundary assertions became passing after the fix;
+unexpected-failure recovery, independent review, and fresh-session pickup remain
+unproven. M0 stays open, with M0.4 as the next action in HANDOVER.
+
+## 2026-10-17 — M0.2 shared attachment rules
+
+Moved the 264-line pure attachment/transcript block into
+`shared/transcript-attachments.ts`; renderer exports remain compatible and the
+server/backup consumers import shared rules directly. Upload, preview, clipboard,
+message composition, storage, and provider code were not changed.
+
+Commands used `/tmp/colonie-m0-check.py` to run `pnpm exec` with a 60-second
+process-group timeout, owned cleanup, and `--maxWorkers=1` for Vitest:
+
+- `vitest run src/lib/composer-attachments.test.ts server/composer-attachments.test.ts --maxWorkers=1`: baseline 71/71 passed (599 ms).
+- `vitest run scripts/testing/content-boundaries.test.ts --maxWorkers=1`: 2/2 failed as expected before extraction, identifying the renderer imports; no test assertions were weakened.
+- Combined attachment and boundary run: 73/73 passed (1.15 seconds; wrapper 2.27 seconds).
+- `tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --skipLibCheck --target ES2023 --lib ES2023 --types node --module NodeNext --moduleResolution NodeNext --allowImportingTsExtensions shared/transcript-attachments.ts`: exit 0 (wrapper 1.80 seconds).
+- Byte comparison against the pre-extraction block in `/tmp/colonie-m0-attachment-block.txt`: identical. Review was self-review, not independent verification.
+
+Evidence is static/unit with disposable test homes and mocked uploads, not live
+UI, provider, desktop, or backup end-to-end proof. The boundary test demonstrates
+a planned red/green transition, not recovery from an unexpected production bug.
+Next: M0.3 thread-address extraction; continuation needs no new owner decision.
+
+## 2026-10-17 — steering simplification
+
+Owner requested reducing duplicated guidance and routine context load. Consolidated
+the loop into AGENTS, removed the separate development guide, shortened HANDOVER,
+and made blueprint/progress/method reading conditional on the task. Updated links,
+the instruction diagram, and reference attribution. The initial three-document
+reading set was 2,428 whitespace-separated words; AGENTS plus HANDOVER now total
+1,063, a 56% text reduction, not a measured token or performance improvement.
+
+Removed universal two-repair/120-second defaults; each implementation task chooses
+its bounded checks and repair budget before execution. The one-heavy-job rule and
+isolated-verification boundaries remain. Earlier M0.1 limits below are historical.
+
+Checks: `env PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm exec vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` passed one file/five tests
+(347 ms; wrapper 1.63 seconds, exit 0). This documentation job used a 120-second
+subprocess-group timeout with owned cleanup. Scoped `git diff --check` passed;
+a Python assertion confirmed the removed guide and active references are absent.
+Only document consistency was checked; application code/data, dependencies, and
+existing unrelated WIP were untouched. No build, E2E, or provider request ran.
+
+M0 remains unproven. Next is M0.2's attachment scope/baseline inspection in HANDOVER,
+followed by the bounded implementation trial; no additional steering file is needed.
+
+## 2026-10-17 — M0.1 development agreement
+
+The owner agreed to a consistent development loop and asked to start. Added
+`docs/DEVELOPMENT.md` (later consolidated into [AGENTS](../AGENTS.md)), linked it from AGENTS and the docs index, and aligned
+the blueprint's instruction map. HANDOVER now owns one active M0 trial queue
+instead of pointing directly at a refactor without the agreed process.
+
+The agreement defines technical decision authority, explicit priority changes,
+task acceptance, verification/review, bounded repair, continuation, and session
+pickup. Initial trial defaults are one active code task, one heavy local job,
+two repair rounds, and 120 seconds for each focused document/pure-logic check.
+No operating-system CPU/RAM cap or unattended runner was installed.
+
+Verification: `env PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm exec vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` ran under a Python
+subprocess-group wrapper with a 120-second timeout and owned timeout cleanup.
+One file, five tests passed; Vitest reported 558 ms, wrapper elapsed 1.77 seconds,
+exit 0. `git diff --check -- AGENTS.md docs/DEVELOPMENT.md docs/HANDOVER.md
+docs/README.md docs/COLONIE-BLUEPRINT.md docs/PROGRESS.md` passed. A final repeat
+after the queue/status edits also passed all five tests (347 ms; wrapper 2.10
+seconds, exit 0). The new guide also passed an explicit trailing-whitespace check.
+These checks establish document consistency only.
+
+No application code, dependencies, framework installation, Git commits, app data,
+provider requests, build, or runtime/E2E verification changed or ran. Existing
+unrelated source and documentation WIP was preserved. No owner product decision
+or technical clarification was needed during M0.1.
+
+M0 remains open: implementation, task-to-task execution, recovery from a failing
+check, independent review where required, and fresh-session pickup are unproven.
+Next: inspect M0.2's attachment dependency closure and test setup, record the exact
+scope and bounded baseline check in HANDOVER, then perform the scoped extraction.
+
+## 2026-10-17 — read-only architecture audit
+
+Recorded a short owner summary, one target responsibility diagram, dated source
+findings, retain/adapt/remove decisions proposed for review, and a restructuring
+sequence in the blueprint. Current snapshot: HEAD `aa38ecc9` plus existing WIP.
+No application implementation, deletion, deployment, or installed data changed.
+
+Commands/evidence: `/opt/homebrew/opt/node@24/bin/node
+/tmp/colonie-architecture-audit.mjs` parsed 936 non-test first-party source/tooling
+files without importing application modules; its local report is
+`/tmp/colonie-architecture-audit.json`. Relative and `@/` value-import graph plus
+targeted `rg`/`sed` source tracing found the large composition hub, global
+workspace state, three server-to-renderer imports, helper dependencies on retired
+drivers, and two small UI import cycles. Computed imports, callback/runtime
+relationships, generated assets, and subprocess manifests need separate tracing.
+File size/import count alone is not a correctness failure.
+
+Next: the proposed first refactor extracts shared attachment/transcript and
+thread-address rules from renderer utilities, preserving content formats/UI.
+Explicit workspace bootstrap and run-orchestration boundaries follow. The extra
+MCP mount payload question remains unverified and unfixed. No app, provider,
+browser/Electron, E2E, build, or benchmark was run. Unrelated cleanup and the
+usage-ledger test WIP remain.
+
+Document verification:
+
+- `env PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm exec vitest run scripts/testing/verification-docs.test.ts --maxWorkers=1` — 1 file, 5 tests passed, 339 ms; static document references only.
+- `git diff --check -- docs/COLONIE-BLUEPRINT.md docs/HANDOVER.md docs/PROGRESS.md` — passed.
+- A Python SHA-256 comparison of the eight selected source files against the scan report found no changes during inspection. This is snapshot consistency, not workflow evidence.
+
+## 2026-10-17 — clean-slate documentation tree
+
+Owner explicitly requested retaining only needed documentation in the working
+tree. Removed the in-repository archive, duplicate SPEC/PLAN/memory entry points,
+old verification media/evidence, and obsolete ignore rules. Kept nine current
+Markdown documents. The blueprint retains product direction, feature inventory,
+journeys, architecture proposals, and open decisions; obsolete code snapshots and
+process history were removed.
+
+Two media files still used by `scripts/verify-chat-polish.ts` were moved byte-for-byte
+to `scripts/testing/fixtures/chat-polish/`, and its two path references were updated.
+The documentation checker was updated for the current docs instead of reading a
+deleted enterprise file or requiring a historical number of recipes.
 
 ### Verification
 
-Commands/results:
+- `pnpm exec vitest run scripts/testing/verification-docs.test.ts` — 1 file, 5 tests passed; reported duration 326 ms. Checks local links/headings, current source references, package commands, and the verification index without application imports or launches.
+- `git diff --check -- AGENTS.md README.md docs scripts/verify-chat-polish.ts scripts/testing/verification-docs.test.ts` — passed.
+- Filesystem inventory — exactly 9 Markdown files remain under `docs/`, including hidden/ignored paths; no archive or evidence/media directories remain. Removed 250 nonessential files from this tree and moved the 2 required fixture media files out.
+- Both moved media files match their pre-move SHA-256 hashes. Blueprint IDs (18 directions, 35 features, 14 acceptance cases, 11 open questions, 7 behavioral proposals) and the single Local J01 journey are preserved.
 
-- `python3 /tmp/colonie-check-active-docs.py` — passed: 21 documents, 123 relative links, 23 verification source paths, and 96 verbatim snapshot hashes. Blueprint decision/feature IDs and the single-J01 clarification are preserved.
-- The same check confirmed default `rg --files docs` discovery exposes 12 active Markdown files and excludes archive/evidence assets. Include globs can override ignore files; AGENTS names the required explicit exclusions for broad glob searches.
-- `git diff --check -- AGENTS.md README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md .github/pull_request_template.md docs` — passed.
-- Reviewed both workers' diffs and results; corrected README engine/authentication wording, normalized trailing newlines, and removed session-specific check claims from contributor instructions.
-- Active HANDOVER is 71 lines, SPEC/PLAN redirects are 11/10 lines, and the active verification policy is 72 lines. The old multi-thousand-line progress record is a hash-checked historical snapshot.
-
-No build, Electron/browser, E2E, deployment, real-provider request, external message,
-or live data mutation was run by this cleanup. No credential contents were inspected.
-Licensing content remains unchanged. Concurrent source/test changes, including
-`scripts/control-colonie.ts`, `server/testing/fake-acp-cli.ts`, and the existing
-usage-ledger test work, are outside this documentation change and were preserved.
-
-The legacy verification-docs test reads a deleted enterprise source and is not a
-valid current check. Its code was not changed or executed. The documentation-only
-checks do not replace runtime evidence for later implementation work.
+No app, browser, Electron, E2E suite, provider request, build, deployment, credential
+inspection, or installed-data mutation was performed. This task changed only
+documentation, the static documentation checker, and fixture-media paths. Other
+concurrent root/source edits were not made or reverted by this task.
 
 ### Next
 
-Documentation cleanup and static review are complete. Perform the agreed read-only architecture audit.
-Bring a compact responsibility diagram, retain/adapt/remove map, and one bounded
-first implementation proposal. Do not restore retired infrastructure from history.
+Perform the read-only architecture audit: one responsibility diagram, a current-code
+retain/adapt/remove map, and one bounded first-change proposal. Preserve the native UI.

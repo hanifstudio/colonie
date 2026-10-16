@@ -1,18 +1,36 @@
-# Colonie docs
+# Colonie documentation
 
-This fork keeps only its own documents under `docs/`.
+For project continuation, use AGENTS and HANDOVER. Everything else is a reference
+for a specific question; do not load this entire directory.
 
-- [`COLONIE-BLUEPRINT.md`](COLONIE-BLUEPRINT.md) — the owner's destination document: product, research, architecture, and delivery plan.
-- [`HANDOVER.md`](HANDOVER.md) — current state of the work, what is verified, and what is next. Read it first.
-- [`SPEC.md`](SPEC.md) — product name and scope.
-- [`PLAN.md`](PLAN.md) — milestones.
-- [`PROGRESS.md`](PROGRESS.md) — verification and progress log.
-- [`verification/`](verification/README.md) — how to verify changes against an isolated fake-engine instance.
+| Question | Active document |
+|---|---|
+| What is implemented now, and what is next? | [HANDOVER](HANDOVER.md) |
+| What product are we aiming for? | [Colonie blueprint](COLONIE-BLUEPRINT.md), a provisional target |
+| How will architecture, organization, and consistency improve? | [Engineering roadmap](COLONIE-BLUEPRINT.md#engineering-roadmap-architecture-and-consistency) and [acceptance standards](COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance), read for relevant implementation work |
+| What working rules and development loop apply? | [AGENTS.md](../AGENTS.md) |
+| How do I run development builds? | [Repository README](../README.md) |
+| How do I verify a change safely? | [Verification policy](verification/README.md) |
+| Which ACP checks are relevant? | [ACP verification](verification/colonie-acp.md) |
+| How does current bot memory work? | [Memory guide](COLONIE-MEMORY.md) and [memory verification](verification/colonie-memory.md) |
+| How are connected tools selected? | [Connected tools](tool-selection.md) |
+| What was actually checked recently? | [Recent progress](PROGRESS.md) |
+| How should routes be structured? | [Route module guide](../server/routes/README.md) |
 
-Product guides that the verification recipes link to:
+## Document authority
 
-- [`memory.md`](memory.md) and [`COLONIE-MEMORY.md`](COLONIE-MEMORY.md) — bot memory.
-- [`presets.md`](presets.md) — preset bots.
-- [`routine-schedules.md`](routine-schedules.md) — routine scheduling.
-- [`team-sharing.md`](team-sharing.md) — sharing a team.
-- [`tool-selection.md`](tool-selection.md) — per-bot tool selection.
+The owner's latest instruction governs the task. AGENTS describes working rules;
+HANDOVER describes the current implementation; the blueprint describes the target.
+Progress records evidence rather than setting product scope. A historical success
+or a recipe's existence is not a current verification result.
+
+HANDOVER owns one active milestone and its task queue; product rollout plans
+remain in the blueprint. Written rules are not proof of autonomous execution.
+
+Keep product decisions, architecture proposals, and rollout plans in the blueprint
+instead of maintaining competing specifications. This directory contains only
+current guidance. Superseded plans, redirect-only pages, old evidence dumps, and
+archive trees have been removed.
+
+Legal and third-party notices remain in their own files. Required test media lives
+with test fixtures, rather than inside this documentation directory.

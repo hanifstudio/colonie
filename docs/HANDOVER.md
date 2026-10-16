@@ -1,378 +1,200 @@
-# Handover — Colonie
+# Colonie handover
 
-## Current state — 2026-10-17: local-only, one brand, no phone
+Updated: October 17, 2026. Current state and active work only.
+Working rules live in [AGENTS](../AGENTS.md); product plans live in the
+[blueprint](COLONIE-BLUEPRINT.md), read only when relevant.
 
-The fork is a local macOS app with one product identity. There is no hosted
-Colonie, no account service, no second brand and no phone companion:
-`git grep -inE "openmausbot|openmaus|mausbot|opengrokbot|devone|\bOMB\b|OMB_|__omb|__OMB|\bogb\b|OGB_"`
-returns 28 lines in 7 files — `LEGACY_DATA_DIR` (`.openmausbot`, renamed to
-`~/.colonie` on first boot), the macOS App Support candidates in
-`server/local-computer.ts`, the two tests that pin them, `PROGRESS.md`,
-`HANDOVER.md` and the vocabulary guard that keeps the old name as a *forbidden*
-pattern for new copy. `git ls-files` has no old-brand
-path, and no tracked file carries an old-brand name. The renderer bridge global
-is `window.colonie`, and the identity (icons, `package.json`, CI targets) comes
-from Colonie's own artwork (`scripts/colonie/icons.ts` → `build/colonie.icns`,
-`public/colonie.svg`).
+## Current state
 
-Work that landed: `a9d0d13e`, `8e1e3d11`, `e316a68f` (identifier, path and env
-rename; upstream docs corpus and scratch trees deleted), `1c53d484` (hosted
-branches, `window.ogb`, upstream identity), `6342e948` (the test fixtures and
-vocabulary guard the rename broke, catalogs refreshed), `fb8bedbc` (Colonie
-artwork in the app, About box and packaging; `maus.ps1` and `.dockerignore`
-deleted), `fb1f0e86` (the over-reaching restore pass, recorded in
-`COLONIE-BLUEPRINT.md`), `5eff19bc` (the phone companion app, phone pairing and
-every phone UI surface removed — the commit message lists exactly what went).
+Colonie is a local macOS Electron/React app with HTTP/SSE and maintained ACP
+Claude/Codex adapters. Server workspaces, invitations, and companion access are
+future targets; retired hosted/VPS/pairing implementations are not supported.
 
-Still open, largest first:
+Data normally lives outside the repository under `~/.colonie`. Engine configuration
+is app-isolated; global CLI login does not establish the app's login.
 
-- The flat-black placeholder icon the owner asked for is not started; the app
-  still ships the Colonie artwork from `fb8bedbc`.
-- `src/**` still reads `window.colonie?.remoteClient?.active` in 11 files. The
-  preload bridge is gone, so every read is falsy and the app behaves as one
-  local workspace, but the branches should be deleted.
-- `server/sessions.ts` keeps a pairing API with no production caller; only the
-  auth tests use it, to mint a scoped session.
-- The hosted/team surfaces (people, the Settings sign-in card, custom domain,
-  enterprise) stay gated behind `COLONIE_ADMIN_*` or an operator-set
-  `COLONIE_CONTROL_PLANE_URL`, and this fork sets no default. Removing them is
-  an owner call, not a correctness fix.
-- The Linode instance behind `ssh colonie-vps` (root@172.104.33.55) is emptied —
-  `/opt/colonie` and all three units are gone — but the instance itself still
-  needs deleting in the Linode console: no `linode-cli` and no API token on this
-  machine.
-- Windows and Linux packaging paths were not built here, so their icon paths are
-  unverified.
-
-See `PROGRESS.md` (newest entry first) for the exact commands and results of the
-phone/companion removal, and for what was deliberately not verified.
-
-The sections below are the historical cloud-era record. The Cloud, VPS and
-multi-workspace direction in them no longer applies.
-
-**Owner reaffirmed complete fidelity (October 15):** Restoring only fragments
-is insufficient. The target is the complete pre-change Colonie UI, including
-layout, navigation and interactions, with workspace/account additions using
-that original foundation. The recovery contract and reviewed milestone
-status are below. Full recovery is **not complete**.
-DeepSeek is now auditing and implementing scoped work through OpenCode; the
-lead retains integration, evidence and publication responsibility. Settings,
-shared-shell and search work is currently uncommitted/WIP; the deployed
-profile slice below is still the latest publication.
-
-**Incremental restoration, first slice published (October 15):** The owner said to restore
-the remaining original UI one part at a time. The first slice is the existing
-BotSettingsDialog / SimpleBotPanel, Identity and Soul editors, with actual
-workspace-scoped profile and avatar persistence. Isolated PostgreSQL, SDK,
-Chromium and packaged Mac checks passed; see PROGRESS.md for commands and
-explicit limits. The profile slice from `892c508d` is now deployed, with public
-HTML and PlatformApp module hashes matching the tested artifacts. Reload Cloud
-to receive it. This is not complete UI recovery. The real Claude authentication
-blocker below is unchanged. The owner's subsequent "continue" authorizes the
-next incremental slice: the original application settings, starting with Appearance.
-
-**Owner correction after the partial recovery (October 15):** The owner rejects
-the claim that restoring Sidebar/ChatView restored the original product UI.
-Full UI restoration is **not complete**. Cloud still enters PlatformApp and
-WorkspaceShell rather than the original App.tsx. Original application/bot
-settings, conversation controls and other existing surfaces are not wired to
-the Cloud account model. The latest recovery below reused only part of the UI.
-Do not repeat it as a full restoration or treat Claude reconnection as the
-resolution of this product regression. The owner wants the complete pre-change
-Colonie application as the base, with workspace/account additions integrated
-into it. The owner subsequently authorized the incremental work above. That
-authorization does not make the earlier partial recovery a complete restoration.
-
-**Latest correction (October 15):** The owner rejected the redesigned 0.2.0
-Cloud shell. Cloud now uses the existing Colonie Sidebar and ChatView, with
-account/workspace controls added there. It is deployed; the existing Mac
-installer loads this UI on reload, so no new DMG is needed for Cloud. Source
-branch: `colonie/restore-existing-ui`. Accounts and stored conversations were
-not rolled back or migrated. Invited members can select all workspace bots and
-teammates, including before a DM exists. A fast-response conversation-open race
-was also fixed. Isolated Chromium invitation/bot-chat/human-DM/error journeys
-and the unchanged packaged Mac's Cloud/Local switching passed with deterministic
-providers. Detailed commands and deployed artifact hashes are in PROGRESS.md.
-
-**Current real AI is blocked, not proven working:** Two fresh disposable Neon
-checks proved invited-member human DMs but failed at the native Claude prompt
-with an authentication failure, using each existing server auth location
-read-only. The earlier real Claude success below is historical. No engine was
-signed in by the agent. The owner must reconnect the platform's Claude account;
-the owner-only command is in PROGRESS.md. Then run exactly one disposable
-`verify-cloud-chat.mjs --real` check before claiming AI replies are restored.
-No mutation test was run against a production account or conversation.
-
-**Current release state (October 15):** Colonie 0.2.0 beta is deployed at
-`https://172.104.33.55` with ordinary account signup/sign-in. The new
-`colonie-platform` service uses a dedicated Neon schema and loopback port 19091;
-the old service/data are retained on 18891. The HTTPS gateway now serves the
-new platform and the Mac download. The Apple silicon installer is available at
-`/downloads/Colonie-0.2.0-arm64.dmg`; its complete HTTPS download matches the
-local SHA-256. The packaged app passed isolated Cloud and Local signup/onboarding,
-chat and switching with deterministic providers. Actual Linux Cloud Claude
-text turns passed separately in disposable Neon schemas, using inherited
-native auth read-only. The public signup page was rendered read-only; no agent
-created a production account or tested a mutation against live data.
-
-See `docs/PROGRESS.md` for exact commands/results; the historical pairing
-steps below are superseded. Final source refinements
-for long history and view concurrency passed; the release suite is 255 tests
-plus 61 native checks. Source branch: `colonie/multi-workspace-beta`.
-Real Composio provisioning/OAuth/tool use, a recipient's real
-Local engine login/turn, physical-phone use and quarantined/notarized Mac
-installation remain unverified. The deployment has no Composio org key.
-R2 is optional and unused because no endpoint/account ID was supplied.
-
-**Current direction supersedes the historical next steps below:** The owner
-approved a Slack-like multi-workspace product: humans and bots are members,
-Groups and private human/bot DMs, global signup/sign-in without mandatory email
-confirmation, and Local/Cloud selected separately for each new workspace.
-Cloud invitations enter the intended workspace without engine setup. Ordinary
-people use account sign-in, not pairing codes. The owner explicitly authorized
-implementation and deployment and supplied Neon/R2 infrastructure credentials.
-Secrets are held outside the repo and are never included in docs or
-delegated prompts. Isolated tests still precede deployment; do not test writes
-against the owner's existing conversations or credential files. The earlier
-pairing deployment is historical infrastructure evidence, not the target UX.
-
-**Latest phone-access update (2026-10-14):** The owner requested phone access
-using the VPS IP, with no domain. `https://172.104.33.55` is now publicly served
-with a valid Let's Encrypt IP certificate by a dedicated Caddy gateway. The
-app remains loopback-only and now runs under `COLONIE_LOOPBACK_TRUST=service`;
-the earlier single-owner override was removed. The app unit now launches via
-the maintained headless CLI, which can generate its initial pairing invitation
-under service trust. Isolated TLS/proxy checks proved pairing, Secure/HttpOnly
-cookies, authorized access, rejection of unpaired and cross-origin requests,
-and session persistence. Production public checks were read-only. Phone
-pairing and a phone conversation remain for the owner to confirm; no renderer
-QA was possible because no browser surface was available. Full evidence is
-appended to PROGRESS and `.colonie-dev/evidence/public-ip-pairing-2026-10-14.json`.
-The initial owner invite is single-use and expires five minutes after app
-startup; its value is not stored in docs. Next: owner pairs the phone, then
-continues local/cloud desktop onboarding. Claude remains quota-blocked until
-its reported 05:10 WIB reset. Earlier owner-trust notes below are historical.
-
-**Latest provider update (2026-10-14, 03:47 WIB):** The owner completed both
-engine sign-ins personally. An isolated Linux HTTP -> ACP -> real Codex turn
-passed: exact `COLONIE_CODEX_LINUX_OK` reply, persisted history, completed input
-receipt, 4.6 seconds. Claude authenticated but rejected its one test request
-because its session quota was exhausted; it reported reset at 05:10 WIB.
-Do not report Claude conversation success. The owner's data was mounted
-read-only during the real-provider checks; all conversation/workspace state
-was disposable. Evidence is appended to `docs/PROGRESS.md` and retained in
-`.colonie-dev/evidence/vps-real-turn-2026-10-14.json`. A temporary owner-only SSH
-tunnel currently exposes the VPS at `http://127.0.0.1:18991` on the Mac (exec
-session 11990). Next: owner browser interaction, retry Claude after quota reset,
-then step 4. Renderer/desktop cloud mode and teammate access remain unverified;
-the single-owner trust override still must be removed before sharing access.
-The commissioning update below describes the earlier state before sign-in.
-
-**Codex commissioning update (2026-10-14):** Step 1 is complete for single-owner
-access. The VPS service is enabled, running, and survived an explicit service
-restart; both ports remain loopback-only. The installed unit has a deliberate
-single-owner `COLONIE_LOOPBACK_TRUST=owner` drop-in. Isolated Linux checks proved
-headless HTTP pairing, paired-session persistence after switching to `service`,
-and CLI `serve` bootstrap under `service`; the raw-index unit cannot create its
-first pairing code in `service`. Prepare an admin session and remove the owner
-override before anyone else gets access. No engine sign-in or real turn was
-performed. Actual commands/results and the staged-binary owner login commands
-are appended to `docs/PROGRESS.md`. **Next action is step 2, performed by the
-owner.** The original build-in-flight and step 1 text below is historical.
-
-Written for the next agent (Codex) taking over from the Claude session that did
-the work below. Read this file and `docs/SPEC.md`'s *Product direction change*
-section. You do not need to read the rest of `docs/`: it now holds only fork
-documents, and the pages that described the upstream project's product have
-been removed. That is a real hazard in this repo, not a style preference.
-
-## The goal, in the owner's words
-
-Colonie is a shared workspace where a team works with AI agents. At onboarding
-the person chooses one of two modes:
-
-- **Local** — Colonie runs on their machine, they sign their own engines in,
-  nothing is shared. This is exactly how Colonie behaves today.
-- **Cloud** — Colonie points at the team's server. They sign in to nothing and
-  need no AI subscription of their own. Bots, conversations and memory are the
-  workspace's and are shared.
-
-The owner's near-term test of success: **a teammate downloads Colonie and can
-talk to a bot.** Cloud mode is what makes that possible for a non-technical
-teammate, because it removes both barriers — a per-person subscription, and a
-terminal command to sign an engine in.
-
-The owner is not a programmer. Explain in plain terms, never report a step as
-done without evidence, and do not hand them a decision they have already made.
-
-## Access
-
-| | |
+| Area | Entry points |
 |---|---|
-| Repo | `https://github.com/hanifstudio/colonie` (private, remote `colonie`) |
-| `origin` | still upstream `hanifstudio/colonie` — leave it alone |
-| VPS | `ssh colonie-vps` (root@172.104.33.55, key `~/.ssh/id_ed25519_akamai`) |
-| Host | Ubuntu 24.04.4, x86_64, 8 GB, 4 vCPU, 146 GB free |
-| On the VPS | app at `/opt/colonie/app`, data at `/opt/colonie/data`, user `colonie` |
-| Server→GitHub | read-only deploy key, already working |
+| Native app | `electron/colonie.mjs`, `src/App.tsx` |
+| ACP and app-authored context | `server/acp/` |
+| Connections, memory, skills, scoped delegation | `server/colonie/` |
+| HTTP composition and routes | `server/index.ts`, `server/routes/` |
+| Isolated check tooling | `scripts/colonie/`, `scripts/control-colonie.ts` |
 
-Node 24 is **not** the default locally. Prefix local commands with
-`export PATH=/opt/homebrew/opt/node@24/bin:$PATH`.
+The architecture audit is in blueprint section 6. The shared-rule extraction now
+has focused static/unit evidence; provider/browser/desktop/package behavior was not
+requalified. Exact commands and limits are in [PROGRESS](PROGRESS.md).
 
-## State right now
+## Active engineering stage: E01 — enforceable architecture checks
 
-**Done and verified** (evidence in `docs/PROGRESS.md`, newest entry first):
+Owner priority is deliberate improvement of architecture, folder/file organization,
+and code/design consistency. The [engineering roadmap E01–E06](COLONIE-BLUEPRINT.md#engineering-roadmap-architecture-and-consistency)
+and [acceptance standards](COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance)
+are the single plan; later stages are not implemented by this documentation.
 
-- `enterprise/` retired. It was source-available, not Apache 2.0, and forbade
-  hosting for third parties. ~2k lines.
-- All non-ACP engine drivers retired. ~42k lines, 93 files. Colonie admits
-  exactly `codex-acp` and `claude-acp`; `server/acp/profile.ts` enforces it.
-- Two stale onboarding tests fixed. The ACP suite is green: 333 passed.
-- Headless operation proven locally: the server boots with no Electron, serves
-  the renderer itself from `COLONIE_STATIC_DIR`, lists both engines as available,
-  and binds `127.0.0.1` only.
-- `COLONIE_LOOPBACK_TRUST=service` proven to refuse session-less loopback on
-  `/api/config`, `/api/instances`, `/api/sessions`, `/api/usage` (403) while
-  `/api/health` still answers. Default `owner` trust returns 200 on all of them.
-- Installable macOS build: `Colonie-0.1.101-arm64.dmg` (345 MB) and `.zip`.
-  Ad-hoc signed, `codesign --verify --deep --strict` passes, and a copy carrying
-  Safari's quarantine attribute launches.
+E01.2 is done locally: the static CI job's "Enforce architecture boundaries" step
+runs `scripts/testing/content-boundaries.test.ts` and
+`scripts/testing/index-route-ratchet.test.ts` on every change, and
+`scripts/ci-workflow.test.ts` fails if the step disappears, loses a guard, or
+becomes skippable. The ratchet's inherited stale counts were lowered to 143/80.
+Accept/reject proof ran in disposable copies (PROGRESS, "E01.2").
 
-**In flight on the VPS** — the last thing the Claude session was doing:
+Ratchet note for concurrent room retirement: removing routes from
+`server/index.ts` now fails the ratchet until its counts are lowered to the new
+numbers in the same change. That is intended; never raise them.
 
-`pnpm colonie:build:server` was running under user `colonie`, and had already
-staged both ACP adapters for `linux/x64` (`codex-acp 2.1.1` with `codex 0.159.3`,
-`claude-acp 0.88.0` with `sdk 0.3.293`). Check with:
+E01 stays open on remote enforcement. On October 17 the owner made
+`hanifstudio/colonie` public and retired the old remote: `origin` now points to
+`hanifstudio/colonie` (the retired `milind-soni/OpenMausBot` remote was removed),
+and `gh` resolves to it. Rulesets are now available but none exist, so CI is still
+advisory. Main's last CI run (October 13) failed and local `main` is 62 commits
+ahead of `origin/main`, so requiring `CI` now would block pushes to `main` until the
+suite is green. Creating the ruleset waits for an explicit owner go-ahead.
 
-```bash
-ssh colonie-vps 'pgrep -f colonie:build:server >/dev/null && echo building || tail -5 /opt/colonie/build.log'
-ssh colonie-vps 'du -sh /opt/colonie/app/dist /opt/colonie/app/dist-server'
-```
+M0, E01.2, and the documentation clean slate are committed; see PROGRESS
+"landing". Still uncommitted on purpose: the concurrent approval-mode work and the
+deletion of `LICENSE`, `NOTICE`, and `LICENSING.md` (needs an owner decision now
+that the repository is public).
 
-## Next steps, in order
+Next action: E02 first slice — inspect `server/config.ts` and
+`server/message-db.ts`, pick one store/connection boundary that reads global
+config, and record its outcome, scope, acceptance, and bounded checks here before
+editing. Remote enforcement remains unverified until the owner decides.
 
-### 1. Finish the server install (you can do this)
+## M0 trial checkpoint — still open
 
-```bash
-ssh colonie-vps 'install -m 644 /opt/colonie/app/scripts/colonie/colonie.service /etc/systemd/system/colonie.service'
-ssh colonie-vps 'systemctl daemon-reload && systemctl enable --now colonie && sleep 10 && systemctl status colonie --no-pager | head -12'
-ssh colonie-vps 'curl -sf http://127.0.0.1:18891/api/health'
-```
+M0.1's agreement is consolidated in AGENTS. M0.2/M0.3 extracted shared attachment
+and thread-address rules: 98 focused tests, type/lint checks, and 5 document checks
+passed in the recorded checkout (see PROGRESS). Task-to-task continuation and a
+planned red/green boundary check were observed. Do not repeat those extractions.
 
-**Decide the trust mode deliberately.** The unit ships
-`COLONIE_LOOPBACK_TRUST=service`. While the owner is the only person reaching the
-server, upstream's own documentation says `owner` trust is correct — *"on a
-server one person uses that is fine: the bots are theirs"*. Under `service`
-trust a client needs a paired session, and **nobody has verified that pairing
-can be bootstrapped on a headless server**. Test it before assuming either way.
-It must be `service` before a second person has access, because every bot's
-shell is a loopback caller and could otherwise rewrite settings and keys.
+M0.4 still needs fresh-session pickup/review evidence. Review so far is self-review;
+unexpected-failure recovery and unattended execution remain unproven. Preserve
+these limits while scoped foundation work proceeds; do not claim M0 complete.
 
-Then verify a restart survives, and record the output in `PROGRESS.md`:
+## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 
-```bash
-ssh colonie-vps 'systemctl restart colonie' && sleep 10 && ssh colonie-vps 'curl -sf http://127.0.0.1:18891/api/health'
-```
+The owner chose to delete the rooms/groups feature instead of rebuilding its
+orchestration for ACP. Rooms are visible in the product but no engine turn can
+run in one: `server/index.ts` answers a room dispatch with "The transparent ACP
+connection supports direct conversations; room orchestration is not enabled."
+About 30 test files cover rooms/groups and cannot pass.
 
-### 2. Owner signs the engines in (the owner does this, not you)
+Staged removal. Each stage leaves `pnpm exec tsc --noEmit -p tsconfig.json`
+green, leaves every deleted path with no remaining importer (`grep -rn`), and
+runs a targeted `pnpm exec vitest run` over the files it touches.
 
-Give them the commands; do not ask for or handle credentials.
+1. Room-only test files (their subject cannot pass by construction).
+2. Room modules and the room/group routes, store tables and orchestration in
+   `server/index.ts`, in one stage: a survey found every room module
+   (`room-cwd.ts`, `room-turn-end.ts`, `room-turn-timeout.ts`,
+   `room-post-budget.ts`, `room-handoffs.ts`, `group-goal-run.ts`,
+   `group-thread-usage.ts`, `server/decider/`, `shared/group-goal-run.ts`)
+   imported from `server/index.ts` alone, so the modules cannot go first.
+3. Renderer: `GroupView`, `GroupCallView`, `GroupUsageChip`,
+   `RoomTurnTimeoutSettings`, `GroupSettingsModal.groups`, `EngineGroupLabel`,
+   nav entries and group strings.
+4. Mixed tests that mention groups while covering live behaviour
+   (`bot-visibility`, `spend-cap-api`, `tool-scope`, `thread-capacity-api`,
+   `index.test.ts`, `mcp-server.test.ts`, `recent-work`, `team-share`,
+   `routines`): trim the room cases, keep the rest.
 
-```bash
-ssh colonie-vps
-sudo -iu colonie
-export COLONIE_DATA_DIR=/opt/colonie/data
-CODEX_HOME="$COLONIE_DATA_DIR/native/codex" npx @openai/codex login
-CLAUDE_CONFIG_DIR="$COLONIE_DATA_DIR/native/claude" npx @anthropic-ai/claude-code /login
-```
+Kept: bot visibility and audiences, Chief delegation, and the steered 1:1 queue
+(rooms only supplied its group-turn bound). Stages 3-5 are sized from a
+path/name survey, not from reading every call site; expect the estimate to move.
 
-Each prints a URL for them to open in their own browser. Colonie derives the
-exact command from the live environment and shows it in the app; if the app and
-this page disagree, trust the app.
+## Test-suite recovery (owner-authorized, in progress)
 
-### 3. First real turn on Linux — this is the real-provider check
+The owner directed a total clean slate and a green maintained suite: no
+`openmausbot`/`omb`/`devone` identity, no retired native drivers, no
+pairing/companion code. Test files whose subject was a retired driver or
+provider are deleted; files whose subject is live Colonie behaviour are
+migrated onto the fixtures the maintained suite already uses — the scripted ACP
+engine `server/testing/fake-acp-cli.ts` spawned through the `claude-acp`
+adapter, or the `colonie` fixture in `scripts/control-colonie.ts`.
 
-Nothing has yet proven an agent turn completes on Linux. After sign-in, from the
-owner's laptop:
+Acceptance: every migrated file passes when run; `pnpm exec tsc --noEmit` stays
+green; each deleted file carries a recorded reason.
 
-```bash
-ssh -N -L 18891:127.0.0.1:18891 colonie-vps   # leave running
-# then open http://127.0.0.1:18891 in a browser
-```
+Commands, per-file results, diagnosed failures, and the scale correction are in
+[PROGRESS](PROGRESS.md) under 2026-10-17. In short: the fixture engine had four
+ACP shapes the SDK refuses (all fixed), 24 files are verified green, and the
+remaining work is per-file. `server/comms.test.ts` stays excluded (it hangs).
 
-Send one bounded message to a disposable working folder. Record it in
-`PROGRESS.md` as the real-provider check, separately from the HTTP checks.
-Compilation and `/api/health` prove nothing about this.
+## Milestone: ACP automation (owner decision, 2026-10-17)
 
-### 4. Two modes in the welcome flow
+The owner chose to keep routines and webhooks and make them work on the ACP
+fleet, rather than retire them. Measured cause, before the change: a manual
+routine run posted "Routine ... failed — This ACP connection supports direct
+native sessions" into the bot's own thread, because two guards refused every
+automated turn for an ACP driver (`server/index.ts`, `automationSource`,
+`unattended`). Edits, reruns, coordinated turns and peer asks share those
+guards and stay refused: an ACP session belongs to the adapter and cannot be
+rewound or handed another bot's history.
 
-The remaining product work, and the thing that reaches the owner's goal. Detail
-is in `SPEC.md` under *Two modes, chosen at onboarding*. In short:
+Change: the two guards now refuse only `editedMessageId`, `task.rewound`,
+`compactOnly`, `coordination` and `peerAsk`. A scheduled or webhook run is a
+plain forward turn in the bot's own thread and is allowed.
 
-- `src/components/onboarding/WelcomeFlow.tsx` has steps `hello`, `engines`,
-  `permissions`, `bot`. Add a mode choice **before** `engines`, because cloud
-  mode skips engine sign-in entirely.
-- **Cloud mode through a browser already works** and needs no code: the renderer
-  fetches `/api/...` relatively and the server serves the renderer. This is how
-  Windows teammates are served — there is no Windows build and none is needed.
-- **Cloud mode in the desktop app** needs one change: `electron/main.mjs:346`
-  loads `http://127.0.0.1:${SERVER_PORT}` unconditionally. It must load the
-  configured workspace address when the person chose cloud, plus client pairing
-  so the session is authorised.
-- Local mode is today's behaviour. It needs only to be offered as a choice.
+Acceptance: a manual routine run completes against the scripted ACP engine
+(measured: `Routine "Hourly report" completed`), the routine/webhook e2e files
+pass, and `pnpm exec tsc --noEmit` stays green. Verification results are in
+PROGRESS.
 
-### 5. Ship the download
+Approval levels on ACP (owner decision, 2026-10-17): before this, the ACP fleet
+offered only Ask and Full access — `shared/approval-mode.ts:15` returned
+`mode === "ask" || mode === "full"` for both adapters — so "Approve for me" was
+unavailable and an unattended run whose engine asked waited for a person who was
+not there. The owner chose to enable it. Both adapters carry a provider mode for
+every level, so the app passes them through instead of inventing a policy: Ask
+(Claude `default`, Codex `read-only`), Accept edits (`acceptEdits`,
+`workspace-write`), Auto — the adapter's own reviewer (`auto` "Claude handles
+permission decisions", `agent` "Auto review — only ask for actions detected as
+potentially unsafe") — and Full (`bypassPermissions`, `agent-full-access`).
+`AcpRuntime.modeForApproval` keeps Ask when an adapter does not advertise a
+level, so a level never falls upward into more access; Custom stays unsupported
+(an ACP adapter carries settings, not a provider config).
 
-`Colonie-0.1.101-arm64.dmg` exists in `release/colonie/`. Upload it to the
-owner's Cloudflare R2 (credentials not yet shared) and point the download page
-at the real URL. The page is a private Claude Artifact at
-`https://claude.ai/artifact/W4rTLBrhKbPZ2NZj2cTdgF`; its button is a placeholder
-and the owner must Share the page before teammates can open it.
+Verification: `server/approval-mode.test.ts` 22/22 (new case: all four levels
+offered on both ACP kinds, Custom refused, Auto counted as a native reviewer),
+`server/acp/native-settings.test.ts` (the fixture adapter clamps Auto to Ask by
+the id the flavour uses, and the runtime records what the agent kept), and
+`decision-log-wiring`'s two "logged as the provider's own request" cases now
+reach `native-approval`. Commands and results in PROGRESS.
 
-Install steps on that page are correct for macOS 15+: System Settings →
-Privacy & Security → **Open Anyway**. Control-click → Open no longer bypasses
-Gatekeeper on this macOS and must not be suggested.
+Known gap, same area, not started: an ACP engine cannot reach the person as a
+*question*. `decision-log-wiring`'s "a question card carries its questions and
+logs the row without an origin" is the only red left in that file (6/7), because
+the ACP path never emits `event.questions` — the only producer was the retired
+native Claude driver (`server/drivers/claude.ts:1819`, Claude's AskUserQuestion),
+and ACP's own elicitation request is not handled at all in `server/acp/`. So a
+question-shaped ask arrives as an approval card with Allow/Deny instead of the
+model's own options. Options: handle ACP elicitation (or the adapter's question
+extension) and emit `questions`, or accept approval cards on ACP.
 
-### Deferred by explicit owner decision — do not start these
+## Clean-slate item: the `maus` token (queued)
 
-Multiple workspaces; per-person identity and permissions; per-person memory
-(the owner wants memory shared so the team's way of working stays uniform); the
-workspace spend cap; Chief archive-instead-of-delete; group chat; replacing a
-team chat tool. Also rejected: Pi Durable, and any broad rewrite of inherited
-infrastructure.
+The retired brand token `maus` still runs through the routines/webhooks
+plumbing: ~304 occurrences, `RoutineRunOn = "maus" | "cloud"`, `runOn` defaults
+on routines, webhook triggers, routine requests, package export/import and team
+backup, the model-visible `run_on` argument
+(`server/drivers/agents-call.ts`, `agents-catalog.ts`), the system prompt, and
+`data-welcome-maus` / `[maus-debug]` in `src/onboarding-preview.tsx`.
 
-Leftover cosmetic references to retired engines remain in `server/config.ts`
-(~60 sites) and under `src/`/`shared/` (~35 files). They reach persisted
-settings, so they need their own slice with data-compatibility rules. Not urgent.
+The field is vestigial: `src/components/WebhooksPanel.tsx:73` and
+`src/components/RoutineCalendarPage.tsx:377` record that the "cloud computer
+place" was removed and the UI now hardcodes `"maus"`. Plan: delete the `runOn`
+field and the `run_on` argument rather than rename the token, since nothing
+chooses between the two places any more. Not started.
 
-## Traps this session actually hit — do not rediscover these
+## Deferred items
 
-1. **Typecheck green does not mean the build works.** Three deleted proxies were
-   referenced by **path string**, not by import, so `pnpm typecheck` passed while
-   `pnpm build:server` failed. Before deleting any server file, check
-   `SPAWNED_PROXIES` in `server/proxy-paths.ts` and the entry-point list in
-   `scripts/bundle-server.mjs`, and run `pnpm build:server`.
-2. **`pnpm colonie:build` cannot run on a server.** It regenerates the app icon
-   through headless Chromium and fails with `browserType.launch: Executable
-   doesn't exist`. Use `pnpm colonie:build:server`.
-3. **Ad-hoc signing plus hardened runtime kills the app silently** — no output,
-   no crash report. `identity: null` is worse still: it skips signing entirely
-   and the app reads as *"damaged"*. Current config is `identity: "-"` with
-   `hardenedRuntime: false`; turn hardened runtime back on only together with a
-   real Developer ID and notarization.
-4. **A delegated worker in this repo inherits `AGENTS.md`**, which tells every
-   agent to read `SPEC.md`, `PLAN.md` and `PROGRESS.md` first. One worker spent
-   its entire run doing that and reported nothing. State in the brief that the
-   lead has already done the reading.
-5. **Do not give a worker bare engine names to grep.** `droid` matches 443 lines
-   because of "Android"; `grok` matches 75; `cursor` matches the mouse cursor.
-   Use precise patterns like `driver: "grokAgent"`.
-6. **The pre-push hook runs lint and the locale check.** It will reject a push
-   over an unused import. Run `pnpm exec oxlint --deny-warnings .` first.
+The flat-black placeholder icon is in place (`electron/resources/colonie-icon.png`,
+`build/colonie.icns`). Gated account/team/enterprise UI needs scoped cleanup
+decisions.
+Windows/Linux packaging and browser/computer/routine/group/delegation workflows
+still need current evidence. The old VPS instance's billing removal is an owner
+console follow-up; do not reconnect or redeploy it. Preserve unrelated WIP.
 
-## Verification rules that apply to every change
-
-From `AGENTS.md`, and they were earned here: never claim a workflow passed on
-compilation alone; use isolated fixtures and disposable data directories, never
-the owner's live install; and separate simulated, real-provider, renderer and
-desktop evidence in `PROGRESS.md`. State what you did **not** verify, every time.
+Later foundation proposals are workspace bootstrap ownership and run orchestration,
+after this trial; see blueprint section 6.

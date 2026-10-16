@@ -17,12 +17,12 @@ try {
   const workspace = join(fixture.info.dataDir, "workspaces", bot.id);
   mkdirSync(workspace, { recursive: true });
   const video = join(workspace, "demo.mp4");
-  copyFileSync(join(root, "docs/screenshots/composer-dock-after.mp4"), video);
+  copyFileSync(join(root, "scripts/testing/fixtures/chat-polish/demo.mp4"), video);
   const files = ["brief.md", "metrics.csv", "notes.txt", "next-steps.md"];
   for (const name of files) writeFileSync(join(workspace, name), `Synthetic UI fixture: ${name}\n`, "utf8");
   const image = await fetch(`${fixture.info.url}/api/attachments`, {
     method: "POST", headers: { "content-type": "image/png" },
-    body: readFileSync(join(root, "docs/verification/evidence/chat-ui/chat-ui.png")),
+    body: readFileSync(join(root, "scripts/testing/fixtures/chat-polish/attachment.png")),
   }).then(async (response) => { if (!response.ok) throw new Error("fixture image upload failed"); return response.json(); });
   const reply = [
     "Here are the demo recording and files for review. These are isolated test artifacts.",
