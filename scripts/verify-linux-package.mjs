@@ -76,7 +76,7 @@ function requireUpdaterTarget(resources, label) {
   requireFile(updateFile);
   const update = readFileSync(updateFile, "utf8");
   if (!/^owner: hanifstudio$/m.test(update) || !/^repo: colonie$/m.test(update)) {
-    fail(`${label} app-update.yml does not point at hanifstudio/Colonie`);
+    fail(`${label} app-update.yml does not point at hanifstudio/colonie`);
   }
 }
 

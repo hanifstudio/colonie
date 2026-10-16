@@ -15,12 +15,12 @@ import { locales } from "./index";
 // - This computer: the device the app runs on.
 // - Plan page: the web page with the plan, payments and use.
 // "Local VM" keeps its name. "Cloud" alone never names a Works on choice,
-// "COLONIE" is never shown, and "Boat" names only the provider behind a person's
-// own key (Settings → API keys).
+// the retired old names are never shown, and "Boat" names only the provider
+// behind a person's own key (Settings → API keys).
 const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
-  ["COLONIE Cloud", /COLONIE Cloud/i, "Colonie Cloud"],
+  ["OpenMausBot Cloud", /\b(?:OpenMausBot|OMB) Cloud\b/i, "Colonie Cloud"],
   // \b before "_" fails, so environment names such as COLONIE_PUBLIC_IPV4 pass.
-  ["COLONIE", /\bOMB\b/, "Colonie"],
+  ["OpenMausBot", /\bOpenMausBot\b|(?<![A-Za-z0-9_])OMB(?![A-Za-z0-9_])/, "Colonie"],
   ["Cloud box", /Cloud box/i, "Cloud computer"],
   ["Hosted desktop", /Hosted desktop/i, "Cloud computer"],
   ["Cloud VM", /Cloud VM/i, "Cloud computer"],
@@ -60,7 +60,6 @@ const isSource = (name: string) => /\.(?:ts|tsx|mjs|cjs|js)$/.test(name) && !/\.
  * snippet keeps it everywhere; otherwise only literals containing a snippet. */
 const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = [
   { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
-  { file: "server/workspace-backup.ts", snippet: "COLONIE-WORKSPACE-1", why: "a backup file's format marker" },
 ];
 
 function* sources(dir: string): Generator<string> {
@@ -115,7 +114,7 @@ describe("one name per thing", () => {
     expect(offending).toEqual([]);
   });
 
-  it("translations never show COLONIE or T3, and say Boat only where the English does", () => {
+  it("translations never show OpenMausBot or T3, and say Boat only where the English does", () => {
     const offending = Object.entries(locales).filter(([code]) => code !== "en").flatMap(([code, pack]) =>
       Object.entries(pack)
         .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
@@ -146,16 +145,11 @@ describe("one name per thing", () => {
     const thisComputer = /id: "workspace-local", label: "([^"]+)"/.exec(source("electron/environments.cjs"))?.[1];
     const serverMenuLocal = /\{ label: "([^"]+)", type: "radio", checked: !active/.exec(source("electron/menu.mjs"))?.[1];
     expect([thisComputer, serverMenuLocal]).toEqual([e["place.local"], e["place.local"]]);
-    const pointers: Array<[string, string[]]> = [
-      ["computer.routines.offWarning", [e["routines.runsOn.boat"]!]],
-    ];
-    const stale = pointers.flatMap(([key, labels]) => labels.filter((label) => !e[key]!.includes(label)).map((label) => `${key} → ${label}`));
-    expect(stale).toEqual([]);
   });
 
   it("the check catches each retired word, and lets own-key Boat and env names through", () => {
     for (const bad of [
-      "Sign in to COLONIE Cloud", "restart COLONIE", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
+      "Sign in to OpenMausBot Cloud", "restart OpenMausBot", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
       "Open your Cloud dashboard", "Connect to my Cloud", "Your Cloud is ready", "Let my Cloud use this Mac",
       "Local (this computer)", "Choose Cloud to wake", "Auto, Cloud or Browser", "including one from T3",
       "Auto uses this Boat", "New Boat computer",

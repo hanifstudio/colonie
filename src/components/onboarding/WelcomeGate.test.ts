@@ -165,11 +165,11 @@ describe("who gets the welcome flow", () => {
 
   it("steps aside for the desktop connection Settings, and only those", () => {
     vi.stubGlobal("window", LOCAL_PAGE);
-    store.state = { ...store.state, appSettingsOpen: true, appSettingsSection: "organization" };
+    store.state = { ...store.state, appSettingsOpen: true, appSettingsSection: "companion" };
     expect(gate(LOCAL_VIEWER).tree).toBeNull();
     store.state = { ...store.state, appSettingsSection: "general" };
     expect(gate(LOCAL_VIEWER).tree).not.toBeNull();
-    store.state = { ...store.state, appSettingsOpen: false, appSettingsSection: "organization" };
+    store.state = { ...store.state, appSettingsOpen: false, appSettingsSection: "companion" };
     expect(gate(LOCAL_VIEWER).tree).not.toBeNull();
   });
 });

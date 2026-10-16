@@ -75,7 +75,7 @@ try {
     await api("PATCH", `/api/bots/${bot.id}`, { computer: "browser", browser: true });
     const prompts = [
       "Open Google Calendar in your own browser.",
-      "Open the GitHub page for hanifstudio/Colonie in your browser and tell me how the project is described there.",
+      "Open the GitHub page for hanifstudio/colonie in your browser and tell me how the project is described there.",
     ];
     for (const [index, prompt] of prompts.entries()) {
       const entry: any = { model, botId: bot.id, prompt };

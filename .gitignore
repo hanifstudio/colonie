@@ -17,15 +17,6 @@ electron/resources/Colonie Speech.app
 electron/resources/Colonie Recorder.app
 release
 .colonie-scratch
-.wrangler/
-.dev.vars
-.dev.vars.*
-!cloudflare/control-plane/.dev.vars.example
-cloudflare/composio-broker/worker-configuration.d.ts
-cloudflare/control-plane/worker-configuration.d.ts
-.claude/worktrees/
-.vercel/
-.pi/
 
 # Release signing material. The signing keys for the mobile stores belong to the
 # maintainer and never enter this repository; these patterns are the second line
@@ -35,11 +26,6 @@ cloudflare/control-plane/worker-configuration.d.ts
 *.keystore
 *.p12
 
-# per-tenant deploy settings (see deploy/.env.example)
-deploy/.env
-deploy/podman/.env
-deploy/podman/.env.*
-!deploy/podman/.env.example
 /.env
 .colonie-dev/
 dist-colonie/

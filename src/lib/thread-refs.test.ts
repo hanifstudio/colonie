@@ -132,7 +132,7 @@ describe("canonical thread links", () => {
       `colonie://thread/${uuid}/extra?bot=scout`,
       `colonie://thread/${uuid}?bot=scout&x=1`,
       `colonie://thread/${uuid}?bot=`,
-      `colonie://thread/${uuid}?bot=scout`,
+      `thread://thread/${uuid}?bot=scout`,
       "https://thread/" + uuid,
     ]) {
       expect(parseThreadRefUrl(miss)).toBeNull();

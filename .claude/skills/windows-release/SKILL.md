@@ -6,7 +6,7 @@ description: Build and verify the Windows desktop build (NSIS installer + latest
 # Windows release
 
 Ships `Colonie-<version>-setup.exe` and its update feed to
-[hanifstudio/Colonie](https://github.com/hanifstudio/colonie/releases).
+[hanifstudio/colonie](https://github.com/hanifstudio/colonie/releases).
 The unified release workflow mirrors the same bytes to the legacy releases
 repository for apps installed before the updater migration.
 
@@ -61,7 +61,7 @@ Get-Content release\win-unpacked\resources\app-update.yml  # feed config
 - Missing `server/index.js` → `utilityProcess.fork` fails → the 🐭 "Couldn't start
   the bot server" page.
 - Missing `ui/index.html` → server has nothing to serve → black window.
-- `app-update.yml` must point at `hanifstudio/Colonie` and, while the
+- `app-update.yml` must point at `hanifstudio/colonie` and, while the
   build is unsigned, **must not contain `publisherName`** — electron-updater would
   reject every update as untrusted.
 
@@ -82,7 +82,7 @@ carries both platforms.
 
 ```powershell
 Copy-Item release/Colonie-<version>-setup.exe release/Colonie-setup.exe
-gh release upload v<version> --repo hanifstudio/Colonie `
+gh release upload v<version> --repo hanifstudio/colonie `
   release/Colonie-<version>-setup.exe `
   release/Colonie-setup.exe `
   release/Colonie-<version>-setup.exe.blockmap `

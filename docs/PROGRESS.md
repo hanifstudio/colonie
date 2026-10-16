@@ -662,7 +662,7 @@ setting is baked into the systemd unit with that reason written beside it.
 
 ### Blocker — the fork has no remote of its own
 
-`git remote -v` shows only upstream `hanifstudio/Colonie`. Every commit in
+`git remote -v` shows only upstream `hanifstudio/colonie`. Every commit in
 this session, including the ~45k-line retirement, exists **only on the
 development laptop**. That is both a single point of failure and the reason the
 deployment has no clean way to move the code. The runbook's first step is
