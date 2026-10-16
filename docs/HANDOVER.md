@@ -103,6 +103,53 @@ Kept: bot visibility and audiences, Chief delegation, and the steered 1:1 queue
 (rooms only supplied its group-turn bound). Stages 3-5 are sized from a
 path/name survey, not from reading every call site; expect the estimate to move.
 
+## Owner decision (2026-10-17): rebuild, do not retire, the remaining ACP gaps
+
+Asked what to do with the three things that have no ACP counterpart today, the
+owner chose to rebuild all of them, test tooling included. That fixes the queue,
+in this order:
+
+1. **Retired native drivers and their tests.** `server/drivers/claude.ts`,
+   `server/drivers/native.ts` and `server/drivers/acp/core.ts` are not a clean
+   delete: live code still imports them — `server/plan-usage.ts`,
+   `server/claude-accounts.ts`, `server/proxy-paths.ts`, `server/thread-events.ts`,
+   `server/thread-log-rotation.ts`, `server/index.ts`, `src/lib/card-answer.ts`,
+   `src/components/InspectorPanel.tsx`, `src/components/ApprovalCard.tsx`,
+   `shared/inspector.ts`, `shared/tool-name.ts`, `server/tts/speech-text.ts`.
+   Extract the helpers that are still live (version parsing, compact window,
+   Claude config-dir resolution, account env keys, tool vocabulary) into the
+   module that should own them, then delete the driver and everything only it
+   used. Migrate or delete its tests in the same commit.
+2. **Rooms and groups** — the staged plan in the milestone above.
+3. **The `maus` token** — the two slices recorded in the clean-slate item above.
+4. **ACP branching** (`branching.test.ts` 3 failing): an edit cannot rewind an
+   adapter's session, so implement it the way this app already replays a model
+   switch — open a fresh ACP session for the branch and hand it the branch's
+   context (`composeContext`/`contextPin` and the `native-history` rules are the
+   pieces), then keep the existing refusal only for a live turn.
+5. **ACP structured questions** (`decision-log-wiring` 1 failing): handle the
+   protocol's own `elicitation/create` (the SDK type exists,
+   `CreateElicitationRequest`), advertise the capability at initialize, emit
+   `request.opened` with `questions` and no tool, and answer with
+   `ElicitationAcceptAction`. ACP's elicitation is the only thing that has ever
+   produced `questions` besides the retired native Claude driver.
+6. **Scripted tool calls in the ACP fixture**, so the ~44 test files that drive
+   the retired fake's plan runner can run again. The plan format and the runner
+   already exist (`server/testing/room-handoff-agent.ts`, 140 lines, reads
+   `{[botId]: …}` plus an evidence JSONL and calls the mounted MCP tools);
+   `FAKE_CLAUDE_ROOM_PLAN` reaches the child from the launcher
+   (`scripts/control-colonie.ts:480`) and is ignored by the ACP fixture today.
+   The ACP fixture receives its MCP mounts in `session/new` instead of a
+   `--mcp-config` flag, so the work is the adapter: same plan, same evidence
+   file, ACP's mount list as the client.
+7. Remaining live-subject migrations, including `steer-queue`'s four
+   dispatch-receipt cases: that prelude gates the resolution of
+   `adapter.sendTurn`, which for the retired drivers meant the dispatch
+   acknowledgment while the turn ran on. The ACP runtime acknowledges earlier —
+   it writes the `dispatching` input receipt and emits `turn.started` before
+   `session/prompt` (`server/acp/acp-runtime.ts:612-620`) — so the prelude should
+   gate that signal instead of the whole-turn promise.
+
 ## Test-suite recovery (owner-authorized, in progress)
 
 The owner directed a total clean slate and a green maintained suite: no
@@ -128,18 +175,21 @@ fleet, rather than retire them. Measured cause, before the change: a manual
 routine run posted "Routine ... failed — This ACP connection supports direct
 native sessions" into the bot's own thread, because two guards refused every
 automated turn for an ACP driver (`server/index.ts`, `automationSource`,
-`unattended`). Edits, reruns, coordinated turns and peer asks share those
-guards and stay refused: an ACP session belongs to the adapter and cannot be
-rewound or handed another bot's history.
+`unattended`, `peerAsk`). Edits and reruns share those guards and stay refused:
+an ACP session belongs to the adapter and cannot be rewound, replayed or handed
+another bot's history.
 
 Change: the two guards now refuse only `editedMessageId`, `task.rewound`,
-`compactOnly`, `coordination` and `peerAsk`. A scheduled or webhook run is a
-plain forward turn in the bot's own thread and is allowed.
+`compactOnly` and `coordination`. A scheduled run, a webhook and a teammate's
+handoff (`peerAsk`) are forward turns in the bot's own thread on the bot's own
+engine, so each takes the same ACP path a typed message takes; only a room's
+coordinated turn has no ACP equivalent.
 
 Acceptance: a manual routine run completes against the scripted ACP engine
 (measured: `Routine "Hourly report" completed`), the routine/webhook e2e files
-pass, and `pnpm exec tsc --noEmit` stays green. Verification results are in
-PROGRESS.
+pass, a cross-bot handoff asks its card in the new thread
+(`card-answerers.e2e.test.ts` 7/7), and `pnpm exec tsc --noEmit` stays green.
+Verification results are in PROGRESS.
 
 Approval levels on ACP (owner decision, 2026-10-17): before this, the ACP fleet
 offered only Ask and Full access — `shared/approval-mode.ts:15` returned
@@ -185,7 +235,31 @@ The field is vestigial: `src/components/WebhooksPanel.tsx:73` and
 `src/components/RoutineCalendarPage.tsx:377` record that the "cloud computer
 place" was removed and the UI now hardcodes `"maus"`. Plan: delete the `runOn`
 field and the `run_on` argument rather than rename the token, since nothing
-chooses between the two places any more. Not started.
+chooses between the two places any more.
+
+The same brand runs through the *visual* vocabulary, which is a separate and
+larger slice. A measured inventory (tracked source only; `.colonie-dev/` is
+untracked local evidence and does not count):
+
+- `MausAvatar` — 65 references.
+- `src/styles.css` — 163 lines holding the character's design tokens and
+  classes: `--color-maus-line`, `--maus-eye-x/y`, `--maus-burst-x/y`,
+  `maus-character`, `maus-face`, `maus-eyes`, `maus-orbit`, `maus-orbit-dot`,
+  `maus-specular`, `maus-ellipsis-dot`, `maus-speed-line`,
+  `maus-motion--arrive/celebrate/switch/customize/thinking`, `welcome-maus`.
+- `src/onboarding-preview.tsx` (`.welcome-maus`, `[maus-debug]` logs) and
+  `src/mascot-preview.tsx` (`${state} maus` labels), reached from the two
+  standalone preview entries `onboarding-preview.html` and `mascot-preview.html`.
+
+Staged, each stage compiles and keeps one vocabulary consistent across the pair
+of files that share it: (1) the CSS variables and classes together with every
+`.tsx` that names them; (2) `MausAvatar` and its importers; (3) the `runOn`
+field and the `run_on` argument, with routines/webhooks/requests, store, wire,
+package export/import, team backup, the system prompt and their tests; (4) the
+two preview entries. Do not rename half of a pair (a CSS class and its `.tsx`
+user, or an exported component and its importers) in one commit.
+
+Neither the field removal nor the visual rename is started.
 
 ## Deferred items
 

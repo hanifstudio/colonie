@@ -112,16 +112,23 @@ sessions…`, from two guards that refused every automated turn for an ACP drive
 keyed on `automationSource`/`unattended`).
 
 Change: both guards now refuse only `editedMessageId`, `task.rewound`,
-`compactOnly`, `coordination` and `peerAsk` — the kinds that need a native
-session Colonie can rewind. A scheduled or webhook run is a plain forward turn
-in the bot's own thread, so it takes the same ACP path a typed message takes.
+`compactOnly` and `coordination` — the kinds that need a native session Colonie
+can rewind. A scheduled run, a webhook and a teammate's handoff are forward turns
+in the bot's own thread, so each takes the same ACP path a typed message takes.
+`peerAsk` was the third of those kinds: a delegated turn reaches
+`startTurn(toBotId, text, { …, peerAsk })` from `runDelegatedTurn`, and the guard
+turned it into a chip in the opener's thread instead of a turn. Allowing it made
+`server/card-answerers.e2e.test.ts` 7/7 — including "follows a thread a bot
+opened for a member back to that member", which failed with "the handoff never
+asked" before.
 
 Verified with the real server and the scripted ACP engine
 (`$TMPDIR/opencode/probe-routine.mjs`, disposable home): the same probe that
 printed `failed` before now prints `Routine "Hourly report" completed` followed
 by the engine's reply. Vitest: `server/webhook-ingress.test.ts` 11/11,
 `server/webhook-idempotency.test.ts` 9/9, `server/routine-run-broadcast.e2e.test.ts`
-1/1. `pnpm exec tsc --noEmit -p tsconfig.json` exits 0.
+1/1, `server/card-answerers.e2e.test.ts` 7/7. `pnpm exec tsc --noEmit -p
+tsconfig.json` exits 0.
 
 Also fixed while verifying: `server/acp/acp-runtime.ts` announced a permission
 request's tool as the ACP *category* (`execute`), so the decision log, the
@@ -188,12 +195,21 @@ case, `bot-visibility` (room turn), and the `steer-queue` drain cases whose turn
 carry `unattended`.
 
 Separate clean-slate finding: the retired brand token `maus` still runs through
-the routines/webhooks plumbing (~304 occurrences; `RoutineRunOn = "maus" |
-"cloud"`, `runOn` defaults, the `run_on` MCP tool argument, the system prompt,
-and `data-welcome-maus` / `[maus-debug]` in `src/onboarding-preview.tsx`). The
+the routines/webhooks plumbing (`RoutineRunOn = "maus" | "cloud"`, `runOn`
+defaults, the `run_on` MCP tool argument, the system prompt, and
+`data-welcome-maus` / `[maus-debug]` in `src/onboarding-preview.tsx`). The
 field is vestigial: `src/components/WebhooksPanel.tsx:73` and
 `src/components/RoutineCalendarPage.tsx:377` record that the "cloud computer
 place" was removed and the UI now hardcodes `"maus"`.
+
+Measured, tracked source only (empty `git ls-files .colonie-dev` — those are
+untracked local evidence files): 551 lines mention `maus` outside `docs/`.
+The largest parts are the character's own vocabulary — `src/styles.css` holds
+163 of them (`--color-maus-line`, `--maus-eye-x/y`, `maus-character`,
+`maus-motion--*`, `welcome-maus`, …) and `MausAvatar` has 65 references — and
+`server/routines.test.ts` holds 112, mostly `runOn: "maus"` in fixtures. So this
+is two separable slices, a field removal and a visual rename; both are recorded
+in HANDOVER and neither is started.
 
 ## 2026-10-17 — architecture and consistency delivery plan
 
