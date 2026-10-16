@@ -93,12 +93,6 @@ const __APP_VERSION__: string;
   interface Window {
     ogb?: {
       platform: NodeJS.Platform;
-      cloudAccount?: import("../../electron/cloud-account.mjs").CloudAccountBridge;
-      /** Copy this computer here: this computer's page names a saved server (or
-       * "cloud"); a server's own page is answered about itself only, and its
-       * Copy opens this computer's Settings on that copy (the verified Cloud's starts it). */
-      /** Settings on the person's own Cloud: the plan, read only. */
-      cloudPlan?: import("../../electron/cloud-account.mjs").CloudPlanBridge;
       workspaces?: {
         state: () => Promise<{ local: boolean; name: string; origin?: string }>;
         menu: () => Promise<void>;
@@ -218,7 +212,7 @@ const __APP_VERSION__: string;
        * app Settings. Local-shell only: remote server pages never receive
        * the channel, and the bridge is absent in the browser. "cloud" is the
        * openmausbot://cloud link (Settings → OMB Cloud, opened by the link). */
-      onOpenAppSettings?(cb: (section?: "cloud" | "cloud-settings") => void): () => void;
+      onOpenAppSettings?(cb: () => void): () => void;
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;
       /** Opens a live desktop as a sandboxed window owned by OpenMausBot. */

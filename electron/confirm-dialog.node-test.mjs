@@ -24,7 +24,7 @@ function fixture(response = 0) {
     mainWindow, rendererOrigin: () => ORIGIN, environmentsState: { activeId: "local", environments: [] },
     dialog: { showMessageBox: async (...args) => { calls.push(args); return { response }; } },
   });
-  vm.runInContext(section("const workspaceOnly =", "// ── The Cloud page's own channels")
+  vm.runInContext(section("const workspaceOnly =", "// ── this app's own page: the updater, and nothing a server's page gets ──")
     + section('ipcMain.handle("dialog:confirm"', 'ipcMain.handle("environments:state"'), context);
   return { confirm: handlers.get("dialog:confirm"), calls, mainWindow, context, event: { sender: contents, senderFrame: frame } };
 }

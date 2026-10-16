@@ -63,7 +63,6 @@ const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = 
   { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
   { file: "server/boat-create-idempotency.ts", snippet: "unnamed Boat", why: "own-key repair: boat.dev's own name for a machine" },
   { file: "server/request-auth.ts", snippet: "OMB Cloud home", why: "a request-trust reason and log warning, never shown in the app" },
-  { file: "electron/cloud-account.mjs", snippet: "[cloud] OMB Cloud sent plan", why: "a log line" },
   { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
 ];
 
@@ -151,7 +150,6 @@ describe("one name per thing", () => {
     const serverMenuLocal = /\{ label: "([^"]+)", type: "radio", checked: !active/.exec(source("electron/menu.mjs"))?.[1];
     expect([thisComputer, serverMenuLocal]).toEqual([e["place.local"], e["place.local"]]);
     const pointers: Array<[string, string[]]> = [
-      ["cloudHome.connectHelp", [e["place.local"]!]],
       ["computer.routines.offWarning", [e["routines.runsOn.boat"]!]],
     ];
     const stale = pointers.flatMap(([key, labels]) => labels.filter((label) => !e[key]!.includes(label)).map((label) => `${key} → ${label}`));

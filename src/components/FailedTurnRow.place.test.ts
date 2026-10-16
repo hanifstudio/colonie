@@ -34,7 +34,6 @@ vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => fixture.owne
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 
 const { FailedTurnRow } = await import("./ChatView");
-const { placeRowViewFor } = await import("@/lib/place-view");
 
 
 /** The row exactly as the server stores it. */
@@ -86,17 +85,6 @@ describe("J11: a failed place's row", () => {
     const { html, buttons } = show(stored(hours), vi.fn());
     expect(html).toContain("They come back on 1 November. Ask an Admin to change it.");
     expect(buttons).toHaveLength(0);
-  });
-
-  it("reads Needs a Boat key as My Cloud's on a desktop with a paid plan", () => {
-    const needsKey: PlaceRow = { state: "cc-needs-key", params: { bot: "Scout" }, source: "works-on" };
-    expect(show(stored(needsKey)).html).toContain("A cloud computer here needs your own Boat key, a paid service.");
-    const seat = { server: "mac", plan: true, role: "admin", mode: "simple" } as const;
-    expect(placeRowViewFor(needsKey, seat)).toMatchObject({
-      state: "cc-on-my-cloud", line: "Cloud computers from your plan work for bots on My Cloud for now.", action: { id: "open-my-cloud" },
-    });
-    // My Cloud itself never reads it that way.
-    expect(placeRowViewFor(needsKey, { ...seat, server: "my-cloud" }).state).toBe("cc-needs-key");
   });
 });
 

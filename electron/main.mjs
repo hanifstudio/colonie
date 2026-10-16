@@ -10,7 +10,7 @@ import { createAndroidDeviceController } from "./android-device.mjs";
 import { finishSpeech, startSpeech, stopSpeech } from "./speech.mjs";
 import { openBlankTerminal, openTerminalWithCommand } from "./terminal-launch.mjs";
 import { pasteMenuItem } from "./paste-menu-item.mjs";
-import { attachUpdaterWindow, startUpdater, registerUpdaterIpc, sendUpdaterState } from "./updater.mjs";
+import { attachUpdaterWindow, startUpdater, registerUpdaterIpc } from "./updater.mjs";
 import {
   buildDiagnosticsReport,
   diagnosticsFileName,
@@ -74,9 +74,6 @@ import environmentsModule from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { acquireDataDirLease } from "./data-dir-lease.mjs";
-import { cloudPlanSnapshot, createCloudAccountClient, createCloudAccountStore } from "./cloud-account.mjs";
-import { cloudHomeConnectUrl, cloudPageSenderAllowed, isCloudHomeEntry, myCloudOrigin, rememberedCloudHome, savedCloudHomeOrigin, withCloudHome } from "./cloud-home.mjs";
-import { createCloudEntry } from "./cloud-entry.mjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
 const nativeActions = nativeDesktopActions(process.platform);
@@ -102,16 +99,6 @@ let desktopViewerOwner = null;
 let desktopViewerContextId = null;
 let desktopWorkspaceManager = null;
 let desktopWorkspaceOwner = null;
-// openmausbot://cloud, delivered as soon as main can navigate.
-const cloudEntry = createCloudEntry({
-  reveal: () => { if (!desktopTray?.show()) activateExistingWindow(BrowserWindow.getAllWindows()); },
-  open: async () => {
-    let delivered = false;
-    await workspaceMenuAction(async () => { delivered = await openCloudEntry(); });
-    return delivered;
-  },
-});
-cloudEntry.fromLaunch(process.argv);
 let pendingPackageInstallUrl = packageUrlFromCommandLine(process.argv);
 let mainWindow = null;
 const serverUnavailableWindows = new WeakSet();
@@ -250,12 +237,11 @@ function queuePackageInstall(rawLink) {
 }
 
 app.on("open-url", (event, url) => {
-  if (!cloudEntry.fromUrl(url) && !queuePackageInstall(url)) return;
+  if (!queuePackageInstall(url)) return;
   event.preventDefault();
 });
 
 app.on("second-instance", (_event, commandLine) => {
-  if (cloudEntry.fromArgs(commandLine)) return;
   const packageUrl = packageUrlFromCommandLine(commandLine);
   if (packageUrl) pendingPackageInstallUrl = packageUrl;
   if (!desktopTray?.show()) activateExistingWindow(BrowserWindow.getAllWindows());
@@ -274,19 +260,6 @@ let serverReady = !app.isPackaged;
 let secureCredentials = {};
 let secureCredentialState = null;
 let desktopDataDirLease = null;
-let cloudAccount = null;
-// Settles once a saved Cloud sign-in is restored and checked (or there is none).
-let cloudAccountStarted = Promise.resolve();
-// True while that restore is under way: a Cloud page asking for the microphone waits for it.
-let cloudAccountRestoring = false;
-// Until it has finished, which Cloud is the person's is only a hint (updaterPageOffered).
-let cloudSignInRestored = false;
-/** Wait for a saved Cloud sign-in to finish restoring (a local read and one
- * check with OpenMausBot Cloud), at most 5 s: Settings → OpenMausBot Cloud must not take it
- * for signed out, nor the microphone refuse My Cloud for asking early. */
-function cloudAccountRestored() {
-  return Promise.race([cloudAccountStarted, new Promise(resolve => setTimeout(resolve, 5_000).unref?.())]);
-}
 const utilityServerExits = new WeakMap();
 const UTILITY_SERVER_STOP_TIMEOUT_MS = 6_500;
 const trustedApprovalMode = createTrustedApprovalModeCoordinator({ randomId: randomUUID });
@@ -956,30 +929,6 @@ function syncPhoneSecretKey(proc) {
   }
 }
 
-function ensureCloudAccount() {
-  if (cloudAccount) return cloudAccount;
-  if (!app.isPackaged || desktopRemoteAccess) throw new Error("OpenMausBot Cloud sign-in requires the local desktop app.");
-  cloudAccount = createCloudAccountClient({
-    store: createCloudAccountStore({ file: path.join(app.getPath("userData"), "cloud-account.bin"), encryption: {
-      available: async () => (await safeStorage.isAsyncEncryptionAvailable()) &&
-        (process.platform !== "linux" || safeStorage.getSelectedStorageBackend() !== "basic_text"),
-      encrypt: value => safeStorage.encryptStringAsync(value), decrypt: value => safeStorage.decryptStringAsync(value),
-    } }),
-    platform: process.platform, deviceName: os.hostname().slice(0, 100) || "My computer", appVersion: app.getVersion(),
-    openBrowser: url => shell.openExternal(url),
-    onState: state => {
-      rememberCloudHome(state);
-      rememberedHome = rememberedCloudHome(rememberedHome, state);
-      // My Cloud's page, refused while the sign-in was being restored, now
-      // hears this app's update (a "Restart to update" it would miss).
-      sendUpdaterState();
-      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.mainFrame.url.startsWith(`${rendererOrigin()}/`) &&
-        !activeEnvironment(environmentsState) && !desktopRemoteAccess) mainWindow.webContents.send("cloud-account:state-changed", state);
-    },
-  });
-  return cloudAccount;
-}
-
 function syncDesktopMutationToken(proc) {
   try {
     proc.postMessage({
@@ -1506,51 +1455,10 @@ function navigateMainWindow(url) {
   void mainWindow.loadURL(url).catch(() => {});
 }
 
-/** The person's Cloud address for their account, kept while a check with
- * OpenMausBot Cloud is pending or failed, or the sign-in has ended
- * (cloud-home.mjs rememberedCloudHome). */
-let rememberedHome = null;
-
 async function switchEnvironment(id) {
   if (id === environmentsState.activeId || (id !== LOCAL_ID && !environmentsState.environments.some((entry) => entry.id === id))) return;
-  const entry = environmentsState.environments.find((candidate) => candidate.id === id);
-  // "My Cloud" opens through the Cloud's own connection: never a page that
-  // asks for a pairing code the person has no server to read from.
-  if (entry && cloudAccount && isCloudHomeEntry(entry, { homeOrigin: cloudAccount.homeTarget()?.origin, remembered: rememberedHome })) {
-    try { await connectCloudHome(); return; } catch (error) {
-      slog(`cloud home: could not connect from the Server menu (${error?.message ?? error})`);
-      // Signed in there already, it opens as any server does. Otherwise
-      // Settings → OMB Cloud says the one next step (sign in again, or wait).
-      if (!(await cloudHomeSignedIn(entry.origin))) { await openLendingSettings(); return; }
-    }
-  }
   persistEnvironments(withActive(environmentsState, id));
   navigateMainWindow(activeOrigin());
-}
-
-/** openmausbot://cloud carries nothing, so all it does is bring this app to
- * Settings → OMB Cloud. Opened this way, that view signs in or connects to
- * My Cloud by itself (CloudAccountSettings). No prompt: a hosted server left
- * for it stays saved under Servers, and the Cloud replaces it anyway. */
-async function openCloudEntry() {
-  if (!app.isPackaged) throw new Error("OpenMausBot Cloud requires the installed desktop app.");
-  if (desktopRemoteAccess) throw new Error("This app is connected to another computer. Disconnect it to use OpenMausBot Cloud on this computer.");
-  if (!serverReady) throw new Error("This installation is unavailable. Restart the app and open My Cloud again.");
-  // Let a saved sign-in finish restoring first: the view must not take it for
-  // signed out and start another.
-  await cloudAccountRestored();
-  const active = activeEnvironment(environmentsState);
-  const showingCloud = Boolean(active) && active.origin === cloudAccount?.homeTarget()?.origin;
-  if (active && !showingCloud) persistEnvironments(withActive(environmentsState, LOCAL_ID));
-  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : createWindow({ deferNavigation: !showingCloud });
-  // Already on the person's Cloud: bringing it forward is the whole action.
-  if (showingCloud) return true;
-  if (!win.webContents.isLoadingMainFrame() && senderIsLocal({ sender: win.webContents })) {
-    win.webContents.send("app:open-settings", "cloud");
-  } else {
-    await win.loadURL(`${rendererOrigin()}/?desktop-settings=cloud`);
-  }
-  return true;
 }
 
 /** Settings → Servers on this computer's own page; with a saved server's id,
@@ -1599,49 +1507,6 @@ async function connectHostedWorkspace(input, name) {
   persistEnvironments(next);
   navigateMainWindow(link.url);
   return true;
-}
-
-/** A verified Cloud session that reports the person's machine lists it under
- * Servers. It never switches to it: this computer stays active until they
- * choose "Open My Cloud". Signed out, nothing here runs. */
-function rememberCloudHome(state) {
-  try {
-    const next = withCloudHome(environmentsState, state?.status === "connected" ? state.machine : null, () => randomUUID());
-    if (next !== environmentsState) persistEnvironments(next);
-  } catch (error) {
-    slog(`cloud home: could not list the Cloud machine under Servers (${error?.message ?? error})`);
-  }
-}
-
-/** The one action for Cloud Pro: open the person's machine in this window.
- * Already signed in there, it simply switches. Otherwise the Admin opens a
- * single-use pairing window on the machine, and the machine's pairing page
- * signs this app in (the same link flow as Connect to a server). The person
- * chose this in Settings, so there is no second confirmation. `open`
- * "phone" is "Use your Cloud on your phone": it lands on the Cloud's own
- * phone pairing (cloud-home.mjs cloudHomeConnectUrl). */
-async function connectCloudHome(open = null) {
-  const client = ensureCloudAccount();
-  const target = client.homeTarget();
-  if (!target) throw new Error("My Cloud is not ready to connect yet.");
-  const grant = (await cloudHomeSignedIn(target.origin)) ? null : await client.pairHome();
-  let next = withCloudHome(environmentsState, { status: "ready", origin: target.origin }, () => randomUUID());
-  const entry = next.environments.find((candidate) => candidate.origin === target.origin);
-  if (!entry) throw new Error("My Cloud could not be added to Servers.");
-  next = withActive(next, entry.id);
-  persistEnvironments(next);
-  navigateMainWindow(cloudHomeConnectUrl({ origin: target.origin, grant }, Date.now(), open));
-  return client.state();
-}
-
-/** Whether this app's cookie already signs it in to that server. */
-async function cloudHomeSignedIn(origin) {
-  try {
-    const response = await session.defaultSession.fetch(`${origin}/api/auth/session`, { credentials: "include", signal: AbortSignal.timeout(5_000) });
-    return response.ok && (await response.json())?.kind === "session";
-  } catch {
-    return false;
-  }
 }
 
 async function forgetEnvironment(id) {
@@ -1726,7 +1591,7 @@ function showContextMenu(win, params) {
  *
  * @returns {void}
  */
-function createWindow({ deferNavigation = false } = {}) {
+function createWindow() {
   const waitsForSkinSync = process.platform === "win32";
   const primary = screen.getPrimaryDisplay();
   const displays = [primary, ...screen.getAllDisplays().filter((display) => display.id !== primary.id)];
@@ -1966,8 +1831,6 @@ function createWindow({ deferNavigation = false } = {}) {
 
   const remote = activeEnvironment(environmentsState);
   if (!serverReady && (desktopRemoteAccess || (app.isPackaged && !remote))) serverUnavailableWindows.add(win);
-  // A confirmed native action (openmausbot://cloud) supplies the local URL itself.
-  if (deferNavigation) return win;
   if (desktopRemoteAccess) {
     win.loadURL(serverReady ? `http://127.0.0.1:${SERVER_PORT}` : buildErrorPage({ allPortsOccupied: serverStartConflictOnly }));
   } else if (remote) {
@@ -2356,68 +2219,14 @@ const workspaceOnly = (handler) => (event, ...args) => {
   return handler(event, ...args);
 };
 const localWorkspaceOnly = (channel, handler) => localOnly(channel, workspaceOnly(handler));
-// Personal Cloud authority stays in main. No renderer-supplied address, token,
-// paid flag or callback can choose an account or activate Pro.
-for (const method of ["state", "begin", "signInAgain", "reopen", "cancel", "refresh", "signOut", "openDashboard"]) {
-  ipcMain.handle(`cloud-account:${method}`, localWorkspaceOnly(`cloud-account:${method}`, () => ensureCloudAccount()[method]()));
-}
-// The machine and its code come from the verified session in main, never
-// from the renderer: this handler takes no arguments.
-ipcMain.handle("cloud-account:connectHome", localWorkspaceOnly("cloud-account:connectHome", () => connectCloudHome()));
-// The same, landing on the Cloud's phone pairing. The page names nothing:
-// "phone" is fixed here, and the Cloud still waits for a click to make a code.
-ipcMain.handle("cloud-account:connectHomeForPhone", localWorkspaceOnly("cloud-account:connectHomeForPhone", () => connectCloudHome("phone")));
 
-// ── The Cloud page's own channels: its Settings, its plan, its updates ──
-
-/** The person's own Cloud, by the one rule (cloud-home.mjs myCloudOrigin):
- * its page in the main window gets the channels below, the microphone and
- * clipboard writes (appPermissionHandlers). While the sign-in is being checked or has ended it
- * is still the Cloud this account last verified, so its Settings says
- * "checking" or "sign in again on your computer", never an error, and a Live
- * call keeps the microphone. */
-function myCloud() {
-  return myCloudOrigin({ account: cloudAccount, remembered: rememberedHome, remoteAccess: desktopRemoteAccess });
-}
-/** Which page in the main window asks: this computer's own ("local"), the
- * person's own Cloud's by the one rule above ("cloud"), or neither (null). */
-const cloudPageAsking = (event) => {
-  const contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
-  if (senderIsLocal(event) && workspaceSenderAllowed(event, contents, environmentsState, rendererOrigin())) return "local";
-  if (cloudPageSenderAllowed(event, { contents, homeOrigin: myCloud(), activeOrigin: activeEnvironment(environmentsState)?.origin })) return "cloud";
-  return null;
-};
-/** Local Settings, and the verified Cloud page in the main window: the Cloud's own channels. */
-const cloudPageSender = (channel, handler) => (event) => {
-  const asking = cloudPageAsking(event);
-  if (!asking) throw new Error(`${channel} is only available in this app's window`);
-  return handler(asking === "cloud");
-};
-// This app's updates: this computer's page and the person's own Cloud page
-// (the one rule its Settings → Plan and the microphone use), so someone who
-// stays on My Cloud still sees "Restart to update". Any other server's page
-// gets nothing.
-const updaterPageAllowed = event => cloudPageAsking(event) !== null;
-// The preload asks once, as a page loads, whether to give it the updater at
-// all. Pages built before main answered My Cloud read the bridge alone as
-// "You're up to date", so it goes only to a page main answers, or will: while
-// the saved sign-in is still being restored at launch, the saved "My Cloud"
-// server's page. updaterPageAllowed still decides every update message.
-const updaterPageOffered = event => {
-  if (updaterPageAllowed(event)) return true;
-  if (desktopRemoteAccess || cloudSignInRestored) return false;
-  const contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
-  return cloudPageSenderAllowed(event, { contents, homeOrigin: savedCloudHomeOrigin(environmentsState), activeOrigin: activeEnvironment(environmentsState)?.origin });
-};
-ipcMain.on("update:offered", event => {
-  try { event.returnValue = updaterPageOffered(event) === true; } catch { event.returnValue = false; }
-});
-// Settings on the person's own Cloud: the plan, read only (no account or
-// credential), Manage in the browser, and back to this computer.
-ipcMain.handle("cloud-plan:state", cloudPageSender("cloud-plan:state", () => cloudPlanSnapshot(cloudAccount?.state())));
-ipcMain.handle("cloud-plan:manage", cloudPageSender("cloud-plan:manage", async () => { await ensureCloudAccount().openDashboard(); }));
-ipcMain.handle("cloud-plan:local", cloudPageSender("cloud-plan:local", () => workspaceMenuAction(() => switchEnvironment(LOCAL_ID))));
-// ── end The Cloud page's own channels ──
+// ── this app's own page: the updater, and nothing a server's page gets ──
+/** This app's updates are this computer's own: only its page, in the main
+ * window, may read or drive them. A paired server's page, or a frame inside
+ * any page, gets nothing. */
+const updaterPageAllowed = event => senderIsLocal(event)
+  && workspaceSenderAllowed(event, mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null, environmentsState, rendererOrigin());
+// ── end this app's own page ──
 
 const savedWorkspace = id => {
   const env = environmentsState.environments.find(entry => entry.id === id);
@@ -2452,7 +2261,7 @@ ipcMain.handle("environments:add-from-link", localWorkspaceOnly("environments:ad
 }));
 ipcMain.handle("environments:forget", localWorkspaceOnly("environments:forget", (_event, id) => forgetEnvironment(typeof id === "string" ? id : "")));
 
-// A cloud page can ask for the native chooser, not choose a destination or
+// A server's page can ask for the native chooser, not choose a destination or
 // mutate the desktop's saved list. Only native menu clicks perform those acts.
 ipcMain.handle("workspaces:state", workspaceOnly(() => workspaceSummary(environmentsState)));
 let workspaceMenuOpen = false;
@@ -2758,12 +2567,6 @@ app.whenReady().then(async () => {
     await startServerPackaged();
   }
   if (desktopShutdownStarted) return;
-  // Fresh local use never makes a Cloud request; start only restores an existing grant.
-  if (app.isPackaged && !desktopRemoteAccess) {
-    cloudAccountRestoring = true;
-    cloudAccountStarted = ensureCloudAccount().start().catch(() => {}).finally(() => { cloudAccountRestoring = false; });
-  }
-  void cloudAccountStarted.then(() => { cloudSignInRestored = true; });
   // The companion the user left on comes back without anyone finding the
   // toggle again — one attempt, after the harness port is settled, with the
   // exact options the IPC handler uses. A failure surfaces in companionState
@@ -2777,26 +2580,18 @@ app.whenReady().then(async () => {
   // Device permissions (microphone, notifications, clipboard) are for the
   // local UI only; privileged capabilities (camera, geolocation, USB, MIDI,
   // serial) stay off. Client mode's loopback relay is the local UI. The
-  // person's own Cloud, open in this window, also gets the microphone for a
-  // Live call and clipboard writes for its copy buttons (only those): it is
-  // theirs alone. No other server does. A call placed while the saved sign-in
-  // is still restoring waits for it. The active paired server, in this
-  // window's main frame, may also write the clipboard. Neither ever reads it;
-  // both are re-evaluated per request, so a server switch or sign-out withdraws it.
+  // active paired server, in this window's main frame, may write the
+  // clipboard (its copy button) and nothing else. It never reads it, and the
+  // rule is re-evaluated per request, so a server switch withdraws it.
   appPermissions = appPermissionHandlers({
     rendererOrigin,
     mainContents: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null),
-    cloudHomeOrigin: myCloud,
-    cloudHomeRestoring: () => cloudAccountRestoring ? cloudAccountRestored() : null,
     activeRemoteOrigin: () => activeEnvironment(environmentsState)?.origin ?? null,
   });
   session.defaultSession.setPermissionRequestHandler(appPermissions.request);
   session.defaultSession.setPermissionCheckHandler(appPermissions.check);
   environmentsState = readEnvironments();
-  // A cold-start action owns its first navigation. Starting the default load
-  // first would let the action abort that unawaited navigation immediately.
-  const deliveredCloudEntry = await cloudEntry.ready();
-  if (!deliveredCloudEntry && (!mainWindow || mainWindow.isDestroyed())) createWindow();
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
   // Reconcile incomplete setup and resume interrupted sign-out only after the
   // local app is usable. This background network work never gates LAN pairing
   // or the first window.
@@ -2844,7 +2639,6 @@ process.once("SIGTERM", requestSignalQuit);
 app.on("before-quit", (e) => {
   desktopShutdownStarted = true;
   startupScreen?.dispose();
-  cloudAccount?.close();
   if (cuaCleanedUp) return;
   e.preventDefault();
   // Cancel a scheduled recovery before yielding, and stop the owned child

@@ -84,7 +84,7 @@ describe("Settings → Remote access opened by Connect your phone", () => {
     fixture.phonePairing = 2;
     fixture.config = { cloudHome: true };
     // a Cloud page gets the reduced bridge: no phone bridge, no remote client
-    vi.stubGlobal("window", { ogb: { cloudPlan: {} } });
+    vi.stubGlobal("window", { ogb: {} });
     const html = render();
     expect(html).toContain("SERVER_PAIRING_CARD_MARKER cloud focus=2");
     expect(html).toContain("COMPANION_SECTION focus=0");

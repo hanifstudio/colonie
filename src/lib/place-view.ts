@@ -3,10 +3,7 @@
 // what each next action does. The Computer panel's cards and Simple grid, the
 // composer chip, a failed turn's row and the bot's Access line all render
 // through here, so for the same facts they say the same thing.
-import { useEffect, useState } from "react";
-import type { CloudAccountState } from "../../electron/cloud-account.mjs";
 import { activeLocale, t } from "@/lib/i18n";
-import { cloudPlanView } from "@/lib/cloud-plan";
 import { engineSignedOut } from "@/lib/failed-turn";
 import { browserAvailable, builtInBrowserEnabled, type FeatureFlagConfig } from "@/lib/feature-flags";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
@@ -25,8 +22,6 @@ export const placeTranslate: PlaceTranslate = (key, params) => t(key as LocaleKe
 /** What the app knows about where it runs and who is looking. */
 export interface PlaceSeat {
   server: ServerKind;
-  /** This desktop is signed in to a paid OpenMausBot Cloud plan. */
-  plan: boolean;
   role: "admin" | "user";
   mode: "simple" | "advanced";
 }
@@ -65,7 +60,8 @@ export function placeFacts(input: {
     place: input.place,
     server: seat.server,
     bot: bot.name,
-    plan: seat.plan,
+    // The desktop has no Cloud account, so no place ever reads a paid plan.
+    plan: false,
     boat: config?.box?.configured ? (config.box.included ? "included" : "own-key") : "none",
     backend: bot.cloudBackend === "vps" ? "vps" : "box",
     engine: engineFacts(instance, bot.modelSelection.model),
@@ -84,12 +80,9 @@ export function placeViewFor(facts: PlaceFacts): PlaceView {
   return placeView(facts, { translate: placeTranslate, locale: activeLocale() });
 }
 
-/** A stored failed-turn row's place, worded for this reader. A desktop on a
- * paid plan reads "needs a Boat key" as what it is for it: the plan's cloud
- * computers work on My Cloud. */
+/** A stored failed-turn row's place, worded for this reader. */
 export function placeRowViewFor(row: PlaceRow, seat: PlaceSeat, worksOnLabel?: string): PlaceView {
-  const read = row.state === "cc-needs-key" && seat.plan && seat.server !== "my-cloud" ? { ...row, state: "cc-on-my-cloud" as const } : row;
-  return placeRowView(read, { server: seat.server, role: seat.role, mode: seat.mode, worksOnLabel, translate: placeTranslate, locale: activeLocale() });
+  return placeRowView(row, { server: seat.server, role: seat.role, mode: seat.mode, worksOnLabel, translate: placeTranslate, locale: activeLocale() });
 }
 
 /** Whether a place can't be picked at all: no setting here makes it work. */
@@ -104,28 +97,11 @@ export function placeHasIssue(view: PlaceView): boolean {
     || view.state === "cc-unavailable";
 }
 
-/** The desktop bridge's plan: paid or not. Reads the native snapshot only;
- * never signs in or refreshes. False without a bridge (a browser, a server's
- * page). */
-export function useCloudPlanPaid(): boolean {
-  const bridge = typeof window === "undefined" || window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
-  const [account, setAccount] = useState<CloudAccountState | null>(null);
-  useEffect(() => {
-    if (!bridge) return;
-    let active = true, updated = false;
-    const unsubscribe = bridge.onState((next) => { updated = true; if (active) setAccount(next); });
-    void bridge.state().then((next) => { if (active && !updated) setAccount(next); }).catch(() => {});
-    return () => { active = false; unsubscribe(); };
-  }, [bridge]);
-  return Boolean(bridge) && cloudPlanView(account).kind === "paid";
-}
-
 /** Where this app runs and who is looking: one hook for every place control. */
 export function usePlaceSeat(config: Pick<ConfigStatus, "cloudHome"> | null | undefined, platform: DesktopCapabilities["host"]["platform"]): PlaceSeat {
-  const plan = useCloudPlanPaid();
   const ownerOrAdmin = useOwnerOrAdmin();
   const advanced = useAdvancedMode();
-  return { server: serverKind(config, platform), plan, role: ownerOrAdmin === false ? "user" : "admin", mode: advanced ? "advanced" : "simple" };
+  return { server: serverKind(config, platform), role: ownerOrAdmin === false ? "user" : "admin", mode: advanced ? "advanced" : "simple" };
 }
 
 /** What a place's next action does, for actions that open somewhere: the
@@ -151,17 +127,10 @@ export function openPlaceAction(
       appSettings("computer");
       return true;
     case "open-team-map": dispatch({ type: "showTeamMap" }); return true;
-    case "see-plan": {
-      const desktop = window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
-      if (desktop) { void desktop.openDashboard().catch(() => {}); return true; }
-      if (window.ogb?.cloudPlan) { void window.ogb.cloudPlan.manage().catch(() => {}); return true; }
+    // The desktop has no Cloud account and no Cloud home to open.
+    case "see-plan":
+    case "open-my-cloud":
       return false;
-    }
-    case "open-my-cloud": {
-      const desktop = window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
-      if (desktop) void desktop.connectHome().catch(() => {});
-      return true;
-    }
     case "clear-pin":
       if (!target.threadId) return false;
       dispatch({ type: "updateTask", botId: target.botId, threadId: target.threadId, patch: { surface: null } });

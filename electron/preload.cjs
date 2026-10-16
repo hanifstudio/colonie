@@ -14,19 +14,14 @@ ipcRenderer.on("package:install", (_event, url) => {
   for (const listener of packageInstallListeners) listener(url);
 });
 
-// Main can finish loading the document before React subscribes. Retain only
-// the fixed actions (the openmausbot://cloud link, and plain Settings → OMB
-// Cloud from the lending menu-bar item), never a destination supplied by a
-// renderer.
-const FIXED_SETTINGS_ACTIONS = new Set(["cloud", "cloud-settings"]);
-let pendingSettingsAction = null;
+// Main can finish loading the document before React subscribes: the one
+// action it sends is "open Settings", with nothing the renderer could name.
+let pendingSettingsAction = false;
 const appSettingsListeners = new Set();
-ipcRenderer.on("app:open-settings", (_event, section) => {
-  const fixedSection = FIXED_SETTINGS_ACTIONS.has(section) ? section : undefined;
-  if (fixedSection && !appSettingsListeners.size) pendingSettingsAction = fixedSection;
-  if (!appSettingsListeners.size) return;
-  pendingSettingsAction = null;
-  for (const listener of appSettingsListeners) listener(fixedSection);
+ipcRenderer.on("app:open-settings", () => {
+  if (!appSettingsListeners.size) { pendingSettingsAction = true; return; }
+  pendingSettingsAction = false;
+  for (const listener of appSettingsListeners) listener();
 });
 
 // The bridge is built once, then exposed in full only to the local server's
@@ -35,25 +30,16 @@ ipcRenderer.on("app:open-settings", (_event, section) => {
 // helpers here. Main enforces the same rule on the sensitive channels.
 const localOrigin = process.argv.find((arg) => arg.startsWith("--omb-local-origin="))?.slice("--omb-local-origin=".length) ?? null;
 const isLocalPage = !localOrigin || location.origin === localOrigin;
-// cloudLending and cloudPlan: only the person's own verified Cloud (its
-// setup checklist, its plan line).
-const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudPlan"]);
-// updater: this app's updates, so the person sees "Restart to update" on My
-// Cloud too; a remote page restarts only on a click. Main says, once as the
-// page loads, whether it answers this page: pages built before it answered My
-// Cloud read the bridge alone as "You're up to date", so no other server's
-// page gets it. Main always answers, false on any doubt.
-function updaterOffered() {
-  try { return ipcRenderer.sendSync("update:offered") === true; } catch { return false; }
-}
-const remoteKeys = isLocalPage ? REMOTE_SAFE : new Set([...REMOTE_SAFE, ...(updaterOffered() ? ["updater"] : [])]);
+const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces"]);
+// A paired server's page gets the safe subset only, and never this app's
+// updater (which changes this computer's app, and only its own page may drive).
 
 
 const bridge = {
   /** Host platform ("darwin" | "win32" | "linux") — for platform-aware UI. */
   platform: process.platform,
-  // Safe even on a cloud page: the user chooses in a native menu owned by
-  // Electron. No direct switching, saved-list reads, host files or secrets.
+  // Safe on any page: the user chooses in a native menu owned by Electron.
+  // No direct switching, saved-list reads, host files or secrets.
   workspaces: {
     state: () => ipcRenderer.invoke("workspaces:state"),
     menu: () => ipcRenderer.invoke("workspaces:menu"),
@@ -143,10 +129,9 @@ const bridge = {
   onOpenAppSettings: (cb) => {
     appSettingsListeners.add(cb);
     queueMicrotask(() => {
-      const section = pendingSettingsAction;
-      if (!section || !appSettingsListeners.size) return;
-      pendingSettingsAction = null;
-      for (const listener of appSettingsListeners) listener(section);
+      if (!pendingSettingsAction || !appSettingsListeners.size) return;
+      pendingSettingsAction = false;
+      for (const listener of appSettingsListeners) listener();
     });
     return () => appSettingsListeners.delete(cb);
   },
@@ -284,37 +269,10 @@ const bridge = {
       return () => ipcRenderer.removeListener("workspaces:open-settings", handler);
     },
   },
-  cloudAccount: process.argv.includes("--omb-desktop-bridges=1") ? {
-    state: () => ipcRenderer.invoke("cloud-account:state"),
-    begin: () => ipcRenderer.invoke("cloud-account:begin"),
-    signInAgain: () => ipcRenderer.invoke("cloud-account:signInAgain"),
-    reopen: () => ipcRenderer.invoke("cloud-account:reopen"),
-    cancel: () => ipcRenderer.invoke("cloud-account:cancel"),
-    refresh: () => ipcRenderer.invoke("cloud-account:refresh"),
-    signOut: () => ipcRenderer.invoke("cloud-account:signOut"),
-    openDashboard: () => ipcRenderer.invoke("cloud-account:openDashboard"),
-    connectHome: () => ipcRenderer.invoke("cloud-account:connectHome"),
-    connectHomeForPhone: () => ipcRenderer.invoke("cloud-account:connectHomeForPhone"),
-    onState: cb => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("cloud-account:state-changed", handler);
-      return () => ipcRenderer.removeListener("cloud-account:state-changed", handler);
-    },
-  } : undefined,
-  /** The plan, read only, in Settings on the person's own Cloud: its name and
-   * whether it is active, Manage (the Plan page in the browser) and
-   * back to this computer. No arguments; a remote page acts only on a click. */
-  cloudPlan: process.argv.includes("--omb-desktop-bridges=1") ? {
-    state: () => ipcRenderer.invoke("cloud-plan:state"),
-    manage: () => isLocalPage || navigator.userActivation?.isActive === true
-      ? ipcRenderer.invoke("cloud-plan:manage") : Promise.reject(new Error("Choose Manage to open your Plan page.")),
-    useThisComputer: () => isLocalPage || navigator.userActivation?.isActive === true
-      ? ipcRenderer.invoke("cloud-plan:local") : Promise.reject(new Error("Choose Use this computer to switch.")),
-  } : undefined,
   confirm: message => ipcRenderer.invoke("dialog:confirm", message),
 };
 
 contextBridge.exposeInMainWorld(
   "ogb",
-  isLocalPage ? bridge : Object.fromEntries(Object.entries(bridge).filter(([key]) => remoteKeys.has(key))),
+  isLocalPage ? bridge : Object.fromEntries(Object.entries(bridge).filter(([key]) => REMOTE_SAFE.has(key))),
 );

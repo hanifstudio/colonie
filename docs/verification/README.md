@@ -109,9 +109,6 @@ real Settings connection component in disposable Electron windows.
 The [loading screen and tray smoke](startup-tray.md) checks the startup close
 button, hidden handoff, tray restore, and Quit in a disposable Electron profile.
 
-The [personal Cloud account smoke](cloud-account.md) checks optional browser
-sign-in, server-verified Pro status and sign-out in a disposable Electron profile.
-
 The [embedded server recovery smoke](desktop-server-recovery.md) crashes real
 Electron-owned fixture servers, verifies bounded recovery and private access,
 and proves quit cancels recovery without replaying an interrupted fixture turn.
