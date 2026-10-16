@@ -1057,33 +1057,6 @@ describe("Store", () => {
     expect(reloaded.projectBotForTask(bot.id, target.threadId)?.approvalMode).toBe("ask");
     expect(reloaded.projectBotForTask(bot.id, sibling.threadId)?.approvalMode).toBe("full");
   });
-
-  it("normalizes persisted cloud backends without changing valid or absent values", () => {
-    const store = new Store(selection);
-    const boat = store.createBot();
-    const vps = store.createBot();
-    const invalid = store.createBot();
-    const absent = store.createBot();
-    const raw: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
-    raw.find((bot) => bot.id === boat.id)!.cloudBackend = "box";
-    raw.find((bot) => bot.id === vps.id)!.cloudBackend = "vps";
-    (raw.find((bot) => bot.id === invalid.id) as unknown as { cloudBackend: string }).cloudBackend = "daytona";
-    delete raw.find((bot) => bot.id === absent.id)!.cloudBackend;
-    writeFileSync(join(DATA_DIR, "bots.json"), JSON.stringify(raw));
-
-    const reloaded = new Store(selection);
-    expect(reloaded.bot(boat.id)?.cloudBackend).toBe("box");
-    expect(reloaded.bot(vps.id)?.cloudBackend).toBe("vps");
-    expect(reloaded.bot(invalid.id)?.cloudBackend).toBeUndefined();
-    expect(reloaded.bot(absent.id)?.cloudBackend).toBeUndefined();
-
-    const saved: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
-    expect(saved.find((bot) => bot.id === boat.id)?.cloudBackend).toBe("box");
-    expect(saved.find((bot) => bot.id === vps.id)?.cloudBackend).toBe("vps");
-    expect(saved.find((bot) => bot.id === invalid.id)).not.toHaveProperty("cloudBackend");
-    expect(saved.find((bot) => bot.id === absent.id)).not.toHaveProperty("cloudBackend");
-  });
-
   it("migrates legacy browser profile references without collapsing case-distinct accounts", () => {
     const store = new Store(selection);
     const first = store.createBot();

@@ -51,12 +51,8 @@ export interface ModelSelection {
   variant?: string;
 }
 
-/** Which cloud computer backs computer: "cloud"; absent means Boat. */
-export type CloudBackend = "box" | "vps";
-
-/** A place a bot can act. cloud covers both cloud backends — from the
- * person's seat they are the same "cloud computer" panel. */
-export type Surface = "cloud" | "vm" | "local" | "browser";
+/** A place a bot can act. */
+export type Surface = "vm" | "local" | "browser";
 
 export type MausColor =
   | "green" | "blue" | "red" | "orange" | "purple" | "cyan" | "pink"
@@ -286,10 +282,6 @@ export interface WireBot {
   modelSelection: ModelSelection;
   /** where the bot works ("Works on"). Unset = auto. */
   computer?: Surface | "off";
-  /** Which cloud computer backs computer: "cloud"; absent means Boat. */
-  cloudBackend?: CloudBackend;
-  /** Auto mode may prepare/start this bot's managed VPS container. */
-  autoStartVps?: boolean;
   /** where NEW tasks run their shell tools; absent = home folder. */
   cwd?: string;
   /** Auto mode: the bot approves its own tool permissions. */
@@ -384,8 +376,7 @@ export interface ResolvedSender {
  * (`worker`: the Slack worker, or any other process on that machine). */
 export type CardAnswerer = (
   /** `person`: the answering session's opaque person key, recorded on an OMB
-   * Cloud home only, where it decides whether an answer came from the owner
-   * (server/cloud-lending.ts). */
+   * Cloud home only, where it decides whether an answer came from the owner. */
   | { kind: "session"; name: string; person?: string }
   | { kind: "loopback" }
   | { kind: "worker" }
@@ -442,7 +433,7 @@ export interface WireMessage {
   };
   /** A bot line a "post" webhook wrote: whoever called the webhook chose
    * its words. On a Cloud home a conversation holding one is someone else's
-   * for lending and memory (server/cloud-lending.ts reportsFromOthers). */
+   * for lending and memory. */
   webhookPost?: boolean;
   /** user messages sent INTO a running turn (capabilities.queueing). */
   steered?: boolean;
@@ -551,7 +542,7 @@ export interface OptionCardData {
   allowSession?: boolean;
   /** Exact native command offered for an owner/admin to remember. */
   commandAllowlist?: CommandAllowlistCandidate;
-  /** Local actions never share remembered grants with cloud/tool approvals. */
+  /** Local actions never share remembered grants with tool approvals. */
   approvalScope?: "local-computer";
   /** The bot's change applied without a person (a change to the bot itself,
    * or Full access): clients show a one-line receipt with Undo instead of
@@ -775,9 +766,8 @@ export type ServerFrame =
   | { kind: "runtime"; event: RuntimeEvent }
   | { kind: "screen"; botId: string; threadId: string; png: string; mime?: string }
   /** A bot's computer is being set up or woken for a turn; the chat shows
-   * one progress line until its first screen frame. `place` names a cloud
-   * computer (absent: a Local VM). */
-  | { kind: "computer"; botId: string; state: "provisioning" | "waking"; place?: "cloud" }
+   * one progress line until its first screen frame. */
+  | { kind: "computer"; botId: string; state: "provisioning" | "waking" }
   | { kind: "computer-control"; botId: string; held: boolean; helpReason: string | null }
   | { kind: "bot.deleted"; botId: string }
   | { kind: "live.call"; botId: string; threadId: string; call: LiveCallState | null }

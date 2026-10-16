@@ -38,7 +38,8 @@ const { FailedTurnRow } = await import("./ChatView");
 
 /** The row exactly as the server stores it. */
 const stored = (place: PlaceRow): NonNullable<Message["tool"]> => failedTurnTool(placeRowText(place), { place });
-const hours: PlaceRow = { state: "cc-no-hours", params: { bot: "Scout", plan: "Pro", hours: 50, month: "November" }, source: "works-on" };
+const ready: PlaceRow = { state: "place-failed", params: { bot: "Scout", cause: "the Local VM is not ready" }, source: "works-on" };
+const cannot: PlaceRow = { state: "vm-cannot", params: { bot: "Scout", model: "Llama" }, source: "works-on" };
 
 /** Render the row and read its buttons off the rendered tree. */
 function show(tool: NonNullable<Message["tool"]>, onRetry?: () => void) {
@@ -52,38 +53,38 @@ beforeEach(() => {
   fixture.advanced = false;
   fixture.ownerOrAdmin = null;
   fixture.config = {};
-  fixture.bots = [{ id: "scout", name: "Scout", computer: "cloud", modelSelection: { instanceId: "claude", model: "m" } } as Bot];
+  fixture.bots = [{ id: "scout", name: "Scout", computer: "vm", modelSelection: { instanceId: "claude", model: "m" } } as Bot];
 });
 
 describe("J11: a failed place's row", () => {
-  it("says no hours are left in one line, with one button: See your plan", () => {
-    const { html, buttons } = show(stored(hours), vi.fn());
-    expect(html).toContain("This month&#x27;s 50 cloud computer hours are used up. They come back on 1 November.");
+  it("says the place did not start in one line, with one button: Open Computer panel", () => {
+    const { html, buttons } = show(stored(ready), vi.fn());
+    expect(html).toContain("the Local VM is not ready");
     expect(buttons).toHaveLength(1);
-    expect(buttons[0]).toContain("See your plan");
+    expect(buttons[0]).toContain("Open Computer panel");
     // no Retry beside it, and no second copy of the words under Details
     expect(html).not.toContain("Retry");
     expect(html).not.toContain("<details");
   });
 
   it("offers Try again only where the conversation can retry", () => {
-    const passing = stored({ state: "cc-unavailable", params: { bot: "Scout" }, source: "works-on" });
+    const passing = stored({ ...ready, source: "auto-pin" });
     expect(show(passing, vi.fn()).buttons).toHaveLength(1);
     expect(show(passing, vi.fn()).buttons[0]).toContain("Try again");
     expect(show(passing).buttons).toHaveLength(0);
   });
 
   it("leads a person's pin back to the grid's choice in Simple, and to the composer's in Advanced", () => {
-    const pinned = stored({ state: "cc-no-start", params: { bot: "Scout" }, source: "pin" });
-    expect(show(pinned).buttons[0]).toContain("Use Cloud computer");
+    const pinned = stored({ ...ready, source: "pin" });
+    expect(show(pinned).buttons[0]).toContain("Use Local VM");
     fixture.advanced = true;
     expect(show(pinned).buttons[0]).toContain("Clear this conversation&#x27;s place");
   });
 
   it("gives a User no button that changes a setting, and says who can", () => {
     fixture.ownerOrAdmin = false;
-    const { html, buttons } = show(stored(hours), vi.fn());
-    expect(html).toContain("They come back on 1 November. Ask an Admin to change it.");
+    const { html, buttons } = show(stored(cannot), vi.fn());
+    expect(html).toContain("Ask an Admin to change it.");
     expect(buttons).toHaveLength(0);
   });
 });
@@ -96,13 +97,10 @@ describe("the phone row", () => {
 
   it("carries the line and its action in words, whole, for every source", () => {
     const rows: Array<[PlaceRow, string]> = [
-      [hours, "This month's 50 cloud computer hours are used up. They come back on 1 November. See your plan on the Plan page."],
-      [{ state: "cc-unavailable", params: { bot: "Scout" }, source: "auto-pin" },
-        "Cloud computers can't start right now. It isn't anything you did. This conversation is back on Auto. Send your message again."],
-      [{ state: "cc-unavailable", params: { bot: "Scout" }, source: "routine" },
-        "Cloud computers can't start right now. It isn't anything you did. Change where this routine runs."],
-      [{ state: "cc-at-once", params: { bot: "Bo", plan: "Personal", max: 1, holders: ["Ada"] }, source: "works-on" },
-        "Your Personal plan includes 1 cloud computer, and Ada has it. Manage your cloud computers in Settings → Local VM."],
+      [ready, "the Local VM is not ready Check it in the Computer panel."],
+      [{ ...ready, source: "auto-pin" }, "the Local VM is not ready This conversation is back on Auto. Send your message again."],
+      [{ ...ready, source: "routine" }, "the Local VM is not ready Change where this routine runs."],
+      [cannot, "Llama can't use a Local VM. Choose a model that can, such as Claude or ChatGPT. Choose another model in Scout's settings."],
     ];
     for (const [place, words] of rows) {
       const tool = stored(place);

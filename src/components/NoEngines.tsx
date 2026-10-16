@@ -44,10 +44,7 @@ export function NoEngines() {
     );
   }
 
-  // Only things you actually install belong on a "get started" screen. The
-  // Boat cloud runner also reports unavailable here, but it's configured with
-  // a token in settings rather than installed, so listing it would just be a
-  // dead end alongside the real options.
+  // Only things you actually install belong on a "get started" screen.
   const engines = state.instances
     .filter((i) => i.install)
     // An engine with a command for this platform is one the user can act on

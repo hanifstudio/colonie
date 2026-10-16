@@ -282,8 +282,8 @@ describe("independent bot threads", () => {
   it("drops the machine's mark the moment the person pins or unpins a thread's place", () => {
     const autoPinned = { ...start(), bots: [{ ...bot, tasks: bot.tasks?.map((task) =>
       task.threadId === "first" ? { ...task, surface: "browser" as const, surfaceAuto: true as const } : task) }] };
-    const pinned = reducer(autoPinned, { type: "updateTask", botId: bot.id, threadId: "first", patch: { surface: "cloud" } });
-    expect(pinned.bots[0]?.tasks?.[0]?.surface).toBe("cloud");
+    const pinned = reducer(autoPinned, { type: "updateTask", botId: bot.id, threadId: "first", patch: { surface: "vm" } });
+    expect(pinned.bots[0]?.tasks?.[0]?.surface).toBe("vm");
     expect(pinned.bots[0]?.tasks?.[0]?.surfaceAuto).toBeUndefined();
     const unpinned = reducer(autoPinned, { type: "updateTask", botId: bot.id, threadId: "first", patch: { surface: null } });
     expect(unpinned.bots[0]?.tasks?.[0]?.surface).toBeUndefined();
@@ -873,8 +873,6 @@ describe("config status frames", () => {
       configStatusFromFrame({
         xai: { configured: true },
         composio: { configured: true, mode: "managed" },
-        box: { configured: false },
-        vps: { configured: true, sshAlias: "homelab" },
         rooms: { turnTimeoutMinutes: 20 },
         mcp: { callTimeoutMinutes: 30 },
         threads: { maxConcurrentPerBot: 10 },
@@ -887,8 +885,6 @@ describe("config status frames", () => {
     ).toEqual({
       xai: { configured: true },
       composio: { configured: true, mode: "managed" },
-      box: { configured: false },
-      vps: { configured: true, sshAlias: "homelab" },
       rooms: { turnTimeoutMinutes: 20 },
       mcp: { callTimeoutMinutes: 30 },
       threads: { maxConcurrentPerBot: 10 },
@@ -955,8 +951,6 @@ describe("task rename", () => {
 describe("config status", () => {
   const config = configStatusFromFrame({
     composio: { configured: false },
-    box: { configured: false },
-    vps: { configured: false, sshAlias: "" },
     rooms: { turnTimeoutMinutes: 5 },
     mcp: { callTimeoutMinutes: 10 },
     localVm: { mode: "shared", maxInstances: 2 },
@@ -1518,7 +1512,7 @@ describe("section Chiefs", () => {
   });
 
   it("optimistically clears an explicit computer when Auto is selected", () => {
-    const current = { ...bot("cloud-bot", "Work"), computer: "cloud" as const, messages: [] };
+    const current = { ...bot("cloud-bot", "Work"), computer: "vm" as const, messages: [] };
     const next = reducer({ ...initialState, bots: [current] }, {
       type: "updateBot",
       botId: current.id,
@@ -2213,8 +2207,6 @@ describe("file preview panel", () => {
 describe("live config frames", () => {
   const baseFrame: ConfigStatusFrame = {
     composio: { configured: false },
-    box: { configured: false },
-    vps: { configured: false, sshAlias: "" },
     rooms: { turnTimeoutMinutes: 10 },
     mcp: { callTimeoutMinutes: 10 },
     localVm: { mode: "shared", maxInstances: 1 },

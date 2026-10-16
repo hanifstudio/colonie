@@ -700,14 +700,6 @@ export class Store {
           botsMigrated = true;
         }
       }
-      if (b.cloudBackend !== undefined && b.cloudBackend !== "box" && b.cloudBackend !== "vps") {
-        delete b.cloudBackend;
-        botsMigrated = true;
-      }
-      if (b.autoStartVps !== undefined && b.autoStartVps !== true && b.autoStartVps !== false) {
-        delete b.autoStartVps;
-        botsMigrated = true;
-      }
       if (b.managedSections !== undefined && (!b.chiefOfStaff || !Array.isArray(b.managedSections) ||
           b.managedSections.length > 100 || b.managedSections.some(section => typeof section !== "string" || section.length > 60))) {
         delete b.managedSections;
@@ -2299,14 +2291,7 @@ export class Store {
    * save: each bot's model, each conversation's own model, and its backups.
    * Native resume cursors and handed-message records of the removed engine go
    * too; the conversations stay, and the new engine reads them from the
-   * transcript. Each conversation keeps working where it did: on Auto the
-   * removed engine always ran on the bot's own cloud computer, so where
-   * `keepCloud` says that computer is still there and the new engine can use
-   * it, a moved bot's Works on becomes Cloud, and a moved conversation of an
-   * Auto bot is pinned there the way an Auto turn records where it landed.
-   * Where the new engine can't use a computer, an Auto-recorded cloud pin on
-   * a moved conversation gives way, as on a Works on change
-   * (clearAutoSurfacePins); a place the person chose stays chosen.
+   * transcript.
    * A level the new engine would have to confirm goes back to Ask, as on
    * every engine switch (modelSwitchNeedsAsk); a conversation that followed
    * the bot's level keeps the level it had. Every other setting is kept.
@@ -2317,13 +2302,6 @@ export class Store {
   retireInstances(ids: ReadonlySet<string>, replacement: ModelSelection, options: {
     /** The replacement's driver kind, for the approval check. */
     driverKind?: string;
-    /** The replacement can use a computer (canWorkOnCloud). Without one, a
-     * bot on Auto stays on Auto: Works on Cloud would refuse every turn. */
-    canWorkOnCloud: boolean;
-    /** This bot, on Auto, reached its own cloud computer through the removed
-     * engine and still can: a Boat account is set, its cloud backend is Boat,
-     * and no team computer serves its section. */
-    keepCloud: (bot: BotRecord) => boolean;
   }): ComputerEngineMove[] {
     const retired = (selection?: { instanceId: string }) => Boolean(selection && ids.has(selection.instanceId));
     const without = <T>(record: Record<string, T>): Record<string, T> =>
@@ -2338,10 +2316,8 @@ export class Store {
       const patch: Partial<BotRecord> = {};
       const tasks = (bot.tasks ?? []).map((): Partial<TaskRecord> => ({}));
       const botMoved = retired(bot.modelSelection);
-      const keepsCloud = options.canWorkOnCloud && options.keepCloud(bot);
       let botAsk = false;
       if (botMoved) {
-        if (bot.computer === undefined && keepsCloud) patch.computer = "cloud";
         if (needsAsk(bot)) { Object.assign(patch, structuredClone(askNow)); botAsk = true; }
         patch.modelSelection = structuredClone(replacement);
       }
@@ -2350,20 +2326,6 @@ export class Store {
         patch.fallback = kept.length ? kept : undefined;
       }
       if (touches(bot.resumeCursors)) patch.resumeCursors = without(bot.resumeCursors);
-      const computer = patch.computer ?? bot.computer;
-      /** Where a conversation worked before the move (its own place, else
-       * the bot's Works on, and on Auto the bot's own cloud computer where
-       * keepCloud says so), and what the move did to that. */
-      const cloudAfterMove = (pin: TaskRecord["surface"], pinSource: TaskRecord["surfaceSource"]): Pick<ComputerEngineMove, "cloud" | "noComputer"> => {
-        const place = pin ?? bot.computer;
-        const wasCloud = place === "cloud" || (place === undefined && options.keepCloud(bot));
-        if (!wasCloud || options.canWorkOnCloud) return { cloud: wasCloud, noComputer: false };
-        // An Auto-recorded pin gives way (below): only the person's place
-        // or the bot's Works on can still send it to the cloud computer.
-        const personPin = pin !== undefined && pinSource !== "auto";
-        const still = personPin ? pin : bot.computer;
-        return { cloud: false, noComputer: still !== "cloud" ? "auto" : personPin ? "pin" : "works-on" };
-      };
       (bot.tasks ?? []).forEach((task, index) => {
         const taskPatch = tasks[index]!;
         // Read before anything changes: a conversation that follows the bot's
@@ -2379,26 +2341,15 @@ export class Store {
         // The engine this conversation ran on: its own, else the bot's.
         const moved = task.modelSelection ? retired(task.modelSelection) : botMoved;
         if (moved) {
-          if (!botMoved && computer === undefined && task.surface === undefined && keepsCloud) {
-            taskPatch.surface = "cloud";
-            taskPatch.surfaceSource = "auto";
-          }
-          // The machine's memory of where Auto landed: with no computer on
-          // the new engine, the next turn would be refused there once.
-          if (!options.canWorkOnCloud && task.surface === "cloud" && task.surfaceSource === "auto") {
-            taskPatch.surface = undefined;
-            taskPatch.surfaceSource = undefined;
-          }
           const ask = needsAsk(before);
           if (ask) Object.assign(taskPatch, structuredClone(askNow));
           if (task.modelSelection) taskPatch.modelSelection = structuredClone(replacement);
           const scope = botMoved && task.threadId === bot.threadId ? "bot" : "conversation";
-          moves.push({ botId: bot.id, threadId: task.threadId, scope, ...cloudAfterMove(task.surface, task.surfaceSource),
-            askNow: ask || (scope === "bot" && botAsk) });
+          moves.push({ botId: bot.id, threadId: task.threadId, scope, askNow: ask || (scope === "bot" && botAsk) });
         } else if (botMoved && task.threadId === bot.threadId) {
           // The bot's own engine and level moved, but its open conversation
           // has an engine of its own: it is still told, about the bot.
-          moves.push({ botId: bot.id, threadId: task.threadId, scope: "bot-only", ...cloudAfterMove(undefined, undefined), askNow: botAsk });
+          moves.push({ botId: bot.id, threadId: task.threadId, scope: "bot-only", askNow: botAsk });
         }
         if (touches(task.resumeCursors)) taskPatch.resumeCursors = without(task.resumeCursors);
         if (task.handedMessages && touches(task.handedMessages)) taskPatch.handedMessages = without(task.handedMessages);

@@ -41,7 +41,7 @@ export const BOT_SECTIONS: Array<{
   { id: "skills", label: "Skills", icon: BookOpen01Icon, keywords: ["skills", "learned", "procedures", "teach"] },
   { id: "memory", label: "Memory", icon: BrainIcon, keywords: ["memory", "notes", "remember", "topics"] },
   { id: "routines", label: "Routines", icon: CalendarClockIcon, keywords: ["schedule", "routines", "cron", "tasks"] },
-  { id: "access", label: "Access", icon: NetworkIcon, keywords: ["works on", "computer", "vm", "cloud", "vps", "folder", "workspace", "browser", "connected apps", "composio", "webhooks", "always allow", "grants", "tool selection", "tools", "mcp", "allow", "exclude"] },
+  { id: "access", label: "Access", icon: NetworkIcon, keywords: ["works on", "computer", "vm", "folder", "workspace", "browser", "connected apps", "composio", "webhooks", "always allow", "grants", "tool selection", "tools", "mcp", "allow", "exclude"] },
   { id: "model", label: "Model", icon: CpuIcon, keywords: ["engine", "model", "provider", "cli", "effort"] },
   { id: "permissions", label: "Permissions", icon: ShieldCheckIcon, keywords: ["auto mode", "approve", "auto approve", "review", "routine approvals", "peers", "contact", "coordination", "chief of staff", "section"] },
   { id: "voice", label: "Voice & alerts", icon: Mic01Icon, keywords: ["voice", "alerts", "notifications", "speak"] },

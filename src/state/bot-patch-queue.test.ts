@@ -136,7 +136,7 @@ describe("bot patch queue", () => {
       onError: vi.fn(),
     });
 
-    queue.enqueue("bot-1", { computer: "cloud", cloudBackend: "vps" }, bot());
+    queue.enqueue("bot-1", { computer: "vm", browser: true }, bot());
     const flushed = queue.flush("bot-1");
     let settled = false;
     void flushed.then(() => { settled = true; });
@@ -145,8 +145,8 @@ describe("bot patch queue", () => {
     expect(send).toHaveBeenCalledOnce();
     expect(settled).toBe(false);
 
-    request.resolve(bot({ computer: "cloud", cloudBackend: "vps" }));
-    await expect(flushed).resolves.toMatchObject({ computer: "cloud", cloudBackend: "vps" });
+    request.resolve(bot({ computer: "vm", browser: true }));
+    await expect(flushed).resolves.toMatchObject({ computer: "vm", browser: true });
   });
 
   it("coalesces upload then remove so an older avatar can never resurrect", async () => {
@@ -382,7 +382,7 @@ describe("bot patch queue", () => {
       onError: vi.fn(),
     });
 
-    queue.enqueue("bot-1", { computer: null }, bot({ computer: "cloud" }));
+    queue.enqueue("bot-1", { computer: null }, bot({ computer: "vm" }));
     expect(queue.overlayFor("bot-1")).toEqual({ computer: undefined });
     await vi.advanceTimersByTimeAsync(400);
     await queue.flush("bot-1");

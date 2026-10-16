@@ -1,6 +1,5 @@
-import { AlertCircleIcon, ArrowLeft01Icon, AttachmentIcon, CancelCircleIcon, CheckmarkCircle02Icon, ChevronLeftIcon, ChevronRightIcon, Clock03Icon, CloudIcon, Delete02Icon, FileTextIcon, LaptopIcon, Loading02Icon, MultiplicationSignIcon, PauseIcon, PlayIcon, PlusSignIcon, RepeatIcon, Search01Icon, SquareArrowUpRightIcon, Target03Icon, TickDouble01Icon, UserAdd01Icon, UsersIcon, Video01Icon, WebhookIcon } from "@hugeicons/core-free-icons";
+import { AlertCircleIcon, ArrowLeft01Icon, AttachmentIcon, CancelCircleIcon, CheckmarkCircle02Icon, ChevronLeftIcon, ChevronRightIcon, Clock03Icon, Delete02Icon, FileTextIcon, LaptopIcon, Loading02Icon, MultiplicationSignIcon, PauseIcon, PlayIcon, PlusSignIcon, RepeatIcon, Search01Icon, SquareArrowUpRightIcon, Target03Icon, TickDouble01Icon, UserAdd01Icon, UsersIcon, Video01Icon, WebhookIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { boatCapableEngine } from "@/lib/remote-desktop";
 import {
   useCallback,
   useEffect,
@@ -375,7 +374,9 @@ export function EventEditor({
   };
   const [routineTarget, setRoutineTarget] = useState<RoutineTarget>(existingRoutine?.target ?? "bot");
   const [groupId, setGroupId] = useState(existingRoutine?.groupId ?? "");
-  const [runOn, setRunOn] = useState<RoutineRunOn>(existingRoutine?.runOn ?? defaultRunOn ?? "maus");
+  // ponytail: a routine stored before the cloud computer place was removed can
+  // still say `runOn: "cloud"`; it now runs on the bot's own computer.
+  const [runOn, setRunOn] = useState<RoutineRunOn>(existingRoutine?.runOn === "cloud" ? "maus" : existingRoutine?.runOn ?? defaultRunOn ?? "maus");
   const [attachments, setAttachments] = useState<Array<RoutineContextAttachment | CalendarCallAttachment>>(
     existingRoutine?.target === "room-goal" ? [] : existingRoutine?.attachments ?? existingCall?.attachments ?? [],
   );
@@ -385,12 +386,10 @@ export function EventEditor({
   const [attachmentPendingCount, setAttachmentPendingCount] = useState(0);
   const attachmentPending = attachmentPendingCount > 0;
   const fileInput = useRef<HTMLInputElement>(null);
-  const cloudReady = Boolean(state.config?.box.configured && botIds.length > 0 && botIds.every(id => boatCapableEngine(state.instances, bots.find(bot => bot.id === id)?.modelSelection.instanceId)?.snapshot.state === "available"));
   const rooms = state.groups.filter(roomCanRunGoal);
   const selectedRoom = rooms.find((group) => group.id === groupId);
   const roomMembers = activeRoomMembers(selectedRoom, state.bots);
   const isRoomGoal = kind === "routine" && routineTarget === "room-goal";
-  const cloudHome = state.config?.cloudHome === true;
   const at = fromLocalDateAndTime(date, startTime, existingRoutine || existingCall ? initialAt : undefined);
   const endAt = at + durationMinutes * 60_000;
   const selectedBots = botIds.flatMap((id) => bots.find((bot) => bot.id === id) ?? []);
@@ -484,7 +483,6 @@ export function EventEditor({
       const added = toContextAttachments(result.attachments);
       if (added.length) {
         setAttachments((current) => [...current, ...added].slice(0, 20));
-        if (runOn === "cloud") setRunOn("maus");
       }
       if (result.notice) setAttachmentNotice(result.notice);
     } finally {
@@ -579,7 +577,6 @@ export function EventEditor({
   const [moreOpen, setMoreOpen] = useState(() => !(["none", "daily", "weekdays", "weekly"] as RecurrenceChoice[]).includes(recurrence)
     || routineTarget === "room-goal"
     || attachments.length > 0
-    || runOn === "cloud"
     || timeoutMinutes != null
     || overlap === "queue");
 
@@ -645,7 +642,7 @@ export function EventEditor({
   );
   const scheduleNote = kind === "routine" && (
                 <p className="text-[11px] leading-relaxed text-ink-secondary">
-                  Runs while Colonie is open on this computer — it cannot wake a sleeping Mac. A run missed by less than 12 hours still happens when the app is back; for 24/7, run Colonie on a VPS.
+                  Runs while Colonie is open on this computer — it cannot wake a sleeping Mac. A run missed by less than 12 hours still happens when the app is back.
                 </p>
               );
   const repeatDetails = (
@@ -860,16 +857,16 @@ export function EventEditor({
   );
   const runOnRow = kind === "routine" && (
             <div className="flex items-start gap-4">
-              {isRoomGoal ? <HIcon icon={Target03Icon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" /> : runOn === "cloud" ? <HIcon icon={CloudIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" /> : <HIcon icon={LaptopIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />}
+              {isRoomGoal ? <HIcon icon={Target03Icon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" /> : <HIcon icon={LaptopIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />}
               <div className="min-w-0 flex-1">
                 {isRoomGoal ? (
                   <div className="rounded-xl border border-accent/35 bg-accent/[0.07] p-3">
-                    <div className="text-[12.5px] font-medium text-ink">{cloudHome ? "Runs on My Cloud" : "Runs on this computer"}</div>
+                    <div className="text-[12.5px] font-medium text-ink">Runs on this computer</div>
                     <div className="mt-1 text-[11px] leading-relaxed text-ink-secondary">Colonie keeps the group and its member hand-offs together for the full goal.</div>
                   </div>
-                ) : <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setRunOn("maus")} className={cn("rounded-xl border p-3 text-left", runOn === "maus" ? "border-accent/60 bg-accent/10" : "border-hairline/50 bg-inset hover:bg-raised")}><div className="text-[12.5px] font-medium text-ink">Bot’s current setup</div><div className="mt-1 text-[11px] text-ink-secondary">Keeps its model and configured computer, including a self-hosted VPS.</div></button>
-                  <button type="button" disabled={!cloudReady || attachments.length > 0} onClick={() => setRunOn("cloud")} className={cn("rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-45", runOn === "cloud" ? "border-accent/60 bg-accent/10" : "border-hairline/50 bg-inset hover:bg-raised")}><div className="text-[12.5px] font-medium text-ink">{t("routines.runsOn.boat")}</div><div className="mt-1 text-[11px] text-ink-secondary">{t(cloudHome ? "routines.runsOn.boatHintCloudHome" : "routines.runsOn.boatHint")}</div></button>
+                ) : <div className="rounded-xl border border-hairline/50 bg-inset p-3">
+                  <div className="text-[12.5px] font-medium text-ink">Bot’s current setup</div>
+                  <div className="mt-1 text-[11px] text-ink-secondary">Keeps its model and configured computer.</div>
                 </div>}
               </div>
             </div>
@@ -1558,7 +1555,7 @@ export function EventDetails({
       .slice(0, 3)
     : [];
   const runOn = run?.runOn ?? routine?.runOn;
-  const runsOn = routineRunsOn({ roomGoal: isRoomGoal, runOn, computer: primary?.computer, cloudHome: state.config?.cloudHome === true });
+  const runsOn = routineRunsOn({ roomGoal: isRoomGoal, runOn, computer: primary?.computer });
   const resultsOwner = resultsThreadId
     ? [...state.bots, ...state.groups].find((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId))
     : undefined;
@@ -1605,7 +1602,7 @@ export function EventDetails({
         {description && <DrawerField label={isCall ? t("routines.drawer.agenda") : t("routines.drawer.what")}><div className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink">{description}</div></DrawerField>}
         {!isCall && (
           <DrawerField label={t("routines.drawer.runsOn")}>
-            <div className="flex items-start gap-2 text-[12.5px] text-ink">{runOn === "cloud" ? <HIcon icon={CloudIcon} size={14} className="mt-0.5 shrink-0 text-ink-secondary" /> : <HIcon icon={LaptopIcon} size={14} className="mt-0.5 shrink-0 text-ink-secondary" />}<span>{runsOn.label}</span></div>
+            <div className="flex items-start gap-2 text-[12.5px] text-ink"><HIcon icon={LaptopIcon} size={14} className="mt-0.5 shrink-0 text-ink-secondary" /><span>{runsOn.label}</span></div>
             <div className="mt-0.5 text-[11px] leading-relaxed text-ink-secondary">{runsOn.hint}</div>
           </DrawerField>
         )}

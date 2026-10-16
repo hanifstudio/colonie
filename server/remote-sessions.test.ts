@@ -495,7 +495,6 @@ describe("pairing", () => {
     }
     const config = await call("/api/config", { headers: h() });
     expect(config.status).toBe(200);
-    expect(config.body.vps.sshAlias).toBe("");
     expect(config.body.profile.email).toBe("");
     expect(JSON.stringify(config.body)).not.toContain("partitionId");
   });
@@ -522,13 +521,11 @@ describe("pairing", () => {
     function expectClientConfig(config: any) {
       expect(config.opencodeGo).toEqual({ configured: false, providerKeys: [] });
       expect(config.profile).toEqual({ name: "Updated fixture", email: "" });
-      expect(config.vps).toEqual({ configured: true, sshAlias: "" });
       expect(config.browserProfiles).toEqual([{ id: "fixture", name: "Fixture browser" }]);
     }
     function expectAdminConfig(config: any) {
       expect(config.opencodeGo).toEqual({ configured: false, providerKeys: ["VENICE_API_KEY"] });
       expect(config.profile).toEqual({ name: "Updated fixture", email: "updated-private@example.invalid", aboutMe: "" });
-      expect(config.vps).toEqual({ configured: true, sshAlias: "fixture-private-host" });
       expect(config.browserProfiles).toEqual([{ id: "fixture", name: "Fixture browser", partitionId: "fixture-private-partition" }]);
     }
     try {

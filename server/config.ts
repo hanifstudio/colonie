@@ -1201,9 +1201,8 @@ export const WORKSPACE_CREDENTIAL_ENV = [
   "OMB_OPENAI_LIVE_KEY",
   "COMPOSIO_API_KEY",
   "OMB_COMPOSIO_BROKER_TOKEN",
-  // Cloud Pro's included Boat, voice and decision relay tokens
-  // (included-services.ts), used only in-process by the Boat, voice and
-  // decider modules.
+  // Cloud Pro's voice and decision relay tokens. Nothing in this build
+  // reads them, but a shell-capable agent still must not see them.
   "OMB_CLOUD_BOAT_TOKEN",
   "OMB_CLOUD_VOICE_TOKEN",
   "OMB_CLOUD_DECIDER_TOKEN",

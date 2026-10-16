@@ -102,15 +102,15 @@ describe("live frames the store does not keep", () => {
     expect(seen).toBe(before);
   });
 
-  it("keep a cloud computer's start or wake until its first frame, or until the turn ends", async () => {
-    await send({ kind: "computer", botId: "bot", state: "waking", place: "cloud" });
-    expect(seen.computerStarts.bot).toEqual({ state: "waking", place: "cloud" });
+  it("keep a computer's start or wake until its first frame, or until the turn ends", async () => {
+    await send({ kind: "computer", botId: "bot", state: "waking" });
+    expect(seen.computerStarts.bot).toEqual({ state: "waking" });
     await send({ kind: "screen", botId: "bot", threadId: "thread", png: "DDDD" });
     expect(seen.computerStarts.bot).toBeUndefined();
     // A start that failed sends no frame: the line goes when the turn ends.
     await send({ kind: "bot", bot: { ...bot, busy: true } } as ServerFrame);
-    await send({ kind: "computer", botId: "bot", state: "provisioning", place: "cloud" });
-    expect(seen.computerStarts.bot).toEqual({ state: "provisioning", place: "cloud" });
+    await send({ kind: "computer", botId: "bot", state: "provisioning" });
+    expect(seen.computerStarts.bot).toEqual({ state: "provisioning" });
     await send({ kind: "bot", bot: { ...bot, busy: false } } as ServerFrame);
     expect(seen.computerStarts.bot).toBeUndefined();
   });

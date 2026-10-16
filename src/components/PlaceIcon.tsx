@@ -1,7 +1,6 @@
 import type { ComponentProps } from "react";
 import {
   BoxIcon,
-  CloudIcon,
   GlobeIcon,
   MonitorIcon,
   PowerIcon,
@@ -12,7 +11,7 @@ import { HIcon } from "./HIcon";
 import type { EffectivePlace } from "@/lib/place";
 
 /** The same icon for a place everywhere: picker, chip, tab, tool row. */
-const ICONS = { cloud: CloudIcon, vm: BoxIcon, local: MonitorIcon, browser: GlobeIcon, auto: SparklesIcon, off: PowerIcon } as const satisfies Record<EffectivePlace, IconSvgElement>;
+const ICONS = { vm: BoxIcon, local: MonitorIcon, browser: GlobeIcon, auto: SparklesIcon, off: PowerIcon } as const satisfies Record<EffectivePlace, IconSvgElement>;
 
 export function PlaceIcon({ place, ...props }: { place: EffectivePlace } & Omit<ComponentProps<typeof HIcon>, "icon">) {
   return <HIcon icon={ICONS[place]} {...props} />;

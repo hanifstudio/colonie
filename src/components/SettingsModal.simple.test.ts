@@ -51,7 +51,6 @@ vi.mock("./ApiKeys", () => ({
   AnthropicEveryClaudeBot: marker("anthropicEvery"),
   OpenAiCompatUrl: marker("compatUrl"),
   OpenCodeProviderKeys: marker("opencodeProviderKeys"),
-  VpsConnection: marker("vps"),
 }));
 vi.mock("./RemoteComputerSection", () => ({ RemoteComputerSection: marker("companion") }));
 vi.mock("./CustomDomainSettings", () => ({ CustomDomainSettings: () => null }));

@@ -95,8 +95,8 @@ describe("the menu's first row", () => {
     expect(menu[0]).toEqual({ checked: true, text: "Auto Picks the right place for each task" });
     expect(html).not.toContain("Follow this bot");
     expect(html).toContain('aria-label="Where this conversation works: Auto"');
-    // Auto once, then the four places as before: no second Auto row.
-    expect(menu).toHaveLength(5);
+    // Auto once, then the three places: no second Auto row.
+    expect(menu).toHaveLength(4);
     expect(menu.filter((row) => row.text.startsWith("Auto"))).toHaveLength(1);
   });
 
@@ -124,25 +124,25 @@ describe("the places a conversation can be pinned to", () => {
   afterEach(() => { fixture.config = null; });
 
   it("reaches this computer and a Local VM on a desktop or self-hosted server", () => {
-    expect(availability()).toMatchObject({ cloud: true, vm: true, local: true });
+    expect(availability()).toMatchObject({ vm: true, local: true });
   });
 
   it("never reaches them on an OMB Cloud home", () => {
     fixture.config = { cloudHome: true };
-    expect(availability()).toMatchObject({ cloud: true, vm: false, local: false });
+    expect(availability()).toMatchObject({ vm: false, local: false });
   });
 });
 
 describe("J11: the chip names a place's problem in the panel's words", () => {
   afterEach(() => { fixture.menuOpen = false; fixture.computerMcp = true; });
 
-  it("greys out the cloud computer for a model that can't use one, with the same few words and line", () => {
+  it("greys out the Local VM for a model that can't use one, with the same few words and line", () => {
     fixture.computerMcp = false;
     fixture.menuOpen = true;
     const html = renderToStaticMarkup(createElement(PlaceChip, { bot, live: false, onPin: () => {} }));
-    const row = html.split('role="menuitemradio"').slice(1).find((entry) => entry.includes("Cloud computer"))!;
+    const row = html.split('role="menuitemradio"').slice(1).find((entry) => entry.includes("Local VM"))!;
     expect(row).toContain('disabled=""');
     expect(row).toContain("Not with this model");
-    expect(row).toContain("title=\"grok-4.6 can&#x27;t use a computer. Choose a model that can, such as Claude or ChatGPT.\"");
+    expect(row).toContain("title=\"grok-4.6 can&#x27;t use a Local VM. Choose a model that can, such as Claude or ChatGPT.\"");
   });
 });

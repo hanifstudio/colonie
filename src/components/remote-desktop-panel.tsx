@@ -1,6 +1,5 @@
 import { Calendar03Icon, CalendarClockIcon, ImageOffIcon, Loading02Icon, MonitorIcon, MultiplicationSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { boatCapableEngine } from "@/lib/remote-desktop";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -77,10 +76,6 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
     .sort((a, b) => Number(b.enabled) - Number(a.enabled) || (a.nextRunAt ?? Infinity) - (b.nextRunAt ?? Infinity));
   const activeRoutineRun = state.routineRuns.find(
     (run) => run.botId === bot.id && ["queued", "running", "waiting"].includes(run.status),
-  );
-  const cloudRoutineReady = Boolean(
-    state.config?.box.configured &&
-      boatCapableEngine(state.instances, bot.modelSelection.instanceId)?.snapshot.state === "available",
   );
 
   useEffect(() => {
@@ -200,9 +195,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
       <div className={cn("flex items-center justify-between border-b border-hairline px-5 py-4", padClass)}>
         <div>
           <div className="text-[14px] font-medium text-ink">{bot.name}&apos;s computer</div>
-          <div className="mt-0.5 text-[11px] text-ink-secondary">
-            {bot.cloudBackend === "vps" ? "Self-hosted VPS" : "Cloud desktop"}
-          </div>
+          <div className="mt-0.5 text-[11px] text-ink-secondary">Live desktop</div>
         </div>
         <button
           type="button"
@@ -220,10 +213,10 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
           onClick={() => void open()}
           disabled={pending || !frame}
           className="group relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-hairline bg-black disabled:cursor-default"
-          aria-label={frame ? `Open ${bot.name}'s live desktop` : "VPS preview unavailable"}
+          aria-label={frame ? `Open ${bot.name}'s live desktop` : "Desktop preview unavailable"}
         >
           {frame ? (
-            <img src={frame} alt={`${bot.name}'s VPS desktop preview`} className="h-full w-full object-contain" />
+            <img src={frame} alt={`${bot.name}'s desktop preview`} className="h-full w-full object-contain" />
           ) : previewPending ? (
             <HIcon icon={Loading02Icon} size={22} className="animate-spin text-ink-secondary" />
           ) : (
@@ -241,7 +234,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
         <div>
           <div className="text-[14px] font-medium text-ink">Open the live desktop</div>
           <p className="mt-2 text-[12px] leading-relaxed text-ink-secondary">
-            The host creates a temporary, encrypted viewer relay. VPS SSH and VNC credentials stay on the host computer.
+            The host creates a temporary, encrypted viewer relay. Credentials stay on the host computer.
           </p>
         </div>
         <button
@@ -259,7 +252,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
           </div>
         )}
         <p className="text-[11px] leading-relaxed text-ink-secondary">
-          The host must enable cloud desktop access for this paired device in Settings → Remote access.
+          The host must enable desktop access for this paired device in Settings → Remote access.
         </p>
 
         <div className="w-full rounded-xl bg-card p-4 text-left">
@@ -299,7 +292,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-medium text-ink">{routine.name}</span>
                     <span className="block truncate text-[10.5px] text-ink-secondary">
-                      {routineScheduleLabel(routine)}{routine.runOn === "cloud" ? " · runs on VM" : ""}
+                      {routineScheduleLabel(routine)}
                     </span>
                   </span>
                   <span className="shrink-0 text-[10px] text-ink-secondary">{nextRunLabel(routine.nextRunAt)}</span>
@@ -332,7 +325,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
         <RoutineEditor
           bots={[bot]}
           lockedBotId={bot.id}
-          defaultRunOn={cloudRoutineReady ? "cloud" : "maus"}
+          defaultRunOn="maus"
           onClose={() => setCreatingRoutine(false)}
         />
       )}

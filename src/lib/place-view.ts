@@ -9,10 +9,10 @@ import { browserAvailable, builtInBrowserEnabled, type FeatureFlagConfig } from 
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
-import type { Action, Bot, ConfigStatus, InstanceInfo } from "@/state/store";
+import type { Action, Bot, InstanceInfo } from "@/state/store";
 import type { LocaleKey } from "@/locales";
 import {
-  placeRowView, placeView, type Place, type PlaceActionId, type PlaceFacts, type PlaceRow, type PlaceTranslate, type PlaceView, type ServerKind,
+  placeRowView, placeView, type PlaceActionId, type PlaceFacts, type PlaceRow, type PlaceTranslate, type PlaceView, type ServerKind,
 } from "../../shared/place-view";
 import { canUseMcpServer } from "../../shared/tool-scope";
 
@@ -26,8 +26,7 @@ export interface PlaceSeat {
   mode: "simple" | "advanced";
 }
 
-export function serverKind(config: Pick<ConfigStatus, "cloudHome"> | null | undefined, platform: DesktopCapabilities["host"]["platform"]): ServerKind {
-  if (config?.cloudHome) return "my-cloud";
+export function serverKind(platform: DesktopCapabilities["host"]["platform"]): ServerKind {
   return platform === "darwin" ? "mac" : platform === "win32" ? "pc" : "linux";
 }
 
@@ -45,14 +44,12 @@ function engineFacts(instance: InstanceInfo | undefined, model: string | undefin
 
 /** Every fact of a bot's place but the place itself and its live state. */
 export function placeFacts(input: {
-  bot: Pick<Bot, "name" | "modelSelection" | "toolScope" | "cloudBackend">;
+  bot: Pick<Bot, "name" | "modelSelection" | "toolScope">;
   place: PlaceFacts["place"];
   seat: PlaceSeat;
-  config: (FeatureFlagConfig & Pick<ConfigStatus, "box">) | null | undefined;
+  config: FeatureFlagConfig | null | undefined;
   instances: InstanceInfo[];
   local?: PlaceFacts["local"];
-  computer?: PlaceFacts["computer"];
-  teamComputer?: string;
 }): PlaceFacts {
   const { bot, config, seat } = input;
   const instance = input.instances.find((candidate) => candidate.instanceId === bot.modelSelection.instanceId);
@@ -60,18 +57,12 @@ export function placeFacts(input: {
     place: input.place,
     server: seat.server,
     bot: bot.name,
-    // The desktop has no Cloud account, so no place ever reads a paid plan.
-    plan: false,
-    boat: config?.box?.configured ? (config.box.included ? "included" : "own-key") : "none",
-    backend: bot.cloudBackend === "vps" ? "vps" : "box",
     engine: engineFacts(instance, bot.modelSelection.model),
     toolsAllowComputer: canUseMcpServer(bot.toolScope, "computer"),
     browserOn: builtInBrowserEnabled(config) && browserAvailable(config),
     role: seat.role,
     mode: seat.mode,
     ...(input.local ? { local: input.local } : {}),
-    ...(input.computer ? { computer: input.computer } : {}),
-    ...(input.teamComputer ? { teamComputer: input.teamComputer } : {}),
   };
 }
 
@@ -87,21 +78,15 @@ export function placeRowViewFor(row: PlaceRow, seat: PlaceSeat, worksOnLabel?: s
 
 /** Whether a place can't be picked at all: no setting here makes it work. */
 export function placeBlocked(view: PlaceView): boolean {
-  return view.state === "cc-cannot" || view.state === "cc-on-my-cloud" || view.state === "browser-off" || view.state === "browser-cannot"
+  return view.state === "browser-off" || view.state === "browser-cannot"
     || view.state === "vm-cannot" || view.state === "local-unavailable";
 }
 
-/** Whether a place's state is a problem to name on its card, not its usual description. */
-export function placeHasIssue(view: PlaceView): boolean {
-  return placeBlocked(view) || view.state === "cc-tools-off" || view.state === "cc-sign-in" || view.state === "cc-needs-key"
-    || view.state === "cc-unavailable";
-}
-
 /** Where this app runs and who is looking: one hook for every place control. */
-export function usePlaceSeat(config: Pick<ConfigStatus, "cloudHome"> | null | undefined, platform: DesktopCapabilities["host"]["platform"]): PlaceSeat {
+export function usePlaceSeat(platform: DesktopCapabilities["host"]["platform"]): PlaceSeat {
   const ownerOrAdmin = useOwnerOrAdmin();
   const advanced = useAdvancedMode();
-  return { server: serverKind(config, platform), role: ownerOrAdmin === false ? "user" : "admin", mode: advanced ? "advanced" : "simple" };
+  return { server: serverKind(platform), role: ownerOrAdmin === false ? "user" : "admin", mode: advanced ? "advanced" : "simple" };
 }
 
 /** What a place's next action does, for actions that open somewhere: the
@@ -110,7 +95,7 @@ export function usePlaceSeat(config: Pick<ConfigStatus, "cloudHome"> | null | un
  * turn on the browser) are the caller's. */
 export function openPlaceAction(
   id: PlaceActionId,
-  target: { botId: string; threadId?: string; place?: Place },
+  target: { botId: string; threadId?: string },
   dispatch: (action: Action) => void,
 ): boolean {
   const appSettings = (section: "engines" | "computer" | "connections") =>
@@ -120,17 +105,10 @@ export function openPlaceAction(
     case "open-tools": dispatch({ type: "toggleSettings", open: true, section: "access", botId: target.botId }); return true;
     case "change-routine": dispatch({ type: "toggleSettings", open: true, section: "routines", botId: target.botId }); return true;
     case "sign-in": appSettings("engines"); return true;
-    case "manage-computers": appSettings("computer"); return true;
-    case "add-boat-key": appSettings("connections"); return true;
     case "open-vm-settings":
       window.sessionStorage?.setItem("openmausbot.settings.section", "computer");
       appSettings("computer");
       return true;
-    case "open-team-map": dispatch({ type: "showTeamMap" }); return true;
-    // The desktop has no Cloud account and no Cloud home to open.
-    case "see-plan":
-    case "open-my-cloud":
-      return false;
     case "clear-pin":
       if (!target.threadId) return false;
       dispatch({ type: "updateTask", botId: target.botId, threadId: target.threadId, patch: { surface: null } });
@@ -150,11 +128,10 @@ export function openPlaceAction(
  * names a pin's way back with, so it matches the tile the person sees. */
 export const SIMPLE_PLACE_LABEL = {
   auto: "vm.dest.auto",
-  cloud: "place.cloud",
   vm: "vm.dest.vm",
   browser: "vm.dest.browser",
   off: "vm.dest.off",
-} as const satisfies Record<string, LocaleKey>;
+} as const satisfies Record<"auto" | "vm" | "browser" | "off", LocaleKey>;
 
 export function worksOnSimpleLabel(computer: Bot["computer"], platform: DesktopCapabilities["host"]["platform"]): string {
   if (computer === "local") return t(platform === "darwin" ? "computer.simple.dest.thisMac" : "computer.simple.dest.thisPc");

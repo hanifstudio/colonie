@@ -2,7 +2,7 @@ import { Children, createElement, isValidElement, type ReactElement, type ReactN
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { StoreProvider, type Bot, type ConfigStatus } from "@/state/store";
+import { StoreProvider, type Bot } from "@/state/store";
 import type { useBotSettingsDerived } from "./useBotSettingsDerived";
 
 const fixture = vi.hoisted(() => ({ dispatch: vi.fn(), mcpError: false, servers: null as null | Array<{ name: string; enabled: boolean }>, config: null as unknown }));
@@ -180,8 +180,8 @@ describe("AccessSection Works on", () => {
     const markup = render(makeBot());
     expect(markup).toContain("Where Scout works: Chooses for you");
     expect(markup).toContain("Open Computer panel");
-    // No second picker here: the six places live in the Computer panel only.
-    expect([...markup.matchAll(/>(Auto|Cloud|Local VM|This computer|Browser|Off)<\/button>/g)]).toEqual([]);
+    // No second picker here: the places live in the Computer panel only.
+    expect([...markup.matchAll(/>(Auto|Local VM|This computer|Browser|Off)<\/button>/g)]).toEqual([]);
     expect(render(makeBot({ computer: "off" }))).toContain("Where Scout works: No screen");
 
     let tree!: ReturnType<typeof AccessSection>;
@@ -193,12 +193,5 @@ describe("AccessSection Works on", () => {
       [{ type: "toggleSettings", open: false }],
       [{ type: "toggleComputer", open: true }],
     ]);
-  });
-
-  it("hides the Boat or VPS choice on My Cloud, whose cloud computers are the plan's", () => {
-    expect(render(makeBot())).toContain("Cloud backend");
-    fixture.config = { cloudHome: true } as Partial<ConfigStatus>;
-    expect(render(makeBot())).not.toContain("Cloud backend");
-    expect(render(makeBot({ computer: "cloud" }))).not.toContain("Boat");
   });
 });

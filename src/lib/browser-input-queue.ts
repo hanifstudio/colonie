@@ -38,8 +38,9 @@ export function createBrowserInputQueue(send: (body: Input) => Promise<void>, on
           : { ...body };
         return;
       }
-      // ponytail: fixed 32-item ceiling; do not let a slow VPS accumulate
-      // minutes of input. Overload halts new presses until the view reconnects.
+      // ponytail: fixed 32-item ceiling; do not let a slow connection
+      // accumulate minutes of input. Overload halts new presses until the view
+      // reconnects.
       if (queue.length >= 32) {
         if (movement(body)) return;
         const replaceable = queue.findIndex(movement);

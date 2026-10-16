@@ -5,7 +5,7 @@
 // types, where it runs, how many at once, rotating the private URL, the
 // delivery log — stays one "Advanced options" away on each trigger.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight01Icon, CloudIcon, Copy01Icon, Delete02Icon, LaptopIcon, Link02Icon, Loading02Icon, MultiplicationSignIcon, PencilIcon, RotateCwIcon, SquareArrowUpRightIcon, Tick01Icon, WebhookIcon, ZapIcon } from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, Copy01Icon, Delete02Icon, LaptopIcon, Link02Icon, Loading02Icon, MultiplicationSignIcon, PencilIcon, RotateCwIcon, SquareArrowUpRightIcon, Tick01Icon, WebhookIcon, ZapIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
 import { BotAvatar } from "@/components/Avatar";
@@ -371,8 +371,8 @@ function TriggerRow({
           {webhook.prompt ? <p><span className="font-medium text-ink">{t("triggers.defaultInstruction")}</span> {webhook.prompt}</p> : <p>{t("triggers.requestInstruction")}</p>}
           {webhook.eventTypes?.length ? <p><span className="font-medium text-ink">{t("triggers.acceptedEvents")}</span> {webhook.eventTypes.join(", ")}</p> : <p>{t("triggers.allEvents")}</p>}
           <p className="flex items-center gap-1.5">
-            {webhook.runOn === "cloud" ? <HIcon icon={CloudIcon} size={12} /> : <HIcon icon={LaptopIcon} size={12} />}
-            <span className="font-medium text-ink">{t("routines.drawer.runsOn")}:</span> {t(webhook.runOn === "cloud" ? "triggers.cloudVm" : "routines.runsOn.local")}
+            <HIcon icon={LaptopIcon} size={12} />
+            <span className="font-medium text-ink">{t("routines.drawer.runsOn")}:</span> {t("routines.runsOn.local")}
           </p>
           <p><span className="font-medium text-ink">{t("triggers.pendingTasks")}</span> {t("triggers.pendingTasksHelp", { count: webhook.maxPendingRuns ?? WEBHOOK_DEFAULT_MAX_PENDING_RUNS })}</p>
           {hasCredential && (

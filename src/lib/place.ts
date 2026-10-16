@@ -2,32 +2,36 @@
 // it. The server decides what a turn mounts (server/surface.ts); this is the
 // renderer's reading of the same facts, for the composer chip, the panel
 // tabs and the place icon on a tool chip.
-import { cloudHomeOffersPlace } from "../../shared/cloud-home";
 import { toolSurfaceKind } from "../../shared/tool-surface";
 import type { Bot, Task } from "@/state/store";
 import type { LocaleKey } from "@/locales";
 
-export type Place = "cloud" | "vm" | "local" | "browser";
-export const PLACES: readonly Place[] = ["cloud", "vm", "local", "browser"];
+export type Place = "vm" | "local" | "browser";
+export const PLACES: readonly Place[] = ["vm", "local", "browser"];
 /** What the chip shows: a place, the bot's Auto, or Off. */
 export type EffectivePlace = Place | "auto" | "off";
 
-/** Whether this server offers a place at all. An OMB Cloud home offers no
- * "this computer" and no Local VM (shared/cloud-home.ts), so the pickers do
- * not list them there; every other server offers all four. */
+/** Whether this server offers a place at all. An OMB Cloud home is a headless
+ * cloud server: "this computer" there would be the server, not the person's own
+ * machine, and a Local VM needs a container runtime it cannot run. So it offers
+ * only the built-in browser; every other server offers all three places. */
 export function placeOffered(place: Place, config: { cloudHome?: boolean } | null | undefined): boolean {
-  return !config?.cloudHome || cloudHomeOffersPlace(place);
+  return !config?.cloudHome || place === "browser";
 }
 
 /** The conversation's pin wins over the bot's Works on, except Off, exactly
  * as the server resolves it. */
 export function effectivePlace(bot: Pick<Bot, "computer">, task?: Pick<Task, "surface"> | null): EffectivePlace {
   if (bot.computer === "off") return "off";
-  return task?.surface ?? bot.computer ?? "auto";
+  // ponytail: a conversation stored before the cloud place was removed can
+  // still pin `surface: "cloud"`; word it as this computer's screen. Drop once
+  // no such data exists.
+  const place = task?.surface ?? bot.computer ?? "auto";
+  return (place as string) === "cloud" ? "local" : place;
 }
 
-export function isComputerPlace(place: EffectivePlace): place is "cloud" | "vm" | "local" {
-  return place === "cloud" || place === "vm" || place === "local";
+export function isComputerPlace(place: EffectivePlace): place is "vm" | "local" {
+  return place === "vm" || place === "local";
 }
 
 export function placeLabelKey(place: EffectivePlace): LocaleKey {

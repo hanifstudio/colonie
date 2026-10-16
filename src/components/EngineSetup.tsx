@@ -566,8 +566,8 @@ export function EngineSetup({
     return <GrokKeyInstead className={className} unframed={unframed} />;
   }
 
-  // Some engines are configured elsewhere (for example, a cloud computer
-  // token) and intentionally have no install descriptor.
+  // Some engines are configured elsewhere and intentionally have no install
+  // descriptor.
   if (!install || instance.snapshot.authenticationUnavailableReason) {
     return (
       <div className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>

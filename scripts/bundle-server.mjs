@@ -43,9 +43,6 @@ const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",
   "workspace-backup.worker.ts",
-  // the OMB Cloud Pro home image's entry point (Dockerfile, cloud-home): it
-  // spawns index.js beside it and the Caddy edge
-  "cloud-home-start.ts",
   // the container image's entry point (Dockerfile, deploy/podman): it spawns
   // index.js beside it and starts it again on RESTART_EXIT_CODE
   "server-launcher.ts",
@@ -60,7 +57,6 @@ const ENTRY_POINTS = [
   // the hook helper Claude Code runs at PostToolUse/PreCompact/SessionStart/Stop
   "hooks/omb-hook.ts",
   "container-mcp.ts",
-  "vps-container-mcp.ts",
   "permission-proxy.ts",
   "connector-proxy.ts",
   "mcp-gate.ts",

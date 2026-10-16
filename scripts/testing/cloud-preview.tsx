@@ -7,7 +7,6 @@ import { RemoteDesktopPanel } from "../../src/components/remote-desktop-panel";
 import { StoreProvider, useStore, type Bot } from "../../src/state/store";
 import { applySkin, readSkin } from "../../src/lib/skins";
 import { publishLiveFrame } from "../../src/lib/live-events";
-import { CLOUD_COMPUTER_BUSY_ERROR } from "../../shared/computer-contention";
 import "../../src/styles.css";
 
 function frame(label: string, color: string) {
@@ -94,7 +93,7 @@ window.fetch = async (input, init) => {
   }
   // The real server refuses provision/sleep while a turn owns the boat.
   if (path.endsWith("/computer/provision")) {
-    if (turnActive) return json({ error: CLOUD_COMPUTER_BUSY_ERROR }, 409);
+    if (turnActive) return json({ error: "this bot's computer is being used by an active turn — interrupt it first" }, 409);
     return json({ state: "idle" });
   }
   if (path.endsWith("/computer/screenshot")) {

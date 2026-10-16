@@ -72,16 +72,14 @@ describe("named team computer ownership", () => {
     expect(registry.forSection("__proto__")?.id).toBe(two.id);
   });
 
-  it("only Auto without explicit VPS inherits; permission choices and Chief grants do not", () => {
+  it("only Auto inherits; permission choices and Chief grants do not", () => {
     const { registry } = fixture();
     const computer = registry.create("Shared desktop");
     registry.assign(computer.id, "Design");
     expect(registry.forBot({ section: "Design" })?.id).toBe(computer.id);
-    expect(registry.forBot({ section: "Design", cloudBackend: "box" })?.id).toBe(computer.id);
-    for (const mode of ["cloud", "local", "vm", "off", "browser"]) {
+    for (const mode of ["local", "vm", "off", "browser"]) {
       expect(registry.forBot({ section: "Design", computer: mode })).toBeUndefined();
     }
-    expect(registry.forBot({ section: "Design", cloudBackend: "vps" })).toBeUndefined();
     expect(registry.forBot({ section: "Other" })).toBeUndefined();
   });
 

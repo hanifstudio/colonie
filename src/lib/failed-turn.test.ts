@@ -55,8 +55,8 @@ describe("failed turn text", () => {
     expect(activityPreview({ ...loginRow, name: "error: needs a newer Claude Code", claudeUpdate: true }, engine())).toBe("needs a newer Claude Code");
   });
 
-  it("previews a plan-limit refusal whole and leaves ordinary steps alone", () => {
-    const limit = "Your Pro plan includes 2 cloud computers at once. Delete one to start another.";
+  it("previews a long refusal whole and leaves ordinary steps alone", () => {
+    const limit = "Your workspace allows 2 running bots at once. Stop one to start another.";
     expect(activityPreview({ name: `error: ${limit}`, ok: false }, engine())).toBe(limit);
     expect(activityPreview({ name: "Bash", ok: true }, engine())).toBe("Bash");
   });

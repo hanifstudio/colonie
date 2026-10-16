@@ -7,8 +7,12 @@ const INDEX = readFileSync(new URL("../../server/index.ts", import.meta.url), "u
 
 const EXACT: Record<string, number> = {
   // Internal harness routes have no server/routes module yet; moving them out is the follow-up that lowers this.
-  'path === "/': 157,
-  "path.match(": 88,
+  // Restoring the lent-computer internal routes (this person's own desktops)
+  // after the cloud slice deleted them with the cloud lending code raised this
+  // by two; they are internal-only, resolved behind /api/internal/'s own
+  // bearer, so they cannot move to server/routes with the public table.
+  'path === "/': 151,
+  "path.match(": 82,
   "path.startsWith(": 10,
   ".exec(path)": 18,
   ".test(path)": 1,

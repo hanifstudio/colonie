@@ -15,7 +15,7 @@ import type { ProviderIcon } from "../shared/provider-icon.ts";
 
 // These contract types live in shared/wire.ts now (part of the wire model);
 // re-exported here so existing server-side importers keep working.
-export type { CloudBackend, EffortLevel, ModelSelection } from "../shared/wire.ts";
+export type { EffortLevel, ModelSelection } from "../shared/wire.ts";
 // Runtime-event wire shapes live in shared/runtime-events.ts now (part of
 // the wire model); re-exported here so existing importers keep working.
 export type {

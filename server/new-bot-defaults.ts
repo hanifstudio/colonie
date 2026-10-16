@@ -26,9 +26,11 @@ export const botDefaultsProfileSchema = profilePatchSchema.extend({
   color: z.enum(["green", "blue", "red", "orange", "purple", "cyan", "pink", "yellow", "teal", "coral"]).optional(),
   mascotExpression: z.string().max(60).nullable().optional(),
   modelSelection: botDefaultModelSchema.optional(),
-  computer: z.enum(["cloud", "vm", "local", "browser", "off"]).nullable().optional(),
-  cloudBackend: z.enum(["box", "vps"]).optional(),
-  autoStartVps: z.boolean().optional(),
+  // ponytail: stored defaults still may say "cloud"; it reads as "local"
+  // rather than failing the whole template. Drop the alias once no stored
+  // defaults can predate the local-only build.
+  computer: z.enum(["cloud", "vm", "local", "browser", "off"])
+    .transform((value) => (value === "cloud" ? ("local" as const) : value)).nullable().optional(),
   cwd: z.string().max(4096).nullable().optional(),
   approvalMode: z.enum(["ask", "auto", "full", "custom"]).optional(),
   alwaysAllow: strings(200, 500).optional(),

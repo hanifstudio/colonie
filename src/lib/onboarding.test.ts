@@ -100,7 +100,7 @@ describe("welcomeViewer", () => {
 
 describe("a Cloud home's viewer", () => {
   // What the machine's /api/auth/session answers the desktop app once
-  // "Connect to my Cloud" has paired it (server/cloud-home.ts).
+  // "Connect to my Cloud" has paired it.
   const connected = welcomeViewer({ kind: "session", scopes: ["admin", "client"], via: "cookie", cloudHome: true });
 
   it("skips the welcome flow", () => {

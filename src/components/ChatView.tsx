@@ -126,7 +126,6 @@ import { appendComposerDraft, appendDraftAttachments, useReplyDraft } from "@/li
 import { dayLabel, localDay, transcriptLookups, type TranscriptLookups } from "@/lib/transcript-derivations";
 import { citationPreviewText, splitTranscriptCitations, type CitationAttachment } from "@/lib/citations";
 import { highlightCitationSource } from "@/lib/citations-dom";
-import { useCanWriteIn } from "@/lib/cloud-guest";
 import { latestFailure, latestReply, type TranscriptSnapshot } from "@/lib/transcript-announcer";
 import { pendingApprovals } from "./PendingApproval";
 import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
@@ -324,7 +323,7 @@ function PlaceFailedRow({ place, botId, threadId, onRetry }: {
 }) {
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
-  const seat = usePlaceSeat(state.config, capabilities.host.platform);
+  const seat = usePlaceSeat(capabilities.host.platform);
   const bot = state.bots.find((candidate) => candidate.id === botId);
   const view = placeRowViewFor(place, seat, worksOnSimpleLabel(bot?.computer, capabilities.host.platform));
   const id = view.action?.id;
@@ -1128,10 +1127,8 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
   const composerDockRef = useRef<HTMLDivElement>(null);
   const composerDock = useComposerDockPad(composerDockRef);
   const advanced = useAdvancedMode();
-  // A guest on an OMB Cloud home writes only in conversations it opened.
-  const canWrite = useCanWriteIn(bot.threadId, Boolean(accountConversation));
 
-  const computerStarting = computerStartLine(state.computerStarts[bot.id], bot.name);
+  const computerStarting = computerStartLine(state.computerStarts[bot.id]);
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
   const [findOpen, setFindOpen] = useState(false);
   const [acpContextOpen, setAcpContextOpen] = useState(false);
@@ -1658,9 +1655,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           composer so the transcript stays in view. In the dock, so the
           transcript pad grows with it. */}
       <LiveCallBar bot={bot} />
-      {accountConversation ? accountConversation.composer : canWrite === false ? (
-        <NewConversationInstead onNew={() => dispatch({ type: "newTask", botId: bot.id })} />
-      ) : (
+      {accountConversation ? accountConversation.composer : (
       <Composer
         key={bot.threadId}
         bot={profile}
@@ -1673,7 +1668,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           : undefined}
       />
       )}
-      {!accountConversation && canWrite !== false && (
+      {!accountConversation && (
       <CitationSelectionToolbar
         key={`${bot.id}:${bot.threadId}`}
         viewportRef={scrollRef}
@@ -1684,20 +1679,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
       </GlassScrollFrame>
 
     </main>
-  );
-}
-
-/** In place of the composer, for a guest on an OMB Cloud home in a
- * conversation it did not open: it can only start its own. One click, no
- * dialog. */
-export function NewConversationInstead({ onNew }: { onNew: () => void }) {
-  return (
-    <div className="pointer-events-auto mx-5 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-hairline/60 bg-raised px-4 py-3" data-testid="cloud-guest-composer">
-      <p className="text-[13px] text-ink-secondary">{t("chat.cloudGuest.notYours")}</p>
-      <button type="button" onClick={onNew} className="shrink-0 rounded-full bg-accent px-3 py-1 text-[13px] font-medium text-white">
-        {t("chat.cloudGuest.newConversation")}
-      </button>
-    </div>
   );
 }
 

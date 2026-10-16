@@ -13,7 +13,7 @@ export interface OnboardingStatus {
   reelSeen: boolean;
   hintsSeen: string[];
   /** OMB Cloud home only: when a bot's turn first finished there. The
-   * server writes it (server/cloud-home.ts firstCloudTurnPatch). */
+   * server writes it. */
   firstTurnAt?: string;
 }
 

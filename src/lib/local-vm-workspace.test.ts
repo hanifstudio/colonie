@@ -23,7 +23,7 @@ const bots = [
   { id: "vm-a", computer: "vm" as const },
   { id: "vm-b", computer: "vm" as const },
   { id: "vm-c", computer: "vm" as const },
-  { id: "cloud", computer: "cloud" as const },
+  { id: "browser", computer: "browser" as const },
   { id: "hidden", computer: "vm" as const, hidden: true },
 ];
 

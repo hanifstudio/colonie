@@ -1,7 +1,7 @@
-// The computer surfaces hold copy in three places a naive translation misses:
-// a module-scope table (the local preview's phase map), a message parked in
-// React state, and a failure sentence produced by a plain helper. Each one is
-// a place where the language a pack was picked in could get frozen in.
+// The computer surfaces hold copy in two places a naive translation misses:
+// a module-scope table (the local preview's phase map) and a failure sentence
+// produced by a plain helper. Each one is a place where the language a pack
+// was picked in could get frozen in.
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +23,6 @@ vi.mock("./DesktopCapabilities", () => ({
 }));
 
 const { LocalScreenPreview } = await import("./LocalScreenPreview");
-const { CloudScreenPreview } = await import("./CloudScreenPreview");
 
 afterEach(() => {
   setLocale("en");
@@ -52,25 +51,4 @@ describe("computer panel translation", () => {
     setLocale("ja");
     expect(t(failure.messageKey)).toBe(locales.ja!["computer.screen.cancelled"]);
   });
-
-  it("translates the cloud preview in every pack", () => {
-    for (const [code, pack] of Object.entries(locales)) {
-      setLocale(code);
-      const html = renderToStaticMarkup(createElement(CloudScreenPreview, {
-        src: null,
-        name: "Atlas",
-        error: null,
-        starting: true,
-        opening: false,
-        disabled: false,
-        onOpen: () => {},
-        onRetry: () => {},
-      }));
-      expect(html, code).toContain(escapeHtml(pack["computer.phase.starting"]!));
-    }
-  });
 });
-
-function escapeHtml(value: string): string {
-  return value.replace(/'/g, "&#x27;").replace(/"/g, "&quot;");
-}

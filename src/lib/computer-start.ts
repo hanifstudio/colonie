@@ -5,11 +5,9 @@ import { t } from "@/lib/i18n";
 import type { ServerFrame } from "../../shared/wire";
 
 /** A computer being set up or woken for a bot's turn. */
-export type ComputerStart = Pick<Extract<ServerFrame, { kind: "computer" }>, "state" | "place">;
+export type ComputerStart = Pick<Extract<ServerFrame, { kind: "computer" }>, "state">;
 
 /** What the chat says while it starts, or null when nothing is starting. */
-export function computerStartLine(start: ComputerStart | undefined, name: string): string | null {
-  if (!start) return null;
-  if (start.place !== "cloud") return t("chat.provisioning");
-  return t(start.state === "waking" ? "chat.computerWaking" : "chat.computerStarting", { name });
+export function computerStartLine(start: ComputerStart | undefined): string | null {
+  return start ? t("chat.provisioning") : null;
 }

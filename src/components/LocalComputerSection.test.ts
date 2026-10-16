@@ -11,46 +11,25 @@ vi.mock("@/state/store", async (importOriginal) => {
 });
 
 import {
-  CloudComputersCard,
   LocalComputerSection,
   LocalVmIdleTimeoutSetting,
   LocalVmInventoryCard,
-  VpsComputersCard,
-  cloudComputerActionPlan,
-  cloudComputerInventoryState,
   computerInventoryRequest,
   confirmComputerAction,
   localVmInventoryState,
   parseLocalVmIdleTimeoutMinutes,
-  reconcileCloudInventoryPayload,
   perBotLocalVmDeletePlan,
-  reconcileCloudInventorySnapshot,
-  vpsComputerRemovePlan,
-  vpsComputerInventoryState,
-  vpsComputerShortId,
-  type CloudComputerInventoryInstance,
   type LocalVmInventoryInstance,
-  type VpsComputerInventoryInstance,
 } from "./LocalComputerSection";
 
-const cloudVm: LocalVmInventoryInstance = {
-  botId: "cloud-bot",
+const vmInstance: LocalVmInventoryInstance = {
+  botId: "vm-bot",
   name: "Research",
-  destination: "cloud",
+  destination: "vm",
   container: "running",
   ready: true,
   managed: true,
   problem: null,
-  inUse: false,
-};
-
-const ownedCloudComputer: CloudComputerInventoryInstance = {
-  boxId: "provider-id-must-not-render",
-  name: "ogb-current0-a1b2c3",
-  state: "ready",
-  ownerBotId: "current-owner",
-  ownerName: "Research",
-  orphaned: false,
   inUse: false,
 };
 
@@ -62,8 +41,6 @@ describe("computer inventory request wiring", () => {
     const requests = ([
       ["status", "/api/local-computer"],
       ["local-vms", "/api/local-computer/instances"],
-      ["cloud", "/api/computers/boxes"],
-      ["vps", "/api/computers/vps"],
     ] as const).map(([kind, expectedUrl]) => ({
       expectedUrl,
       request: computerInventoryRequest(kind, controller.signal),
@@ -79,7 +56,7 @@ describe("computer inventory request wiring", () => {
 
   it("does not expose a destructive request when confirmation is cancelled", () => {
     const confirm = vi.fn(() => false);
-    const request = confirmComputerAction(perBotLocalVmDeletePlan(cloudVm), confirm);
+    const request = confirmComputerAction(perBotLocalVmDeletePlan(vmInstance), confirm);
 
     expect(request).toBeNull();
     expect(confirm).toHaveBeenCalledOnce();
@@ -88,56 +65,19 @@ describe("computer inventory request wiring", () => {
     );
   });
 
-  it("builds the exact confirmed Local VM, Boat, and VPS lifecycle requests", () => {
+  it("builds the exact confirmed Local VM delete request", () => {
     const confirm = vi.fn(() => true);
-    const local = confirmComputerAction(perBotLocalVmDeletePlan(cloudVm), confirm);
-    const cloudDelete = confirmComputerAction(cloudComputerActionPlan("delete", ownedCloudComputer), confirm);
-    const cloudSleep = confirmComputerAction(cloudComputerActionPlan("sleep", ownedCloudComputer), confirm);
-    const vpsName = "openmausbot-vps-current-123456abcdef";
-    const vps = confirmComputerAction(vpsComputerRemovePlan({
-      name: vpsName,
-      state: "running",
-      ownerBotId: "current-owner",
-      ownerName: "Research",
-      orphaned: false,
-      inUse: false,
-    }), confirm);
+    const local = confirmComputerAction(perBotLocalVmDeletePlan(vmInstance), confirm);
 
     expect(local).toEqual([
-      "/api/bots/cloud-bot/local-computer/remove",
+      "/api/bots/vm-bot/local-computer/remove",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: "{}",
       },
     ]);
-    expect(cloudDelete).toEqual([
-      "/api/computers/boxes/provider-id-must-not-render/delete",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirmName: ownedCloudComputer.name }),
-      },
-    ]);
-    expect(cloudSleep).toEqual([
-      "/api/computers/boxes/provider-id-must-not-render/sleep",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      },
-    ]);
-    expect(vps).toEqual([
-      `/api/computers/vps/${vpsName}/remove`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirmName: vpsName }),
-      },
-    ]);
-    // Sleep is reversible and intentionally skips confirmation; all three
-    // destructive actions above remain explicitly gated.
-    expect(confirm).toHaveBeenCalledTimes(3);
+    expect(confirm).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -145,7 +85,7 @@ describe("Local VM inventory UI", () => {
   it("shows capacity, current destinations, health, and an in-use deletion guard", () => {
     const markup = renderToStaticMarkup(createElement(LocalVmInventoryCard, {
       instances: [
-        cloudVm,
+        vmInstance,
         {
           botId: "off-bot",
           name: "Archive",
@@ -167,7 +107,7 @@ describe("Local VM inventory UI", () => {
     }));
 
     expect(markup).toContain("2/4 created");
-    expect(markup).toContain("Current destination: Cloud");
+    expect(markup).toContain("Current destination: Local VM");
     expect(markup).toContain("Current destination: Off");
     expect(markup).toContain("In use");
     expect(markup).toContain("Stop this bot&#x27;s turn before deleting its desktop.");
@@ -176,10 +116,10 @@ describe("Local VM inventory UI", () => {
   });
 
   it("keeps state labels honest", () => {
-    expect(localVmInventoryState(cloudVm)).toBe("Running");
-    expect(localVmInventoryState({ ...cloudVm, ready: false })).toBe("Needs attention");
-    expect(localVmInventoryState({ ...cloudVm, container: "stopped", ready: false })).toBe("Stopped");
-    expect(localVmInventoryState({ ...cloudVm, inUse: true })).toBe("In use");
+    expect(localVmInventoryState(vmInstance)).toBe("Running");
+    expect(localVmInventoryState({ ...vmInstance, ready: false })).toBe("Needs attention");
+    expect(localVmInventoryState({ ...vmInstance, container: "stopped", ready: false })).toBe("Stopped");
+    expect(localVmInventoryState({ ...vmInstance, inUse: true })).toBe("In use");
   });
 
   it("does not claim there are no VMs when the runtime cannot be inspected", () => {
@@ -201,7 +141,7 @@ describe("Local VM inventory UI", () => {
 
   it("disables deletion while refreshing an existing inventory", () => {
     const markup = renderToStaticMarkup(createElement(LocalVmInventoryCard, {
-      instances: [cloudVm],
+      instances: [vmInstance],
       maxInstances: 4,
       loading: true,
       deletingBotId: null,
@@ -218,7 +158,7 @@ describe("Local VM inventory UI", () => {
   it("shows unmanaged containers without offering an unsafe delete action", () => {
     const markup = renderToStaticMarkup(createElement(LocalVmInventoryCard, {
       instances: [{
-        ...cloudVm,
+        ...vmInstance,
         managed: false,
         ready: false,
         problem: "Container labels do not match",
@@ -240,314 +180,17 @@ describe("Local VM inventory UI", () => {
   });
 });
 
-describe("cloud computer inventory UI", () => {
-  const renderCard = (overrides: Partial<Parameters<typeof CloudComputersCard>[0]> = {}) =>
-    renderToStaticMarkup(createElement(CloudComputersCard, {
-      instances: [],
-      configured: true,
-      loading: false,
-      pending: null,
-      error: null,
-      unavailableReason: null,
-      onRefresh: vi.fn(),
-      onSleep: vi.fn(),
-      onDelete: vi.fn(),
-      ...overrides,
-    }));
-
-  it("shows owners, orphans, lifecycle state and only the sanitized machine name", () => {
-    const markup = renderCard({
-      instances: [
-        ownedCloudComputer,
-        {
-          boxId: "another-provider-id",
-          name: "ogb-orphaned-abcdef",
-          state: "archived",
-          ownerBotId: null,
-          ownerName: null,
-          orphaned: true,
-          inUse: false,
-        },
-      ],
-    });
-
-    expect(markup).toContain("Research");
-    expect(markup).toContain("Owned by this bot");
-    expect(markup).toContain("Orphaned computer");
-    expect(markup).toContain("Its bot no longer exists");
-    expect(markup).toContain("Running");
-    expect(markup).toContain("Sleeping");
-    expect(markup).toContain("ogb-current0-a1b2c3");
-    expect(markup).not.toMatch(/provider-id-must-not-render|another-provider-id|desktopUrl|password|token=/);
-  });
-
-  it("disables destructive actions while the owner is working", () => {
-    const markup = renderCard({ instances: [{ ...ownedCloudComputer, inUse: true }] });
-
-    expect(markup).toContain("In use");
-    expect(markup).toContain("Stop this bot&#x27;s work before changing its computer.");
-    expect(markup.match(/disabled=""/g)).toHaveLength(2);
-  });
-
-  it("disables lifecycle actions while refreshing an existing inventory", () => {
-    const markup = renderCard({ instances: [ownedCloudComputer], loading: true });
-
-    // Refresh, Sleep, and Delete all wait for one authoritative snapshot.
-    expect(markup.match(/disabled=""/g)).toHaveLength(3);
-  });
-
-  it("keeps disconnected, unavailable, and empty states distinct", () => {
-    const disconnected = renderCard({ configured: false });
-    expect(disconnected).toContain("Boat is not connected");
-    expect(disconnected).not.toContain("No OpenMaus-managed cloud computers found");
-
-    const unavailable = renderCard({ unavailableReason: "boat.dev is unavailable" });
-    expect(unavailable).toContain("boat.dev is unavailable");
-    expect(unavailable).not.toContain("No OpenMaus-managed cloud computers found");
-
-    const endpointFailure = renderCard({ configured: null, unavailableReason: "Computer inventory could not load" });
-    expect(endpointFailure).toContain("Computer inventory could not load");
-    expect(endpointFailure).not.toContain("Boat is not connected");
-
-    const empty = renderCard();
-    expect(empty).toContain("No OpenMaus-managed cloud computers found");
-  });
-
-  it("uses honest state labels", () => {
-    expect(cloudComputerInventoryState(ownedCloudComputer)).toBe("Running");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, state: "archived" })).toBe("Sleeping");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, state: "archiving" })).toBe("Going to sleep");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, state: "removing" })).toBe("Removing");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, state: "provisioning" })).toBe("Starting");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, state: "unknown" })).toBe("Needs attention");
-    expect(cloudComputerInventoryState({ ...ownedCloudComputer, inUse: true })).toBe("In use");
-  });
-
-  it("keeps a provider-accepted deletion visible while it is still pending", () => {
-    const pending = reconcileCloudInventorySnapshot(
-      [ownedCloudComputer],
-      [ownedCloudComputer],
-      { [ownedCloudComputer.boxId]: "deleting" },
-    );
-
-    expect(pending.instances).toEqual([{ ...ownedCloudComputer, state: "removing" }]);
-    expect(pending.overrides).toEqual({ [ownedCloudComputer.boxId]: "deleting" });
-    const markup = renderCard({ instances: pending.instances });
-    expect(markup).toContain("Removing");
-    // Sleep and Delete stay unavailable until the bounded confirmation pass
-    // either observes absence or restores the provider's actual row.
-    expect(markup.match(/disabled=""/g)).toHaveLength(2);
-  });
-
-  it("clears a pending deletion only after inventory confirms absence", () => {
-    const settled = reconcileCloudInventorySnapshot(
-      [],
-      [{ ...ownedCloudComputer, state: "removing" }],
-      { [ownedCloudComputer.boxId]: "deleting" },
-    );
-
-    expect(settled.instances).toEqual([]);
-    expect(settled.overrides).toEqual({});
-  });
-
-  it("does not treat an unavailable or unconfigured empty inventory as proof of deletion", () => {
-    for (const payload of [
-      { configured: true, available: false, problem: "Boat is unavailable", instances: [] },
-      { configured: false, available: false, problem: null, instances: [] },
-    ]) {
-      const result = reconcileCloudInventoryPayload(
-        payload,
-        [{ ...ownedCloudComputer, state: "removing" }],
-        { [ownedCloudComputer.boxId]: "deleting" },
-      );
-
-      expect(result.instances).toEqual([{ ...ownedCloudComputer, state: "removing" }]);
-      expect(result.overrides).toEqual({ [ownedCloudComputer.boxId]: "deleting" });
-    }
-  });
-
-  it("keeps cloud badge meaning and delete requests stable when the language changes", () => {
-    const englishPlan = cloudComputerActionPlan("delete", ownedCloudComputer);
-    for (const [locale, running, sleeping] of [
-      ["pt-br", "Em execução", "Dormindo"],
-      ["ja", "実行中", "スリープ中"],
-    ]) {
-      setLocale(locale);
-      expect(renderCard({ instances: [ownedCloudComputer] }))
-        .toContain(`bg-success/15 text-success">${running}</span>`);
-      expect(renderCard({ instances: [{ ...ownedCloudComputer, state: "archived" }] }))
-        .toContain(`bg-control text-ink-secondary">${sleeping}</span>`);
-      const translatedPlan = cloudComputerActionPlan("delete", ownedCloudComputer);
-      expect(translatedPlan.confirmation).not.toBe(englishPlan.confirmation);
-      expect(translatedPlan.confirmation).toContain(ownedCloudComputer.ownerName);
-      expect(translatedPlan.request).toEqual(englishPlan.request);
-    }
-  });
-
-  it("does not let an eventually-consistent list resurrect a deleted computer", () => {
-    const first = reconcileCloudInventorySnapshot(
-      [ownedCloudComputer],
-      [ownedCloudComputer],
-      { [ownedCloudComputer.boxId]: "deleted" },
-    );
-    expect(first.instances).toEqual([]);
-    expect(first.overrides).toEqual({ [ownedCloudComputer.boxId]: "deleted" });
-
-    const later = reconcileCloudInventorySnapshot(
-      [ownedCloudComputer],
-      first.instances,
-      first.overrides,
-    );
-    expect(later.instances).toEqual([]);
-
-    const confirmedAbsent = reconcileCloudInventorySnapshot(
-      [],
-      later.instances,
-      later.overrides,
-    );
-    expect(confirmedAbsent.instances).toEqual([]);
-    expect(confirmedAbsent.overrides).toEqual({});
-  });
-
-  it("keeps a successful sleep visible until LIST reaches a sleeping state", () => {
-    const stale = reconcileCloudInventorySnapshot(
-      [{ ...ownedCloudComputer, state: "running" }],
-      [ownedCloudComputer],
-      { [ownedCloudComputer.boxId]: "sleeping" },
-    );
-    expect(stale.instances[0]?.state).toBe("archived");
-    expect(stale.overrides).toEqual({ [ownedCloudComputer.boxId]: "sleeping" });
-
-    const missing = reconcileCloudInventorySnapshot([], stale.instances, stale.overrides);
-    expect(missing.instances[0]?.state).toBe("archived");
-    expect(missing.overrides).toEqual(stale.overrides);
-
-    const settled = reconcileCloudInventorySnapshot(
-      [{ ...ownedCloudComputer, state: "stopped" }],
-      missing.instances,
-      missing.overrides,
-    );
-    expect(settled.instances[0]?.state).toBe("stopped");
-    expect(settled.overrides).toEqual({});
-  });
-
-  it("announces cloud loading and action errors", () => {
-    const loading = renderCard({ loading: true });
-    expect(loading).toContain('role="status"');
-    expect(loading).toContain('aria-busy="true"');
-
-    const failed = renderCard({ error: "Could not delete this computer" });
-    expect(failed).toContain('role="alert"');
-  });
-});
-
-describe("VPS computer inventory UI", () => {
-  const ownedVps: VpsComputerInventoryInstance = {
-    name: "openmausbot-vps-current-123456abcdef",
-    state: "running",
-    ownerBotId: "current-owner",
-    ownerName: "Research",
-    orphaned: false,
-    inUse: false,
-  };
-  const renderCard = (overrides: Partial<Parameters<typeof VpsComputersCard>[0]> = {}) =>
-    renderToStaticMarkup(createElement(VpsComputersCard, {
-      instances: [],
-      configured: true,
-      sshAlias: "production-vps",
-      loading: false,
-      removingName: null,
-      error: null,
-      unavailableReason: null,
-      onRefresh: vi.fn(),
-      onRemove: vi.fn(),
-      ...overrides,
-    }));
-
-  it("shows the configured host, owners, orphans, and status without raw container details", () => {
-    const orphanName = "openmausbot-vps-deleted-abcdef123456";
-    const markup = renderCard({
-      instances: [
-        ownedVps,
-        {
-          name: orphanName,
-          state: "exited",
-          ownerBotId: null,
-          ownerName: null,
-          orphaned: true,
-          inUse: false,
-        },
-      ],
-    });
-
-    expect(markup).toContain("SSH host: production-vps");
-    expect(markup).toContain("Research");
-    expect(markup).toContain("Owned by this bot");
-    expect(markup).toContain("Orphaned VPS computer · ID ef123456");
-    expect(markup).toContain("Its bot no longer exists");
-    expect(markup).toContain("Running");
-    expect(markup).toContain("Stopped");
-    expect(markup).not.toMatch(new RegExp(`${ownedVps.name}|${orphanName}|containerId|VNC_PW|password`));
-  });
-
-  it("derives a stable identifier without exposing the bot-derived container name", () => {
-    expect(vpsComputerShortId("openmausbot-vps-deleted-abcdef123456")).toBe("ef123456");
-    expect(vpsComputerShortId("unexpected-provider-name")).toBe("unknown");
-  });
-
-  it("disables removal while the owner is working", () => {
-    const markup = renderCard({ instances: [{ ...ownedVps, inUse: true }] });
-
-    expect(markup).toContain("In use");
-    expect(markup).toContain("Stop this bot&#x27;s work before removing its VPS computer.");
-    expect(markup).toContain("disabled=\"\"");
-  });
-
-  it("disables removal while refreshing an existing inventory", () => {
-    const markup = renderCard({ instances: [ownedVps], loading: true });
-
-    // Refresh and Remove cannot race one another.
-    expect(markup.match(/disabled=""/g)).toHaveLength(2);
-  });
-
-  it("keeps disconnected, unavailable, and empty states distinct", () => {
-    expect(renderCard({ configured: false, sshAlias: null })).toContain("VPS is not configured");
-    expect(renderCard({ unavailableReason: "SSH host cannot be reached" })).toContain("SSH host cannot be reached");
-    expect(renderCard()).toContain("No OpenMaus-managed VPS computers found");
-  });
-
-  it("uses honest status labels", () => {
-    expect(vpsComputerInventoryState(ownedVps)).toBe("Running");
-    expect(vpsComputerInventoryState({ ...ownedVps, state: "exited" })).toBe("Stopped");
-    expect(vpsComputerInventoryState({ ...ownedVps, state: "paused" })).toBe("Paused");
-    expect(vpsComputerInventoryState({ ...ownedVps, state: "restarting" })).toBe("Restarting");
-    expect(vpsComputerInventoryState({ ...ownedVps, state: "dead" })).toBe("Needs attention");
-    expect(vpsComputerInventoryState({ ...ownedVps, inUse: true })).toBe("In use");
-  });
-
-  it("keeps running and paused VPS badge colors when labels are translated", () => {
-    setLocale("pt-br");
-    const running = renderCard({ instances: [ownedVps] });
-    expect(running).toContain('bg-success/15 text-success">Em execução</span>');
-    expect(running).toContain("Remover");
-    expect(running).not.toContain(">Remove</button>");
-    expect(renderCard({ instances: [{ ...ownedVps, state: "paused" }] }))
-      .toContain('bg-control text-ink-secondary">Pausado</span>');
-  });
-});
-
-describe("Settings → Computers on an OMB Cloud home", () => {
+describe("Settings → Computers", () => {
   afterEach(() => { storeFixture.config = null; });
   const cards = () => [...renderToStaticMarkup(createElement(LocalComputerSection)).matchAll(/<div class="text-\[15px\] font-medium text-ink">([^<]+)<\/div>/g)].map((match) => match[1]);
 
   it("sets up a Local VM on a desktop or self-hosted server", () => {
-    expect(cards()).toEqual(expect.arrayContaining(["Cloud computers", "Local VM", "Setup"]));
+    expect(cards()).toEqual(expect.arrayContaining(["Local VM", "Setup"]));
   });
 
   it("shows no Local VM, and no steps to install one, where it cannot exist", () => {
     storeFixture.config = { cloudHome: true };
     const titles = cards();
-    expect(titles).toContain("Cloud computers");
     expect(titles).not.toContain("Local VM");
     expect(titles).not.toContain("Setup");
   });

@@ -6,7 +6,7 @@ import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
 import { instanceSupportsLocalComputer, localComputerDisabledReason, localComputerSelectable } from "@/lib/local-computer";
 import { effectivePlace, PLACES, placeLabelKey, placeOffered, type Place } from "@/lib/place";
-import { placeBlocked, placeFacts, placeHasIssue, placeViewFor, usePlaceSeat } from "@/lib/place-view";
+import { placeBlocked, placeFacts, placeViewFor, usePlaceSeat } from "@/lib/place-view";
 import { useStore, type Bot, type Task } from "@/state/store";
 import type { PlaceView } from "../../shared/place-view";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
@@ -21,7 +21,7 @@ export type PlaceAvailability = Record<Place, boolean>;
 export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reachable: boolean }> {
   const { state } = useStore();
   const { capabilities } = useDesktopCapabilities();
-  const seat = usePlaceSeat(state.config, capabilities.host.platform);
+  const seat = usePlaceSeat(capabilities.host.platform);
   const providerSupportsLocal = instanceSupportsLocalComputer(state.instances, bot);
   const local = {
     ready: localComputerSelectable({ capabilities, providerSupportsLocal }),
@@ -33,16 +33,16 @@ export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reacha
     const offered = placeOffered(place, state.config);
     return { view, reachable: offered && !placeBlocked(view) };
   };
-  return { cloud: entry("cloud"), vm: entry("vm"), local: entry("local"), browser: entry("browser") };
+  return { vm: entry("vm"), local: entry("local"), browser: entry("browser") };
 }
 
 export function usePlaceAvailability(bot: Bot): PlaceAvailability {
   const views = usePlaceViews(bot);
-  return { cloud: views.cloud.reachable, vm: views.vm.reachable, local: views.local.reachable, browser: views.browser.reachable };
+  return { vm: views.vm.reachable, local: views.local.reachable, browser: views.browser.reachable };
 }
 
-const DESCRIPTION: Record<Place, "computer.dest.cloudDesc" | "computer.dest.vmDesc" | "computer.dest.localDesc" | "computer.dest.browserDesc"> = {
-  cloud: "computer.dest.cloudDesc", vm: "computer.dest.vmDesc", local: "computer.dest.localDesc", browser: "computer.dest.browserDesc",
+const DESCRIPTION: Record<Place, "computer.dest.vmDesc" | "computer.dest.localDesc" | "computer.dest.browserDesc"> = {
+  vm: "computer.dest.vmDesc", local: "computer.dest.localDesc", browser: "computer.dest.browserDesc",
 };
 
 /** Where this conversation works, beside the send button in Advanced mode
@@ -129,7 +129,7 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
               const { view, reachable } = places[place];
               // A problem is named in the panel's own few words; a place this
               // server never offers is not listed at all.
-              const detail = placeHasIssue(view) ? view.short : t(DESCRIPTION[place]);
+              const detail = placeBlocked(view) ? view.short : t(DESCRIPTION[place]);
               return (
                 <button
                   key={place}
@@ -137,7 +137,7 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
                   role="menuitemradio"
                   aria-checked={selected}
                   disabled={!reachable}
-                  title={placeHasIssue(view) ? view.line : undefined}
+                  title={placeBlocked(view) ? view.line : undefined}
                   onClick={() => choose(place)}
                   className={cn("flex items-start gap-3 px-4 py-2 text-left", reachable ? "hover:bg-control/60" : "cursor-not-allowed opacity-45", selected && "bg-control/40")}
                 >

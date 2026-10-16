@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import type { BotVisibility, CardAnswerer, CloudBackend, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, GroupThreadUsage, SteerQueueReason } from "../../shared/wire";
+import type { BotVisibility, CardAnswerer, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, GroupThreadUsage, SteerQueueReason } from "../../shared/wire";
 import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
@@ -346,7 +346,7 @@ export interface Task {
   /** where this conversation works, when pinned: by the person from the
    * composer, or by its first Auto turn to the place it reached. Wins over
    * the bot's Works on (except Off); absent = follows the bot. */
-  surface?: "cloud" | "vm" | "local" | "browser";
+  surface?: "vm" | "local" | "browser";
   /** true when that pin is the machine's own record (an Auto turn's landing
    * place or the bot's select_computer choice), which the next Works on
    * change moves; absent on a person's pin or one older than the server's
@@ -440,12 +440,8 @@ export interface Bot {
   turnStartedAt?: number | null;
   modelSelection: ModelSelection;
   /** Where this bot works: a computer, only the built-in browser tab, or
-   * nowhere; unset = auto (cloud boat if one exists, else local). */
-  computer?: "cloud" | "vm" | "local" | "browser" | "off";
-  /** Which cloud computer backs `computer: "cloud"`; absent means Boat. */
-  cloudBackend?: CloudBackend;
-  /** Allow Auto to prepare/start the managed VPS container. Off by default. */
-  autoStartVps?: boolean;
+   * nowhere; unset = auto (Local VM at home, else this computer's screen). */
+  computer?: "vm" | "local" | "browser" | "off";
   /** where new tasks run their shell tools; absent = the private bot workspace */
   cwd?: string;
   /** auto mode: the bot approves its own tool permissions */
@@ -649,9 +645,6 @@ export interface ConfigStatus {
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   composio: { configured: boolean; projectKeyConfigured?: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
-  /** `included`: cloud computers come with Cloud Pro, no key is saved. */
-  box: { configured: boolean; included?: boolean };
-  vps: { configured: boolean; sshAlias: string };
   rooms: { turnTimeoutMinutes: number };
   /** Per-call ceiling (minutes) for a bot's MCP tools. Absent from servers
    * older than the setting; read it with mcpCallTimeoutMinutes(). */
@@ -719,7 +712,7 @@ export interface ConfigStatus {
   /** Named browser sessions any bot can be pointed at. */
   browserProfiles?: BrowserProfile[];
   /** This server is an OMB Cloud home: it offers no "this computer" and no
-   * Local VM (server/cloud-home.ts). Absent everywhere else. */
+   * Local VM. Absent everywhere else. */
   cloudHome?: boolean;
 }
 
@@ -746,7 +739,7 @@ export interface BrowserProfile {
 // Settings shows (a saved key's Test button used to vanish that way).
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
+  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -759,8 +752,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     openrouter: frame.openrouter,
     openaiCompat: frame.openaiCompat,
     composio: frame.composio,
-    box: frame.box,
-    vps: frame.vps,
     rooms: frame.rooms,
     mcp: frame.mcp,
     threads: frame.threads,
@@ -3350,8 +3341,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             notifications: source.notifications,
             modelSelection: source.modelSelection,
             computer: source.computer,
-            cloudBackend: source.cloudBackend,
-            autoStartVps: source.autoStartVps,
             avatarUrl: source.avatarUrl,
             avatarCrop: source.avatarCrop,
             avatarZoom: source.avatarZoom,
@@ -3976,8 +3965,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
           break;
         case "computer":
-          rawDispatch({ type: "computerStart", botId: frame.botId,
-            start: { state: frame.state, ...(frame.place ? { place: frame.place } : {}) } });
+          rawDispatch({ type: "computerStart", botId: frame.botId, start: { state: frame.state } });
           break;
         case "computer-control":
           rawDispatch({

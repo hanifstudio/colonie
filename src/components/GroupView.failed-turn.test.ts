@@ -66,8 +66,8 @@ describe("a member's failed turn in a room", () => {
     expect(room(signedOut)).toBe(renderToStaticMarkup(createElement(FailedTurnRow, { tool: signedOut.tool!, engine: claude })));
   });
 
-  it("shows a plan-limit refusal whole, next action included", () => {
-    const limit = "Your Pro plan includes 2 cloud computers at once. Delete one to start another.";
+  it("shows a long refusal whole, next action included", () => {
+    const limit = "Your workspace allows 2 running bots at once. Stop one to start another.";
     const markup = room(failed(`error: ${limit}`));
     expect(markup).toContain(`>${limit}</span>`);
     expect(markup).not.toContain("truncate");
