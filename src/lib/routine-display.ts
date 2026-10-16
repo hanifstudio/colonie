@@ -40,7 +40,7 @@ export function routineNextLabel(routine: Routine): string {
 
 /** Where a routine runs, in the Computer panel's words. My Cloud is always
  * on, so its routines run on schedule; a desktop starts them while
- * OpenMausBot is open there. A Cloud home offers no Local VM or this
+ * Colonie is open there. A Cloud home offers no Local VM or this
  * computer, so a copied bot's setting reads as My Cloud. */
 export function routineRunsOn({ roomGoal, runOn, computer, cloudHome }: {
   roomGoal: boolean; runOn?: string; computer?: string | null; cloudHome: boolean;

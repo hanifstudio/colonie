@@ -69,7 +69,7 @@ const directHTTPOrigin = (host: string, port: number): string => {
  * hosted route that is still provisioning. Explicit local setup leads with the
  * first LAN/Bonjour endpoint, then hosted, then this computer's other local
  * addresses (never a tailnet one). Both phones probe each of them, send the
- * one-time code only to the first in that order that answers as OpenMausBot,
+ * one-time code only to the first in that order that answers as Colonie,
  * and bind the device token to that one (ios Failover.swift
  * `pinRouteConsent`, android Connection.kt `pinningRouteConsent`). */
 export function companionPairingRoute(

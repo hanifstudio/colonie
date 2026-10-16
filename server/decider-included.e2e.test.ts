@@ -26,7 +26,7 @@ const RELAY_PATH = "/relay/api/cloud/services/decider";
 const ROOM_INSTRUCTIONS = "Which bot in this room should answer `new_message`? Choose __everyone__ only when the message needs several members to answer.";
 const ROOM_STATE_KEYS = ["room", "humans_in_room", "bots_in_room", "recent_messages", "new_message"];
 const KEY_CHECK = {
-  state: { purpose: "OpenMausBot is checking that a decision-model key works." },
+  state: { purpose: "Colonie is checking that a decision-model key works." },
   questions: { answer: { type: "noul", instructions: "Is this a connection check?" } },
 };
 

@@ -138,7 +138,7 @@ describe("live routes", () => {
     expect(await request(d, "PATCH", "/api/live/settings", { idleMinutes: 10, readTypedReplies: false })).toMatchObject({ status: 200, body: { live: { idleMinutes: 10, readTypedReplies: false } } });
     // The key is saved with the rest of the settings (on a Cloud's page) or
     // in the desktop's credential store, never here; the refusal does not
-    // send the person to "the computer that runs OpenMausBot".
+    // send the person to "the computer that runs Colonie".
     expect(await request(d, "PATCH", "/api/live/settings", { key: "sk-x" })).toEqual({ status: 400, body: { error: "Those Live settings are not valid." } });
     expect((await request(d, "PATCH", "/api/live/settings", { idleMinutes: 0 })).status).toBe(400);
     expect((await request(d, "PATCH", "/api/live/settings", { idleMinutes: 61 })).status).toBe(400);

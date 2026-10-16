@@ -75,7 +75,7 @@ it.each(["codex-acp", "claude-acp"])("keeps concurrent conversations on one %s b
     restarted = spawn(process.execPath, [join(import.meta.dirname, "../index.ts")], {
       env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), DEVONE_PROFILE: "1" }, stdio: ["ignore", log, log],
     }); closeSync(log);
-    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("openmausbot");
+    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("colonie");
     await send(a, "alpha restart"); await idle(a);
     await send(b, "beta restart"); await idle(b);
     const finalA = await receipts(a); const finalB = await receipts(b);

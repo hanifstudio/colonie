@@ -64,7 +64,7 @@ export async function harnessMcpRequest(
   try {
     const url = new URL(connection.url);
     if (!connection.token || url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-      throw new Error(`${name} connection is not configured. Start a new bot turn from OpenMausBot.`);
+      throw new Error(`${name} connection is not configured. Start a new bot turn from Colonie.`);
     }
     const body = JSON.stringify({ method: message.method, params: message.params ?? {} });
     if (Buffer.byteLength(body) > MAX_INPUT_BYTES) throw new Error(`${name} request exceeded the size limit.`);

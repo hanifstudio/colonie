@@ -5,7 +5,7 @@
 // Composio's default auth config for a toolkit never asks for that scope, so
 // reconnecting cannot fix it and a bot that only sees the 403 retries or
 // asks the person to reconnect. The fix is the person's own auth config in
-// their Composio project, which OpenMausBot already prefers
+// their Composio project, which Colonie already prefers
 // (listCustomAuthConfigs). This appends that explanation to the tool result,
 // leaving the provider's own error untouched.
 
@@ -32,10 +32,10 @@ export function scopeHint(slugs: readonly string[]): string {
   const app = slug ? appName(slug) : "This app";
   const scope = slug ? requiredScope(slug) : null;
   const permission = scope ? `the ${scope} permission` : "the permission this action needs";
-  return `OpenMausBot note: ${app} refused this because the connected account has not granted ${permission}. ` +
+  return `Colonie note: ${app} refused this because the connected account has not granted ${permission}. ` +
     `Reconnecting will not add it: the default Composio connection never asks for it. ` +
     `To allow it, the person creates their own ${app} auth config in their Composio project that includes ${permission}, ` +
-    `then reconnects ${app} under Connected apps; OpenMausBot uses that config automatically. ` +
+    `then reconnects ${app} under Connected apps; Colonie uses that config automatically. ` +
     `Tell the person this. Do not retry this call.`;
 }
 

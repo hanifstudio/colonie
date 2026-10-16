@@ -99,7 +99,7 @@ const COMPUTER_PARAGRAPH: Record<ComputerPromptKind, string> = {
   vps:
     " You have your own self-hosted remote Linux computer through the official Cua tools. This is the user's own VPS; using it does not require a Boat API key. Its filesystem is disposable: everything on it is wiped whenever its container is recreated, so keep long-lived work somewhere durable — push it to a remote, or hand the results back in chat — instead of leaving it only on that computer. Inspect the desktop state before acting, prefer accessibility targets over raw coordinates, and act carefully.",
   local:
-    " You can act on the user's computer through the computer tools. Discover the target app/window and inspect its state first. Prefer window-targeted accessibility actions with background delivery so the user can keep working in another app; do not bring OpenMausBot or another app to the front just to inspect it. Use the dedicated browser tools for browser work when available, keeping the user's intended browser profile/account, and OpenMausBot's configuration/proposal tools for supported bot setup rather than clicking through this app. Full-desktop input, app activation, and foreground delivery can move the real cursor, change focus, or switch desktops: use them only when the user asked for foreground control or agrees after background control reports it cannot perform the action. Do not silently retry a background refusal as foreground input, including through shell scripts, AppleScript/System Events, or another automation tool. If a background action unexpectedly changes focus, report it and stop that route rather than continuing to interrupt the user. Never promise that arbitrary desktop actions can run in the background.",
+    " You can act on the user's computer through the computer tools. Discover the target app/window and inspect its state first. Prefer window-targeted accessibility actions with background delivery so the user can keep working in another app; do not bring Colonie or another app to the front just to inspect it. Use the dedicated browser tools for browser work when available, keeping the user's intended browser profile/account, and Colonie's configuration/proposal tools for supported bot setup rather than clicking through this app. Full-desktop input, app activation, and foreground delivery can move the real cursor, change focus, or switch desktops: use them only when the user asked for foreground control or agrees after background control reports it cannot perform the action. Do not silently retry a background refusal as foreground input, including through shell scripts, AppleScript/System Events, or another automation tool. If a background action unexpectedly changes focus, report it and stop that route rather than continuing to interrupt the user. Never promise that arbitrary desktop actions can run in the background.",
 };
 
 /** The computer paragraph plus the shared sign-in policy. */
@@ -110,7 +110,7 @@ export function computerPrompt(kind: ComputerPromptKind | null): string {
 
 /** Where a Cloud home's bot runs, in the one wording its prompts share: the
  * bot's own (cloudHomePrompt) and its Live call voice's (server/live-call.ts). */
-export const CLOUD_HOME_PLACE = "the user's My Cloud, their always-on OpenMausBot in the cloud, not on their own computer";
+export const CLOUD_HOME_PLACE = "the user's My Cloud, their always-on Colonie in the cloud, not on their own computer";
 
 /** Every turn on a Cloud home (server/cloud-home.ts). The bot runs in the
  * cloud, so asked about the person's own computer it says what is true instead
@@ -119,7 +119,7 @@ export const CLOUD_HOME_PLACE = "the user's My Cloud, their always-on OpenMausBo
  * shared-computer tools, so only a turn that has those tools is told to use them. */
 export function cloudHomePrompt(sharedComputerTools: boolean): string {
   return ` You run on ${CLOUD_HOME_PLACE}.` + (sharedComputerTools
-    ? " If they ask for something on their own Mac or PC, check list_shared_computers: a Mac they lend to My Cloud is reachable through shared_computer, within the folders and apps it allows. If none is lent and online, say so in one sentence: they can turn on Let My Cloud use this Mac under Settings → OpenMausBot Cloud in the desktop app on that Mac."
+    ? " If they ask for something on their own Mac or PC, check list_shared_computers: a Mac they lend to My Cloud is reachable through shared_computer, within the folders and apps it allows. If none is lent and online, say so in one sentence: they can turn on Let My Cloud use this Mac under Settings → Colonie Cloud in the desktop app on that Mac."
     : " You cannot see or use their Mac or PC, its screen or its files from here. If they ask for something on it, say so in one sentence.")
     + " Offer what works here: the built-in browser and their cloud computer, a desktop in the cloud. Call it their cloud computer, as the app does. Never ask them to set up this computer or a Local VM; neither exists here.";
 }
@@ -139,7 +139,7 @@ export function composioSystemPrompt(grants: Record<string, ConnectorToolGrant> 
   const services = Object.keys(grants);
   if (services.length === 0) return "";
   const named = services.map(connectorServiceLabel).join(", ");
-  return ` The user's connected apps assigned to this bot (${named}) are reachable through the composio tools — find the right one with COMPOSIO_SEARCH_TOOLS, read its arguments with COMPOSIO_GET_TOOL_SCHEMAS, then run it with COMPOSIO_MULTI_EXECUTE_TOOL. Only the tools this bot was granted will run; when a needed tool is refused, tell the user and ask them to grant it in OpenMausBot. Reach for the granted services before telling the user you have no access.`;
+  return ` The user's connected apps assigned to this bot (${named}) are reachable through the composio tools — find the right one with COMPOSIO_SEARCH_TOOLS, read its arguments with COMPOSIO_GET_TOOL_SCHEMAS, then run it with COMPOSIO_MULTI_EXECUTE_TOOL. Only the tools this bot was granted will run; when a needed tool is refused, tell the user and ask them to grant it in Colonie. Reach for the granted services before telling the user you have no access.`;
 }
 
 /** "gmail" → "Gmail", "google_calendar" → "Google Calendar". The prompt
@@ -175,7 +175,7 @@ export const WEBHOOK_PROMPT =
 export const TEAM_MEMORY_PROMPT =
   " When you learn who someone is, where something lives, what was decided, or what a term or nickname means, propose it with propose_team_memory. Every addition or replacement waits for a workspace admin to confirm a card before it enters shared prompts; do not claim it is remembered before then.";
 export const PROFILE_PROMPT =
-  " If the user asks you to change who you are — your name, title, description, or standing instructions (SOUL.md) — or to set yourself up, use propose_profile. OpenMausBot has native bot-creation and team-setup tools for Chiefs: use your authorized tools rather than computer control to click through this app. Other bots should ask a reachable Chief through the peer tools; if none is reachable, explain the team-access blocker instead of clicking around it or claiming bots cannot be created programmatically." + PROPOSAL_RESULT_PROMPT;
+  " If the user asks you to change who you are — your name, title, description, or standing instructions (SOUL.md) — or to set yourself up, use propose_profile. Colonie has native bot-creation and team-setup tools for Chiefs: use your authorized tools rather than computer control to click through this app. Other bots should ask a reachable Chief through the peer tools; if none is reachable, explain the team-access blocker instead of clicking around it or claiming bots cannot be created programmatically." + PROPOSAL_RESULT_PROMPT;
 
 export function mentionPrompt(tagged: ReadonlyArray<{ id: string; name: string }>): string {
   if (!tagged.length) return "";

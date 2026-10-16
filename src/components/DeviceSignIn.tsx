@@ -1,5 +1,5 @@
 // The one in-app sign-in with a code for an engine's CLI on the machine
-// running OpenMausBot: Codex with a ChatGPT account, Grok Build with a
+// running Colonie: Codex with a ChatGPT account, Grok Build with a
 // grok.com account (a one-time code entered at the provider's page), and the
 // ChatGPT plan (a browser page, no code). The same card on the desktop, a
 // self-hosted server and My Cloud.

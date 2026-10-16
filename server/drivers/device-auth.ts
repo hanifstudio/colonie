@@ -1,4 +1,4 @@
-// Signing an engine's CLI in on the machine running OpenMausBot with a
+// Signing an engine's CLI in on the machine running Colonie with a
 // one-time code, from the app: the desktop, a self-hosted server and My Cloud
 // alike. The CLI's own device-code login runs here (`codex login
 // --device-auth`, `grok login --device-auth`), its page and code go to the

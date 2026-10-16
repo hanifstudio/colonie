@@ -31,7 +31,7 @@
 // forced refresh skips the freshness check; failures are logged and never
 // surface; one switch turns fetching off.
 //
-// Changed for OpenMausBot:
+// Changed for Colonie:
 // - plain Node instead of Effect; one server process owns DATA_DIR, so a
 //   single in-flight promise stands in for OpenCode's cross-process flock;
 // - data counts as fresh for 24 hours, and a refresh runs only when asked

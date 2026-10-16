@@ -10,7 +10,7 @@
 // same runtime (server/drivers/antigravity-temp.ts).
 //
 // Admin-scoped by default (server/request-auth.ts lists no client rule for
-// these paths): it deletes files on the machine running OpenMausBot. The
+// these paths): it deletes files on the machine running Colonie. The
 // answers carry sizes and counts, never paths.
 import type { LeftoverRemoval, LeftoverScan } from "../drivers/antigravity-temp.ts";
 import { PASS, type RouteHandler } from "./table.ts";

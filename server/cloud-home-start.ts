@@ -2,7 +2,7 @@
 //
 // Starts as root, hands a fresh Fly volume (mounted root-owned at /data) to
 // the unprivileged `maus` user, and stays a small root supervisor of two
-// children that run as `maus`: the OpenMausBot server on 127.0.0.1:8799
+// children that run as `maus`: the Colonie server on 127.0.0.1:8799
 // (and its webhook receiver on :8800) and the Caddy edge on 0.0.0.0:8080.
 // The edge is the only listener the network can reach, and it always
 // forwards with X-Forwarded-*, so request-auth.ts never grants a remote
@@ -120,7 +120,7 @@ export function spawnWithSecrets(command: string, args: string[], env: NodeJS.Pr
 export function startCloudHome(env: NodeJS.ProcessEnv = process.env) {
   process.umask(0o077);
   const config = cloudHomeConfiguration(env);
-  if (!config) throw new Error("This image runs a My Cloud machine for OpenMausBot Cloud; set its boot contract (docs/cloud-pro.md).");
+  if (!config) throw new Error("This image runs a My Cloud machine for Colonie Cloud; set its boot contract (docs/cloud-pro.md).");
   // Logged here once: the server child never sees what they are about.
   for (const warning of config.warnings) console.warn(`cloud home: ${warning}`);
   const home = env.HOME || "/data";

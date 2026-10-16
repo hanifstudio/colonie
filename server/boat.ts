@@ -92,7 +92,7 @@ const BOAT_STATES = new Set([
   "error",
 ]);
 // Provider listings are account-wide. Hash the durable local environment id
-// into every new name so another OpenMausBot installation using the same Boat
+// into every new name so another Colonie installation using the same Boat
 // account cannot mistake this installation's computers for abandoned ones.
 // The environment UUID itself never leaves the local data directory.
 let scopedBoatPrefixCache: string | null = null;
@@ -558,7 +558,7 @@ async function listBoatPages(
 
 /**
  * One account listing for Settings and deletion guards. Only boats
- * carrying OpenMausBot's exact deterministic name shape leave this boundary;
+ * carrying Colonie's exact deterministic name shape leave this boundary;
  * provider desktop links, IPs, environment details and other raw fields never
  * reach the renderer. Only names scoped to this installation may become
  * ownerless rows. Legacy names are accepted solely when a current bot proves
@@ -610,7 +610,7 @@ export async function listManagedBoats(
     try {
       recoveries = boatCreateRecoverySnapshot();
     } catch {
-      return invalidInventory("OpenMausBot could not safely read its cloud computer recovery records");
+      return invalidInventory("Colonie could not safely read its cloud computer recovery records");
     }
     for (const recovery of recoveries) {
       if (!recovery.resolved || !recovery.boxId) continue;
@@ -624,7 +624,7 @@ export async function listManagedBoats(
       if (matchingRows.length === 1) {
         const listedName = typeof matchingRows[0]?.name === "string" ? matchingRows[0].name : "";
         if (listedName !== namedOwner.currentName && listedName !== namedOwner.legacyName) {
-          return invalidInventory("A remembered cloud computer no longer has its OpenMausBot owner name — repair it in boat.dev before continuing");
+          return invalidInventory("A remembered cloud computer no longer has its Colonie owner name — repair it in boat.dev before continuing");
         }
         continue;
       }
@@ -643,7 +643,7 @@ export async function listManagedBoats(
         inspected.identity.name !== namedOwner.currentName
         && inspected.identity.name !== namedOwner.legacyName
       ) {
-        return invalidInventory("A remembered cloud computer no longer has its OpenMausBot owner name — repair it in boat.dev before continuing");
+        return invalidInventory("A remembered cloud computer no longer has its Colonie owner name — repair it in boat.dev before continuing");
       }
       const directCandidate = {
         id: inspected.identity.boxId,
@@ -657,7 +657,7 @@ export async function listManagedBoats(
     try {
       deletions = boatDeletionSnapshot();
     } catch {
-      return invalidInventory("OpenMausBot could not safely read its cloud computer deletion records");
+      return invalidInventory("Colonie could not safely read its cloud computer deletion records");
     }
     for (const deletion of deletions) {
       let state: BoatDeletionReconciliation;
@@ -768,7 +768,7 @@ export async function listManagedBoats(
       try {
         adoptResolvedBoat(owner.botId, boxId);
       } catch {
-        return invalidInventory("OpenMausBot could not safely remember this legacy cloud computer's owner — repair it in boat.dev before continuing");
+        return invalidInventory("Colonie could not safely remember this legacy cloud computer's owner — repair it in boat.dev before continuing");
       }
     }
     seenBoatIds.add(boxId);
@@ -1132,7 +1132,7 @@ function idempotentCreateInProgress(result: Awaited<ReturnType<typeof boatJson>>
 async function requestBoatCreate(cfg: AppConfig, botId: string, ttlSeconds: number): Promise<BoatCreateResult> {
   // The computer is a desktop the bot's own engine drives from here, so it
   // needs no AI sign-in of its own: provider-side env injection stays off and
-  // no key this OpenMausBot holds is ever sent to it. A trial-TTL retry must
+  // no key this Colonie holds is ever sent to it. A trial-TTL retry must
   // receive a different idempotency key, and the journal on disk never
   // carries a credential.
   const body = JSON.stringify({ ttlSeconds, noEnv: true });

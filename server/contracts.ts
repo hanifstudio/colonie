@@ -67,7 +67,7 @@ export function isModelVariant(value: unknown): value is string {
 // "Which model" is a data value carried on the request, never a service
 // binding (upstream ModelSelectionWire). instanceId is the routing key.
 
-/** An image already admitted to OpenMausBot's private attachment store.
+/** An image already admitted to Colonie's private attachment store.
  * Drivers receive this structured value instead of learning a host path from
  * prompt text. The harness validates the path and size before constructing it. */
 export interface TurnImageInput {

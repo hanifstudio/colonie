@@ -655,7 +655,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
   const SOURCE = support.nativeSource;
   const decodeConfig = decodeAcpConfig(support.defaultCli);
   const DENY_TIMEOUT_NOTE =
-    "OpenMausBot: nobody answered this permission request in time. Skip this action and finish what you can without it.";
+    "Colonie: nobody answered this permission request in time. Skip this action and finish what you can without it.";
 
   return {
     driverKind: DRIVER_KIND,
@@ -849,7 +849,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
       // an injected stdio proxy — e.g. the peer-agent comms tool — attaches
       // fine here. env is the ACP {name,value}[] shape.
       //
-      // A URL server is always mounted as OpenMausBot's remote proxy, even
+      // A URL server is always mounted as Colonie's remote proxy, even
       // for an agent that advertises http/sse: the proxy opens the
       // connection with the same minimal handshake as Settings → Test
       // (mcp-http.ts), where an agent's own MCP client adds capability
@@ -2313,7 +2313,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             nativeImageInput: support.images === true,
             effortLevels: support.effortLevels,
             modelVariants: support.modelVariants === true,
-            // OpenMausBot supplies a per-bot approvalMode on every harness
+            // Colonie supplies a per-bot approvalMode on every harness
             // turn, which safely overrides a legacy instance fullAuto value.
             // Direct adapter calls that omit it still fail closed in sendTurn.
             localComputerMcp: true,

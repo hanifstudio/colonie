@@ -1,4 +1,4 @@
-// A small MCP client for servers OpenMausBot does not start itself: the
+// A small MCP client for servers Colonie does not start itself: the
 // current streamable HTTP transport and the older SSE one. It runs the
 // Test button (prove the handshake, list the tools) and the stdio proxy
 // (mcp-remote-proxy.ts) every engine except Claude Code reaches these

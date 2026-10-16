@@ -1,7 +1,7 @@
 const INTEGRITY = "The update failed verification. Download a fresh installer from the official release page.";
 const DISK = "Not enough disk space to prepare the update. Free some space, then try again.";
 const PERMISSION = "The update could not write to the app or its cache. Check folder permissions, or use the official installer.";
-const BUSY = "An update file is in use. Close other copies of OpenMausBot, then try again.";
+const BUSY = "An update file is in use. Close other copies of Colonie, then try again.";
 // These come back on every attempt until the person does something, so a
 // download nobody asked for shows them too, and stops trying again by itself.
 const NEEDS_PERSON = new Set([INTEGRITY, DISK, PERMISSION, BUSY]);

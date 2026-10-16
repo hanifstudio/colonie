@@ -95,7 +95,7 @@ it.each(["codex-acp", "claude-acp"])("mounts Composio/custom MCP for %s with sco
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, [join(import.meta.dirname, "../../index.ts")], { env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), DEVONE_PROFILE: "1", OMB_COMPOSIO_API: `${composio.origin}/api/v3.1`, OMB_COMPOSIO_TOOLKITS_API: `${composio.origin}/api/v3` }, stdio: ["ignore", log, log] }); closeSync(log);
-    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("openmausbot");
+    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("colonie");
     await send("mcp list"); await idle();
     expect((await receipts()).at(-1)?.sessionId).toBe(nativeSession);
     await api("POST", "/api/mcp/servers", { name: "custom_sse", type: "sse", url: sse.url });

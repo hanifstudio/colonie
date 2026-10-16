@@ -88,7 +88,7 @@ it.each(["codex-acp", "claude-acp"])("captures, corrects, scopes, forgets and re
       env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), DEVONE_PROFILE: "1" }, stdio: ["ignore", log, log],
     });
     closeSync(log);
-    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("openmausbot");
+    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("colonie");
     const resumed = await send(a, "When does Project Nebula launch?", task.threadId);
     expect(resumed.sessionId).toBe(recalled.sessionId);
     expect(resumed.context?.snapshotHash).toBe(recalled.context?.snapshotHash);

@@ -56,7 +56,7 @@ export const HELP_UI = `renderer (needs a ui launch handle; every verb takes --u
   ui wait-settle --ui HANDLE [--timeout 30]
   ui help`;
 
-export const HELP = `control-omb — verify a running OpenMausBot instance through its shared MCP core
+export const HELP = `control-omb — verify a running Colonie instance through its shared MCP core
 
 read-only:
   doctor [--url URL]
@@ -131,7 +131,7 @@ function configuredUrl(raw: unknown, env: NodeJS.ProcessEnv, requiredForMutation
   if (!explicit) {
     if (requiredForMutation) {
       throw new ControlOmbError(
-        "mutating commands require an explicit OpenMausBot instance",
+        "mutating commands require an explicit Colonie instance",
         "start `control-omb launch`, then pass its URL with --url",
       );
     }
@@ -186,7 +186,7 @@ export async function runControlOmb(
     const health = rawHealth as { status: string; endpoint?: string; app: string; packaged: boolean };
     const instances = (models as { instances?: Array<{ instanceId?: string; snapshot?: { state?: string } }> }).instances ?? [];
     return {
-      ok: health.app === "openmausbot"
+      ok: health.app === "colonie"
         && instances.some((instance) => instance.snapshot?.state === "available"),
       health: endpoint ? { ...health, endpoint } : health,
       availableEngines: instances
@@ -524,7 +524,7 @@ export async function launchVerificationServer(
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         });
         const body = response.ok ? await response.json() as { app?: string } : null;
-        if (body?.app === "openmausbot") break;
+        if (body?.app === "colonie") break;
       } catch {
         // The server is still starting.
       }

@@ -133,7 +133,7 @@ describe("strict initialize fixture", () => {
     expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "OpenMausBot tool proxy", version: "1" } }]);
   });
 
-  // The proxy cannot tell an OpenMausBot sign-in from a key typed into a
+  // The proxy cannot tell a Colonie sign-in from a key typed into a
   // header: both arrive as headers. So a 401 names both ways out, and first
   // the one that needs nobody: a sign-in that ran out mid-turn is refreshed
   // when the next message starts.
@@ -145,7 +145,7 @@ describe("strict initialize fixture", () => {
     const ask = startProxy(mcpStdioServer({ type: "http", url: fake.url, headers })!);
     const message = (await ask(1, "initialize", CODEX)).error?.message;
     expect(message).toBe("This MCP server refused its credentials (HTTP 401). If it uses a sign-in, send the message again: "
-      + "OpenMausBot refreshes sign-ins when a message starts. If it still fails, open Plugins → MCP servers and sign in to it again, "
+      + "Colonie refreshes sign-ins when a message starts. If it still fails, open Plugins → MCP servers and sign in to it again, "
       + "or check its header values.");
     expect(message).not.toContain(fake.url);
     // not Codex's own sign-in: codexSignInRefused reads "please sign in again"

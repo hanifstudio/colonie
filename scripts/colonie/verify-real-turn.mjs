@@ -73,7 +73,7 @@ try {
   let ready = false;
   for (let attempt = 0; attempt < 120; attempt++) {
     if (child.exitCode !== null) throw new Error(`fixture server exited ${child.exitCode}`);
-    try { if ((await api("GET", "/api/health")).app === "openmausbot") { ready = true; break; } } catch { /* startup */ }
+    try { if ((await api("GET", "/api/health")).app === "colonie") { ready = true; break; } } catch { /* startup */ }
     await delay(250);
   }
   assert.ok(ready, "fixture server must become ready");

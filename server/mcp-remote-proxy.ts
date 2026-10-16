@@ -56,13 +56,13 @@ function fail(message: string): never {
 }
 
 /** What the engine is told when the server refuses its credentials (HTTP
- * 401). This proxy cannot tell an OpenMausBot sign-in from a header the
+ * 401). This proxy cannot tell a Colonie sign-in from a header the
  * person typed (both arrive as headers), so the words cover both: a sign-in
  * token that ran out during a long turn is refreshed when the next message
  * starts, while a revoked sign-in or a wrong key needs the person. Our own
  * words, nothing remote. */
 const CREDENTIALS_REFUSED = "This MCP server refused its credentials (HTTP 401). If it uses a sign-in, send the message again: "
-  + "OpenMausBot refreshes sign-ins when a message starts. If it still fails, open Plugins → MCP servers and sign in to it again, "
+  + "Colonie refreshes sign-ins when a message starts. If it still fails, open Plugins → MCP servers and sign in to it again, "
   + "or check its header values.";
 
 /** A refusal of our own: its words carry nothing remote, so they are relayed. */

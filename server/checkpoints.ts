@@ -42,7 +42,7 @@ const COMMIT_HASH = /^[0-9a-f]{40}$/;
 // these either. Categories follow Roo-Code's checkpoint excludes: VCS
 // internals, dependency trees, build output, caches, logs, secrets, media,
 // archives, databases, model weights.
-const EXCLUDES = `# OpenMausBot checkpoint excludes — never snapshotted
+const EXCLUDES = `# Colonie checkpoint excludes — never snapshotted
 .git/
 .svn/
 .hg/

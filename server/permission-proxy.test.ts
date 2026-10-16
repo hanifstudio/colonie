@@ -224,7 +224,7 @@ describe("permission proxy", () => {
     // is how the note ended up recorded as the person's chosen option.
     answerWith = () => ({
       behavior: "answer",
-      message: "OpenMausBot: nobody answered in time. Use your best judgment and continue.",
+      message: "Colonie: nobody answered in time. Use your best judgment and continue.",
       source: "timeout",
     });
     rpc({
@@ -240,7 +240,7 @@ describe("permission proxy", () => {
   it("treats the turn ending the same way — system words are not the user's answer", async () => {
     answerWith = () => ({
       behavior: "answer",
-      message: "OpenMausBot: the turn is ending — wrap up.",
+      message: "Colonie: the turn is ending — wrap up.",
       source: "system",
     });
     rpc({
@@ -256,7 +256,7 @@ describe("permission proxy", () => {
     // A question is only ever denied when nobody is there to be asked. Saying
     // "allow, nothing answered" there would tell the model a person declined
     // to choose, which is not what happened.
-    answerWith = () => ({ behavior: "deny", message: "OpenMausBot: permission broker unavailable" });
+    answerWith = () => ({ behavior: "deny", message: "Colonie: permission broker unavailable" });
     rpc({
       jsonrpc: "2.0",
       id: 2,

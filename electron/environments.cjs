@@ -73,7 +73,7 @@ function workspaceSummary(state) {
 }
 
 /** Native identity must not depend on a hosted renderer's version/title. */
-function workspaceWindowTitle(state, companion, name = "OpenMausBot") {
+function workspaceWindowTitle(state, companion, name = "Colonie") {
   if (companion) return `${name} — Connected to: ${companion.serverName} (${new URL(companion.endpoint).host})`;
   const active = activeEnvironment(state);
   return active ? `${name} — Hosted: ${active.name} (${new URL(active.origin).host})` : name;

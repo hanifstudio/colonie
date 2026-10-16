@@ -2,7 +2,7 @@
   "name": "colonie",
   "private": true,
   "version": "0.2.0",
-  "description": "Colonie — workspaces for people and AI bots, in the cloud or on your Mac.",
+  "description": "Colonie — a local desktop workspace for people and their AI bots.",
   "homepage": "https://github.com/hanifstudio/colonie",
   "repository": {
     "type": "git",

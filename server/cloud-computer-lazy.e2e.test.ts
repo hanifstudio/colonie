@@ -1,7 +1,7 @@
 // A bot set to work on its cloud computer starts that computer only when it
 // actually uses it. The real server, the fake Claude CLI and one stub that
 // plays the Admin's Boat relay (the included cloud computers of an
-// OpenMausBot Cloud plan). Every relay request is recorded, so each journey
+// Colonie Cloud plan). Every relay request is recorded, so each journey
 // can say exactly which calls a person's action cost: a chat that never
 // touches the screen costs none, and the first computer call creates the
 // computer once. Disposable home; no network.

@@ -1,4 +1,4 @@
-// Subscription allowance for the engines OpenMausBot already signs in
+// Subscription allowance for the engines Colonie already signs in
 // (Claude, Codex, Grok). Parsers are pure. The fetcher takes fetch and a
 // credential reader so tests never touch the network or a real login file.
 // Access tokens stay in the request header only — never in the JSON result.

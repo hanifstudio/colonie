@@ -20,7 +20,7 @@ import { capThreadLog, currentThreadLogCap } from "../thread-log-rotation.ts";
 import { newId, type ProviderInstance, type RuntimeEvent, type RuntimeEventListener } from "../contracts.ts";
 
 const INCOMPLETE_LOG_MESSAGE =
-  "Canonical event history is incomplete: OpenMausBot could not write one or more events to disk. Live updates will continue.";
+  "Canonical event history is incomplete: Colonie could not write one or more events to disk. Live updates will continue.";
 
 /** How long a thread's streamed text waits to be merged with what follows. */
 const DELTA_MERGE_MS = 50;

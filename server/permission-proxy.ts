@@ -2,7 +2,7 @@
 // --permission-prompt-tool (ported from agentcal's runPermissionProxy;
 // dedicated entry file, so there is no argv-dispatch fork-bomb hazard).
 // Forwards each ask over a unix socket to the broker living in the
-// OpenMausBot server and waits for the human's answer.
+// Colonie server and waits for the human's answer.
 //
 //   approve   — the CLI calls this for any tool use its permission mode
 //               would deny; the answer is the --permission-prompt-tool
@@ -44,7 +44,7 @@ interface AllowPermissionResult {
 }
 const dead = () => {
   for (const resolve of waiting.values()) {
-    resolve({ behavior: "deny", message: "OpenMausBot: permission broker unavailable — skip this action" });
+    resolve({ behavior: "deny", message: "Colonie: permission broker unavailable — skip this action" });
   }
   waiting.clear();
 };
@@ -122,7 +122,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
     return JSON.stringify({
       behavior: "deny",
       message:
-        "OpenMausBot: this AskUserQuestion call had no answerable question (each one needs question text), so nobody was shown it. Ask again with a well-formed call, or continue without it.",
+        "Colonie: this AskUserQuestion call had no answerable question (each one needs question text), so nobody was shown it. Ask again with a well-formed call, or continue without it.",
     });
   }
   const answer = await askBroker({
@@ -134,7 +134,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
   });
   // A question is only ever denied when the broker is gone.
   if (answer.behavior === "deny") {
-    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from OpenMausBot" });
+    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from Colonie" });
   }
   // What lands in `answers` turns on WHO answered, not on whether there are
   // words. The broker's own notes are words — the timeout's "nobody answered
@@ -152,7 +152,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
 const TOOLS = [
   {
     name: "approve",
-    description: "Ask the OpenMausBot user whether a tool use is allowed",
+    description: "Ask the Colonie user whether a tool use is allowed",
     inputSchema: {
       type: "object",
       properties: {
@@ -200,7 +200,7 @@ async function handle(msg: any) {
     const name = msg.params?.name;
     const args = msg.params?.arguments ?? {};
     const reply = (text: string) => send({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text }] } });
-    if (name === "ask_user" && !allowQuestion) return reply("OpenMausBot: this question tool is excluded by the bot's tool selection.");
+    if (name === "ask_user" && !allowQuestion) return reply("Colonie: this question tool is excluded by the bot's tool selection.");
     // AskUserQuestion is a question wearing a permission's clothes. It never
     // continues into the permission path below — see nativeQuestions.
     if (name === "approve" && args.tool_name === ASK_USER_QUESTION) {
@@ -228,7 +228,7 @@ async function handle(msg: any) {
         if (answer.always && suggestions) result.updatedPermissions = suggestions;
         text = JSON.stringify(result);
       } else {
-        text = JSON.stringify({ behavior: "deny", message: answer.message || "Denied from OpenMausBot" });
+        text = JSON.stringify({ behavior: "deny", message: answer.message || "Denied from Colonie" });
       }
     }
     return reply(text);

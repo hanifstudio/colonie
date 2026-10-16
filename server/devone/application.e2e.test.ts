@@ -90,7 +90,7 @@ it.each(["codex-acp", "claude-acp"])("runs the real HTTP/SSE application over %s
       stdio: ["ignore", log, log],
     });
     closeSync(log);
-    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("openmausbot");
+    await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("colonie");
     await send("after application restart");
     expect((await wait()).some((entry) => entry.text === "5: after application restart")).toBe(true);
     const receipts = (await api("GET", `/api/bots/${bot.id}/acp-inputs`)).receipts as AcpInputReceipt[];
