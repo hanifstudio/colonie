@@ -7,7 +7,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
   client, methods, ndJsonStream, PROTOCOL_VERSION,
-  type ClientConnection, type CreateElicitationRequest, type CreateElicitationResponse,
+  type ClientCapabilities, type ClientConnection, type CreateElicitationRequest, type CreateElicitationResponse,
   type InitializeResponse, type LoadSessionResponse,
   type NewSessionResponse, type PermissionOption, type RequestPermissionRequest,
   type RequestPermissionResponse, type SessionNotification, type SessionConfigOption,
@@ -77,7 +77,7 @@ type AuthStatusPush = { kind?: string };
  * URL elicitation is not advertised: this app has no surface that opens the
  * agent's own URL flow, and declining it is honest where a card that cannot
  * complete would not be. */
-const CLIENT_CAPABILITIES = { elicitation: { form: {} } };
+const CLIENT_CAPABILITIES: ClientCapabilities = { elicitation: { form: {} } };
 const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 /** Tokens the agent reported for one turn. The maintained adapters put them
  * under `_meta` on the prompt result; some agents report at the root. `input`
@@ -318,7 +318,7 @@ export class AcpRuntime implements ProviderAdapter {
     const turn = session.turn;
     // A form the person cannot answer resolves the agent's own ask as
     // cancelled, exactly as a permission nobody can take does.
-    const scope = request as { sessionId?: unknown };
+    const scope = request as { sessionId?: unknown; toolCallId?: unknown };
     if (session.closed || session.loading || !turn || turn.finished || turn.cancelled || scope.sessionId !== session.id) {
       return Promise.resolve({ action: "cancel" });
     }

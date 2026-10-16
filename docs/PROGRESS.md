@@ -78,6 +78,18 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — typecheck repair for the elicitation commit
+
+`8d8ab45b` (elicitation) left four `tsc` errors in `server/acp/acp-runtime.ts` that
+stopped the pre-push hook and would have reddened CI's typecheck. Cause: the
+capabilities constant was an untyped literal, so the SDK's typed `request`
+overload failed and fell back to `unknown`; and the elicitation scope cast lacked
+`toolCallId`. Fix is types only: `CLIENT_CAPABILITIES: ClientCapabilities` and the
+wider cast.
+
+- `tsc -p tsconfig.server.json` clean; `oxlint --deny-warnings server/acp` clean.
+- `vitest run server/acp` plus the name-matching `acp-recovery` file: 62/64. The two failures are `acp-recovery.e2e.test.ts` "recovers ... without replay" (25 s timeout, "Matcher did not succeed in time"); they fail identically with the old `acp-runtime.ts`, and this file was already recorded as migrated but never run to completion. Not diagnosed.
+
 ## 2026-10-17 — E02.2 learned About-me facts owned at bootstrap
 
 `server/profile-learned.ts` no longer imports `config.ts`. `LearnedFacts` takes
