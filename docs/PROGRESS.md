@@ -87,6 +87,7 @@ runs the packaged server from a temp directory; no installed data touched).
 - `server/proxy-paths.ts` still listed `vpsContainerMcp` → `vps-container-mcp.js`, a retired-hosting proxy that is no longer bundled and has no source or other reference. Removed the entry. Release builds run the same smoke, so this also blocked a release.
 - `scripts/smoke-packaged-server.mjs` read 16 bytes of the backup header but the format is `COLONIE-WORKSPACE-1\n` (20 bytes) since the rename; the server's format was right. Now reads 20.
 - After both: exit 0, six checks green (server starts without node_modules, 10 proxy paths resolve, MCP stdio, encrypted backup export, container launcher, desktop entry).
+- Linux package check (DEB missing `usr/share/applications/com.colonie.app.desktop`): `package.json` `desktopName` had become `com.colonie.desktop` in the rename, while `electron/main.mjs`, `smoke-linux-*`, `verify-linux-package.mjs` and the old value's pattern all use `com.colonie.app.desktop`. electron-builder names the file and the `StartupWMClass` from `desktopName` (read in `LinuxTargetHelper.js`), so one value change fixes both expectations. Set back to `com.colonie.app.desktop`; proof only comes from the CI Ubuntu package job (needs fpm, not run on macOS).
 - Not reproduced here: the same job on Windows and macOS, the macOS Electron smokes, the Ubuntu package smoke, the renderer UI e2e, and the Linux/Windows vitest shards.
 
 ## 2026-10-17 — E04.2 retired drivers deleted

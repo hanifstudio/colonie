@@ -10,7 +10,7 @@
   },
   "author": "Colonie contributors",
   "license": "Apache-2.0",
-  "desktopName": "com.colonie.desktop",
+  "desktopName": "com.colonie.app.desktop",
   "type": "module",
   "main": "electron/colonie.mjs",
   "engines": {
