@@ -8652,7 +8652,11 @@ async function startTurn(
   if (isColonieAcpDriver(instance.driverKind) && nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors })) {
     throw Object.assign(new Error("This conversation belongs to another agent's native history. Start a new thread for the selected agent, or select the original agent to continue."), { status: 409 });
   }
-  if (isColonieAcpDriver(instance.driverKind) && (opts?.editedMessageId || task.rewound || opts?.compactOnly || opts?.automationSource || opts?.coordination || opts?.unattended || opts?.peerAsk)) {
+  // An ACP session belongs to the adapter that opened it: Colonie can neither
+  // rewind it nor hand it another bot's history. A scheduled run or a webhook
+  // runs forward in the bot's own thread on the bot's own engine, so it is a
+  // plain turn and is allowed — only the rewinding kinds are refused.
+  if (isColonieAcpDriver(instance.driverKind) && (opts?.editedMessageId || task.rewound || opts?.compactOnly || opts?.coordination || opts?.peerAsk)) {
     throw Object.assign(new Error("This ACP connection supports direct native sessions. Start a new thread for a different history; use /compact for native compaction."), { status: 409 });
   }
   assertModelVariantSupported({ variant, effort }, instance.adapter.capabilities);
@@ -8771,8 +8775,11 @@ async function startTurn(
         if (task.rewound || opts?.editedMessageId || opts?.compactOnly) {
           throw new Error("Native ACP session editing/branch replay is not available. Start a new thread for a different history; use /compact for agent-native compaction.");
         }
-        if (opts?.automationSource || opts?.coordination || opts?.unattended || opts?.peerAsk) {
-          throw new Error("The transparent ACP connection accepts user-driven conversations, not Colonie automation or team prompts.");
+        // A scheduled run and a webhook run forward in the bot's own native
+        // session like any other turn, so they take this path too; only a team
+        // prompt or a coordinated (multi-bot) turn has no ACP equivalent.
+        if (opts?.coordination || opts?.peerAsk) {
+          throw new Error("The transparent ACP connection accepts user-driven conversations and schedules, not team prompts or coordinated turns.");
         }
         const privateCwd = ensureTaskWorkspace(bot.id, threadId);
         const cwd = store.pinTaskCwd(bot.id, threadId, privateCwd) ?? privateCwd;
