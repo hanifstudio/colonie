@@ -1,5 +1,63 @@
 # Colonie progress
 
+## 2026-10-16 — local-only pruning: the Organization feature is gone
+
+Branch `colonie/local-only`.
+
+| commit | what went |
+|---|---|
+| `4e46a482` | the Organization enrollment surface: `OrganisationRow`, `CompanyModels`, `company-models`, `CompanyBackupSettings`, `scripts/verify-company-backups.mjs`, the `organization` deep link and its `engineSummary` fields, 58 locale keys |
+| `359124be` | the Organization package library in the app: `src/lib/org-library.ts`, `TeamLibraryPanelOrg`, `OrgSkillsCard`, `PackageProvenance`, `Bot.installedPackage`, 32 `orgLibrary.*` locale keys, its docs and UI e2e test |
+| `103d792f` | the Electron Organization bridges and company backups: `managed-desktop`, `organization-entry`, `organization-branding`, `org-library.mjs`, `company-backups*`, `company-backup-schedule`, `organization-reopen`, their IPC and preload bridges, the updater relaunch patch. The shared encrypted store moved to `electron/encrypted-record-store.mjs`; the desktop-bridge flag is now `--omb-desktop-bridges=1` |
+| `61d5b904` | the server side of enrollment: `server/managed-desktop.ts`, `server/managed-policy.ts` and their tests, the `openmausbot:managed-desktop-*` messages, the Company provider swap, the policy refusals (models, computers, MCP, pairing), the config frame's `managedPolicy`, and the Company branch in default/thread model selection |
+| `b00a2f62` | the renderer's policy surfaces: `managedPolicy`/`policy`/`readOnly`/`managed`/`managedBy` across store, ModelPicker, SimpleModelPane, McpServersPanel, PlaceChip, ComputerPanel, CompanionSection, EnginesSettings, ChatView, EngineSetup, AutomaticRecoverySettings, CloudEngineSignIn, and the 5 `policy.*` locale keys |
+
+`git grep -i organization src/ server/ shared/ electron/ scripts/` now returns
+no runtime reference; what remains is the Cloud account feature's own copy
+(`CloudAccountSettings` reuses some `organization.*` keys) and the dated plan
+docs under `docs/plans/`.
+
+### Verified after `b00a2f62`
+
+| check | result |
+|---|---|
+| `pnpm exec tsc --noEmit -p tsconfig.json` | clean |
+| `pnpm exec tsc -p tsconfig.server.json --noEmit` | clean |
+| `pnpm check:electron` | Syntax-checked 139 Electron modules |
+| `pnpm i18n:check` | valid, 10 languages, 3580 English strings |
+| `pnpm test:electron` | 390 passed, 0 failed (1 skipped) |
+| `pnpm exec vitest run src/` | 3563 passed / 4 failed — the inherited `live-call-media` (2), `CallView.journeys` (1), `lazy-screens` (1), identical to `94cc3689` |
+| focused server vitest | default-model-selection, thread-model, package-import, presets, model-requests: 61 passed |
+
+Not yet re-run for these commits: `pnpm colonie:ui-check` / `colonie:desktop-check`
+against a restarted preview (the running preview predates them).
+
+### Next, in order
+
+The owner chose to keep **only** the Local workspace: Cloud, Boat and the
+own-VPS place all go. `companion/` still stays.
+
+1. The Organization package library on the server: `server/org-library.ts`, its
+   routes and e2e test, the `org` source in `server/presets.ts`,
+   `server/package-import.ts`, `shared/wire.ts` `InstalledPackageMetadata`,
+   the `orgLibrary.*`/`organization.*` leftovers, and the org half of
+   `server/workspace-backup-policy.ts`.
+2. Cloud account, engine sign-in and plan: `CloudAccountSettings`,
+   `CloudEngineSignIn`, `ProIntroduction`, `CloudBackendPicker`, `cloud-plan`,
+   the plan/Boat fields in `shared/place-view.ts` and `src/lib/place-view.ts`.
+3. The `cloud` place itself: `shared/cloud-computer.ts`, `server/cloud-*.ts`,
+   `server/lending-*.ts`, `server/cloud-home*-start`, `CLOUD_HOME`/
+   `HOSTED_WORKSPACE`, the Cloud move/backup surfaces (`CloudMove`,
+   `ConnectedWorkspacesSettings`, `PeopleSection`, the cloud half of
+   `WorkspaceBackupSettings`), and the place picker's Cloud/Boat/VPS entries.
+4. The desktop Cloud bridges: `cloud-account.mjs`, `cloud-home.mjs`,
+   `cloud-entry.mjs`, `cloud-move.mjs`, `managed-composio.mjs`.
+5. `deploy/` (container/self-host targets).
+6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
+   half-finished "Colonie Cloud" strings.
+7. VPS `172.104.33.55`: stop the services, then delete the data. Last,
+   irreversible, and only with explicit confirmation.
+
 ## 2026-10-15 — local-only pruning: platform, accounts, Organization UI, evals/docs site, Cloudflare, lending
 
 Branch `colonie/local-only`, based on the owner WIP snapshot `94cc3689`.
