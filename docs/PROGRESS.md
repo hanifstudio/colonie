@@ -1,5 +1,71 @@
 # Colonie progress
 
+## 2026-10-16 — the fork has no cloud left to reach
+
+`e1793036` deleted every path that talked to a hosted Colonie: the account and
+engine, the cloud computers and VMs, Organisation, cloud lending, Boat, the
+own-VPS place and the Cloud move. 61 files gone, 123 rewritten, 25.7k lines out
+of `server/`, `src/` and `shared/`. The place model is vm/local/browser now, and
+a stored `computer: "cloud"` bot or a `cc-*` row parses and falls back to local
+instead of crashing — the owner waived the data migration. Catalogs went 3353 →
+3207 strings.
+
+Three deletions had reached past the cloud:
+
+- `GET`/`POST /api/internal/shared-computers` serve this person's own paired
+  desktops, not the cloud. Restored without the cloud lending refusals;
+  `sharedComputerPrincipal` is the local helper again.
+- The client config projection no longer carries `vps`. `server/config.ts` still
+  parses the stored key, so an old config loads; the three test assertions that
+  demanded the field went.
+- The TTS "included voice" relay is gone from `server/tts/index.ts`, so its test
+  block went with it.
+
+The two ACP inspector routes left `server/index.ts` for
+`server/routes/bot-acp.ts` (`createBotAcpRoutes` + `PASS`, deps supplied by the
+server), which is what the route ratchet was waiting for. The restored internal
+lent-computer routes pushed its `path === "/` count back up by two: they resolve
+behind `/api/internal/`'s own bearer and cannot join the public table.
+
+### Verified after `e1793036`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm lint` | only the inherited `savedWorkspace` warning, which is unused at HEAD too |
+| `pnpm build` (renderer bundle) | exit 0, `vite build` in 24.6s |
+| `pnpm colonie:ui-check` (isolated fixture, Playwright) | `{"ok":true,"errors":[]}`, real renderer turns; the recorded prompt carries the Colonie sections with the user message last |
+| `node --experimental-strip-types scripts/control-omb.ts launch` | boots; `/api/health` = `{"app":"colonie","pid":…,"static":false,…}`; `/api/config` carries no `vps`, `cloudHome` or `boat` |
+| `pnpm control:omb doctor` against that fixture | `ok:false`, `availableEngines: []` — the same answer from HEAD in a worktree at `/tmp/colonie-base`, so inherited |
+| the 31 files that fail in the full non-e2e suite, run at HEAD and here | 195 failures at HEAD, 184 here, none new, 11 gone |
+| `pnpm exec vitest run server/tts/tts.test.ts server/shared-computers.gate.test.ts server/remote-sessions.test.ts server/shared-computers.test.ts scripts/testing/index-route-ratchet.test.ts scripts/testing/ci-retry-list.test.ts` | 6 files, 78 passed |
+| `pnpm exec vitest run server/index.test.ts` | 185 passed, 72 failed — all inherited, 82 at HEAD |
+| `pnpm exec vitest run server/devone/native-settings.test.ts server/devone/context-integrity.test.ts` | 9 passed (the moved `acp-inputs`/`acp-live` routes answer) |
+| the `src/` suite, 350 files | 3363 passed, 1 failed — the inherited `lazy-screens` |
+| `pnpm test:electron` | 285 passed, 1 skipped |
+
+Two runs are needed to say "inherited": a dead route or a dropped field shows up
+as a failure here that passes at HEAD. Three did, and are the first three items
+above. The suite's other failures are this machine's: the fake engine cannot pick
+a provider instance, so the fixture fleet (`comms`, `steer-*`,
+`independent-threads`, `thread-capacity`, `spend-cap`, the HTTP-fixture trio)
+fails at HEAD as well.
+
+### What is left
+
+1. The technical rename: `openmausbot`/`devone` → `colonie` in the identifiers
+   that were left alone on purpose — protocol schemes, `OMB_*`/`OPENMAUSBOT_*`
+   environment names, data-directory names, bundle ids, the built speech app,
+   the ACP/MCP client identity, `package.json`'s scripts. 404 files.
+2. Dead cloud branches in the renderer, inert because no server sends them any
+   more: `state.config?.cloudHome` (10 sites across `ComputerPanel.tsx`,
+   `ServerPairingCard.tsx`, `src/state/store.tsx`), `keys.includedWithCloudPro`
+   and `decider.included.*` (`VoiceSettings.tsx`, `DecisionModelSettings.tsx`),
+   and the `cloudGuest` field forwarded in `src/lib/session.ts`.
+3. Six routes with no caller and fourteen that only a test calls.
+4. The VPS `172.104.33.55` and `~/.colonie`: irreversible, and the owner has
+   not confirmed either yet.
+
 ## 2026-10-16 — the product is called Colonie in every string a person or an agent reads
 
 The fork's own name replaced the upstream one in the words: the desktop window
