@@ -348,8 +348,8 @@ ACP. Steps are ordered so each one is useful on its own.
    later slices are not planned against the superseded personal-desktop framing.
 2. **Retire `enterprise/`.** Licensing makes it unusable for this team and its
    features are unwanted. `server/enterprise.ts` stays and reports the
-   open-source edition; core callers (`brand.ts`, `spend.ts`, `cloud-home.ts`,
-   `cli.ts`, `hosted-models.ts`, `index.ts`) must keep working unchanged. Verify
+   open-source edition; core callers (`brand.ts`, `spend.ts`, `index.ts`) must
+   keep working unchanged. Verify
    the OSS boot path and `GET /api/edition`, not compilation alone.
 3. **Retire non-ACP engine drivers.** The native drivers under `server/drivers/`
    that Colonie does not support, plus the superseded `server/drivers/acp/`

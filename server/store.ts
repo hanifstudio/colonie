@@ -2759,16 +2759,13 @@ export class Store {
   /** These threads follow their bot's model again: each one's own model is
    * cleared ("Switch them too", "Use the bot's model", or a model that can't
    * run here). A level the bot's engine would have to confirm goes back to
-   * Ask, as on every engine switch, and `reset` adds what a changed model
-   * needs (a hosted workspace's fresh session). One write. Returns the
-   * threads that changed; a listed thread that already follows stays as it is. */
-  followBotModel(botId: string, threadIds: readonly string[],
-    reset: (from: ModelSelection, to: ModelSelection) => Partial<TaskRecord> = () => ({})): string[] {
+   * Ask, as on every engine switch. One write. Returns the threads that
+   * changed; a listed thread that already follows stays as it is. */
+  followBotModel(botId: string, threadIds: readonly string[]): string[] {
     const bot = this.bot(botId);
     if (!bot?.tasks) return [];
     const listed = new Set(threadIds);
     const patches = bot.tasks.map((task): Partial<TaskRecord> | null => !listed.has(task.threadId) || task.modelSelection === undefined ? null : {
-      ...reset(task.modelSelection, bot.modelSelection),
       modelSelection: undefined,
       ...(this.switchNeedsAsk(botId, task.threadId, task.modelSelection, bot.modelSelection) ? structuredClone(ASK_NOW) : {}),
     });

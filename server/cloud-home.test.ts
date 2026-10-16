@@ -10,7 +10,6 @@ import {
 } from "./cloud-home.ts";
 import { cloudHomeChildEnvironments, codeTrustProblem, passwdIds, spawnWithSecrets } from "./cloud-home-start.ts";
 import { RESTART_EXIT_CODE, restartPolicy } from "./restart.ts";
-import { hostedModelPolicy } from "./hosted-models.ts";
 import { resolveRequestAuth } from "./request-auth.ts";
 import { SessionRegistry } from "./sessions.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
@@ -62,9 +61,6 @@ it("ignores a platform gateway's settings with one warning, whatever they hold, 
     const value = Object.values(stray)[0];
     if (value) expect(JSON.stringify(config)).not.toContain(value);
   }
-  // The exclusive workspace model policy stays off, so nothing routes to a gateway.
-  expect(hostedModelPolicy(directory(), withGateway())).toBeNull();
-  expect(hostedModelPolicy(directory(), contract({ OMB_HOSTED_MODEL_TOKEN: `omb_workspace_${"t".repeat(43)}`, OMB_HOSTED_MODELS: "{}" }))).toBeNull();
   // Nothing the machine starts inherits them.
   expect(Object.keys(withoutIgnoredCloudKeys(withGateway())).filter((key) => (CLOUD_IGNORED_KEYS as readonly string[]).includes(key))).toEqual([]);
   expect(withoutIgnoredCloudKeys(withGateway())).toEqual(contract());

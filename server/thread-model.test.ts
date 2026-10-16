@@ -150,19 +150,14 @@ describe("threads follow their bot's model", () => {
     store.switchTaskModel(bot.id, asks.threadId, sonnet, false, false, { approvalMode: "ask" });
     store.switchTaskModel(bot.id, same.threadId, { ...codex, effort: "high" }, false, false, { approvalMode: "full" });
     store.switchTaskModel(bot.id, untouched.threadId, opus, false, false);
-    const resets: Array<[ModelSelection, ModelSelection]> = [];
-    const moved = store.followBotModel(bot.id, [full.threadId, asks.threadId, same.threadId, first], (from, to) => {
-      resets.push([from, to]);
-      return { rewound: true };
-    });
+    const moved = store.followBotModel(bot.id, [full.threadId, asks.threadId, same.threadId, first]);
     expect(moved.sort()).toEqual([full.threadId, asks.threadId, same.threadId].sort());
-    expect(store.taskByThread(bot.id, full.threadId)).toMatchObject({ approvalMode: "ask", autoApprove: false, alwaysAllow: [], rewound: true });
+    expect(store.taskByThread(bot.id, full.threadId)).toMatchObject({ approvalMode: "ask", autoApprove: false, alwaysAllow: [] });
     expect(store.taskByThread(bot.id, full.threadId)?.modelSelection).toBeUndefined();
     expect(store.taskByThread(bot.id, asks.threadId)).toMatchObject({ approvalMode: "ask" });
     // Another model on the same engine: the level stays.
     expect(store.taskByThread(bot.id, same.threadId)).toMatchObject({ approvalMode: "full" });
     expect(ownModel(store, bot.id, untouched.threadId)).toEqual(opus);
-    expect(resets.map(([, to]) => to)).toEqual([codex, codex, codex]);
     const reloaded = open();
     expect(ownModel(reloaded, bot.id, full.threadId)).toBeUndefined();
     expect(reloaded.taskByThread(bot.id, full.threadId)?.approvalMode).toBe("ask");

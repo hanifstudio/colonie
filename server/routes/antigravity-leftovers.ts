@@ -10,16 +10,12 @@
 // same runtime (server/drivers/antigravity-temp.ts).
 //
 // Admin-scoped by default (server/request-auth.ts lists no client rule for
-// these paths): it deletes files on the machine running OpenMausBot. Hidden
-// on a hosted team workspace, like every other engine setting there. The
+// these paths): it deletes files on the machine running OpenMausBot. The
 // answers carry sizes and counts, never paths.
 import type { LeftoverRemoval, LeftoverScan } from "../drivers/antigravity-temp.ts";
-import { HOSTED_PROVIDER_SETTINGS_ERROR } from "../hosted-models.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface AntigravityLeftoverRouteDeps {
-  /** A hosted team workspace: engine settings are not the member's. */
-  hosted: boolean;
   /** Only an Antigravity instance offers this. */
   isAntigravity(instanceId: string): boolean;
   find(): Promise<LeftoverScan>;
@@ -37,7 +33,6 @@ export function createAntigravityLeftoverRoutes(deps: AntigravityLeftoverRouteDe
     if (!match) return PASS;
     const removing = Boolean(match[2]);
     if (method !== (removing ? "POST" : "GET")) return PASS;
-    if (deps.hosted) return json(res, 403, { error: HOSTED_PROVIDER_SETTINGS_ERROR });
     if (removing) {
       // Same non-simple-request gate as the other instance actions.
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {

@@ -335,14 +335,13 @@ import {
 } from "./send-idempotency.ts";
 import { EventBus } from "./harness/bus.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
-import { hostedModelPolicy, HOSTED_MODEL_POLICY_HEADER, HOSTED_PROVIDER_SETTINGS_ERROR } from "./hosted-models.ts";
+
 import {
   CLOUD_HOME_SECRET_KEYS, CLOUD_IGNORED_KEYS, CLOUD_PAIRING_PATH, cloudHomeConfiguration, cloudHomeOffersPlace, cloudHomePlaceRefusal,
   createCloudPairing, firstCloudTurnPatch, readSignedBody,
 } from "./cloud-home.ts";
 import { CLOUD_PERSONAL_REFUSAL, settleCloudOwnership, type CloudOwnership } from "./cloud-owner.ts";
 import { holdIncludedServices } from "./included-services.ts";
-import type { ProviderInstance } from "./contracts.ts";
 import { selectDefaultModelSelection, withNewBotEffort } from "./default-model-selection.ts";
 import { threadModelFallback, type ThreadEngine } from "./thread-model.ts";
 import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./computer-engine-removal.ts";
@@ -825,14 +824,7 @@ let companionMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefine
 // Where remote clients reach this server (a proxy's public address); pairing URLs use it.
 const FALLBACK_PUBLIC_URL = process.env.OMB_PUBLIC_URL?.trim().replace(/\/+$/, "") || null;
 const cfg = loadConfig();
-const hostedModels = hostedModelPolicy(DATA_DIR);
-const providerConfigs = () => hostedModels ? hostedModels.configs() : instanceConfigs(cfg);
-const decorateHostedProvider = hostedModels ? (instance: ProviderInstance) => hostedModels.decorate(instance) : undefined;
-if (hostedModels) {
-  const selection = hostedModels.select(cfg.defaultModelSelection);
-  if (selection.instanceId && JSON.stringify(selection) !== JSON.stringify(cfg.defaultModelSelection)) saveConfig({ defaultModelSelection: selection });
-  cfg.defaultModelSelection = selection;
-}
+const providerConfigs = () => instanceConfigs(cfg);
 // The per-thread event log cap is checked after every NDJSON append.
 // config.json is read once per process (a change restarts the server, like
 // every other hand-edited knob), so a binding made here never goes stale.
@@ -1910,7 +1902,7 @@ const mcpOAuth = new McpOAuthManager({
     return parsed?.ok && isRemoteMcpServer(parsed.server) && parsed.server.url === url ? parsed.server.oauth : undefined;
   },
 });
-await registry.load(providerConfigs(), decorateHostedProvider);
+await registry.load(providerConfigs());
 const bundledSkills = loadBundledSkills();
 const availableSkills = () => mergeSkills(bundledSkills, loadUserSkills(join(DATA_DIR, "skills")));
 
@@ -3266,7 +3258,6 @@ function runColonieAssignment(job: ChiefAssignment, signal: AbortSignal): Promis
 // turn now (Claude first). `null` leaves the saved choice out
 // (moveOffComputerEngine).
 async function defaultSelection(saved: ModelSelection | null = cfg.defaultModelSelection ?? null) {
-  if (hostedModels) return hostedModels.select(saved ?? undefined);
   return selectDefaultModelSelection(await registry.describe(), saved ?? undefined);
 }
 
@@ -3280,11 +3271,8 @@ async function defaultSelection(saved: ModelSelection | null = cfg.defaultModelS
  * engine is available yet it runs again the next time the engines are read
  * (describeInstances): an install, a sign-in, a key or a Company engine. At
  * start it sees what a new bot made then would see; a policy that arrives
- * later refuses an engine for a moved bot the way it does for any bot. A
- * hosted workspace's reconcile has already moved every bot onto its own
- * models. */
+ * later refuses an engine for a moved bot the way it does for any bot. */
 async function moveOffComputerEngine(): Promise<void> {
-  if (hostedModels) return;
   const removed = removedComputerInstanceIds(cfg.instances);
   const named = (selection?: { instanceId: string }) => Boolean(selection && removed.has(selection.instanceId));
   if (named(cfg.automaticRecovery?.backup)) {
@@ -3356,7 +3344,7 @@ function checkedModelSelection(
     instanceId: value.instanceId.trim(),
     model: value.model.trim(),
   };
-  if (hostedModels && !hostedModels.allows(selection)) return { ok: false, status: 400, error: hostedModels.error() };
+  
   if (value.effort !== undefined) {
     if (!isEffortLevel(value.effort)) {
       return { ok: false, status: 400, error: `effort "${String(value.effort)}" is not recognized` };
@@ -3467,8 +3455,7 @@ function threadModelGivingWay(botId: string, threadId: string): ModelSelection |
   const bot = store.bot(botId);
   const own = store.taskByThread(botId, threadId)?.modelSelection;
   if (!bot || !own) return null;
-  return threadModelFallback(own, bot.modelSelection, threadEngine,
-    hostedModels ? { allows: (selection: ModelSelection) => hostedModels!.allows(selection) } : {}) ? own : null;
+  return threadModelFallback(own, bot.modelSelection, threadEngine) ? own : null;
 }
 
 /** The model a turn in this thread would run on now (healThreadModel). */
@@ -3494,7 +3481,7 @@ function healThreadModel(botId: string, threadId: string): void {
   const bot = store.bot(botId);
   const own = threadModelGivingWay(botId, threadId);
   if (!bot || !own || bot.approvalGrant || threadBusy(botId, threadId)) return;
-  if (!store.followBotModel(botId, [threadId], (from, to) => hostedModels?.resetTask(from, to) ?? {}).length) return;
+  if (!store.followBotModel(botId, [threadId]).length) return;
   store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
     name: `notice: This thread's model (${modelName(own)}) isn't available, so it now uses ${bot.name}'s model (${modelName(bot.modelSelection)}).`,
     ok: true,
@@ -3811,7 +3798,7 @@ store.seedIfEmpty();
 // Colonie's first bot is the workspace Chief; an upgraded workspace without one
 // elects its oldest bot. Non-Colonie workspaces keep their section Chiefs.
 store.ensureWorkspaceChief();
-hostedModels?.reconcile(store);
+
 // Skills library boot sweep (features.skillsLibrary): migrate per-bot
 // copies into the shared library and apply assignments. Flag-off boots
 // never enter this block, keeping per-bot behavior byte-identical.
@@ -4513,8 +4500,7 @@ function handleDesktopTrustedApprovalMessage(raw: unknown): boolean {
     const checked = checkedTaskModelSwitch(target, message.modelSelection, message.updateBotDefault, true, false, true);
     if (!checked.ok) { respond({ ok: false, error: checked.error }); return true; }
     try {
-      store.switchTaskModel(botId, threadId as string, checked.selection, message.updateBotDefault, true,
-        hostedModels?.resetTask(target.modelSelection, checked.selection));
+      store.switchTaskModel(botId, threadId as string, checked.selection, message.updateBotDefault, true);
       const fresh = { ...wireBot(store.bot(botId)!), approvalMode: approvalModeFor(store.bot(botId)!) };
       broadcast({ kind: "bot", bot: fresh });
       respond({ ok: true, bot: fresh });
@@ -9796,7 +9782,7 @@ async function startTurn(
   }
   const task = store.taskByThread(bot.id, threadId);
   if (!task) throw Object.assign(new Error("no such task"), { status: 404 });
-  if (hostedModels && !hostedModels.allows(bot.modelSelection)) throw Object.assign(new Error(hostedModels.error()), { status: 409 });
+  
   const plan = turnSurfacePlan(bot, opts?.runOn, threadId);
   const instance = registry.get(bot.modelSelection.instanceId);
   if (!instance) {
@@ -11162,7 +11148,7 @@ async function startTurn(
           try {
             assertWithinBudget(cfg, DATA_DIR);
             store.switchTaskModel(bot.id, threadId, checked.selection, false, false, {
-              ...hostedModels?.resetTask(current.modelSelection, checked.selection), rewound: true,
+              rewound: true,
             });
             store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
               name: `recovery: Automatic recovery: ${instance.displayName || instance.driverKind} could not start. Trying ${target.displayName || target.driverKind} · ${checked.selection.model} once in this thread.`, ok: true,
@@ -15762,9 +15748,7 @@ async function describeInstances() {
       ...(entry?.icon ? { icon: entry.icon } : {}),
       ...(entry?.access ? { access: entry.access } : {}),
     };
-    if (hostedModels) return { ...described, readOnly: true,
-      install: undefined, authentication: undefined, cli: undefined, cliCandidates: [],
-    };
+    
     // Windows keeps what Antigravity's runtime unpacked whenever it is
     // stopped by force; its Settings card offers to clear that.
     if (instance.driverKind === "antigravityAgent" && process.platform === "win32") return { ...described, freeUpSpace: true };
@@ -15825,7 +15809,7 @@ async function reloadProviders() {
   bus.detachAll();
   try {
     await registry.disposeAll();
-    await registry.load(providerConfigs(), decorateHostedProvider);
+    await registry.load(providerConfigs());
     bus.attach(registry.instances());
   } finally {
     // Settle every exact conversation, not whichever one is selected now.
@@ -16079,7 +16063,7 @@ ROUTES.push(createUsageRoutes({
 ROUTES.push(createThreadModelRoutes({
   bot: (id) => store.bot(id),
   busy: (botId, threadId) => threadBusy(botId, threadId),
-  follow: (botId, threadIds) => store.followBotModel(botId, threadIds, (from, to) => hostedModels?.resetTask(from, to) ?? {}),
+  follow: (botId, threadIds) => store.followBotModel(botId, threadIds),
   // Like updateBotDefault on a thread: on a Cloud home, the owner's alone.
   mayChangeModel: (auth) => !CLOUD_HOME || cloudOwnerSession(auth),
   reply: (botId) => publicBot(store.bot(botId)!),
@@ -16090,7 +16074,7 @@ ROUTES.push(createUndoRoutes({
   undo: (auth, res, threadId, requestId) => withDecisionActor(decisionActorFor(auth), () => undoAppliedChange(res, threadId, requestId)),
 }));
 ROUTES.push(createAntigravityLeftoverRoutes({
-  hosted: Boolean(hostedModels),
+  
   isAntigravity: (instanceId) => registry.get(instanceId)?.driverKind === "antigravityAgent",
   find: () => findAntigravityLeftovers(),
   remove: () => removeAntigravityLeftovers(),
@@ -16209,7 +16193,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 503, { error: "Hosted workspace readiness is unavailable." });
       }
       res.setHeader(HOSTED_CONTRACT_HEADER, String(HOSTED_CONTRACT_VERSION));
-      if (hostedModels) res.setHeader(HOSTED_MODEL_POLICY_HEADER, "1");
+      
       return json(res, 200, { ok: true, service: "openmausbot", membershipAuthority: "portal", workspace: hosted.workspace, ...HOSTED_CONTRACT_METADATA });
     }
     // Hosted workspaces have one sign-in authority. A missing optional layer
@@ -18667,7 +18651,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           if (!checked.ok) return json(res, checked.status, { error: checked.error });
           selection = checked.selection;
         }
-        if (hostedModels && !hostedModels.allows(selection)) return json(res, 400, { error: hostedModels.error() });
         // The same check the profile path runs: absolute, exists, is a
         // folder. Creation names where the specialist works; nothing looser.
         let cwd: string | undefined;
@@ -21165,7 +21148,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (!checked.ok) return json(res, checked.status, { error: checked.error });
         selection = checked.selection;
       }
-      if (hostedModels && !hostedModels.allows(selection)) return json(res, 400, { error: hostedModels.error() });
       // Keep the capacity check immediately beside the synchronous write.
       // Awaiting provider discovery before this point cannot race the cap.
       if (store.bots.length >= MAX_WORKSPACE_BOTS) {
@@ -21357,8 +21339,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       // follows it from now on too, as if picked there.
       const bot = store.patchBot(existing.id, { modelSelection: checked.selection });
       if (!bot) return json(res, 404, { error: "no such bot" });
-      store.patchTask(bot.id, selected.threadId, { modelSelection: undefined,
-        ...hostedModels?.resetTask(selected.modelSelection, checked.selection) });
+      store.patchTask(bot.id, selected.threadId, { modelSelection: undefined });
       return json(res, 200, { bot: wireBot(bot) });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/read$/);
@@ -21993,8 +21974,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (computerSpecified && requestedComputer !== undefined) store.clearAutoSurfacePins(m[1], requestedComputer);
       // A new bot model moves every thread that follows the bot; the selected
       // thread follows it from now on too.
-      if (normalizedSelection && selectedTask) store.patchTask(bot.id, selectedTask.threadId, { modelSelection: undefined,
-        ...hostedModels?.resetTask(selectedTask.modelSelection, normalizedSelection) });
+      if (normalizedSelection && selectedTask) store.patchTask(bot.id, selectedTask.threadId, { modelSelection: undefined });
       if (existingBot && (bot.browserProfile !== beforeBrowserProfile || bot.browser !== beforeBrowserEnabled)) {
         browserLive.closeForBot(bot.id);
         if (beforeBrowserProfile === "guest" && (bot.browserProfile !== "guest" || bot.browser === false)) {
@@ -23315,7 +23295,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       const task = patch.modelSelection
         ? store.switchTaskModel(m[1], m[2], patch.modelSelection, body.updateBotDefault === true, body.resetApprovalToAsk === true,
-          { ...patch, ...hostedModels?.resetTask(current.modelSelection, patch.modelSelection) })!
+          patch)!
         : store.patchTask(m[1], m[2], patch)!;
       return json(res, 200, { task: wireTask(task, store.bot(m[1])!.modelSelection), bot: publicBot(store.bot(m[1])!) });
     }
@@ -23355,7 +23335,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const notYours = cloudThreadRefusal(auth, m[2]);
       if (notYours) return json(res, 403, { error: notYours });
       if (!llmThreadTitlesEnabled(cfg)) return json(res, 409, { error: "generated thread titles are turned off on this server" });
-      if (hostedModels && !hostedModels.allows(current.modelSelection)) return json(res, 409, { error: hostedModels.error() });
+      
       const instance = registry.get(current.modelSelection.instanceId);
       if (!instance?.generateText) return json(res, 409, { error: "this bot's model can't generate a title — rename the thread instead" });
       if (titleRegenerations.has(m[2])) return json(res, 409, { error: "a new title is already being generated for this thread" });
@@ -23960,7 +23940,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, { instances: await describeInstances() });
     }
     const companyMutation = /^\/api\/instances\/(company\.[\w.-]+)(?:\/|$)/.exec(path);
-    if (hostedModels && path.startsWith("/api/instances/") && method !== "GET") return json(res, 403, { error: HOSTED_PROVIDER_SETTINGS_ERROR });
+    
     if (companyMutation && method !== "GET") return json(res, 403, { error: "Company accounts are read-only here. Manage this connection in desktop Settings." });
 
     const instanceIconPatch = /^\/api\/instances\/([\w.-]+)\/icon$/.exec(path);
@@ -24464,7 +24444,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if ((method === "PUT" || method === "PATCH") && path === "/api/config") {
       const body = await readBody(req);
-      if (hostedModels && ["instances", "anthropic", "openai", "openrouter", "openaiCompat", "xai", "mistral", "cerebras", "opencodeGo"].some(key => Object.hasOwn(body, key))) return json(res, 403, { error: HOSTED_PROVIDER_SETTINGS_ERROR });
+      
       const patch = parseConfigPatch(body);
       // A Cloud home is personal: nobody is invited to sign in to it.
       if (CLOUD_HOME && (patch.signIn?.admins?.length || patch.signIn?.members?.length)) {
@@ -24481,10 +24461,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           if ("error" in parsed || parsed.name !== skill.name) return json(res, 400, { error: "Skill name does not match its contents" });
         }
       }
-      if (hostedModels && patch.defaultModelSelection) {
-        const checked = checkedModelSelection(patch.defaultModelSelection);
-        if (!checked.ok) return json(res, checked.status, { error: checked.error });
-      }
+      
       if (patch.automaticRecovery?.enabled) {
         const checked = checkedModelSelection(patch.automaticRecovery.backup, undefined, true);
         if (!checked.ok) return json(res, checked.status, { error: checked.error });

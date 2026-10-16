@@ -4,7 +4,6 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { json, readBody } from "../harness/http.ts";
-import { HOSTED_PROVIDER_SETTINGS_ERROR } from "../hosted-models.ts";
 import { requiredScope } from "../request-auth.ts";
 import { BUSY_LEFTOVER_ERROR, createAntigravityLeftoverRoutes, type AntigravityLeftoverRouteDeps } from "./antigravity-leftovers.ts";
 import { dispatchRoutes } from "./table.ts";
@@ -18,7 +17,6 @@ const SECRET_PATH = "C:\\Users\\ada\\AppData\\Local\\Temp\\_MEI000022222";
 
 async function serve(deps: Partial<AntigravityLeftoverRouteDeps> = {}): Promise<string> {
   const routes = [createAntigravityLeftoverRoutes({
-    hosted: false,
     isAntigravity: (id) => id === "antigravity",
     find: async () => ({ folders: [{ path: SECRET_PATH, where: "system", bytes: 2_000 }], bytes: 2_000, complete: true }),
     remove: async () => ({ removed: 1, freedBytes: 2_000, remaining: 0 }),
@@ -67,23 +65,6 @@ describe("Free up space routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ freedBytes: 2_000, removed: 1, remaining: 0 });
     expect(removals).toBe(1);
-  });
-
-  it("is refused on a hosted team workspace", async () => {
-    let touched = false;
-    const base = await serve({
-      hosted: true,
-      find: async () => { touched = true; return { folders: [], bytes: 0, complete: true }; },
-      remove: async () => { touched = true; return { removed: 0, freedBytes: 0, remaining: 0 }; },
-    });
-    for (const response of [
-      await fetch(`${base}/api/instances/antigravity/leftover-files`),
-      await post(`${base}/api/instances/antigravity/leftover-files/remove`),
-    ]) {
-      expect(response.status).toBe(403);
-      expect(await response.json()).toEqual({ error: HOSTED_PROVIDER_SETTINGS_ERROR });
-    }
-    expect(touched).toBe(false);
   });
 
   it("is only offered by Antigravity", async () => {
