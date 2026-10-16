@@ -78,6 +78,18 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — E01.3 erasable-syntax rule for server code
+
+The server runs under Node's strip-only TypeScript (`dev:server`, the isolated
+fixture), which rejects syntax that needs a rewrite (parameter properties, enums,
+namespaces). Typecheck did not know, so E02.1's first e2e run caught it late.
+`tsconfig.server.json` now sets `erasableSyntaxOnly`; `pnpm typecheck` in the CI
+static job enforces it, and `tsconfig.server.build.json` inherits it.
+
+- Existing code: one violation, a constructor parameter property in `server/browser-live.test.ts` (vitest-run, harmless); rewritten as an explicit field. `vitest run server/browser-live.test.ts` 74/74.
+- Disposable copy: a plain class passes; a constructor parameter property and an `enum` each fail with TS1294.
+- Not covered: `scripts/*.ts` also run under strip-only but no tsconfig typechecks them (inherited gap).
+
 ## 2026-10-17 — E02.1 connected-apps storage owned at bootstrap
 
 `server/colonie/connections/` no longer imports `config.ts`. `BotAppPolicies`
