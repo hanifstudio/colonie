@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { compactBudget, contextWindowFor, shouldCompact, DEFAULT_CONTEXT_WINDOW } from "./context-budget.ts";
+import { autoCompactWindow, compactBudget, contextWindowFor, shouldCompact, DEFAULT_CONTEXT_WINDOW } from "./context-budget.ts";
 
 it("keeps compaction reachable below small model windows", () => {
   expect(compactBudget(8_000)).toBe(6_400);
@@ -31,4 +31,16 @@ it("does not let the regrowth floor outrun a known native compaction threshold",
   expect(budget).toBe(180_000);
   expect(shouldCompact({ contextTokens: 180_000, estimatedBytes: 0, budget, floor: 175_000, window, nativeCompactAt })).toBe(true);
   expect(shouldCompact({ contextTokens: 179_999, estimatedBytes: 0, budget, floor: 175_000, window, nativeCompactAt })).toBe(false);
+});
+
+it("clamps a configured compaction window into the range the CLI accepts", () => {
+  // out of range is a hard argument error in the CLI: it would fail every
+  // turn, not degrade
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "50000" })).toBe("100000");
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "9000000" })).toBe("1000000");
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "150000" })).toBe("150000");
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "nonsense" })).toBe("200000");
+  expect(autoCompactWindow({})).toBe("200000");
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "auto" })).toBe("auto");
+  expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "off" })).toBe(null);
 });

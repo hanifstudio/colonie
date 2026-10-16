@@ -18,7 +18,6 @@ import { DATA_DIR, ensureDirs, instanceConfigs, NATIVE_DIR } from "../config.ts"
 import type { ProviderInstance } from "../contracts.ts";
 import { recordEvents, type EventRecorder } from "../testing/events.ts";
 import {
-  autoCompactWindow,
   brokerSocketCandidates,
   claudeCliSupports,
   claudeCliUpdate,
@@ -1366,17 +1365,6 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     expect(seen.argv[seen.argv.indexOf("--autocompact") + 1]).toBe("200000");
   });
 
-  it("clamps a configured compaction window into the range the CLI accepts", () => {
-    // out of range is a hard argument error in the CLI: it would fail every
-    // turn, not degrade
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "50000" })).toBe("100000");
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "9000000" })).toBe("1000000");
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "150000" })).toBe("150000");
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "nonsense" })).toBe("200000");
-    expect(autoCompactWindow({})).toBe("200000");
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "auto" })).toBe("auto");
-    expect(autoCompactWindow({ COLONIE_CLAUDE_AUTOCOMPACT: "off" })).toBe(null);
-  });
 
   it("passes no compaction window when it is turned off", async () => {
     const dump = join(scratch, "compact-off.json");

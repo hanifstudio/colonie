@@ -29,3 +29,31 @@ export function shouldCompact(input: { contextTokens?: number; estimatedBytes: n
   const threshold = Math.min(ceiling, positive(input.floor) ? Math.max(input.budget, input.floor * 1.25) : input.budget);
   return size >= threshold;
 }
+
+/** The CLI compacts its own session when it approaches a window. Left alone
+ * that window is the model's, so a Sonnet 5 session runs to something near a
+ * million tokens before anything happens — and every model call until then
+ * re-reads the whole thing. The measured food-ordering thread sat at 330k
+ * tokens per call and looked perfectly healthy to the CLI.
+ *
+ * So the harness picks the window instead. This delegates the actual
+ * compaction to the CLI, which owns the session and already has a summarizer
+ * for it; the harness only decides when it is worth paying for.
+ *
+ * COLONIE_CLAUDE_AUTOCOMPACT takes a token count, "auto" to hand the decision
+ * back to the CLI, or "off" to pass nothing at all. The CLI rejects a window
+ * outside 100k-1M as a hard argument error, so a configured value is clamped
+ * rather than passed through: a mistyped setting must not fail every turn. */
+export function autoCompactWindow(env: NodeJS.ProcessEnv): string | null {
+  const raw = (env.COLONIE_CLAUDE_AUTOCOMPACT ?? "").trim().toLowerCase();
+  if (raw === "off") return null;
+  if (raw === "auto") return "auto";
+  const parsed = raw ? Number(raw) : DEFAULT_AUTOCOMPACT_TOKENS;
+  if (!Number.isFinite(parsed) || parsed <= 0) return String(DEFAULT_AUTOCOMPACT_TOKENS);
+  return String(Math.min(1_000_000, Math.max(100_000, Math.floor(parsed))));
+}
+
+/** Generous for real work, and still a third of where a 1M-window session
+ * would otherwise get to. With bot tool results gated (mcp-gate.ts) most
+ * threads never reach it; this is the backstop for the ones that do. */
+const DEFAULT_AUTOCOMPACT_TOKENS = 200_000;

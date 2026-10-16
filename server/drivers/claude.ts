@@ -13,7 +13,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
-import { join, dirname, isAbsolute, normalize } from "node:path";
+import { join, dirname } from "node:path";
+import { CLAUDE_ACCOUNT_ENV_KEYS, resolveClaudeConfigDir } from "../claude-config.ts";
+import { autoCompactWindow } from "../context-budget.ts";
 
 import { DATA_DIR, stripWorkspaceCredentialEnv } from "../config.ts";
 import { openStartupModelCatalog, writeStartupModelCache } from "../startup-model-catalog.ts";
@@ -111,34 +113,6 @@ export async function claudeSignedIn(
   run: typeof execCli = execCli,
 ): Promise<boolean> {
   return (await claudeAuthStatus(cli, env, run)).authenticated;
-}
-
-/** Parent-session credentials/routing that a named account must not inherit.
- * Shared with terminal sign-in instructions so login and turns select alike. */
-export const CLAUDE_ACCOUNT_ENV_KEYS = [
-  "CLAUDE_CODE_OAUTH_TOKEN",
-  "CLAUDE_CODE_OAUTH_REFRESH_TOKEN",
-  "CLAUDE_CODE_OAUTH_SCOPES",
-  "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR",
-  "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR",
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BASE_URL",
-  "ANTHROPIC_CUSTOM_HEADERS",
-  "CLAUDE_CODE_USE_BEDROCK",
-  "CLAUDE_CODE_USE_VERTEX",
-  "CLAUDE_CODE_USE_FOUNDRY",
-] as const;
-
-/** Resolve the CLI's config location without changing HOME or Keychain. */
-export function resolveClaudeConfigDir(configDir?: string, env: NodeJS.ProcessEnv = process.env): string {
-  const home = env.HOME || env.USERPROFILE || homedir();
-  const configured = configDir?.trim() || env.CLAUDE_CONFIG_DIR?.trim() || join(home, ".claude");
-  const expanded = configured === "~" ? home : configured.startsWith("~/") ? join(home, configured.slice(2)) : configured;
-  if (!isAbsolute(expanded) || /[\p{Cc}\p{Cf}]/u.test(expanded)) {
-    throw new Error("claude: configDir must be an absolute path or start with ~/");
-  }
-  return normalize(expanded);
 }
 
 /** Whether a stream frame is the CLI reporting that it has no login.
@@ -289,34 +263,6 @@ function projectMcpServers(cwd: string): Record<string, unknown> {
   }
   return out;
 }
-
-/** The CLI compacts its own session when it approaches a window. Left alone
- * that window is the model's, so a Sonnet 5 session runs to something near a
- * million tokens before anything happens — and every model call until then
- * re-reads the whole thing. The measured food-ordering thread sat at 330k
- * tokens per call and looked perfectly healthy to the CLI.
- *
- * So the harness picks the window instead. This delegates the actual
- * compaction to the CLI, which owns the session and already has a summarizer
- * for it; the harness only decides when it is worth paying for.
- *
- * COLONIE_CLAUDE_AUTOCOMPACT takes a token count, "auto" to hand the decision
- * back to the CLI, or "off" to pass nothing at all. The CLI rejects a window
- * outside 100k-1M as a hard argument error, so a configured value is clamped
- * rather than passed through: a mistyped setting must not fail every turn. */
-export function autoCompactWindow(env: NodeJS.ProcessEnv): string | null {
-  const raw = (env.COLONIE_CLAUDE_AUTOCOMPACT ?? "").trim().toLowerCase();
-  if (raw === "off") return null;
-  if (raw === "auto") return "auto";
-  const parsed = raw ? Number(raw) : DEFAULT_AUTOCOMPACT_TOKENS;
-  if (!Number.isFinite(parsed) || parsed <= 0) return String(DEFAULT_AUTOCOMPACT_TOKENS);
-  return String(Math.min(1_000_000, Math.max(100_000, Math.floor(parsed))));
-}
-
-/** Generous for real work, and still a third of where a 1M-window session
- * would otherwise get to. With bot tool results gated (mcp-gate.ts) most
- * threads never reach it; this is the backstop for the ones that do. */
-const DEFAULT_AUTOCOMPACT_TOKENS = 200_000;
 
 /** The Claude CLI version that first accepted each flag the harness passes
  * for context control. An unknown flag is a hard argument error, so passing

@@ -78,6 +78,19 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — E04.1 live helpers lifted out of the retired Claude driver
+
+`CLAUDE_ACCOUNT_ENV_KEYS` and `resolveClaudeConfigDir` moved verbatim to
+`server/claude-config.ts`; `autoCompactWindow` moved verbatim to
+`server/context-budget.ts` beside `compactBudget`. `claude-accounts.ts`,
+`plan-usage.ts`, `server/index.ts` and their tests import the new homes; the old
+driver imports them too until E04.2 removes it. The `autoCompactWindow` clamp test
+moved from `drivers/claude.test.ts` to `context-budget.test.ts` unchanged.
+
+- `tsc -p tsconfig.server.json` clean; `oxlint --deny-warnings server` clean.
+- `vitest run server/context-budget.test.ts server/claude-accounts.test.ts server/plan-usage.test.ts server/drivers/claude.test.ts` — 4 files, 208 passed, 1 skipped (skip is pre-existing).
+- Reachability (TypeScript import parser from the 16 bundle entry points plus `scripts/mcp-server.ts`): unreachable `server/drivers/` files are `acp/core`, `acp/quiet-status`, `claude-login-auth`, `claude`, `device-auth`, `local-inject`, `native`, `permission-command`, `prompt-split`, `session-idle`. A first regex-based pass gave wrong answers (it also said `codex-identity` was unreachable) and was discarded.
+
 ## 2026-10-17 — typecheck repair for the elicitation commit
 
 `8d8ab45b` (elicitation) left four `tsc` errors in `server/acp/acp-runtime.ts` that

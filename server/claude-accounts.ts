@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { DATA_DIR, persistableInstanceConfigs, type AppConfig } from "./config.ts";
 import type { InstanceConfig, InstanceConfigMap } from "./contracts.ts";
-import { CLAUDE_ACCOUNT_ENV_KEYS, resolveClaudeConfigDir } from "./drivers/claude.ts";
+import { CLAUDE_ACCOUNT_ENV_KEYS, resolveClaudeConfigDir } from "./claude-config.ts";
 import { resolveCli } from "./procs.ts";
 
 const displayName = z.string().trim().min(1).max(80).refine((value) => !/\p{Cc}/u.test(value), "Name cannot contain control characters");

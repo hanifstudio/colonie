@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { claudeAccountInfo, claudeSignInCommand, createClaudeAccountSchema, newClaudeAccount } from "./claude-accounts.ts";
-import { CLAUDE_ACCOUNT_ENV_KEYS } from "./drivers/claude.ts";
+import { CLAUDE_ACCOUNT_ENV_KEYS } from "./claude-config.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
 import { EventBus } from "./harness/bus.ts";
 import { makeFakeDriver } from "./testing/fake-driver.ts";

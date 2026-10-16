@@ -93,8 +93,28 @@ unchanged. Acceptance: two disposable files stay separate; `memory-upkeep` and
 `routes/bot-memory` tests pass; `content-boundaries.test.ts` rejects a `config.ts`
 import from the module (red/green in a disposable copy); typecheck/lint on changed
 files. Same budget as E02.1. Avoid `server/acp/*` (concurrent ACP work).
-Done locally (PROGRESS "E02.2"). Next: E02.3 from the PROGRESS candidate list (`mcp-gate-config.ts`;
-skip `published-teams.ts`, which belongs to the team-sharing/rooms surface).
+Done locally (PROGRESS "E02.2"). E02.3 was dropped: `mcp-gate-config.ts` serves
+only the retired `server/drivers/` (about 15k lines), so tidying it is wasted work.
+
+## Done engineering task: E04.1 — lift the three live helpers out of `drivers/claude.ts`
+
+Only three exports of the retired Claude driver still reach the app:
+`CLAUDE_ACCOUNT_ENV_KEYS` and `resolveClaudeConfigDir` (used by
+`claude-accounts.ts`, `plan-usage.ts`) and `autoCompactWindow` (`index.ts`).
+Outcome: the first two move verbatim to `server/claude-config.ts`, the last to
+`server/context-budget.ts` beside `compactBudget`; their importers and tests
+follow; function bodies unchanged. Then measure which `server/drivers/*` files
+have no live importer (E04.2 deletes only what that measurement proves unused and
+records each reason; legacy-driver tests that only cover a deleted module go with it).
+Acceptance: moved-function tests pass in their new homes; `claude-accounts`,
+`plan-usage`, `context-budget` tests; typecheck/lint; no importer left of the three
+names in `drivers/claude.ts`. Budget as before.
+
+Done (PROGRESS "E04.1"). Next: E04.2 — delete the unreachable `server/drivers/*`
+files listed there, in two commits: first files with no outside reference, then
+files whose only users are legacy scripts/tests (each is deleted or migrated, with
+the reason recorded). Reachability is measured from the bundle entry points with
+the TypeScript import parser; non-literal references are checked by grep.
 
 ## M0 trial checkpoint — still open
 
