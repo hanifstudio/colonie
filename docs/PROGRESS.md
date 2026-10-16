@@ -98,6 +98,49 @@ delete together with it.
 test:electron` globs `*.node-test.mjs`); `pnpm check:electron` did syntax-check
 it, and its removal is what took that count from 139 to 137.
 
+### `a457eee6` — the Cloud account, its plan and the Cloud home (desktop)
+
+| commit | what went |
+|---|---|
+| `a457eee6` | the desktop half: `electron/cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs` (with their `.d.mts`), their node tests and the cloud-account IPC test, plus `main.mjs`'s account client and stored sign-in, the saved Cloud-home server, the `openmausbot://cloud` entry, the `cloud-plan:*` IPC and the Cloud page's microphone/clipboard rule, the preload's `cloudAccount`/`cloudPlan` bridges and the `ogb.d.ts` entries, `src/lib/cloud-plan.ts`, `place-view.ts`'s `useCloudPlanPaid`/`see-plan`/`open-my-cloud`, `scripts/verify-cloud-account.mjs`, `docs/verification/cloud-account.md`, and 404 catalog entries (`cloudAccount.*`, `cloudPlan.*`, `cloudHome.*`, `cloudPhone.*`; English 3464 → 3393) (39 files, −3671/+196) |
+
+What `main.mjs` keeps is the local app: the updater answers only this
+computer's own page in the main window (`updaterPageAllowed`), device
+permissions keep the paired server's clipboard write and nothing else, and
+workspaces, environments and the servers menu are unchanged. The preload
+gives a remote page the same safe subset as before, minus the updater;
+`update:offered` is gone with the page it was asked about.
+
+`switchEnvironment` no longer has a cloud-home branch — that branch called
+`openLendingSettings`, which `2982ec22` had already deleted, so a "My Cloud"
+entry left in the Servers menu would have thrown a `ReferenceError`.
+
+Three `main.mjs` section fixtures bound on the Cloud page's block; they now
+bind on `// ── this app's own page: the updater, and nothing a server's page
+gets ──` and `// ── end this app's own page ──`.
+
+### Verified after `a457eee6`
+
+| check | result |
+|---|---|
+| `pnpm exec tsc --noEmit -p tsconfig.json` | clean |
+| `pnpm exec tsc -p tsconfig.server.json --noEmit` | clean |
+| `pnpm check:electron` | Syntax-checked 128 Electron modules (was 135) |
+| `pnpm test:electron` | 286 tests, 285 passed, 0 failed, 1 skipped (was 359/358/0/1) |
+| `pnpm exec vitest run electron/updater.test.mjs` | 8 passed |
+| `pnpm exec vitest run electron/app-permissions.node-test.mjs electron/preload.node-test.mjs electron/confirm-dialog.node-test.mjs electron/remote-clipboard-permission.node-test.mjs` | 37 passed |
+| `pnpm exec vitest run src/locales/ src/pair/ src/components/FailedTurnRow.place.test.ts src/components/SettingsModal.serverPairing.test.ts` | 27 passed |
+| `pnpm i18n:check` | valid, 10 languages, 3393 English strings |
+| `pnpm colonie:ui-check` | exit 0, `.devone/evidence/renderer-check.json` |
+
+`electron/credential-persistence.test.mjs` cannot load under vitest: it uses
+`node:test` while being named `*.test.mjs`. It is untouched by this branch,
+so it fails the same way before and after; it is not a regression here.
+
+The whole-tree `vitest run` was not re-run (minutes of transform time). Its
+four inherited `src/` failures at `94cc3689` do not read the files this
+commit changes.
+
 ### Next: the Cloud removal, in order
 
 The owner chose to keep **only** the Local workspace: the Cloud computer (Boat),
@@ -134,22 +177,23 @@ focused vitest green:
 2. **The place itself.** Drop `"cloud"` from `Place`, every `cc-*`/`vps`
    state and the cloud actions from `shared/place-view.ts` and
    `src/lib/place-view.ts`; `CloudScreenPreview`, `CloudBackendPicker`, the
-   Cloud card in `ComputerPanel` and `SimpleModelPane`, `cloud-plan.ts`,
-   `cloud-guest.ts`'s guest branch, `shared/cloud-computer.ts`, and the
-   matching `place.view.*`/`place.action.*`/`cloud.*`/`computer.*cloud*`
-   locale keys; then the `cloudBackend`/`cloudHome` fields of the wire.
+   Cloud card in `ComputerPanel` and `SimpleModelPane`, `cloud-guest.ts`'s
+   guest branch, `shared/cloud-computer.ts`, and the matching
+   `place.view.*`/`place.action.*`/`cloud.*`/`computer.*cloud*` locale keys;
+   then the `cloudBackend`/`cloudHome` fields of the wire.
 3. **Server hosted half.** Delete the `CLOUD_HOME`/`HOSTED_WORKSPACE` block and
    the ~40 modules above with their routes, tests and data files
    (`lending-routines.json`, `lending-memory.json`, boat journals).
-4. **Desktop bridges.** `cloud-account.mjs`, `cloud-home.mjs`,
-   `cloud-entry.mjs`, their IPC, preload bridges, `ogb.d.ts` entries,
-   `verify-cloud-account.mjs` and the `openmausbot://cloud` deep link.
-   ~~`cloud-move.mjs` and `managed-composio.mjs`~~ done in `4bb5abfb` and
-   `92a28c00`.
+4. ~~**Desktop bridges.**~~ Done in `a457eee6` (`cloud-account.mjs`,
+   `cloud-home.mjs`, `cloud-entry.mjs`, their IPC, preload bridges,
+   `ogb.d.ts` entries, `verify-cloud-account.mjs`, `src/lib/cloud-plan.ts` and
+   the `openmausbot://cloud` deep link); `cloud-move.mjs` and
+   `managed-composio.mjs` in `4bb5abfb` and `92a28c00`.
 5. **Data migration** for `computer: "cloud"` rows, then `deploy/`
    (container/self-host targets).
 6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
-   half-finished "Colonie Cloud" strings.
+   half-finished "Colonie Cloud" strings and `docs/cloud-pro.md`, which still
+   describes the deleted account and Cloud home.
 7. VPS `172.104.33.55`: stop the services, then delete the data. Last,
    irreversible, and only with explicit confirmation.
 
