@@ -55,7 +55,7 @@ it("My Cloud says where its connection starts, never 'the code shown on the serv
   const cloud = pairIntro({ mode: "code", sent: false, email: "", cloudHome: true });
   // It names the app's own button and Settings section, as they are labelled.
   expect(cloud).toContain(`choose ${en["cloudHome.connect"]} in the Colonie app`);
-  expect(cloud).toContain(`Settings → ${en["settings.section.cloudAccount"]}`);
+  expect(cloud).toContain("Settings → Colonie Cloud");
   expect(cloud).toContain("on your Plan page");
   expect(cloud).not.toContain("shown on the server");
   expect(pairIntro({ mode: "code", sent: false, email: "", cloudHome: false })).toContain("shown on the server");

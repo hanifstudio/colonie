@@ -7,7 +7,6 @@ import {
   currentPhonePairingTarget,
   loadPhonePairingAccess,
   pairedDestination,
-  phoneDestinations,
   phonePairingSettingsAction,
   phonePairingTarget,
   resetPhonePairingAccess,
