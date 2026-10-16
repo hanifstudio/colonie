@@ -1,5 +1,182 @@
 # Colonie progress
 
+## 2026-10-16 — concrete target walkthrough W01 (documentation only)
+
+Expanded `docs/COLONIE-BLUEPRINT.md` with a fictional end-to-end product journey:
+owner deployment and workspace setup, invited-member entry, a directed group
+request, research/delegation, browser/computer interaction, authorized email
+review, actual result status, and later resumption. Added a sequence diagram,
+failure/recovery scenarios, scheduled/event/Local/companion variants, and seven
+explicitly proposed behavioral defaults. The owner authorized developing the
+journey; the draft does not mark its new proposals as final owner decisions.
+
+Rechecked the three upstream documentation URLs and restored their actual
+hostnames after the brand sweep had changed citations to `docs.colonie.com`.
+Primary Composio documentation now supports the distinction between a project
+API key and authorization of an individual connected service, plus the separate
+project boundary. Product branding is unchanged.
+
+Verification: the inline `python3 -c` document check passed on 715 lines:
+18 direction IDs, 35 feature IDs, 14 acceptance IDs, 11 open-question IDs, and
+7 behavior-proposal IDs, plus 7 readiness observations and 5 proposed checks;
+no duplicate IDs, missing heading anchors, broken
+local links, malformed table rows, trailing whitespace, or unpaired code
+fences. `git diff --check -- docs/COLONIE-BLUEPRINT.md docs/PROGRESS.md`
+passed. Diagrams were structurally checked as Markdown, not rendered in a UI.
+
+No application code, steering hierarchy, installed data, provider credentials,
+deployment, browser session, real message send, or runtime test was changed or
+exercised by this task. Other in-progress cleanup edits were preserved.
+
+Followed with a narrow read-only inspection at HEAD `fb8bedbc` plus existing
+WIP, using `rg`, `sed`, and `cat` on source files only. The blueprint now records
+R01–R07 observations and E01–E05 proposed bounded checks. Notable static
+discrepancy: the runtime tracks `acpTools` and `acpExtraTools` leases, while the
+inspected new/load session block sends only `acpTools.servers`. Also recorded
+the direct ACP branch's explicit automation/coordination admission guard and
+its early return before the later inherited browser integration assembly.
+These are source observations, not reproduced runtime failures or fixes.
+
+Next: review W01/B01–B07 and begin with the proposed E01 disposable fake-agent
+payload check when implementation/verification work is scoped. A03–A14 remain
+the acceptance map; this draft and code read are not workflow proof.
+
+## 2026-10-16 — one brand, one local app (the clean-slate pass)
+
+The fork reads as Colonie everywhere the product speaks, with one deliberately
+kept wire protocol and two on-disk names (below). `git grep -inE
+"openmausbot|openmaus|mausbot|opengrokbot|devone|\bOMB\b|OMB_|__omb|__OMB|\bogb\b|OGB_"`
+returns 51 lines in 26 files: the phone-pairing constants, the legacy-directory
+literals, the tests that pin them, this document and the vocabulary guard.
+`git ls-files` has no old-brand path, and the tracked tree keeps no old-brand
+file name.
+
+| commit | what it carried |
+|---|---|
+| `a9d0d13e` | 968 files: `server/devone/`→`server/acp/`, `shared/devone.ts`→`shared/acp.ts`, `scripts/devone/`→`scripts/colonie/`, `OMB_*`/`DEVONE_*`→`COLONIE_*`, `~/.openmausbot`→`~/.colonie`, `window.ogb`→`window.colonie`, `dist-devone`→`dist-colonie` |
+| `8e1e3d11` | the relative imports and duplicate `package.json` keys the first pass left; `branding.test.ts` rewritten |
+| `e316a68f` | 320 files, −19 879 lines: the root sweep, the upstream `docs/` corpus, `apps/`, `cloudflare/`, `.tmpexp/` |
+| `1c53d484` | 232 files, +653/−2973: the last hosted branches, the `ogb` bridge name, the upstream identity (`milind-soni`→`hanifstudio`) |
+| `6342e948` | the fixtures and the vocabulary guard the rename itself broke; catalog hashes refreshed |
+| `fb8bedbc` | the app, the About box and the packaging configs point at the Colonie artwork; `maus.ps1` and `.dockerignore` (no compose file, no Dockerfile) deleted |
+
+The default `package:mac|win|linux` configs now take `build/colonie.icns`,
+`electron/resources/colonie-icon.png` and `public/colonie.svg`, and the SupaMaus
+icon set (`build/icon.*`, `electron/resources/app-icon.png`,
+`public/app-icon.svg`) is gone, so the dock, tray and About box carry the
+Colonie mascot instead of the upstream one. `maus.ps1` drove a `compose.yaml`
+that is not in the repository. Also removed earlier: `release/` (2.8 GB),
+`dist-server/`, `dist-platform/`, `dist-devone/`.
+
+Kept on purpose, each inert without configuration of its own, and why:
+
+- `server/hosted-slack.ts`, `server/routes/hosted-slack.ts`,
+  `server/account-signin.ts` and the renderer sign-in calls: the local pairing
+  flow in `PairPage` shares them, and none of them arms without `COLONIE_ADMIN_*`.
+- `third_party/**` attribution with `NOTICE`, `LICENSE` and the Supamaus
+  trademark note in `LICENSING.md`.
+- `server/brand.ts`: the white-label `brand.json` read stays the edition hook.
+  `entitled("whitelabel")` can never be granted in this fork, so every request
+  falls back to the Colonie default.
+- `server/browser-engine-release.ts` and `server/team-library.ts` name
+  `milind-soni/Colonie` and `milind-soni/colonie-teams`. Both repositories
+  answer 404 to an unauthenticated `api.github.com` call, so these URLs resolve
+  only for an authorized account; they were already unreachable before the
+  rename and stay pinned rather than rewritten.
+
+### The one wire protocol that keeps its old spelling
+
+The first pass renamed these with everything else. Six server tests failed, and
+the rename was wrong, not the tests: a phone build that is already installed
+parses the values, so `colonie_pair_` (13 characters) makes Android's
+`Connection.kt` reject every credential and `colonie://pair` makes
+`PairingInvite.parse` reject every invite. Restored:
+
+| literal | who reads it |
+|---|---|
+| `omb_pair_` + 43 base64url characters (52 total) | `server/sessions.ts` and `companion/src/devices.ts` mint it, `electron/companion.mjs` and `src/lib/phone-setup.ts` validate it, the phone parses its shape |
+| `openmausbot://pair?…` | `shared/pairing-link.ts` builds the scanned invite; the Android and iOS scanners parse it |
+| `OpenMausBot phone credential v1` (HPKE `info`) and `openmausbot-phone-credential-v1` (AAD) | the envelope a phone seals; `server/phone-secret.test.ts` opens one produced by Apple's CryptoKit, so the strings are pinned by a real peer, not by us |
+| `.openmausbot` | `LEGACY_DATA_DIR`: the directory the previous build wrote. `ensureDirs` renames it to `~/.colonie` on first boot so an upgrade keeps bots, transcripts and keys |
+| `OpenMausBot`, `openmausbot` in `server/local-computer.ts` | the macOS App Support directories an older build staged a computer-use descriptor in |
+
+To rebrand the protocol instead: build the phone apps with the new scheme,
+prefix and HPKE strings, regenerate the CryptoKit fixture, then flip these
+literals in one commit. The vocabulary guard allows the two `OpenMausBot`
+literals with that reason. Everything else that a *new* build writes is
+Colonie-branded, which is why the package format did move:
+`shared/package-format.ts` reads and writes `colonie.package`, the sweep changed
+the fixtures with it, and this pass regenerated the stale
+`shared/package-fixtures/manifest.json` digests and the golden canonical hash.
+A package file written by the pre-rename build now fails its `format` literal —
+one-time, and re-export is the fix.
+
+### Verified after `fb8bedbc`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm lint` (`oxlint --deny-warnings .`) | clean, 0 warnings |
+| `pnpm i18n:check` | valid, 10 languages, 3148 English strings |
+| `pnpm exec vitest run src/` | 350 files, 345 passed; 5 failed, of which 4 were the rename's own (fixed in `6342e948`) and `lazy-screens` is inherited |
+| `pnpm test:electron` | see below |
+| `pnpm exec vitest run scripts/ companion/ electron/` | 98 files, 73 passed; 23 failed, all inherited (below) |
+| `pnpm exec vitest run scripts/build-windows-browser-vendor.test.mjs` | 1 passed after re-pinning the patch digest |
+| `pnpm colonie:ui-check` | fails, inherited — reproduced identically at the pre-rename `2678ad28` |
+| mandate grep and `git ls-files` path scan | 5 lines in 2 files, all deliberate (above) |
+
+`electron/credential-persistence.test.mjs` was a `node --test` file caught by
+the vitest glob, so it could never load under vitest; it is now
+`electron/credential-persistence.node-test.mjs` and runs under
+`pnpm test:electron` (3 passed). The Windows vendor patch name, `0.36.0-omb.1`,
+became `0.36.0-colonie.1`, so its pinned SHA-256 moved with it
+(`e228cd0e…`), the same way the constant and the test moved together.
+
+The inherited failures, each reproduced at `2678ad28` or documented earlier:
+
+- `scripts/testing/*-ui.e2e.test.ts` (18 files): the preview harness never
+  renders the control under test. `scripts/testing/reply-focus-ui.e2e.test.ts`
+  fails at `2678ad28` with the same assertion and the same
+  `Matcher did not succeed in time`, and `colonie:ui-check` fails there at the
+  same click on the `You` button.
+- `scripts/testing/verification-docs.test.ts`: cannot load; it reads the absent
+  `enterprise/server/workspace-access.ts`.
+- `server/comms.test.ts` hangs: the fixture server starts, answers, and the test
+  never returns. Reproduced at `2678ad28` (still running after 90 s). Because it
+  runs first, a whole-tree `vitest run server/` never prints a line; the suite
+  has to exclude it.
+- `server/colonie/chief/chief.e2e.test.ts` (2 tests, real `codex-acp` and
+  `claude-acp`).
+
+### What is left
+
+1. The VPS `172.104.33.55`: with the owner's approval this pass deleted
+   `/opt/colonie` (5.3 GB; the root filesystem fell from 9.2 GB to 4.0 GB used)
+   and removed `colonie.service`, `colonie-https.service`,
+   `colonie-platform.service` and their drop-in, then reloaded systemd. Those
+   units were already stopped and disabled. Destroying the droplet itself still
+   needs the owner's provider console: `doctl` is not installed here and there is
+   no `~/.config/doctl` authentication.
+2. The owner's machine still has, outside this repository: the pre-rename
+   `~/.colonie/openmausbot-server.lease` and `.openmausbot-server-child/`, held
+   by the running `node scripts/devone/start.ts --web` (PID 91914, a path that no
+   longer exists), plus `~/Documents/MausBot/hanif-studio-outreach-initial.md`
+   (owner-authored) and old-brand session folders under `~/.claude/projects/`.
+   Left alone on purpose; the deleted-to-date set is in the handover message.
+3. Windows and Linux packaging were not built, so their new icon paths are
+   unverified; macOS `colonie:package` was not run either.
+4. The phone-app links are a product decision, not a rename, but the sweep did
+   change them: `IOS_APP_STORE_URL` keeps the same numeric app id
+   (`id6803387923`) so it still resolves (HTTP 200); `APP_REPOSITORY` and
+   `ANDROID_APK_URL` now name `hanifstudio/colonie`, which answers 404 to an
+   unauthenticated request, so in-app Help, License, Releases and the APK
+   download are dead until the owner publishes that repository and the
+   `android-v1.5.0` release with `Colonie.apk`. The upstream asset
+   (`milind-soni/OpenMausBot/releases/download/android-v1.5.0/OpenMausBot.apk`)
+   is still live; whether to point there, publish the Colonie release, or drop
+   the phone-app dialog is the owner's call. Rebranding the pairing protocol
+   above is part of the same decision.
+
 ## 2026-10-16 — target blueprint and reference research (documentation only)
 
 Created `docs/COLONIE-BLUEPRINT.md` at the owner's request to consolidate the

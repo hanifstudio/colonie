@@ -931,7 +931,10 @@ export function providerReloadKeys(patch: object): string[] {
 
 // COLONIE_DATA_DIR isolates test/soak rigs from the user's real fleet.
 export const DATA_DIR = process.env.COLONIE_DATA_DIR ?? (colonieProfile() ? colonieDataDir(homedir()) : join(homedir(), ".colonie"));
-const LEGACY_DATA_DIR = join(homedir(), ".colonie");
+// The pre-rename data dir. The one-time rename in `ensureDirs` carries an
+// upgrade's bots, transcripts and config keys over; the name stays because it
+// is the directory an installed build actually wrote.
+const LEGACY_DATA_DIR = join(homedir(), ".openmausbot");
 export const EVENTS_DIR = join(DATA_DIR, "events");
 export const NATIVE_DIR = join(DATA_DIR, "native");
 

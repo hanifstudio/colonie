@@ -8,7 +8,7 @@ import {
 } from "./companion-pairing";
 
 describe("companionPairingRoute", () => {
-  const token = `colonie_pair_${"a".repeat(43)}`;
+  const token = `omb_pair_${"a".repeat(43)}`;
 
   const decodedEndpoints = (link: string) => {
     const encoded = new URL(link).searchParams.get("endpoints");

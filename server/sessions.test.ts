@@ -39,9 +39,9 @@ describe("the native-app encoding of a pairing window", () => {
     const { code, credential } = registry.openPairing({ label: "Pixel" });
     // The shape the Android companion's parser demands: the 9-character
     // prefix plus exactly 43 base64url characters (Connection.kt).
-    expect(credential.startsWith("colonie_pair_")).toBe(true);
+    expect(credential.startsWith("omb_pair_")).toBe(true);
     expect(credential.length).toBe(52);
-    expect(credential.slice("colonie_pair_".length)).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(credential.slice("omb_pair_".length)).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const paired = registry.exchange({ code: credential, label: "Pixel", source: "10.0.0.9" });
     expect(paired.ok).toBe(true);
@@ -56,7 +56,7 @@ describe("the native-app encoding of a pairing window", () => {
     // secret and map distinct secrets onto one digest, so a credential must
     // be hashed exactly as presented. This is the trap the fix exists to
     // avoid, so pin it with a credential that contains every folded symbol.
-    const trap = "colonie_pair_0123456789-_abcdefghijklmnopqrstuvwxyzABCDE";
+    const trap = "omb_pair_0123456789-_abcdefghijklmnopqrstuvwxyzABCDE";
     expect(trap.length).toBe(52);
     expect(normalizePairingCode(trap)).not.toBe(trap);
     expect(isPairingCredential(trap)).toBe(true);

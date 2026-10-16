@@ -8,7 +8,12 @@ import {
 } from "@hpke/core";
 
 export const PHONE_SECRET_PROTOCOL_VERSION = 1 as const;
-export const PHONE_SECRET_INFO = "Colonie phone credential v1";
+/** HPKE `info` for a phone-submitted credential. The paired phone app derives
+ * this string itself, so it is a wire constant, not product copy: changing it
+ * makes every envelope from a shipped phone build fail to open. It moves only
+ * together with a phone build that seals with the new string (and, in the test,
+ * a regenerated CryptoKit fixture). */
+export const PHONE_SECRET_INFO = "OpenMausBot phone credential v1";
 export const PHONE_SECRET_MAX_BYTES = 4_096;
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
@@ -102,7 +107,7 @@ export function phoneSecretAAD(context: Pick<
   "keyId" | "deviceId" | "botId" | "threadId" | "messageId" | "target" | "requestKey"
 >): Uint8Array {
   const fields = [
-    "colonie-phone-credential-v1",
+    "openmausbot-phone-credential-v1",
     context.keyId,
     context.deviceId,
     context.botId,

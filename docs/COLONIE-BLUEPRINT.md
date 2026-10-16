@@ -6,6 +6,8 @@ This document brings the intended product, reference research, architecture prop
 
 Nothing here turns a provisional conversation into an irreversible decision. A documented competitor feature is not evidence that Colonie already implements it. Architecture and delivery recommendations remain proposals until reviewed.
 
+For the next product review, start with [Walkthrough W01](#walkthrough-w01-a-team-completes-real-work). It turns the target into one concrete story, including approval, delegation, interruptions, and recovery. Its proposed behavior is ready to discuss; it has not been implemented or accepted as final policy.
+
 ## Contents
 
 1. [Product direction](#1-product-direction)
@@ -84,7 +86,9 @@ Public adoption reports and customer stories are useful demand signals. They do 
 
 ### Research method
 
-This is a documentation review, not a hands-on evaluation of a paid Grok Bot installation. Primary product/help pages are the main evidence; dated staff forum answers fill custom-MCP gaps. Colonie documentation is a secondary discovery reference for useful capabilities the owner may not have encountered. It does not dictate Colonie's architecture.
+This is a documentation review, not a hands-on evaluation of a paid Grok Bot installation. Primary product/help pages are the main evidence; dated staff forum answers fill custom-MCP gaps. Upstream project documentation is a secondary discovery reference for useful capabilities the owner may not have encountered. It does not dictate Colonie's architecture. External source names and URLs retain their real identity; a Colonie branding change must not rename a cited source.
+
+A subsequent narrow, read-only inspection of Colonie's ACP/tool dispatch supports the readiness snapshot in section 9. It is not a complete repository audit or runtime verification.
 
 Documentation changes and rollouts can disagree. For example, older template instructions refer to settings that newer bot-editing guidance has removed. Preserve the intended capability, record the source/date, and verify the actual interaction before claiming exact parity. No competitor documentation establishes Colonie's implementation status.
 
@@ -172,6 +176,128 @@ The workspace switcher makes the active workspace and execution location clear. 
 
 **Open:** whether Local ↔ Server migration is offered initially, which data migrates, and which authorizations must be repeated. Do not silently equate migration with creating an unrelated workspace or transferring every secret.
 
+### Walkthrough W01: a team completes real work
+
+**Status: proposed Colonie behavior for review.** This is a fictional product walkthrough, not a transcript, a statement of implemented behavior, or a claim about Grok's undocumented internals. It applies the owner's Local/Server and integration directions to a concrete task. The examples of services and tools do not select a hosting vendor or promise a particular provider capability.
+
+**The story in five steps:** an owner prepares a Server workspace; an invited member requests work in a project group; bots use that workspace's services and computer; an authorized person reviews an outgoing action; the group receives the result and can inspect what happened.
+
+#### People, bots, and the workspace
+
+| Participant or resource | Role in this example |
+|---|---|
+| Alex | Workspace owner. Pays for the server, connects Claude/Codex, supplies this workspace's Composio key, and authorizes shared service accounts. |
+| Maya | Invited teammate. Uses Colonie without supplying an AI subscription, provisioning a server, or purchasing another workspace. |
+| Nova | Research bot with a saved name, persona, and research skill. |
+| Milo | Operations bot with a saved writing procedure and document/email skills. |
+| Launch group | A project conversation containing Alex, Maya, Nova, and Milo. It supports human messages whether or not a bot is invoked. |
+| Workspace environment | Server-side files, browser, and supported desktop tools. Its credentials and work stay within this workspace's configured access boundaries. |
+| Workspace connections | The shared CRM and email account authorized for this project, using the workspace's own Composio configuration or custom MCP. These are not Maya's personal accounts. |
+
+#### From installation to a finished task
+
+| Step | What the person does or sees | Expected Colonie behavior in this proposal |
+|---|---|---|
+| W01.01: create | Alex opens Colonie, selects Create workspace → Server, and names it Launch Team. | Explain the one-time Colonie purchase separately from recurring infrastructure, AI, and optional service costs. Show the active workspace clearly. |
+| W01.02: deploy | Alex authorizes the supported infrastructure account, reviews the starting configuration and estimated provider bill, then selects Deploy. | Provision into the owner's account, show progress and recoverable errors, and record which resources belong to this deployment. No bots are advertised as ready before the runtime is available. |
+| W01.03: connect | Alex follows supported Claude/Codex sign-in, supplies this workspace's Composio key, and connects the shared CRM/email services. | Keep secrets out of chat. Show each engine/service's actual readiness. A Composio API key and a connected Gmail/CRM account are separate setup steps; one does not prove the other is authorized. [Composio connection model](https://docs.composio.dev/reference/api-reference/connected-accounts) |
+| W01.04: prepare | Alex configures Nova and Milo using their ordinary bot profiles, creates Launch, and invites Maya. | Saved persona/skills are sufficient for normal use. No ACP inspector setup is required. The invitation identifies Launch Team and its inviter. |
+| W01.05: join | Maya accepts, opens/downloads Colonie, authenticates as required, and enters Launch Team. | Use the existing workspace, bots, and connections. Do not request Maya's Claude/Codex login or personal Composio key. Show only conversations and capabilities her membership can access. |
+| W01.06: request | Maya posts the task below to Nova in Launch. | Persist the message and show that Nova has accepted or queued the work. Targeting Nova explicitly keeps this example independent of the unresolved policy for unmentioned bots. |
+| W01.07: investigate | Maya sees Nova researching, with readable tool activity and results as they become available. | Use authorized CRM tools and the workspace browser. Choose suitable tools for the task rather than forcing desktop clicks when an API or browser action is enough. Do not include unrelated private chats or another workspace's data. |
+| W01.08: collaborate | Nova asks Milo to prepare the outreach drafts using the research. | Make the handoff visible from the original task, with a link to the delegated work and its status. Share only the context Milo is authorized to receive. Nova is responsible for assembling this particular requested result; this is not a rule making one bot the permanent coordinator of every group. |
+| W01.09: produce | The bots create the report and draft messages. If the task needs a supported desktop editor, Maya can inspect its screen. | Save artifacts in the workspace and provide stable links/previews. Browser/computer viewing and authorized takeover operate on the workspace environment, not Maya's personal desktop. Keep use of a shared screen coordinated. |
+| W01.10: review | Colonie presents the exact outgoing drafts, recipients, and proposed send action to an authorized human. | Wait before sending. Maya can approve only if her workspace permissions allow this action; otherwise route it to Alex or another authorized approver and explain whom it is waiting for. Engine-level prompts remain additional requirements where applicable. |
+| W01.11: finish | After approval, the permitted send is attempted and Launch receives the report, draft/sent status, and a concise result. | Report actual tool confirmation, failure, or uncertainty. Preparing a draft is not the same as sending it. Provide the related bot work without disclosing a conversation the viewer cannot access. |
+| W01.12: revisit | Maya closes Colonie and later returns, or opens a supported companion client. | Restore persisted work and actual server status. Other authorized server work may continue while clients are closed. Companion functionality depends on the supported device and its permissions; invitation links and pairing credentials serve different purposes. |
+
+The example request, shown as user-authored content:
+
+> @Nova Research these three companies using their public websites and our shared CRM. Save a short report and ask Milo to draft two outreach emails. Show us the drafts and wait for approval before sending anything.
+
+The task uses a website, connected services, files, and delegation naturally. Computer use remains available for app work that actually needs it. A separate demonstration must exercise a real desktop action and takeover before computer-use support is claimed.
+
+```mermaid
+sequenceDiagram
+    actor Owner as Alex
+    actor Member as Maya
+    participant App as Colonie
+    participant Runtime as Workspace server
+    participant Bots as Nova and Milo
+    participant Tools as Workspace tools and computer
+    Owner->>App: Deploy, connect engines/services, invite
+    App->>Runtime: Prepare the workspace
+    Member->>App: Join Launch Team and request research
+    App->>Runtime: Submit the authorized task
+    Runtime->>Bots: Start or queue work
+    Bots->>Tools: Research, create report, prepare drafts
+    Tools-->>Runtime: Activity, artifacts, action preview
+    Runtime-->>App: Show progress and proposed email send
+    App-->>Owner: Ask an authorized approver
+    Note over Owner,Member: Maya may approve instead if her permissions allow
+    Owner->>App: Approve or deny the displayed action
+    App->>Runtime: Record the decision
+    Runtime->>Tools: Execute only if authorized and approved
+    Tools-->>Runtime: Confirm success, failure, or uncertain outcome
+    Runtime-->>App: Persist and publish the result to its permitted audience
+    App-->>Member: Show report, actual send status, and related work
+```
+
+#### Approval, steering, and interruption
+
+**Proposed defaults for this walkthrough:** a pending send waits for an authorized decision; approving one displayed action does not grant permanent access to all email actions. If the draft, recipient, or material action details change after review, obtain approval for the changed action. The exact permission model, reusable grants, and expiry settings remain Q02/Q03 decisions.
+
+Maya can steer Nova while it works. A follow-up such as “Use a more casual tone” should be acknowledged and associated with the active work. It should not silently create a second independent email send. If the send already happened, say so and treat any corrective action as new work.
+
+**Recommended Stop behavior:** offer Stop for the selected task and its delegated work. Stop admitting further actions, request cancellation of its active agent/tool work, and show Stopping until known work has settled. Distinguish a child that stopped, finished before cancellation, or has an unresolved external action. Other unrelated workspace tasks and future routine schedules keep their own controls. This is a proposal, not a documented Grok cancellation guarantee; adapter/tool support must be validated.
+
+#### What happens when something goes wrong
+
+| Situation | Proposed visible behavior | Design question or evidence needed |
+|---|---|---|
+| Deployment fails halfway | Keep the workspace in Setup incomplete. Offer a retry or reviewed cleanup of the resources created by that attempt. | Verify provisioning retries do not create duplicate paid servers. |
+| An invite expires or access is revoked | Explain that access is unavailable and provide a way to contact the inviter. Do not start fresh engine onboarding for the shared workspace. | Define invitation identity, expiration, and revocation rules under Q05. |
+| The CRM connection expires | Show which connection needs attention, who may reconnect it, and which work can still proceed. | Do not treat a working Composio key as proof the underlying service token is valid. |
+| A website needs login or human interaction | Ask an authorized person to take over the workspace browser; show which task is waiting. | Validate real browser takeover, supported authentication, and resumption. No password-in-chat fallback. |
+| Another bot uses the same screen | Queue conflicting interactive work and explain the wait. Allow independent work only within verified resource/isolation limits. | Choose and test shared-screen/browser coordination under Q06. |
+| Nobody can approve right now | Keep the action waiting or expire it according to the selected policy; notify the authorized audience. | Absence of an approver does not count as approval. Choose unattended-routine behavior. |
+| AI quota or authentication blocks work | Show the provider-specific problem and the next available action. | Do not recommend a bigger VM as a remedy for an AI account limit. |
+| CPU/RAM is busy | Show queued work and sustained pressure, using measured limits. | Select limits after benchmarking; do not auto-purchase a larger server. |
+| The app loses its connection | Show connection loss and the last confirmed status. Reconnect to persisted task events. | A disconnected client alone does not mean the server task failed or stopped. |
+| The server restarts | Recover task status and any durable approval state; reconcile incomplete operations before deciding whether a retry is safe. | Never blindly repeat a potentially completed email send because its final acknowledgment was lost. |
+| A send result is uncertain | Show that confirmation is pending/unknown, preserve the evidence, and reconcile with the service where possible. | Do not label an uncertain external side effect Failed and automatically resend it. |
+| Maya is removed mid-task | Reject new requests from Maya and re-evaluate her pending approvals and work authority. Preserve the task record for its permitted audience. | Choose cancel/continue/transfer rules explicitly; do not inherit the owner's authority automatically. |
+
+#### Extending the same story
+
+**A scheduled version:** Maya asks for this research every Monday at 9:00 AM in the workspace's displayed timezone. Show the exact task, destination, timezone, responsible identity/bot, required connections, and approval behavior before saving. A routine creates a separate recorded run each time. Test now performs real work and must be labeled accordingly. A schedule is not an instruction to send email without the configured approval policy. Pause schedule and Stop current run are separate controls.
+
+**An event-triggered version:** an authorized CRM event or webhook creates a recorded run. Show the incoming event, deduplicate retries as designed, and separate event acceptance from task completion. Define behavior when many events arrive, the runtime is offline, or its queue is full.
+
+**A personal version:** Maya switches to a new Local workspace, connects her own Claude/Codex, supplies its own Composio configuration, and connects her personal email there. The work runs on her selected local environment. Launch Team's credentials, bots, and private history are not silently copied. When the local runtime is asleep or stopped, explain which work cannot proceed and apply the selected missed-schedule policy after recovery.
+
+**A companion version:** an authorized device can inspect work and answer the decisions supported by that client. Closing the phone app, losing its network, and stopping the workspace runtime are different states. Voice/dictation and mobile notifications need their own verified services/device behavior; they are not assumed to appear simply because chat works.
+
+#### Decisions this walkthrough recommends, without finalizing them
+
+| ID | Recommended starting behavior | Still open |
+|---|---|---|
+| B01 | Explicitly mention the intended bot for a directed request; human chat remains useful on its own. | Automatic/unmentioned participation and arbitration between multiple bots. |
+| B02 | Link delegated work to the originating task and publish an authorized summary/result back to its requesting audience. | Private handoffs, audience changes, and cross-group delegation. |
+| B03 | Resolve approval through an eligible human with the relevant capability; workspace engine ownership does not grant every member every tool action. | Roles, reusable permission grants, and unattended escalation/expiry. |
+| B04 | Scope Stop to the selected task and its descendants, with honest cancellation progress. | Exact adapter/tool cancellation semantics and behavior of already-running external actions. |
+| B05 | Coordinate conflicting screen/browser work and bound concurrency rather than racing input. | Per-bot environment isolation and measured numeric limits. |
+| B06 | Keep runtime/task history and service confirmation sufficiently distinct to recover uncertain side effects. | Supported provider reconciliation and retry guarantees. |
+| B07 | Keep server jobs independent of client availability; keep Local availability explicit. | Missed-run/catch-up policy, notification delivery, and supported companion operations. |
+
+These proposals address Q02, Q03, Q06, and Q09; they do not mark those decisions resolved. Owner subscription support (Q01), hosting selection (Q04), and account architecture (Q05) remain independent feasibility/design work.
+
+#### Evidence to collect before implementation claims
+
+Use the existing acceptance IDs rather than inventing a competing test plan: A03/A04 for profile and computer interaction, A05–A08 for server setup/invitation/integrations/groups, A09–A11 for automation/interruption/availability, and A12–A14 for recovery/capacity/companion.
+
+First inspect supported provider/adapter contracts and existing code read-only. Then define a small disposable proof with a fixed task boundary, no real outgoing email, one heavy verification process at a time, and a clearly stated request/resource budget. Fake providers can demonstrate orchestration and UI states; a bounded real-provider check and actual tool/device evidence are separate milestones. The complete fictional story is not a reason to launch a full suite, provision a server, or send messages now.
+
 ## 4. Capability inventory
 
 This is a target coverage map, not a release checklist claiming everything is implemented. **Core** means central to the intended product. **Catalog** means a discovered capability retained for an explicit scope decision. A later phase is sequencing, not automatic rejection.
@@ -180,10 +306,10 @@ This is a target coverage map, not a release checklist claiming everything is im
 |---|---|---|---|
 | F01 | Native desktop home | Preserve the liked native experience, workspace switcher, accessible appearance, keyboard navigation, and clear work status. Reference preferences and update surfaces are documented in [Grok settings](https://cursor.com/docs/grok-bot/settings). | Core |
 | F02 | Bot identity and persona | Name, avatar, role/persona/SOUL, skills, and understandable configuration. Preserve owner direction even where current Grok personal settings differ. [Bot editing](https://cursor.com/help/grok-bot/edit-bot) | Core |
-| F03 | Persistent bot memory | Bots retain useful context; people can understand and correct saved knowledge. Keep workspace-shared knowledge distinct from conversation access. Editable memory is also listed by [Colonie](https://docs.colonie.com/docs/features). | Core |
+| F03 | Persistent bot memory | Bots retain useful context; people can understand and correct saved knowledge. Keep workspace-shared knowledge distinct from conversation access. Editable memory is also listed by [upstream documentation](https://docs.openmausbot.com/docs/features). | Core |
 | F04 | Conversations and work history | Persistent chats/tasks, live responses, tool activity, attachments, and readable results. [Working with Grok Bot](https://prod.cursor.com/docs/grok-bot/work) | Core |
 | F05 | Conversation controls | Search, replies, reactions, pins, organization, unread/attention state, and hide/restore. Reference organization is described in [How-to guidance](https://cursor.com/help/grok-bot/how-to). | Core |
-| F06 | Editing and portability | Edit/branch/rewind, export/share content, and multiple tasks per bot are useful discovery items. Provider session semantics must be respected. [Colonie feature map](https://docs.colonie.com/docs/features) | Catalog |
+| F06 | Editing and portability | Edit/branch/rewind, export/share content, and multiple tasks per bot are useful discovery items. Provider session semantics must be respected. [Upstream feature map](https://docs.openmausbot.com/docs/features) | Catalog |
 | F07 | Human and bot groups | Project conversations containing humans and bots, targeted mentions, and observable bot participation. Human membership is a Colonie extension of the [Grok group baseline](https://prod.cursor.com/help/grok-bot/group-chats). | Core |
 | F08 | Bot delegation | Bots can request help and pass work to another bot. Preserve visibility of who is working and where a result appears. Grok handoffs can appear in separate chats. [Group behavior](https://prod.cursor.com/help/grok-bot/group-chats) | Core |
 | F09 | Steering and interruption | People can follow activity, send steering messages, and stop work. Completed side effects are not undone by Stop. Exact cancellation of delegated work needs a Colonie contract. [Work controls](https://prod.cursor.com/docs/grok-bot/work) | Core |
@@ -197,16 +323,16 @@ This is a target coverage map, not a release checklist claiming everything is im
 | F17 | Credentials and service login | Protected secret entry, reconnection, replacement, and browser takeover. Do not ask people to paste passwords into conversations. [Grok secrets](https://cursor.com/help/grok-bot/secrets) | Core |
 | F18 | Scheduled routines | Create, inspect, pause/resume, test, and remove recurring or one-time work; show timezone and results. [Routines](https://prod.cursor.com/help/grok-bot/routines) | Core |
 | F19 | Event automation | Connected-service events and authenticated webhooks trigger work; show accepted, queued, running, and completed states separately. [Routines and webhooks](https://prod.cursor.com/help/grok-bot/routines) | Core |
-| F20 | Background work | Server jobs continue when client apps close. Local jobs depend on the local host remaining available. [Grok work model](https://prod.cursor.com/docs/grok-bot/work), [Local companion limits](https://docs.colonie.com/docs/mobile/ios-companion) | Core |
+| F20 | Background work | Server jobs continue when client apps close. Local jobs depend on the local host remaining available. [Grok work model](https://prod.cursor.com/docs/grok-bot/work), [Local companion limits](https://docs.openmausbot.com/docs/mobile/ios-companion) | Core |
 | F21 | Notifications | Distinguish work in progress, unread results, and work needing action. Desktop/mobile delivery differs and requires its own implementation. [Settings](https://cursor.com/docs/grok-bot/settings), [Mobile](https://cursor.com/help/grok-bot/mobile) | Core |
 | F22 | Dictation and spoken replies | Voice input and speech output are separate capabilities from live calling; service choice and funding remain open. [Grok voice](https://prod.cursor.com/help/grok-bot/voice-chat) | Core target; rollout open |
 | F23 | Live bot voice conversation | A real-time conversation with a bot, including transcript and mute/end controls. Grok documents one-to-one calls, with group/TeamBot limitations. Do not promise group calls as existing parity. [Voice chat](https://prod.cursor.com/help/grok-bot/voice-chat) | Core target; rollout open |
-| F24 | Companion/mobile access | View chats, steer work, answer questions/approvals, and inspect supported computer activity from another device. Choose supported platforms explicitly. [Grok mobile](https://cursor.com/help/grok-bot/mobile), [Colonie companion](https://docs.colonie.com/docs/mobile/ios-companion) | Core target; rollout open |
+| F24 | Companion/mobile access | View chats, steer work, answer questions/approvals, and inspect supported computer activity from another device. Choose supported platforms explicitly. [Grok mobile](https://cursor.com/help/grok-bot/mobile), [Upstream companion](https://docs.openmausbot.com/docs/mobile/ios-companion) | Core target; rollout open |
 | F25 | Bot templates and reusable teams | Preview and install reusable instructions/skills/knowledge/routines. Recipes must identify required connections without exporting credentials. [Grok templates](https://x.ai/bot/guides/templates-for-grok-bot) | Catalog |
 | F26 | Bot email identity | An address a bot can receive/send through is a useful discovery item. Grok distinguishes agent email from connected personal Gmail and gates outgoing sends. Hosting, ownership, and approval model remain open for Colonie. [Agent email](https://prod.cursor.com/help/grok-bot/agent-email) | Catalog |
 | F27 | Recovery and environment maintenance | Understandable restart/rebuild distinctions, backups, restore, disk pressure, and lost-login recovery. [Computer recovery](https://prod.cursor.com/help/grok-bot/computer-recovery) | Core |
 | F28 | Resource and usage visibility | Show runtime health, CPU/RAM/disk, queue pressure, and available provider usage information. Do not invent precise subscription balances when a provider does not expose them. Infrastructure metrics: [Monitoring](https://docs.digitalocean.com/products/monitoring/). | Core |
-| F29 | USB phone control | A bot operating a physically connected Android phone is different from a phone being a Colonie client. Keep this discovered capability visible for a later decision. [Android control](https://docs.colonie.com/docs/mobile/android-control) | Catalog |
+| F29 | USB phone control | A bot operating a physically connected Android phone is different from a phone being a Colonie client. Keep this discovered capability visible for a later decision. [Android control](https://docs.openmausbot.com/docs/mobile/android-control) | Catalog |
 | F30 | Server administration | Invitations, revocation, role/access settings, deployment status, upgrades, backups, and ownership recovery. Colonie's workspace model requires these beyond a personal bot app. | Core extension |
 | F31 | Workspace knowledge and access | Explicit shared vs conversation-scoped knowledge and access policy. Grok TeamBots distinguish team/personal knowledge, but their per-user computing/billing model is not Colonie's. [TeamBots](https://prod.cursor.com/help/grok-bot/team-bots) | Core extension |
 | F32 | Usage controls and accountability | Attribute work to initiating people/routines/bots; expose run history and apply understandable concurrency/budget controls. Exact policy is a proposal to validate rather than presumed Grok internals. | Core extension |
@@ -314,6 +440,8 @@ Separate this optional control plane from workspace content and runtime. A one-t
 ### Tool and environment contract
 
 Custom MCP and Composio belong to the workspace. Store credentials by workspace; do not rely on a single global process key that silently changes all workspaces. Provisioned services and credential references need explicit ownership and removal behavior.
+
+Composio scopes connections and configuration through projects. **Proposal:** recommend separate projects when an owner wants separate external integration resources; different keys alone should not be presented as proof of that separation. Colonie still needs its own workspace access checks and correct connection selection. [Composio projects](https://docs.composio.dev/reference/api-reference/projects)
 
 A remote workspace cannot use a member's laptop `localhost` MCP endpoint without a deliberate connection mechanism. Command-based MCP requires its executable and dependencies on the runtime host. Staff guidance confirms Grok's custom-MCP experience has evolved, so preserve the capability rather than copying one dated setup path. [August guidance](https://forum.cursor.com/t/grokbot-custom-connectors/169965/5), [October guidance](https://forum.cursor.com/t/how-do-i-share-a-custom-mcp-that-one-of-my-bots-has-built-with-the-rest-of-my-team/173538)
 
@@ -487,6 +615,34 @@ The following is a **proposal** to reconcile reliable evidence with the owner's 
 
 Current verification requirements still live in [the verification guide](verification/README.md). This research task runs no application, browser, Electron, or real-provider tests and makes no implementation-success claim.
 
+### Read-only readiness snapshot for W01
+
+Inspected on October 16, 2026 with HEAD `fb8bedbc` and an existing dirty working tree. This snapshot records selected source observations, not a frozen release audit. The target above remains the destination; the local-only implementation described by HANDOVER is the present foundation. This planning work does not restore retired cloud infrastructure.
+
+| ID | W01 dependency | What the inspected source shows | Implication and next evidence |
+|---|---|---|---|
+| R01 | Native engine connection | `package.json` pins the ACP SDK and both maintained adapters. The [provider profile](../server/acp/profile.ts) gives engines separate native config directories; both provider definitions use the [shared ACP runtime](../server/acp/acp-runtime.ts). | A useful execution boundary exists. This does not prove current sign-in, provider entitlement, or Server sharing. Keep it as a candidate to retain and verify. |
+| R02 | Skills and delegation tools reach the agent | The [dispatch helper](../server/index.ts) returns connected tools and a separate workspace/skills tool mount. The runtime's `mountsOf` tracks both, but the inspected session-creation block sets `mcpServers` from `input.acpTools?.servers` alone. | Static discrepancy to verify first: leasing/recording an extra mount is not proof its server reaches the agent. Check the actual session payload before changing implementation or claiming delegation/skill-tool support. |
+| R03 | Built-in browser/computer access through ACP | The direct ACP branch in [server dispatch](../server/index.ts) returns before the later browser/computer integration assembly. It explicitly supplies connected/custom MCP plus the extra workspace mount. A browser helper elsewhere does not establish delivery on this branch. | Verify the intended supported browser/desktop tool path for each native engine. Native tools or a custom MCP may provide capability, but the presence of the inherited UI/helper alone is insufficient evidence. |
+| R04 | Scheduled/event/group-originated ACP work | The inspected direct ACP branch explicitly rejects `automationSource`, `coordination`, `unattended`, and `peerAsk` requests. Separate Chief assignments also exist. | The full W01 automation/group journey is not established by today's ordinary user chat path. Design authorized run admission/context for the target instead of removing the guard or copying legacy prompts blindly. |
+| R05 | Independent Composio configuration per workspace | The [connected-tool manager](../server/colonie/connections/manager.ts) receives credentials via a callback, leases access per thread/instance, and checks policy changes. Its current server composition reads one `cfg.composio` configuration. | Useful connection machinery exists. Logical multi-workspace selection/isolation still needs an explicit composition/storage boundary and a two-workspace proof. A workspace can also be isolated by its own runtime; this inspection does not choose between deployment models. |
+| R06 | Stop and delegated work | The [ACP runtime](../server/acp/acp-runtime.ts) cancels the selected thread's native session and pending permissions. The [Chief manager](../server/colonie/chief/manager.ts) separately has assignment cancellation and lease lifecycle controls, with Chief-specific authority. | Reusable pieces exist, but the general human/group/descendant Stop proposal needs a combined test. Chief-specific delegation must not silently become a product-wide mandatory coordinator policy. |
+| R07 | Server invitations and member permissions | [Current HANDOVER](HANDOVER.md) describes a local-only cleaned foundation. W01 describes the future owner-funded Server product from D09–D16. | Treat deployment/identity/member approval as future target work. Do not reactivate removed upstream hosting simply to make the walkthrough resemble existing code. |
+
+### Smallest proposed feasibility checks
+
+These checks are specified, not executed. Start with E01 because it can clarify a concrete dispatch discrepancy without an AI bill, a browser, or a server deployment. Expand only when the preceding evidence warrants it.
+
+| ID | Question to answer | Bounded check and evidence |
+|---|---|---|
+| E01 | Which tool servers actually reach an ACP session? | Use one disposable fake-agent fixture and two stub MCP mounts. Capture new/load session payloads, check the intended connected and extra tools, and verify cleanup after cancellation. No external API, real engine, or outgoing message. |
+| E02 | Can each native engine use an authorized workspace tool? | After E01 and provider/auth prerequisites, run one disposable application task per provider, sequentially, against a harmless local marker tool. Set a 60-second wall-clock limit per task, clean up its processes, and preserve request/tool/result evidence. One application task can involve multiple provider-internal model calls; do not describe it as one token-free request. |
+| E03 | Can the native agent operate and yield the intended browser/desktop? | After the supported tool path is explicit, use a generated local page and a disposable file in a supported test environment. Demonstrate a real action, authorized takeover, and resumption with one environment/job at a time and a 120-second wall-clock limit. Do not use personal browser profiles or real email. Provider/device coverage remains separate. |
+| E04 | Can work be admitted with the right authority when no human is typing? | Use a fake-provider fixture for one scheduled trigger, one synthetic event, and one directed group request. Confirm attribution, context audience, approval ownership, and duplicate-event behavior. Do not bypass the existing ACP admission guard as a substitute for defining the contract. |
+| E05 | Does Stop settle the selected work and its children honestly? | Simulate one parent, one delegated child, a waiting approval, and one unrelated task. Cancel the selected tree, inspect permission/tool cleanup and uncertain external outcomes, and confirm the unrelated task is not accidentally canceled. No real side effects. |
+
+The proposed 60/120-second limits are budgets for these small proofs, not product execution limits or measured guarantees. Define timeout/cleanup enforcement in the fixture before starting. Run one check at a time under the existing verification guide; stop and record the result when a budget is reached.
+
 ## 10. Open decisions and next work
 
 ### Questions that materially affect the plan
@@ -509,11 +665,12 @@ These are specific gaps, not a request to repeat the product interview. Research
 
 ### Recommended next actions
 
-1. Review this target against the owner's intent, concentrating on intentional differences and the open decisions that affect feasibility.
-2. Perform a hands-on reference walkthrough with a feature checklist, especially computer takeover, teaching skills, delegation/Stop, recovery, voice, and companion access. Documentation research cannot settle every behavior.
-3. Map the repository to this target and produce a bounded retain/adapt/remove plan. This is when current code becomes relevant again; do not let inherited folder names decide the product.
-4. Validate the riskiest execution journey in isolation: a saved bot persona → native ACP engine → workspace integration/browser/computer → observable approval/result → interruption/restart. Use separate provider evidence and measure resource use.
-5. Reconcile steering files with the reviewed target and implement one observable journey at a time. Keep decision changes in this document and actual verification in PROGRESS.
+1. Review the concrete W01 walkthrough and its B01–B07 proposed defaults against the owner's intent. Keep unresolved choices explicit rather than treating permission to write the walkthrough as final product approval.
+2. Inspect provider/adapter contracts and current implementation read-only to identify the smallest feasibility checks for W01. Separate technical questions from product choices that need the owner's judgment.
+3. Perform a hands-on reference walkthrough with a feature checklist, especially computer takeover, teaching skills, delegation/Stop, recovery, voice, and companion access. Documentation research cannot settle every behavior.
+4. Map the repository to this target and produce a bounded retain/adapt/remove plan. Do not let inherited folder names decide the product.
+5. Validate the riskiest execution journey in isolation: a saved bot persona → native ACP engine → workspace integration/browser/computer → observable approval/result → interruption/restart. Use separate provider evidence and measure resource use.
+6. Reconcile steering files with the reviewed target and implement one observable journey at a time. Keep decision changes in this document and actual verification in PROGRESS.
 
 The next implementation task should be selected only after the target review and critical feasibility checks. No code, deployment, destructive cleanup, credential inspection, or runtime verification is authorized merely by writing this blueprint.
 
@@ -521,8 +678,11 @@ The next implementation task should be selected only after the target review and
 
 | Date | Entry | Status |
 |---|---|---|
-| 2026-10-16 | Consolidated the owner's described Colonie direction and researched Grok Bot, selected Colonie capabilities, ACP/provider setup, Composio funding, and hosting primitives. | Documentation draft; not hands-on parity or implementation verification. |
+| 2026-10-16 | Consolidated the owner's described Colonie direction and researched Grok Bot, selected upstream capabilities, ACP/provider setup, Composio funding, and hosting primitives. | Documentation draft; not hands-on parity or implementation verification. |
 | 2026-10-16 | Owner clarified that Composio API keys are supplied by users per workspace; different workspaces may use different Composio accounts. | Owner direction D12; incorporated into setup, architecture, costs, and acceptance A07. |
+| 2026-10-16 | Owner agreed to the next step of developing a concrete end-to-end journey. Added W01 with 12 steps, human/bot collaboration, approvals, steering/Stop, failure paths, and routine/Local/companion variants. | B01–B07 are recommendations for review, not final owner decisions or implemented behavior. |
+| 2026-10-16 | Rechecked upstream source pages and restored research URLs that had been renamed to `docs.colonie.com`. Added primary Composio references distinguishing the project key from connected-service authorization. | Citation corrections only; no application identity change or provider/runtime verification. |
+| 2026-10-16 | Inspected selected ACP, connection, delegation, and dispatch source read-only at HEAD `fb8bedbc` plus existing WIP. Added R01–R07 observations and E01–E05 bounded proof proposals. | Static evidence only. In particular, the extra MCP mount/session payload discrepancy has not been reproduced or fixed. No tests or provider requests were run. |
 
 ## 11. Source register
 
@@ -539,9 +699,9 @@ All external sources below were reviewed for this research on October 16, 2026. 
 - Staff forum replies: [custom MCP, August 30, 2026](https://forum.cursor.com/t/grokbot-custom-connectors/169965/5); [sharing custom MCP, October 2026](https://forum.cursor.com/t/how-do-i-share-a-custom-mcp-that-one-of-my-bots-has-built-with-the-rest-of-my-team/173538).
 - [Plan/access guidance](https://cursor.com/help/grok-bot/plans). Secondary reporting: [Bloomberg Technoz adoption report](https://www.bloombergtechnoz.com/detail-news/122463/agen-ai-grok-bot-elon-musk-diserbu-400-000-pengguna-dalam-sepekan). Adoption is not a paid-sales count.
 
-### Secondary capability reference: Colonie
+### Secondary capability reference: upstream project
 
-- [Feature inventory](https://docs.colonie.com/docs/features), [iOS companion and host requirements](https://docs.colonie.com/docs/mobile/ios-companion), [USB Android control](https://docs.colonie.com/docs/mobile/android-control).
+- [Feature inventory](https://docs.openmausbot.com/docs/features), [iOS companion and host requirements](https://docs.openmausbot.com/docs/mobile/ios-companion), [USB Android control](https://docs.openmausbot.com/docs/mobile/android-control).
 - These pages describe upstream capabilities, not the present Colonie fork. No inherited feature is declared functional solely because it appears here.
 
 ### Execution and external services
@@ -549,6 +709,7 @@ All external sources below were reviewed for this research on October 16, 2026. 
 - [ACP session setup](https://agentclientprotocol.com/protocol/v1/session-setup), [session configuration/modes](https://agentclientprotocol.com/protocol/v1/session-modes), [Claude ACP adapter](https://github.com/agentclientprotocol/claude-agent-acp), [Codex ACP adapter](https://github.com/agentclientprotocol/codex-acp).
 - [Official OpenAI authentication documentation](https://learn.chatgpt.com/docs/auth); [Claude Agent SDK plan guidance](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan). These do not by themselves resolve Q01.
 - [Composio pricing and service limits](https://composio.dev/pricing). Numeric allowances are intentionally not embedded in a long-lived Colonie pricing promise.
+- [Composio connected accounts](https://docs.composio.dev/reference/api-reference/connected-accounts) and [project boundaries](https://docs.composio.dev/reference/api-reference/projects).
 - Hosting feasibility example, not a vendor selection: [DigitalOcean marketplace](https://docs.digitalocean.com/products/marketplace/), [monitoring](https://docs.digitalocean.com/products/monitoring/), [resize operations](https://docs.digitalocean.com/products/droplets/how-to/resize/).
 
 Research did not inspect provider credentials, modify the installed app, operate a live workspace, validate commercial license obligations, benchmark VM sizes, or certify competitor parity.

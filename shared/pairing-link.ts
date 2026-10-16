@@ -1,7 +1,9 @@
-// The one `colonie://pair` link builder. The desktop's phone setup, the
+// The one `openmausbot://pair` link builder. The desktop's phone setup, the
 // headless server's pairing endpoint and `colonie pair` all print this
 // link; the Android and iOS scanners read it (android/core Connection.kt
 // `PairingInvite.parse`, ios CompanionCore Client.swift `PairingInvite.parse`).
+// Both parsers reject any other scheme, so this literal is a wire identifier
+// shared with shipped phone apps, not product copy.
 //
 // Every value is written with encodeURIComponent, so a space is `%20`. The
 // desktop used URLSearchParams until Oct 2026, which writes a space as `+`;
@@ -159,7 +161,7 @@ export function phonePairingLink({
   secretPublicKey,
 }: PhonePairingLinkOptions): string | null {
   const dial = linkAddress(address, port);
-  if (!dial || !/^colonie_pair_[A-Za-z0-9_-]{43}$/.test(token)) return null;
+  if (!dial || !/^omb_pair_[A-Za-z0-9_-]{43}$/.test(token)) return null;
   if (code !== undefined && !/^\d{6}$/.test(code)) return null;
 
   const fields: Array<[string, string]> = [["address", dial], ["token", token]];
@@ -178,5 +180,5 @@ export function phonePairingLink({
   const secretKey = validSecretPublicKey(secretPublicKey);
   if (secretKey) fields.push(["secretKey", secretKey]);
 
-  return `colonie://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
+  return `openmausbot://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
 }

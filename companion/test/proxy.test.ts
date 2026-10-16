@@ -789,7 +789,7 @@ describe("pairing, end to end", () => {
         token: string;
       };
       expect(opened.code).toMatch(/^\d{6}$/);
-      expect(opened.token).toMatch(/^colonie_pair_[A-Za-z0-9_-]{43}$/);
+      expect(opened.token).toMatch(/^omb_pair_[A-Za-z0-9_-]{43}$/);
 
       // a wrong code is refused, and does not burn the window
       const wrong = await fetch(`${base}/api/pair`, {

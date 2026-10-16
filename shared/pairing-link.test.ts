@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { phonePairingLink } from "./pairing-link";
 
 describe("phonePairingLink", () => {
-  const token = `colonie_pair_${"a".repeat(43)}`;
+  const token = `omb_pair_${"a".repeat(43)}`;
   const secretPublicKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU";
 
   const decodedEndpoints = (link: string) => {
@@ -32,7 +32,7 @@ describe("phonePairingLink", () => {
     });
 
     const url = new URL(link!);
-    expect(url.protocol).toBe("colonie:");
+    expect(url.protocol).toBe("openmausbot:");
     expect(url.host).toBe("pair");
     expect(url.searchParams.get("address")).toBe("macbook.tail1234.ts.net:8810");
     expect(url.searchParams.get("token")).toBe(token);
@@ -156,10 +156,10 @@ describe("phonePairingLink", () => {
 
   it("is the server's link too: an https origin, a credential, a name and no code", () => {
     const link = phonePairingLink({ address: "https://mini.example", token, name: "Ada's server" })!;
-    expect(link).toBe(`colonie://pair?address=https%3A%2F%2Fmini.example&token=${token}&name=Ada's%20server`);
+    expect(link).toBe(`openmausbot://pair?address=https%3A%2F%2Fmini.example&token=${token}&name=Ada's%20server`);
     expect(rawField(link, "code")).toBeUndefined();
     expect(phonePairingLink({ address: "http://192.168.1.5:8787", token })).toBe(
-      `colonie://pair?address=http%3A%2F%2F192.168.1.5%3A8787&token=${token}`,
+      `openmausbot://pair?address=http%3A%2F%2F192.168.1.5%3A8787&token=${token}`,
     );
   });
 
