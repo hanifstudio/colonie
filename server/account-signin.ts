@@ -9,9 +9,16 @@
 // accounts.colonie.com. The exchange happens server-side, so a browser
 // only ever talks to this server, and a server with an empty allow-list does
 // not expose the routes.
-import { resolveCompanionControlPlaneURL } from "../electron/companion-account-service.mjs";
-import { ControlPlaneError, createControlPlaneClient, normalizeAccountEmail, type ControlPlaneClient } from "../electron/control-plane-client.mjs";
+import { ControlPlaneError, createControlPlaneClient, normalizeAccountEmail, normalizeControlPlaneURL, type ControlPlaneClient } from "../electron/control-plane-client.mjs";
 import type { Scope } from "./sessions.ts";
+
+/** The account service this server signs people in through. This fork ships no
+ * hosted account service, so only an owner-set `COLONIE_CONTROL_PLANE_URL`
+ * reaches one; without it email sign-in stays off (`enabled()` is false for an
+ * empty allow-list) and nothing else is affected. */
+function resolveCompanionControlPlaneURL({ environment = process.env }: { environment?: NodeJS.ProcessEnv } = {}): string {
+  return Object.hasOwn(environment, "COLONIE_CONTROL_PLANE_URL") ? normalizeControlPlaneURL(environment.COLONIE_CONTROL_PLANE_URL) : "";
+}
 
 /** Who may sign in. `a@b.com` is that address; `@b.com` is everyone at b.com. */
 export interface SignInAllowList {
@@ -61,7 +68,7 @@ export function createEmailSignIn(options: {
   let client: ControlPlaneClient | null = options.client ?? null;
   const controlPlane = (): ControlPlaneClient => {
     if (client) return client;
-    const url = resolveCompanionControlPlaneURL({ isPackaged: true, environment: env });
+    const url = resolveCompanionControlPlaneURL({ environment: env });
     if (!url) throw new Error("COLONIE_CONTROL_PLANE_URL is set but is not an https address");
     client = createControlPlaneClient({ baseURL: url, fetchImpl: options.fetchImpl });
     return client;

@@ -1,6 +1,4 @@
 {
-  "companion/test/mdns.test.ts": 5,
-  "companion/test/proxy.test.ts": 6,
   "scripts/ci-scope.test.ts": 6,
   "scripts/testing/bot-draft-visibility-ui.e2e.test.ts": 1,
   "scripts/testing/bot-tools-ui.e2e.test.ts": 1,
@@ -87,7 +85,6 @@
   "server/opencode-variants.e2e.test.ts": 1,
   "server/peer-allowlist.e2e.test.ts": 7,
   "server/peer-approval.e2e.test.ts": 7,
-  "server/phone-claim.e2e.test.ts": 9,
   "server/post-to-room.test.ts": 31,
   "server/presets.e2e.test.ts": 8,
   "server/profile-card-lifecycle.e2e.test.ts": 4,

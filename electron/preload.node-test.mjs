@@ -63,16 +63,6 @@ test("copyText forwards only the text over the explicit clipboard:write-text cha
   assert.equal("ipcRenderer" in exposed.api, false);
 });
 
-test("browser control forwards a separate per-device capability, not the cloud grant", async () => {
-  const before = invocations.length;
-  await exposed.api.companion.browserControl("phone-1", true);
-  await exposed.api.companion.browserControl("phone-1", false);
-  assert.deepEqual(invocations.slice(before), [
-    ["companion:browser-control", "phone-1", true],
-    ["companion:browser-control", "phone-1", false],
-  ]);
-});
-
 test("onOpenAppSettings subscribes to the exact app:open-settings channel, forwards every emit, and unsubscribes cleanly", () => {
   // Channel contract: electron/main.mjs answers the Preferences… item with
   // webContents.send("app:open-settings"). Listening on any other name would

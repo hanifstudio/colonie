@@ -1270,7 +1270,7 @@
   "phone.signIn.timedOut": "安全访问耗时比预期长。你可以重试，或在这个 Wi-Fi 下直接配对。",
   "phone.signIn.failed": "我们没能完成你的私密连接创建。",
   "phone.signIn.emailPrompt": "我们会给你发一个一次性验证码。不需要密码。",
-  "phone.signIn.email": "邮箱",
+  "settings.profile.email": "邮箱",
   "phone.signIn.code": "8 位验证码",
   "phone.signIn.working": "处理中…",
   "phone.signIn.verify": "验证并继续",

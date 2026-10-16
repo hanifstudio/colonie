@@ -60,11 +60,10 @@ const isSource = (name: string) => /\.(?:ts|tsx|mjs|cjs|js)$/.test(name) && !/\.
  * snippet keeps it everywhere; otherwise only literals containing a snippet. */
 const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = [
   { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
-  // Two identifiers, not copy: both name state that lives outside this app, so
-  // renaming them silently drops an upgrade's data or a shipped phone's
-  // request. See docs/PROGRESS.md ("one brand, one local app").
+  // One identifier, not copy: it names state that lives outside this app, so
+  // renaming it silently drops an upgrade's data. See docs/PROGRESS.md
+  // ("one brand, one local app").
   { file: "server/local-computer.ts", snippet: "OpenMausBot", why: "the macOS App Support directory an older build wrote, still searched for a computer-use descriptor" },
-  { file: "server/phone-secret.ts", snippet: "OpenMausBot phone credential v1", why: "the HPKE info string shipped phone apps derive; changing it rejects every envelope they seal" },
 ];
 
 function* sources(dir: string): Generator<string> {

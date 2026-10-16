@@ -8,36 +8,36 @@ import { loadBundledSkills, loadUserSkills, mergeSkills, parseSkillManifest, ren
 const instructionsFor = (text: string, capabilities: string[], skills: BundledSkill[], options?: { includeRoot?: boolean }) =>
   renderSkillInstructions(selectBundledSkills(text, capabilities, skills), options);
 
-const phone: BundledSkill = {
-  directory: "/skills/phone-harness",
-  instructions: "---\nname: phone-harness\ndescription: test\n---\nUse phone tools.",
+const web: BundledSkill = {
+  directory: "/skills/browser-harness",
+  instructions: "---\nname: browser-harness\ndescription: test\n---\nUse browser tools.",
   manifest: {
-    id: "phone-harness",
-    name: "Phone Harness",
+    id: "browser-harness",
+    name: "Browser Harness",
     version: "0.1.0",
-    description: "Control a phone",
+    description: "Drive a browser",
     defaultEnabled: true,
-    triggerTerms: ["android", "phone"],
-    requiredCapabilities: ["phoneMcp"],
+    triggerTerms: ["browser", "web"],
+    requiredCapabilities: ["browserMcp"],
   },
 };
 
 describe("bundled skill library", () => {
   it("selects a skill only when both its trigger and capability are present", () => {
-    const rendered = instructionsFor("Open Uber on my Android", ["phoneMcp"], [phone]);
-    expect(rendered).toContain("Use phone tools");
-    expect(rendered).not.toContain('root="/skills/phone-harness"');
-    expect(instructionsFor("Open Uber on my Android", ["phoneMcp"], [phone], { includeRoot: true }))
-      .toContain('root="/skills/phone-harness"');
-    expect(instructionsFor("Open Uber on my Android", [], [phone])).toBe("");
-    expect(instructionsFor("Write a poem", ["phoneMcp"], [phone])).toBe("");
+    const rendered = instructionsFor("Open a page in the browser", ["browserMcp"], [web]);
+    expect(rendered).toContain("Use browser tools");
+    expect(rendered).not.toContain('root="/skills/browser-harness"');
+    expect(instructionsFor("Open a page in the browser", ["browserMcp"], [web], { includeRoot: true }))
+      .toContain('root="/skills/browser-harness"');
+    expect(instructionsFor("Open a page in the browser", [], [web])).toBe("");
+    expect(instructionsFor("Write a poem", ["browserMcp"], [web])).toBe("");
   });
 
   it("requires the manifest id to match its isolated folder", () => {
     expect(() => parseSkillManifest({
-      ...phone.manifest,
+      ...web.manifest,
       id: "other-skill",
-    }, "/skills/phone-harness")).toThrow(/invalid id/);
+    }, "/skills/browser-harness")).toThrow(/invalid id/);
   });
 
   it("loads a user skill without letting a broken sibling disable it", () => {
@@ -58,7 +58,7 @@ describe("bundled skill library", () => {
   });
 
   it("does not let a user skill shadow a bundled skill id", () => {
-    expect(mergeSkills([phone], [{ ...phone, instructions: "user replacement" }])).toEqual([phone]);
+    expect(mergeSkills([web], [{ ...web, instructions: "user replacement" }])).toEqual([web]);
   });
 
   it("treats a non-directory user skill root as empty", () => {

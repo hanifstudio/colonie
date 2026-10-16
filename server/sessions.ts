@@ -162,15 +162,11 @@ export function generatePairingCode(): string {
 }
 
 /** The prefix that tells the two encodings apart on the wire. A credential is
- * matched byte for byte; only a typed code is normalized. The shipped phone
- * apps parse this shape themselves (9-character prefix + 43 base64url
- * characters, android/core Connection.kt), so the literal moves only together
- * with a phone build that parses the new one. */
-export const PAIRING_CREDENTIAL_PREFIX = "omb_pair_";
+ * matched byte for byte; only a typed code is normalized. */
+export const PAIRING_CREDENTIAL_PREFIX = "colonie_pair_";
 
 /** The same pairing window as a 256-bit secret, for a QR a native app scans
- * rather than a code a person reads out. 9 + 43 characters: the Android
- * companion checks that length exactly (android/core Connection.kt). */
+ * rather than a code a person reads out: 12 + 43 characters. */
 export function generatePairingCredential(): string {
   return `${PAIRING_CREDENTIAL_PREFIX}${randomBytes(32).toString("base64url")}`;
 }

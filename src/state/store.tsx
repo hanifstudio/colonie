@@ -942,10 +942,6 @@ export interface AppState {
   filePreview: { threadId: string; messageId: string; path: string; name: string } | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
-  /** Counts up each time Settings opens on the phone pairing ("Connect your
-   * phone"): Remote access scrolls to the pairing that fits this window and
-   * focuses the button that shows the code. Any other toggleAppSettings sets 0. */
-  appSettingsPhonePairing: number;
   shortcutsOpen: boolean;
   /** the first-run welcome tour, also replayable from Settings → General */
   welcomeOpen: boolean;
@@ -1232,7 +1228,7 @@ export type Action =
   | { type: "closeFilePreview" }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
-  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection; phonePairing?: boolean }
+  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection }
   | { type: "toggleShortcuts"; open?: boolean }
   | { type: "toggleWelcome"; open?: boolean }
   | { type: "toggleTour"; open?: boolean }
@@ -2118,7 +2114,6 @@ export function reducer(state: AppState, action: Action): AppState {
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
         appSettingsSection: action.section ?? state.appSettingsSection,
-        appSettingsPhonePairing: action.phonePairing && open ? state.appSettingsPhonePairing + 1 : 0,
         settingsOpen: open ? false : state.settingsOpen,
         computerOpen: open ? false : state.computerOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
@@ -2478,7 +2473,6 @@ export const initialState: AppState = {
   filePreview: null,
   appSettingsOpen: false,
   appSettingsSection: "general",
-  appSettingsPhonePairing: 0,
   shortcutsOpen: false,
   welcomeOpen: false,
   tourOpen: false,

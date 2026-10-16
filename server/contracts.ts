@@ -289,8 +289,6 @@ export interface ProviderAdapter {
      * connected apps). Same rule again: a key in the config says the user
      * HAS those connections, not that this driver can reach them. */
     composioMcp?: boolean;
-    /** True when the driver can mount the first-party physical-phone MCP. */
-    phoneMcp?: boolean;
     /** True when the driver can mount the built-in browser MCP. Same rule:
      * a bot must never be told it has a browser its driver cannot hand it. */
     browserMcp?: boolean;

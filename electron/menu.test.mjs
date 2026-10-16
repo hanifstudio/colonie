@@ -26,7 +26,6 @@ describe("buildApplicationMenu", () => {
         environments,
         activeId: "x",
         onSwitch: vi.fn(),
-        onAddFromClipboard: vi.fn(),
         onForget: vi.fn(),
         ...overrides,
       }),

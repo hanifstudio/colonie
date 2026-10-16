@@ -1558,10 +1558,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
         mcpServers.agents = { ...turn.integrations.agents, alwaysLoad: true };
         allowed.push("mcp__agents");
       }
-      if (turn.integrations?.phone) {
-        mcpServers.phone = { ...turn.integrations.phone };
-        allowed.push("mcp__phone");
-      }
       if (turn.integrations?.browser) {
         mcpServers.browser = { ...turn.integrations.browser };
         allowed.push("mcp__browser");
@@ -2654,7 +2650,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
         customMcp: true,
           computerMcp: true,
           composioMcp: true,
-          phoneMcp: true,
           browserMcp: true,
           images: true,
           nativeImageInput: true,

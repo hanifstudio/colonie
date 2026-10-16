@@ -2,10 +2,6 @@
 // this narrow surface (window.colonie), never Node or ipcRenderer itself.
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
-// Sandboxed preloads receive Electron's restricted `require`, which cannot
-// load sibling CommonJS files. Keep this tiny predicate inline here; main's
-const desktopRemoteClient = process.argv.includes("--colonie-remote-client");
-
 let pendingPackageInstallUrl = null;
 const packageInstallListeners = new Set();
 ipcRenderer.on("package:install", (_event, url) => {
@@ -50,43 +46,11 @@ const bridge = {
     ipcRenderer.on("desktop:capabilities-changed", handler);
     return () => ipcRenderer.removeListener("desktop:capabilities-changed", handler);
   },
-  /** Pair this desktop app to another Colonie host. The bearer remains in
-   * the main process and is never returned over this bridge. */
-  remoteClient: {
-    active: desktopRemoteClient,
-    state: () => ipcRenderer.invoke("desktop-remote:state"),
-    pair: (endpoint, code) => ipcRenderer.invoke("desktop-remote:pair", endpoint, code),
-    disconnect: () => ipcRenderer.invoke("desktop-remote:disconnect"),
-  },
-  /** The companion sidecar: the one part of this app that listens off the
-   * machine, so it runs as its own process and is off until switched on.
-   * Every call answers with the whole state, so the panel never has to
-   * stitch two round-trips together. */
-  companion: {
-    state: () => ipcRenderer.invoke("companion:state"),
-    start: () => ipcRenderer.invoke("companion:start"),
-    stop: () => ipcRenderer.invoke("companion:stop"),
-    keepAwake: (enabled) => ipcRenderer.invoke("companion:keep-awake", enabled),
-    refreshTailscale: () => ipcRenderer.invoke("companion:refresh-tailscale"),
-    pairing: (open, expectedToken) => ipcRenderer.invoke("companion:pairing", open, expectedToken),
-    cloudDesktop: (deviceId, allowed) => ipcRenderer.invoke("companion:cloud-desktop", deviceId, allowed),
-    browserControl: (deviceId, allowed) => ipcRenderer.invoke("companion:browser-control", deviceId, allowed),
-    revoke: (deviceId) => ipcRenderer.invoke("companion:revoke", deviceId),
-  },
   /** Keep this computer awake for scheduled routines. The hold itself lives
    * in the main process; the page reads its state and flips the toggle. */
   routines: {
     wakeState: () => ipcRenderer.invoke("routines:wake-state"),
     keepAwake: (enabled) => ipcRenderer.invoke("routines:keep-awake", enabled),
-  },
-  /** Optional account-backed HTTPS access for Companion. Secrets stay in the
-   * main process; the renderer sees only status and narrow user actions. */
-  companionAccount: {
-    state: () => ipcRenderer.invoke("companion-account:state"),
-    requestCode: (email) => ipcRenderer.invoke("companion-account:request-code", email),
-    verifyCode: (email, code) => ipcRenderer.invoke("companion-account:verify-code", email, code),
-    retry: () => ipcRenderer.invoke("companion-account:retry"),
-    signOut: () => ipcRenderer.invoke("companion-account:sign-out"),
   },
   /** Full/Custom and transitions out of Custom are deliberately unavailable
    * through the loopback API. The local renderer applies those changes over

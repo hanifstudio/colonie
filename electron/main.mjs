@@ -35,40 +35,10 @@ import { collisionFreeDownloadPath, defaultSaveName, revealDownloadWhenDone, rev
 import { desktopViewerPermissionAllowed } from "./desktop-viewer-permissions.mjs";
 import { appPermissionHandlers, externalWebUrl } from "./app-permissions.mjs";
 import { writeClipboardText } from "./clipboard-write.mjs";
-import {
-  createManagedCompanionTunnel,
-  managedCompanionTunnelAccess,
-  resolveCloudflaredBinary,
-  resolveManagedCompanionGuardian,
-  withManagedCompanionTunnelAccess,
-  withoutManagedCompanionTunnelAccess,
-} from "./managed-companion-tunnel.mjs";
 import { createSecureCredentialState } from "./secure-credential-state.mjs";
-import {
-  createPhoneSecretSaveCoordinator,
-  createPhoneSecretIdentity,
-  decodePhoneSecretSaveRequest,
-  phoneSecretPrivateKeyMessage,
-  readPhoneSecretIdentity,
-  withPhoneSecretIdentity,
-} from "./phone-secret-identity.mjs";
-import {
-  desktopCompanionAccess,
-  desktopCompanionRendererArguments,
-  pairDesktopCompanion,
-  startDesktopCompanionRelay,
-  withDesktopCompanionAccess,
-  withoutDesktopCompanionAccess,
-} from "./desktop-companion-client.mjs";
 import { isKnownSkin, skinChrome } from "./skin-overlay.cjs";
 import { readSecureCredentials } from "./secure-credentials.mjs";
 import { createCredentialPersistence, migrateComposioCredential } from "./credential-persistence.mjs";
-import { createControlPlaneClient } from "./control-plane-client.mjs";
-import {
-  companionAccountCleanupPending,
-  createCompanionAccountService,
-  resolveCompanionControlPlaneURL,
-} from "./companion-account-service.mjs";
 import capabilitiesModule from "./capabilities.cjs";
 import environmentsModule from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
@@ -264,7 +234,6 @@ const utilityServerExits = new WeakMap();
 const UTILITY_SERVER_STOP_TIMEOUT_MS = 6_500;
 const trustedApprovalMode = createTrustedApprovalModeCoordinator({ randomId: randomUUID });
 const desktopMutationToken = randomBytes(32).toString("base64url");
-const companionMutationToken = randomBytes(32).toString("base64url");
 const serverSupervisor = createServerSupervisor({
   restart: () => startServerOn(SERVER_PORT),
   stop: stopUtilityServer,
@@ -328,10 +297,6 @@ async function stopUtilityServer(proc, timeoutMs = UTILITY_SERVER_STOP_TIMEOUT_M
     }),
   ]).finally(() => clearTimeout(timer));
 }
-let phoneSecretIdentity = null;
-let desktopRemoteAccess = null;
-let desktopCompanionRelay = null;
-
 const CREDENTIALS_FILE = path.join(app.getPath("userData"), "credentials.bin");
 
 /** Set once per launch: true when the store could not be READ, which is not
@@ -437,24 +402,6 @@ const DESKTOP_CRASH_LOG = path.join(LOG_DIR, "desktop-crashes.log");
 const DESKTOP_CRASH_LOG_MAX_BYTES = 512 * 1024;
 let logStream = null;
 let desktopShutdownStarted = false;
-import {
-  companionAdvertisedHostedUrl,
-  companionEnabledAtRest,
-  companionOriginTarget,
-  companionPairing,
-  companionRefreshTailscale,
-  companionCloudDesktopAccess,
-  companionBrowserControlAccess,
-  companionRevoke,
-  companionRunning,
-  companionState,
-  rememberCompanionEnabled,
-  rememberCompanionKeepAwake,
-  setCompanionHostedUrl,
-  setCompanionLifecycleListener,
-  startCompanion,
-  stopCompanion,
-} from "./companion.mjs";
 import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from "./routine-wake.mjs";
 
 /** IPC that controls this computer, its files, its logins or its updater is
@@ -465,18 +412,6 @@ import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from 
  * const declared later would be in its temporal dead zone at module load.
  */
 const { isLocalSender: senderIsLocal, localOnly, localOnlySync, setLocalOrigin } = localOriginModule;
-
-let companionPowerBlocker = null;
-
-function syncCompanionKeepAwake(companionEnabled, keepAwake) {
-  const shouldBlock = companionEnabled && keepAwake;
-  if (shouldBlock && companionPowerBlocker === null) {
-    companionPowerBlocker = powerSaveBlocker.start("prevent-app-suspension");
-  } else if (!shouldBlock && companionPowerBlocker !== null) {
-    if (powerSaveBlocker.isStarted(companionPowerBlocker)) powerSaveBlocker.stop(companionPowerBlocker);
-    companionPowerBlocker = null;
-  }
-}
 
 // Keep this computer awake for scheduled routines (electron/routine-wake.mjs):
 // the scheduler lives in the local server, which cannot run while the Mac
@@ -579,22 +514,9 @@ installDesktopCrashListeners({
   mainWebContents: () => mainWindow?.webContents ?? null,
 });
 
-// ── managed companion connection ───────────────────────────────────────
-// Account onboarding provisions one remote Cloudflare Tunnel per desktop,
-// then calls reconcileManagedCompanionEndpointProvision below. Only the
-// endpoint is public state. The connector token stays in credentials.bin and
-// is passed to cloudflared through a private token file by the lifecycle
-// module — never through IPC, argv, the environment, or logs.
-let managedCompanionConnector = null;
-let companionAccountService = null;
-let companionDesiredThisLaunch = false;
-let companionLaunchGeneration = 0;
-let advertisementTransition = Promise.resolve();
-
-/** The one serialized credential mutation hook. Account onboarding and every
- * other runtime credential writer share this state, so persisting a tunnel
- * token can never overwrite an API key saved at the same time (or vice
- * versa). */
+/** The one serialized credential mutation hook. Every runtime credential
+ * writer shares this state, so persisting one field can never overwrite an
+ * API key saved at the same time. */
 export async function updateSecureCredentialDocument(derive, afterPersist) {
   if (!secureCredentialState) throw new Error("Secure credentials are not ready");
   try {
@@ -602,275 +524,6 @@ export async function updateSecureCredentialDocument(derive, afterPersist) {
   } finally {
     secureCredentials = secureCredentialState.read();
   }
-}
-
-async function ensurePhoneSecretIdentity() {
-  const existing = readPhoneSecretIdentity(secureCredentialState?.read() ?? secureCredentials);
-  if (existing) {
-    phoneSecretIdentity = existing;
-    return existing;
-  }
-  try {
-    const created = await createPhoneSecretIdentity();
-    await updateSecureCredentialDocument((credentials) =>
-      withPhoneSecretIdentity(credentials, created),
-    );
-    phoneSecretIdentity = created;
-    return created;
-  } catch (error) {
-    // Companion chat remains available. Pairing simply omits the public key,
-    // and mobile cards explain that secure entry needs the desktop until the
-    // OS credential store is available on a later launch.
-    phoneSecretIdentity = null;
-    slog(`phone credential key unavailable: ${error?.message ?? error}`);
-    return null;
-  }
-}
-
-function publicManagedCompanionState() {
-  const access = managedCompanionTunnelAccess(secureCredentials);
-  const status = managedCompanionConnector?.getStatus();
-  if (status) {
-    const publicState = {
-      status: status.status,
-      configured: status.configured,
-      ready: status.ready,
-    };
-    if (status.endpoint) publicState.url = status.endpoint;
-    if (status.retryInMs) publicState.retryInMs = status.retryInMs;
-    if (status.error) publicState.error = status.error;
-    return publicState;
-  }
-  return access
-    ? { status: "stopped", configured: true, ready: false, url: access.endpoint }
-    : { status: "unconfigured", configured: false, ready: false };
-}
-
-function decorateDesktopCompanionState(state) {
-  // The panel polls this state, so a sidecar that exited on its own releases
-  // the blocker within one poll instead of keeping the computer awake forever.
-  syncCompanionKeepAwake(state.enabled && !state.error, state.keepAwake === true);
-  return { ...state, managedConnection: publicManagedCompanionState() };
-}
-
-async function desktopCompanionState() {
-  return decorateDesktopCompanionState(await companionState());
-}
-
-function companionLaunchOptions(hostedUrl = null) {
-  return {
-    resourcesPath: process.resourcesPath,
-    harnessPort: SERVER_PORT,
-    mutationToken: companionMutationToken,
-    hostedUrl,
-    // Only an embedded server receives the private half over its utility
-    // port. A dev server launched in another terminal cannot decrypt, so it
-    // must not advertise a public key and strand the phone on a dead path.
-    secretPublicKey: app.isPackaged && serverProc ? phoneSecretIdentity?.publicKey ?? null : null,
-    log: slog,
-  };
-}
-
-function ensureManagedCompanionConnector() {
-  if (managedCompanionConnector) return managedCompanionConnector;
-  managedCompanionConnector = createManagedCompanionTunnel({
-    binaryPath: resolveCloudflaredBinary({
-      isPackaged: app.isPackaged,
-      resourcesPath: process.resourcesPath,
-      appPath: app.getAppPath(),
-    }),
-    guardianEntry: resolveManagedCompanionGuardian({ appPath: app.getAppPath() }),
-    runtimeExecutable: process.execPath,
-    runtimeRoot: path.join(app.getPath("userData"), "managed-companion-tunnel"),
-    onChange: (status) => {
-      slog(`managed companion connection ${status.status}`);
-      if (!companionDesiredThisLaunch) return;
-      void reconcileCompanionAdvertisement(status.ready ? status.endpoint : null);
-    },
-    log: slog,
-  });
-  return managedCompanionConnector;
-}
-
-/** Publish a hosted address only after its connector has passed public health
- * verification. Updating the owned sidecar in place preserves the exact
- * private origin generation and cannot invalidate an open pairing window. */
-function reconcileCompanionAdvertisement(
-  endpoint,
-  ownedGeneration = companionLaunchGeneration,
-) {
-  const normalizedEndpoint = endpoint || null;
-  const work = advertisementTransition.then(async () => {
-    if (
-      ownedGeneration !== companionLaunchGeneration ||
-      !companionDesiredThisLaunch ||
-      !companionRunning() ||
-      companionAdvertisedHostedUrl() === normalizedEndpoint
-    ) {
-      return desktopCompanionState();
-    }
-    const updated = await setCompanionHostedUrl(normalizedEndpoint);
-    return { ...updated, managedConnection: publicManagedCompanionState() };
-  });
-  advertisementTransition = work.then(
-    () => {},
-    () => {},
-  );
-  return work;
-}
-
-async function startManagedCompanionConnection({ waitForVerification = true } = {}) {
-  if (companionAccountCleanupPending(secureCredentials)) {
-    return publicManagedCompanionState();
-  }
-  const access = managedCompanionTunnelAccess(secureCredentials);
-  if (!access) return publicManagedCompanionState();
-  const target = companionOriginTarget();
-  if (!target) return publicManagedCompanionState();
-  const operation = ensureManagedCompanionConnector().start({ ...access, originTarget: target });
-  if (!waitForVerification) {
-    void operation.catch(() => {});
-    return publicManagedCompanionState();
-  }
-  const status = await operation;
-  await reconcileCompanionAdvertisement(status.ready ? status.endpoint : null);
-  return publicManagedCompanionState();
-}
-
-async function startDesktopCompanion({ waitForHosted = true, remember = true } = {}) {
-  // Every way of turning the companion on (the switch, Tailscale's "Turn on
-  // and check", launch auto-start) passes here.
-  companionDesiredThisLaunch = true;
-  companionLaunchGeneration += 1;
-  // Direct LAN comes up first. The hosted endpoint is added in place only
-  // after the guardian has verified the public route to this exact sidecar.
-  const localState = await startCompanion(companionLaunchOptions());
-  if (!localState.enabled || localState.error) {
-    companionDesiredThisLaunch = false;
-    return desktopCompanionState();
-  }
-  if (remember) rememberCompanionEnabled(true);
-  await startManagedCompanionConnection({ waitForVerification: waitForHosted });
-  return desktopCompanionState();
-}
-
-async function stopDesktopCompanion({ remember = true } = {}) {
-  companionDesiredThisLaunch = false;
-  companionLaunchGeneration += 1;
-  if (remember) rememberCompanionEnabled(false);
-  syncCompanionKeepAwake(false, false);
-  await managedCompanionConnector?.stop();
-  await stopCompanion();
-  return desktopCompanionState();
-}
-
-async function refreshDesktopCompanionTailscale() {
-  if (!companionRunning()) {
-    const started = await startDesktopCompanion({ waitForHosted: false });
-    if (!started.enabled || started.error) return started;
-  }
-  return decorateDesktopCompanionState(await companionRefreshTailscale());
-}
-
-setCompanionLifecycleListener(({ expected, pid }) => {
-  if (expected) return;
-  slog(`owned companion exited unexpectedly pid=${pid ?? "unknown"}`);
-  companionDesiredThisLaunch = false;
-  companionLaunchGeneration += 1;
-  syncCompanionKeepAwake(false, false);
-  // stop() invalidates the guardian's owner pipe synchronously, before the
-  // sidecar module removes this generation's private socket.
-  void managedCompanionConnector?.stop().catch(() => {});
-});
-
-/** Narrow main-process hook for the account onboarding flow. Its return value
- * is explicitly secret-free and can be used to refresh the settings panel. */
-export async function reconcileManagedCompanionEndpointProvision(provision) {
-  await updateSecureCredentialDocument((credentials) =>
-    withManagedCompanionTunnelAccess(credentials, provision),
-  );
-  if (companionDesiredThisLaunch) {
-    await startManagedCompanionConnection({ waitForVerification: true });
-  }
-  return publicManagedCompanionState();
-}
-
-/** Called only after the control plane has revoked/deleted the endpoint. */
-export async function clearManagedCompanionEndpointCredentials() {
-  await updateSecureCredentialDocument((credentials) =>
-    withoutManagedCompanionTunnelAccess(credentials),
-  );
-  await managedCompanionConnector?.stop();
-  if (companionDesiredThisLaunch) await reconcileCompanionAdvertisement(null);
-  return publicManagedCompanionState();
-}
-
-/** Account sign-out must stop advertising the hosted route before it asks
- * the control plane to revoke anything, but it must not erase the retry
- * credentials until that remote cleanup is durably scheduled. */
-async function stopManagedCompanionEndpointLocally() {
-  await managedCompanionConnector?.stop();
-  if (companionDesiredThisLaunch) await reconcileCompanionAdvertisement(null);
-  return publicManagedCompanionState();
-}
-
-async function activatePersistedManagedCompanionEndpoint() {
-  if (companionDesiredThisLaunch) {
-    return startManagedCompanionConnection({ waitForVerification: true });
-  }
-  return publicManagedCompanionState();
-}
-
-function installationDisplayName() {
-  const hostname = [...os.hostname()]
-    .filter((character) => character.codePointAt(0) >= 32 && character.codePointAt(0) !== 127)
-    .join("")
-    .trim();
-  return hostname.slice(0, 80) || "This computer";
-}
-
-function ensureCompanionAccountService() {
-  if (companionAccountService) return companionAccountService;
-  const baseURL = resolveCompanionControlPlaneURL({
-    isPackaged: app.isPackaged,
-    environment: process.env,
-  });
-  let client = null;
-  if (baseURL) {
-    try {
-      client = createControlPlaneClient({ baseURL });
-    } catch {
-      // An invalid explicit override disables hosted access. Direct LAN,
-      // Bonjour, and Tailscale pairing remain completely independent.
-    }
-  }
-  companionAccountService = createCompanionAccountService({
-    client,
-    readCredentials: () => secureCredentialState?.read() ?? secureCredentials,
-    updateCredentials: updateSecureCredentialDocument,
-    identity: {
-      name: installationDisplayName(),
-      platform:
-        process.platform === "win32"
-          ? "windows"
-          : process.platform === "darwin"
-            ? "darwin"
-            : "linux",
-      appVersion: app.getVersion().slice(0, 64),
-    },
-    newClientInstanceId: randomUUID,
-    activatePersistedEndpoint: activatePersistedManagedCompanionEndpoint,
-    stopManagedEndpoint: stopManagedCompanionEndpointLocally,
-    managedConnectionState: publicManagedCompanionState,
-    companionIsOn: () => companionDesiredThisLaunch,
-    // Retry capacity/transient setup failures with backoff, and re-provision a
-    // reclaimed endpoint behind the same address without a new sign-in.
-    autoRecover: true,
-    // The failure code and support reference reach server.log, and with it
-    // the bug-report bundle.
-    log: (line) => slog(line),
-  });
-  return companionAccountService;
 }
 
 // Everything the bug-report bundle needs. The config summary comes from the
@@ -915,26 +568,11 @@ let serverStartConflictOnly = false;
 
 
 
-/** Run one private cleanup request at most once and acknowledge only after
- * Chromium confirms its session data is gone. Duplicate retries join the
- * same promise; a retry whose success ACK was lost receives a cached ACK. */
-
-function syncPhoneSecretKey(proc) {
-  const message = phoneSecretPrivateKeyMessage(phoneSecretIdentity);
-  if (!message) return;
-  try {
-    proc.postMessage(message);
-  } catch (error) {
-    slog(`phone credential key sync failed: ${error?.message ?? error}`);
-  }
-}
-
 function syncDesktopMutationToken(proc) {
   try {
     proc.postMessage({
       type: "colonie:desktop-mutation-token",
       token: desktopMutationToken,
-      companionToken: companionMutationToken,
     });
   } catch (error) {
     slog(`desktop mutation capability sync failed: ${error?.message ?? error}`);
@@ -961,23 +599,6 @@ function installDesktopMutationHeader() {
       },
     });
   });
-}
-
-const savePhoneSecretOnce = createPhoneSecretSaveCoordinator((target, value) =>
-  saveWorkspaceCredential(target, value),
-);
-
-function receivePhoneSecretSave(proc, rawMessage) {
-  const request = decodePhoneSecretSaveRequest(rawMessage);
-  if (!request) return false;
-  void savePhoneSecretOnce(request).then((result) => {
-    try {
-      proc.postMessage(result);
-    } catch (error) {
-      slog(`phone credential save result failed: ${error?.message ?? error}`);
-    }
-  });
-  return true;
 }
 
 async function startServerOn(port) {
@@ -1042,7 +663,6 @@ async function startServerOn(port) {
     if (!serverSupervisor.isCurrent(proc)) return;
     try {
       if (trustedApprovalMode.receive(proc, message)) return;
-      if (receivePhoneSecretSave(proc, message)) return;
     } catch (error) {
       slog(`desktop private sync rejected: ${error?.message ?? error}`);
     }
@@ -1051,7 +671,6 @@ async function startServerOn(port) {
     slog(`spawned pid=${proc.pid}`);
     if (!serverSupervisor.isCurrent(proc)) return;
     syncDesktopMutationToken(proc);
-    syncPhoneSecretKey(proc);
   });
   let exited = false;
   proc.once("exit", (code) => {
@@ -1160,7 +779,7 @@ const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
 
 function rendererOrigin() {
-  return new URL(app.isPackaged || desktopRemoteAccess ? `http://127.0.0.1:${SERVER_PORT}` : DEV_URL).origin;
+  return new URL(app.isPackaged ? `http://127.0.0.1:${SERVER_PORT}` : DEV_URL).origin;
 }
 
 function respondToDisplayMediaRequest(callback, response) {
@@ -1426,7 +1045,6 @@ function refreshApplicationMenu() {
       environments: environmentsState.environments,
       activeId: environmentsState.activeId,
       onSwitch: (id) => void workspaceMenuAction(() => switchEnvironment(id)),
-      onAddFromClipboard: () => void addServerFromClipboard(),
       onConnect: () => void workspaceMenuAction(openWorkspaceSettings),
       onForget: (id) => void workspaceMenuAction(() => forgetEnvironment(id)),
       onOpenSettings: () => {
@@ -1440,7 +1058,7 @@ function persistEnvironments(next) {
   writeEnvironments(next);
   environmentsState = next;
   refreshApplicationMenu();
-  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(workspaceWindowTitle(environmentsState, app.getName()));
 }
 
 async function workspaceMenuAction(action) {
@@ -1475,14 +1093,7 @@ function openWorkspaceSettings(computerId, panel = "computer") {
   }
 }
 
-async function addServerFromClipboard() {
-  try {
-    return await connectHostedWorkspace(clipboard.readText());
-  } catch (error) {
-    await dialog.showMessageBox({ type: "info", message: "Could not connect to the server", detail: `${error.message}\nYou can also choose Connect to a server to enter an address in Settings.` });
-    return false;
-  }
-}
+
 
 async function connectHostedWorkspace(input, name) {
   const link = parseHostedWorkspaceLink(input);
@@ -1613,11 +1224,7 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, "preload.cjs"),
       // The preload exposes the full bridge only to this origin (see preload.cjs).
-      // Companion client mode still serves the bundled UI from its own
-      // loopback relay, so it is a trusted local page while also needing the
-      // renderer's remote-only feature gates. Keep the two facts independent:
-      // upstream's origin boundary must not erase the client-mode marker.
-      additionalArguments: desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
+      additionalArguments: [`--colonie-local-origin=${rendererOrigin()}`],
     },
   });
   mainWindow = win;
@@ -1628,11 +1235,11 @@ function createWindow() {
       desktopTray.hide(win);
     }
   });
-  win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
+  win.setTitle(workspaceWindowTitle(environmentsState, app.getName()));
   win.webContents.on("page-title-updated", event => {
-    if (!desktopRemoteAccess && !activeEnvironment(environmentsState)) return;
+    if (!activeEnvironment(environmentsState)) return;
     event.preventDefault();
-    win.setTitle(workspaceWindowTitle(environmentsState, desktopRemoteAccess, app.getName()));
+    win.setTitle(workspaceWindowTitle(environmentsState, app.getName()));
   });
   attachUpdaterWindow(win);
   if (startupScreen) startupScreen.attach(win, { maximized: restored.maximized });
@@ -1829,10 +1436,8 @@ function createWindow() {
   }
 
   const remote = activeEnvironment(environmentsState);
-  if (!serverReady && (desktopRemoteAccess || (app.isPackaged && !remote))) serverUnavailableWindows.add(win);
-  if (desktopRemoteAccess) {
-    win.loadURL(serverReady ? `http://127.0.0.1:${SERVER_PORT}` : buildErrorPage({ allPortsOccupied: serverStartConflictOnly }));
-  } else if (remote) {
+  if (!serverReady && app.isPackaged && !remote) serverUnavailableWindows.add(win);
+  if (remote) {
     void win.loadURL(remote.origin).catch(() => {});
   } else if (app.isPackaged) {
     win.loadURL(serverReady ? `http://127.0.0.1:${SERVER_PORT}` : buildErrorPage({ allPortsOccupied: serverStartConflictOnly }));
@@ -1969,7 +1574,6 @@ ipcMain.handle("desktop:save-file", localOnly("desktop:save-file", async (event,
 // The file must be on this computer: a window paired to another computer's
 // server is refused, because that server's paths mean nothing here.
 ipcMain.handle("desktop:reveal-file", localOnly("desktop:reveal-file", async (_event, rawPath) => {
-  if (desktopRemoteAccess) throw new Error("That file is on the computer this app is connected to");
   return revealInFolder(rawPath, { reveal: (target) => shell.showItemInFolder(target) });
 }));
 
@@ -2117,17 +1721,6 @@ ipcMain.handle("speech:finish", localOnly("speech:finish", () => {
   if (nativeActions.appleSpeech) finishSpeech();
 }));
 
-// ── companion sidecar ──────────────────────────────────────────────────
-// The renderer gets these five and nothing else: it can turn the companion
-// on and off, look at it, open or cancel a pairing window, and remove a
-// device. It cannot reach the sidecar's control port itself.
-ipcMain.handle("companion:state", localOnly("companion:state", () => desktopCompanionState()));
-ipcMain.handle("companion:start", localOnly("companion:start", () => startDesktopCompanion()));
-ipcMain.handle("companion:stop", localOnly("companion:stop", () => stopDesktopCompanion()));
-ipcMain.handle("companion:keep-awake", localOnly("companion:keep-awake", async (_event, enabled) => {
-  rememberCompanionKeepAwake(Boolean(enabled));
-  return desktopCompanionState();
-}));
 // ── keep awake for routines ────────────────────────────────────────────
 // The Automations page shows the hold and owns the toggle; the decision
 // itself stays in the main process with the power assertion.
@@ -2136,82 +1729,6 @@ ipcMain.handle("routines:keep-awake", localOnly("routines:keep-awake", async (_e
   rememberRoutineWake(app.getPath("userData"), Boolean(enabled));
   return routineWake.poll();
 }));
-ipcMain.handle("companion:refresh-tailscale", localOnly("companion:refresh-tailscale", () => refreshDesktopCompanionTailscale()));
-ipcMain.handle("companion:pairing", localOnly("companion:pairing", (_event, open, expectedToken) => {
-  return companionPairing(Boolean(open), expectedToken).then(decorateDesktopCompanionState);
-}));
-ipcMain.handle("companion:cloud-desktop", localOnly("companion:cloud-desktop", (_event, deviceId, allowed) =>
-  companionCloudDesktopAccess(deviceId, Boolean(allowed)).then(() => desktopCompanionState()),
-));
-ipcMain.handle("companion:browser-control", localOnly("companion:browser-control", (_event, deviceId, allowed) =>
-  companionBrowserControlAccess(deviceId, Boolean(allowed)).then(() => desktopCompanionState()),
-));
-ipcMain.handle("companion:revoke", localOnly("companion:revoke", (_event, deviceId) =>
-  companionRevoke(deviceId).then(() => desktopCompanionState()),
-));
-
-function publicDesktopRemoteState() {
-  return desktopRemoteAccess
-    ? {
-        active: true,
-        endpoint: desktopRemoteAccess.endpoint,
-        serverName: desktopRemoteAccess.serverName,
-        deviceId: desktopRemoteAccess.deviceId,
-      }
-    : { active: false };
-}
-
-function requireMainWindowSender(event) {
-  const sender = BrowserWindow.fromWebContents(event.sender);
-  if (!sender || sender !== mainWindow || sender.isDestroyed() ||
-      !event.senderFrame || event.senderFrame !== event.sender.mainFrame) {
-    throw new Error("The desktop client window is unavailable");
-  }
-}
-
-function relaunchAfterDesktopRemoteChange() {
-  if (desktopShutdownStarted) return;
-  desktopShutdownStarted = true;
-  const timer = setTimeout(() => {
-    // Electron's default relaunch reuses its original native argv, not our JS array.
-    app.relaunch({ args: process.argv.slice(1) });
-    app.quit();
-  }, 250);
-  timer.unref?.();
-}
-
-ipcMain.handle("desktop-remote:state", () => publicDesktopRemoteState());
-ipcMain.handle("desktop-remote:pair", localOnly("desktop-remote:pair", async (event, endpoint, code) => {
-  requireMainWindowSender(event);
-  const access = await pairDesktopCompanion({
-    endpoint,
-    code,
-    deviceName: `${installationDisplayName()} desktop`,
-  });
-  await updateSecureCredentialDocument((credentials) => withDesktopCompanionAccess(credentials, access));
-  desktopRemoteAccess = access;
-  relaunchAfterDesktopRemoteChange();
-  return publicDesktopRemoteState();
-}));
-ipcMain.handle("desktop-remote:disconnect", localOnly("desktop-remote:disconnect", async (event) => {
-  requireMainWindowSender(event);
-  await updateSecureCredentialDocument(withoutDesktopCompanionAccess);
-  desktopRemoteAccess = null;
-  relaunchAfterDesktopRemoteChange();
-  return { active: false };
-}));
-
-// Auth and connector credentials never cross this boundary. Every handler
-// returns the same deliberately tiny, secret-free public account state.
-ipcMain.handle("companion-account:state", localOnly("companion-account:state", () => ensureCompanionAccountService().state()));
-ipcMain.handle("companion-account:request-code", localOnly("companion-account:request-code", (_event, email) =>
-  ensureCompanionAccountService().requestCode(email),
-));
-ipcMain.handle("companion-account:verify-code", localOnly("companion-account:verify-code", (_event, email, code) =>
-  ensureCompanionAccountService().verifyCode(email, code),
-));
-ipcMain.handle("companion-account:retry", localOnly("companion-account:retry", () => ensureCompanionAccountService().retry()));
-ipcMain.handle("companion-account:sign-out", localOnly("companion-account:sign-out", () => ensureCompanionAccountService().signOut()));
 
 const workspaceOnly = (handler) => (event, ...args) => {
   if (!workspaceSenderAllowed(event, mainWindow?.webContents, environmentsState, rendererOrigin())) throw new Error("These controls are only available in the main desktop window");
@@ -2474,9 +1991,6 @@ app.whenReady().then(async () => {
     writable: !credentialStoreUnavailable,
   });
   secureCredentials = secureCredentialState.read();
-  if (app.isPackaged && process.env.COLONIE_PROFILE !== "1") await ensurePhoneSecretIdentity();
-  desktopRemoteAccess = desktopCompanionAccess(secureCredentials);
-  const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();
   // Display capture remains user-initiated. The renderer first sends a
   // short-lived one-shot intent, then calls getDisplayMedia in the same click.
   // The handler binds that request to the same frame/origin, rejects audio,
@@ -2535,46 +2049,23 @@ app.whenReady().then(async () => {
   // connection descriptor on first render. Never blocks window creation on
   // failure — computer use degrades to "unavailable", the rest still works.
   cuaReady =
-    process.env.COLONIE_PROFILE !== "1" && !desktopRemoteAccess && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
+    process.env.COLONIE_PROFILE !== "1" && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
       ? startCua().catch((e) => {
           console.error("[cua] start failed:", e);
           return { mode: "unavailable", reason: String(e) };
         })
       : Promise.resolve({ mode: "unavailable", reason: "unsupported-platform" });
-  if (desktopRemoteAccess) {
-    try {
-      desktopCompanionRelay = await startDesktopCompanionRelay({
-        access: desktopRemoteAccess,
-        staticDir: app.isPackaged
-          ? path.join(process.resourcesPath, "ui")
-          : path.join(app.getAppPath(), "dist"),
-      });
-      SERVER_PORT = desktopCompanionRelay.port;
-      serverReady = true;
-    } catch (error) {
-      serverReady = false;
-      slog(`desktop companion relay failed: ${error?.message ?? error}`);
-    }
-  } else if (app.isPackaged) {
+  if (app.isPackaged) {
     await startServerPackaged();
   }
   if (desktopShutdownStarted) return;
-  // The companion the user left on comes back without anyone finding the
-  // toggle again — one attempt, after the harness port is settled, with the
-  // exact options the IPC handler uses. A failure surfaces in companionState
-  // (the panel shows the error) rather than retrying; and it never delays
-  // the window.
-  if (!desktopRemoteAccess && serverReady && companionEnabledAtRest()) {
-    void startDesktopCompanion({ waitForHosted: false, remember: false })
-      .catch(error => slog(`companion auto-start skipped: ${error?.message ?? error}`));
-  }
   setLocalOrigin(rendererOrigin());
   // Device permissions (microphone, notifications, clipboard) are for the
   // local UI only; privileged capabilities (camera, geolocation, USB, MIDI,
-  // serial) stay off. Client mode's loopback relay is the local UI. The
-  // active paired server, in this window's main frame, may write the
-  // clipboard (its copy button) and nothing else. It never reads it, and the
-  // rule is re-evaluated per request, so a server switch withdraws it.
+  // serial) stay off. The active paired server, in this window's main frame,
+  // may write the clipboard (its copy button) and nothing else. It never
+  // reads it, and the rule is re-evaluated per request, so a server switch
+  // withdraws it.
   appPermissions = appPermissionHandlers({
     rendererOrigin,
     mainContents: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null),
@@ -2584,10 +2075,6 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler(appPermissions.check);
   environmentsState = readEnvironments();
   if (!mainWindow || mainWindow.isDestroyed()) createWindow();
-  // Reconcile incomplete setup and resume interrupted sign-out only after the
-  // local app is usable. This background network work never gates LAN pairing
-  // or the first window.
-  if (hostedAccount) void hostedAccount.restore().catch(() => {});
   // In-app auto-update (packaged only) — checks GitHub releases and downloads
   // by itself; only "Restart to update", the person's click, installs.
   // This fork is a local-only macOS app with no release channel of its own: a
@@ -2640,23 +2127,12 @@ app.on("before-quit", (e) => {
   // Cancel a scheduled recovery before yielding, and stop the owned child
   // even if it has not passed its boot probe yet.
   const stoppingServer = serverSupervisor.shutdown();
-  // Release the sleep blocker synchronously; child shutdown is awaited below.
-  syncCompanionKeepAwake(false, false);
   routineWake.stop();
-  try {
-    desktopCompanionRelay?.close?.();
-  } catch {}
   // a live dictation session runs its own helper child that holds the mic —
   // stop it here so quitting never orphans a recording process
   if (nativeActions.appleSpeech) stopSpeech();
   const ownedHelperCleanup = Promise.race([
-    Promise.all([
-      stopCua().catch(() => {}),
-      // Both listeners reachable from outside the app are owned children.
-      // Shut the connector down first, then the sidecar, without changing the
-      // remembered toggle the next launch will restore.
-      stopDesktopCompanion({ remember: false }).catch(() => {}),
-    ]),
+    stopCua().catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, CUA_STOP_TIMEOUT_MS).unref()),
   ]);
   const cleanup = Promise.all([

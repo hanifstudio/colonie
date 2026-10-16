@@ -765,7 +765,7 @@
   "phone.signIn.timedOut": "Der sichere Zugang dauert länger als erwartet. Versuch es erneut oder koppel direkt in diesem WLAN.",
   "phone.signIn.failed": "Wir konnten deine private Verbindung nicht fertig einrichten.",
   "phone.signIn.emailPrompt": "Wir schicken dir einen Einmalcode per E-Mail. Kein Passwort nötig.",
-  "phone.signIn.email": "E-Mail",
+  "settings.profile.email": "E-Mail",
   "phone.signIn.code": "8-stelliger Code",
   "phone.signIn.working": "Läuft…",
   "phone.signIn.verify": "Prüfen und fortfahren",

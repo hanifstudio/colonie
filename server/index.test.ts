@@ -8,17 +8,11 @@ import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createServer, request, type Server } from "node:http";
 import { connect, type Socket } from "node:net";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import {
-  Aes256Gcm,
-  CipherSuite,
-  DhkemP256HkdfSha256,
-  HkdfSha256,
-} from "@hpke/core";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -29,12 +23,6 @@ import { freePortBlock, withFreeSignInPort } from "./testing/ports.ts";
 import { openSse } from "./testing/sse.ts";
 import { FILE_MAX_BYTES, IMAGE_MAX_BYTES } from "./attachments.ts";
 import { computerPrompt, SIGN_IN_PROMPT } from "./system-prompt.ts";
-import {
-  PHONE_SECRET_INFO,
-  phoneSecretAAD,
-  type PhoneSecretContext,
-} from "./phone-secret.ts";
-
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
 const FAKE_CLAUDE_CLI = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
@@ -61,45 +49,6 @@ async function mintTestCapability(
   });
   expect(response.status).toBe(201);
   return ((await response.json()) as { token: string }).token;
-}
-
-const PHONE_SECRET_TEST_IDENTITY = {
-  type: "colonie:phone-secret-key",
-  version: 1,
-  keyId: "taWSR_nZ7ojlH_0Z3tar6Q",
-  privateKey: {
-    kty: "EC",
-    crv: "P-256",
-    x: "g8FDXb91acXUNkuxNk7dWDQ0aN2zn6On2HeOGOvZOjs",
-    y: "bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU",
-    d: "5B-SwYLGXc04u4v7YLpzFrwj2JjysBFaJevOPl3h3Zg",
-  },
-} as const;
-const phoneSecretTestSuite = new CipherSuite({
-  kem: new DhkemP256HkdfSha256(),
-  kdf: new HkdfSha256(),
-  aead: new Aes256Gcm(),
-});
-
-async function sealPhoneSecretForTest(
-  context: Omit<PhoneSecretContext, "encapsulatedKey" | "ciphertext">,
-  value: string,
-): Promise<PhoneSecretContext> {
-  const publicKey = await phoneSecretTestSuite.kem.deserializePublicKey(Buffer.concat([
-    Buffer.from([4]),
-    Buffer.from(PHONE_SECRET_TEST_IDENTITY.privateKey.x, "base64url"),
-    Buffer.from(PHONE_SECRET_TEST_IDENTITY.privateKey.y, "base64url"),
-  ]));
-  const sender = await phoneSecretTestSuite.createSenderContext({
-    recipientPublicKey: publicKey,
-    info: new TextEncoder().encode(PHONE_SECRET_INFO),
-  });
-  const ciphertext = await sender.seal(new TextEncoder().encode(value), phoneSecretAAD(context));
-  return {
-    ...context,
-    encapsulatedKey: Buffer.from(sender.enc).toString("base64url"),
-    ciphertext: Buffer.from(ciphertext).toString("base64url"),
-  };
 }
 
 let child: ChildProcess;
@@ -238,31 +187,6 @@ const api = async (method: string, path: string, body?: unknown): Promise<{ stat
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, body: await res.json() };
-};
-
-/** Pair a device the way a phone or a second person does, and act as them. */
-const asPairedPerson = async (label: string) => {
-  const opened = await api("POST", "/api/auth/pairing", {});
-  expect(opened.status).toBe(200);
-  const paired = await fetch(`${BASE}/api/auth/pair`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "user-agent": label },
-    body: JSON.stringify({ code: opened.body.code }),
-  });
-  const body = await paired.json() as any;
-  expect(paired.status).toBe(200);
-  return {
-    token: body.token as string,
-    label: body.session.label as string,
-    call: async (method: string, path: string, payload?: unknown) => {
-      const res = await fetch(`${BASE}${path}`, {
-        method,
-        headers: { authorization: `Bearer ${body.token}`, ...(payload ? { "content-type": "application/json" } : {}) },
-        body: payload ? JSON.stringify(payload) : undefined,
-      });
-      return { status: res.status, body: await res.json() as any };
-    },
-  };
 };
 
 const chiefRoomRequest = async (baseUrl: string, token: string, route: "create-room" | "manage-room", body: unknown) => {
@@ -1540,70 +1464,6 @@ describe("harness HTTP API", () => {
         finishedAt: 6,
       },
     });
-  });
-
-  it("attributes a paired person's message to them, and leaves the owner's own sends unstamped", async () => {
-    // The server authenticates per person but used to label every user turn
-    // with the one Settings profile name, so on a shared or paired workspace
-    // every human collapsed into whoever that named: bots addressed the wrong
-    // person, and relayed their questions under someone else's name.
-    const created = await api("POST", "/api/bots", {
-      name: "Attribution",
-      modelSelection: { instanceId: "claude", model: "claude-sonnet-5" },
-      requireAvailableModel: true,
-    });
-    expect(created.status).toBe(201);
-    const bot = created.body.bot;
-    const person = await asPairedPerson("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1");
-    expect(person.label).toBe("Safari on Mac");
-    const cleanup: string[] = [bot.id];
-    try {
-
-    const theirs = await person.call("POST", `/api/bots/${bot.id}/messages`, { text: "from the paired person" });
-    expect(theirs.status).toBe(202);
-    expect(theirs.body.message).toMatchObject({ role: "user", sender: { name: "Safari on Mac" } });
-
-    // Steering into that still-running turn is the same person, still named.
-    const steered = await person.call("POST", `/api/bots/${bot.id}/messages`, { text: "and one more" });
-    expect(steered.status).toBe(202);
-    expect(steered.body.message).toMatchObject({ steered: true, sender: { name: "Safari on Mac" } });
-
-    // Loopback is the desktop owner by design: unstamped, so it still reads
-    // as the profile name everywhere and nothing changes for one person. Use
-    // a second bot so this send cannot be folded into the turn above — an
-    // owner message that merely got steered would pass whatever we assert.
-    const second = await api("POST", "/api/bots", {
-      name: "Attribution owner",
-      modelSelection: { instanceId: "claude", model: "claude-sonnet-5" },
-      requireAvailableModel: true,
-    });
-    expect(second.status).toBe(201);
-    cleanup.push(second.body.bot.id);
-    const mine = await api("POST", `/api/bots/${second.body.bot.id}/messages`, { text: "from the owner" });
-    expect(mine.status).toBe(202);
-    expect(mine.body.message.role).toBe("user");
-    expect(mine.body.message.steered).toBeUndefined();
-    expect(mine.body.message.sender).toBeUndefined();
-
-    const bots = (await api("GET", "/api/bots?messages=30")).body.bots;
-    const theirMessages = bots.find((b: any) => b.id === bot.id)?.messages ?? [];
-    const myMessages = bots.find((b: any) => b.id === second.body.bot.id)?.messages ?? [];
-    // The opaque person key is the same for both lines: one session, one person.
-    const personKey = theirMessages.find((m: any) => m.text === "from the paired person")?.sender?.id;
-    expect(personKey).toMatch(/^p_[\w-]{22}$/);
-    expect(theirMessages.find((m: any) => m.text === "from the paired person")?.sender).toEqual({ name: "Safari on Mac", id: personKey });
-    expect(theirMessages.find((m: any) => m.text === "and one more")?.sender).toEqual({ name: "Safari on Mac", id: personKey });
-    expect(myMessages.find((m: any) => m.text === "from the owner")?.sender).toBeUndefined();
-    } finally {
-      // Stop the fixture turns and take the bots and the paired session back
-      // out: this suite shares one isolated server, so anything left running
-      // here shows up as somebody else's failure much later.
-      for (const id of cleanup) {
-        await api("POST", `/api/bots/${id}/interrupt`).catch(() => undefined);
-        await api("DELETE", `/api/bots/${id}`).catch(() => undefined);
-      }
-      await person.call("DELETE", "/api/auth/session").catch(() => undefined);
-    }
   });
 
   it("rejects non-loopback authorities while accepting IPv4 and IPv6 loopback forms", async () => {
@@ -5436,46 +5296,13 @@ describe("harness HTTP API", () => {
         .find((message: { id: string }) => message.id === messageId);
       expect(directCard).toMatchObject({
         kind: "secret",
-        text: "Securely provide the OpenAI API key from Colonie on your phone or computer. It is never added to chat.",
+        text: "Securely provide the OpenAI API key from Colonie. It is never added to chat.",
       });
       expect(directCard.secret.description).toContain(
         `${bot.name} can use it but never read it back.`,
       );
       expect(directCard).not.toHaveProperty("from");
 
-      const encryptedEnvelope = {
-        version: 1,
-        threadId: bot.threadId,
-        keyId: "A".repeat(22),
-        deviceId: "phone-1",
-        target: "openaiImageApiKey",
-        requestKey: directCard.secret.requestKey,
-        encapsulatedKey: "A".repeat(87),
-        ciphertext: "A".repeat(23),
-      };
-      const directProvision = await fetch(
-        `${BASE}/api/bots/${bot.id}/secret-cards/${messageId}/provide`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(encryptedEnvelope),
-        },
-      );
-      expect(directProvision.status).toBe(403);
-
-      const developmentProvision = await fetch(
-        `${BASE}/api/bots/${bot.id}/secret-cards/${messageId}/provide`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-colonie-companion": "1",
-            "x-colonie-companion-device": "phone-1",
-          },
-          body: JSON.stringify(encryptedEnvelope),
-        },
-      );
-      expect(developmentProvision.status).toBe(503);
 
       expect((await api("POST", `/api/bots/${bot.id}/interrupt`)).status).toBe(200);
       await expect.poll(async () => {
@@ -5627,371 +5454,6 @@ describe("harness HTTP API", () => {
       await api("PUT", "/api/config", { box: { token: "" } });
     }
   });
-
-  it("keeps credential-card ownership stable while an encrypted phone save is in flight", async () => {
-    const isolatedHome = mkdtempSync(join(tmpdir(), "colonie-phone-secret-races-"));
-    const isolatedData = join(isolatedHome, ".colonie");
-    const isolatedStatic = join(isolatedHome, "static");
-    const isolatedGate = join(isolatedHome, "credential-gate");
-    const isolatedPort = await freePortBlock([0, 1]);
-    const isolatedDump = join(isolatedHome, "fake-claude-dump.json");
-    const releaseFile = join(isolatedGate, "release");
-    mkdirSync(join(isolatedStatic, "assets"), { recursive: true });
-    mkdirSync(isolatedData, { recursive: true });
-    mkdirSync(isolatedGate, { recursive: true });
-    writeFileSync(join(isolatedStatic, "index.html"), "<!doctype html><title>Phone secret race test</title>");
-    writeFileSync(join(isolatedStatic, "assets", "smoke.css"), "body{}");
-    writeFileSync(join(isolatedData, "config.json"), JSON.stringify({
-      instances: {
-        claude: { driver: "claudeAgent", displayName: "Fixture Claude", config: { cli: FAKE_CLAUDE_CLI } },
-      },
-    }));
-
-    // Model Electron's private utility-process bridge. Both encrypted saves
-    // pause after decryption, before the external credential config commit,
-    // so the public routes below exercise their real in-flight guards.
-    const desktopPrelude = `data:text/javascript,${encodeURIComponent(`
-      const { existsSync, writeFileSync } = await import("node:fs");
-      const { join } = await import("node:path");
-      const identity = ${JSON.stringify(PHONE_SECRET_TEST_IDENTITY)};
-      const gate = ${JSON.stringify(isolatedGate)};
-      const release = ${JSON.stringify(releaseFile)};
-      const { EventEmitter } = await import("node:events");
-      const messages = new EventEmitter();
-      let saves = Promise.resolve();
-      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      Object.defineProperty(process, "parentPort", {
-        value: {
-          on(event, callback) {
-            if (event !== "message") return;
-            messages.on(event, callback);
-            queueMicrotask(() => callback({ data: identity }));
-          },
-          postMessage(message) {
-            if (message?.type !== "colonie:phone-secret-save") return;
-            writeFileSync(join(gate, message.requestId + ".started"), message.target);
-            saves = saves.then(async () => {
-              while (!existsSync(release)) await delay(10);
-              try {
-                const patch = message.target === "openaiImageApiKey"
-                  ? { imageGen: { key: message.value } }
-                  : null;
-                if (!patch) throw new Error("unsupported test credential target");
-                const response = await fetch(
-                  "http://127.0.0.1:" + process.env.COLONIE_PORT + "/api/config?secretStorage=external",
-                  {
-                    method: "PUT",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify(patch),
-                  },
-                );
-                const body = await response.json().catch(() => null);
-                if (!response.ok) throw new Error(body?.error || "credential config failed");
-                messages.emit("message", { data: {
-                  type: "colonie:phone-secret-save-result",
-                  requestId: message.requestId,
-                  ok: true,
-                } });
-              } catch (error) {
-                messages.emit("message", { data: {
-                  type: "colonie:phone-secret-save-result",
-                  requestId: message.requestId,
-                  ok: false,
-                  error: error instanceof Error ? error.message : String(error),
-                } });
-              }
-            });
-          },
-        },
-      });
-    `)}`;
-    let isolatedStderr = "";
-    const isolatedChild = spawn(
-      process.execPath,
-      ["--import", desktopPrelude, join(SERVER_DIR, "index.ts")],
-      {
-        cwd: ROOT,
-        env: {
-          ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-          ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-          HOME: isolatedHome,
-          USERPROFILE: isolatedHome,
-          COLONIE_PORT: String(isolatedPort),
-          COLONIE_WEBHOOK_PORT: String(isolatedPort + 1),
-          COLONIE_STATIC_DIR: isolatedStatic,
-          FAKE_CLAUDE_MODE: "hang",
-          FAKE_CLAUDE_DUMP: isolatedDump,
-          COLONIE_TEST_INTERNAL_CAPABILITY_KEY: TEST_CAPABILITY_KEY,
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    isolatedChild.stderr!.on("data", (chunk) => (isolatedStderr += chunk));
-    const isolatedApi = async (method: string, path: string, body?: unknown): Promise<{
-      status: number;
-      body: any;
-    }> => {
-      const response = await fetch(`http://127.0.0.1:${isolatedPort}${path}`, {
-        method,
-        headers: body ? { "content-type": "application/json" } : undefined,
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      return { status: response.status, body: await response.json() };
-    };
-    const requestCredential = async (
-      botId: string,
-      threadId: string,
-    ): Promise<{ messageId: string }> => {
-      const token = await mintTestCapability(`http://127.0.0.1:${isolatedPort}`, botId, threadId);
-      const response = await fetch(`http://127.0.0.1:${isolatedPort}/api/internal/request-credential`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          fromBotId: botId,
-          fromThreadId: threadId,
-          credentialId: "openaiImageApiKey",
-          reason: "needed for this task",
-        }),
-      });
-      expect(response.status).toBe(201);
-      return response.json() as Promise<{ messageId: string }>;
-    };
-    const provideRequests: Array<Promise<Response>> = [];
-    const earlyProvisionStatuses: number[] = [];
-
-    try {
-      await waitForIsolatedServer(isolatedChild, isolatedPort, () => isolatedStderr);
-      const createBot = async () => (await isolatedApi("POST", "/api/bots", {
-        modelSelection: { instanceId: "claude", model: "claude-sonnet-5" },
-        requireAvailableModel: true,
-      })).body.bot;
-      const direct = await createBot();
-      const channelOwner = await createBot();
-      const channelPeer = await createBot();
-      expect((await isolatedApi("PATCH", `/api/bots/${channelPeer.id}`, { chiefOfStaff: true })).status).toBe(200);
-      const roomChiefToken = await mintTestCapability(`http://127.0.0.1:${isolatedPort}`, channelPeer.id, channelPeer.threadId);
-
-      const directOriginalThread = direct.threadId as string;
-      const directAlternate = await isolatedApi("POST", `/api/bots/${direct.id}/tasks`, { title: "Alternate" });
-      expect(directAlternate.status).toBe(201);
-      expect((await isolatedApi(
-        "POST",
-        `/api/bots/${direct.id}/tasks/${directOriginalThread}`,
-      )).status).toBe(200);
-
-      const group = (await isolatedApi("POST", "/api/groups", {
-        name: "Credential ownership",
-        memberIds: [channelOwner.id, channelPeer.id],
-        setup: { bulletin: "", defaultResponder: { kind: "member", botId: channelOwner.id } },
-      })).body.group;
-      const groupOriginalThread = group.threadId as string;
-      const groupAlternate = await isolatedApi("POST", `/api/groups/${group.id}/tasks`, { title: "Alternate" });
-      expect(groupAlternate.status).toBe(201);
-      expect((await isolatedApi(
-        "POST",
-        `/api/groups/${group.id}/tasks/${groupOriginalThread}`,
-      )).status).toBe(200);
-
-      expect((await isolatedApi(
-        "POST",
-        `/api/bots/${direct.id}/messages`,
-        { text: "request a private key" },
-      )).status).toBe(202);
-      await readJsonFileWhenReady(isolatedDump);
-      const directRequest = await requestCredential(direct.id, directOriginalThread);
-      expect((await isolatedApi("POST", `/api/bots/${direct.id}/interrupt`, {})).status).toBe(200);
-      await expect.poll(async () => {
-        const state = (await isolatedApi("GET", "/api/bots?messages=0")).body;
-        return state.bots.find((bot: { id: string }) => bot.id === direct.id)?.busy;
-      }).toBe(false);
-      const groupRequest = await requestCredential(channelOwner.id, groupOriginalThread);
-
-      const state = (await isolatedApi("GET", "/api/bots?messages=20")).body;
-      const directState = state.bots.find((bot: { id: string }) => bot.id === direct.id);
-      const directCard = directState.messages.find(
-        (message: { id: string }) => message.id === directRequest.messageId,
-      );
-      const directUser = directState.messages.find(
-        (message: { role: string; text?: string }) => message.role === "user" && message.text === "request a private key",
-      );
-      const groupCard = state.groups
-        .find((candidate: { id: string }) => candidate.id === group.id).messages
-        .find((message: { id: string }) => message.id === groupRequest.messageId);
-      expect(directCard?.secret?.requestKey).toEqual(expect.any(String));
-      expect(directUser?.id).toEqual(expect.any(String));
-      expect(groupCard).toMatchObject({ from: { botId: channelOwner.id } });
-
-      const deviceId = "paired-phone";
-      const directEnvelope = await sealPhoneSecretForTest({
-        version: 1,
-        keyId: PHONE_SECRET_TEST_IDENTITY.keyId,
-        deviceId,
-        botId: direct.id,
-        threadId: directOriginalThread,
-        messageId: directRequest.messageId,
-        target: "openaiImageApiKey",
-        requestKey: directCard.secret.requestKey,
-      }, "sk-test-direct");
-      const groupEnvelope = await sealPhoneSecretForTest({
-        version: 1,
-        keyId: PHONE_SECRET_TEST_IDENTITY.keyId,
-        deviceId,
-        botId: channelOwner.id,
-        threadId: groupOriginalThread,
-        messageId: groupRequest.messageId,
-        target: "openaiImageApiKey",
-        requestKey: groupCard.secret.requestKey,
-      }, "sk-test-channel");
-      const provide = (botId: string, messageId: string, envelope: PhoneSecretContext) => fetch(
-        `http://127.0.0.1:${isolatedPort}/api/bots/${botId}/secret-cards/${messageId}/provide`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-colonie-companion": "1",
-            "x-colonie-companion-device": deviceId,
-          },
-          body: JSON.stringify(Object.fromEntries(
-            Object.entries(envelope).filter(([key]) => key !== "botId" && key !== "messageId"),
-          )),
-        },
-      );
-      // A newer request can supersede the card while its encrypted phone
-      // save is still in flight. The completing save must reject instead of
-      // marking the superseded card provided and dispatching its
-      // continuation; only the fresh card can still resolve. This runs on a
-      // third bot, before any credential is configured, so the ownership
-      // fixtures below keep their own cards untouched.
-      const raceBot = await createBot();
-      const raceThread = raceBot.threadId as string;
-      const supersededRequest = await requestCredential(raceBot.id, raceThread);
-      const raceCard = async (messageId: string) => (await isolatedApi("GET", "/api/bots?messages=20")).body.bots
-        .find((bot: { id: string }) => bot.id === raceBot.id).messages
-        .find((message: { id: string }) => message.id === messageId);
-      const supersededEnvelope = await sealPhoneSecretForTest({
-        version: 1,
-        keyId: PHONE_SECRET_TEST_IDENTITY.keyId,
-        deviceId,
-        botId: raceBot.id,
-        threadId: raceThread,
-        messageId: supersededRequest.messageId,
-        target: "openaiImageApiKey",
-        requestKey: (await raceCard(supersededRequest.messageId)).secret.requestKey,
-      }, "sk-test-superseded");
-      const supersededProvide = provide(raceBot.id, supersededRequest.messageId, supersededEnvelope);
-      await expect.poll(() => readdirSync(isolatedGate).filter((name) => name.endsWith(".started")).length).toBe(1);
-      const freshRequest = await requestCredential(raceBot.id, raceThread);
-      writeFileSync(releaseFile, "release");
-      const rejected = await supersededProvide;
-      expect(rejected.status).toBe(409);
-      expect(await rejected.json()).toMatchObject({ error: expect.stringMatching(/superseded by a newer one/i) });
-      expect((await raceCard(supersededRequest.messageId)).secret).toMatchObject({ superseded: true });
-      expect((await raceCard(supersededRequest.messageId)).secret.provided).not.toBe(true);
-      const freshEnvelope = await sealPhoneSecretForTest({
-        version: 1,
-        keyId: PHONE_SECRET_TEST_IDENTITY.keyId,
-        deviceId,
-        botId: raceBot.id,
-        threadId: raceThread,
-        messageId: freshRequest.messageId,
-        target: "openaiImageApiKey",
-        requestKey: (await raceCard(freshRequest.messageId)).secret.requestKey,
-      }, "sk-test-fresh-card");
-      const freshProvide = await provide(raceBot.id, freshRequest.messageId, freshEnvelope);
-      expect(freshProvide.status).toBe(200);
-      expect(await freshProvide.json()).toEqual({ provided: true, resumed: true });
-      // Hand the gate back to the ownership fixtures below: their saves must
-      // start held, with a clean slate of started markers.
-      for (const name of readdirSync(isolatedGate)) rmSync(join(isolatedGate, name));
-      provideRequests.push(...[
-        provide(direct.id, directRequest.messageId, directEnvelope),
-        provide(channelOwner.id, groupRequest.messageId, groupEnvelope),
-      ].map((request) => request.then((response) => {
-        earlyProvisionStatuses.push(response.status);
-        return response;
-      })));
-      await expect.poll(
-        () => ({
-          started: readdirSync(isolatedGate).filter((name) => name.endsWith(".started")).length,
-          earlyProvisionStatuses,
-        }),
-        { timeout: 20_000 },
-      ).toEqual({ started: 2, earlyProvisionStatuses: [] });
-
-      const expectLocked = async (result: Promise<{ status: number; body: any }>) => {
-        const response = await result;
-        expect(response.status).toBe(409);
-        expect(response.body.error).toMatch(/securely saving a credential/i);
-      };
-      await expectLocked(isolatedApi("POST", `/api/bots/${direct.id}/messages/${directUser.id}/edit`, {
-        text: "rewind under the save",
-      }));
-      await expectLocked(isolatedApi("POST", `/api/bots/${direct.id}/active-branch`, {
-        messageId: directRequest.messageId,
-      }));
-      await expectLocked(isolatedApi("POST", `/api/bots/${direct.id}/tasks`, { title: "Race" }));
-      await expectLocked(isolatedApi(
-        "POST",
-        `/api/bots/${direct.id}/tasks/${directAlternate.body.task.threadId}`,
-      ));
-      await expectLocked(isolatedApi("DELETE", `/api/bots/${direct.id}/tasks/${directOriginalThread}`));
-      await expectLocked(isolatedApi("DELETE", `/api/bots/${direct.id}`));
-
-      await expectLocked(isolatedApi("POST", `/api/groups/${group.id}/tasks`, { title: "Race" }));
-      await expectLocked(isolatedApi(
-        "POST",
-        `/api/groups/${group.id}/tasks/${groupAlternate.body.task.threadId}`,
-      ));
-      await expectLocked(isolatedApi("DELETE", `/api/groups/${group.id}/tasks/${groupOriginalThread}`));
-      await expectLocked(isolatedApi("PATCH", `/api/groups/${group.id}`, {
-        memberIds: [channelPeer.id],
-      }));
-      const chiefRosterChange = await chiefRoomRequest(`http://127.0.0.1:${isolatedPort}`, roomChiefToken, "manage-room", {
-        roomId: group.id, action: "set_members", memberIds: [channelOwner.id, channelPeer.id],
-      });
-      expect(chiefRosterChange.status).toBe(409);
-      expect(chiefRosterChange.body.error).toMatch(/securely saving a credential/i);
-      await expectLocked(isolatedApi("DELETE", `/api/groups/${group.id}`));
-      await expectLocked(isolatedApi("DELETE", `/api/bots/${channelOwner.id}`));
-      await expectLocked(isolatedApi("DELETE", `/api/bots/${channelPeer.id}`));
-
-      writeFileSync(releaseFile, "release");
-      const completed = await Promise.all(provideRequests);
-      for (const response of completed) {
-        expect(response.status).toBe(200);
-        expect(await response.json()).toEqual({ provided: true, resumed: true });
-      }
-
-      // A lost HTTP response may replay the exact randomized envelope, but a
-      // new envelope could contain a different value and must never inherit
-      // the first save's success result.
-      const exactRetry = await provide(direct.id, directRequest.messageId, directEnvelope);
-      expect(exactRetry.status).toBe(200);
-      expect(await exactRetry.json()).toEqual({ provided: true, resumed: true });
-      const replacementEnvelope = await sealPhoneSecretForTest({
-        version: 1,
-        keyId: PHONE_SECRET_TEST_IDENTITY.keyId,
-        deviceId,
-        botId: direct.id,
-        threadId: directOriginalThread,
-        messageId: directRequest.messageId,
-        target: "openaiImageApiKey",
-        requestKey: directCard.secret.requestKey,
-      }, "sk-test-replacement");
-      const replacement = await provide(direct.id, directRequest.messageId, replacementEnvelope);
-      expect(replacement.status).toBe(409);
-      expect(await replacement.json()).toMatchObject({ error: expect.stringMatching(/already completed/i) });
-    } finally {
-      writeFileSync(releaseFile, "release");
-      await Promise.allSettled(provideRequests);
-      await waitForExit(isolatedChild, { signal: "SIGTERM" });
-      await removeTempDir(isolatedHome);
-    }
-    expectStoppedTestServerCleanly(isolatedChild, isolatedStderr);
-  }, 45_000);
 
   it("reports a failed routine once, not twice", async () => {
     // A routine reaches the same dispatch catch as an interactive turn and
@@ -7247,131 +6709,6 @@ describe("harness HTTP API", () => {
     }
   });
 
-  it.each([false, true])("completes remote MCP OAuth only in its initiating admin session (pre-registered: %s)", async (registered) => {
-    const client = { clientId: "headless-corp", clientSecret: "headless-private-secret", scopes: ["mcp", "offline_access"] };
-    const oauth = await startFakeOAuth(registered ? { noRegistration: true, preRegistered: { [client.clientId]: client.clientSecret } } : {});
-    const fake = await startFakeHttpMcp({ acceptBearer: oauth.isValid, wwwAuthenticate: oauth.challenge });
-    // a pre-registered app returns to the port derived from this URL: make it a free one
-    const url = await withFreeSignInPort(fake.url);
-    const pair = async (scopes: string[]) => {
-      const opened = await api("POST", "/api/auth/pairing", { scopes });
-      const paired = await api("POST", "/api/auth/pair", { code: opened.body.code });
-      expect(paired.status).toBe(200);
-      return paired.body.token as string;
-    };
-    const alice = await pair(["admin", "client"]);
-    const bob = await pair(["admin", "client"]);
-    const member = await pair(["client"]);
-    const remote = async (token: string, method: string, path: string, body?: unknown) => {
-      const response = await fetch(`${BASE}${path}`, {
-        method,
-        headers: { authorization: `Bearer ${token}`, "x-forwarded-for": "192.0.2.10", "content-type": "application/json" },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
-      return { status: response.status, body: await response.json() as any, cache: response.headers.get("cache-control") };
-    };
-    const base = "/api/mcp/servers/headless/sign-in";
-    try {
-      expect((await api("POST", "/api/mcp/servers", { name: "headless", url, ...(registered ? { oauth: client } : {}) })).status).toBe(201);
-      expect((await remote(member, "POST", base)).status).toBe(403);
-      const unauthenticated = await fetch(`${BASE}${base}`, { method: "POST", headers: { "x-forwarded-for": "192.0.2.11" } });
-      expect([401, 403]).toContain(unauthenticated.status);
-      const started = await remote(alice, "POST", base);
-      expect(started.status).toBe(200);
-      expect(started.cache).toBe("no-store");
-      // no https address to come back to: the person pastes the page it ends on
-      expect(started.body.auth.pasteBack).toBe(true);
-      const path = `${base}/${started.body.auth.flowId}`;
-      const approval = await fetch(started.body.auth.authorizationUrl, { redirect: "manual" });
-      const callbackUrl = approval.headers.get("location")!;
-      expect((await remote(bob, "POST", base)).status).toBe(409);
-      expect((await remote(bob, "GET", path)).status).toBe(404);
-      expect((await remote(bob, "DELETE", path)).status).toBe(404);
-      expect((await remote(bob, "POST", path, { callbackUrl })).status).toBe(404);
-      expect((await remote(alice, "POST", path, { callbackUrl: callbackUrl + "&state=duplicate" })).status).toBe(400);
-      expect((await remote(alice, "GET", path)).body.auth.phase).toBe("waiting");
-      const wrongContentType = await fetch(`${BASE}${path}`, {
-        method: "POST", headers: { authorization: `Bearer ${alice}`, "content-type": "text/plain" }, body: JSON.stringify({ callbackUrl }),
-      });
-      expect(wrongContentType.status).toBe(415);
-      const completed = await remote(alice, "POST", path, { callbackUrl });
-      expect(completed.status).toBe(200);
-      expect(completed.body.auth.phase).toBe("succeeded");
-      expect(JSON.stringify(completed.body)).not.toContain(new URL(callbackUrl).searchParams.get("code"));
-      expect((await remote(alice, "POST", path, { callbackUrl })).status).toBe(409);
-      expect(oauth.counts.token).toBe(1);
-      expect((await remote(alice, "POST", "/api/mcp/servers/headless/test")).body.ok).toBe(true);
-      await remote(alice, "POST", "/api/mcp/servers/headless/sign-out");
-      const second = await remote(alice, "POST", base);
-      const pending = await fetch(second.body.auth.authorizationUrl, { redirect: "manual" });
-      const pendingCallback = pending.headers.get("location")!;
-      expect((await remote(alice, "POST", "/api/auth/logout")).status).toBe(200);
-      expect((await remote(alice, "POST", `${base}/${second.body.auth.flowId}`, { callbackUrl: pendingCallback })).status).toBe(401);
-      // The independent loopback callback is also closed when its session ends.
-      await expect(fetch(pendingCallback)).rejects.toThrow();
-      expect(oauth.counts.token).toBe(1);
-    } finally {
-      await api("DELETE", "/api/mcp/servers/headless");
-      for (const token of [alice, bob, member]) await remote(token, "POST", "/api/auth/logout");
-      await fake.close();
-      await oauth.close();
-    }
-  });
-
-  it("brings a sign-in started in a browser on another computer back to this server's https address", async () => {
-    const oauth = await startFakeOAuth();
-    const fake = await startFakeHttpMcp({ acceptBearer: oauth.isValid, wwwAuthenticate: oauth.challenge });
-    const opened = await api("POST", "/api/auth/pairing", { scopes: ["admin", "client"] });
-    const token = (await api("POST", "/api/auth/pair", { code: opened.body.code })).body.token as string;
-    // What the edge proxy in front of My Cloud hands the server (node's
-    // fetch drops a custom Host header, so this goes through http.request).
-    const viaProxy = (method: string, path: string, headers: Record<string, string> = {}, body?: unknown) =>
-      new Promise<{ status: number; text: string; headers: Record<string, unknown> }>((resolve, reject) => {
-        const req = request({
-          hostname: "127.0.0.1", port: PORT, path, method,
-          headers: { host: "cloud.example", "x-forwarded-proto": "https", "x-forwarded-for": "192.0.2.20", ...headers },
-        }, (res) => {
-          let raw = "";
-          res.on("data", (chunk) => (raw += chunk));
-          res.on("end", () => resolve({ status: res.statusCode ?? 0, text: raw, headers: res.headers }));
-        });
-        req.on("error", reject);
-        req.end(body === undefined ? undefined : JSON.stringify(body));
-      });
-    const signedIn = { authorization: `Bearer ${token}`, origin: "https://cloud.example", "content-type": "application/json" };
-    const base = "/api/mcp/servers/whop/sign-in";
-    try {
-      expect((await api("POST", "/api/mcp/servers", { name: "whop", url: fake.url })).status).toBe(201);
-      const started = await viaProxy("POST", base, signedIn);
-      expect(started.status).toBe(200);
-      const auth = JSON.parse(started.text).auth;
-      expect(auth.pasteBack).toBeUndefined();
-      expect(new URL(auth.authorizationUrl).searchParams.get("redirect_uri")).toBe("https://cloud.example/mcp-oauth/callback");
-      const callback = new URL((await fetch(auth.authorizationUrl, { redirect: "manual" })).headers.get("location")!);
-      expect(callback.origin + callback.pathname).toBe("https://cloud.example/mcp-oauth/callback");
-
-      const forged = new URL(callback);
-      forged.searchParams.set("state", "forged");
-      expect((await viaProxy("GET", forged.pathname + forged.search)).status).toBe(400);
-      expect(JSON.parse((await viaProxy("GET", `${base}/${auth.flowId}`, signedIn)).text).auth.phase).toBe("waiting");
-
-      const page = await viaProxy("GET", callback.pathname + callback.search);
-      expect(page.status).toBe(200);
-      expect(page.text).toBe("Signed in. You can close this tab and return to Colonie.");
-      expect(page.headers).toMatchObject({ "cache-control": "no-store", "referrer-policy": "no-referrer", "content-type": "text/plain; charset=utf-8" });
-      expect(page.text).not.toContain(callback.searchParams.get("code"));
-      expect(JSON.parse((await viaProxy("GET", `${base}/${auth.flowId}`, signedIn)).text).auth.phase).toBe("succeeded");
-      expect((await viaProxy("GET", callback.pathname + callback.search)).status).toBe(409);
-      expect(oauth.counts.token).toBe(1);
-      expect((await api("POST", "/api/mcp/servers/whop/test")).body.ok).toBe(true);
-    } finally {
-      await api("DELETE", "/api/mcp/servers/whop").catch(() => undefined);
-      await viaProxy("POST", "/api/auth/logout", signedIn).catch(() => undefined);
-      await fake.close();
-      await oauth.close();
-    }
-  });
-
   it("round-trips the UI language and clears it back to system", async () => {
     const set = await api("PUT", "/api/config", { language: "de" });
     expect(set.status).toBe(200);
@@ -7745,7 +7082,6 @@ describe("harness HTTP API", () => {
       let seen = await readJsonFileWhenReady<{ systemPrompt?: string }>(fakeClaudeDump);
       let system = seen.systemPrompt ?? "";
       expect(system).toContain('<colonie-skill id="create-verification-skill"');
-      expect(system).toContain('<colonie-skill id="phone-harness"');
       expect((await api("POST", `/api/groups/${room.id}/interrupt`, {})).status).toBe(200);
       await expect.poll(async () => {
         const state = (await api("GET", "/api/bots?messages=0")).body;
@@ -7759,7 +7095,6 @@ describe("harness HTTP API", () => {
       seen = await readJsonFileWhenReady<{ systemPrompt?: string }>(fakeClaudeDump);
       system = seen.systemPrompt ?? "";
       expect(system).not.toContain('<colonie-skill id="create-verification-skill"');
-      expect(system).toContain('<colonie-skill id="phone-harness"');
     } finally {
       if (room) {
         expect((await api("POST", `/api/groups/${room.id}/interrupt`, {})).status).toBe(200);
@@ -8552,92 +7887,6 @@ describe("harness HTTP API", () => {
     }
   });
 
-  it("lets a phone paired directly with Full access ask for the Local VM desktop under its lease, and nobody else", async () => {
-    const previous = (await api("GET", "/api/config")).body.localVm;
-    const bot = (await api("POST", "/api/bots")).body.bot;
-    const lease = "phone-lease-0123456789";
-    const owner = await asPairedPerson("Owner's phone");
-    const chatOnlyWindow = await api("POST", "/api/auth/pairing", { scopes: ["client"] });
-    const chatOnlyPaired = await fetch(`${BASE}/api/auth/pair`, {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: chatOnlyWindow.body.code }),
-    });
-    const chatOnlyToken = ((await chatOnlyPaired.json()) as any).token as string;
-    const asChatOnly = async (method: string, path: string, payload?: unknown) => {
-      const res = await fetch(`${BASE}${path}`, {
-        method, headers: { authorization: `Bearer ${chatOnlyToken}`, ...(payload ? { "content-type": "application/json" } : {}) },
-        body: payload ? JSON.stringify(payload) : undefined,
-      });
-      return { status: res.status, body: await res.json() as any };
-    };
-    const join = `/api/bots/${bot.id}/local-computer/join?controlLeaseId=${lease}`;
-    const target = `local/bot-${createHash("sha256").update(bot.id).digest("hex")}`;
-    const proxy = `/api/desktop-viewer/${target}?botId=${bot.id}&controlLeaseId=${lease}`;
-    try {
-      expect((await api("PATCH", "/api/config", { localVm: { ...previous, mode: "per-bot" } })).status).toBe(200);
-      // Chat-only: no computer access at all, on every step of the way.
-      expect((await asChatOnly("POST", `/api/bots/${bot.id}/computer/control`, { action: "take", controlLeaseId: lease })).status).toBe(403);
-      expect((await asChatOnly("POST", join, {})).status).toBe(403);
-      expect((await asChatOnly("GET", proxy)).status).toBe(403);
-      expect((await asChatOnly("POST", `/api/bots/${bot.id}/computer/viewer-close`, {})).status).toBe(403);
-
-      // Full access, but not holding the computer: no desktop.
-      const unheld = await owner.call("POST", join, {});
-      expect(unheld.status).toBe(409);
-      expect(unheld.body.error).toMatch(/take control/i);
-      const unheldProxy = await owner.call("GET", proxy);
-      expect(unheldProxy.status).toBe(409);
-      expect(unheldProxy.body.error).toMatch(/take control/i);
-
-      // Holding it: the join reaches the VM (which this suite cannot start)
-      // and the proxy is bound to this lease; neither hands out an address.
-      expect((await owner.call("POST", `/api/bots/${bot.id}/computer/control`, { action: "take", controlLeaseId: lease })).body)
-        .toMatchObject({ held: true, owned: true });
-      const notReady = await owner.call("POST", join, {});
-      expect(notReady.status).toBe(409);
-      expect(notReady.body.error).not.toMatch(/take control/i);
-      expect(notReady.body.joinUrl).toBeUndefined();
-      expect(notReady.body.socketPath).toBeUndefined();
-      const boundProxy = await owner.call("GET", proxy);
-      expect(boundProxy.status).toBe(409);
-      expect(boundProxy.body.error).not.toMatch(/take control/i);
-      // Another bot's lease, or a lease that is not this one, holds nothing here.
-      expect((await owner.call("GET", `/api/desktop-viewer/${target}?botId=${bot.id}&controlLeaseId=phone-lease-9876543210`)).status).toBe(409);
-
-      // Hand back: closing the viewer is allowed and idempotent, and the proxy refuses again.
-      expect((await owner.call("POST", `/api/bots/${bot.id}/computer/viewer-close`, {})).body).toEqual({ closed: false });
-      await owner.call("POST", `/api/bots/${bot.id}/computer/control`, { action: "release", controlLeaseId: lease });
-      expect((await owner.call("GET", proxy)).status).toBe(409);
-    } finally {
-      await api("POST", `/api/bots/${bot.id}/computer/control`, { action: "release" }).catch(() => undefined);
-      await api("PATCH", "/api/config", { localVm: previous }).catch(() => undefined);
-      await api("DELETE", `/api/bots/${bot.id}`).catch(() => undefined);
-    }
-  });
-
-  it.each(["shared", "pool"])("refuses Local VM phone joins in %s mode for direct and companion callers", async testedMode => {
-    const { mode, maxInstances } = (await api("GET", "/api/config")).body.localVm;
-    const previous = { mode, maxInstances };
-    const bot = (await api("POST", "/api/bots")).body.bot;
-    const owner = await asPairedPerson("Pool viewer phone");
-    const lease = "phone-pool-lease-0123456789";
-    try {
-      expect((await api("PATCH", "/api/config", { localVm: { ...previous, mode: testedMode } })).status).toBe(200);
-      expect((await owner.call("POST", `/api/bots/${bot.id}/computer/control`, { action: "take", controlLeaseId: lease })).body.owned).toBe(true);
-      const join = `/api/bots/${bot.id}/local-computer/join?controlLeaseId=${lease}`;
-      for (const response of [await owner.call("POST", join, {}), await api("POST", join, {})]) {
-        expect(response.status).toBe(409);
-        expect(response.body.error).toContain("per-bot Local VM");
-        expect(response.body.joinUrl).toBeUndefined();
-        expect(response.body.socketPath).toBeUndefined();
-        expect(response.body.password).toBeUndefined();
-      }
-    } finally {
-      await api("POST", `/api/bots/${bot.id}/computer/control`, { action: "release", controlLeaseId: lease });
-      await api("PATCH", "/api/config", { localVm: previous });
-      await api("DELETE", `/api/bots/${bot.id}`);
-    }
-  });
-
   it("keeps shared Local VM mode by default and resolves isolated targets per bot when enabled", async () => {
     const first = (await api("POST", "/api/bots")).body.bot;
     const second = (await api("POST", "/api/bots")).body.bot;
@@ -8957,39 +8206,16 @@ describe("harness HTTP API", () => {
         .find((message: { id: string }) => message.id === messageId);
       expect(roomCard).toMatchObject({
         kind: "secret",
-        text: "Securely provide the OpenAI API key from Colonie on your phone or computer. It is never added to chat.",
+        text: "Securely provide the OpenAI API key from Colonie. It is never added to chat.",
         from: { botId: second.id, name: second.name, color: second.color },
       });
 
       // Every channel member shares the same thread, but the card remains
-      // owned by the member that requested it. Another member cannot dismiss
-      // it (and likewise cannot bind a phone ciphertext to itself).
+      // owned by the member that requested it. Another member cannot dismiss it.
       const wrongOwner = await api("POST", `/api/bots/${first.id}/secret-cards/${messageId}/dismiss`, {
         threadId: room.threadId,
       });
       expect(wrongOwner.status).toBe(404);
-      const wrongOwnerPhone = await fetch(
-        `${BASE}/api/bots/${first.id}/secret-cards/${messageId}/provide`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-colonie-companion": "1",
-            "x-colonie-companion-device": "phone-1",
-          },
-          body: JSON.stringify({
-            version: 1,
-            threadId: room.threadId,
-            keyId: "A".repeat(22),
-            deviceId: "phone-1",
-            target: "openaiImageApiKey",
-            requestKey: roomCard.secret.requestKey,
-            encapsulatedKey: "A".repeat(87),
-            ciphertext: "A".repeat(23),
-          }),
-        },
-      );
-      expect(wrongOwnerPhone.status).toBe(404);
 
       const resumed = await api("POST", `/api/bots/${second.id}/secret-cards/${messageId}/dismiss`, {
         threadId: room.threadId,

@@ -1101,7 +1101,7 @@
   "phone.signIn.timedOut": "Безпечний доступ триває довше, ніж очікувалося. Спробуйте ще раз або прив'яжіться напряму на цьому Wi-Fi.",
   "phone.signIn.failed": "Ми не змогли завершити створення вашого приватного підключення.",
   "phone.signIn.emailPrompt": "Ми надішлемо вам одноразовий код на email. Пароль не потрібен.",
-  "phone.signIn.email": "Email",
+  "settings.profile.email": "Email",
   "phone.signIn.code": "8-значний код",
   "phone.signIn.working": "Працюємо…",
   "phone.signIn.verify": "Перевірити і продовжити",

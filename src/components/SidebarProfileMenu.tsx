@@ -9,43 +9,28 @@
 // The update entry is the one item that reports progress in place, so it
 // keeps the menu open and re-labels itself as it works.
 //
-// The phone entries (Connect your phone, Get the phone app) stay visible
-// but disabled in this fork. Help Center and Send Feedback are not offered.
+// Help Center and Send Feedback are not offered.
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDownToLineIcon,
-  Download01Icon,
   InformationCircleIcon,
   KeyboardIcon,
   Loading02Icon,
   RefreshCwIcon,
   Settings01Icon,
-  SmartphoneIcon,
   Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
 import { InitialsAvatar } from "./Avatar";
 import { AboutDialog } from "./AboutDialog";
-import { PhoneAppDialog } from "./PhoneAppDialog";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
 import { ShortcutHint } from "./ShortcutHint";
-import { useSidebarPhoneStatus } from "./SidebarPhoneButton";
-import { useStore, type Action } from "@/state/store";
+import { useStore } from "@/state/store";
 import { useUpdaterState, type UpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import {
-  connectPhoneEntry,
-  currentPhonePairingTarget,
-  loadPhonePairingAccess,
-  phoneDestinations,
-  phonePairingSettingsAction,
-  type ConnectPhoneEntry,
-  type PhoneDestination,
-  type PhonePairingAccess,
-} from "@/lib/phone-pairing";
 
 /** "Mila Sona" → "MS", "mil" → "M", "you@x.dev" → "Y", unset → "?" */
 export function profileInitials(profile?: { name?: string; email?: string }): string {
@@ -197,91 +182,18 @@ export function useUpdateItem(): UpdateEntry | null {
   };
 }
 
-/** Connect your phone for this window, once it is known whether this
- * session may pair one. This computer's own phone flow needs no asking. */
-function useConnectPhoneEntry(): ConnectPhoneEntry | null {
-  const target = currentPhonePairingTarget();
-  const [access, setAccess] = useState<PhonePairingAccess | null>(null);
-  useEffect(() => {
-    if (target === "computer") return;
-    let alive = true;
-    void loadPhonePairingAccess().then((next) => {
-      if (alive) setAccess(next);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [target]);
-  return connectPhoneEntry(target, access);
-}
-
-/** What choosing a destination does: Settings → Remote access on this
- * window's pairing. */
-export function selectPhoneDestination({ dispatch }: { dispatch: (action: Action) => void }): void {
-  dispatch(phonePairingSettingsAction());
-}
-
-/** The phone entries at the top of the menu: a Connect your phone line per
- * destination, then Get the phone app. Connect your phone is absent where
- * this window cannot pair one (a chat-only session, a server whose people
- * sign in through their organization). Both entries are shown disabled in
- * this fork. */
-export function phoneMenuItems({
-  destinations,
-  connected,
-  onConnect,
-  onGetApp,
-}: {
-  destinations: PhoneDestination[];
-  /** a phone is connected to this computer right now */
-  connected: boolean;
-  onConnect: (destination: PhoneDestination) => void;
-  onGetApp: () => void;
-}): SidebarMenuItem[] {
-  return [
-    ...destinations.map((destination) => ({
-      key: "connect-phone",
-      label: t("sidebar.menu.connectPhone"),
-      subtitle: t(destination.subtitleKey),
-      icon: <HIcon icon={SmartphoneIcon} size={18} />,
-      trailing:
-        destination.target === "computer" && connected ? (
-          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-success" />
-        ) : undefined,
-      disabled: true,
-      onSelect: () => onConnect(destination),
-    } satisfies SidebarMenuItem)),
-    {
-      key: "phone-app",
-      label: t("sidebar.menu.getPhoneApp"),
-      icon: <HIcon icon={Download01Icon} size={18} />,
-      disabled: true,
-      onSelect: onGetApp,
-    },
-  ];
-}
+/** Whatever the menu offers beyond the update row. */
 
 export function SidebarProfileMenu() {
   const { state, dispatch } = useStore();
-  const phone = useSidebarPhoneStatus();
-  const connectPhone = useConnectPhoneEntry();
-  const destinations = phoneDestinations(connectPhone);
   const update = useUpdateItem();
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [phoneAppOpen, setPhoneAppOpen] = useState(false);
   const triggerRef = useRef<HTMLSpanElement>(null);
 
   const profile = state.config?.profile;
   const name = profileLabel(profile);
-  const connectTo = () => selectPhoneDestination({ dispatch });
 
   const items: SidebarMenuItem[] = [
-    ...phoneMenuItems({
-      destinations,
-      connected: phone.kind === "connected",
-      onConnect: connectTo,
-      onGetApp: () => setPhoneAppOpen(true),
-    }),
     {
       key: "settings",
       label: t("sidebar.menu.settings"),
@@ -342,15 +254,6 @@ export function SidebarProfileMenu() {
         )}
       />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <PhoneAppDialog
-        open={phoneAppOpen}
-        onClose={() => setPhoneAppOpen(false)}
-        connect={destinations.map((destination) => ({
-          key: destination.id,
-          subtitle: t(destination.subtitleKey),
-          onSelect: () => connectTo(),
-        }))}
-      />
     </>
   );
 }

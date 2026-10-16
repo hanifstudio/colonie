@@ -1871,7 +1871,7 @@
   "phone.signIn.timedOut": "Secure access is taking longer than expected. You can try again or pair directly on this Wi-Fi.",
   "phone.signIn.failed": "We could not finish creating your private connection.",
   "phone.signIn.emailPrompt": "We’ll email you a one-time code. No password needed.",
-  "phone.signIn.email": "Email",
+  "settings.profile.email": "Email",
   "phone.signIn.code": "8-digit code",
   "phone.signIn.working": "Working…",
   "phone.signIn.verify": "Verify and continue",

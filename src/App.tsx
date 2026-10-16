@@ -27,7 +27,6 @@ import { setLocale } from "@/lib/i18n";
 import { useAppKeyboardShortcuts } from "@/lib/use-app-keyboard-shortcuts";
 import { effectiveLanguage, useLanguageChoice } from "@/lib/language-preference";
 import { botShowsUnread } from "@/lib/bot-unread";
-import { phonePairingSettingsAction, takePhonePairingRequest } from "@/lib/phone-pairing";
 
 /** The one original shell: every layout, chrome, drawer, shortcut and palette
  * behavior, mounted by `Application` under the local store. */
@@ -40,15 +39,6 @@ export function Shell() {
   const remoteClient = window.colonie?.remoteClient?.active === true;
   const twoSidePanelsFit = useMediaQuery(TWO_SIDE_PANELS_FIT, true);
   const sidebarAndPanelFit = useMediaQuery(SIDEBAR_AND_PANEL_FIT, true);
-  // "Use your Cloud on your phone" opens the Cloud in this window at
-  // /?desktop-settings=phone: its own phone pairing, in any window, on any
-  // server. It only opens Settings there; no code is made until a click.
-  useEffect(() => {
-    const rest = takePhonePairingRequest(window.location.href);
-    if (rest === null) return;
-    window.history.replaceState(null, "", rest);
-    dispatch(phonePairingSettingsAction());
-  }, [dispatch]);
   // Mobile-only drawer state. Above md, none of these properties are emitted
   // at all — Sidebar scopes every mobile class with max-md: rather than
   // cancelling them with md:, which would still emit a translate value and

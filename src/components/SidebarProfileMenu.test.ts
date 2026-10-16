@@ -1,26 +1,15 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
 
 import {
-  phoneMenuItems,
   profileInitials,
-  selectPhoneDestination,
   profileLabel,
   updateBusy,
   updateNoteworthy,
   updateLabel,
   updatePhase,
 } from "./SidebarProfileMenu";
-import { ANDROID_APK_URL, DOCS_URL, FEEDBACK_URL, HELP_CENTER_URL, IOS_APP_STORE_URL, platformLabel } from "@/lib/app-links";
-import {
-  connectPhoneEntry,
-  phoneDestinations,
-  phonePairingSettingsAction,
-  type PhonePairingAccess,
-  type PhonePairingTarget,
-} from "@/lib/phone-pairing";
-import { PHONE_APPS, PhoneAppDialog, type PhoneAppConnect } from "./PhoneAppDialog";
+import { DOCS_URL, FEEDBACK_URL, HELP_CENTER_URL, platformLabel } from "@/lib/app-links";
 import type { UpdaterState } from "@/lib/updater";
 
 const state = (patch: Partial<UpdaterState>): UpdaterState => ({ status: "idle", ...patch }) as UpdaterState;
@@ -172,99 +161,5 @@ describe("outward links", () => {
 
   it("sends Send Feedback to the Discord community", () => {
     expect(FEEDBACK_URL).toBe("https://discord.gg/9Wb8MEpXRs");
-  });
-});
-
-describe("the phone entries", () => {
-  const admin: PhonePairingAccess = { session: { kind: "session", id: "s", label: "Mac", scopes: ["admin", "client"], expiresAt: 1 }, pairingCodes: true };
-  const chatOnly: PhonePairingAccess = { session: { kind: "session", id: "s", label: "Phone", scopes: ["client"], expiresAt: 1 }, pairingCodes: true };
-  /** The menu as SidebarProfileMenu builds it: this window's own pairing. */
-  const items = (target: PhonePairingTarget, access: PhonePairingAccess | null, connected = false) => {
-    const onConnect = vi.fn(), onGetApp = vi.fn();
-    const destinations = phoneDestinations(connectPhoneEntry(target, access));
-    return { list: phoneMenuItems({ destinations, connected, onConnect, onGetApp }), onConnect, onGetApp };
-  };
-  const shown = (...args: Parameters<typeof items>) => items(...args).list.map((item) => [item.label, item.subtitle ?? null, ...(item.note ? [item.note] : [])]);
-  const APP = ["Get the phone app", null];
-
-  it("on this computer: Connect your phone, to this computer, then Get the phone app", () => {
-    expect(shown("computer", null)).toEqual([["Connect your phone", "to this computer"], APP]);
-  });
-
-  it("on another server: to this server, and gone for a session that cannot make a pairing code", () => {
-    expect(shown("server", admin)).toEqual([["Connect your phone", "to this server"], APP]);
-    expect(shown("server", chatOnly)).toEqual([APP]);
-    expect(shown("server", { ...admin, pairingCodes: false })).toEqual([APP]);
-  });
-
-  it("never offers the iOS-only entry it replaced", () => {
-    for (const target of ["computer", "server"] as const) {
-      expect(items(target, null).list.map((item) => item.label)).not.toContain("Get Colonie for iOS");
-    }
-  });
-
-  it("each line hands on its own destination", () => {
-    const { list, onConnect, onGetApp } = items("computer", null);
-    list[0]!.onSelect();
-    expect(onConnect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "here", target: "computer" }));
-    expect(onGetApp).not.toHaveBeenCalled();
-    list[1]!.onSelect();
-    expect(onGetApp).toHaveBeenCalledOnce();
-  });
-
-  it("shows this computer's live phone on this computer's line only", () => {
-    expect(items("computer", null, true).list[0]!.trailing).toBeTruthy();
-    expect(items("computer", null, false).list[0]!.trailing).toBeUndefined();
-    expect(items("server", admin, true).list[0]!.trailing).toBeUndefined();
-  });
-});
-
-describe("choosing where the phone connects", () => {
-  it("opens this computer's phone pairing", () => {
-    const dispatch = vi.fn();
-    selectPhoneDestination({ dispatch });
-    expect(dispatch).toHaveBeenCalledExactlyOnceWith(phonePairingSettingsAction());
-  });
-});
-
-describe("Get the phone app", () => {
-  it("offers iPhone and Android with the links the website and Cloud page use", () => {
-    expect(PHONE_APPS.map((app) => [app.id, app.url])).toEqual([["ios", IOS_APP_STORE_URL], ["android", ANDROID_APK_URL]]);
-    expect(IOS_APP_STORE_URL).toBe("https://apps.apple.com/in/app/colonie/id6803387923");
-    expect(ANDROID_APK_URL).toBe("https://github.com/hanifstudio/colonie/releases/download/android-v1.5.0/Colonie.apk");
-  });
-
-  const render = (connect?: PhoneAppConnect[]) => {
-    vi.stubGlobal("window", { addEventListener: () => {}, removeEventListener: () => {} });
-    try {
-      return renderToStaticMarkup(createElement(PhoneAppDialog, { open: true, onClose: () => {}, connect }));
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  };
-  const to = (key: string, subtitle: string): PhoneAppConnect => ({ key, subtitle, onSelect: () => {} });
-
-  it("draws a code to scan for each, and points on to Connect your phone where this window can pair", () => {
-    const html = render([to("here", "to this computer")]);
-    expect(html).toContain('data-phone-app="ios"');
-    expect(html).toContain('data-phone-app="android"');
-    expect(html.match(/<svg/g)?.length).toBe(2);
-    expect(html).toContain("Open in the App Store");
-    expect(html).toContain("Download the APK");
-    expect(html).toContain("Connect your phone");
-    expect(html).toContain("to this computer");
-    // nothing to pair with here: the dialog only says where the app is
-    expect(render()).not.toContain("Connect your phone");
-    expect(render([])).not.toContain("Connect your phone");
-  });
-
-  it("offers every destination the menu does, in the same order", () => {
-    const html = render([to("cloud", "to My Cloud (always on)"), to("here", "to this computer")]);
-    expect(html.indexOf('data-phone-app-connect="cloud"')).toBeGreaterThan(-1);
-    expect(html.indexOf('data-phone-app-connect="cloud"')).toBeLessThan(html.indexOf('data-phone-app-connect="here"'));
-  });
-
-  it("is not drawn while closed", () => {
-    expect(renderToStaticMarkup(createElement(PhoneAppDialog, { open: false, onClose: () => {} }))).toBe("");
   });
 });

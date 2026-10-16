@@ -13,7 +13,6 @@ import { timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 
 import type { Scope, SessionRecord, SessionRegistry } from "./sessions.ts";
-import { denyReason as companionDenial, isCompanionNotice } from "../companion/src/routes.ts";
 
 /** How much a loopback request without a session is trusted.
  *
@@ -400,24 +399,13 @@ export interface ResolveOptions {
    * port. When present, originless loopback callers may still read but every
    * public mutation must prove it came through the desktop's web session. */
   loopbackMutationToken?: string;
-  /** Separate private capability held by the authenticated phone relay. */
-  companionMutationToken?: string;
   /** Feature gates that decide whether a client-scoped route exists at all.
    * Absent means off, so an ungated build refuses like one without it. */
   features?: { sharedComputers?: boolean };
   /** See LoopbackTrust. Absent is `owner`, the historical behaviour. Ignored
    * while a desktop capability is in force (loopbackMutationToken). */
   loopbackTrust?: LoopbackTrust;
-  /** Under `service`: a per-launch secret the `colonie serve` process
-   * that started this server handed it over the child's stdin (never the
-   * environment, which the server's other children could read). It lets that
-   * CLI, and nothing else, mint and list pairing codes. */
-  cliOwnerToken?: string;
 }
-
-const CLI_OWNER_HEADER = "x-colonie-cli-owner";
-/** The only routes the serving CLI's secret opens: its pairing code. */
-const CLI_OWNER_ROUTE = /^\/api\/auth\/pairing$/;
 
 const DESKTOP_OWNER_HEADER = "x-colonie-desktop-owner";
 
@@ -504,17 +492,6 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
   const proxied = isProxied(req);
   const loopback = !proxied && isLoopbackHost(headerValue(req.headers.host)) && isAllowedOrigin(headerValue(req.headers.origin));
   if (loopback) {
-    const companionToken = headerValue(req.headers["x-colonie-companion-auth"]);
-    if (companionToken && options.loopbackMutationToken !== undefined) {
-      if (
-        !secureTokenMatch(companionToken, options.companionMutationToken ?? "") ||
-        req.headers["x-colonie-companion"] !== "1" ||
-        !/^[\w-]{1,128}$/.test(headerValue(req.headers["x-colonie-companion-device"]) ?? "") ||
-        // a phone's allowlisted route, or the companion's own notice (an unpaired phone)
-        (companionDenial({ path, method, authenticated: true }) && !isCompanionNotice(method, path))
-      ) return deny(403, "forbidden: invalid companion request");
-      return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
-    }
     if (
       options.loopbackMutationToken !== undefined &&
       mutatingPublicRoute(method, path) &&
@@ -523,13 +500,6 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
       return deny(403, "forbidden: this change must come from the desktop app or a paired device");
     }
     if (options.loopbackMutationToken === undefined && options.loopbackTrust === "service") {
-      // The CLI that started this server may still print a pairing code.
-      if (
-        options.cliOwnerToken && CLI_OWNER_ROUTE.test(path) && ["GET", "POST"].includes(method.toUpperCase()) &&
-        secureTokenMatch(headerValue(req.headers[CLI_OWNER_HEADER]), options.cliOwnerToken)
-      ) {
-        return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
-      }
       // On a shared server "local" includes every bot's shell. Default deny:
       // only the service routes, never an admin change, without a session.
       if (!serviceAllowed(method, path)) {

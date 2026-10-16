@@ -72,9 +72,6 @@ export function WelcomeGate({ viewer }: { viewer: WelcomeViewer | null }) {
       hosted: viewer.hosted,
       canSave: viewer.canSave,
     });
-  // Explicit remote-access Settings need no local provider onboarding;
-  // closing Settings resumes the normal tour.
-  if (state.appSettingsOpen && state.appSettingsSection === "companion") return null;
   if (!state.welcomeOpen && !due) return null;
   const bot = state.bots.find((b) => !b.hidden) ?? null;
   const replay = state.welcomeOpen && !due;

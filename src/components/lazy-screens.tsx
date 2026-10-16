@@ -110,7 +110,7 @@ const SCREENS = [
 ];
 
 // A window opened onto Settings (?desktop-settings=…: the desktop app's
-// Workspaces, Organization and Cloud windows, phone pairing) shows it at
+// Workspaces and Organization windows) shows it at
 // mount, before the launch is idle: fetch it now, beside the session check.
 // A failure is logged by preload and shown when Settings mounts.
 if (typeof location !== "undefined" && new URLSearchParams(location.search).has("desktop-settings")) {

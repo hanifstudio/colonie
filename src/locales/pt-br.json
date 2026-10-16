@@ -771,7 +771,7 @@
   "phone.signIn.timedOut": "O acesso seguro está demorando mais que o esperado. Tente de novo ou pareie direto nesta Wi-Fi.",
   "phone.signIn.failed": "Não conseguimos concluir a criação da sua conexão privada.",
   "phone.signIn.emailPrompt": "Vamos enviar um código de uso único por e-mail. Sem senha.",
-  "phone.signIn.email": "E-mail",
+  "settings.profile.email": "E-mail",
   "phone.signIn.code": "Código de 8 dígitos",
   "phone.signIn.working": "Trabalhando…",
   "phone.signIn.verify": "Verificar e continuar",

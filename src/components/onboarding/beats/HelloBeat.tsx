@@ -77,7 +77,7 @@ export function HelloBeat({ onNext, hosted = false }: BeatProps & { hosted?: boo
       />
       <input
         type="email"
-        aria-label={t("phone.signIn.email")}
+        aria-label={t("settings.profile.email")}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && void saveProfile()}

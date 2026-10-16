@@ -46,7 +46,6 @@ import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsI
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
-import { phonePairingLink } from "../shared/pairing-link.ts";
 import {
   approvalModeFor,
   modelSwitchNeedsAsk,
@@ -558,7 +557,7 @@ import {
   serializeSessionCookie,
   sessionCookieName,
 } from "./request-auth.ts";
-import { cookieMaxAgeSeconds, formatPairingCode, SessionRegistry, type Scope, type SessionRecord } from "./sessions.ts";
+import { cookieMaxAgeSeconds, SessionRegistry, type SessionRecord } from "./sessions.ts";
 import { ThreadStarters } from "./thread-starters.ts";
 import {
   activityCsv,
@@ -600,15 +599,6 @@ import {
 } from "./bot-visibility.ts";
 import { describeBrand, loadBrand } from "./brand.ts";
 import { deliverSseFrame } from "./sse-fanout.ts";
-import {
-  PHONE_SECRET_PROTOCOL_VERSION,
-  PhoneSecretBridge,
-  PhoneSecretError,
-  PhoneSecretSubmissionRegistry,
-  assertPhoneSecretRequestMatches,
-  phoneSecretOperationId,
-  type PhoneSecretContext,
-} from "./phone-secret.ts";
 // Keep these two last: a route module may import any server module, and
 // loading the table after everything above leaves module start-up order as is.
 import { json, onJsonBody, parsedBodyOf, readBody } from "./harness/http.ts";
@@ -709,28 +699,11 @@ const sharedWorkspaceFullAccessEnabled = () => SHARED_WORKSPACE_FULL_ACCESS && B
 // LoopbackTrust): the owner on a desktop or a one-person server; a service on
 // a shared workspace, where every bot's shell is a loopback caller too.
 const LOOPBACK = resolveLoopbackTrust({ desktopManaged: DESKTOP_MANAGED, hostedWorkspace: HOSTED_WORKSPACE });
-// `colonie serve` on a service-trust server hands the server it starts a
-// per-launch secret on stdin, then closes it (server/cli.ts). It opens only
-// the pairing route, for that CLI. Never an environment variable: every
-// engine this server starts inherits its environment.
-let cliOwnerToken: string | undefined;
-if (process.env.COLONIE_CLI_OWNER_STDIN === "1" && LOOPBACK.trust === "service" && process.stdin) {
-  let received = "";
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("error", () => { /* the CLI went away; no pairing through it */ });
-  process.stdin.on("data", (chunk: string) => {
-    if (cliOwnerToken !== undefined || received.length > 256) return;
-    received += chunk;
-    const line = received.split("\n", 1)[0]!;
-    if (received.includes("\n") && /^[A-Za-z0-9_-]{43}$/.test(line)) cliOwnerToken = line;
-  });
-}
-delete process.env.COLONIE_CLI_OWNER_STDIN;
 // Empty is deliberately a deny-all bootstrap state. Only Electron's private
 // utility-process port can replace it with the per-launch owner capability.
 let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
-let companionMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
-// Where remote clients reach this server (a proxy's public address); pairing URLs use it.
+// Where remote clients reach this server (a proxy's public address), for links this
+// server hands out.
 const FALLBACK_PUBLIC_URL = process.env.COLONIE_PUBLIC_URL?.trim().replace(/\/+$/, "") || null;
 const cfg = loadConfig();
 const providerConfigs = () => instanceConfigs(cfg);
@@ -787,7 +760,7 @@ const turnTriggers = new Map<string, UsageTrigger>();
  * owner. Loopback is the owner by design, so it stays unstamped and reads as
  * the profile name; a paired or signed-in session names the person, by
  * account email where there is one and otherwise by the device label they
- * chose while pairing. */
+ */
 function messageSender(auth: RequestAuth): ResolvedSender | undefined {
   if (auth.kind !== "session") return undefined;
   const name = (auth.session.email ?? auth.session.label ?? "").trim();
@@ -1178,15 +1151,14 @@ function adminActivityRecording(): boolean {
   if (DESKTOP_MANAGED) return false;
   if (HOSTED_WORKSPACE) return true;
   const chatOnly = (scopes: readonly string[]) => !scopes.includes("admin");
-  return sharedSignIn(signInAllowList()) || sessions.list().some((session) => chatOnly(session.scopes)) ||
-    sessions.openPairings().some((pairing) => chatOnly(pairing.scopes));
+  return sharedSignIn(signInAllowList()) || sessions.list().some((session) => chatOnly(session.scopes));
 }
 
 /** Who made an admin change: as the decision log names who answered, plus
  * the command line (it marks its requests; on loopback that is the owner). */
 function adminActorFor(auth: RequestAuth, req: IncomingMessage): AdminActor {
   if (auth.kind === "loopback" && auth.trust !== "service" &&
-    (req.headers["x-colonie-cli"] === "1" || req.headers["x-colonie-cli-owner"] !== undefined)) return { kind: "cli" };
+    req.headers["x-colonie-cli"] === "1") return { kind: "cli" };
   return decisionActorFor(auth);
 }
 
@@ -1214,7 +1186,6 @@ interface AuditPlan {
   /** A webhook changed, deleted or given a new secret by id. */
   webhookId?: string;
   sessionId?: string;
-  pairing: boolean;
   engineAction?: { id: string; action: string };
   /** A room whose audience an admin may reset (PATCH {resetAudience}). */
   roomId?: string;
@@ -1227,7 +1198,6 @@ function adminAuditPlan(method: string, path: string): AuditPlan | null {
     config: requiredScope(method, path, { sharedComputers: lendingEnabled() }) === "admin",
     createsBots: method === "POST" && (path === "/api/bots" || path === "/api/teams/import"),
     createsWebhook: method === "POST" && path === "/api/webhooks",
-    pairing: method === "POST" && path === "/api/auth/pairing",
   };
   let m = /^\/api\/bots\/([\w-]+)(?:\/(always-allow|model))?$/.exec(path);
   if (m && ((!m[2] && method === "PATCH") || (m[2] === "model" && method === "PATCH") || (m[2] === "always-allow" && method === "POST"))) plan.botId = m[1];
@@ -1242,7 +1212,7 @@ function adminAuditPlan(method: string, path: string): AuditPlan | null {
   if (m && method === "POST") plan.engineAction = { id: m[1]!, action: m[2]!.replace("/", "-") };
   if (method === "POST" && path === "/api/instances/claude-accounts") plan.engineAction = { id: "claude", action: "account-add" };
   if (method === "POST" && path === "/api/instances/chatgpt-accounts") plan.engineAction = { id: "chatgpt", action: "account-add" };
-  return plan.config || plan.botId || plan.createsBots || plan.deletesBot || plan.createsWebhook || plan.webhookId || plan.sessionId || plan.pairing || plan.engineAction || plan.roomId ? plan : null;
+  return plan.config || plan.botId || plan.createsBots || plan.deletesBot || plan.createsWebhook || plan.webhookId || plan.sessionId || plan.engineAction || plan.roomId ? plan : null;
 }
 
 const WEBHOOK_AUDIT_FIELDS = ["name", "prompt", "botId", "runOn", "enabled", "eventTypes"] as const;
@@ -1284,7 +1254,7 @@ function beginAdminAudit(req: IncomingMessage, res: ServerResponse, method: stri
     roomFloor: plan.roomId ? store.group(plan.roomId)?.audienceFloor ?? "everyone" : undefined,
   };
   let answered: unknown;
-  if (plan.createsBots || plan.createsWebhook || plan.pairing) onJsonBody(res, (body) => (answered = body));
+  if (plan.createsBots || plan.createsWebhook) onJsonBody(res, (body) => (answered = body));
   res.once("finish", () => {
     if (res.statusCode >= 400 || (!sharedAtStart && !adminActivityRecording())) return;
     try {
@@ -1341,10 +1311,6 @@ function adminAuditRows(
     const session = before.session;
     rows.push({ category: "session", action: "session.revoke", target: { kind: "session", id: session.id, name: session.email ?? session.label },
       before: { label: session.label, ...(session.email ? { email: session.email } : {}), scopes: session.scopes } });
-  }
-  if (plan.pairing) {
-    const pairing = sessions.openPairings().find((candidate) => candidate.id === reply.id);
-    if (pairing) rows.push({ category: "session", action: "pairing.create", target: { kind: "pairing", name: pairing.label }, after: { label: pairing.label, scopes: pairing.scopes } });
   }
   if (plan.engineAction) rows.push({ category: "engine", action: `engine.${plan.engineAction.action}`, target: { kind: "engine", id: plan.engineAction.id } });
   const roomBody = plan.roomId ? parsedBodyOf(req) : undefined;
@@ -1464,11 +1430,6 @@ type DesktopPrivateMessage = BrowserCleanupWireRequest | {
   botId: string;
   held: true;
 } | {
-  type: "colonie:phone-secret-save";
-  requestId: string;
-  target: string;
-  value: string;
-} | {
   type: "approval-trusted-mode-result" | "approval-trusted-mode-commit-result";
   requestId: string;
   ok: boolean;
@@ -1503,9 +1464,6 @@ function applyDesktopMutationTokenMessage(raw: unknown): boolean {
     throw new Error("invalid desktop mutation capability");
   }
   desktopMutationToken = message.token;
-  if (typeof message.companionToken === "string" && /^[A-Za-z0-9_-]{43}$/.test(message.companionToken)) {
-    companionMutationToken = message.companionToken;
-  }
   return true;
 }
 // Browser data of a deleted bot or profile: the engine's saved session
@@ -1548,14 +1506,12 @@ const browserCleanup: BrowserCleanupCoordinator = new BrowserCleanupCoordinator(
     return true;
   },
 });
-const phoneSecrets = new PhoneSecretBridge(postDesktopPrivateMessage);
 utilityParentPort?.on("message", (event) => {
   const message = event?.data;
   try {
     if (applyDesktopMutationTokenMessage(message)) return;
     if (handleDesktopTrustedApprovalMessage(message)) return;
     if (browserCleanup.receive(message)) return;
-    if (phoneSecrets.receive(message)) return;
     composio.applyManagedBrokerMessage(message);
   } catch (error) {
     console.error(`[desktop-sync] rejected private parent message: ${error instanceof Error ? error.message : String(error)}`);
@@ -1579,7 +1535,7 @@ type InternalCapability = {
   threadId: string;
   generation: string;
   depth: number;
-  kind: "agents" | "connectors" | "computer" | "browser" | "hooks" | "phone";
+  kind: "agents" | "connectors" | "computer" | "browser" | "hooks";
   skillAuthoring: boolean;
   createdBots: number;
   createdRooms?: number;
@@ -1821,21 +1777,10 @@ const createSidebarSectionSchema = z.object({
   botIds: z.array(z.string().regex(/^[\w-]+$/)).max(MAX_WORKSPACE_BOTS).default([]),
 }).strict();
 const createGroupTaskRequestSchema = z.object({ title: z.string().optional() });
-const phoneSecretEnvelopeSchema = z.object({
-  version: z.literal(PHONE_SECRET_PROTOCOL_VERSION),
-  threadId: z.string().regex(/^[\w-]{1,128}$/),
-  keyId: z.string().regex(/^[A-Za-z0-9_-]{22}$/),
-  deviceId: z.string().regex(/^[\w-]{1,128}$/),
-  target: z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,63}$/),
-  requestKey: z.string().regex(/^[\w-]{1,128}$/),
-  encapsulatedKey: z.string().regex(/^[A-Za-z0-9_-]{87}$/),
-  ciphertext: z.string().regex(/^[A-Za-z0-9_-]{23,5483}$/),
-}).strict();
 // Resolved from the server root — see server/proxy-paths.ts. This descending
 // path happened to survive bundling, but it goes through the same anchor so
 // there is exactly one way proxies are located.
 const agentsProxyPath = SPAWNED_PROXIES.agents;
-const phoneProxyPath = SPAWNED_PROXIES.phone;
 // in the packaged app process.execPath is Electron — run the proxy as node
 const AGENTS_NODE_FLAG = { ELECTRON_RUN_AS_NODE: "1" };
 
@@ -2474,32 +2419,6 @@ export function browserEngineSummary(): { kind: "engine" | "unavailable"; reason
   return status.kind === "ready"
     ? { kind: "engine", version: status.version, ...progress }
     : { kind: "unavailable", reason: status.reason, installable: status.installable, ...progress };
-}
-
-function phoneIntegration(botId: string, threadId: string, generation: string) {
-  // The phone is claimed lazily, at the first tools/call the engine makes
-  // through this proxy (/api/internal/phone/claim): trigger-term matching
-  // only decides whether the tools are mounted, so a conversation that
-  // merely mentions "android" holds nothing while it runs.
-  const token = mintInternalCapability({
-    botId,
-    threadId,
-    generation,
-    depth: 0,
-    kind: "phone",
-    skillAuthoring: false,
-    createdBots: 0,
-    openedThreads: 0,
-  });
-  const env: Record<string, string> = {
-    ...AGENTS_NODE_FLAG,
-    COLONIE_PHONE_TOKEN: token,
-    COLONIE_HARNESS_URL: `http://127.0.0.1:${PORT}`,
-  };
-  if (process.env.COLONIE_ADB_PATH) env.COLONIE_ADB_PATH = process.env.COLONIE_ADB_PATH;
-  if (process.env.COLONIE_RESOURCES_PATH) env.COLONIE_RESOURCES_PATH = process.env.COLONIE_RESOURCES_PATH;
-  if (process.env.PH_ANDROID_SERIAL) env.PH_ANDROID_SERIAL = process.env.PH_ANDROID_SERIAL;
-  return { command: process.execPath, args: [phoneProxyPath], env };
 }
 
 function connectedAppsIntegration(bot: Pick<BotRecord, "id" | "connectorTools">, threadId: string, generation: string) {
@@ -4175,9 +4094,6 @@ function updateChannel(groupId: string, value: unknown): GroupRecord {
 
   const existing = store.group(groupId);
   if (!existing) throw Object.assign(new Error("no such room"), { status: 404 });
-  if (body.memberIds !== undefined && phoneSecretSubmissions.hasGroup(existing.id)) {
-    throw Object.assign(new Error("this channel is securely saving a credential — try again when it finishes"), { status: 409 });
-  }
   if (
     channelTaskBlocked(existing) &&
     (body.memberIds !== undefined || body.defaultResponder !== undefined || body.bulletin !== undefined)
@@ -9061,15 +8977,9 @@ async function startTurn(
       let browser: Awaited<ReturnType<typeof browserIntegration>> = null;
       const selectedSkills = selectBundledSkills(
         providerText,
-        [
-          ...(instance.adapter.capabilities.phoneMcp === true ? ["phoneMcp"] : []),
-          ...(skillAuthoring ? ["skillAuthoring"] : []),
-        ],
+        skillAuthoring ? ["skillAuthoring"] : [],
         availableSkills(),
       );
-      if (selectedSkills.some((skill) => skill.manifest.requiredCapabilities.includes("phoneMcp"))) {
-        integrations.phone = phoneIntegration(bot.id, threadId, dispatchClaimId);
-      }
       // the user's connected apps, but only to a driver that can mount
       // them — a key in the config says the connections exist, not that
       // this engine can reach them — and only to a bot the user has not
@@ -10380,13 +10290,6 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
       if (bot.busy || hasDirectDispatch(bot.id)) {
         return deletionResponse( 409, { error: "stop this bot's work before deleting it" });
       }
-      // Bot deletion awaits VM/browser cleanup. Claim the bot and
-      // every channel it belongs to before that first await so a phone save
-      // cannot begin halfway through teardown (or vice versa).
-      const releasePhoneSecretMutation = claimPhoneSecretBotDeletion(bot.id);
-      if (!releasePhoneSecretMutation) {
-        return deletionResponse( 409, { error: "this bot or one of its channels is securely saving a credential" });
-      }
       let claimedLocalVmTarget: LocalVmTarget | null = null;
       try {
         let localVmCleanup: { target: LocalVmTarget; removeContainer: boolean } | null = null;
@@ -10504,7 +10407,6 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
         return deletionResponse( 200, { ok: true });
       } finally {
         if (claimedLocalVmTarget) localVmLifecycleBusy.delete(claimedLocalVmTarget.key);
-        releasePhoneSecretMutation();
       }
 }
 
@@ -11369,7 +11271,7 @@ async function runGroupMemberTurn(
   const selectedSkills = mergeSkills(
     selectBundledSkills(
       roomContext,
-      instance.adapter.capabilities.phoneMcp === true ? ["phoneMcp"] : [],
+      [],
       skills,
     ),
     selectBundledSkills(
@@ -11378,9 +11280,6 @@ async function runGroupMemberTurn(
       skills,
     ),
   );
-  if (selectedSkills.some((skill) => skill.manifest.requiredCapabilities.includes("phoneMcp"))) {
-    integrations.phone = phoneIntegration(bot.id, threadId, internalGeneration);
-  }
   try {
     if (bot.composio !== false && composio.configured(cfg) && instance.adapter.capabilities.composioMcp === true) {
       const connection = await connectedAppsIntegration(bot, threadId, internalGeneration);
@@ -13545,35 +13444,9 @@ type SecretResumeEntry = {
   outcome: "provided" | "dismissed";
 };
 const pendingSecretResumes = new Map<string, SecretResumeEntry>();
-const phoneSecretSubmissions = new PhoneSecretSubmissionRegistry();
-
-function claimPhoneSecretBotDeletion(botId: string): (() => void) | null {
-  const scopes = [
-    { botId },
-    ...store.groups
-      .filter((group) => group.memberIds.includes(botId))
-      .map((group) => ({ groupId: group.id })),
-  ];
-  const releases: Array<() => void> = [];
-  for (const scope of scopes) {
-    const release = phoneSecretSubmissions.claimMutation(scope);
-    if (!release) {
-      for (const undo of releases.reverse()) undo();
-      return null;
-    }
-    releases.push(release);
-  }
-  return () => {
-    for (const release of releases.reverse()) release();
-  };
-}
-
-function phoneSecretSubmissionKey(threadId: string, messageId: string, requestKey: string): string {
-  return `${threadId}:${messageId}:${requestKey}`;
-}
 
 function credentialDesktopHandoff(label: string): string {
-  return `Securely provide the ${label} from Colonie on your phone or computer. It is never added to chat.`;
+  return `Securely provide the ${label} from Colonie. It is never added to chat.`;
 }
 
 function secretMessage(botId: string, threadId: string, messageId: string): Message | null {
@@ -13683,109 +13556,6 @@ function resumeSecretCard(botId: string, threadId: string, messageId: string, ou
   });
   dispatchSecretResume({ botId, threadId, messageId, label: message.secret.label, outcome });
   return true;
-}
-
-async function provideSecretFromPhone(
-  context: PhoneSecretContext,
-  authenticatedDeviceId: string,
-): Promise<{ provided: boolean; resumed: boolean }> {
-  const owner = connectorThread(context.botId, context.threadId);
-  const message = secretMessage(context.botId, context.threadId, context.messageId);
-  if (!owner || !message?.secret) throw new PhoneSecretError("No such credential request", 404);
-  if (message.secret.dismissed) throw new PhoneSecretError("This credential request was dismissed", 409);
-  if (message.secret.superseded) throw new PhoneSecretError("This credential request was superseded by a newer one", 409);
-  assertPhoneSecretRequestMatches(context, authenticatedDeviceId, {
-    target: message.secret.target,
-    requestKey: message.secret.requestKey,
-  });
-  const operationId = phoneSecretOperationId(context);
-  if (message.secret.phoneOperationId && message.secret.phoneOperationId !== operationId) {
-    throw new PhoneSecretError(
-      "This credential request was already completed by another submission",
-      409,
-    );
-  }
-  // The encrypted store may have committed immediately before a process
-  // interruption. Recording the winning operation precedes completing the
-  // card, so the exact retry can repair that tiny window without writing the
-  // credential again. A different randomized envelope was rejected above.
-  if (message.secret.phoneOperationId === operationId && !message.secret.provided) {
-    if (!credentialIsConfigured(cfg, message.secret.target)) {
-      throw new PhoneSecretError(`${message.secret.label} is no longer configured`, 409);
-    }
-    if (!resumeSecretCard(context.botId, context.threadId, context.messageId, "provided")) {
-      throw new PhoneSecretError("This credential request is no longer available", 409);
-    }
-    const recovered = currentSecretState(context.botId, context.threadId, context.messageId);
-    if (!recovered) throw new PhoneSecretError("This credential request is no longer available", 409);
-    return recovered;
-  }
-  if (message.secret.provided) {
-    if (message.secret.phoneOperationId !== operationId) {
-      throw new PhoneSecretError(
-        "This credential request was already completed by another submission",
-        409,
-      );
-    }
-    if (!credentialIsConfigured(cfg, message.secret.target)) {
-      throw new PhoneSecretError(`${message.secret.label} is no longer configured`, 409);
-    }
-    // A crash or older build may have committed the credential and marked
-    // the card provided without dispatching its continuation. An exact phone
-    // retry repairs that state instead of silently claiming it resumed.
-    if (!message.secret.resumed && !resumeSecretCard(
-      context.botId,
-      context.threadId,
-      context.messageId,
-      "provided",
-    )) {
-      throw new PhoneSecretError("This credential request is no longer available", 409);
-    }
-    const recovered = currentSecretState(context.botId, context.threadId, context.messageId);
-    if (!recovered) throw new PhoneSecretError("This credential request is no longer available", 409);
-    return recovered;
-  }
-
-  const submissionKey = phoneSecretSubmissionKey(context.threadId, context.messageId, context.requestKey);
-  await phoneSecretSubmissions.run({
-    cardKey: submissionKey,
-    botId: context.botId,
-    threadId: context.threadId,
-    ...(owner.group ? { groupId: owner.group.id } : {}),
-  }, operationId, async () => {
-    await phoneSecrets.provide(context);
-    const current = secretMessage(context.botId, context.threadId, context.messageId);
-    if (!current?.secret || current.secret.requestKey !== context.requestKey) {
-      throw new PhoneSecretError("This credential request is no longer available", 409);
-    }
-    if (current.secret.dismissed) {
-      throw new PhoneSecretError("This credential request was dismissed", 409);
-    }
-    // The request route may have superseded this card while the encrypted
-    // save was in flight. Completing the superseded card would mark it
-    // provided and dispatch its continuation, leaving two cards resolved.
-    if (current.secret.superseded) {
-      throw new PhoneSecretError("This credential request was superseded by a newer one", 409);
-    }
-    // Electron acknowledges only after credentials.bin and the server's
-    // external-secret config update both commit. Keep this assertion at the
-    // boundary so a future parent handler cannot accidentally resume first.
-    if (!credentialIsConfigured(cfg, current.secret.target)) {
-      throw new PhoneSecretError(`${current.secret.label} was not saved yet`, 409);
-    }
-    // Persist the winning randomized envelope id before completing the card.
-    // A later exact retry can recover a lost response, while a newly sealed
-    // value can never be reported as though it were the value already saved.
-    store.patchMessage(context.threadId, current.id, {
-      secret: { ...current.secret, phoneOperationId: operationId },
-    });
-    if (!resumeSecretCard(context.botId, context.threadId, context.messageId, "provided")) {
-      throw new PhoneSecretError("This credential request is no longer available", 409);
-    }
-  });
-  const settled = currentSecretState(context.botId, context.threadId, context.messageId);
-  if (!settled) throw new PhoneSecretError("This credential request is no longer available", 409);
-  return settled;
 }
 
 function drainSecretResumes() {
@@ -14309,7 +14079,7 @@ const workspaceBackupAccess = {
     const current = resolveRequestAuth(req, {
       sessions, cookieName: SESSION_COOKIE, streamPath: "/api/events",
       url: new URL(req.url ?? "/", `http://localhost:${PORT}`),
-      loopbackMutationToken: desktopMutationToken, companionMutationToken, loopbackTrust: LOOPBACK.trust, cliOwnerToken,
+      loopbackMutationToken: desktopMutationToken, loopbackTrust: LOOPBACK.trust,
     }).auth;
     return Boolean(current?.scopes.includes("admin") && current.kind === original.kind &&
       (current.kind !== "session" || (original.kind === "session" && current.session.id === original.session.id)));
@@ -14567,7 +14337,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // Hosted workspaces have one sign-in authority. A missing optional layer
     // must not accidentally reactivate legacy email/QR credential minting.
     if (HOSTED_WORKSPACE) {
-      if (method === "POST" && ["/api/auth/pair", "/api/pair", "/api/auth/pairing", "/api/auth/email/start", "/api/auth/email/verify"].includes(path)) {
+      if (method === "POST" && ["/api/auth/email/start", "/api/auth/email/verify"].includes(path)) {
         return json(res, 403, { error: "Sign in through the workspace portal." });
       }
       if (workspaceAccess) {
@@ -14588,9 +14358,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return;
     }
     // ── who is asking (server/request-auth.ts) ──────────────────────────
-    // Two public routes come first: what this server is, and turning a pairing
-    // code into a session. Everything else needs the loopback owner or a
-    // paired session with the right scope.
+    // Two public routes come first: what this server is.
+    // Everything else needs the loopback owner or a session with the right scope.
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
     if (method === "GET" && path === "/.well-known/colonie/environment") {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && emailSignIn.enabled(), sharedComputers: lendingEnabled() }));
@@ -14608,7 +14377,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
         return json(res, 415, { error: "send the sign-in request as JSON (content-type: application/json)" });
       }
-      if (!emailSignIn.enabled()) return json(res, 404, { error: "email sign-in is not set up on this server; use a pairing code" });
+      if (!emailSignIn.enabled()) return json(res, 404, { error: "email sign-in is not set up on this server" });
       const source = requestSource(req);
       const allowed = sessions.attemptAllowed(source);
       if (!allowed.ok) return json(res, 429, { error: `too many failed sign-in attempts from your address; try again in ${Math.ceil(allowed.retryAfterMs / 1000)}s` });
@@ -14637,90 +14406,14 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       res.setHeader("set-cookie", serializeSessionCookie(SESSION_COOKIE, issued.token, { secure, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) }));
       return json(res, 200, { session: issued.session, environment });
     }
-    if (method === "POST" && path === "/api/auth/pair") {
-      // JSON only: a cross-site HTML form cannot send this content type
-      // without a preflight, so a stray unused code cannot be planted as a
-      // session in someone else's browser.
-      if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
-        return json(res, 415, { error: "send the pairing code as JSON (content-type: application/json)" });
-      }
-      const body = await readBody(req);
-      const code = typeof body?.code === "string" ? body.code : "";
-      const wantsCookie = body?.cookie === true;
-      const label = typeof body?.label === "string" ? body.label : "";
-      const attemptId = typeof body?.attemptId === "string" ? body.attemptId : undefined;
-      // A browser sign-in (the COLONIE Cloud page's "Use in your browser", docs/cloud-pro.md)
-      // redeems only a window opened for one, and only into this browser's cookie.
-      const browser = body?.browser === true;
-      if (browser && body?.preview === true) {
-        // Whose Cloud it signs in to, shown before the person continues. Redeems nothing.
-        const preview = sessions.previewBrowserSignIn(code);
-        return preview ? json(res, 200, preview) : json(res, 401, { error: "this sign-in link has expired or was already used" });
-      }
-      if (browser && !wantsCookie) return json(res, 400, { error: "a browser sign-in sets this browser's cookie; send cookie: true" });
-      const result = sessions.exchange({ code, label, attemptId, browser, source: requestSource(req), fallbackLabel: labelFromUserAgent(req.headers["user-agent"]) });
-      if (!result.ok) {
-        console.warn(`pairing refused from ${requestSource(req)}: ${result.error}`);
-        return json(res, result.status, { error: result.error });
-      }
-      const environment = environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: emailSignIn.enabled(), sharedComputers: lendingEnabled() });
-      if (wantsCookie) {
-        // A browser sign-in replaces this browser's own session here, if it had one, rather than leaving it behind.
-        const previous = browser ? sessions.authenticate(parseCookies(req.headers.cookie).get(SESSION_COOKIE)) : null;
-        if (previous && previous.id !== result.session.id) sessions.revoke(previous.id);
-        const secure = requestOrigin(req)?.startsWith("https://") === true;
-        res.setHeader("set-cookie", serializeSessionCookie(SESSION_COOKIE, result.token, { secure, maxAgeSeconds: cookieMaxAgeSeconds(result.session) }));
-        return json(res, 200, { session: result.session, environment });
-      }
-      return json(res, 200, { token: result.token, session: result.session, environment });
-    }
-    // The route the iOS and Android companion apps already POST to. Until now
-    // only the desktop's companion sidecar answered it, so a self-hosted
-    // server had nothing for a native phone to pair against: the app could
-    // reach the server and pass its health probe, then ask for a credential
-    // the server could not issue. Same window, same lockout and the same
-    // single-use exchange as /api/auth/pair above; only the request and
-    // response shapes differ, because the apps were written against the
-    // sidecar. Public and unauthenticated for the same reason
-    // /api/auth/pair is: redeeming a one-time credential IS the sign-in.
-    if (method === "POST" && path === "/api/pair") {
-      if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
-        return json(res, 415, { error: "send the pairing credential as JSON (content-type: application/json)" });
-      }
-      const body = await readBody(req);
-      const credential = typeof body?.credential === "string" ? body.credential : typeof body?.code === "string" ? body.code : "";
-      const label = typeof body?.deviceName === "string" ? body.deviceName : "";
-      const attemptId = typeof body?.pairRequestId === "string" ? body.pairRequestId : undefined;
-      const paired = sessions.exchange({ code: credential, label, attemptId, source: requestSource(req), fallbackLabel: labelFromUserAgent(req.headers["user-agent"]) });
-      if (!paired.ok) {
-        console.warn(`pairing refused from ${requestSource(req)}: ${paired.error}`);
-        return json(res, paired.status, { error: paired.error });
-      }
-      // The shape the companion apps decode (android/core Models.kt,
-      // PairResponseSerializer): token, device and serverName are required;
-      // hosts and endpoints are advisory and deliberately omitted, because a
-      // harness has no sidecar endpoints to advertise.
-      return json(res, 200, {
-        token: paired.token,
-        device: {
-          id: paired.session.id,
-          name: paired.session.label,
-          createdAt: paired.session.createdAt,
-          lastSeenAt: paired.session.lastSeenAt,
-        },
-        serverName: environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED }).label,
-      });
-    }
     const gate = resolveRequestAuth(req, {
       sessions,
       cookieName: SESSION_COOKIE,
       streamPath: "/api/events",
       url,
       loopbackMutationToken: desktopMutationToken,
-      companionMutationToken,
       features: { sharedComputers: lendingEnabled() },
       loopbackTrust: LOOPBACK.trust,
-      cliOwnerToken,
     });
     // The browser's cookie carries the term it was set with, and the
     // session's term slides on use (sessions.ts `renew`), so re-issue the
@@ -14817,47 +14510,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE));
       return json(res, 200, { ok: true });
     }
-    if (method === "POST" && path === "/api/auth/pairing") {
-      const body = await readBody(req);
-      // Authentication happened before the request body was read. A session
-      // can be revoked while a slow client is still sending that body, so do
-      // not let the captured authorization mint a replacement session.
-      if (auth.kind === "session" && !sessions.isLive(auth.session.id)) {
-        return json(res, 401, { error: "Your session ended. Sign in again before creating a pairing code." });
-      }
-      const requested: unknown = body?.scopes;
-      const scopes = Array.isArray(requested) ? requested.filter((v): v is Scope => v === "admin" || v === "client") : undefined;
-      let opened: ReturnType<typeof sessions.openPairing>;
-      try {
-        opened = sessions.openPairing({ label: typeof body?.label === "string" ? body.label : undefined, scopes });
-      } catch (error) {
-        // A Cloud home is personal: a device paired to it has admin scope (sessions.requireAdmin).
-        if ((error as { code?: unknown }).code === "cloud_personal") return json(res, 403, { error: (error as Error).message, code: "cloud_personal" });
-        throw error;
-      }
-      const origin = requestOrigin(req);
-      const base = publicUrl() ?? (auth.kind === "session" && origin ? origin : null);
-      const code = formatPairingCode(opened.code);
-      // Two links for one window. `url` opens the web app and is what a
-      // browser and the iOS app already read. `inviteUrl` is the custom
-      // scheme the native companion scanners accept; it carries the
-      // credential encoding because those scanners cannot take a typed code.
-      const serverName = environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED }).label;
-      const invite = base ? phonePairingLink({ address: base, token: opened.credential, name: serverName }) : null;
-      return json(res, 200, {
-        id: opened.id,
-        code,
-        credential: opened.credential,
-        expiresAt: opened.expiresAt,
-        url: base ? `${base}/pair#code=${code}` : null,
-        inviteUrl: invite,
-        serverName,
-        hint: base
-          ? null
-          : "this server has no public address to put in a link: set COLONIE_PUBLIC_URL, or open /pair on the address you use and type the code",
-      });
-    }
-    if (method === "GET" && path === "/api/auth/pairing") return json(res, 200, { pairings: sessions.openPairings(), publicUrl: publicUrl() });
     // Admin-only via request-auth's default deny. Connecting a domain only
     // changes future pairing links; DNS, proxy setup, webhooks and all existing
     // sessions remain untouched. The tunnel/deployment URL is kept as fallback.
@@ -14888,11 +14540,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         customDomainRevision++;
         return json(res, 200, customDomainStatus());
       }
-    }
-    m = path.match(/^\/api\/auth\/pairing\/([\w-]+)$/);
-    if (m && method === "DELETE") {
-      const cancelled = sessions.cancelPairing(m[1]);
-      return json(res, cancelled ? 200 : 404, cancelled ? { ok: true } : { error: "no such pairing code" });
     }
     // The desktop's own server always answers its desktop here: lending to the
     // person's Cloud (docs/cloud-pro.md) needs the lease without the
@@ -15017,8 +14664,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         ? "hooks"
         : path === "/api/internal/browser/mcp"
         ? "browser"
-        : path === "/api/internal/phone/claim"
-        ? "phone"
         : path.startsWith("/api/internal/connectors/")
         ? "connectors"
         : path === "/api/internal/computer-control" || path === "/api/internal/computer/mcp"
@@ -15224,17 +14869,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         });
         requireActiveInternalCapability();
         return json(res, 200, { result });
-      }
-      if (method === "POST" && path === "/api/internal/phone/claim") {
-        // Lazy phone exclusivity (issue #1663): the turn holds computer:phone
-        // from its first real tool call until it settles. The proxy answers a
-        // conflict as a blocked tool result, so a concurrent caller waits or
-        // does other work instead of losing the whole turn.
-        requireActiveInternalCapability();
-        if (!claimTurnResource(internalCapability, "computer:phone")) {
-          return json(res, 409, { error: "another thread is using the phone" });
-        }
-        return json(res, 200, { claimed: true });
       }
       // Off by default: both fall through to the same "unknown internal
       // endpoint" 404 a never-implemented route returns.
@@ -17844,12 +17478,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
 
     // ── bots ──
-    // Paired sessions are authenticated above. The companion marker may
-    // only narrow behavior (including its capability-free local dev proxy);
-    // it never grants authority or replaces the existing request gate.
     const requirePinnedClientThread = (botId: string, threadId: unknown): void => {
       if (threadId === undefined &&
-        (auth.kind === "session" || req.headers["x-colonie-companion"] === "1") &&
+        auth.kind === "session" &&
         store.tasks(botId).length > 1) {
         throw Object.assign(new Error("This bot has more than one thread. Update the Colonie app on this device, then choose a thread and try again."), { status: 409 });
       }
@@ -18236,8 +17867,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       const current = resolveRequestAuth(req, {
         sessions, cookieName: SESSION_COOKIE, streamPath: "/api/events", url,
-        loopbackMutationToken: desktopMutationToken, companionMutationToken,
-        features: { sharedComputers: lendingEnabled() }, loopbackTrust: LOOPBACK.trust, cliOwnerToken,
+        loopbackMutationToken: desktopMutationToken,
+        features: { sharedComputers: lendingEnabled() }, loopbackTrust: LOOPBACK.trust,
       });
       if (!current.auth) return json(res, current.status, { error: current.error });
       const currentVisible = visibleTo(viewerFor(current.auth));
@@ -18692,9 +18323,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (channelTaskBlocked(group)) {
         return json(res, 409, { error: "this channel is working or waiting on you — finish that turn first" });
       }
-      if (phoneSecretSubmissions.hasGroup(group.id)) {
-        return json(res, 409, { error: "this channel is securely saving a credential — try again when it finishes" });
-      }
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return json(res, 400, { error: "body must be a JSON object" });
       }
@@ -18712,9 +18340,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const group = store.group(m[1]);
       if (!group) return json(res, 404, { error: "no such channel" });
       if (group.dm) return json(res, 400, { error: "bot-to-bot channels keep one canonical conversation" });
-      if (phoneSecretSubmissions.hasGroup(group.id)) {
-        return json(res, 409, { error: "this channel is securely saving a credential — try again when it finishes" });
-      }
       if (channelTaskSwitchBlocked(group, m[2])) {
         return json(res, 409, { error: "this channel is working or waiting on you in another task" });
       }
@@ -18788,9 +18413,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const group = store.group(m[1]);
       if (!group) return json(res, 404, { error: "no such channel" });
       if (group.dm) return json(res, 400, { error: "bot-to-bot channels keep one canonical conversation" });
-      if (phoneSecretSubmissions.hasThread(m[2])) {
-        return json(res, 409, { error: "this task is securely saving a credential — try again when it finishes" });
-      }
       if (channelTaskBlocked(group)) {
         return json(res, 409, { error: "this channel is working or waiting on you — finish that turn first" });
       }
@@ -18831,9 +18453,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (m && method === "DELETE") {
       const group = store.group(m[1]);
       if (!group) return json(res, 404, { error: "no such room" });
-      if (phoneSecretSubmissions.hasGroup(group.id)) {
-        return json(res, 409, { error: "this channel is securely saving a credential — try again when it finishes" });
-      }
       if (groupIsWorking(group)) {
         return json(res, 409, { error: "this channel is working — stop that turn first" });
       }
@@ -20877,9 +20496,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       // never both get past this check: startTurn flips busy before the
       // next request is handled
       if (threadBusy(bot.id, bot.threadId)) return json(res, 409, { error: "the thread is working — stop it before editing" });
-      if (phoneSecretSubmissions.hasThread(bot.threadId)) {
-        return json(res, 409, { error: "this task is securely saving a credential — try again when it finishes" });
-      }
       // A thread's own model that can't run gives way to the bot's when the
       // rerun starts (healThreadModel), so check the model it will run on.
       const rerunSelection = turnSelection(bot.id, bot.threadId) ?? bot.modelSelection;
@@ -20903,9 +20519,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const bot = requestedTaskBot(m[1], body.threadId);
       if (threadBusy(bot.id, bot.threadId)) return json(res, 409, { error: "the thread is working — stop it before switching versions" });
       if (isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)) return json(res, 409, { error: "Native ACP history switching is not available. Start a new thread." });
-      if (phoneSecretSubmissions.hasThread(bot.threadId)) {
-        return json(res, 409, { error: "this task is securely saving a credential — try again when it finishes" });
-      }
       const leaf = store.setActiveLeaf(bot.threadId, String(body.messageId ?? ""));
       if (!leaf) return json(res, 404, { error: "no such message" });
       // provider sessions still hold the other branch — next turn replays
@@ -21266,9 +20879,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           return json(res, 400, { error: "This provider does not support Full access" });
         }
       }
-      if (phoneSecretSubmissions.hasBot(bot.id)) {
-        return json(res, 409, { error: "this bot is securely saving a credential — try again when it finishes" });
-      }
       if (body.projectId !== undefined && (typeof body.projectId !== "string" || !store.project(bot.id, body.projectId))) {
         return json(res, 400, { error: "projectId must belong to this bot" });
       }
@@ -21282,9 +20892,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (m && method === "POST") {
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      if (phoneSecretSubmissions.hasBot(bot.id)) {
-        return json(res, 409, { error: "this bot is securely saving a credential — try again when it finishes" });
-      }
       // Navigation only: execution owns its thread, never this selected id.
       const requestedMessages = url.searchParams.get("messages");
       const switchLimit = pageSize(requestedMessages);
@@ -21439,9 +21046,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const bot = store.bot(m[1]);
       if (!bot || !store.taskByThread(bot.id, m[2])) {
         return json(res, 404, { error: "no such task" });
-      }
-      if (phoneSecretSubmissions.hasThread(m[2])) {
-        return json(res, 409, { error: "this task is securely saving a credential — try again when it finishes" });
       }
       if (threadBusy(bot.id, m[2]) || routines!.isActiveThread(m[2])) {
         return json(res, 409, { error: "this task is running — stop it first" });
@@ -22851,36 +22455,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     m = path.match(/^\/api\/connectors\/([\w-]+)$/);
     if (m && method === "DELETE") return json(res, 200, await composio.removeService(cfg, m[1]));
 
-    // Phone credential entry arrives as an HPKE envelope bound to the exact
-    // paired device, bot, task, card and allowlisted target. The companion
-    // authenticates the bearer and supplies the device id; only the embedded
-    // Electron server has the private key needed to open the envelope.
-    m = path.match(/^\/api\/bots\/([\w-]+)\/secret-cards\/([\w-]+)\/provide$/);
-    if (m && method === "POST") {
-      if (req.headers["x-colonie-companion"] !== "1") {
-        return json(res, 403, { error: "Secure phone entry must come from a paired phone" });
-      }
-      const rawDeviceId = req.headers["x-colonie-companion-device"];
-      const authenticatedDeviceId = Array.isArray(rawDeviceId) ? "" : String(rawDeviceId ?? "");
-      if (!/^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
-        return json(res, 401, { error: "This paired phone could not be verified" });
-      }
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const parsed = phoneSecretEnvelopeSchema.safeParse(await readBody(req, 16_384));
-      if (!parsed.success || !isCredentialTargetId(parsed.data?.target)) {
-        return json(res, 400, { error: "The encrypted credential request is invalid" });
-      }
-      const state = await provideSecretFromPhone({
-        ...parsed.data,
-        botId: m[1],
-        messageId: m[2],
-        target: parsed.data.target,
-      }, authenticatedDeviceId);
-      return json(res, 200, state);
-    }
-
     // Desktop credential cards never send the credential through this route.
     // Electron saves it through the OS-backed store first; these actions only
     // verify configured state, update card metadata, and resume the turn.
@@ -22890,11 +22464,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const threadId = String(body.threadId ?? "");
       const message = secretMessage(m[1], threadId, m[2]);
       if (!message?.secret) return json(res, 404, { error: "no such credential request" });
-      if (phoneSecretSubmissions.has(
-        phoneSecretSubmissionKey(threadId, message.id, message.secret.requestKey),
-      )) {
-        return json(res, 409, { error: "this credential is currently being saved from a phone" });
-      }
       if (m[3] === "provided") {
         if (message.secret.dismissed) return json(res, 409, { error: "this credential request was dismissed" });
         if (message.secret.superseded) return json(res, 409, { error: "this credential request was superseded by a newer one" });

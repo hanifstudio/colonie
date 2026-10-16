@@ -1834,7 +1834,7 @@
   "phone.signIn.timedOut": "安全存取所需的時間比預期長。你可以重試，或直接在此 Wi-Fi 上配對。",
   "phone.signIn.failed": "我們無法完成建立你的私人連線。",
   "phone.signIn.emailPrompt": "我們會寄送一次性驗證碼到你的電子郵件，不需要密碼。",
-  "phone.signIn.email": "電子郵件",
+  "settings.profile.email": "電子郵件",
   "phone.signIn.code": "8 位數驗證碼",
   "phone.signIn.working": "處理中…",
   "phone.signIn.verify": "驗證並繼續",

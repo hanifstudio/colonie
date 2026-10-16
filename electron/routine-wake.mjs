@@ -13,7 +13,7 @@ import path from "node:path";
 export const ROUTINE_WAKE_POLL_MS = 60_000;
 
 /** The assertion type: keeps the system from idle-sleeping while allowing
- * the display to turn off — the same one the companion uses. */
+ * the display to turn off. */
 export const ROUTINE_WAKE_BLOCKER = "prevent-app-suspension";
 
 /** Should the hold be on? Pure, so it can be tested without Electron. */
@@ -27,7 +27,7 @@ export function routineWakeDecision({ enabled, onBattery, status }) {
 // ── the remembered toggle ────────────────────────────────────────────────
 // On by default: someone who scheduled a routine wants it to run, and the
 // hold is bounded (an hour before, plugged in). The file lives in the app's
-// own userData like the companion's, because the app owns the toggle.
+// own userData, because the app owns the toggle.
 const settingsFile = (userData) => path.join(userData, "routine-wake.json");
 
 export function routineWakeSettings(userData) {

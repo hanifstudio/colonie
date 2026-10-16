@@ -151,56 +151,6 @@ describe("resolveRequestAuth", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("accepts authenticated relay mutations without exposing the desktop owner capability", () => {
-    const headers = {
-      host: "127.0.0.1:8799",
-      "x-colonie-companion": "1",
-      "x-colonie-companion-device": "phone-1",
-      "x-colonie-companion-auth": "relay-secret",
-    };
-    const check = (method: string, path: string, overrides: Record<string, string> = {}, relay = "relay-secret") =>
-      resolveRequestAuth(request({ ...headers, ...overrides }, method), {
-        sessions, cookieName, streamPath: "/api/events", url: new URL(path, "http://localhost"),
-        loopbackMutationToken: "desktop-secret", companionMutationToken: relay,
-      });
-    for (const [method, path] of [
-      ["POST", "/api/bots"], ["POST", "/api/bots/b/messages"],
-      ["POST", "/api/bots/b/read"], ["POST", "/api/bots/b/respond"],
-      ["POST", "/api/bots/b/secret-cards/card/provide"],
-      ["GET", "/api/events"], ["PATCH", "/api/bots/b/profile"],
-      // Browser control: the harness re-runs the sidecar's own allowlist, so
-      // these resolve here for the same reason the phone may ask for them.
-      // The per-device capability is the proxy's job, not this one's.
-      ["GET", "/api/bots/b/browser/live"], ["POST", "/api/bots/b/browser/action"],
-    ]) expect(check(method, path).auth?.kind, path).toBe("loopback");
-    // And the allowlist still closes everything else under that prefix.
-    for (const [method, path] of [
-      ["POST", "/api/bots/b/browser/live"], ["GET", "/api/bots/b/browser/action"],
-      ["POST", "/api/bots/b/browser/restart"],
-    ]) expect(check(method, path).auth?.kind, path).not.toBe("loopback");
-    const forged: Record<string, string>[] = [
-      { "x-colonie-companion-auth": "" },
-      { "x-colonie-companion-auth": "desktop-secret" },
-      { "x-colonie-companion-device": "" },
-      { "x-colonie-companion": "0" },
-      { origin: "https://evil.example" },
-      { "x-forwarded-for": "203.0.113.1" },
-      { host: "remote.example" },
-    ];
-    for (const overrides of forged) expect(check("POST", "/api/bots/b/read", overrides).auth).toBeNull();
-    expect(check("POST", "/api/bots/b/read", {}, "").auth).toBeNull();
-    for (const [method, path] of [
-      ["PUT", "/api/config"], ["POST", "/api/auth/pairing"],
-      ["POST", "/api/internal/anything"], ["GET", "/api/auth/sessions"],
-      ["POST", "/api/not-yet-supported"],
-    ]) expect(check(method, path).auth, path).toBeNull();
-    // The companion's own notice that it unpaired a phone: not on the phone
-    // allowlist, but the relay's private token opens it; a forged one does not.
-    expect(check("POST", "/api/live/device-revoked").auth?.kind).toBe("loopback");
-    for (const overrides of forged) expect(check("POST", "/api/live/device-revoked", overrides).auth).toBeNull();
-    expect(check("GET", "/api/live/device-revoked").auth).toBeNull();
-  });
-
   function pairedToken(scopes: Array<"admin" | "client"> = ["admin", "client"]): string {
     const { code } = sessions.openPairing({ scopes });
     const result = sessions.exchange({ code, label: "test", source: "1.2.3.4" });
@@ -585,21 +535,4 @@ describe("loopback trust: owner on one person's machine, service on a shared wor
     expect(desktop.warning).toMatch(/ignored in the desktop app/);
   });
 
-  it("lets only the CLI that started the server, holding its secret, mint a pairing code under service trust", () => {
-    const secret = "c".repeat(43);
-    const as = (method: string, path: string, header?: string, token: string | null = secret) =>
-      resolveRequestAuth(request({ ...local, ...(header ? { "x-colonie-cli-owner": header } : {}) }, method), {
-        sessions, cookieName, streamPath: "/api/events", url: new URL(path, "http://x"), loopbackTrust: "service", cliOwnerToken: token ?? undefined,
-      });
-    expect(as("POST", "/api/auth/pairing", secret).auth).toEqual({ kind: "loopback", scopes: ["admin", "client"] });
-    expect(as("GET", "/api/auth/pairing", secret).auth?.kind).toBe("loopback");
-    // nothing else opens with it, and nothing opens without it
-    for (const [method, path] of [["PUT", "/api/config"], ["GET", "/api/auth/sessions"], ["DELETE", "/api/auth/pairing"], ["POST", "/api/bots"]] as const) {
-      expect(as(method, path, secret).auth, `${method} ${path}`).toBeNull();
-    }
-    expect(as("POST", "/api/auth/pairing").auth).toBeNull();
-    expect(as("POST", "/api/auth/pairing", "d".repeat(43)).auth).toBeNull();
-    expect(as("POST", "/api/auth/pairing", "", null).auth).toBeNull();
-    expect(as("POST", "/api/auth/pairing", secret, null).auth).toBeNull();
-  });
 });

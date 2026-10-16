@@ -10,12 +10,11 @@ import { Menu, app } from "electron";
  * @param {{ id: string, name: string, origin: string }[]} input.environments
  * @param {string} input.activeId  "local" or an environment id
  * @param {(id: string) => void} input.onSwitch
- * @param {() => void} input.onAddFromClipboard
  * @param {() => void} input.onConnect
  * @param {(id: string) => void} input.onForget
  * @param {() => void} input.onOpenSettings
  */
-export function buildApplicationMenu({ environments, activeId, onSwitch, onAddFromClipboard, onConnect, onForget, onOpenSettings }) {
+export function buildApplicationMenu({ environments, activeId, onSwitch, onConnect, onForget, onOpenSettings }) {
   const isMac = process.platform === "darwin";
   const active = environments.find((e) => e.id === activeId) ?? null;
   const server = {
@@ -30,7 +29,6 @@ export function buildApplicationMenu({ environments, activeId, onSwitch, onAddFr
       })),
       { type: "separator" },
       { label: "Connect to a server…", click: onConnect },
-      { label: "Add Server from Copied Pairing Link…", click: () => onAddFromClipboard() },
       {
         label: active ? `Forget “${active.name}”` : "Forget Server",
         enabled: Boolean(active),

@@ -16,7 +16,6 @@ import {
   ScrollTextIcon,
   Search01Icon,
   SparklesIcon,
-  TabletSmartphoneIcon,
   TerminalIcon,
   UserCircleIcon,
   UserIcon,
@@ -36,15 +35,11 @@ import { useUpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { EnginesSettings } from "./EnginesSettings";
 import { LocalComputerSection } from "./LocalComputerSection";
-import { CompanionSection } from "./CompanionSection";
-import { ServerPairingCard } from "./ServerPairingCard";
 import { PeopleSection } from "./PeopleSection";
 import { ActivitySection } from "./ActivitySection";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
-import { currentPhonePairingTarget } from "@/lib/phone-pairing";
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
-import { RemoteComputerSection } from "./RemoteComputerSection";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
 import { effortLabel } from "./ModelPicker";
 import { EFFORT_LEVELS, isEffortLevel } from "../../shared/wire";
@@ -100,7 +95,6 @@ export const SECTIONS: Array<{
 }> = [
   { id: "general", group: "you", labelKey: "settings.section.general", icon: UserIcon, keywords: ["profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
   { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "groups", "top"] },
-  { id: "companion", group: "you", labelKey: "settings.section.companion", icon: TabletSmartphoneIcon, keywords: ["companion", "device", "phone", "desktop", "client", "host", "pair", "pairing", "mobile", "https", "secure", "tailscale", "wifi", "remote", "advanced", "domain", "dns", "self-hosted", "server", "caddy"] },
   { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
   { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "rooms", "who answers"] },
@@ -127,7 +121,7 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
   { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "decisionModel"] },
-  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["companion", "computer"] },
+  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["computer"] },
   { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["people", "activity"] },
 ];
 
@@ -208,7 +202,7 @@ function ProfileFields() {
       <input aria-label={t("settings.profile.name")} value={name} onChange={(e) => setName(e.target.value)} onBlur={save} placeholder={t("settings.profile.name")} className={inputClass} />
       <input
         type="email"
-        aria-label={t("phone.signIn.email")}
+        aria-label={t("settings.profile.email")}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         onBlur={save}
@@ -777,7 +771,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const q = query.trim().toLowerCase();
   const ownerOrAdmin = useOwnerOrAdmin(!workspace);
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
-  const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance")
+  const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
@@ -988,26 +982,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         return <EnginesSettings />;
       case "backups":
         return <WorkspaceBackupSettings />;
-      case "companion": {
-        // "Connect your phone" lands on the one pairing that fits this window:
-        // this computer's phone flow, or this server's pairing code.
-        const phoneFocus = state.appSettingsPhonePairing;
-        const computerPairs = currentPhonePairingTarget() === "computer";
-        return (
-          <>
-            <RemoteComputerSection />
-            {!remoteActive && <CustomDomainSettings />}
-            {/* mints an admin/client session token for anything that isn't the phone companion
-                flow (MCP clients, `colonie pair`, a second desktop app), and pairs phones to a
-                hosted server. Shown for the desktop app's own server (#950) AND when this desktop is
-                a remote client of a hosted workspace: its requests carry that server's session, and
-                Settings there is the only place that server's phones can be paired from (MOCA-84).
-                The server decides who may act — an owner or an admin session — not this gate. */}
-            <ServerPairingCard focusRequest={computerPairs ? 0 : phoneFocus} />
-            {!remoteActive && <CompanionSection profileEmail={state.config?.profile?.email} focusRequest={computerPairs ? phoneFocus : 0} />}
-          </>
-        );
-      }
       case "computer":
         // Advanced: the built-in browser switch heads the Local VM page.
         // Simple stacks it as its own block after Local VM instead.
@@ -1020,7 +994,12 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         // the shared skills library exists only where features.skillsLibrary is on
         return skillsLibraryEnabled(state.config) ? <SkillsSection /> : null;
       case "people":
-        return <PeopleSection />;
+        return (
+          <>
+            <PeopleSection />
+            {!remoteActive && <CustomDomainSettings />}
+          </>
+        );
       case "activity":
         return <ActivitySection />;
       default:
