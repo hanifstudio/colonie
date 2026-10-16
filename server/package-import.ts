@@ -116,7 +116,7 @@ export interface PackageImportOptions {
   org?: OrgImportContext;
 }
 
-/** What an organization install created, for DATA_DIR/org-library/state.json
+/** What an organization install once created, for the library's own index
  * (contract §3.4). Records carry their own stamps; this is the index. */
 export interface OrgInstallIndex {
   kind: "team" | "library";
@@ -410,7 +410,7 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
         notes += 1;
       }
       // An organization bot's part hashes are its last write, so a bot that
-      // has them is complete (org-library.ts reads that after a crash).
+      // has them is complete (a restored index reads that after a crash).
       if (org && agent) {
         const written = store.bot(created.id)!;
         const local: Record<AgentPart, unknown> = {
@@ -437,7 +437,7 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
 
     // The brief goes before the group chats and routines, and the leader is
     // set last, so an organization Add the app stopped partway through can
-    // tell a finished team from a partial one (org-library.ts).
+    // tell a finished team from a partial one.
     const brief = Boolean(pkg?.team?.brief?.trim());
     if (brief) deps.sections.writeBrief(section, pkg!.team!.brief!);
 

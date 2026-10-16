@@ -139,7 +139,7 @@ describe("preset store", () => {
     })]);
     const [first] = app.presetStore.list();
     // Preset rows never make the importer answer "already added" (that is
-    // org-library.ts's index): a retry after the app stopped before its index
+    // the library's own index): a retry after the app stopped before its index
     // was written, or a removed team added again, refreshes the same rows.
     const again = app.importer.importPackageDocument(document, { trust: "org", mode: "add", org }, app.deps);
     if (again.alreadyAdded) throw new Error("unexpected");
@@ -169,20 +169,18 @@ describe("preset store", () => {
     expect(app.presetStore.removeFilePreset("missing")).toBe("not_found");
   });
 
-  it("offers organization presets first, hides withdrawn or removed installs, and never lists a tampered row", async () => {
+  it("offers rows an organization install left behind first, and never lists a tampered row", async () => {
     const app = await installation();
     app.importer.importPackageDocument(app.parsePackageDocument(fixture("library-only.v2.json")), { trust: "file", mode: "add" }, app.deps);
     const org = app.org();
     app.importer.importPackageDocument(app.orgDocument("library-only.v2.json"), { trust: "org", mode: "add", org }, app.deps);
-    const listed = app.presets.listBotPresets(app.presetStore, new Map());
+    const listed = app.presets.listBotPresets(app.presetStore);
     expect(listed.map((preset) => [preset.source, preset.name, preset.publisherName, preset.skillsEnabled])).toEqual([
       ["org", "Support agent", "Acme Partners", true],
       ["file", "Support agent", undefined, false],
     ]);
     expect(listed[1]).toMatchObject({ packageName: "Sales skills", release: "2.0.1", bot: { name: "Sky", title: "Support", appearance: { color: "blue" } },
       skills: [{ name: "objection-handling", description: "Answer common objections." }], playbooks: [], notes: [] });
-    expect(app.presets.listBotPresets(app.presetStore, new Map([[org.installId, "withdrawn" as const]])).map((preset) => preset.source)).toEqual(["file"]);
-    expect(app.presets.listBotPresets(app.presetStore, new Map([[org.installId, "removed" as const]])).map((preset) => preset.source)).toEqual(["file"]);
 
     // A hand-edited file cannot add an approval level, a model or a daily log:
     // fields the format does not have are dropped, and a row the format
@@ -191,7 +189,7 @@ describe("preset store", () => {
     Object.assign(stored.presets[0].bot, { approvalMode: "full", modelSelection: { instanceId: "x", model: "y" }, cwd: "/", computer: "local" });
     stored.presets[1].seed = { memory: { "memory/log/2026-09-24.md": "chat" } };
     writeFileSync(app.presetFile, JSON.stringify(stored));
-    const after = app.presets.listBotPresets(app.presetStore, new Map());
+    const after = app.presets.listBotPresets(app.presetStore);
     expect(after).toHaveLength(1);
     expect(JSON.stringify(after)).not.toMatch(/approvalMode|modelSelection|cwd|computer/);
     expect(app.presetStore.resolve(stored.presets[1].id)).toBeNull();

@@ -431,7 +431,6 @@ import {
   rejectStagedSkillWrite,
   removeSkill,
   setSkillEnabled,
-  skillPackageStamps,
   skillsSystemPrompt,
   stageSkillWrite,
   undoSkillWrite,
@@ -545,10 +544,9 @@ import { createBotPackageExport, createLibraryPackageExport, createTeamPackageEx
 import { importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult } from "./package-import.ts";
 import {
   applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE,
-  presetFromDefaults, presetOffered, readPublishedLibrary, writePublishedLibrary,
+  presetFromDefaults, readPublishedLibrary, writePublishedLibrary,
 } from "./presets.ts";
 import { readPublishedTeam, writePublishedTeam } from "./published-teams.ts";
-import { OrgLibrary } from "./org-library.ts";
 import { createTeamBackup, importTeamBackup } from "./team-backup.ts";
 import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
 import { shouldMountLocalComputer } from "./local-routing.ts";
@@ -1713,7 +1711,7 @@ function adminAuditPlan(method: string, path: string): AuditPlan | null {
   if (path.startsWith("/api/internal/") || path.startsWith("/api/testing/")) return null;
   const plan: AuditPlan = {
     config: requiredScope(method, path, { sharedComputers: lendingEnabled() }) === "admin",
-    createsBots: method === "POST" && (path === "/api/bots" || path === "/api/teams/import" || path === "/api/org-library/add"),
+    createsBots: method === "POST" && (path === "/api/bots" || path === "/api/teams/import"),
     createsWebhook: method === "POST" && path === "/api/webhooks",
     pairing: method === "POST" && path === "/api/auth/pairing",
   };
@@ -2072,22 +2070,6 @@ function computerPlaceRefusal(kind: ComputerPlaceKind): { message: string; code:
   const cloudHome = CLOUD_HOME ? cloudHomePlaceRefusal(kind === "thisComputer" ? "local" : kind === "localVm" ? "vm" : "cloud") : undefined;
   return cloudHome ? { message: cloudHome, code: "cloud_home" } : undefined;
 }
-// The organization library (server/org-library.ts): Electron relays the
-// verified catalog; the runtime swaps it and acknowledges at once, then
-// reconciles and reports on its own. A relay that arrives before the library
-// exists waits for it (the acknowledgement does not).
-let orgLibrary: OrgLibrary | null = null;
-let pendingOrgLibraryRelay: { library: unknown } | null = null;
-utilityParentPort?.on("message", event => {
-  const message = event.data as { type?: unknown; requestId?: unknown; library?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-library") return;
-  const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
-  let ok = true;
-  if (orgLibrary) ok = orgLibrary.applyRelay(message.library ?? null).ok;
-  else pendingOrgLibraryRelay = { library: message.library ?? null };
-  utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
-});
-
 // ── peer-agent comms wiring ────────────────────────────────────────────
 // Every mounted proxy receives a turn-scoped capability for localhost
 // /api/internal calls. Identity, source thread, recursion depth and route
@@ -11659,24 +11641,7 @@ if (CLOUD_HOME && CLOUD_OWNER_KEY && cloudRoutineAuthors) {
     log: (line) => console.log(line),
   });
   ownerOnlyCache.clear();
-}
-orgLibrary = new OrgLibrary({
-  dataDir: DATA_DIR,
-  store,
-  routines: routines!,
-  skills: { list: listSkills, stamps: skillPackageStamps, setEnabled: setSkillEnabled, installOrg: installOrgSkill },
-  presets: presetStore,
-  // Runtime → Electron main, which posts the report to Admin. Plain Node
-  // (no parentPort) keeps it in memory only.
-  postState: (message) => utilityParentPort?.postMessage(message),
-});
-{
-  // Set by the port listener above, which TypeScript cannot see run first.
-  const early = pendingOrgLibraryRelay as { library: unknown } | null;
-  if (early) orgLibrary.applyRelay(early.library);
-  pendingOrgLibraryRelay = null;
-}
-// The scheduler receipt and room transcript live in separate durable stores.
+}// The scheduler receipt and room transcript live in separate durable stores.
 // If the process exited between those two writes, prefer the correlated
 // RoutineRun's terminal truth; an uncorrelated manual goal is simply failed
 // because no in-memory orchestrator can survive a restart.
@@ -16095,10 +16060,7 @@ ROUTES.push(createAcpSettingsRoutes({
     if (bot) store.patchTask(botId, threadId, { modelSelection: { instanceId: bot.modelSelection.instanceId, model } });
   },
 }));
-// Install statuses come from the organization library's own state, never
-// its file, so New bot cannot disagree with it. No organization: none.
-const orgInstallStatuses = () => orgLibrary?.installStatuses() ?? new Map();
-ROUTES.push(createBotPresetRoutes({ presets: presetStore, orgStatuses: orgInstallStatuses }));
+ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -16702,21 +16664,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // through a per-process high-entropy test key. The route does not exist
     // unless the launcher explicitly sets that key; production builds never
     // set it.
-    // Isolated fixtures have no Electron parent to relay an organization's
-    // library, so a test relays one here instead. Like the capability route
-    // below, it exists only when the launcher sets its high-entropy key.
-    if (method === "POST" && path === "/api/testing/org-library") {
-      const expected = Buffer.from(process.env.OMB_TEST_ORG_LIBRARY_KEY ?? "");
-      const header = req.headers["x-openmausbot-test-org-library"];
-      const actual = Buffer.from(Array.isArray(header) ? "" : String(header ?? ""));
-      if (expected.length < 32 || actual.length !== expected.length || !timingSafeEqual(actual, expected) || !orgLibrary) {
-        return json(res, 404, { error: "not found" });
-      }
-      const body = await readBody(req);
-      const applied = orgLibrary.applyRelay(body?.library ?? null);
-      await orgLibrary.settled();
-      return json(res, applied.ok ? 200 : 400, { ...applied, report: orgLibrary.lastReport() });
-    }
     if (method === "POST" && path === "/api/testing/internal-capability") {
       const expected = process.env.OMB_TEST_INTERNAL_CAPABILITY_KEY ?? "";
       const actual = Array.isArray(req.headers["x-openmausbot-test-capability"])
@@ -20387,59 +20334,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         console.warn("bot directory lookup failed:", error instanceof Error ? error.message : String(error));
       }
       return json(res, 200, { directory });
-    }
-    // ── the organization library (server/org-library.ts) ─────────────────
-    // Admin scope, as import is. With no organization every read answers
-    // {organization: null} and nothing else changes.
-    if (method === "GET" && path === "/api/org-library") {
-      return json(res, 200, orgLibrary?.list() ?? { organization: null, packages: [] });
-    }
-    m = path.match(/^\/api\/org-library\/packages\/([a-f0-9-]{36})$/);
-    if (m && method === "GET") {
-      const outcome = orgLibrary?.preview(m[1]!);
-      if (!outcome) return json(res, 404, { error: "This package is not in your organization's library.", code: "not_listed" });
-      return outcome.ok ? json(res, 200, outcome.value) : json(res, outcome.status, { error: outcome.error, code: outcome.code });
-    }
-    if (method === "POST" && path === "/api/org-library/add") {
-      // One click, no confirmation: the person's click is the decision.
-      const body = await readBody(req);
-      const packageId = typeof body?.packageId === "string" && /^[a-f0-9-]{36}$/.test(body.packageId) ? body.packageId : null;
-      if (!packageId) return json(res, 400, { error: "Choose a package from your organization's library." });
-      if (!orgLibrary) return json(res, 404, { error: "This package is not in your organization's library.", code: "not_listed" });
-      const outcome = orgLibrary.add(packageId, packageImportDeps(await defaultSelection()));
-      if (!outcome.ok) return json(res, outcome.status, { error: outcome.error, code: outcome.code });
-      if (outcome.value.alreadyAdded) return json(res, 200, outcome.value);
-      const imported = outcome.value.result;
-      return json(res, 201, {
-        alreadyAdded: false,
-        installId: imported.installId,
-        name: imported.name,
-        section: imported.section,
-        bots: imported.bots.map((bot) => publicBot(store.bot(bot.id) ?? bot)),
-        groups: imported.groups.map((created) => ({ ...publicGroupState(store.group(created.id) ?? created), messages: [] })),
-        routines: imported.routines,
-        offeredSkills: imported.offeredSkills,
-        connections: imported.connections,
-        skipped: imported.skipped,
-        brief: imported.brief,
-        notes: imported.notes,
-        presets: imported.presets ?? [],
-      });
-    }
-    if (method === "GET" && path === "/api/org-library/skills") {
-      const botId = url.searchParams.get("botId") ?? undefined;
-      return json(res, 200, orgLibrary?.offeredSkills(botId) ?? { organization: null, skills: [] });
-    }
-    if (method === "POST" && path === "/api/org-library/skills") {
-      const body = await readBody(req);
-      const parsed = z.object({ botId: z.string().min(1).max(128), installId: z.string().regex(/^[a-f0-9]{32}$/), name: z.string().min(1).max(64) })
-        .safeParse(body);
-      if (!parsed.success) return json(res, 400, { error: "Choose a bot and a skill from your organization's library." });
-      if (!orgLibrary) return json(res, 404, { error: "This package is not in your organization's library.", code: "not_listed" });
-      const outcome = orgLibrary.addOfferedSkill(parsed.data.botId, parsed.data.installId, parsed.data.name);
-      return outcome.ok ? json(res, 201, { skill: outcome.value }) : json(res, outcome.status, { error: outcome.error, code: outcome.code });
-    }
-    if (method === "POST" && path === "/api/teams/import") {
+    }    if (method === "POST" && path === "/api/teams/import") {
       // Import is additive-only. A manifest is untrusted input (catalog,
       // GitHub, a shared file), so it must be structurally unable to reach
       // records the user already has: every member becomes a NEW bot with a
@@ -21237,7 +21132,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 400, { error: "preset must be a preset id from New bot" });
       }
       const resolvedPreset = typeof body.preset === "string" ? presetStore.resolve(body.preset) : null;
-      const preset = resolvedPreset && presetOffered(resolvedPreset.row, orgInstallStatuses()) ? resolvedPreset : null;
+      const preset = resolvedPreset;
       if (body.preset !== undefined && !preset) return json(res, 404, { error: PRESET_UNAVAILABLE_MESSAGE });
       body = { ...body, ...settings, name: settings.name };
       if (settings.approvalMode === "full" || settings.approvalMode === "custom") {

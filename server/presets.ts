@@ -1,5 +1,5 @@
 // Preset bots: named starting points in the New bot dialog, carried by a
-// shared package (a file someone sent, or the organization's shelf).
+// shared package (a file someone sent, or a team file that includes one).
 //
 // A preset is an ALLOWLIST (critique #3): a name and a short description,
 // the new bot's name, title, description, standing instructions and look,
@@ -10,7 +10,10 @@
 // keeps their own choices for all of that.
 //
 // Where presets live: `DATA_DIR/org-library/presets.json` (contract §3.4).
-// One row per preset, stamped with where it came from ("file" or "org") and
+// ponytail: the directory keeps its historical name because every installed
+// app already keeps its rows there; a rename would need a data migration for
+// no visible gain. One row per preset, stamped with where it came from
+// ("file", or "org" for rows an earlier organization install left behind) and
 // the install it belongs to, plus the skill and playbook definitions each
 // install's presets use, so a bot can be created from a preset long after
 // the file or the organization's release is gone. Every use re-reads a row
@@ -18,9 +21,10 @@
 // can still only say what the package format allows.
 //
 // Trust is where the preset came from, never what it says: skills from an
-// organization preset are added switched on (the organization's Admin
-// published them) and stamped with their install (contract §3.2, marked
-// `via: "preset"`), skills from a file preset switched off and unstamped.
+// "org" row are added switched on and stamped with their install (contract
+// §3.2, marked `via: "preset"`), skills from a file preset switched off and
+// unstamped. Nothing creates new "org" rows any more; the branch stays so a
+// restored backup's rows keep working.
 // Starter notes are written once, through the normal memory writers (which
 // scrub secrets).
 //
@@ -251,7 +255,7 @@ export function createPresetStore(file: string = PRESETS_FILE): PresetStore {
       // before state.json was written) refreshes them in place, keeping
       // their ids, and drops keys the release no longer has. Nothing is
       // duplicated, and nothing here decides whether it was added before:
-      // that is org-library.ts's index, rebuilt from the records.
+      // that is the library's own index, rebuilt from the records.
       const ownRow = (row: StoredPreset) => row.source === "org" && row.installId === context.installId;
       let refreshed = false;
       if (org) {
@@ -333,23 +337,6 @@ function usedContent(row: StoredPreset, content: InstallContent | undefined): In
   };
 }
 
-// ── the organization's install statuses (W2-1) ─────────────────────────────
-
-/** An organization install's status (contract §3.4). The map comes from
- * OrgLibrary.installStatuses() (org-library.ts), the library's own state, so
- * New bot never disagrees with it. An install it does not know (or no
- * organization at all) has no entry: that preset is shown like any copy that
- * stays after sign-out. */
-export type OrgInstallStatus = "installed" | "withdrawn" | "removed";
-
-/** Whether New bot may use this preset: not one from an organization
- * release that was withdrawn or an install that was removed. */
-export function presetOffered(row: StoredPreset, statuses: ReadonlyMap<string, OrgInstallStatus>): boolean {
-  if (row.source !== "org") return true;
-  const status = statuses.get(row.installId);
-  return status !== "withdrawn" && status !== "removed";
-}
-
 // ── New bot: what the dialog lists ─────────────────────────────────────────
 
 export interface WireBotPreset {
@@ -370,13 +357,12 @@ export interface WireBotPreset {
   notes: string[];
 }
 
-/** Every preset the New bot dialog offers: the organization's first (by
- * publisher, then name), then imported files (newest first). A preset from a
- * release the organization withdrew, or an install removed, is not offered. */
-export function listBotPresets(store: Pick<PresetStore, "list" | "resolve">, statuses: ReadonlyMap<string, OrgInstallStatus>): WireBotPreset[] {
+/** Every preset the New bot dialog offers: rows an earlier organization
+ * install left behind first (by publisher, then name), then imported files
+ * (newest first). */
+export function listBotPresets(store: Pick<PresetStore, "list" | "resolve">): WireBotPreset[] {
   const wire: Array<WireBotPreset & { addedAt: number }> = [];
   for (const row of store.list()) {
-    if (!presetOffered(row, statuses)) continue;
     const resolved = store.resolve(row.id);
     if (!resolved) continue;
     const { preset } = resolved;
@@ -433,7 +419,7 @@ const ORG_INSTALL_ID = /^[a-f0-9]{32}$/;
  * writes (contract §3.2: install, skill name, release, and the SKILL.md
  * hashes as released and as written), so an automatic update can tell the
  * person's edit from the publisher's change. It is marked `via: "preset"`,
- * and org-library.ts never counts a preset-made bot toward the install. */
+ * and a preset-made bot never counts toward the install. */
 export function applyPresetToBot(botId: string, resolved: ResolvedPreset, deps: PresetApplyDeps): { skills: string[]; notes: number } {
   const { row, preset } = resolved;
   const org = row.source === "org";
