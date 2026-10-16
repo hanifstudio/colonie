@@ -1,5 +1,81 @@
 # Colonie progress
 
+## 2026-10-16 — the product is called Colonie in every string a person or an agent reads
+
+The fork's own name replaced the upstream one in the words: the desktop window
+title, the in-app labels and help text, the server's startup lines, the prompts
+agents receive, and the messages the MCP tools and error paths return. 177 files
+and 414 lines, all inside the fork. A companion commit cleaned the bookkeeping
+four earlier slices had left stale.
+
+| commit | what went |
+|---|---|
+| `1e429989` | `OpenMausBot` → `Colonie` in every human-facing string under `server/`, `src/`, `electron/`, `scripts/` and `companion/`: window and menu titles, the `server/brand.ts` default name, agent prompts, MCP tool descriptions and their errors, `control-omb` help and refusals |
+| `3cfa31e7` | the stale bookkeeping: shard weights naming the deleted `org-library` tests, the `null` hole `4bb5abfb` left in the flaky-retry list, the route ratchet's three lowered counts (157 / 10 / 2), the Settings section count after `8abc87f9`, and `UpdateBanner`'s "My Cloud's page" |
+
+Identifiers deliberately keep the old spelling, so nothing that reads a value
+starts misreading one: `openmausbot://` schemes and `openmausbot:*` message
+types, `OMB_*`/`OPENMAUSBOT_*` environment names, `x-openmausbot-*` headers,
+`openmausbot.*` storage keys, `.openmausbot` data directories,
+`com.openmausbot.*` bundle ids, the npm package and CLI names, the built
+`OpenMausBot Speech.app`, and the ACP/MCP client identities a provider sees.
+They move in the technical rename.
+
+One value could not wait. `/api/health` answers `{ app: "colonie" }`, because it
+is the desktop app's proof that the server it just launched is its own, so the
+eight checkers moved with it: the Electron boot probe, the companion origin
+gateway and managed tunnel, `companion/src/proxy.ts`, `scripts/mcp-server.ts`,
+`scripts/control-omb.ts`, `scripts/verify-workspace-backup.ts`,
+`scripts/colonie/verify-real-turn.mjs` and the Linux package smoke test.
+
+### Verified after `1e429989`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm exec vitest run` over 445 files (every `*.test.ts`/`*.test.mjs` outside `*.e2e.test.ts`) | 437 files passed, 4560 passed, 10 failed, 2 skipped |
+| `pnpm test:electron` | 285 passed, 1 skipped |
+| `pnpm exec vitest run server/index.test.ts` | 278 passed, including `/api/health` and the brand name |
+| `pnpm exec vitest run server/mcp-server.test.ts server/control-omb.test.ts server/remote-sessions.test.ts companion/test/origin.test.ts companion/test/proxy.test.ts` | 4 files passed |
+
+All 10 failures in the full run were that stale bookkeeping set, in six files:
+`duration-sequencer` (2), `ci-retry-list` (4), `index-route-ratchet` (1),
+`SettingsModal.groups` (1), `UpdateBanner` (1) and the known inherited
+`lazy-screens` (1); `verification-docs` cannot load at all, reading an absent
+`enterprise/server/workspace-access.ts`. `3cfa31e7` fixed them all except the
+ratchet's `path.match(` ceiling, which stays red on purpose: `server/index.ts`
+holds 89 against a ceiling of 88, and the extra one is real — the two
+`/api/bots/:id/acp-inputs` and `acp-live` handlers added at the fork checkpoint
+`fa3306c0`. That ratchet exists to keep new route handlers out of `index.ts`, so
+the fix is to move those two into `server/routes`, not to raise the number. It
+waits for the cloud slice, which owns `server/index.ts`.
+
+Two other sets fail for this machine's reasons and were proven inherited the
+same way — by stashing the slice and re-running at HEAD: the isolated
+verification loop in `server/control-omb.test.ts` (2 tests; the fake engine
+cannot pick a provider instance here) and the HTTP-fixture trio
+`paired-thread-targets-api` / `chatgpt-plan-api` / `cloud-home-server` (8 tests).
+Both sets passed in the full run.
+
+### What is left
+
+1. The visible Cloud place and the Cloud-home cluster (Stage B): `Surface` and
+   the `"cloud"` place, the `cc-*` and `vps` states, `ComputerPanel`,
+   `CloudScreenPreview`, `CloudBackendPicker`, `src/lib/cloud-guest.ts`,
+   `src/lib/remote-desktop.ts`, `shared/cloud-computer.ts`, `server/cloud-*`,
+   `server/boat*.ts`, `server/vps-*`, `included-services`, `lending-memory`, and
+   the `cloudBackend`/`autoStartVps`/`cloudHome` wire fields with the `place.*`
+   locale keys. In flight as this is written, by two workers: the renderer and
+   the shared place model in one, the server half in the other. The owner
+   waived the data migration — stored `computer: "cloud"` bots and `cc-*` rows
+   only have to not crash, not to keep their old wording.
+2. The technical rename: `openmausbot`/`devone` → `colonie` in identifiers —
+   protocol schemes, environment names, data-directory names, the ACP/MCP client
+   identity, `package.json`'s scripts. 404 files still name the old one.
+3. The VPS `172.104.33.55`: stop `colonie-https.service`,
+   `colonie-platform.service` and `colonie.service`, then delete its data. Last
+   and irreversible; not yet confirmed by the owner.
+
 ## 2026-10-16 — the company-model policy is gone
 
 `server/hosted-models.ts` replaced instance configs with a workspace's own model
