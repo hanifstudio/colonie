@@ -376,7 +376,19 @@ if (argv[0] === "models" || argv.includes("--list-models")) {
   process.exit(0);
 }
 
-const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj) + "\n");
+// the session this process established, for FAKE_ACP_REJECT_LIVE_LOAD_FILE
+let liveSession: string | null = null;
+const out = (obj: any) => {
+  // Every session/update must name its session: the ACP SDK parses
+  // params.sessionId as required and rejects the notification when it is
+  // missing, so a fake that omits it looks mute to the harness — no agent
+  // text, no tool chips. Stamp the established session on any session/update
+  // that does not already carry one (real adapters always do).
+  if (obj?.method === "session/update" && obj.params && obj.params.sessionId === undefined && liveSession) {
+    obj.params.sessionId = liveSession;
+  }
+  process.stdout.write(JSON.stringify(obj) + "\n");
+};
 const result = (id: unknown, res: unknown) => out({ jsonrpc: "2.0", id, result: res });
 const configUpdates = JSON.parse(process.env.FAKE_ACP_CONFIG_UPDATES ?? "[]") as Array<{
   after: string; sessionId?: string; configOptions: unknown[]; replay?: boolean;
@@ -485,8 +497,6 @@ async function listMcpTools(entry: AnyMcpEntry, handshake: unknown): Promise<str
     write({ id: 1, method: "initialize", params: handshake });
   });
 }
-// the session this process established, for FAKE_ACP_REJECT_LIVE_LOAD_FILE
-let liveSession: string | null = null;
 let rpcFailure: unknown = null;
 function emitUsageUpdates(): void {
   const usageFile = process.env.FAKE_ACP_USAGE_UPDATES_FILE;
@@ -853,6 +863,7 @@ function handle(msg: any) {
       break;
     }
     case "session/prompt": {
+      if (typeof msg.params?.sessionId === "string") liveSession = msg.params.sessionId;
       if (process.env.FAKE_ACP_DUMP && (modes.length || models.length)) {
         appendFileSync(`${process.env.FAKE_ACP_DUMP}.prompts.jsonl`, JSON.stringify({
           pid: process.pid, sessionId: msg.params?.sessionId, mode: currentMode, model: currentModel,
