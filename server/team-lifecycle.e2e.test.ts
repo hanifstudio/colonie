@@ -59,7 +59,7 @@ it("retains empty teams, moves existing bots, and keeps legacy imports additive 
 
     // Legacy templates cannot occupy an existing empty team's name or brief.
     const imported = await api("/api/teams/import?mode=add", "POST", {
-      format: "openmaus.team", version: 2, team: { name: "Launch", members: [
+      format: "colonie.team", version: 2, team: { name: "Launch", members: [
         { key: "writer", name: "Fixture writer", appearance: { color: "purple" } },
       ] },
     }, 201);

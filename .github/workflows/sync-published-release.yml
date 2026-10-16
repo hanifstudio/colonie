@@ -189,14 +189,3 @@ jobs:
           fi
           gh release view "$TAG" --repo milind-soni/colonie-releases \
             --json isDraft --jq .isDraft | grep -q false
-
-      - name: Refresh the Vercel docs
-        env:
-          DOCS_DEPLOY_HOOK_URL: ${{ secrets.DOCS_DEPLOY_HOOK_URL }}
-        run: |
-          if [ -z "$DOCS_DEPLOY_HOOK_URL" ]; then
-            echo "::notice::DOCS_DEPLOY_HOOK_URL is not configured; the changelog will refresh on the next docs deployment"
-            exit 0
-          fi
-          curl --fail-with-body --silent --show-error --request POST "$DOCS_DEPLOY_HOOK_URL" > /dev/null
-          echo "requested a docs rebuild"

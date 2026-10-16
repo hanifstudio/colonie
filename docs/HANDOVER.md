@@ -3,8 +3,8 @@
 **Owner reaffirmed complete fidelity (October 15):** Restoring only fragments
 is insufficient. The target is the complete pre-change Colonie UI, including
 layout, navigation and interactions, with workspace/account additions using
-that original foundation. See `docs/UI-RECOVERY.md` for the current recovery
-contract and reviewed milestone status. Full recovery is **not complete**.
+that original foundation. The recovery contract and reviewed milestone
+status are below. Full recovery is **not complete**.
 DeepSeek is now auditing and implementing scoped work through OpenCode; the
 lead retains integration, evidence and publication responsibility. Settings,
 shared-shell and search work is currently uncommitted/WIP; the deployed
@@ -65,9 +65,8 @@ text turns passed separately in disposable Neon schemas, using inherited
 native auth read-only. The public signup page was rendered read-only; no agent
 created a production account or tested a mutation against live data.
 
-See `docs/RELEASE-0.2.0.md` for the current user flow and `docs/PROGRESS.md` for
-exact commands/results. `docs/WORKSPACE-PLAN.md` records the owner's direction;
-the historical pairing steps below are superseded. Final source refinements
+See `docs/PROGRESS.md` for exact commands/results; the historical pairing
+steps below are superseded. Final source refinements
 for long history and view concurrency passed; the release suite is 255 tests
 plus 61 native checks. Source branch: `colonie/multi-workspace-beta`.
 Real Composio provisioning/OAuth/tool use, a recipient's real
@@ -82,8 +81,7 @@ confirmation, and Local/Cloud selected separately for each new workspace.
 Cloud invitations enter the intended workspace without engine setup. Ordinary
 people use account sign-in, not pairing codes. The owner explicitly authorized
 implementation and deployment and supplied Neon/R2 infrastructure credentials.
-Read `docs/WORKSPACE-PLAN.md` for the confirmed journeys and implementation
-boundaries. Secrets are held outside the repo and are never included in docs or
+Secrets are held outside the repo and are never included in docs or
 delegated prompts. Isolated tests still precede deployment; do not test writes
 against the owner's existing conversations or credential files. The earlier
 pairing deployment is historical infrastructure evidence, not the target UX.
@@ -134,9 +132,9 @@ owner.** The original build-in-flight and step 1 text below is historical.
 
 Written for the next agent (Codex) taking over from the Claude session that did
 the work below. Read this file and `docs/SPEC.md`'s *Product direction change*
-section. You do not need to read the rest of `docs/`; most of it describes
-upstream Colonie's product, not this fork, and following it will steer you
-wrong. That is a real hazard in this repo, not a style preference.
+section. You do not need to read the rest of `docs/`: it now holds only fork
+documents, and the pages that described the upstream project's product have
+been removed. That is a real hazard in this repo, not a style preference.
 
 ## The goal, in the owner's words
 

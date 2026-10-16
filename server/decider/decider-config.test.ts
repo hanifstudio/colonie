@@ -23,7 +23,7 @@ describe("decider config", () => {
   });
 
   it("engines never inherit the key, nor Cloud Pro's included token", () => {
-    const childEnv: Record<string, string | undefined> = { COLONIE_JEV_API_KEY: KEY, COLONIE_CLOUD_DECIDER_TOKEN: "omb_decide_included", PATH: "/usr/bin" };
+    const childEnv: Record<string, string | undefined> = { COLONIE_JEV_API_KEY: KEY, COLONIE_CLOUD_DECIDER_TOKEN: "colonie_decide_included", PATH: "/usr/bin" };
     stripWorkspaceCredentialEnv(childEnv);
     expect(childEnv).toEqual({ PATH: "/usr/bin" });
   });

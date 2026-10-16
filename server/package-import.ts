@@ -258,7 +258,7 @@ function importLibraryFile(document: PackageDocument, presets: PresetRegistry): 
   };
 }
 
-/** Add a legacy `openmaus.team` file: people only (plus a project room when
+/** Add a legacy `colonie.team` file: people only (plus a project room when
  * the caller asks for one). */
 export function importTeamManifest(
   manifest: ParsedTeamManifest,

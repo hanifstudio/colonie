@@ -963,7 +963,7 @@ export function providerReloadKeys(patch: object): string[] {
 
 // COLONIE_DATA_DIR isolates test/soak rigs from the user's real fleet.
 export const DATA_DIR = process.env.COLONIE_DATA_DIR ?? (colonieProfile() ? colonieDataDir(homedir()) : join(homedir(), ".colonie"));
-const LEGACY_DATA_DIR = join(homedir(), ".opengrokbot");
+const LEGACY_DATA_DIR = join(homedir(), ".colonie");
 export const EVENTS_DIR = join(DATA_DIR, "events");
 export const NATIVE_DIR = join(DATA_DIR, "native");
 
@@ -1264,7 +1264,7 @@ export const PROVIDER_CREDENTIAL_ENV = [
 
 /** Provider keys OpenCode reads from its environment, as it does in a
  * terminal: with ANTHROPIC_API_KEY set, `opencode` lists Anthropic's models.
- * Keys OpenMaus saves for another engine (xAI, Mistral, the workspace
+ * Keys Colonie saves for another engine (xAI, Mistral, the workspace
  * Anthropic key) are workspace credentials under other names and never
  * ride along. */
 export const OPENCODE_PROVIDER_ENV = [
@@ -1287,7 +1287,7 @@ const OPENCODE_PROVIDER_KEY_NAME = /^[A-Z][A-Z0-9_]{0,59}_(?:API_KEY|KEY|TOKEN)$
 const OPENCODE_PROVIDER_KEY_VALUE = /^[\x21-\x7e]{1,4096}$/;
 
 /** Why OpenCode can't be given a key under this name, or undefined. A name
- * OpenMaus keeps for itself or another engine would never reach OpenCode:
+ * Colonie keeps for itself or another engine would never reach OpenCode:
  * every engine keeps only the credential names it reads (credentialEnv). */
 function openCodeProviderKeyNameRefusal(name: string): string | undefined {
   if (!OPENCODE_PROVIDER_KEY_NAME.test(name)) {
@@ -1297,7 +1297,7 @@ function openCodeProviderKeyNameRefusal(name: string): string | undefined {
   const reserved = name.startsWith("OPENCODE_") || name.startsWith("COLONIE_")
     || (WORKSPACE_CREDENTIAL_ENV as readonly string[]).includes(name)
     || ((PROVIDER_CREDENTIAL_ENV as readonly string[]).includes(name) && !(OPENCODE_PROVIDER_ENV as readonly string[]).includes(name));
-  return reserved ? `OpenMaus keeps ${name} for itself, so OpenCode can't be given it here. Put this key in opencode.json instead.` : undefined;
+  return reserved ? `Colonie keeps ${name} for itself, so OpenCode can't be given it here. Put this key in opencode.json instead.` : undefined;
 }
 
 /** The saved OpenCode provider keys that can be used, by name. A hand-edited

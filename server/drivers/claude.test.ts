@@ -743,15 +743,15 @@ describe("ClaudeDriver turns (fake CLI)", () => {
   });
 
   it("hands a CLI the provider key it was given but not the operator's control-plane secrets", async () => {
-    await create(undefined, { ANTHROPIC_API_KEY: "omb_workspace_fixture", ANTHROPIC_AUTH_TOKEN: "omb_workspace_fixture" });
+    await create(undefined, { ANTHROPIC_API_KEY: "colonie_workspace_fixture", ANTHROPIC_AUTH_TOKEN: "colonie_workspace_fixture" });
     const dump = join(scratch, "dump-hosted.json");
     process.env.FAKE_CLAUDE_DUMP = dump;
     Object.assign(process.env, CONTROL_PLANE_FIXTURE);
     await instance.adapter.sendTurn({ threadId: "t-hosted-env", text: "hello" });
     await recorder.until((e) => e.type === "turn.completed");
     const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.env.ANTHROPIC_API_KEY).toBe("omb_workspace_fixture");
-    expect(seen.env.ANTHROPIC_AUTH_TOKEN).toBe("omb_workspace_fixture");
+    expect(seen.env.ANTHROPIC_API_KEY).toBe("colonie_workspace_fixture");
+    expect(seen.env.ANTHROPIC_AUTH_TOKEN).toBe("colonie_workspace_fixture");
     for (const name of Object.keys(CONTROL_PLANE_FIXTURE)) expect(seen.env[name]).toBeUndefined();
   });
 

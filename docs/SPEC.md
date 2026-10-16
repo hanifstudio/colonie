@@ -560,8 +560,9 @@ on its own.
 
 ### Evidence discipline for inherited documentation
 
-Inherited `docs/` pages describe Colonie's product decisions and its runtime,
-not this fork's. Source presence and documentation presence are both separate from
-runtime support here. Any claim taken from inherited documentation is marked as
+Inherited `docs/` pages describe the upstream project's product decisions and
+runtime, not this fork's; they have been removed from this fork. Source
+presence and documentation presence are both separate from runtime support
+here. Any claim taken from inherited documentation is marked as
 unverified until it is re-checked against this fork, and must not enter a plan on
 the strength of the inherited page alone. Auditing those pages belongs to D1.

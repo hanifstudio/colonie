@@ -408,7 +408,7 @@ export async function createWorkspaceBackupSnapshot(dataDir: string, options: Cr
     if (skippedDependencies) warnings.push(`${skippedDependencies} installed dependency folder(s) (node_modules) were omitted; reinstall them in the project after restoring.`);
     if (skippedWorkLinks) warnings.push(`${skippedWorkLinks} symbolic link(s) in conversation work folders were omitted; what they point to is outside this backup.`);
     const summary: WorkspaceBackupSummary = {
-      format: "openmaus.workspace-backup", version: 1, id: job.id, createdAt: new Date().toISOString(),
+      format: "colonie.workspace-backup", version: 1, id: job.id, createdAt: new Date().toISOString(),
       appVersion: options.appVersion ?? "unknown", files: entries.filter((entry) => entry.type === "file").length,
       directories: entries.filter((entry) => entry.type === "directory").length, bytes,
       bots: countJsonArray(join(snapshot, "data", "bots.json")), groups: countJsonArray(join(snapshot, "data", "groups.json")),
@@ -440,7 +440,7 @@ export async function createWorkspaceBackupSnapshot(dataDir: string, options: Cr
 }
 
 function validateManifest(value: unknown): Manifest {
-  if (!record(value) || !record(value.summary) || value.summary.format !== "openmaus.workspace-backup" || value.summary.version !== 1 ||
+  if (!record(value) || !record(value.summary) || value.summary.format !== "colonie.workspace-backup" || value.summary.version !== 1 ||
     typeof value.summary.id !== "string" || !ID.test(value.summary.id) || typeof value.summary.createdAt !== "string" ||
     !Number.isFinite(Date.parse(value.summary.createdAt)) || typeof value.summary.appVersion !== "string" ||
     typeof value.sourceDataDir !== "string" || !(posix.isAbsolute(value.sourceDataDir) || win32.isAbsolute(value.sourceDataDir)) ||

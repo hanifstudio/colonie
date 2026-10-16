@@ -1,6 +1,6 @@
 // A cloud computer that can't start, end to end: what a failed turn's row
 // says and stores (shared/place-view.ts). Each refusal is the one the Admin's
-// relay sends today (server/cloud-services.ts in openmaus-cloud), read into
+// relay sends today (server/cloud-services.ts in colonie-cloud), read into
 // one plain line and one next action, with where the place came from deciding
 // the way on. The words are what phones read; `place` is what the app words
 // again. Real server, fake Claude CLI, and a loopback Boat whose answers each
@@ -17,7 +17,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
-/** The Admin relay's refusal envelope (boatError in openmaus-cloud). */
+/** The Admin relay's refusal envelope (boatError in colonie-cloud). */
 const refusal = (status: number, code: string, message: string) =>
   ({ status, body: { ok: false, type: "sandbox.error", status, code, message, error: { code, message, status } } });
 const HOURS = refusal(429, "limit_reached", "Your Pro plan's 50 cloud computer hours for October are used up. They reset on 1 November.");

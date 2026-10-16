@@ -43,7 +43,7 @@ const SERVICE_SCOPES: readonly Scope[] = ["client"];
 /** What a `service`-trust loopback caller may reach, and nothing else:
  *
  * - liveness and identity: health, who-am-I, edition and brand;
- * - the cloud Slack worker (openmaus-cloud server/slack-worker.ts), which
+ * - the cloud Slack worker (colonie-cloud server/slack-worker.ts), which
  *   shares the workspace's network namespace and reads the bot list, a
  *   thread's messages and a bot's PNG picture, creates a thread, sends
  *   through the guarded route, watches and stops its exact request,
@@ -261,7 +261,7 @@ export function bearerToken(header: string | string[] | undefined): string | und
  * otherwise clobber each other's session. The environment id keeps a
  * reinstalled server from reading a cookie signed by its predecessor. */
 export function sessionCookieName(port: number, environmentId: string): string {
-  return `omb_session_${port}_${environmentId.replace(/[^a-z0-9]/gi, "").slice(0, 12)}`;
+  return `colonie_session_${port}_${environmentId.replace(/[^a-z0-9]/gi, "").slice(0, 12)}`;
 }
 
 export function serializeSessionCookie(
@@ -464,7 +464,7 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
   const ticket = path === options.streamPath ? options.url.searchParams.get("ticket") : null;
   let session: SessionRecord | null = null;
   let via: "bearer" | "cookie" | "ticket" | null = null;
-  if (bearer?.startsWith("omb_sess_")) {
+  if (bearer?.startsWith("colonie_sess_")) {
     session = options.sessions.authenticate(bearer);
     via = "bearer";
   } else if (ticket) {

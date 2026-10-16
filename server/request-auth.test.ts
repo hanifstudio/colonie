@@ -64,9 +64,9 @@ describe("origin and cookies", () => {
     expect(isSameOrigin(request({ host: "a.example", origin: "https://evil.example" }))).toBe(false);
   });
   it("parses cookies and names the session cookie per port and environment", () => {
-    expect(parseCookies("a=1; omb_session_8799_abc=tok; b = 2")).toEqual(new Map([["a", "1"], ["omb_session_8799_abc", "tok"], ["b", "2"]]));
+    expect(parseCookies("a=1; colonie_session_8799_abc=tok; b = 2")).toEqual(new Map([["a", "1"], ["colonie_session_8799_abc", "tok"], ["b", "2"]]));
     expect(parseCookies(undefined).size).toBe(0);
-    expect(sessionCookieName(8799, "3f2a-uuid-like-id")).toBe("omb_session_8799_3f2auuidlike");
+    expect(sessionCookieName(8799, "3f2a-uuid-like-id")).toBe("colonie_session_8799_3f2auuidlike");
     expect(serializeSessionCookie("c", "t", { secure: true, maxAgeSeconds: 60 })).toBe("c=t; Path=/; HttpOnly; SameSite=Lax; Max-Age=60; Secure");
     expect(serializeSessionCookie("c", "t", { secure: false, maxAgeSeconds: 60 })).not.toContain("Secure");
     expect(clearSessionCookie("c")).toContain("Max-Age=0");
@@ -141,7 +141,7 @@ describe("scopes", () => {
 describe("resolveRequestAuth", () => {
   let dir: string;
   let sessions: SessionRegistry;
-  const cookieName = "omb_session_8799_env";
+  const cookieName = "colonie_session_8799_env";
   const resolve = (headers: Record<string, string>, path = "/api/bots", method = "GET") =>
     resolveRequestAuth(request(headers, method), { sessions, cookieName, streamPath: "/api/events", url: new URL(path, "http://x") });
 
@@ -463,7 +463,7 @@ describe("an IPC listener (colonie serve --tunnel) is remote by construction", (
     const dir = mkdtempSync(join(tmpdir(), "colonie-auth-ipc-"));
     try {
       const sessions = new SessionRegistry({ file: join(dir, "sessions.json") });
-      const gate = { sessions, cookieName: "omb_session_test", streamPath: "/api/events", url: new URL("/api/bots", "http://x") };
+      const gate = { sessions, cookieName: "colonie_session_test", streamPath: "/api/events", url: new URL("/api/bots", "http://x") };
       const denied = resolveRequestAuth(overSocket({ host: "127.0.0.1:8799" }), gate);
       expect(denied.auth).toBeNull();
       expect(denied.status).toBe(403);
@@ -482,7 +482,7 @@ describe("an IPC listener (colonie serve --tunnel) is remote by construction", (
 describe("loopback trust: owner on one person's machine, service on a shared workspace", () => {
   let dir: string;
   let sessions: SessionRegistry;
-  const cookieName = "omb_session_8799_env";
+  const cookieName = "colonie_session_8799_env";
   const local = { host: "127.0.0.1:8799" };
   const check = (method: string, path: string, options: { trust?: "owner" | "service"; headers?: Record<string, string>; desktopToken?: string } = {}) =>
     resolveRequestAuth(request({ ...local, ...options.headers }, method), {
@@ -498,7 +498,7 @@ describe("loopback trust: owner on one person's machine, service on a shared wor
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   // Every call the deployed cloud Slack worker makes to the runtime
-  // (openmaus-cloud server/slack-worker.ts, every released version), plus
+  // (colonie-cloud server/slack-worker.ts, every released version), plus
   // the bot capability routes and liveness. None of these may break.
   const SERVICE_CALLS: Array<[string, string]> = [
     ["GET", "/api/health"],

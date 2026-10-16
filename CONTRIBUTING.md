@@ -46,9 +46,10 @@ binary. Packaging continues to use `pnpm build:cloudflared`, which stages every 
 host's desktop package build requires. To stage only the current development target without
 launching Electron, run `node scripts/prepare-cloudflared.mjs --current`.
 
-For Ubuntu installation and real desktop checks, see [`docs/linux-desktop.md`](docs/linux-desktop.md).
-
 ## Ubuntu release checklist
+
+Ubuntu packages are built and checked by the **Package Ubuntu** workflow; see
+its steps for installation and real-desktop checks.
 
 Ubuntu release packages must come from the manual **Package Ubuntu** workflow on an exact release commit or tag,
 not from a developer workstation. The Ubuntu 24.04 runner builds and verifies both formats, launches the unpacked
@@ -184,8 +185,8 @@ node scripts/generate-locale.mjs it "Italian"
 
 The helper runs the model without repository access, custom instructions, or
 write-capable tools. It accepts only one complete JSON object and tracks the
-English source hash for each reviewed translation. See
-[`docs/localization.md`](docs/localization.md) for the workflow and safety rules.
+English source hash for each reviewed translation. Run `pnpm i18n:check` for the
+workflow and safety rules.
 
 Only a slice of the UI is extracted so far. Move strings into the catalog
 with `t("…")` as you touch components — never in big sweeps, which conflict
@@ -267,7 +268,7 @@ the preflight duration to an otherwise idle runner pool; it does not cure a
 GitHub-wide scheduling backlog.
 
 - **typecheck + lint** — typecheck, lint, locale catalogs (`pnpm i18n:check`), Electron syntax check, production UI build. Once, on Ubuntu; none of it is platform-specific.
-- **vitest (os, shard n/4)** — the suite split into four shards per platform: Ubuntu and Windows on a PR; macOS as well on main, in the merge queue and on manual runs (macOS runners are scarce and only a couple of tests are macOS-only). The suite runs its files serially on purpose (fake CLIs and a real harness server), so the whole suite takes about 70 minutes of Windows runner time and 50 of Ubuntu. The shards split it by each file's recorded CI time rather than by file count ([docs/ci.md](docs/ci.md#vitest-shards)). To reproduce a shard's failure locally, run the same `pnpm exec vitest run --shard=n/4`. Failures also appear as annotations on the PR.
+- **vitest (os, shard n/4)** — the suite split into four shards per platform: Ubuntu and Windows on a PR; macOS as well on main, in the merge queue and on manual runs (macOS runners are scarce and only a couple of tests are macOS-only). The suite runs its files serially on purpose (fake CLIs and a real harness server), so the whole suite takes about 70 minutes of Windows runner time and 50 of Ubuntu. The shards split it by each file's recorded CI time rather than by file count (see `vite.config.ts`). To reproduce a shard's failure locally, run the same `pnpm exec vitest run --shard=n/4`. Failures also appear as annotations on the PR.
 - **packaged server smoke (os)** — the server bundle copied out of the repo and started with no `node_modules` in reach.
 - **Windows CUA host smoke**, **macOS smokes (packaged server + Electron)** — real Electron utility processes against disposable homes; never the live app.
 - **CI** — the one check the branch rules require. It only aggregates the jobs above; if it is red, the failing job is named in its log.

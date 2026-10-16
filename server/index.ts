@@ -7494,7 +7494,7 @@ function wakeUndispatchedDelegation(receipt: DelegationReceipt, routineRunId?: s
 // real provider instance id. A unique suffix also closes the setup race: if
 // another result arrives while that replay is launching, the newer marker is
 // left intact for one more replay instead of being accidentally consumed.
-const EXTERNAL_CONTEXT_MARKER_PREFIX = "__openmaus_external_context__:";
+const EXTERNAL_CONTEXT_MARKER_PREFIX = "__colonie_external_context__:";
 
 function isExternalContextMarker(value: string | undefined): boolean {
   return Boolean(value?.startsWith(EXTERNAL_CONTEXT_MARKER_PREFIX));
@@ -9118,7 +9118,7 @@ async function startTurn(
       // memory_update — and the engines key their sessions by id, not folder.
       const cwd = pinnedCwd ?? undefined;
       // Checkpoint explicit project folders, where a bot can overwrite the
-      // user's work. Its private OpenMaus workspace is app-owned and changes
+      // user's work. Its private Colonie workspace is app-owned and changes
       // on nearly every ordinary chat; snapshotting it would add hidden disk
       // and process overhead without a user project to list changes for.
       const checkpointCwd = cwd && cwd !== privateWorkspace ? cwd : undefined;
@@ -18428,7 +18428,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           ? body.name.trim()
           : profileName
             ? `${profileName}'s Team`
-            : "My OpenMaus Team";
+            : "My Colonie Team";
       const memberIds = store.bots.filter((bot) => !bot.hidden).map((bot) => bot.id);
       if ((body.format === "backup" ? store.bots.length : memberIds.length) === 0) return json(res, 400, { error: "Create a bot before exporting your team" });
       try {
@@ -18572,7 +18572,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         importVisibility = parsed.visibility;
       }
       const body = await readBody(req, MAX_TEAM_BACKUP_BYTES);
-      if (body?.format === "openmaus.backup") {
+      if (body?.format === "colonie.backup") {
         if (importMode !== "add") return json(res, 400, { error: "Import backups alongside your existing bots; project mode is only for templates" });
         try {
           const imported = importTeamBackup(store, routines!, body, await defaultSelection(), { visibility: importVisibility });

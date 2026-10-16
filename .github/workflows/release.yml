@@ -15,9 +15,8 @@
 #   - blockmap regeneration    -> stale differential maps waste every updater's
 #                                 bandwidth silently
 #   - assemble-then-publish    -> 0.1.24 sat as an invisible draft; a mac-only
-#                                 publish 404s the README's other buttons
+#                                 publish 404s the download buttons
 #
-# One-time setup (repo secrets) is documented in docs/releasing.md.
 name: Release
 
 on:
@@ -106,7 +105,7 @@ jobs:
   ci:
     # Ship only a commit whose code passed `CI` (ci.yml's gate, vitest really
     # run): its own run, a run on a commit with the same tree, or, for a
-    # version-only bump, its parent's (scripts/release-ci.mjs, docs/ci.md).
+    # version-only bump, its parent's (scripts/release-ci.mjs).
     # The wait overlaps the platform builds, so a green commit costs no time;
     # a red or missing verdict stops the release before any draft exists. Main keeps
     # one CI run going and one waiting, so a burst of merges can replace the
@@ -300,7 +299,7 @@ jobs:
           # finish unless the feed matches the files on disk
           node scripts/regenerate-mac-feed.mjs
 
-      - name: Stable-named copies for the README's /latest/download links
+      - name: Stable-named copies for the /latest/download links
         run: |
           v=$(node -p "require('./package.json').version")
           cp "release/Colonie-$v-arm64.dmg" release/Colonie.dmg

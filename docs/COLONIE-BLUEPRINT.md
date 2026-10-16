@@ -39,7 +39,7 @@ The owner explicitly wants Grok Bot as the primary product reference. Its existi
 
 | ID | Working direction |
 |---|---|
-| D01 | The product is named **Colonie** and should become independent of Colonie and Colonie. Preserve useful infrastructure and UX based on merit. |
+| D01 | The product is named **Colonie** and should become independent of the upstream project and its hosted service. Preserve useful infrastructure and UX based on merit. |
 | D02 | Keep the current native desktop experience as the starting point. |
 | D03 | Bots have configurable names, personas/SOUL, and skills. |
 | D04 | Support Claude Code and Codex through ACP and the maintained adapters, using the user's existing provider subscription where supported. |
@@ -139,7 +139,7 @@ flowchart LR
 5. Create or choose a bot; configure its identity, persona, and skills.
 6. Start work. Add Composio or custom MCP only when needed; these are not prerequisites for a basic chat.
 
-No Colonie account or Colonie payment is required. Secrets should use protected setup fields or provider-owned authentication, rather than chat messages.
+No Colonie account or payment is required. Secrets should use protected setup fields or provider-owned authentication, rather than chat messages.
 
 ### Journey J02: owner creates a Server workspace
 

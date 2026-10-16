@@ -78,6 +78,7 @@ Use only mapped, tested commands:
 - [Usage ledger](usage-ledger.md)
 - [Bounded built-in tool results](tool-results.md)
 - [Memory: recall, upkeep and the tidy-up](memory-layer.md)
+- [Colonie ACP memory: capture, recall and correction](colonie-memory.md)
 - [Spend cap and sell prices](spend-cap.md)
 - [Enterprise layer loading and license expiry](enterprise-license.md)
 
@@ -168,9 +169,6 @@ keyless local generation, saved-key handling, and safe errors with a local fake 
 
 The [independent threads fixture](threads.md) checks nested sidebar navigation,
 per-thread models, simultaneous direct conversations and thread-scoped Stop.
-
-The [mobile generated-image checks](mobile-generated-images.md) cover native image
-attachments and message-scoped download authorization using isolated fixtures.
 
 The [guarded external messages fixture](guarded-messages.md) checks atomic
 branch and approval preconditions, retry receipts, and refusal to queue or

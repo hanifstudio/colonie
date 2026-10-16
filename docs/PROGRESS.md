@@ -601,7 +601,7 @@ They are inherited, not caused by this branch. Triaged individually:
 - 121 under `server/`, 23 under `scripts/testing/` — `*.e2e.test.ts` and `*-ui.e2e.test.ts` needing a live CLI agent, a real browser or a hosted fixture.
 - `scripts/testing/verification-docs.test.ts` reads `enterprise/server/workspace-access.ts`, absent from this fork.
 - `scripts/testing/index-route-ratchet.test.ts` counts server/index.ts request paths above the recorded baseline (owner WIP added routes).
-- `shared/place-view.test.ts` wants en.json to still say "Colonie Cloud" while the catalog says "Colonie Cloud" — half-finished rebrand.
+- `shared/place-view.test.ts` wants en.json to still say the old Cloud name while the catalog says "Colonie Cloud" — half-finished rebrand.
 - `CallView.journeys` / `live-call-media` want "Open Colonie at a secure https address" while the app says "Colonie".
 - `lazy-screens` expects `App.tsx` in the launch bundle; `main.tsx` imports it dynamically (already true at `94cc3689`).
 - `electron/credential-persistence.test.mjs` is a `node --test` file caught by the vitest glob.
@@ -617,7 +617,7 @@ One was ours and is fixed in `2982ec22`: `SettingsModal.appearance.test.ts` stil
 4. The desktop Cloud bridges: `cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs`, `cloud-move.mjs`.
 5. The server's hosted half: `CLOUD_HOME`/`HOSTED_WORKSPACE` modes, `cloud-secrets-boot`, `server/cloud-lending.ts`, `server/lending-memory.ts`, `server/managed-desktop.ts`.
 6. Directories: `deploy/` (container/self-host targets). `companion/` stays: it is remote access to the local app, not Cloud.
-7. Docs and the `colonie`/`colonie` → `colonie` rename, including the half-finished "Colonie Cloud" strings above.
+7. Docs and the repository-wide rename, including the half-finished "Colonie Cloud" strings above.
 8. VPS `172.104.33.55`: stop the services, then delete the data. Last, irreversible, and only with explicit confirmation.
 
 ## 2026-10-14 — M11 step 5 proven, step 4b prepared (not yet run on the host)
@@ -749,7 +749,7 @@ Colonie was booted with no Electron, no display and no inherited environment
 scratchpad, on port 18891, with `COLONIE_PROFILE=1` and `COLONIE_STATIC_DIR` pointed
 at a freshly built `dist/`. This is the first evidence for the claim; it was
 previously carried only by inherited `docs/self-hosting.md`, which describes
-Colonie and not this fork.
+the upstream project, not this fork.
 
 ### Proven
 
@@ -932,7 +932,7 @@ than to this slice.
 
 - Headless operation of this fork on a server, and the built UI delivered from a
   remote server to a browser. The code path exists; the behaviour is not tested.
-  Inherited `docs/self-hosting.md` claims it for Colonie, not for Colonie.
+  Inherited `docs/self-hosting.md` claims it for the upstream project, not for this fork.
 - Whether retiring the non-ACP drivers is dependency-complete; no audit has run.
 
 ### Blockers
@@ -1164,9 +1164,9 @@ than to this slice.
 
 ## Onboarding adaptation to Colonie (implemented, isolated fixture-verified)
 
-- Owner asked to reuse the inherited Colonie first-run UI for Colonie. The
-  welcome flow was already mounted (`src/App.tsx`) but was still Colonie
-  shaped. Owner-decided scope: keep the feature reel as-is, keep Hello /
+- Owner asked to reuse the inherited upstream first-run UI for Colonie. The
+  welcome flow was already mounted (`src/App.tsx`) but was still the upstream
+  shape. Owner-decided scope: keep the feature reel as-is, keep Hello /
   Permissions / Meet your bot, make the phone beat "coming soon", frame the
   engines beat as Codex / Claude Code, and disable the guided tour + first
   conversation spotlights for now.
@@ -1203,7 +1203,7 @@ than to this slice.
 - Owner ran the rebuilt app and asked for five changes, all applied:
   1. Hello beat: name and email are required; "Maybe later" removed. The
      top-right "Skip tour" still leaves the whole flow.
-  2. Feature reel: visible `Colonie`/`Maus` strings changed to `Colonie`
+  2. Feature reel: visible old-brand strings changed to `Colonie`
      (Terminal command, terminal welcome/ready lines, browser tab title,
      mini-card title; Hands bot name and composer placeholder; Channels member
      name). Reel content is otherwise unchanged per the owner's earlier call.
@@ -1231,7 +1231,7 @@ than to this slice.
   **490 passed**.
 - Owner follow-up: the global "Skip tour" is now disabled on the greeting
   (name/email) beat, so that step is truly mandatory; other beats keep it.
-- Colonie brand sweep (owner: "replace Colonie with Colonie wherever you
+- Colonie brand sweep (owner: "replace the old brand with Colonie wherever you
   find it"): 83 English i18n values and ~30 renderer files changed, plus the
   tests that asserted that copy; changed English keys were dropped from the
   non-English packs and `source-hashes.json` so `pnpm i18n:check` stays green

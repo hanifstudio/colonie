@@ -19,7 +19,7 @@ import {
   withoutDesktopCompanionAccess,
 } from "./desktop-companion-client.mjs";
 
-const token = `omb_${"a".repeat(43)}`;
+const token = `colonie_${"a".repeat(43)}`;
 const deviceId = "123e4567-e89b-12d3-a456-426614174000";
 const access = {
   endpoint: "http://host.example-tailnet.ts.net:8810",

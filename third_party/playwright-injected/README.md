@@ -8,7 +8,7 @@ Vendored, unmodified sources from [Microsoft Playwright](https://github.com/micr
 
 `entry.ts` is Colonie's: it exposes Playwright's accessibility-tree
 snapshot (the `[ref=eN]` YAML that playwright-mcp hands models) on
-`window.__ombBrowser` for the built-in browser surface, and resolves refs
+`window.__colonieBrowser` for the built-in browser surface, and resolves refs
 back to elements for clicks and fills.
 
 `scripts/build-browser-snapshot.mjs` bundles this into

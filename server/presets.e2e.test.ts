@@ -49,7 +49,7 @@ it("shares New bot defaults as a preset, imports it, and creates a bot from it",
     expect(existsSync(published)).toBe(false);
     expect(preview.summary).toMatchObject({ kind: "library", counts: { bots: 0, skills: 1, presets: 1 }, presetNames: ["Support agent"] });
     const saved = await ok("POST", "/api/teams/export", body);
-    expect(saved.filename).toBe("support-agent-1.0.0.openmaus.json");
+    expect(saved.filename).toBe("support-agent-1.0.0.colonie.json");
     expect(saved.redacted).toEqual(["presets[new-bot-defaults].bot.soul"]);
     expect(existsSync(published)).toBe(true);
     const preset = saved.document.package.presets[0];

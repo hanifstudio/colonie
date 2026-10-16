@@ -213,7 +213,7 @@ async function main() {
   // The token is a live credential for as long as that registry exists.
   // It is thrown away with the temp directory below, but a fixture is a file
   // people copy, so it never gets written in the first place.
-  write("pair-response", { ...paired.body, token: "omb_REDACTED" });
+  write("pair-response", { ...paired.body, token: "colonie_REDACTED" });
 
   // ── a bot, and a few messages for it to have said ──────────────────────
   //

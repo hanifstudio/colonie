@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { phonePairingLink } from "./pairing-link";
 
 describe("phonePairingLink", () => {
-  const token = `omb_pair_${"a".repeat(43)}`;
+  const token = `colonie_pair_${"a".repeat(43)}`;
   const secretPublicKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU";
 
   const decodedEndpoints = (link: string) => {

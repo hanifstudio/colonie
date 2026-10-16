@@ -263,7 +263,7 @@ if (listening) {
     });
     assert.equal(response.status, 200, "Packaged backup worker did not export successfully");
     const archive = await response.json();
-    assert.equal(archive.summary.format, "openmaus.workspace-backup");
+    assert.equal(archive.summary.format, "colonie.workspace-backup");
     const download = await fetch(`http://127.0.0.1:${port}/api/workspace-backup/download/${archive.id}`);
     assert.equal(download.status, 200);
     const bytes = Buffer.from(await download.arrayBuffer());

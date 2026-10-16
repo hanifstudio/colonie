@@ -133,7 +133,7 @@ describe("team backups", () => {
 
 describe("legacy team files", () => {
   const manifest = (defaultResponder: Record<string, string>) => ({
-    format: "openmaus.team",
+    format: "colonie.team",
     version: 1,
     team: {
       name: "Research",

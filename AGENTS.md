@@ -11,10 +11,10 @@ More specific `AGENTS.md` files override this note within their directories.
 `docs/HANDOVER.md` is the current state of the work, the goal in the owner's own
 words, what is verified, what is next, and the traps already hit. Read it before
 `docs/SPEC.md` and `docs/PLAN.md`, and prefer it over the rest of `docs/`: most
-of those pages describe upstream Colonie's product and runtime rather than
+of those pages describe the upstream project's product and runtime rather than
 this fork, and following them steers work in the wrong direction.
 
-## Colonie fork (Colonie compatibility paths)
+## Colonie fork
 
 Read `docs/SPEC.md`, `docs/PLAN.md`, and `docs/PROGRESS.md` before changing
 the fork. The target is macOS desktop and Codex/Claude through the upstream ACP

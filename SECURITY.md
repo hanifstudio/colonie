@@ -18,7 +18,7 @@ You'll get a response as soon as possible, normally within a few days.
   built-in agent integrations use narrower per-turn capabilities. Anything that makes it reachable
   from off-machine without a paired session, lets one bot reuse another turn's capability, or lets
   a local *unprivileged other user* drive it is a vulnerability. On a hosted or shared workspace
-  (service loopback trust, see `docs/self-hosting.md`) a session-less loopback caller — which
+  (service loopback trust) a session-less loopback caller — which
   includes every bot's shell — may use only the routes in `SERVICE_ALLOW`
   (`server/request-auth.ts`); reaching an admin route or approving a card that way is a
   vulnerability. Known and documented, not yet closed: that caller keeps the Slack worker's

@@ -6,8 +6,8 @@
 // static imports in statement order, so importing this module first scrubs the
 // environment before the snapshot is taken. Import order is the contract —
 // keep this line above any import of the module under test.
-import { isAmbientOmbKey } from "./colonie-env.ts";
+import { isAmbientColonieKey } from "./colonie-env.ts";
 
 for (const key of Object.keys(process.env)) {
-  if (isAmbientOmbKey(key)) delete process.env[key];
+  if (isAmbientColonieKey(key)) delete process.env[key];
 }

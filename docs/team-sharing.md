@@ -1,6 +1,6 @@
 # Sharing a whole team
 
-**Share team…** saves one team as a single file (`<team>-<version>.openmaus.json`).
+**Share team…** saves one team as a single file (`<team>-<version>.colonie.json`).
 Someone else adds it in **Templates → Import**. Open it from the team's menu in the sidebar (right-click
 the team name), or from **Templates → Share**.
 
@@ -102,7 +102,7 @@ If any step fails, everything the import created is removed again.
 
 ## The file format
 
-`openmaus.package` version 2, defined in `shared/package-format.ts`, the one
+`colonie.package` version 2, defined in `shared/package-format.ts`, the one
 module the app, the import preview and Admin all validate with. It still
 reads version 1 files (JSON and the BotMRR Markdown playbook). Older apps
 refuse version 2 files with their existing "not supported" message; Admin can

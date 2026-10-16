@@ -1137,7 +1137,7 @@ describe("saving OpenCode provider keys", () => {
     expect(mergeOpenCodeProviderKeys({}, { ANTHROPIC_API_KEY: "sk-ant" })).toEqual({ ok: true, keys: { ANTHROPIC_API_KEY: "sk-ant" } });
   });
 
-  it("refuses names OpenCode does not read or that OpenMaus keeps, with the fix", () => {
+  it("refuses names OpenCode does not read or that Colonie keeps, with the fix", () => {
     const refused = (name: string) => {
       const result = mergeOpenCodeProviderKeys(saved, { [name]: "a-key" });
       expect(result.ok, name).toBe(false);
@@ -1150,7 +1150,7 @@ describe("saving OpenCode provider keys", () => {
     // Names this server keeps for itself or another engine would never reach OpenCode.
     for (const name of ["OPENCODE_SERVER_KEY", "COLONIE_CLOUD_BOAT_TOKEN", "COLONIE_LICENSE_KEY", "BOX_TOKEN", "COMPOSIO_API_KEY",
       "OPENAI_COMPAT_API_KEY", "XAI_API_KEY", "MISTRAL_API_KEY", "CURSOR_API_KEY", "FACTORY_API_KEY"]) {
-      expect(refused(name)).toBe(`OpenMaus keeps ${name} for itself, so OpenCode can't be given it here. Put this key in opencode.json instead.`);
+      expect(refused(name)).toBe(`Colonie keeps ${name} for itself, so OpenCode can't be given it here. Put this key in opencode.json instead.`);
     }
   });
 
@@ -1395,11 +1395,11 @@ describe("credential env preference", () => {
   it("never takes Cloud Pro's included tokens for the person's own keys, in config or an engine's environment", () => {
     const included = {
       COLONIE_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
-      COLONIE_CLOUD_BOAT_TOKEN: "box_omb_included-relay-token",
+      COLONIE_CLOUD_BOAT_TOKEN: "box_colonie_included-relay-token",
       COLONIE_CLOUD_VOICE_URL: "https://cloud.example.test/api/cloud/services/voice/v1",
-      COLONIE_CLOUD_VOICE_TOKEN: "omb_voice_included-relay-token",
+      COLONIE_CLOUD_VOICE_TOKEN: "colonie_voice_included-relay-token",
       COLONIE_CLOUD_DECIDER_URL: "https://cloud.example.test/api/cloud/services/decider",
-      COLONIE_CLOUD_DECIDER_TOKEN: "omb_decide_included-relay-token",
+      COLONIE_CLOUD_DECIDER_TOKEN: "colonie_decide_included-relay-token",
     };
     for (const [name, value] of Object.entries(included)) vi.stubEnv(name, value);
     try {
@@ -1740,14 +1740,14 @@ describe("workspace credential env strip", () => {
     const operator = {
       COLONIE_CLOUD_READY_TOKEN: "ready", COLONIE_CLOUD_BOOTSTRAP: "bootstrap", COLONIE_CLOUD_GATEWAY_TOKEN: "gateway",
       COLONIE_CLOUD_MODELS: "models", COLONIE_CLOUD_REVISION: "revision", COLONIE_CLOUD_FUTURE_SECRET: "later",
-      COLONIE_LICENSE_KEY: "license", COLONIE_INSTALLATION_CREDENTIAL: "fleet", omb_cloud_ready_token: "windows-spelling",
+      COLONIE_LICENSE_KEY: "license", COLONIE_INSTALLATION_CREDENTIAL: "fleet", colonie_cloud_ready_token: "windows-spelling",
     };
     // What an engine deliberately receives, plus look-alike names.
     const engine = {
       PATH: "/usr/bin", ANTHROPIC_API_KEY: "hosted-token", ANTHROPIC_AUTH_TOKEN: "hosted-token",
       ANTHROPIC_BASE_URL: "https://admin.example.test/api/gateway/w/anthropic", COLONIE_COMPANY_API_KEY: "hosted-token",
       COLONIE_MANAGED_CODEX_TOKEN: "hosted-token", CODEX_HOME: "/data/codex", COLONIE_HOOK_TOKEN_FILE: "/data/hook-tokens/a.token",
-      COLONIE_CLOUDFLARED_PATH: "/usr/local/bin/cloudflared", COLONIE_CLOUD: "not-prefixed", MY_OMB_CLOUD_NOTE: "user",
+      COLONIE_CLOUDFLARED_PATH: "/usr/local/bin/cloudflared", COLONIE_CLOUD: "not-prefixed", MY_COLONIE_CLOUD_NOTE: "user",
     };
     for (const strip of [stripControlPlaneEnv, stripWorkspaceCredentialEnv]) {
       const env: Record<string, string | undefined> = { ...operator, ...engine };

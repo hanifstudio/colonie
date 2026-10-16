@@ -2439,7 +2439,7 @@ app.whenReady().then(async () => {
       // config.json. The parent retains ownership across utility-child port
       // fallbacks and restarts for the entire desktop process lifetime.
       desktopDataDirLease = acquireDataDirLease(desktopDataDir(), {
-        legacyDataDir: process.env.COLONIE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".opengrokbot"),
+        legacyDataDir: process.env.COLONIE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".colonie"),
       });
     } catch (error) {
       dialog.showErrorBox(

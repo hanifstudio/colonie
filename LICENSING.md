@@ -1,7 +1,8 @@
 # Licensing
 
-Colonie is a fork of Colonie. Everything in this repository is open source
-under the [Apache License 2.0](LICENSE), with a few notes.
+Colonie is a fork of an upstream open-source project. Everything in this
+repository is open source under the [Apache License 2.0](LICENSE), with a few
+notes.
 
 ## The retired carve-out: `enterprise/`
 
@@ -42,8 +43,7 @@ source locations and the SBOM are listed in [NOTICE](NOTICE) and
 [`third_party/`](third_party/). The Bloub mascot engine this fork builds its
 artwork on is MIT; its notice and provenance travel with the packaged app.
 
-The Colonie and Colonie names and the mascot are trademarks of Supamaus
-Software Private Limited; the Apache License does not grant trademark rights
-(section 6), so a product built on Colonie needs its own name. Colonie has
-its own name and its own Bloub-based mascot, and ships upstream's `LICENSE` and
-`NOTICE` unchanged.
+The upstream project's name and mascot are trademarks of Supamaus Software
+Private Limited; the Apache License does not grant trademark rights (section 6).
+Colonie has its own name and its own Bloub-based mascot, and ships upstream's
+`LICENSE` and `NOTICE` unchanged.

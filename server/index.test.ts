@@ -3741,13 +3741,13 @@ describe("harness HTTP API", () => {
     const leadReplies = [
       [
         "Parker should do the desktop work.",
-        '<openmaus-goal>{"status":"continue",',
-        '"next":"Parker","instruction":"Use the shared desktop","detail":"Delegated to Parker"}</openmaus-goal>',
+        '<colonie-goal>{"status":"continue",',
+        '"next":"Parker","instruction":"Use the shared desktop","detail":"Delegated to Parker"}</colonie-goal>',
       ].join("\n"),
       [
         "The desktop stayed busy, so I finished without it.",
-        '<openmaus-goal>{"status":"completed",',
-        '"detail":"Parker parked at the computer; the lead finished the goal directly."}</openmaus-goal>',
+        '<colonie-goal>{"status":"completed",',
+        '"detail":"Parker parked at the computer; the lead finished the goal directly."}</colonie-goal>',
       ].join("\n"),
     ];
     mkdirSync(join(isolatedStatic, "assets"), { recursive: true });
@@ -4850,7 +4850,7 @@ describe("harness HTTP API", () => {
       .map((bot: { name: string }) => bot.name);
     const exported = await api("POST", "/api/teams/export", { name: "Field Team" });
     expect(exported.status).toBe(200);
-    expect(exported.body).toMatchObject({ format: "openmaus.team", version: 2, team: { name: "Field Team" } });
+    expect(exported.body).toMatchObject({ format: "colonie.team", version: 2, team: { name: "Field Team" } });
     expect(exported.body.team.members.map((member: { name: string }) => member.name)).toEqual(visibleNames);
     expect(exported.body.team.members).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: "mira", name: "Mira", title: "Project Lead", appearance: { color: "purple", mascotExpression: "focused" } }),
@@ -4865,7 +4865,7 @@ describe("harness HTTP API", () => {
     expect(markdownExport.body.markdown).toContain("Give this file to your Chief of Staff");
     expect(markdownExport.body.markdown).not.toMatch(/Archived|autoApprove|alwaysAllow|modelSelection|threadId/);
     expect((await api("GET", "/api/bots")).body.groups).toHaveLength(roomsBefore);
-    expect((await api("POST", "/api/teams/export", {})).body.team.name).toBe("My OpenMaus Team");
+    expect((await api("POST", "/api/teams/export", {})).body.team.name).toBe("My Colonie Team");
 
     const stream = await openSse(`${BASE}/api/events`);
     try {
@@ -4991,7 +4991,7 @@ describe("harness HTTP API", () => {
     try {
       for (const suffix of [3, 4]) {
         const imported = await api("POST", "/api/teams/import", {
-          format: "openmaus.team", version: 2,
+          format: "colonie.team", version: 2,
           team: { name: `${stem} long template name`, members: [{ key: "helper", name: "Template helper", section: "Must not choose destination", appearance: { color: "blue" } }] },
         });
         expect(imported.status).toBe(201);
@@ -5011,7 +5011,7 @@ describe("harness HTTP API", () => {
 
   it("installs a complete bot package with a Chief, room, playbook, connector intent, and paused routine", async () => {
     const packageFile = {
-      format: "openmaus.package",
+      format: "colonie.package",
       version: 1,
       package: {
         id: "signal-desk",
@@ -5209,7 +5209,7 @@ describe("harness HTTP API", () => {
     const room = (await api("POST", "/api/groups", { memberIds: [trusted.id], name: "War Room" })).body.group;
 
     const smuggled = {
-      format: "openmaus.team",
+      format: "colonie.team",
       version: 2,
       team: {
         name: "Trap Team",
@@ -5277,7 +5277,7 @@ describe("harness HTTP API", () => {
     // a legacy v1 file carries a room block; import ignores it entirely —
     // it neither creates a room nor touches the existing one sharing its name
     const legacy = await api("POST", "/api/teams/import", {
-      format: "openmaus.team",
+      format: "colonie.team",
       version: 1,
       team: {
         name: "Trap Team Legacy",
@@ -7531,7 +7531,7 @@ describe("harness HTTP API", () => {
       const seen = await readJsonFileWhenReady<{ systemPrompt?: string }>(fakeClaudeDump, 15_000);
       const system = seen.systemPrompt ?? "";
       // the skill's instructions ride the system prompt the agent receives
-      expect(system).toContain('<openmaus-skill id="create-verification-skill"');
+      expect(system).toContain('<colonie-skill id="create-verification-skill"');
       expect(system).toContain("skill_manage");
     } finally {
       await api("POST", `/api/bots/${bot.id}/interrupt`);
@@ -7744,8 +7744,8 @@ describe("harness HTTP API", () => {
       })).status).toBe(202);
       let seen = await readJsonFileWhenReady<{ systemPrompt?: string }>(fakeClaudeDump);
       let system = seen.systemPrompt ?? "";
-      expect(system).toContain('<openmaus-skill id="create-verification-skill"');
-      expect(system).toContain('<openmaus-skill id="phone-harness"');
+      expect(system).toContain('<colonie-skill id="create-verification-skill"');
+      expect(system).toContain('<colonie-skill id="phone-harness"');
       expect((await api("POST", `/api/groups/${room.id}/interrupt`, {})).status).toBe(200);
       await expect.poll(async () => {
         const state = (await api("GET", "/api/bots?messages=0")).body;
@@ -7758,8 +7758,8 @@ describe("harness HTTP API", () => {
       })).status).toBe(202);
       seen = await readJsonFileWhenReady<{ systemPrompt?: string }>(fakeClaudeDump);
       system = seen.systemPrompt ?? "";
-      expect(system).not.toContain('<openmaus-skill id="create-verification-skill"');
-      expect(system).toContain('<openmaus-skill id="phone-harness"');
+      expect(system).not.toContain('<colonie-skill id="create-verification-skill"');
+      expect(system).toContain('<colonie-skill id="phone-harness"');
     } finally {
       if (room) {
         expect((await api("POST", `/api/groups/${room.id}/interrupt`, {})).status).toBe(200);

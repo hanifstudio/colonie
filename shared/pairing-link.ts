@@ -159,7 +159,7 @@ export function phonePairingLink({
   secretPublicKey,
 }: PhonePairingLinkOptions): string | null {
   const dial = linkAddress(address, port);
-  if (!dial || !/^omb_pair_[A-Za-z0-9_-]{43}$/.test(token)) return null;
+  if (!dial || !/^colonie_pair_[A-Za-z0-9_-]{43}$/.test(token)) return null;
   if (code !== undefined && !/^\d{6}$/.test(code)) return null;
 
   const fields: Array<[string, string]> = [["address", dial], ["token", token]];

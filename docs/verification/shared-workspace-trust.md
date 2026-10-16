@@ -2,8 +2,7 @@
 
 A hosted or shared workspace runs every bot's shell on the server as the
 same user, so "a request from 127.0.0.1" no longer means "the owner". These
-checks pin what changes there and what does not. The operator-facing
-description is in [self-hosting](../self-hosting.md#loopback-trust-owner-or-service).
+checks pin what changes there and what does not.
 
 ## Sub-features
 

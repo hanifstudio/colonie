@@ -133,8 +133,7 @@ version metadata only when hosted readiness succeeds.
 These checks do not deploy a console, send real mail, issue TLS certificates,
 call a paid provider or prove Linux tenant isolation. Real root transitions,
 service/fence ordering, proxy boundaries, reboot recovery and backup restore
-still require a separately authorized disposable Linux deployment using the
-[fleet recipe](fleet.md).
+still require a separately authorized disposable Linux deployment.
 
 ## Observed local result — 2026-09-13 (Asia/Kolkata; September 12 UTC)
 

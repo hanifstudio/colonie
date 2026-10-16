@@ -312,11 +312,11 @@ try {
   await alpha.tool("agent_browser_click", { selector: "#submit" });
   assert.equal((await alpha.tool("agent_browser_get_text", { selector: "#result" })).data.text, "Bundled browser works");
   const storage = "({ local: localStorage.getItem('colonie-smoke'), cookie: document.cookie })";
-  const setStorage = (value) => `(() => { localStorage.setItem('colonie-smoke', '${value}'); document.cookie = 'omb_smoke=${value}; Path=/; SameSite=Lax'; return ${storage}; })()`;
-  assert.deepEqual((await alpha.tool("agent_browser_eval", { script: setStorage("alpha") })).data.result, { local: "alpha", cookie: "omb_smoke=alpha" });
+  const setStorage = (value) => `(() => { localStorage.setItem('colonie-smoke', '${value}'); document.cookie = 'colonie_smoke=${value}; Path=/; SameSite=Lax'; return ${storage}; })()`;
+  assert.deepEqual((await alpha.tool("agent_browser_eval", { script: setStorage("alpha") })).data.result, { local: "alpha", cookie: "colonie_smoke=alpha" });
   assert.deepEqual((await beta.tool("agent_browser_eval", { script: storage })).data.result, { local: null, cookie: "" }, "Second bot inherited first bot's state");
-  assert.deepEqual((await beta.tool("agent_browser_eval", { script: setStorage("beta") })).data.result, { local: "beta", cookie: "omb_smoke=beta" });
-  assert.deepEqual((await alpha.tool("agent_browser_eval", { script: storage })).data.result, { local: "alpha", cookie: "omb_smoke=alpha" }, "First bot's state was overwritten by the second bot");
+  assert.deepEqual((await beta.tool("agent_browser_eval", { script: setStorage("beta") })).data.result, { local: "beta", cookie: "colonie_smoke=beta" });
+  assert.deepEqual((await alpha.tool("agent_browser_eval", { script: storage })).data.result, { local: "alpha", cookie: "colonie_smoke=alpha" }, "First bot's state was overwritten by the second bot");
   // Reopen through the SAME MCP process: warming a daemon before MCP would
   // conceal the Windows inherited-pipe bug, which returns after a close.
   const previousDaemonPid = await ownedDaemonPid(alpha);
@@ -328,7 +328,7 @@ try {
   assert.notEqual(await ownedDaemonPid(alpha), previousDaemonPid, "Reopen reused the closed daemon");
   assert.equal((await alpha.tool("agent_browser_get_title")).data.title, title);
   assert.deepEqual((await alpha.tool("agent_browser_eval", { script: storage })).data.result, { local: null, cookie: "" }, "Guest state was restored after close");
-  assert.deepEqual((await beta.tool("agent_browser_eval", { script: storage })).data.result, { local: "beta", cookie: "omb_smoke=beta" }, "Restarting the first bot changed the second bot's state");
+  assert.deepEqual((await beta.tool("agent_browser_eval", { script: storage })).data.result, { local: "beta", cookie: "colonie_smoke=beta" }, "Restarting the first bot changed the second bot's state");
   await alpha.tool("agent_browser_fill", { selector: "#message", text: "Reopened browser works" });
   await alpha.tool("agent_browser_click", { selector: "#submit" });
   assert.equal((await alpha.tool("agent_browser_get_text", { selector: "#result" })).data.text, "Reopened browser works");

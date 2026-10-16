@@ -145,7 +145,7 @@ async function main() {
       // permission broker: allow (curl usually trips the CLI's permission
       // layer; its safe-command classifier occasionally auto-allows —
       // soft-pass then, but a silent stall is a hard failure)
-      await send(bot.id, `Run exactly one shell command: curl -sS https://example.com -o omb_${tag}_allow.html — then tell me the first word of the downloaded file.`);
+      await send(bot.id, `Run exactly one shell command: curl -sS https://example.com -o colonie_${tag}_allow.html — then tell me the first word of the downloaded file.`);
       const allowTry = await waitAskOrSettle(bot.id, 180_000);
       if (allowTry.ask) {
         log(`  ✓ permission card appeared (${allowTry.ask.card.subtitle?.slice(0, 60)})`);
@@ -167,7 +167,7 @@ async function main() {
       // remembered by the resumed CLI session (no second ask otherwise)
       const denyBot = await makeBot("E2E Claude Deny", "claude", byKind.claudeAgent.models.default);
       created.push(denyBot.id);
-      await send(denyBot.id, `Run the shell command "curl -sS https://example.org -o omb_${tag}_deny.html" — nothing else.`);
+      await send(denyBot.id, `Run the shell command "curl -sS https://example.org -o colonie_${tag}_deny.html" — nothing else.`);
       const denyTry = await waitAskOrSettle(denyBot.id, 180_000);
       if (denyTry.ask) {
         await api(`/api/bots/${denyBot.id}/respond`, {

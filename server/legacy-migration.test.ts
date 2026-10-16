@@ -1,4 +1,4 @@
-// A user upgrading from the pre-rename data dir (~/.opengrokbot) must find
+// A user upgrading from the pre-rename data dir (~/.colonie) must find
 // everything in ~/.colonie after the first boot. Anything that touches
 // the new dir before ensureDirs() runs would make that rename a no-op and
 // boot the user into an empty workspace — this test pins the order.
@@ -22,7 +22,7 @@ let stderr = "";
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "colonie-legacy-test-"));
-  const legacy = join(home, ".opengrokbot");
+  const legacy = join(home, ".colonie");
   mkdirSync(legacy, { recursive: true });
   // A non-product shadow keeps startup deterministic: an empty map selects
   // the user's full default engine fleet, whose installed CLI probes are not
@@ -66,7 +66,7 @@ afterAll(async () => {
 describe("legacy data dir", () => {
   it("is renamed to the new name on first boot, with its contents and a fresh environment id", () => {
     const fresh = join(home, ".colonie");
-    expect(existsSync(join(home, ".opengrokbot"))).toBe(false);
+    expect(existsSync(join(home, ".colonie"))).toBe(false);
     expect(readFileSync(join(fresh, "keep-me.txt"), "utf8")).toBe("carried over");
     expect(readFileSync(join(fresh, "environment-id"), "utf8").trim()).toMatch(/^[0-9a-f-]{36}$/);
   });

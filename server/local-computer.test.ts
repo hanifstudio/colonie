@@ -182,7 +182,7 @@ describe("local computer descriptor", () => {
   it.skipIf(process.platform === "win32")("treats the first present legacy descriptor as authoritative", () => {
     const root = privateUserData("legacy-mac-home");
     const first = join(root, "Library", "Application Support", "Colonie");
-    const stale = join(root, "Library", "Application Support", "OpenGrokBot");
+    const stale = join(root, "Library", "Application Support", "Colonie");
     mkdirSync(first, { recursive: true, mode: 0o700 });
     mkdirSync(stale, { recursive: true, mode: 0o700 });
     const reason = "Accessibility required; grant access in System Settings and restart Colonie";

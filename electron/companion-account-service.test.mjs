@@ -25,7 +25,7 @@ const UUID = "11111111-1111-4111-8111-111111111111";
 const INSTALLATION_ID = "22222222-2222-4222-8222-222222222222";
 const DUPLICATE_INSTALLATION_ID = "33333333-3333-4333-8333-333333333333";
 const ACCOUNT_TOKEN = `signed.${"a".repeat(80)}`;
-const INSTALLATION_CREDENTIAL = `omb_install_${"b".repeat(22)}.${"c".repeat(43)}`;
+const INSTALLATION_CREDENTIAL = `colonie_install_${"b".repeat(22)}.${"c".repeat(43)}`;
 const CONNECTOR_TOKEN = `eyJ${"d".repeat(100)}`;
 const ENDPOINT = "https://c-opaque.colonie.com";
 

@@ -20,7 +20,7 @@ the standing instructions, then checks:
 
 - `POST /api/teams/export` with `kind: "library"`: a dry run counts one
   preset and one skill and writes no `published-library.json`; saving writes
-  `support-agent-1.0.0.openmaus.json` with the preset (name, look, picture,
+  `support-agent-1.0.0.colonie.json` with the preset (name, look, picture,
   standing instructions, skill, starter notes), reports the redacted
   instructions, contains no password, approval, connected-app, model or
   routine field, and the next save suggests `1.0.1`;
@@ -76,7 +76,7 @@ the summary lines, creation passing the preset and leaving its skills and
 notes to the server, the share request, part names, the preset file's
 contents list and its import preview. The second owns a disposable
 `control-colonie ui` app: **Settings → Share as preset…** shows the counts and
-saves `sky-1.0.0.openmaus.json` (captured in the page); **Templates →
+saves `sky-1.0.0.colonie.json` (captured in the page); **Templates →
 Import** of that file shows "Preset bots and skills · no team" and **Add
 presets** adds it; **Share team** shows no preset until **Include my New bot
 defaults as a preset** is ticked; then **New bot** lists **Imported

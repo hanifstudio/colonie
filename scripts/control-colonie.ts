@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 
 import { handleToolCall, request, validateBaseUrl } from "./mcp-server.ts";
-import { launchUi, runControlOmbUi } from "./testing/control-colonie-ui.ts";
+import { launchUi, runControlColonieUi } from "./testing/control-colonie-ui.ts";
 import { removeTempDir, waitForExit } from "../server/testing/cleanup.ts";
 import { freePortBlock } from "../server/testing/ports.ts";
 
@@ -25,7 +25,7 @@ const MUTATING = new Set([
   "ui click", "ui type", "ui press", "ui flag", "ui eval",
 ]);
 
-export class ControlOmbError extends Error {
+export class ControlColonieError extends Error {
   readonly hint?: string;
 
   constructor(message: string, hint?: string) {
@@ -37,7 +37,7 @@ export class ControlOmbError extends Error {
 type ToolCaller = typeof handleToolCall;
 type Requester = typeof request;
 
-export interface ControlOmbDependencies {
+export interface ControlColonieDependencies {
   callTool?: ToolCaller;
   request?: Requester;
   env?: NodeJS.ProcessEnv;
@@ -103,7 +103,7 @@ export function parse(
       allowPositionals: false,
     }).values as Record<string, unknown> & { url?: string };
   } catch (error) {
-    throw new ControlOmbError(
+    throw new ControlColonieError(
       error instanceof Error ? error.message : String(error),
       `run control-colonie help for the ${command} syntax`,
     );
@@ -111,7 +111,7 @@ export function parse(
 }
 
 function required(value: unknown, name: string): string {
-  if (typeof value !== "string" || !value.trim()) throw new ControlOmbError(`${name} is required`);
+  if (typeof value !== "string" || !value.trim()) throw new ControlColonieError(`${name} is required`);
   return value.trim();
 }
 
@@ -119,7 +119,7 @@ function positiveInteger(value: unknown, name: string, fallback: number, maximum
   if (value === undefined) return fallback;
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
-    throw new ControlOmbError(`${name} must be an integer from 1 to ${maximum}`);
+    throw new ControlColonieError(`${name} must be an integer from 1 to ${maximum}`);
   }
   return parsed;
 }
@@ -130,7 +130,7 @@ function configuredUrl(raw: unknown, env: NodeJS.ProcessEnv, requiredForMutation
     : env.COLONIE_URL?.trim() || (env.COLONIE_PORT ? `http://127.0.0.1:${env.COLONIE_PORT}` : "");
   if (!explicit) {
     if (requiredForMutation) {
-      throw new ControlOmbError(
+      throw new ControlColonieError(
         "mutating commands require an explicit Colonie instance",
         "start `control-colonie launch`, then pass its URL with --url",
       );
@@ -144,7 +144,7 @@ function target(values: Record<string, unknown>): { type: "bot" | "channel"; id:
   const bot = typeof values.bot === "string" ? values.bot.trim() : "";
   const channel = typeof values.channel === "string" ? values.channel.trim() : "";
   if (Boolean(bot) === Boolean(channel)) {
-    throw new ControlOmbError("provide exactly one of --bot ID or --channel ID");
+    throw new ControlColonieError("provide exactly one of --bot ID or --channel ID");
   }
   return bot ? { type: "bot", id: bot } : { type: "channel", id: channel };
 }
@@ -156,13 +156,13 @@ function dryRun(command: string, values: Record<string, unknown>, tool: string, 
 /** Map friendly CLI commands onto the already-tested MCP tool boundary. */
 export async function runControlColonie(
   argv: string[],
-  dependencies: ControlOmbDependencies = {},
+  dependencies: ControlColonieDependencies = {},
 ): Promise<unknown> {
   const [command = "help", ...args] = argv;
   if (command === "help" || command === "--help" || command === "-h") return HELP;
-  if (command === "launch") throw new ControlOmbError("launch is available only from the executable CLI");
+  if (command === "launch") throw new ControlColonieError("launch is available only from the executable CLI");
   // The first positional after `ui` is the verb; its tail is parsed strictly per verb.
-  if (command === "ui") return runControlOmbUi(args);
+  if (command === "ui") return runControlColonieUi(args);
 
   const env = dependencies.env ?? process.env;
   const callTool = dependencies.callTool ?? handleToolCall;
@@ -223,7 +223,7 @@ export async function runControlColonie(
     });
     const memberIds = required(values.members, "--members").split(",").map((id) => id.trim()).filter(Boolean);
     if (!memberIds.length || new Set(memberIds).size !== memberIds.length) {
-      throw new ControlOmbError("--members must contain unique comma-separated bot IDs");
+      throw new ControlColonieError("--members must contain unique comma-separated bot IDs");
     }
     return call("create_channel", {
       name: required(values.name, "--name"),
@@ -242,7 +242,7 @@ export async function runControlColonie(
     });
     const expected = command === "send" ? "bot" : "channel";
     const destination = target(values);
-    if (destination.type !== expected) throw new ControlOmbError(`${command} requires --${expected} ID`);
+    if (destination.type !== expected) throw new ControlColonieError(`${command} requires --${expected} ID`);
     const tool = expected === "bot" ? "send_bot_message" : "send_channel_message";
     const input = {
       [`${expected}_id`]: destination.id,
@@ -319,7 +319,7 @@ export async function runControlColonie(
     return dryRun(command, values, tool, input) ?? call(tool, input, values.url);
   }
 
-  throw new ControlOmbError(`unknown command ${JSON.stringify(command)}`, "run control-colonie help");
+  throw new ControlColonieError(`unknown command ${JSON.stringify(command)}`, "run control-colonie help");
 }
 
 export interface VerificationServer {
@@ -420,23 +420,23 @@ export async function launchVerificationServer(
   /** Synthetic fixture credential only; enables provenance/removal checks. */
   composioFixtureEnvironmentKey = false,
 ): Promise<VerificationServer> {
-  if (composioFixtureEnvironmentKey && !composioFixtureApi) throw new ControlOmbError("An environment-key fixture requires a loopback Composio provider");
-  if (composioFixtureApi && !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(composioFixtureApi)) throw new ControlOmbError("Composio verification requires an explicit loopback HTTP provider");
+  if (composioFixtureEnvironmentKey && !composioFixtureApi) throw new ControlColonieError("An environment-key fixture requires a loopback Composio provider");
+  if (composioFixtureApi && !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(composioFixtureApi)) throw new ControlColonieError("Composio verification requires an explicit loopback HTTP provider");
   if (boatFixtureApi) {
     if (!/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(boatFixtureApi)) {
-      throw new ControlOmbError("Boat verification requires an explicit loopback HTTP provider");
+      throw new ControlColonieError("Boat verification requires an explicit loopback HTTP provider");
     }
     try { new URL(boatFixtureApi); }
-    catch { throw new ControlOmbError("Boat verification requires a valid loopback port"); }
+    catch { throw new ControlColonieError("Boat verification requires a valid loopback port"); }
   }
   if (localVm) {
     const endpoint = new URL(localVm.host);
     if (endpoint.protocol !== "ssh:" || endpoint.hostname !== "127.0.0.1" || endpoint.password) {
-      throw new ControlOmbError("Local VM verification requires an explicit loopback Podman machine");
+      throw new ControlColonieError("Local VM verification requires an explicit loopback Podman machine");
     }
   }
   const port = await freePortBlock([0, 1]);
-  if (signal?.aborted) throw new ControlOmbError("verification launch cancelled");
+  if (signal?.aborted) throw new ControlColonieError("verification launch cancelled");
   const url = `http://127.0.0.1:${port}`;
   // Native browser daemons use UNIX sockets; a macOS temp home can exceed
   // their path limit. This is still an owned, randomly named fixture only.
@@ -514,7 +514,7 @@ export async function launchVerificationServer(
   const deadline = Date.now() + 20_000;
   try {
     for (;;) {
-      if (signal?.aborted) throw new ControlOmbError("verification launch cancelled");
+      if (signal?.aborted) throw new ControlColonieError("verification launch cancelled");
       if (child.exitCode !== null || child.signalCode !== null) {
         throw new Error(`verification server exited before it was ready; see ${logPath}`);
       }
@@ -594,7 +594,7 @@ export function controlResultSucceeded(command: string, result: unknown): boolea
 /** pnpm swallows Ctrl-C; a launcher that owns processes must get the signal itself. */
 function requireForegroundTerminal(command: string): void {
   if (process.env.npm_lifecycle_event === "control:colonie") {
-    throw new ControlOmbError(
+    throw new ControlColonieError(
       `${command} must own the terminal directly so Ctrl-C can clean up its children`,
       `run \`node --experimental-strip-types scripts/control-colonie.ts ${command}\``,
     );
@@ -652,7 +652,7 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
-    const failure = error instanceof ControlOmbError
+    const failure = error instanceof ControlColonieError
       ? { ok: false, error: error.message, ...(error.hint ? { hint: error.hint } : {}) }
       : { ok: false, error: error instanceof Error ? error.message : String(error) };
     process.stderr.write(`${JSON.stringify(failure, null, 2)}\n`);

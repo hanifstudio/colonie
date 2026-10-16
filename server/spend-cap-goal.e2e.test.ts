@@ -29,7 +29,7 @@ describe("spend cap inside a team goal run", () => {
       // so an accidental retry would return the same decision — and price
       // another turn, which the usage assertions below would catch.
       FAKE_CLAUDE_REPLIES: JSON.stringify([
-        'The plan is ready.\n<openmaus-goal>{"status":"continue","next":"Worker","instruction":"Do the thing","detail":"Plan ready"}</openmaus-goal>',
+        'The plan is ready.\n<colonie-goal>{"status":"continue","next":"Worker","instruction":"Do the thing","detail":"Plan ready"}</colonie-goal>',
       ]),
     }, undefined, undefined, undefined, { dir: layerDir, licenseKey: "fixture-key" });
   }, 60_000);

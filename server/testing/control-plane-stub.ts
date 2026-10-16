@@ -34,7 +34,7 @@ export interface ControlPlaneStub {
 
 const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
 
-const newCredential = () => `omb_install_${randomBytes(16).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
+const newCredential = () => `colonie_install_${randomBytes(16).toString("base64url")}.${randomBytes(32).toString("base64url")}`;
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   let raw = "";

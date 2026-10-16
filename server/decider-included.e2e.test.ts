@@ -40,7 +40,7 @@ function relayTakes(raw: string, body: any): boolean {
   return ids.length === 1 && question?.type === "choice" && question.instructions === ROOM_INSTRUCTIONS &&
     Boolean(state) && typeof state === "object" && Object.keys(state).every((key) => ROOM_STATE_KEYS.includes(key));
 }
-const INCLUDED = `omb_decide_${randomBytes(32).toString("base64url")}`;
+const INCLUDED = `colonie_decide_${randomBytes(32).toString("base64url")}`;
 const OWN = "tsk_own_person_key_5e1c";
 let stub: Server;
 let relayUrl = "";

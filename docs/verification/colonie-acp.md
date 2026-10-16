@@ -1,4 +1,4 @@
-# Colonie ACP verification (Colonie-compatible fixture paths)
+# Colonie ACP verification
 
 Follow the isolation rules in [README.md](README.md). The Colonie fixture is
 launched through the existing `launchVerificationServer` control surface with

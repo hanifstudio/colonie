@@ -11,15 +11,15 @@
 const AMBIENT_PREFIXES = ["COLONIE_", "COLONIE_"] as const;
 
 /** True for keys owned by the Colonie runtime (`COLONIE_*`, `COLONIE_*`). */
-export function isAmbientOmbKey(key: string): boolean {
+export function isAmbientColonieKey(key: string): boolean {
   return AMBIENT_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
 /** Copy `env` without any `COLONIE_*` / `COLONIE_*` keys. */
-export function stripOmbEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+export function stripColonieEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const clean: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(env)) {
-    if (!isAmbientOmbKey(key)) clean[key] = value;
+    if (!isAmbientColonieKey(key)) clean[key] = value;
   }
   return clean;
 }
@@ -33,5 +33,5 @@ export function stripOmbEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
  * only Colonie configuration the child ever sees.
  */
 export function childEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
-  return { ...stripOmbEnv(process.env), ...overrides };
+  return { ...stripColonieEnv(process.env), ...overrides };
 }

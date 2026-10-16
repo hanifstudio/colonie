@@ -456,7 +456,7 @@ const ACP_COMPACTION_COLLAPSE_RATIO = 0.6;
 // sits above the longest normal silence.
 export const DEFAULT_ACP_PROMPT_IDLE_MS = 15 * 60_000;
 const promptIdleTimeoutMs = (): number => {
-  const raw = process.env.OPENMAUS_ACP_PROMPT_IDLE_TIMEOUT_MS;
+  const raw = process.env.COLONIE_ACP_PROMPT_IDLE_TIMEOUT_MS;
   if (raw === undefined) return DEFAULT_ACP_PROMPT_IDLE_MS;
   const ms = Number(raw);
   return Number.isFinite(ms) && ms > 0 ? ms : 0;
@@ -2121,7 +2121,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
                 const last = quiet.lastState();
                 return `${DRIVER_KIND} sent nothing for ${formatQuietLimit(promptIdleMs)} with no tool running, so the turn was stopped as stuck` +
                   `${last ? ` (last seen: ${lastSeenPhrase(last)})` : ""}. ` +
-                  "Send the message again to retry. On a self-hosted server, OPENMAUS_ACP_PROMPT_IDLE_TIMEOUT_MS sets this limit (0 turns it off).";
+                  "Send the message again to retry. On a self-hosted server, COLONIE_ACP_PROMPT_IDLE_TIMEOUT_MS sets this limit (0 turns it off).";
               },
               );
             if (pendingSplitReceipt) {

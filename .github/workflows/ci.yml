@@ -39,7 +39,7 @@ jobs:
   # smoke stayed hidden behind any vitest failure for a day. Each piece is now
   # its own job: platform-independent checks run once, the suite runs in four
   # shards per platform, and every smoke reports on its own. One final `CI`
-  # check aggregates the required jobs (see docs/ci.md for ruleset migration).
+  # check aggregates the required jobs.
   static:
     name: typecheck + lint
     runs-on: ubuntu-latest
