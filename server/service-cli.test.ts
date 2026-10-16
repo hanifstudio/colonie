@@ -19,18 +19,16 @@ describe("openmausbot service", () => {
   afterEach(() => removeTempDir(dir));
 
   it("repeats the serve options, one access mode at a time", () => {
-    expect(serviceServeArgs({ port: 8799, dataDir: "/d", domain: "a.example.com", tunnel: true, label: "x" })).toEqual(["--port", "8799", "--data-dir", "/d", "--no-pair", "--domain", "a.example.com", "--label", "x"]);
+    expect(serviceServeArgs({ port: 8799, dataDir: "/d", tunnel: true, label: "x" })).toEqual(["--port", "8799", "--data-dir", "/d", "--no-pair", "--tunnel", "--label", "x"]);
     expect(serviceServeArgs({ port: 1, dataDir: "/d", tailscale: true })).toEqual(["--port", "1", "--data-dir", "/d", "--no-pair", "--tailscale"]);
   });
 
   it("writes the unit next to the data and prints how to install it; refuses an npx cache", () => {
-    const code = runServiceCommand({ action: "install", dataDir: dir, port: 8799, domain: "maus.example.com", script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", platform: "linux", home: "/home/maus", user: "maus" }, io);
+    const code = runServiceCommand({ action: "install", dataDir: dir, port: 8799, script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", platform: "linux", home: "/home/maus", user: "maus" }, io);
     expect(code).toBe(0);
     const unit = readFileSync(join(dir, "openmausbot.service"), "utf8");
-    expect(unit).toContain("--domain maus.example.com");
-    expect(unit).toContain("AmbientCapabilities=CAP_NET_BIND_SERVICE");
+    expect(unit).toContain("--port 8799");
     expect(out.join("\n")).toContain("sudo systemctl enable --now openmausbot");
-    expect(out.join("\n")).toContain("no setcap is needed");
 
     out.length = 0;
     const refused = runServiceCommand({ action: "install", dataDir: join(dir, "x"), port: 8799, script: "/home/maus/.npm/_npx/deadbeef/node_modules/openmausbot/cli.js", node: "/usr/bin/node", platform: "linux" }, io);

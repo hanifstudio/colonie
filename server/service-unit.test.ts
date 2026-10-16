@@ -9,7 +9,6 @@ const spec: ServiceSpec = {
   dataDir: "/home/maus/.openmausbot",
   user: "maus",
   home: "/home/maus",
-  bindsLowPorts: true,
   label: "agentada",
 };
 
@@ -19,17 +18,14 @@ describe("service units", () => {
     expect(serviceCommand({ ...spec, script: "/srv/OpenMausBot/server/openmausbot.ts" })[1]).toBe("--experimental-strip-types");
   });
 
-  it("renders a systemd unit that restarts, runs as the user, and grants low ports only for --domain", () => {
+  it("renders a systemd unit that restarts and runs as the user", () => {
     const unit = systemdUnit(spec);
     expect(unit).toContain("Description=OpenMausBot (agentada)");
     expect(unit).toContain("User=maus");
     expect(unit).toContain("Environment=OMB_DATA_DIR=/home/maus/.openmausbot");
     expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port 8799 --data-dir /home/maus/.openmausbot --domain maus.example.com --no-pair");
     expect(unit).toContain("Restart=always");
-    expect(unit).toContain("AmbientCapabilities=CAP_NET_BIND_SERVICE");
     expect(unit).toContain("WantedBy=multi-user.target");
-    const local = systemdUnit({ ...spec, bindsLowPorts: false, serveArgs: ["--port", "8799", "--data-dir", "/home/maus/.openmausbot"] });
-    expect(local).not.toContain("CAP_NET_BIND_SERVICE");
     // a path with a space is quoted for systemd
     expect(systemdUnit({ ...spec, dataDir: "/home/maus/My Data", serveArgs: ["--data-dir", "/home/maus/My Data"] })).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --data-dir "/home/maus/My Data"');
   });

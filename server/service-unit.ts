@@ -21,8 +21,6 @@ export interface ServiceSpec {
   /** Unix user the service runs as (systemd only). */
   user: string;
   home: string;
-  /** Needs ports 80 and 443 (serve --domain): grant the capability to the unit. */
-  bindsLowPorts: boolean;
   label?: string;
 }
 
@@ -62,11 +60,6 @@ export function systemdUnit(spec: ServiceSpec): string {
     "KillMode=mixed",
     "TimeoutStopSec=30",
   ];
-  if (spec.bindsLowPorts) {
-    lines.push("# serve --domain: Caddy binds ports 80 and 443 without running as root.");
-    lines.push("AmbientCapabilities=CAP_NET_BIND_SERVICE");
-    lines.push("CapabilityBoundingSet=CAP_NET_BIND_SERVICE");
-  }
   lines.push("", "[Install]", "WantedBy=multi-user.target", "");
   return lines.join("\n");
 }

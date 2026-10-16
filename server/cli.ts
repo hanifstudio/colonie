@@ -7,7 +7,7 @@
 //   openmausbot setup [--data-dir ~/.openmausbot]
 //   openmausbot start [serve options]
 //   openmausbot serve [--port 8799] [--data-dir ~/.openmausbot] [--label "cab mini"]
-//                     [--public-url https://host] [--tailscale | --tunnel | --domain HOST] [--no-pair]
+//                     [--public-url https://host] [--tailscale | --tunnel] [--no-pair]
 //   openmausbot pair  [--label "My MacBook"] [--client] [--public-url https://host]
 //   openmausbot sessions [revoke <id>]
 //   openmausbot status
@@ -39,7 +39,6 @@ import { hostedWorkspaceConfigured } from "./enterprise.ts";
 import { resolveLoopbackTrust } from "./request-auth.ts";
 import { restartPolicy } from "./restart.ts";
 import { writeFileAtomic } from "./atomic.ts";
-import { ensureCaddy, normalizeDomainOption, startCaddy, type RunningCaddy } from "./caddy.ts";
 import { runServiceCommand } from "./service-cli.ts";
 import { runFleetCommand, type FleetInput } from "./fleet-cli.ts";
 import { startFleetAgent } from "./fleet-agent.ts";
@@ -76,7 +75,7 @@ export interface CliOptions {
   dataDir: string;
   label?: string;
   publicUrl?: string;
-  /** `serve --domain host`: HTTPS on your own domain through a managed Caddy. */
+  /** `fleet --domain host`: the domain the fleet's workspaces live under. */
   domain?: string;
   tailscale: boolean;
   tunnel: boolean;
@@ -208,7 +207,6 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   if (options.tailscale && options.tunnel) return { error: "choose one of --tailscale (your tailnet) and --tunnel (a public address)" };
   if (options.command === "access" && !options.accessAction) return { error: "access needs one of: list, add EMAIL [--chat-only], remove EMAIL" };
   if (options.command === "service" && !options.serviceAction) return { error: "service needs one of: install [the same options as serve], uninstall" };
-  if (options.domain && (options.tailscale || options.tunnel || options.publicUrl)) return { error: "--domain already gives the server its address; drop --tailscale, --tunnel and --public-url" };
   if (options.local && (options.tailscale || options.tunnel || options.publicUrl)) return { error: "--local cannot be combined with a remote-access option" };
   if (options.command === "browser" && !options.browserAction) return { error: "browser needs an action: install or status" };
   if (options.command === "fleet") {
@@ -226,7 +224,7 @@ export const USAGE = `openmausbot — your team of AI bots, ready in a few steps
   openmausbot setup [--data-dir DIR]
   openmausbot start [the same options as serve]
   openmausbot serve [--port 8799] [--data-dir DIR] [--label NAME]
-                    [--public-url https://host] [--tailscale | --tunnel | --domain HOST] [--no-pair]
+                    [--public-url https://host] [--tailscale | --tunnel] [--no-pair]
   openmausbot pair  [--label NAME] [--client] [--phone ios|android]
                     [--public-url https://host]
   openmausbot sessions [revoke ID]
@@ -234,7 +232,7 @@ export const USAGE = `openmausbot — your team of AI bots, ready in a few steps
   openmausbot login [--email you@example.com]
   openmausbot logout
   openmausbot access list | add EMAIL [--chat-only] | remove EMAIL
-  openmausbot service install [--domain HOST | --tunnel | --tailscale] [--port N] [--data-dir DIR] | uninstall
+  openmausbot service install [--tunnel | --tailscale] [--port N] [--data-dir DIR] | uninstall
   openmausbot browser install [--with-deps] | status
   openmausbot fleet init --domain HOST [--operator USER] | create NAME --admin EMAIL [--member EMAIL] [--brand FILE]
                     [--anthropic-key-file FILE] [--cap USD] [--license-key KEY] [--memory 1G]
@@ -278,11 +276,6 @@ fleet   many client workspaces on one Linux server, each its own account,
 --tunnel     serve at a public https://….openmausbot.com address through a
              Cloudflare tunnel: no domain, no proxy, no open port. Run
              \`openmausbot login\` once on this machine first.
---domain     serve at https://HOST on your own domain: a pinned Caddy is
-             downloaded once and run alongside the server, and gets the
-             certificate itself. Point the domain's DNS at this machine and
-             open ports 80 and 443.
-
 --no-open   do not open a browser window
 --no-pair   skip phone setup and do not print a pairing code
 --local     start locally this time, ignoring saved remote-access settings
@@ -290,6 +283,17 @@ fleet   many client workspaces on one Linux server, each its own account,
 Install once with \`npm install -g openmausbot\`, then type \`openmausbot\`.
 Or run without a global install: \`npx openmausbot\`. Node 24+ is required.
 `;
+
+/** A bare hostname for `fleet --domain`: no scheme, no path, no port. */
+function normalizeDomainOption(raw: string): string | { error: string } {
+  const value = raw.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const label = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+  if (!value || value.length > 253 || !value.includes(".") || /[\s/:@?#]/.test(value) || !value.split(".").every((part) => label.test(part))) {
+    return { error: "--domain takes a bare hostname such as maus.example.com" };
+  }
+  if (/(?:^|\.)(?:localhost|local|internal|invalid)$/.test(value)) return { error: "--domain needs a public domain name that resolves to this machine" };
+  return value;
+}
 
 /** Terminal in, terminal out; tests substitute all three. */
 export interface CliIo {
@@ -917,16 +921,6 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
     if (publicUrl && publicUrl !== plan.access.endpoint) log(`note: --public-url is ignored with --tunnel; the address is ${plan.access.endpoint}`);
     publicUrl = plan.access.endpoint;
   }
-  let caddyBinary: string | null = null;
-  if (options.domain) {
-    try {
-      caddyBinary = await ensureCaddy({ dataDir: options.dataDir, log });
-    } catch (error) {
-      console.error(`--domain: ${message(error)}`);
-      return 1;
-    }
-    publicUrl = `https://${options.domain}`;
-  }
   const entry = serverEntry();
   if (!entry.staticDir) log("note: no built UI found next to the server; the API runs but browsers get no page (build with `pnpm exec vite build`)");
   const env: NodeJS.ProcessEnv = {
@@ -1004,15 +998,13 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
     child.once("exit", (code, signal) => { exited = code ?? (signal === "SIGTERM" || signal === "SIGINT" ? 0 : 1); done(exited); });
   });
   let tunnel: RunningTunnel | null = null;
-  let caddy: RunningCaddy | null = null;
   let stopping: Promise<void> | null = null;
   const stop = () => {
     stopping ??= (async () => {
       serving.tunnel = null;
       plan?.account?.service.dispose();
-      // The gateway and the edge stop accepting before the server they forward to goes away.
+      // The gateway stops accepting before the server it forwards to goes away.
       if (tunnel) await tunnel.stop().catch(() => undefined);
-      if (caddy) await caddy.stop().catch(() => undefined);
       if (tailscaleServing && tailscale) await tailscaleServeOff(tailscale).catch(() => undefined);
       if (exited === null) {
         child.kill("SIGTERM");
@@ -1046,19 +1038,6 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
       return 1;
     }
     if (stopping || exited !== null) return await childExit;
-    if (options.domain && caddyBinary) {
-      try {
-        caddy = await startCaddy({ binary: caddyBinary, dataDir: options.dataDir, domain: options.domain, appPort: options.port, webhookPort: Number(env.OMB_WEBHOOK_PORT), log });
-        log(`https: Caddy serves ${publicUrl} → http://127.0.0.1:${options.port}; it gets the certificate from Let's Encrypt once DNS for ${options.domain} points at this machine`);
-        void caddy.exited.then((code) => {
-          if (!stopping) log(`caddy: stopped (exit ${code ?? "signal"}); ${publicUrl} is no longer served. Stop and start the server again.`);
-        });
-      } catch (error) {
-        console.error(`--domain: ${message(error)}`);
-        await stop();
-        return 1;
-      }
-    }
     if (plan && child.pid) {
       tunnel = startTunnel({
         dataDir: options.dataDir,
@@ -1121,9 +1100,9 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
 
 /** `serve` until the server stops for good. A server that exits with
  * RESTART_EXIT_CODE (server/restart.ts) is started again in this process,
- * with its tunnel, Tailscale or domain
- * address unchanged, and without a second pairing code or browser tab; at
- * most MAX_RESTARTS times in a row (server/restart.ts restartPolicy). */
+ * with its tunnel or Tailscale address unchanged, and without a second
+ * pairing code or browser tab; at most MAX_RESTARTS times in a row
+ * (server/restart.ts restartPolicy). */
 export async function serveUntilStopped(options: CliOptions, run: (options: CliOptions) => Promise<number> = runServe, now: () => number = Date.now): Promise<number> {
   const policy = restartPolicy(now);
   let launch = options;
@@ -1232,7 +1211,6 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         action: options.serviceAction ?? "install",
         dataDir: options.dataDir,
         port: options.port,
-        domain: options.domain,
         tunnel: options.tunnel,
         tailscale: options.tailscale,
         label: options.label,
