@@ -1,5 +1,46 @@
 # Colonie progress
 
+## 2026-10-16 — the `openmausbot` command-line product is gone
+
+The npm CLI was the upstream server install: `setup`, `serve`, `service install`
+(systemd/launchd), `login`, `access`, `fleet` and `pair`, plus the Cloudflare
+tunnel `serve --tunnel` opens. The local app never used it — `server/index.ts`
+and `electron/` import none of those modules — so it is `openmausbot` code that
+only exists “di luar local”.
+
+| commit | what went |
+|---|---|
+| `7b7e0f48` | `server/cli.ts`, `openmausbot.ts`, `pair-cli.ts`, `cli-prompts.ts`, `cli-setup.ts`, `cli-phone-setup.ts`, `service-cli.ts`, `service-unit.ts`, `fleet.ts`, `fleet-cli.ts`, `fleet-agent.ts`, `server/tunnel.ts`; their thirteen test files; `scripts/build-npm-package.mjs`; `scripts/colonie/verify-headless-pairing.mjs`; `docs/cli-onboarding.md`; `.github/workflows/npm-package.yml` and its dispatch from `release.yml`; the `OMB_TUNNEL_SOCKET` second listener in `server/index.ts`; the `omb`/`pair` scripts and the `@clack/prompts`/`qrcode-terminal` deps (+ lockfile) |
+
+43 files changed, 23 insertions(+), 8010 deletions(-).
+
+### Verified after `7b7e0f48`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm exec vitest run server/restart.test.ts scripts/release-ci.test.ts scripts/ci-scope.test.ts` | 96 passed |
+| `pnpm install --frozen-lockfile --lockfile-only` | consistent; `qrcode-terminal` and `@clack/prompts` gone from `pnpm-lock.yaml` |
+
+### Deliberately left, and why
+
+- `server/fleet-client.ts`, the `/api/fleet` route and `config.fleet` in the
+  status payload **stay**: `src/components/WorkspacesSection.tsx` reads them and
+  hides itself when no agent is on the socket. They go with the fleet UI in their
+  own slice, so the renderer never breaks in between.
+- `src/components/onboarding/reel/scenes/Terminal.tsx` still types out “the
+  wizard's lines … from server/cli-setup.ts”, and `src/components/
+  WorkspacesSection.tsx` still names `server/fleet-agent.ts` in a comment. Both
+  are product UI, and the owner asked for the Local UI to stay as it is, so they
+  are left for a decision rather than edited here.
+- `docs/verification/fleet.md`, `workspaces.md` and `hosted-workspaces.md` still
+  name the deleted fleet test files in their `vitest run` lines. They document
+  the fleet product itself, which the next slice removes, so they are left to go
+  with it rather than be fixed twice.
+- `electron/*.d.mts` comments no longer name the deleted `server/tunnel.ts`; the
+  files themselves stay, since `server/account-signin.ts` still imports two of
+  the modules they type.
+
 ## 2026-10-16 — the bundled HTTPS edge is gone
 
 `serve --domain HOST` shipped a pinned Caddy: `server/caddy.ts` downloaded the
