@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArchiveIcon,
   BookOpen01Icon,
-  Building02Icon,
+  
   Coins01Icon,
   FlaskConicalIcon,
   Key01Icon,
@@ -52,7 +52,7 @@ import { shortcutLabel } from "./ShortcutHint";
 import { UsageSection } from "./UsageSection";
 import { SkillsSection } from "./SkillsSection";
 import { LicenseExpiryBanner } from "./LicenseExpiryBanner";
-import { WorkspacesSection, workspacesAvailable } from "./WorkspacesSection";
+
 import { SkinPicker } from "./SkinPicker";
 import { FONT_IDS, applyFont, readFont, type FontId } from "@/lib/fonts";
 import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
@@ -110,7 +110,6 @@ export const SECTIONS: Array<{
   { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
   { id: "people", group: "account", labelKey: "settings.section.people", icon: UsersIcon, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
   { id: "activity", group: "account", labelKey: "settings.section.activity", icon: ScrollTextIcon, keywords: ["activity", "audit", "log", "history", "who changed", "approvals", "decisions", "admin"] },
-  { id: "workspaces", group: "account", labelKey: "settings.section.workspaces", icon: Building02Icon, keywords: ["clients", "tenants", "fleet", "workspaces", "installation", "installations"] },
   { id: "experimental", group: "account", labelKey: "settings.section.experimental", icon: FlaskConicalIcon, keywords: ["early", "preview", "learn", "skill", "authoring"] },
 ];
 
@@ -134,7 +133,7 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
 
 /** Advanced-only pages. A deep link to one still opens it in Simple mode, as
  * a page of its own for as long as it is the open one. */
-export const SIMPLE_HIDDEN_SECTIONS: readonly AppSettingsSection[] = ["usage", "backups", "experimental", "workspaces", "skills"];
+export const SIMPLE_HIDDEN_SECTIONS: readonly AppSettingsSection[] = ["usage", "backups", "experimental", "skills"];
 
 /** The Simple pages to draw, given the sections the filters allow and the
  * one that is open. Each page keeps only its allowed sections, in order. */
@@ -782,8 +781,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
-    // the operator's screen for other workspaces exists only where a fleet agent does
-    .filter((entry) => entry.id !== "workspaces" || workspacesAvailable(state.config))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access,
     // and an OMB Cloud home is personal: nobody is invited to it
     .filter((entry) => entry.id !== "people" || (!window.ogb && state.config?.cloudHome !== true))
@@ -1034,8 +1031,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         return <PeopleSection />;
       case "activity":
         return <ActivitySection />;
-      case "workspaces":
-        return <WorkspacesSection />;
       default:
         return null;
     }

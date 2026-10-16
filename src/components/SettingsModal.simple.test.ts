@@ -98,7 +98,7 @@ describe("Settings in Simple mode", () => {
     // a flat list: no group headings, no per-section rail entries
     expect(html).not.toContain("data-settings-group=");
     expect(html).not.toContain("data-settings-section=");
-    for (const hidden of ["usage", "backups", "experimental", "workspaces", "skills"]) expect(html).not.toContain(`value="${hidden}"`);
+    for (const hidden of ["usage", "backups", "experimental", "skills"]) expect(html).not.toContain(`value="${hidden}"`);
     // the narrow-window picker offers the same pages
     const picker = html.match(/<select aria-label="Settings"[\s\S]*?<\/select>/)![0];
     expect([...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1])).toEqual(["general", "appearance", "ai", "computers"]);
@@ -110,7 +110,7 @@ describe("Settings in Simple mode", () => {
     const hidden = SECTIONS.map((entry) => entry.id).filter((id) => !placed.includes(id));
     // Skills (the shared library, main's new page) is Advanced-only too, so
     // Simple stays at five pages; a deep link still opens it.
-    expect(hidden).toEqual(["skills", "usage", "backups", "workspaces", "experimental"]);
+    expect(hidden).toEqual(["skills", "usage", "backups", "experimental"]);
     for (const id of hidden) expect(SIMPLE_HIDDEN_SECTIONS).toContain(id);
   });
 

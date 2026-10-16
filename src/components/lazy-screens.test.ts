@@ -197,7 +197,7 @@ describe("preloadScreens", () => {
       settingsFetched = true;
       return { SettingsModal: () => null };
     });
-    window.history.replaceState(null, "", "/?desktop-settings=workspaces");
+    window.history.replaceState(null, "", "/?desktop-settings=general");
     try {
       await import("./lazy-screens");
       await vi.dynamicImportSettled();

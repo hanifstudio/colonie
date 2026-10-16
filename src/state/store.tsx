@@ -646,8 +646,6 @@ export interface ConfigStatus {
     features: string[];
     license?: { expiresAt: string; expiresInDays: number; graceEndsAt?: string };
   };
-  /** a fleet agent exists on this server (Settings → Workspaces) */
-  fleet?: { available: boolean };
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   composio: { configured: boolean; projectKeyConfigured?: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
@@ -748,7 +746,7 @@ export interface BrowserProfile {
 // Settings shows (a saved key's Test button used to vanish that way).
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
+  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -760,7 +758,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     openai: frame.openai,
     openrouter: frame.openrouter,
     openaiCompat: frame.openaiCompat,
-    fleet: frame.fleet,
     composio: frame.composio,
     box: frame.box,
     vps: frame.vps,
@@ -883,7 +880,6 @@ export type AppSettingsSection =
   | "people"
   | "activity"
   | "backups"
-  | "workspaces"
   | "skills";
 
 export type BotSettingsSection =
