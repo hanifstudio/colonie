@@ -36,12 +36,6 @@ import { desktopViewerPermissionAllowed } from "./desktop-viewer-permissions.mjs
 import { appPermissionHandlers, externalWebUrl } from "./app-permissions.mjs";
 import { writeClipboardText } from "./clipboard-write.mjs";
 import {
-  ensureManagedComposioCredentials,
-  managedComposioAccess,
-  managedComposioChildEnvironment,
-  normalizeManagedComposioBrokerUrl,
-} from "./managed-composio.mjs";
-import {
   createManagedCompanionTunnel,
   managedCompanionTunnelAccess,
   resolveCloudflaredBinary,
@@ -102,7 +96,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 127.0.0.1 explicitly — vite binds IPv4; a bare "localhost" here can
 // resolve to ::1 and paint a black window
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
-const DEFAULT_COMPOSIO_BROKER_URL = "https://openmausbot-composio.milindsoni201.workers.dev";
 let SERVER_PORT = Number(process.env.OMB_PORT) || 8799;
 const APP_ICON = path.join(__dirname, process.env.COLONIE_PROFILE === "1" ? "resources/colonie-icon.png" : "resources/app-icon.png");
 let desktopViewerWindow = null;
@@ -308,9 +301,6 @@ const serverSupervisor = createServerSupervisor({
     serverReady = true;
     serverStartConflictOnly = false;
     slog(`server ready pid=${proc.pid} port=${SERVER_PORT}`);
-    // Re-read the latest account credentials; registration may have completed
-    // while the replacement child's health probe was pending.
-    syncManagedComposioCredentials();
     routineWake.start();
     // Existing chat windows reconnect in place, preserving unsent drafts.
     // A window opened during the outage is still on our error page instead.
@@ -463,13 +453,6 @@ async function secureWorkspaceConfig() {
   } catch (error) {
     if (error?.code !== "ENOENT") slog(`credential migration failed: ${error?.message ?? error}`);
   }
-}
-
-function composioBrokerUrl() {
-  const configured = process.env.OMB_COMPOSIO_BROKER_URL?.trim();
-  return normalizeManagedComposioBrokerUrl(
-    configured || (app.isPackaged ? DEFAULT_COMPOSIO_BROKER_URL : ""),
-  );
 }
 
 // The packaged app has no terminal: everything about the server child's life
@@ -1057,7 +1040,7 @@ async function startServerOn(port) {
     resourcesPath: process.resourcesPath,
     userData: app.getPath("userData"),
   });
-  const childEnv = managedComposioChildEnvironment(composioBrokerUrl(), secureCredentials, {
+  const childEnv = {
     ...process.env,
     // The desktop parent owns the durable data-directory lease. Each utility
     // server gets only a private capability that validates that same live
@@ -1089,7 +1072,7 @@ async function startServerOn(port) {
     // the server prefers these over config.json, whose plaintext fields
     // the boot migration has deleted
     ...workspaceCredentialEnv(secureCredentials),
-  });
+  };
   delete childEnv.OMB_BROWSER_CONNECTION;
   // Set here or not at all, never inherited from the launching shell. The
   // bootstrap removes it before the server runs, so nothing the server
@@ -1193,18 +1176,6 @@ async function startServerPackaged() {
   return false;
 }
 
-function syncManagedComposioCredentials() {
-  if (!serverProc) return;
-  try {
-    serverProc.postMessage({
-      type: "openmausbot:managed-composio",
-      access: managedComposioAccess(composioBrokerUrl(), secureCredentials),
-    });
-  } catch (error) {
-    slog(`connected-apps credential sync failed: ${error?.message ?? error}`);
-  }
-}
-
 // The page is built at failure time (not import time): the message depends on
 // how the boot failed, and the log path comes from LOG_DIR so Windows and
 // Linux users see their real location instead of a macOS guess. The link
@@ -1230,9 +1201,9 @@ function buildErrorPage({ allPortsOccupied }) {
 
 // How long one packaged-server child gets to answer /api/health before the
 // parent reaps it and tries the next port. Wall-clock, deliberately generous:
-// first boots write data dirs and pre-listen network calls (managed composio,
-// workspace credentials) can stall a healthy child far past 20s on some
-// machines, which used to surface as the misleading "ports are busy" page.
+// first boots write data dirs and pre-listen network calls (workspace
+// credentials) can stall a healthy child far past 20s on some machines,
+// which used to surface as the misleading "ports are busy" page.
 const SERVER_BOOT_TIMEOUT_MS = 60_000;
 
 let cuaReady = Promise.resolve({ mode: "unavailable", reason: "not-started" });
@@ -2993,28 +2964,6 @@ app.whenReady().then(async () => {
   // local app is usable. This background network work never gates LAN pairing
   // or the first window.
   if (hostedAccount) void hostedAccount.restore().catch(() => {});
-  // Registration is optional network work. Start it only after the local
-  // server and first window are usable, then update the server child over its
-  // private parent port so Connected Apps becomes available without restart.
-  // Registering while the store is unreadable would mint a SECOND installation
-  // identity for a user who already has one — the first thing they would
-  // notice is every connected app gone, permanently.
-  if (credentialStoreUnavailable) {
-    slog("skipping connected-apps registration: the credential store was unreadable this launch");
-  }
-  if (process.env.DEVONE_PROFILE !== "1" && !desktopRemoteAccess && app.isPackaged && composioBrokerUrl() && !credentialStoreUnavailable) {
-    void updateSecureCredentialDocument(async (credentials) => {
-      await ensureManagedComposioCredentials({
-        brokerUrl: composioBrokerUrl(),
-        credentials,
-        // The shared credential state performs the one atomic encrypted
-        // write after this registration has derived its complete document.
-        saveCredentials: async () => {},
-        log: slog,
-      });
-      return credentials;
-    }).finally(syncManagedComposioCredentials);
-  }
   // in-app auto-update (packaged only) — checks GitHub releases and downloads
   // by itself; only "Restart to update", the person's click, installs
   if (process.env.DEVONE_PROFILE !== "1") startUpdater();
