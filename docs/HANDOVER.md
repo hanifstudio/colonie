@@ -125,6 +125,21 @@ M0.4 still needs fresh-session pickup/review evidence. Review so far is self-rev
 unexpected-failure recovery and unattended execution remain unproven. Preserve
 these limits while scoped foundation work proceeds; do not claim M0 complete.
 
+## Active task: rooms retirement, stages 1–2 (picked up October 17, second session)
+
+CI evidence that justifies doing this now: after the static job went green,
+the remaining red vitest shards are dominated by `server/index.test.ts` (68
+failures locally and on CI; about 35 through the retired `claudeAgent` fixture
+instance, the rest room/computer cases) and the 24 room/group test files below.
+Measured: switching `index.test.ts`'s `claude` instance to `claude-acp` + the fake
+ACP engine alone moved 68 → 60 failures, so that edit belongs to stage 5.
+Stage 1 outcome: delete the room/group test files that fail by construction (each
+run first, result in PROGRESS). Stage 2 outcome: delete room-only modules with no
+live importer; `room-*` modules and `group-goal-run`/`group-thread-usage` are still
+imported by `server/index.ts`, so they wait for stage 3 together with their unit
+tests. Acceptance per stage as written below. Budget: one vitest run at a time,
+`--maxWorkers=1`, background for the e2e files, two repairs per stage.
+
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 
 The owner chose to delete the rooms/groups feature instead of rebuilding its

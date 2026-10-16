@@ -78,6 +78,26 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — rooms retirement, stage 1 (room-only e2e files)
+
+Ran all 24 room/group test files (`vitest run`, `--maxWorkers=1`, background):
+11 failed, 12 passed, 266 tests (118 failed, 146 passed). Deleted the ten e2e files
+whose every passing case was itself a room behaviour, with 113 of their 118
+failures in this set: `group-local-vm` (43/44 failed), `room-coordination` (40/40),
+`group-goal-run.e2e` (11/12; the one pass validates goal-driven channel-run mode),
+`decider-rooms.e2e` (8/10; the two passes are the Auto-rooms decision-model key),
+`group-goal-wait-cap` (4 failed, 1 todo), `room-chat-wait` (3/3),
+`room-question-tasks`, `memory-room-prompt`, `chief-rooms`, `group-thread-usage.e2e`
+(1/1 each). Reason in the product: no engine turn can run in a room on the ACP-only
+fleet (`server/index.ts` refuses room dispatch). No other file references them.
+
+Kept for later stages: the 12 passing unit-test files (they test room modules that
+`server/index.ts` still imports; they go with their modules in stage 3);
+`post-to-room.test.ts` (21/26 pass; mixed, stage 5); `room-recovery.e2e` (passes).
+Not yet re-measured: how much the deletions shrink CI's red vitest shards.
+
+- `tsc -p tsconfig.server.json`: 0 errors; `oxlint --deny-warnings .` clean.
+
 ## 2026-10-17 — packaged server smoke repaired (two inherited faults)
 
 CI's "packaged server smoke" failed on every OS, before and after today's commits.
