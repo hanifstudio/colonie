@@ -45,10 +45,9 @@ passes in a clean worktree, so the failure was environmental.
 The Cloud *place* stays: `shared/cloud-computer.ts`, `CloudScreenPreview`,
 `CloudBackendPicker`, `ComputerPanel`, `cloud-plan.ts`, the server's
 `CLOUD_HOME` half and the Electron bridges (`cloud-account.mjs`,
-`cloud-home.mjs`, `cloud-entry.mjs`, `cloud-move.mjs`) are all still wired.
-Locale keys for the deleted components (`cloudAccount.*`, `pro.*`,
-`cloudMove.*`, `cloudSetup.*`, `sidebar.menu.connectPhone.cloud*`, the two
-`settings.section.*`) are still in `en.json` unused; they go with the place.
+`cloud-home.mjs`, `cloud-entry.mjs`) are all still wired. Its locale keys
+(`cloudAccount.*`, `computer.*cloud*`, `place.*`) and `cloud-plan.ts` go with
+the place.
 
 ### Verified after `0eadac2f`
 
@@ -60,6 +59,44 @@ Locale keys for the deleted components (`cloudAccount.*`, `pro.*`,
 | `pnpm i18n:check` | valid, 10 languages, 3580 English strings |
 | `pnpm exec vitest run src/` | 3438 passed / 10 failed — the 4 inherited failures plus 6 assertions on the removed sections, all updated in this commit; the final run after the fixes is green for the touched files |
 | `pnpm colonie:ui-check` | exit 0, evidence `.devone/evidence/renderer-check.json` |
+
+### 2026-10-16 — the Cloud catalogs, the Cloud's Composio broker, and Copy this computer here
+
+| commit | what went |
+|---|---|
+| `95e477e8` | the 44 catalog keys with no reader left after `0eadac2f`: `pro.*` (all but `pro.signIn`), `cloudSetup.*`, `settings.section.cloudAccount`, `settings.section.desktopWorkspaces`, `sidebar.cloudOwner`, `sidebar.menu.connectPhone.cloud*` — 10 languages, 3580 → 3536 English strings |
+| `92a28c00` | `electron/managed-composio.mjs` and its test; `main.mjs`'s broker URL, its child-env term, the credential registration and the post-restart sync. The packaged app no longer registers with the upstream `openmausbot-composio.milindsoni201.workers.dev` broker, so a person's own Composio key is the only path. The server's own `OMB_COMPOSIO_BROKER_*` reader stays: env-driven, inert without a setter |
+| `4bb5abfb` | Copy this computer here, end to end: `electron/cloud-move.mjs` (with `.d.mts` and its 32 node tests), `main.mjs`'s block and its `cloud-move:*` IPC, the preload bridge, the `ogb` entry, `server/cloud-move.ts`, `server/cloud-move-http.ts` and both their test files, the `cloudMove.*` copy (72 English keys) and `docs/copy-workspace.md` (−4220/+47) |
+
+`cloudPageSenderAllowed` moved from the deleted module into `cloud-home.mjs`.
+Three IPC fixtures read `main.mjs` by section marker, so the copy block's
+header became `// ── The Cloud page's own channels: its Settings, its plan, its
+updates ──` with an `end` marker of its own, and `updater.test.mjs`,
+`cloud-account-ipc.node-test.mjs` and `confirm-dialog.node-test.mjs` bound on
+that instead.
+
+Nothing asks a server to start again any more — Copy this computer here was the
+one caller of the restart-after-restore path. `server/restart.ts` keeps the
+contract the launchers still honour, with a `ponytail:` note naming what to
+delete together with it.
+
+### Verified after `4bb5abfb`
+
+| check | result |
+|---|---|
+| `pnpm exec tsc --noEmit -p tsconfig.json` | clean |
+| `pnpm exec tsc -p tsconfig.server.json --noEmit` | clean |
+| `pnpm check:electron` | Syntax-checked 135 Electron modules (was 139) |
+| `pnpm i18n:check` | valid, 10 languages, 3464 English strings |
+| `pnpm test:electron` | 359 tests, 358 passed, 0 failed, 1 skipped (was 391/390/0/1) |
+| `pnpm exec vitest run src/ electron/` | 3761 passed, 4 failed — the same four inherited rebrand assertions (`live-call-media` ×2, `CallView.journeys`, `lazy-screens`), identical at `94cc3689` |
+| `pnpm exec vitest run server/workspace-backup.test.ts server/workspace-backup-worker.test.ts server/workspace-backup-policy.test.ts server/restart.test.ts server/surface.test.ts` | 94 passed |
+| `pnpm colonie:ui-check` | exit 0, `.devone/evidence/renderer-check.json` |
+| `pnpm exec vitest run server/index.test.ts` | 200 passed / 79 failed — inherited, not this branch's: with these changes stashed, `restores a live unanswered provider question after a server restart` fails the same way (400 where the fixture wants 201) |
+
+`electron/managed-composio.test.mjs` never ran under any script (`pnpm
+test:electron` globs `*.node-test.mjs`); `pnpm check:electron` did syntax-check
+it, and its removal is what took that count from 139 to 137.
 
 ### Next: the Cloud removal, in order
 
@@ -105,9 +142,10 @@ focused vitest green:
    the ~40 modules above with their routes, tests and data files
    (`lending-routines.json`, `lending-memory.json`, boat journals).
 4. **Desktop bridges.** `cloud-account.mjs`, `cloud-home.mjs`,
-   `cloud-entry.mjs`, `cloud-move.mjs`, `managed-composio.mjs`, their IPC,
-   preload bridges, `ogb.d.ts` entries, `verify-cloud-account.mjs` and the
-   `openmausbot://cloud` deep link.
+   `cloud-entry.mjs`, their IPC, preload bridges, `ogb.d.ts` entries,
+   `verify-cloud-account.mjs` and the `openmausbot://cloud` deep link.
+   ~~`cloud-move.mjs` and `managed-composio.mjs`~~ done in `4bb5abfb` and
+   `92a28c00`.
 5. **Data migration** for `computer: "cloud"` rows, then `deploy/`
    (container/self-host targets).
 6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
