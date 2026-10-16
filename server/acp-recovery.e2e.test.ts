@@ -1,11 +1,11 @@
-// A real OMB conversation must survive a poisoned ACP process without the
+// A real COLONIE conversation must survive a poisoned ACP process without the
 // person deleting its thread, and without replaying the failed turn's tools.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, verificationServerEnvironment } from "../scripts/control-colonie.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 it.each([false, true])("recovers the same conversation after an ACP internal error without replay (output: %s)", async (afterOutput) => {
@@ -26,7 +26,7 @@ it.each([false, true])("recovers the same conversation after an ACP internal err
     return value;
   };
   const control = async (...args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlColonie([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };

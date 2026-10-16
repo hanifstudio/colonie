@@ -117,8 +117,8 @@ beforeAll(async () => {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const port = (server.address() as { port: number }).port;
   stubBase = `http://127.0.0.1:${port}`;
-  process.env.OMB_ELEVENLABS_API = `${stubBase}/v1`;
-  process.env.OMB_FISH_AUDIO_API = stubBase;
+  process.env.COLONIE_ELEVENLABS_API = `${stubBase}/v1`;
+  process.env.COLONIE_FISH_AUDIO_API = stubBase;
 });
 
 afterAll(() => new Promise<void>((r) => server.close(() => r())));

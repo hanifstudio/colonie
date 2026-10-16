@@ -1,18 +1,18 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { launchVerificationServer } from "../control-omb.ts";
+import { launchVerificationServer } from "../control-colonie.ts";
 import { mountPreview } from "../testing/preview-fixture.ts";
 import { fakeComposio } from "../../server/colonie/connections/testing/fake-composio.ts";
 import { configureConnectedToolsUi, connectedToolPermissionUi } from "./connected-tools-ui.ts";
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const service = await fakeComposio();
-const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"], undefined, service.origin);
+const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"], undefined, service.origin);
 const preview = await mountPreview(fixture, { entry: "/scripts/testing/threads-preview.tsx", route: "/__connected-tools.html", title: "Colonie connected tools verification", logLevel: "warn" });
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1400, height: 950 } });
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const result: Record<string, unknown> = { fixture: fixture.info, simulatedComposio: true, renderer: true, credentialStorage: "Existing private server config path (web)" };
 const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
 const api = async (method: string, path: string, body?: unknown) => {

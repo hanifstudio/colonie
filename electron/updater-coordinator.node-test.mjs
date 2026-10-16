@@ -44,7 +44,7 @@ async function found(h, { manual = false, version = "2.0.0" } = {}) {
 }
 
 // Drives a successful download so install() has staged paths to hand off.
-async function downloadInto(h, files = ["/tmp/OpenMausBot-2.0.0-amd64.deb"]) {
+async function downloadInto(h, files = ["/tmp/Colonie-2.0.0-amd64.deb"]) {
   h.updater.downloadUpdate = () => {
     h.updater.emit("update-downloaded", { version: "2.0.0" });
     return Promise.resolve(files);
@@ -549,7 +549,7 @@ test("the hand-off install opens the staged package instead of quitting", async 
   h.coordinator.install();
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.deepEqual(received, [["/tmp/OpenMausBot-2.0.0-amd64.deb"]]);
+  assert.deepEqual(received, [["/tmp/Colonie-2.0.0-amd64.deb"]]);
   assert.equal(h.getState().status, "handed-off");
   // the user watched something happen between the click and the result
   assert.ok(h.states.some((entry) => entry.status === "installing"));
@@ -591,7 +591,7 @@ test("without a hand-off the install still quits and installs", async () => {
     called += 1;
   };
 
-  await downloadInto(h, ["/tmp/OpenMausBot-2.0.0.AppImage"]);
+  await downloadInto(h, ["/tmp/Colonie-2.0.0.AppImage"]);
   h.coordinator.install();
 
   assert.equal(called, 1);
@@ -616,7 +616,7 @@ test("a staged update survives hourly checks until the user explicitly checks ag
   // Checking again finds the newer one, and it downloads by itself.
   h.updater.downloadUpdate = async () => {
     h.updater.emit("update-downloaded", { version: "2.1.0" });
-    return ["/tmp/OpenMausBot-2.1.0-amd64.deb"];
+    return ["/tmp/Colonie-2.1.0-amd64.deb"];
   };
   await h.coordinator.check(true);
   await settle();
@@ -694,7 +694,7 @@ test("failed download and hand-off actions survive automatic checks but remain r
     assert.deepEqual(h.getState(), failed);
     h.updater.downloadUpdate = async () => {
       h.updater.emit("update-downloaded", { version: "2.0.0" });
-      return ["/tmp/OpenMausBot-2.0.0-amd64.deb"];
+      return ["/tmp/Colonie-2.0.0-amd64.deb"];
     };
     await h.coordinator.check(true);
     await settle();

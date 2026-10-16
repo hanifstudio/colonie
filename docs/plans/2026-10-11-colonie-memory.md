@@ -19,7 +19,7 @@ OpenCode with `9router/alitp-intl/deepseek-v4.1-flash`. The provider/model ID wa
 confirmed by `opencode models 9router`; no provider settings were changed.
 
 The onboarding/branding lead in `w2M:p1` confirmed no ownership of
-`server/index.ts`, `server/devone/acp-runtime.ts`, `server/devone/context.ts`, or
+`server/index.ts`, `server/acp/acp-runtime.ts`, `server/acp/context.ts`, or
 `BotSettingsDialog.tsx`. They own onboarding, App/main, SettingsModal, locale files,
 and branding tests. Avoid those files. Re-read shared files before each small patch.
 Do not package concurrently without coordination: artifact paths are shared.
@@ -34,16 +34,16 @@ Do not package concurrently without coordination: artifact paths are shared.
 All existing shared-file integration, runtime changes, SDK fixture changes,
 verification scripts, documentation updates, and final evidence belong to the
 lead. The worker must not modify `server/index.ts`, existing memory files,
-`server/contracts.ts`, `server/devone/*`, bot-panel shells, locales or progress.
+`server/contracts.ts`, `server/acp/*`, bot-panel shells, locales or progress.
 If an interface needs changing, report it to the lead rather than broad searching.
 
 ## Audit: where the existing pieces live
 
-- `server/devone/context.ts`: stable app/persona/SOUL snapshots pinned at first
+- `server/acp/context.ts`: stable app/persona/SOUL snapshots pinned at first
   dispatch; `composeContext` creates named text blocks and preserves the user
   message in its own block. Effective capabilities are dynamic. Memory must be
   dynamic, not added to these stable snapshot hashes.
-- `server/devone/acp-runtime.ts`: `sendTurn` around lines 510–573; composer at
+- `server/acp/acp-runtime.ts`: `sendTurn` around lines 510–573; composer at
   approximately 540, receipt saved before SDK prompt at approximately 551.
   `open` mounts ACP MCP, preserves native session IDs, and negotiates transports.
   Do not use legacy `server/drivers/acp/` or the native Codex driver.
@@ -70,13 +70,13 @@ If an interface needs changing, report it to the lead rather than broad searchin
 - `src/components/bot-settings/SimpleBotPanel.tsx`: ACP profile/tool cards around
   191–205. Lead mounts the memory component in normal Details, so no Advanced or
   Developer setup is necessary.
-- `server/devone/context.e2e.test.ts`: canonical isolated both-provider HTTP
+- `server/acp/context.e2e.test.ts`: canonical isolated both-provider HTTP
   fixture and full server restart pattern. Plain baselines must remain plain.
 - `scripts/colonie/connected-tools-web-check.ts`: real React renderer fixture via
   `launchVerificationServer`, `mountPreview`, headless Playwright, screenshots,
   owned cleanup. New memory recipe will follow this shape.
-- `server/devone/testing/fake-agent.ts` is the maintained SDK fixture supplied
-  through `launchVerificationServer(...,["devone"])`.
+- `server/acp/testing/fake-agent.ts` is the maintained SDK fixture supplied
+  through `launchVerificationServer(...,["colonie"])`.
   Do not substitute the legacy `fake-acp-cli.ts` for SDK verification.
 
 ## Product and context contract
@@ -353,7 +353,7 @@ lead wiring. Stop after report; no autonomous refactor loops or commits.
 
 ## Evidence and exit criteria
 
-Read `docs/verification/README.md` and `devone-acp.md`. Always isolated fixture,
+Read `docs/verification/README.md` and `colonie-acp.md`. Always isolated fixture,
 explicit URL, temporary data/home/workspace. Retain action/result JSON and logs.
 Compilation is not workflow proof. Distinguish unit, SDK simulated-provider HTTP,
 real renderer, desktop, and real-provider evidence in `docs/PROGRESS.md`.

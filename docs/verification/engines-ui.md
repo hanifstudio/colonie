@@ -18,7 +18,7 @@ synthetic instances for the lifetime of the preview process.
 **Toggle sample ChatGPT plan** changes only the synthetic account state; it
 does not sign in or contact OpenAI.
 Vite's generated source cache stays in the checkout's ignored
-`.omb-scratch/engine-preview-vite` directory; fixture accounts, home, and app data
+`.colonie-scratch/engine-preview-vite` directory; fixture accounts, home, and app data
 remain disposable. Keeping these separate prevents late cache writes from
 recreating a removed fixture directory.
 
@@ -65,7 +65,7 @@ recreating a removed fixture directory.
 8. Expand **ChatGPT plan**. Its setup card offers **Continue with ChatGPT**,
    not a device code or terminal login. Toggle the sample plan connection:
    the first-use dialog should focus **Got it**, fit at 390px, and explain
-   ChatGPT plan usage separately from OpenMausBot Pro. Dismiss it, disconnect
+   ChatGPT plan usage separately from Colonie Pro. Dismiss it, disconnect
    and reconnect the sample: it must not return. The connected card retains
    **Using ChatGPT plan**, **Manage usage**, the synthetic account address,
    and protected sign-out. Check Midnight and Atelier; no horizontal overflow.

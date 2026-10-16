@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, type VerificationServer } from "../scripts/control-colonie.ts";
 
 describe("usage ledger through real turns", () => {
   let session: VerificationServer;
@@ -20,7 +20,7 @@ describe("usage ledger through real turns", () => {
     await session.close();
   });
 
-  const control = (args: string[]) => runControlOmb([...args, "--url", session.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlColonie([...args, "--url", session.info.url]) as Promise<any>;
   const api = (path: string, init: RequestInit = {}) => fetch(`${session.info.url}${path}`, init);
   const jsonRequest = (body: unknown, token?: string): RequestInit => ({
     method: "POST",

@@ -2,7 +2,7 @@ import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, type VerificationServer } from "../scripts/control-colonie.ts";
 import { DELEGATION_WAKE_MAX_PER_WINDOW } from "./delegations.ts";
 
 describe("routine delegation through the isolated harness", () => {
@@ -20,7 +20,7 @@ describe("routine delegation through the isolated harness", () => {
     if (method !== "GET") evidence.push({ method, path, body, status: response.status });
     return value;
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+  const control = (args: string[]) => runControlColonie([...args, "--url", fixture.info.url]);
   const file = (threadId: string, extension: string) => join(fixture.info.dataDir, `${threadId}.${extension}`);
   const finish = (threadId: string) => writeFileSync(file(threadId, "gate"), "finish isolated turn");
   const dump = async (threadId: string) => {
@@ -48,7 +48,7 @@ describe("routine delegation through the isolated harness", () => {
   };
   const delegate = async (threadId: string) => {
     const launched = await dump(threadId);
-    const result = await api("POST", "/api/internal/delegate-bot", { toBotId: peer.id, message: "Produce the fixture report." }, launched.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN);
+    const result = await api("POST", "/api/internal/delegate-bot", { toBotId: peer.id, message: "Produce the fixture report." }, launched.mcpConfig.mcpServers.agents.env.COLONIE_COMMS_TOKEN);
     expect(result.queued).toBe(true);
     return result;
   };
@@ -63,7 +63,7 @@ describe("routine delegation through the isolated harness", () => {
       'import { existsSync, readFileSync } from "node:fs";',
       'import { join } from "node:path";',
       'const at = process.argv.indexOf("--mcp-config");',
-      'const thread = at < 0 ? "probe" : JSON.parse(readFileSync(process.argv[at + 1], "utf8")).mcpServers?.agents?.env?.OMB_THREAD_ID ?? "probe";',
+      'const thread = at < 0 ? "probe" : JSON.parse(readFileSync(process.argv[at + 1], "utf8")).mcpServers?.agents?.env?.COLONIE_THREAD_ID ?? "probe";',
       // One-hop delegates intentionally have no agents server. Let that
       // actual peer turn complete; gate only the source/occupied turns.
       `process.env.FAKE_CLAUDE_MODE = thread === "probe" && !existsSync(${JSON.stringify(join(fixture.info.dataDir, "gate-peer"))}) ? "happy" : "slow";`,
@@ -186,7 +186,7 @@ describe("routine delegation through the isolated harness", () => {
     const launched = await dump(run.threadId);
     const coordinated = await api("POST", "/api/internal/coordinate-bots", {
       botIds: [peer.id], message: "Produce a fresh fixture report.",
-    }, launched.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN);
+    }, launched.mcpConfig.mcpServers.agents.env.COLONIE_COMMS_TOKEN);
     expect(coordinated.receipts).toHaveLength(1);
     const requestId = coordinated.receipts[0].requestId;
     const handoff = () => JSON.parse(readFileSync(join(fixture.info.dataDir, "room-handoffs.json"), "utf8"))

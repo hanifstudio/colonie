@@ -339,7 +339,7 @@ These are source observations, not claims of new workflow verification.
 | `electron/environments.cjs`, `electron/main.mjs` | Remote origin navigation and native workspace-menu infrastructure already exist. The remote branch at main.mjs's main-window load path contradicts the older handover shorthand that all navigation is unconditionally local. Audit and adapt the existing machinery. |
 | `src/components/onboarding/WelcomeFlow.tsx` | Existing welcome/engine/permission/bot beats and hosted variation. Add the account and per-workspace journeys around reusable beats. |
 | `server/config.ts` | One `DATA_DIR` and global configuration per process; no established multi-tenant account routing. |
-| `server/devone/profile.ts` | Provider state isolated under the app's native root; needs workspace/conversation-aware runtime boundaries. |
+| `server/acp/profile.ts` | Provider state isolated under the app's native root; needs workspace/conversation-aware runtime boundaries. |
 | `server/store.ts`, `shared/wire.ts` | Existing Groups are bot-oriented; `dm` describes bot-to-bot rooms and persisted members are checked against bot IDs. Human membership/DM semantics require explicit schema and API changes. |
 | `electron/secure-credentials.mjs`, `electron/credential-persistence.mjs` | OS-encrypted credential handling, unavailable-versus-empty state, atomic persistence and rollback. Preserve these guarantees. |
 | `server/colonie/connections/credential-status.ts` | Masked owner/admin credential metadata exists. Its scope currently comes from one application config. |

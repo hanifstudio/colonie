@@ -7,7 +7,7 @@
 // come from names once they exist: renaming a bot, a room, a routine or the
 // team would otherwise read as "everything removed, everything added". So
 // the first export records them here, keyed by record id, and every later
-// export of the same team reuses them. Teams are name strings in OMB, so the
+// export of the same team reuses them. Teams are name strings in COLONIE, so the
 // team entry is renamed with the section (section-context.ts calls
 // renamePublishedTeam from the one function every rename goes through).
 //

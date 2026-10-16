@@ -7,9 +7,9 @@ import { colonieDataDir, colonieUserData, initializeColonieData } from "./coloni
 // exports keep the metadata-only crash records from diagnostics.mjs.
 if (process.env.COLONIE_TEST_ACP_FIXTURE === "1") process.on("uncaughtExceptionMonitor", (error) => console.error(error.stack));
 
-process.env.OMB_DATA_DIR = colonieDataDir(homedir());
-initializeColonieData(process.env.OMB_DATA_DIR);
-if (app.isPackaged && process.env.COLONIE_TEST_ACP_FIXTURE !== "1") process.env.DEVONE_ACP_ENTRY = join(process.resourcesPath, "codex-acp", "dist", "index.js");
+process.env.COLONIE_DATA_DIR = colonieDataDir(homedir());
+initializeColonieData(process.env.COLONIE_DATA_DIR);
+if (app.isPackaged && process.env.COLONIE_TEST_ACP_FIXTURE !== "1") process.env.COLONIE_ACP_ENTRY = join(process.resourcesPath, "codex-acp", "dist", "index.js");
 if (app.isPackaged && process.env.COLONIE_TEST_ACP_FIXTURE !== "1") process.env.COLONIE_CLAUDE_ACP_ENTRY = join(process.resourcesPath, "claude-acp", "index.js");
 if (app.isPackaged) process.env.CLAUDE_CODE_EXECUTABLE = join(process.resourcesPath, "claude-acp", "claude-native");
 app.setName("Colonie");

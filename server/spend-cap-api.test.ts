@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, type VerificationServer } from "../scripts/control-colonie.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { openSse } from "./testing/sse.ts";
 import { CAPTURE_MARKER } from "./memory-capture.ts";
@@ -22,7 +22,7 @@ describe("spend cap and prices through real turns", () => {
 
   beforeEach(async () => {
     // The folder shape core looks for: <dir>/server/index.js exporting register().
-    layerDir = mkdtempSync(join(tmpdir(), "omb-fake-layer-"));
+    layerDir = mkdtempSync(join(tmpdir(), "colonie-fake-layer-"));
     mkdirSync(join(layerDir, "server"));
     writeFileSync(join(layerDir, "server", "index.js"), 'export async function register() { return { customer: "Fixture Co", features: ["budgets", "billing"], expiresAt: "2099-01-01" }; }\n');
     session = await launchVerificationServer(process.env, undefined, undefined, undefined, { dir: layerDir, licenseKey: "fixture-key" });
@@ -34,7 +34,7 @@ describe("spend cap and prices through real turns", () => {
     await removeTempDir(layerDir);
   });
 
-  const control = (args: string[]) => runControlOmb([...args, "--url", session.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlColonie([...args, "--url", session.info.url]) as Promise<any>;
   const api = (path: string, init: RequestInit = {}) => fetch(`${session.info.url}${path}`, init);
   const put = (body: unknown) => api("/api/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const send = (botId: string, text: string) => api(`/api/bots/${encodeURIComponent(botId)}/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });

@@ -123,14 +123,14 @@ async function pairingCode(scopes?: string[]): Promise<{ code: string; credentia
 }
 
 beforeAll(async () => {
-  home = mkdtempSync(join(tmpdir(), "omb-remote-test-"));
+  home = mkdtempSync(join(tmpdir(), "colonie-remote-test-"));
   const staticDir = join(home, "static");
-  mkdirSync(join(home, ".openmausbot"), { recursive: true });
+  mkdirSync(join(home, ".colonie"), { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Served UI</title>");
   // Avoid probing whatever agent CLIs happen to be installed on the test
   // machine; remote-session behavior does not depend on an engine.
-  writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({
+  writeFileSync(join(home, ".colonie", "config.json"), JSON.stringify({
     instances: { fixture: { driver: "remote-session-test-shadow" } },
     profile: { name: "Security fixture", email: "private@example.invalid" },
     vps: { sshAlias: "fixture-private-host" },
@@ -143,16 +143,16 @@ beforeAll(async () => {
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(PORT),
-      OMB_WEBHOOK_PORT: String(WEBHOOK_PORT),
-      OMB_STATIC_DIR: staticDir,
-      OMB_PUBLIC_URL: `${PUBLIC_URL}/`,
-      OMB_APP_VERSION: "9.9.9-test",
-      OMB_ENVIRONMENT_LABEL: "cab mini",
-      OMB_BROWSER_CONNECTION: join(home, "browser-test-connection.json"),
+      COLONIE_PORT: String(PORT),
+      COLONIE_WEBHOOK_PORT: String(WEBHOOK_PORT),
+      COLONIE_STATIC_DIR: staticDir,
+      COLONIE_PUBLIC_URL: `${PUBLIC_URL}/`,
+      COLONIE_APP_VERSION: "9.9.9-test",
+      COLONIE_ENVIRONMENT_LABEL: "cab mini",
+      COLONIE_BROWSER_CONNECTION: join(home, "browser-test-connection.json"),
       // Slow heartbeat on purpose: the revocation test must prove the stream is
       // ended by the revoke itself, not by the next heartbeat noticing.
-      OMB_SSE_HEARTBEAT_MS: "4000",
+      COLONIE_SSE_HEARTBEAT_MS: "4000",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -187,7 +187,7 @@ describe("before pairing", () => {
   });
 
   it("describes itself to anyone, but serves nothing else off-machine", async () => {
-    const descriptor = await call("/.well-known/openmausbot/environment", { headers: remote("10.0.0.1") });
+    const descriptor = await call("/.well-known/colonie/environment", { headers: remote("10.0.0.1") });
     expect(descriptor.status).toBe(200);
     expect(descriptor.body.environmentId).toMatch(/^[0-9a-f-]{36}$/);
     expect(descriptor.body.label).toBe("cab mini");
@@ -410,7 +410,7 @@ describe("pairing", () => {
     // Android's PairingInvite.parse rejects anything that is not this exact
     // scheme and host, which is why the https link in `url` cannot be scanned
     // by the app (android/core Connection.kt).
-    expect(invite.protocol).toBe("openmausbot:");
+    expect(invite.protocol).toBe("colonie:");
     expect(invite.host).toBe("pair");
     expect(invite.searchParams.get("address")).toBe(PUBLIC_URL);
     expect(invite.searchParams.get("token")).toBe(opened.credential);

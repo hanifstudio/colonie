@@ -17,7 +17,7 @@ import { useMenuMotion } from "./MenuMotion";
 import { APPROVAL_LEVELS_URL, openExternalLink } from "@/lib/app-links";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
-import { isColonieAcpDriver } from "../../shared/devone";
+import { isColonieAcpDriver } from "../../shared/acp";
 
 /** Keys, not labels — these are the words the held notes quote back to the
  * reader ("… so Approve for me stopped to ask"), and a label resolved in this

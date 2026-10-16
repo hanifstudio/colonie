@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, type VerificationServer } from "../scripts/control-colonie.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
 const TOKEN = "external-runtime-timeout-fixture-0123456789abcdef";
@@ -11,13 +11,13 @@ const TOKEN = "external-runtime-timeout-fixture-0123456789abcdef";
 // delegation it polls. The peer's later answer reaches the receipt and the
 // pinned thread; it never starts a turn on the caller's own engine.
 it("converts an external caller's long ask into a polled delegation without waking its engine", async () => {
-  const scratch = mkdtempSync(join(tmpdir(), "omb-external-timeout-"));
+  const scratch = mkdtempSync(join(tmpdir(), "colonie-external-timeout-"));
   const gate = join(scratch, "finish-peer");
   let fixture: VerificationServer | undefined;
   try {
     fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate });
     const session = fixture;
-    const control = (...args: string[]) => runControlOmb([...args, "--url", session.info.url]) as Promise<any>;
+    const control = (...args: string[]) => runControlColonie([...args, "--url", session.info.url]) as Promise<any>;
     const api = async (method: string, path: string, body?: unknown, runtime = false): Promise<any> => {
       const response = await fetch(session.info.url + path, {
         method, headers: { "content-type": "application/json", ...(runtime ? { authorization: `Bearer ${TOKEN}` } : { origin: session.info.url }) },

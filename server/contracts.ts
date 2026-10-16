@@ -138,7 +138,7 @@ export interface SendTurnInput {
   approvalMode?: ApprovalMode;
   /** Fresh owner selection, independent of execution approval and resume state. */
   toolScope?: ToolScope;
-  /** A guest drives this turn on an OMB Cloud home: it runs with no shell
+  /** A guest drives this turn on an COLONIE Cloud home: it runs with no shell
    * or command execution and reads nothing outside its own folder. Sent
    * only to a driver whose capabilities.guestTurns is "confined"; the harness
    * refuses the turn for any other (docs/cloud-pro.md). */
@@ -333,7 +333,7 @@ export interface ProviderAdapter {
      * engine (integrations.hooks). Only Claude Code today; other engines
      * deliver the same information through their protocols. */
     hooks?: boolean;
-    /** How a guest-driven turn on an OMB Cloud home can run on this engine:
+    /** How a guest-driven turn on an COLONIE Cloud home can run on this engine:
      * "confined" = sendTurn honours `guestConfined` (no shell or command
      * execution, no reads outside its folder). Absent: such a turn is
      * refused. */

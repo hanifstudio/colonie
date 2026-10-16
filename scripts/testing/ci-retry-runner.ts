@@ -1,6 +1,6 @@
 // This repo's vitest runner: vitest's own, plus CI-only retries for the known
 // flaky tests in ci-retry-list.json. A listed test that needed a retry is
-// written to OMB_VITEST_RETRY_LOG (one JSON line each), which the vitest job's
+// written to COLONIE_VITEST_RETRY_LOG (one JSON line each), which the vitest job's
 // next step puts in the job summary, so a flake that passed stays visible.
 // Nothing else changes: unlisted tests, and every run outside CI, get no retry.
 //
@@ -26,7 +26,7 @@ function safeRetryList() {
     const message = `the flaky-test list could not be read, so no test is retried: ${String(error)}`;
     console.warn(`ci-retry-runner: ${message}`);
     // The summary step reports it, so a broken list is seen, not just survived.
-    const log = process.env.OMB_VITEST_RETRY_LOG;
+    const log = process.env.COLONIE_VITEST_RETRY_LOG;
     if (log) {
       try { appendFileSync(log, `${JSON.stringify({ listError: message })}\n`); } catch { /* the warning above remains */ }
     }
@@ -47,7 +47,7 @@ export default class CiRetryRunner extends VitestTestRunner {
     super.onAfterRunTask(test);
     const retries = test.result?.retryCount ?? 0;
     if (retries > 0 && test.result?.state === "fail") this.exhausted.add(test.file.filepath);
-    const log = process.env.OMB_VITEST_RETRY_LOG;
+    const log = process.env.COLONIE_VITEST_RETRY_LOG;
     if (retries === 0 || !log || test.type !== "test") return;
     const line = { ...testIdentity(this.config.root, test), retries, state: test.result?.state, platform: process.platform };
     try {

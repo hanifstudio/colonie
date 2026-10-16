@@ -4,7 +4,7 @@ Ask a bot in ordinary language, for example:
 
 > Prepare a report at 9 am on the first of every month, in Asia/Kolkata.
 
-The bot turns calendar timing into a cron expression, and OpenMausBot validates
+The bot turns calendar timing into a cron expression, and Colonie validates
 it. The existing confirmation card shows the rule, its timezone and the next
 three dates. Nothing is scheduled until you confirm. The scheduler wakes the
 bot at the matching time; no model runs in the background to check the date.
@@ -57,7 +57,7 @@ use an appropriate event/webhook workflow instead of a fake weekly schedule.
   own model works on its Boat. The agent tools call these `run_on: "maus"` and
   `run_on: "box"`; legacy stored `runOn: "cloud"` still means Boat and is not
   migrated to a different runner.
-- OpenMausBot must be running to dispatch routines, including cloud-targeted
+- Colonie must be running to dispatch routines, including cloud-targeted
   routines. There is no external always-on scheduling service: the schedule
   runs inside the app on your computer — it is not Grok's or anyone's cloud —
   so a sleeping computer or a quit app runs nothing, and the app cannot wake

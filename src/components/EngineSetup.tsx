@@ -11,7 +11,7 @@ import { copyText } from "@/lib/copy-text";
 import { DEVICE_SIGN_IN_COPY, DeviceSignIn, deviceSignInProvider } from "./DeviceSignIn";
 import { ClaudeSignIn } from "./ClaudeSignIn";
 import { AcpSignIn } from "./AcpSignIn";
-import { isColonieAcpDriver } from "../../shared/devone";
+import { isColonieAcpDriver } from "../../shared/acp";
 
 type Platform = "darwin" | "win32" | "linux";
 

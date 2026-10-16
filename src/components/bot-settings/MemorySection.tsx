@@ -71,7 +71,7 @@ interface Conflict {
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** On an OMB Cloud home: this bot's memory changed in a conversation the
+/** On an COLONIE Cloud home: this bot's memory changed in a conversation the
  * owner did not write, so its turns cannot use the owner's lent Mac until
  * the owner has looked. It names the files that changed; one click accepts
  * them as shown (no confirmation), and the server refuses it if anything
@@ -111,7 +111,7 @@ export function MemorySection({ bot, active = true, onToggle }: { bot: Bot; acti
   const [newTopic, setNewTopic] = useState("");
   const [upkeep, setUpkeep] = useState<UpkeepStatus | null>(null);
   const [tidying, setTidying] = useState(false);
-  // OMB Cloud home: memory changed where the owner did not write.
+  // COLONIE Cloud home: memory changed where the owner did not write.
   const [lendingReview, setLendingReview] = useState<LendingReview | null>(null);
   const [lendingReviewStale, setLendingReviewStale] = useState(false);
   const [reviewing, setReviewing] = useState(false);

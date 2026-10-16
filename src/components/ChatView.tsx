@@ -132,7 +132,7 @@ import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
 import { AcpLiveReply } from "./AcpLiveReply";
 import { AcpContextDialog } from "./AcpContextDialog";
 import { AcpSettingsDialog } from "./AcpSettingsDialog";
-import { isColonieAcpDriver } from "../../shared/devone";
+import { isColonieAcpDriver } from "../../shared/acp";
 
 /** Long user messages collapse behind a fade so pasted walls of text don't
  * bury the conversation; bots get full markdown. */

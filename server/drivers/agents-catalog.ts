@@ -41,17 +41,17 @@ export interface CatalogProfile {
 /** The profile a spawned proxy was given. Everything is off unless the
  * harness says "1". */
 export function catalogProfileFromEnv(env: NodeJS.ProcessEnv): CatalogProfile {
-  const externalRuntime = env.OMB_EXTERNAL_RUNTIME === "1";
+  const externalRuntime = env.COLONIE_EXTERNAL_RUNTIME === "1";
   return {
     externalRuntime,
-    coordinating: !externalRuntime && env.OMB_ROOM_TURN === "1",
-    ownThreadCreation: env.OMB_OWN_THREAD_CREATION === "1",
-    skillAuthoring: env.OMB_SKILL_AUTHORING_ENABLED === "1",
-    sharedComputers: env.OMB_SHARED_COMPUTERS_ENABLED === "1",
-    voiceNotes: env.OMB_VOICE_NOTES === "1",
-    memoryEnabled: env.OMB_MEMORY_ENABLED !== "0",
-    chief: env.OMB_CHIEF_OF_STAFF === "1",
-    botId: env.OMB_BOT_ID ?? "",
+    coordinating: !externalRuntime && env.COLONIE_ROOM_TURN === "1",
+    ownThreadCreation: env.COLONIE_OWN_THREAD_CREATION === "1",
+    skillAuthoring: env.COLONIE_SKILL_AUTHORING_ENABLED === "1",
+    sharedComputers: env.COLONIE_SHARED_COMPUTERS_ENABLED === "1",
+    voiceNotes: env.COLONIE_VOICE_NOTES === "1",
+    memoryEnabled: env.COLONIE_MEMORY_ENABLED !== "0",
+    chief: env.COLONIE_CHIEF_OF_STAFF === "1",
+    botId: env.COLONIE_BOT_ID ?? "",
   };
 }
 

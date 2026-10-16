@@ -4,12 +4,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import { launchVerificationServer, runControlOmb } from "../control-omb.ts";
+import { launchVerificationServer, runControlColonie } from "../control-colonie.ts";
 import { mountPreview } from "../testing/preview-fixture.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const fixture = await launchVerificationServer();
 const api = async (method: string, path: string, body?: unknown) => {
@@ -29,7 +29,7 @@ let page: Page | undefined;
 let preview: { previewUrl: string; close(): Promise<void> } | undefined;
 const errors: string[] = [];
 try {
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+  const control = (args: string[]) => runControlColonie([...args, "--url", fixture.info.url]);
   await control(["new-bot", "--name", "Preview Probe"]);
   const { bots } = await api("GET", "/api/bots?messages=0");
   const bot = bots.find((item: { name: string }) => item.name === "Preview Probe");

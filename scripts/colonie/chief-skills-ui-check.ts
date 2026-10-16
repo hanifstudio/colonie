@@ -3,14 +3,14 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
 import type { Browser, Page } from "playwright";
-import { launchVerificationServer } from "../control-omb.ts";
+import { launchVerificationServer } from "../control-colonie.ts";
 import { mountPreview } from "../testing/preview-fixture.ts";
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const claude = process.argv.includes("--claude");
 const provider = claude ? "claude-acp" : "codex-acp";
-const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"]);
+const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"]);
 const api = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json", origin: fixture.info.url },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(20_000) });
@@ -22,7 +22,7 @@ const bot = (await api("GET", "/api/bots")).bots[0];
 await api("PATCH", `/api/bots/${bot.id}`, { name: "Chief Bot", computer: "off", memoryEnabled: true, memoryUpkeep: true,
   modelSelection: { instanceId: provider, model: "agent-default" } });
 const preview = await mountPreview(fixture, { entry: "/scripts/testing/threads-preview.tsx", route: "/__colonie-chief-skills.html", title: "Colonie chief/skills verification", logLevel: "warn" });
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const label = `${claude ? "claude-" : ""}chief-skills-renderer`;
 const result: Record<string, unknown> = { simulatedProvider: true, renderer: true, fixture: fixture.info };
 const errors: string[] = [];

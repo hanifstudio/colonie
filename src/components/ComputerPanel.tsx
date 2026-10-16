@@ -116,7 +116,7 @@ const computerControlSnapshotSchema = z.object({
   helpReason: z.string().nullable().optional().default(null),
 }).passthrough();
 
-const PANEL_WIDTH_KEY = "omb-computer-panel-width";
+const PANEL_WIDTH_KEY = "colonie-computer-panel-width";
 const PANEL_MIN_WIDTH = 360;
 const PANEL_MAX_WIDTH = 960;
 const PANEL_DEFAULT_WIDTH = 400;
@@ -225,7 +225,7 @@ export function ComputerPanel({
   const isLinux = capabilities.host.platform === "linux";
   const pageVisible = usePageVisible();
   const providerSupportsLocal = instanceSupportsLocalComputer(state.instances, bot);
-  // An OMB Cloud home never offers this computer.
+  // An COLONIE Cloud home never offers this computer.
   const localSelectable = placeOffered("local", state.config) && localComputerSelectable({ capabilities, providerSupportsLocal });
   const [localAutoWarningTarget, setLocalAutoWarningTarget] = useState<string | null>(null);
   const localDisabledReason = localComputerDisabledReason({ capabilities, providerSupportsLocal });
@@ -766,7 +766,7 @@ export function ComputerPanel({
   };
 
   const openVmSettings = () => {
-    window.sessionStorage.setItem("openmausbot.settings.section", "computer");
+    window.sessionStorage.setItem("colonie.settings.section", "computer");
     dispatch({ type: "toggleAppSettings", open: true });
   };
 

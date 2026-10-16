@@ -782,7 +782,7 @@ process.stdin.on("data", (chunk) => {
             ].join(" ")
           : "ls -la";
         notify("item/started", { item: { id: "i1", type: "commandExecution", command } });
-        notify("item/started", { item: { id: "w1", type: "webSearch", query: "OpenMausBot" } });
+        notify("item/started", { item: { id: "w1", type: "webSearch", query: "Colonie" } });
         const reviewOnce = process.env.FAKE_CODEX_REVIEW_ONCE_FILE;
         if (process.env.FAKE_CODEX_REVIEW_EVENTS && (!reviewOnce || !existsSync(reviewOnce))) {
           if (reviewOnce) writeFileSync(reviewOnce, "1");

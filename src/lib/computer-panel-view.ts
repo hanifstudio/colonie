@@ -1,7 +1,7 @@
 // "files" is a Simple-mode tab; Advanced mode reads it back as "computer".
 export type ComputerPanelView = "computer" | "android" | "browser" | "routines" | "files";
 
-const STORAGE_PREFIX = "omb-computer-panel-view";
+const STORAGE_PREFIX = "colonie-computer-panel-view";
 
 function storageKey(botId: string): string {
   return `${STORAGE_PREFIX}:${botId}`;

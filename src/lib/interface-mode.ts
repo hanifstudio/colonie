@@ -3,13 +3,13 @@ import { useSyncExternalStore } from "react";
 // Simple vs Advanced. Simple is the app a non-technical person meets first;
 // Advanced shows every technical control. This only hides controls: no
 // setting, conversation or server configuration changes with it.
-export const ADVANCED_MODE_KEY = "omb-advanced-mode";
+export const ADVANCED_MODE_KEY = "colonie-advanced-mode";
 
 // Keys an earlier run of this app has written. With no explicit choice
 // stored, their presence means "existing install", which keeps Advanced so an
 // update never hides a control someone already uses. Must be read before
-// main.tsx's first-paint writes (applySkin stamps omb-skin on every boot).
-const PRIOR_RUN_KEYS = ["omb-skin", "omb-installed", "omb-email-gate", "omb-drafts", "omb-show-threads"];
+// main.tsx's first-paint writes (applySkin stamps colonie-skin on every boot).
+const PRIOR_RUN_KEYS = ["colonie-skin", "colonie-installed", "colonie-email-gate", "colonie-drafts", "colonie-show-threads"];
 
 // Keep a session choice even if private/blocked storage rejects reads or
 // writes; another window's storage event can supersede that choice.

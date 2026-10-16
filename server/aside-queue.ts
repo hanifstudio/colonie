@@ -69,7 +69,7 @@ const asides = new Map<string, AsideEntry>(); // threadId → waiting asides
 const inFlight = new Set<string>();
 
 /** The mandatory non-steering envelope (audit §5.2). Every mid-turn channel
- * OMB can ride is steering-branded, so the words themselves must say what
+ * COLONIE can ride is steering-branded, so the words themselves must say what
  * they are: peer context from a named sender, not a course change. */
 export function asideEnvelope(fromName: string, text: string): string {
   // Peer words sit between fixed markers, and a peer cannot be allowed to

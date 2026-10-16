@@ -192,12 +192,12 @@ describe("live URLs", () => {
   it("uses OpenAI unless a loopback test server is set", () => {
     expect(liveSessionsUrl({})).toBe("https://api.openai.com/v1/live/sessions");
     expect(liveAttachUrl("sess_1", {})).toBe("wss://api.openai.com/v1/live/sessions/sess_1/attach");
-    const env = { OMB_OPENAI_LIVE_URL: "http://127.0.0.1:4555" };
+    const env = { COLONIE_OPENAI_LIVE_URL: "http://127.0.0.1:4555" };
     expect(liveSessionsUrl(env)).toBe("http://127.0.0.1:4555/v1/live/sessions");
     expect(liveAttachUrl("sess_1", env)).toBe("ws://127.0.0.1:4555/v1/live/sessions/sess_1/attach");
   });
   it("ignores an override that is not loopback", () => {
-    expect(liveBaseUrl({ OMB_OPENAI_LIVE_URL: "http://evil.example:80" })).toBe("https://api.openai.com");
+    expect(liveBaseUrl({ COLONIE_OPENAI_LIVE_URL: "http://evil.example:80" })).toBe("https://api.openai.com");
   });
   it("escapes the session id", () => {
     expect(liveAttachUrl("a/b", {})).toBe("wss://api.openai.com/v1/live/sessions/a%2Fb/attach");

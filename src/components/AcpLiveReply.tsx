@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/state/store";
 import { listenLiveFrames } from "@/lib/live-events";
 import { ChatMarkdown } from "./ChatMarkdown";
-import { isColonieAcpDriver } from "../../shared/devone";
+import { isColonieAcpDriver } from "../../shared/acp";
 import type { RuntimeEvent } from "../../shared/runtime-events";
 
 export interface LiveReply { turnId: string; itemId: string; text: string }

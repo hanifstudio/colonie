@@ -47,8 +47,8 @@ export function resolveAdbPath(env: NodeJS.ProcessEnv = process.env, platform = 
   const executable = executableName(platform);
   const home = homedir();
   const candidates = [
-    env.OMB_ADB_PATH,
-    env.OMB_RESOURCES_PATH && join(env.OMB_RESOURCES_PATH, "android-platform-tools", platform, executable),
+    env.COLONIE_ADB_PATH,
+    env.COLONIE_RESOURCES_PATH && join(env.COLONIE_RESOURCES_PATH, "android-platform-tools", platform, executable),
     ...(env.PATH ?? "").split(delimiter).map((entry) => entry && join(entry, executable)),
     platform === "darwin" && join(home, "Library/Android/sdk/platform-tools/adb"),
     platform === "darwin" && "/opt/homebrew/bin/adb",
@@ -259,8 +259,8 @@ export function createPhoneClaim(
   env: NodeJS.ProcessEnv = process.env,
   fetchImpl: typeof fetch = fetch,
 ): () => Promise<ClaimOutcome> {
-  const url = env.OMB_HARNESS_URL?.trim();
-  const token = env.OMB_PHONE_TOKEN?.trim();
+  const url = env.COLONIE_HARNESS_URL?.trim();
+  const token = env.COLONIE_PHONE_TOKEN?.trim();
   if (!url || !token) {
     // Spawned outside the harness (development, direct debugging): no
     // exclusivity to enforce, exactly the behavior this proxy always had.
@@ -374,7 +374,7 @@ async function handle(message: Json, ensureClaim: () => Promise<ClaimOutcome>) {
   const id = message.id;
   const method = message.method;
   const params = (message.params ?? {}) as Json;
-  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "openmausbot-phone", version: "1" } });
+  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "colonie-phone", version: "1" } });
   if (method === "notifications/initialized" || method === "notifications/cancelled") return;
   if (method === "ping") return ok(id, {});
   if (method === "tools/list") return ok(id, { tools: TOOLS });

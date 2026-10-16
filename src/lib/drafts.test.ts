@@ -100,8 +100,8 @@ describe("channel draft delivery mode", () => {
   it("keeps legacy drafts intact and defaults missing or invalid modes to chat", () => {
     const store = memoryStorage();
     const draftId = "group:legacy:task";
-    store.setItem("omb-drafts", JSON.stringify({ [draftId]: "/goal existing typed goal" }));
-    store.setItem("omb-draft-channel-modes", JSON.stringify({ "group:invalid:task": "unexpected" }));
+    store.setItem("colonie-drafts", JSON.stringify({ [draftId]: "/goal existing typed goal" }));
+    store.setItem("colonie-draft-channel-modes", JSON.stringify({ "group:invalid:task": "unexpected" }));
     expect(getDraftChannelMode(store, draftId)).toBe("chat");
     expect(getDraftChannelMode(store, "group:invalid:task")).toBe("chat");
     expect(getDraft(store, draftId)).toBe("/goal existing typed goal");
@@ -234,7 +234,7 @@ describe("durable attachment completion", () => {
     ]);
 
     expect(getDraftAttachments(store, draftId)).toHaveLength(2);
-    expect(JSON.parse(store.getItem("omb-draft-attachments") ?? "{}")[draftId]).toEqual([
+    expect(JSON.parse(store.getItem("colonie-draft-attachments") ?? "{}")[draftId]).toEqual([
       {
         kind: "image",
         id: "ready",
@@ -345,7 +345,7 @@ describe("durable attachment completion", () => {
 });
 
 describe("appendComposerDraft", () => {
-  const prompt = "Create a verification skill from the run below.\n\n✓ doctor — pnpm control:omb doctor\n\n";
+  const prompt = "Create a verification skill from the run below.\n\n✓ doctor — pnpm control:colonie doctor\n\n";
 
   it("puts the text into an empty draft exactly as given", () => {
     const store = memoryStorage();
@@ -355,7 +355,7 @@ describe("appendComposerDraft", () => {
     appendComposerDraft(draftId, prompt);
     expect(getDraft(store, draftId)).toBe(prompt);
     leavePage();
-    expect(JSON.parse(store.getItem("omb-drafts") ?? "{}")[draftId]).toBe(prompt);
+    expect(JSON.parse(store.getItem("colonie-drafts") ?? "{}")[draftId]).toBe(prompt);
     // an edited draft outranks a late failed send, exactly like typing does
     expect(draftRevision(draftId)).toBe(revision + 1);
   });
@@ -425,7 +425,7 @@ describe("saving typed drafts", () => {
       key: store.key,
       get length() { return store.length; },
       setItem: (key, value) => {
-        if (key === "omb-drafts") writes.push(value);
+        if (key === "colonie-drafts") writes.push(value);
         store.setItem(key, value);
       },
     };
@@ -524,7 +524,7 @@ describe("saving typed drafts", () => {
 
   it("keeps drafts another window saved and drops an emptied one", () => {
     const { store, writes } = countedStorage();
-    store.setItem("omb-drafts", JSON.stringify({ "bot:other-window:thread": "theirs", "bot:sent:thread": "old" }));
+    store.setItem("colonie-drafts", JSON.stringify({ "bot:other-window:thread": "theirs", "bot:sent:thread": "old" }));
     writes.length = 0;
     setDraft(store, "bot:sent:thread", "");
     leavePage();

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-colonie.ts";
 import { parsePackageDocument } from "../shared/package-format.ts";
 import { NO_PRESETS_MESSAGE } from "./package-import.ts";
 import { PRESET_UNAVAILABLE_MESSAGE } from "./presets.ts";

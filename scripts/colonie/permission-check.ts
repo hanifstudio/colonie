@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 
 if (!process.argv.includes("--real")) throw new Error("Pass --real to test two native requests with existing CLI auth.");
 const root = mkdtempSync(join(tmpdir(), "colonie-native-permissions-"));
-process.env.OMB_DATA_DIR = join(root, "app");
-const { CodexAcpDriver } = await import("../../server/devone/codex-acp.ts");
-const { ClaudeAcpDriver } = await import("../../server/devone/claude-acp.ts");
+process.env.COLONIE_DATA_DIR = join(root, "app");
+const { CodexAcpDriver } = await import("../../server/acp/codex-acp.ts");
+const { ClaudeAcpDriver } = await import("../../server/acp/claude-acp.ts");
 const driver = process.argv.includes("--claude") ? ClaudeAcpDriver : CodexAcpDriver;
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const cases: unknown[] = [];
 let current: import("../../server/contracts.ts").ProviderInstance | undefined;
 let ok = false;

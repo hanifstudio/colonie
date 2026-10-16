@@ -1,6 +1,6 @@
 # Licensing
 
-Colonie is a fork of OpenMausBot. Everything in this repository is open source
+Colonie is a fork of Colonie. Everything in this repository is open source
 under the [Apache License 2.0](LICENSE), with a few notes.
 
 ## The retired carve-out: `enterprise/`
@@ -16,7 +16,7 @@ What that means here:
 
 - There is no carve-out left. The whole repository is Apache 2.0.
 - `server/enterprise.ts` stays as the edition hook and always reports
-  `{"edition":"oss"}`. Setting `OMB_LICENSE_KEY` changes nothing; the response
+  `{"edition":"oss"}`. Setting `COLONIE_LICENSE_KEY` changes nothing; the response
   explains that no enterprise layer exists.
 - The entitlements that lived behind that folder are gone with it: SSO, the
   admin surface, multiple workspaces, the workspace spend cap and per-model
@@ -42,8 +42,8 @@ source locations and the SBOM are listed in [NOTICE](NOTICE) and
 [`third_party/`](third_party/). The Bloub mascot engine this fork builds its
 artwork on is MIT; its notice and provenance travel with the packaged app.
 
-The OpenMausBot and MausBot names and the mascot are trademarks of Supamaus
+The Colonie and Colonie names and the mascot are trademarks of Supamaus
 Software Private Limited; the Apache License does not grant trademark rights
-(section 6), so a product built on OpenMausBot needs its own name. Colonie has
+(section 6), so a product built on Colonie needs its own name. Colonie has
 its own name and its own Bloub-based mascot, and ships upstream's `LICENSE` and
 `NOTICE` unchanged.

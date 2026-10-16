@@ -19,7 +19,7 @@ synchronous tab reservation with the opener removed,
 blocked-popup fallback links, reopening without another authorization request,
 failed-request cleanup/retry, and cancellation after modal/card removal or card
 replacement. Screenshots and `result.json` are written to
-`.omb-scratch/connected-apps-evidence` (override with `OMB_UI_EVIDENCE_DIR`).
+`.colonie-scratch/connected-apps-evidence` (override with `COLONIE_UI_EVIDENCE_DIR`).
 
 The real HTTP route cases start their own isolated server and loopback Composio
 stub. They check abandoned-account retries from Settings and connector cards,

@@ -570,7 +570,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
           theme: scheme === "light" ? "default" : "dark",
           fontFamily: MERMAID_FONT,
         });
-        return module.default.render(`omb-mermaid-${mermaidRenderId}`, code);
+        return module.default.render(`colonie-mermaid-${mermaidRenderId}`, code);
       })
       .then((out) => {
         if (!alive) return;
@@ -725,7 +725,7 @@ export function markdownImageName(src: string, alt?: string): string {
   const supplied = alt?.trim();
   if (supplied) return supplied;
   try {
-    const path = decodeURIComponent(new URL(src, "https://openmausbot.invalid").pathname);
+    const path = decodeURIComponent(new URL(src, "https://colonie.invalid").pathname);
     const name = path.split(/[\\/]/).filter(Boolean).at(-1)?.trim();
     if (name) return name;
   } catch {
@@ -1068,8 +1068,8 @@ const MARKDOWN_COMPONENTS: Components = {
 };
 
 // A thread link only ever comes from a "#Title" run or a canonical
-// openmausbot://thread/ link, whatever case or escaping its scheme uses.
-const MAY_LINK_THREAD = /#|openmausbot/i;
+// colonie://thread/ link, whatever case or escaping its scheme uses.
+const MAY_LINK_THREAD = /#|colonie/i;
 const NO_THREAD_REFS: ThreadRefsValue = { threads: [] };
 
 /** Render message Markdown with math, protected code, scoped attachments, and mentions. */

@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { DATA_DIR } from "./config.ts";
 import { entitled } from "./enterprise.ts";
-import { devoneProfile } from "./devone/profile.ts";
+import { colonieProfile } from "./acp/profile.ts";
 
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
 const MAX_LOGO_CHARS = 300_000;
@@ -55,7 +55,7 @@ export interface BrandStatus {
 }
 
 export function brandFile(): string {
-  return process.env.OMB_BRAND_FILE || join(DATA_DIR, "brand.json");
+  return process.env.COLONIE_BRAND_FILE || join(DATA_DIR, "brand.json");
 }
 
 /** Resolve the brand for this server right now. Never throws. */
@@ -64,7 +64,7 @@ export function loadBrand(options: { file?: string; isEntitled?: (feature: strin
   const isEntitled = options.isEntitled ?? entitled;
   const fallback = (notice?: string): BrandStatus =>
     notice ? { brand: DEFAULT_BRAND, source: "default", file, notice } : { brand: DEFAULT_BRAND, source: "default", file };
-  if (devoneProfile()) return { brand: { name: "Colonie", tagline: "Your colony of personal agents", accent: "#7b61ff" }, source: "default", file };
+  if (colonieProfile()) return { brand: { name: "Colonie", tagline: "Your colony of personal agents", accent: "#7b61ff" }, source: "default", file };
   if (!existsSync(file)) return fallback();
   let raw: unknown;
   try {

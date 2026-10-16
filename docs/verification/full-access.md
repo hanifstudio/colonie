@@ -48,7 +48,7 @@ all existing, archived and future threads, including mixed Claude, Codex,
 Grok and Antigravity providers. Other bots and per-thread model choices stay
 unchanged. The real settings confirmation is driven in a hidden fixture
 window, including Cancel, the all-threads checkbox and the committed result.
-Screenshots are saved under `.omb-scratch/verify-evidence/provider-fixes/`.
+Screenshots are saved under `.colonie-scratch/verify-evidence/provider-fixes/`.
 Provider processes are fake; this does not test live account access.
 
 The fixture retains `<server-log>.full-access.json` beside its server log.

@@ -604,7 +604,7 @@
   "settings.experimental.error": "प्रयोगात्मक सुविधा की सेटिंग सहेजी नहीं जा सकी।",
   "settings.experimental.browser": "अंतर्निहित ब्राउज़र",
   "settings.experimental.browserOff": "डिफ़ॉल्ट रूप से बंद। इसे चालू करें ताकि समर्थित बॉट ऐसा ब्राउज़र टैब इस्तेमाल करें जिसे आप देख और संभाल सकें।",
-  "settings.experimental.browserWindows": "इस Windows मशीन पर अभी उपलब्ध नहीं: `openmausbot browser install` से ब्राउज़र इंजन इंस्टॉल करें।",
+  "settings.experimental.browserWindows": "इस Windows मशीन पर अभी उपलब्ध नहीं: `colonie browser install` से ब्राउज़र इंजन इंस्टॉल करें।",
   "settings.experimental.browserAria": "अंतर्निहित ब्राउज़र चालू करें",
   "browser.noEngine": "इस सर्वर पर ब्राउज़र इंजन नहीं है।",
   "settings.profiles.title": "ब्राउज़र प्रोफ़ाइल",

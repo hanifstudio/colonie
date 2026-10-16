@@ -51,7 +51,7 @@ Node >=24, currently available through `/opt/homebrew/opt/node@24/bin`.
 
 ## Exact audited integration map (avoid broad searching)
 
-- `server/devone/acp-runtime.ts`: shared upstream ACP SDK runner. `sendTurn` saves
+- `server/acp/acp-runtime.ts`: shared upstream ACP SDK runner. `sendTurn` saves
   exact receipts before prompt, activates `AcpToolMount`, records tool calls at
   finish, deactivates on completion/Stop, releases on close. Session mount revision
   changes reopen/load the same native session. Both adapters support HTTP MCP.
@@ -109,9 +109,9 @@ Node >=24, currently available through `/opt/homebrew/opt/node@24/bin`.
 - `src/state/store.tsx`: api/ApiError/useStore; source UI patterns in
   ColonieMemorySection.tsx and BotConnectedTools.tsx. Guard request sequencing,
   drafts and captured revisions across bot changes; no optimistic success.
-- `server/devone/testing/fake-agent.ts`: maintained real-SDK fixture. Lead extends
+- `server/acp/testing/fake-agent.ts`: maintained real-SDK fixture. Lead extends
   scripted management/skill calls. HTTP fixtures use canonical
-  `launchVerificationServer(...,["devone"])`; package fixtures have disposable
+  `launchVerificationServer(...,["colonie"])`; package fixtures have disposable
   app/profile and use actual production Electron/renderer/server.
 
 ## Chief worker: shared contract and implementation

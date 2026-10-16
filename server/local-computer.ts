@@ -40,13 +40,13 @@ export function gatedLocalComputer(
     env: {
       ...connection.env,
       // In a packaged desktop process execPath is Electron, not node. Without
-      // this the MCP client relaunches OMB, whose single-instance handler
+      // this the MCP client relaunches COLONIE, whose single-instance handler
       // focuses the user's window, instead of starting the headless gate.
       ELECTRON_RUN_AS_NODE: "1",
-      OMB_CUA_COMMAND: connection.command,
-      OMB_CUA_ARGS: JSON.stringify(connection.args),
-      OMB_CONTROL_URL: control.url,
-      OMB_CONTROL_TOKEN: control.token,
+      COLONIE_CUA_COMMAND: connection.command,
+      COLONIE_CUA_ARGS: JSON.stringify(connection.args),
+      COLONIE_CONTROL_URL: control.url,
+      COLONIE_CONTROL_TOKEN: control.token,
     },
   };
 }
@@ -226,7 +226,7 @@ export function decodeLinuxDescriptor(value: LinuxConnectionDescriptor): LocalCo
       ...(wayland ? ["CUA_DRIVER_RS_ENABLE_WAYLAND"] : []),
     ]) ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_EMBEDDED !== "1" ||
-    (mcp.env as Record<string, unknown>).CUA_DRIVER_HOST_BUNDLE_ID !== "com.openmausbot.app" ||
+    (mcp.env as Record<string, unknown>).CUA_DRIVER_HOST_BUNDLE_ID !== "com.colonie.app" ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_UPDATE_CHECK !== "false" ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_TELEMETRY_ENABLED !== "false" ||
     (wayland && (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_ENABLE_WAYLAND !== "1")
@@ -372,7 +372,7 @@ function firstPresentCuaDescriptor(candidates: string[]): string | null {
 
 export function readCuaConnection({
   platform = process.platform,
-  userData = process.env.OMB_USER_DATA,
+  userData = process.env.COLONIE_USER_DATA,
   home = homedir(),
   validateLinuxRuntime = validateLinuxDescriptorRuntime,
   validateLegacyRuntime = validateLegacyDescriptorRuntime,
@@ -386,7 +386,7 @@ export function readCuaConnection({
   const candidates = userData ? [join(userData, "cua-connection.json")] : [];
   if (platform === "darwin" && !userData) {
     // Legacy/dev fallback only when Electron did not provide its exact path.
-    for (const directory of ["OpenMausBot", "openmausbot", "OpenGrokBot", "opengrokbot"]) {
+    for (const directory of ["Colonie", "colonie", "OpenGrokBot", "opengrokbot"]) {
       candidates.push(join(home, "Library", "Application Support", directory, "cua-connection.json"));
     }
   }
@@ -412,7 +412,7 @@ export function readCuaConnection({
  * and only a private, well-formed macOS/Windows descriptor may supply text. */
 export function readCuaUnavailableReason({
   platform = process.platform,
-  userData = process.env.OMB_USER_DATA,
+  userData = process.env.COLONIE_USER_DATA,
   home = homedir(),
 }: {
   platform?: NodeJS.Platform;
@@ -422,7 +422,7 @@ export function readCuaUnavailableReason({
   if (!legacyPlatform(platform)) return null;
   const candidates = userData ? [join(userData, "cua-connection.json")] : [];
   if (platform === "darwin" && !userData) {
-    for (const directory of ["OpenMausBot", "openmausbot", "OpenGrokBot", "opengrokbot"]) {
+    for (const directory of ["Colonie", "colonie", "OpenGrokBot", "opengrokbot"]) {
       candidates.push(join(home, "Library", "Application Support", directory, "cua-connection.json"));
     }
   }

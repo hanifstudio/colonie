@@ -1,4 +1,4 @@
-// On an OMB Cloud home a bot's memory is read only from regular files, never
+// On an COLONIE Cloud home a bot's memory is read only from regular files, never
 // through a link (server/workspace.ts readMemoryOnlyFromRegularFiles): the
 // lent-Mac memory check (server/lending-memory.ts) judges a link by where it
 // points, so no turn may read what is behind one. Elsewhere memory reads as

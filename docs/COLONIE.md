@@ -1,6 +1,6 @@
 # Run Colonie
 
-Colonie is the macOS personal-agent desktop fork of OpenMausBot. It uses a
+Colonie is the macOS personal-agent desktop fork of Colonie. It uses a
 shared ACP runner with maintained Codex/Claude adapters and Bloub-based artwork.
 The current core workflow and explicit scoped persona/SOUL context are implemented
 for both providers. Context fixtures passed for both; real scoped-context evidence
@@ -17,7 +17,7 @@ The local build is macOS Apple Silicon and unsigned. App identity:
 your global Codex/Claude installation is not replaced. Native provider login,
 configuration and entitlement remain provider-owned.
 
-Quit the old DevOne app before opening Colonie on the same fork data/profile;
+Quit the old Colonie app before opening Colonie on the same fork data/profile;
 the shared data-directory lease prevents concurrent writers.
 
 If needed, use the official native login commands:
@@ -127,29 +127,29 @@ packaged test now passes encrypted Save → full restart → Remove → full res
 including imported-key origin and preservation of unrelated fields. No plaintext
 fallback was added. This supersedes the earlier assumption that unsigned status
 alone caused the failure; it does not guarantee every device/locked/corrupt store.
-Historical failure: `.devone/evidence/composio-secure-store-blocker.json`.
-Current proof: `.devone/evidence/credential-desktop-check.json` and
+Historical failure: `.colonie-dev/evidence/composio-secure-store-blocker.json`.
+Current proof: `.colonie-dev/evidence/credential-desktop-check.json` and
 `credential-desktop-migration-check.json`. This follow-up uses no model turns or
 real Composio/account requests.
 
-## Existing DevOne data
+## Existing Colonie data
 
 Colonie preserves existing fork data in place:
 
 | Data | Existing installation | Fresh installation |
 | --- | --- | --- |
-| App data | `~/.devone` when its `config.json` exists | `~/.colonie` |
-| Electron profile | `~/Library/Application Support/DevOne` when present | `~/Library/Application Support/Colonie` |
+| App data | `~/.colonie-dev` when its `config.json` exists | `~/.colonie` |
+| Electron profile | `~/Library/Application Support/Colonie` when present | `~/Library/Application Support/Colonie` |
 
 Chats, input receipts and native session references keep their original paths.
 This avoids moving absolute working directories that native sessions depend on.
-The upgrade fixture proves continuity from the old DevOne bundled server/UI to
+The upgrade fixture proves continuity from the old Colonie bundled server/UI to
 the new packaged Colonie app, using a disposable legacy home.
-Original installed OpenMausBot data is not imported or modified.
+Original installed Colonie data is not imported or modified.
 
 `COLONIE_DATA_DIR` and `COLONIE_USER_DATA` choose explicit locations.
-`OMB_DATA_DIR` and `DEVONE_USER_DATA` remain compatibility aliases. The internal
-`DEVONE_PROFILE` alias, protocol/HTTP contracts and `server/devone/` source paths
+`COLONIE_DATA_DIR` and `COLONIE_USER_DATA` remain compatibility aliases. The internal
+`COLONIE_PROFILE` alias, protocol/HTTP contracts and `server/acp/` source paths
 remain for compatibility; they are not a second product.
 
 Existing Codex-only fork config automatically gains a Claude ACP instance in
@@ -169,12 +169,12 @@ pnpm colonie
 With Node 22 currently on your shell:
 
 ```sh
-npm exec --yes --package=node@24.13.1 -- node scripts/devone/start.ts
+npm exec --yes --package=node@24.13.1 -- node scripts/colonie/start.ts
 ```
 
 The launcher owns server/Vite/Electron children, chooses local ports, and stops
 them on quit/Ctrl-C. `pnpm colonie:web` opens the same local execution surface for
-browser development. Old `pnpm devone` commands remain compatible.
+browser development. Old `pnpm colonie` commands remain compatible.
 
 ## Core workflow and context
 
@@ -300,70 +300,70 @@ mapping. No Vue runtime is added. Regenerate icons with
 Run with Node 24. Browser tooling is installed under a gitignored checkout folder:
 
 ```sh
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.devone/browsers" pnpm exec playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.colonie-dev/browsers" pnpm exec playwright install chromium
 pnpm typecheck
 pnpm lint
 pnpm colonie:test
 pnpm colonie:ui-check
 pnpm colonie:desktop-check
-node scripts/devone/ui-check.ts --claude --desktop
-node scripts/devone/ui-check.ts --native --desktop
-node scripts/devone/ui-check.ts --native --claude --desktop
-node scripts/devone/ui-check.ts --native --desktop --context
-node scripts/devone/ui-check.ts --native --claude --desktop --context
-node scripts/devone/ui-check.ts --desktop --native --profile
-node scripts/devone/ui-check.ts --claude --desktop --native --profile
+node scripts/colonie/ui-check.ts --claude --desktop
+node scripts/colonie/ui-check.ts --native --desktop
+node scripts/colonie/ui-check.ts --native --claude --desktop
+node scripts/colonie/ui-check.ts --native --desktop --context
+node scripts/colonie/ui-check.ts --native --claude --desktop --context
+node scripts/colonie/ui-check.ts --desktop --native --profile
+node scripts/colonie/ui-check.ts --claude --desktop --native --profile
 node scripts/colonie/art-check.ts
 pnpm colonie:package
 pnpm colonie:package-check
-node scripts/devone/package-check.ts --claude
-node scripts/devone/package-check.ts --native --context
-node scripts/devone/package-check.ts --claude --native --context
-node scripts/devone/package-check.ts --native --profile
-node scripts/devone/package-check.ts --claude --native --profile
-node scripts/devone/package-check.ts --conversations
-node scripts/devone/package-check.ts --claude --conversations
-node scripts/devone/package-check.ts --connected-tools
-node scripts/devone/package-check.ts --claude --connected-tools
+node scripts/colonie/package-check.ts --claude
+node scripts/colonie/package-check.ts --native --context
+node scripts/colonie/package-check.ts --claude --native --context
+node scripts/colonie/package-check.ts --native --profile
+node scripts/colonie/package-check.ts --claude --native --profile
+node scripts/colonie/package-check.ts --conversations
+node scripts/colonie/package-check.ts --claude --conversations
+node scripts/colonie/package-check.ts --connected-tools
+node scripts/colonie/package-check.ts --claude --connected-tools
 node scripts/colonie/connected-tools-web-check.ts
 ```
 
 Explicit bounded native checks use inherited auth and disposable workspaces:
 
 ```sh
-node scripts/devone/provider-check.ts --real
-node scripts/devone/provider-check.ts --real --claude
-node scripts/devone/package-check.ts --real --tools
-node scripts/devone/package-check.ts --real --claude --tools
-node scripts/devone/package-check.ts --native
-node scripts/devone/package-check.ts --native --claude
-node scripts/devone/package-check.ts --real --native --claude --tools
-node scripts/devone/package-check.ts --real --claude --native --context
-node scripts/devone/package-check.ts --real --claude --native --profile
+node scripts/colonie/provider-check.ts --real
+node scripts/colonie/provider-check.ts --real --claude
+node scripts/colonie/package-check.ts --real --tools
+node scripts/colonie/package-check.ts --real --claude --tools
+node scripts/colonie/package-check.ts --native
+node scripts/colonie/package-check.ts --native --claude
+node scripts/colonie/package-check.ts --real --native --claude --tools
+node scripts/colonie/package-check.ts --real --claude --native --context
+node scripts/colonie/package-check.ts --real --claude --native --profile
 COMPOSIO_API_KEY="<project-key>" node scripts/colonie/composio-api-check.ts
-COMPOSIO_API_KEY="<project-key>" node scripts/devone/package-check.ts --real --claude --connected-tools
+COMPOSIO_API_KEY="<project-key>" node scripts/colonie/package-check.ts --real --claude --connected-tools
 node scripts/colonie/native-controls-check.ts --real --claude
-node scripts/devone/package-check.ts --upgrade
+node scripts/colonie/package-check.ts --upgrade
 ```
 
 `--tools` checks native Allow/Deny through the actual packaged UI and filesystem.
-The offline `--upgrade` recipe requires the earlier DevOne artifact to be present;
+The offline `--upgrade` recipe requires the earlier Colonie artifact to be present;
 it starts the old bundled server/UI and never uses the user's live app/data.
 Commands leave receipts, logs and
-screenshots under `.devone/evidence/`. Native session history remains provider-owned.
+screenshots under `.colonie-dev/evidence/`. Native session history remains provider-owned.
 
 ## Maintenance
 
 Pinned versions: ACP SDK `1.7.0`; Codex adapter `2.1.1` with compatible CLI
 `0.159.3`; Claude adapter `0.88.0` with Agent SDK/native dependency `0.3.293`.
-Provider descriptors live in `server/devone/{codex-acp,claude-acp}.ts`; shared
+Provider descriptors live in `server/acp/{codex-acp,claude-acp}.ts`; shared
 transport/session logic is `acp-runtime.ts`. Do not fork native provider protocols.
 
 Update packages deliberately, update descriptor/runtime manifest versions,
 review upstream auth/session/mode changes, then run protocol/application/UI
 fixtures, rebuild, and check the packaged app with bounded native requests.
 ACP Registry is discovery/distribution; this app does not auto-download new
-versions on boot. The upstream OpenMausBot binary auto-updater stays disabled.
+versions on boot. The upstream Colonie binary auto-updater stays disabled.
 
 ## Feature scope
 

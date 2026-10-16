@@ -19,13 +19,13 @@ const port = await freePortBlock([0, 1]);
 writeFileSync(join(data, "config.json"), JSON.stringify({ language: "en",
   defaultModelSelection: { instanceId: provider, model: "agent-default" },
   features: { llmThreadTitles: false }, onboarding: { completedAt: new Date().toISOString(), version: 1 },
-  instances: { [provider]: { driver: provider, config: { cli: process.execPath, args: [resolve("server/devone/testing/fake-agent.ts")] },
-    environment: { DEVONE_FAKE_STATE: join(root, "sdk-state.json"), DEVONE_FAKE_DELAY_MS: "150", COLONIE_FAKE_PROVIDER: claude ? "claude" : "codex" } } },
+  instances: { [provider]: { driver: provider, config: { cli: process.execPath, args: [resolve("server/acp/testing/fake-agent.ts")] },
+    environment: { COLONIE_FAKE_STATE: join(root, "sdk-state.json"), COLONIE_FAKE_DELAY_MS: "150", COLONIE_FAKE_PROVIDER: claude ? "claude" : "codex" } } },
 }), { mode: 0o600 });
-const env = { ...process.env, HOME: root, USERPROFILE: root, OMB_DATA_DIR: data,
-  DEVONE_USER_DATA: join(root, "profile"), DEVONE_PROFILE: "1", OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1) };
+const env = { ...process.env, HOME: root, USERPROFILE: root, COLONIE_DATA_DIR: data,
+  COLONIE_USER_DATA: join(root, "profile"), COLONIE_PROFILE: "1", COLONIE_PORT: String(port), COLONIE_WEBHOOK_PORT: String(port + 1) };
 delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_START_URL; delete env.COMPOSIO_API_KEY; delete env.COLONIE_COMPOSIO_API_KEY;
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const label = `${claude ? "claude-" : ""}memory-packaged-fixture`;
 const result: Record<string, unknown> = { simulatedProvider: true, desktop: true, packaged: true, executable, data, workspace };
 const errors: string[] = [];

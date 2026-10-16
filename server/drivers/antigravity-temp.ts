@@ -9,13 +9,13 @@
 //   - apps/server/src/provider/acp/AntigravitySessionFiles.ts:45-61 and
 //     apps/server/src/provider/Drivers/AntigravityDriver.ts:121-132
 //     (reclaim what earlier runs left behind when the driver starts).
-// What OMB does differently: the folder is stable per instance, never per
+// What COLONIE does differently: the folder is stable per instance, never per
 // process, because the ACP pool's contractKey hashes the launch environment
 // and a new TEMP per process would respawn on every turn. t3code's per-process
 // run-* folders (AntigravityDriver.ts:202-227) are deliberately not copied.
 // Because the folder is shared, the sweep removes only unpack folders whose
 // process is gone instead of the whole folder. The user-started cleanup of the
-// system temp folder is OMB's own; t3code never touches system temp.
+// system temp folder is COLONIE's own; t3code never touches system temp.
 //
 // Background: agy_acp_server.exe is a PyInstaller one-file build. Every launch
 // unpacks thousands of files (0.34-1.26 GB) into a new %TEMP%\_MEI... folder,
@@ -32,9 +32,9 @@ import { basename, dirname, join, resolve } from "node:path";
 import { DATA_DIR } from "../config.ts";
 
 const UNPACK_PREFIX = "_MEI";
-/** An unpack folder OMB has claimed by renaming it and is deleting. If the
+/** An unpack folder COLONIE has claimed by renaming it and is deleting. If the
  * delete stops part way, the next sweep finishes it. */
-const CLAIM_PREFIX = ".omb-removing-";
+const CLAIM_PREFIX = ".colonie-removing-";
 /** Files at the root of every Antigravity unpack folder. Other programs use
  * PyInstaller too; without both of these a folder is not Antigravity's. */
 const ANTIGRAVITY_MARKERS = ["agy_acp_licenses.txt", "python310.dll"] as const;
@@ -172,9 +172,9 @@ async function listDirectory(path: string): Promise<Dirent[]> {
   }
 }
 
-/** The instance folders under OMB's temp root, each resolved through the
+/** The instance folders under COLONIE's temp root, each resolved through the
  * disk. Returns nothing when any step of dataDir/tmp/agy/<id> is a link or
- * junction, so a sweep can never be steered outside OMB's own folder. */
+ * junction, so a sweep can never be steered outside COLONIE's own folder. */
 async function ownedTempDirectories(dataDir: string, only?: string): Promise<string[]> {
   const root = resolve(antigravityTempRoot(dataDir));
   let realRoot: string;
@@ -202,7 +202,7 @@ async function ownedTempDirectories(dataDir: string, only?: string): Promise<str
   return owned;
 }
 
-/** Unpack folders in one OMB-owned temp folder whose process is gone, and
+/** Unpack folders in one COLONIE-owned temp folder whose process is gone, and
  * folders a previous sweep claimed but did not finish deleting. */
 async function abandonedIn(directory: string, isAlive: (pid: number) => boolean): Promise<string[]> {
   const found: string[] = [];

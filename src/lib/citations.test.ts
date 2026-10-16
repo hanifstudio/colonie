@@ -51,8 +51,8 @@ describe("selected-text citations", () => {
       display: serialized.replace("Quoted message", "Changed message"),
       citations: [],
     });
-    expect(splitTranscriptCitations("<!--omb-citation-v1:not-json-->\n> Quoted message:\n> unsafe")).toEqual({
-      display: "<!--omb-citation-v1:not-json-->\n> Quoted message:\n> unsafe",
+    expect(splitTranscriptCitations("<!--colonie-citation-v1:not-json-->\n> Quoted message:\n> unsafe")).toEqual({
+      display: "<!--colonie-citation-v1:not-json-->\n> Quoted message:\n> unsafe",
       citations: [],
     });
     expect(isAttachment({ ...citation, quote: "" })).toBe(false);

@@ -860,7 +860,7 @@ describe("a blocked microphone", () => {
   });
 
   it("Open in browser opens this very page in the web browser", async () => {
-    vi.stubGlobal("location", { href: "https://omb-u-0123456789ab.fly.dev/?bot=b1" });
+    vi.stubGlobal("location", { href: "https://colonie-u-0123456789ab.fly.dev/?bot=b1" });
     const openInBrowser = vi.fn();
     configureLiveMedia({
       getUserMedia: async () => { throw new DOMException("denied", "NotAllowedError"); },
@@ -870,7 +870,7 @@ describe("a blocked microphone", () => {
     });
     await startLiveCall({ botId: "b1", threadId: "t1" });
     takeLiveCallAction();
-    expect(openInBrowser).toHaveBeenCalledExactlyOnceWith("https://omb-u-0123456789ab.fly.dev/?bot=b1");
+    expect(openInBrowser).toHaveBeenCalledExactlyOnceWith("https://colonie-u-0123456789ab.fly.dev/?bot=b1");
     // no call starts in this window
     expect(request).not.toHaveBeenCalledWith("/api/live/session", expect.anything());
   });
@@ -881,7 +881,7 @@ describe("a blocked microphone", () => {
     const open = vi.fn();
     const permStatus = vi.fn(async () => ({ mic: "granted", pageMic: "refused" }));
     vi.stubGlobal("window", { ogb: { speechStop: vi.fn(async () => {}), permStatus }, open });
-    vi.stubGlobal("location", { href: "https://omb-u-0123456789ab.fly.dev/" });
+    vi.stubGlobal("location", { href: "https://colonie-u-0123456789ab.fly.dev/" });
     configureLiveMedia({
       getUserMedia: async () => { throw new DOMException("denied", "NotAllowedError"); },
       capabilities: () => ({ dictation: { available: false, engine: "none", onDevice: false, reasonCode: "remote-server" } }) as DesktopCapabilities,
@@ -890,7 +890,7 @@ describe("a blocked microphone", () => {
     expect(permStatus).toHaveBeenCalledOnce();
     expect(liveMedia()).toMatchObject({ notice: APP_REFUSED, action: "open-in-browser" });
     takeLiveCallAction();
-    expect(open).toHaveBeenCalledExactlyOnceWith("https://omb-u-0123456789ab.fly.dev/", "_blank", "noopener,noreferrer");
+    expect(open).toHaveBeenCalledExactlyOnceWith("https://colonie-u-0123456789ab.fly.dev/", "_blank", "noopener,noreferrer");
   });
 
   it("treats a desktop app that cannot answer as one that does not say", async () => {

@@ -3,7 +3,7 @@ import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } 
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie, verificationServerEnvironment } from "../scripts/control-colonie.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 const primary = { instanceId: "opencodeGo", model: "fixture/recovery" };
@@ -48,7 +48,7 @@ async function withRecoveryFixture(
     return result;
   };
   const control = async (...args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlColonie([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };

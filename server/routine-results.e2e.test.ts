@@ -3,7 +3,7 @@ import { connect, type Socket } from "node:net";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie } from "../scripts/control-colonie.ts";
 
 it("reports every run into the bot's main thread while fresh executions, approvals, deletion and unread stay reachable", async () => {
   const fixture = await launchVerificationServer();
@@ -19,7 +19,7 @@ it("reports every run into the bot's main thread while fresh executions, approva
     if (method !== "GET") evidence.push({ method, path, body, status: response.status, result: value });
     return value;
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+  const control = (args: string[]) => runControlColonie([...args, "--url", fixture.info.url]);
   const runState = async (id: string) => (await api("GET", "/api/routines")).runs.find((run: any) => run.id === id);
   const messages = async (id: string) => (await api("GET", `/api/threads/${id}/messages?limit=100`)).messages as any[];
   try {
@@ -104,7 +104,7 @@ it("reports every run into the bot's main thread while fresh executions, approva
     const active = await runState(pending.id);
     await expect.poll(() => {
       if (!existsSync(fixture.fixtureDumpPath)) return false;
-      return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === active.threadId;
+      return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig?.mcpServers?.agents?.env?.COLONIE_THREAD_ID === active.threadId;
     }, { timeout: 15_000 }).toBe(true);
     const launched = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
     const socketPath = launched.mcpConfig.mcpServers.ogb.args.at(-1);
@@ -159,7 +159,7 @@ it("reports a routine made in another chat into the bot's main thread, not that 
     if (method !== "GET") evidence.push({ method, path, body, status: response.status, result: value });
     return value;
   };
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlColonie([...args, "--url", fixture.info.url]) as Promise<any>;
   const messages = async (id: string) => (await api("GET", `/api/threads/${id}/messages?limit=100`)).messages as any[];
   try {
     const { bot } = await cli("new-bot", "--name", "Chat routine fixture");

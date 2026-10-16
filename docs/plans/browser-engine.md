@@ -12,7 +12,7 @@ Stagehand, browser-use, browserless, Lightpanda) is summarised at the end.
   sandbox, and Electron 43 exits before ready with it on Windows
   (electron/electron#51761). A browser that is its own Chrome process, driven
   over CDP, does not depend on that.
-- **Servers have no browser today.** `openmausbot serve` and the Docker stack
+- **Servers have no browser today.** `colonie serve` and the Docker stack
   run without Electron, so `availableBrowserConnection()` is null and the
   toggle is greyed.
 - **One engine, one contract.** A skill written on a Mac runs on a VPS.
@@ -33,17 +33,17 @@ Stagehand, browser-use, browserless, Lightpanda) is summarised at the end.
 - An MCP stdio server (`agent-browser mcp --tools core`) whose verbs match our
   17 `browser_*` tools almost one to one.
 - A stream server: JPEG frames, the active URL, tabs, and viewport metadata.
-  Upstream does **not** enforce human priority. OMB owns that gate.
+  Upstream does **not** enforce human priority. COLONIE owns that gate.
 
 ## Shape
 
 ```
-bot turn → scoped OMB MCP proxy → profile control gate → agent-browser MCP → Chrome
-owner UI ← authenticated SSE ← OMB ← loopback WebSocket frames ← agent-browser
+bot turn → scoped COLONIE MCP proxy → profile control gate → agent-browser MCP → Chrome
+owner UI ← authenticated SSE ← COLONIE ← loopback WebSocket frames ← agent-browser
 owner UI → authenticated POST → control gate → acknowledged native input → Chrome
 ```
 
-`browserIntegration()` in `server/index.ts` mounts a turn-scoped OMB proxy,
+`browserIntegration()` in `server/index.ts` mounts a turn-scoped COLONIE proxy,
 guarded by the workspace flag, bot switch, and provider's `browserMcp`
 capability. Native session identity and encryption keys stay in the server.
 
@@ -52,7 +52,7 @@ capability. Native session identity and encryption keys stay in the server.
 ### 1. Headless engine (servers, and the fallback everywhere) — shipped
 
 - `server/browser-engine.ts`: resolve the pinned agent-browser binary
-  (`OMB_AGENT_BROWSER_PATH` → `$OMB_DATA_DIR/tools/agent-browser/<version>/` →
+  (`COLONIE_AGENT_BROWSER_PATH` → `$COLONIE_DATA_DIR/tools/agent-browser/<version>/` →
   PATH); download from the GitHub release with per-platform SHA-256 pinned in
   `server/browser-engine-release.ts` (same pattern as `antigravity-release.ts`
   and `prepare-cloudflared.mjs`); ensure Chrome with `agent-browser install`;
@@ -62,7 +62,7 @@ capability. Native session identity and encryption keys stay in the server.
   "--no-webmcp"], env: {AGENT_BROWSER_SESSION, AGENT_BROWSER_RESTORE: <stable-key>,
   AGENT_BROWSER_ENCRYPTION_KEY, AGENT_BROWSER_HEADLESS: "1"}}`. Session id =
   the bot's browser profile partition, or the bot id (own session).
-- Encryption key: generated once into `$OMB_DATA_DIR/browser-engine-key`
+- Encryption key: generated once into `$COLONIE_DATA_DIR/browser-engine-key`
   (0600), like the tunnel credentials.
 - Capability: the environment descriptor gains `capabilities.browser:
   "desktop" | "headless" | "unavailable"` (+ reason), and the Settings toggle
@@ -109,7 +109,7 @@ capability. Native session identity and encryption keys stay in the server.
   last for one server run, are not saved, and close on deletion/profile exit.
   Profile edits include a stale-list check; deletion removes only that exact
   profile's saved state. Do not use upstream `state clear --all` for this.
-- These controls gate OMB's browser tools, not arbitrary host shell access.
+- These controls gate COLONIE's browser tools, not arbitrary host shell access.
   Browser profiles are login separation, **not** OS security sandboxes.
 
 See [the native verification recipe](../verification/browser-live.md).

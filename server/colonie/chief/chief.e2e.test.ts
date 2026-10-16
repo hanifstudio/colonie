@@ -1,14 +1,14 @@
 import { writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { launchVerificationServer } from "../../../scripts/control-omb.ts";
+import { launchVerificationServer } from "../../../scripts/control-colonie.ts";
 import { waitForExit } from "../../testing/cleanup.ts";
-import type { AcpInputReceipt } from "../../../shared/devone.ts";
+import type { AcpInputReceipt } from "../../../shared/acp.ts";
 import type { ChiefView } from "../../../shared/colonie-chief.ts";
 
 it.each(["codex-acp", "claude-acp"])(
   "keeps one default Chief, transfers the role, and delivers an enabled guide index through the real ACP SDK for %s",
   async (provider) => {
-    const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"]);
+    const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"]);
     const { url, logPath } = fixture.info;
     const evidence: unknown[] = [fixture.info];
     const api = async (method: string, path: string, body?: unknown) => {

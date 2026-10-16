@@ -67,7 +67,7 @@ test("endpoint failure retains the installation across immediate Retry and resta
     switch (key) {
       case "GET /healthz":
         assert.equal(body, null);
-        return reply(response, 200, { ok: true, service: "openmausbot-control-plane" });
+        return reply(response, 200, { ok: true, service: "colonie-control-plane" });
       case "POST /api/auth/email-otp/send-verification-otp":
         assert.deepEqual(body, { email: EMAIL, type: "sign-in" });
         return reply(response, 200, { success: true });
@@ -230,7 +230,7 @@ test("a reclaimed endpoint is re-provisioned at restart and a full provider retr
     }
     switch (key) {
       case "GET /healthz":
-        return reply(response, 200, { ok: true, service: "openmausbot-control-plane" });
+        return reply(response, 200, { ok: true, service: "colonie-control-plane" });
       case "GET /v1/installations/self":
         return reply(response, 200, { installation, credentialExpiresAt });
       case "GET /v1/installations/self/endpoint":

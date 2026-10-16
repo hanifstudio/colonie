@@ -61,14 +61,14 @@ async function freePorts(count) {
   }
 }
 
-const staging = mkdtempSync(join(tmpdir(), "omb-smoke-"));
-const home = mkdtempSync(join(tmpdir(), "omb-smoke-home-"));
+const staging = mkdtempSync(join(tmpdir(), "colonie-smoke-"));
+const home = mkdtempSync(join(tmpdir(), "colonie-smoke-home-"));
 const [port, webhookPort] = await freePorts(2);
 
-// OMB_SMOKE_DIST lets the release workflow aim this at a packaged app's
+// COLONIE_SMOKE_DIST lets the release workflow aim this at a packaged app's
 // Resources/server tree instead of the repo build.
 try {
-  cpSync(process.env.OMB_SMOKE_DIST ?? join(root, "dist-server"), join(staging, "server"), { recursive: true });
+  cpSync(process.env.COLONIE_SMOKE_DIST ?? join(root, "dist-server"), join(staging, "server"), { recursive: true });
   if (browserBundle) cpSync(resolve(browserBundle), join(staging, "browser-engine"), { recursive: true });
 } catch (error) {
   for (const directory of [staging, home]) rmSync(directory, { recursive: true, force: true });
@@ -85,15 +85,15 @@ const fixtureEnv = {
   XDG_CONFIG_HOME: join(home, ".config"),
   XDG_CACHE_HOME: join(home, ".cache"),
   XDG_DATA_HOME: join(home, ".local", "share"),
-  OMB_DATA_DIR: join(home, ".openmausbot"),
-  OMB_PORT: String(port),
-  OMB_WEBHOOK_PORT: String(webhookPort),
+  COLONIE_DATA_DIR: join(home, ".colonie"),
+  COLONIE_PORT: String(port),
+  COLONIE_WEBHOOK_PORT: String(webhookPort),
   // Not a genuine key: enough to make the server look for its enterprise
   // layer and say whether it found one (checked below), never enough to
   // unlock anything.
-  OMB_LICENSE_KEY: "omb1.not.real",
+  COLONIE_LICENSE_KEY: "colonie1.not.real",
   ...(browserBundle ? {
-    OMB_RESOURCES_PATH: staging,
+    COLONIE_RESOURCES_PATH: staging,
     // A global engine on the developer's PATH must not make this test pass.
     PATH: process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32") : "/usr/bin:/bin",
   } : {}),
@@ -268,7 +268,7 @@ if (listening) {
     assert.equal(download.status, 200);
     const bytes = Buffer.from(await download.arrayBuffer());
     assert.equal(bytes.length, archive.bytes);
-    assert.equal(bytes.subarray(0, 16).toString(), "OMB-WORKSPACE-1\n");
+    assert.equal(bytes.subarray(0, 16).toString(), "COLONIE-WORKSPACE-1\n");
     backupReport = { ok: true, bytes: bytes.length };
   } catch (error) { backupReport = { error: String(error) }; }
 }
@@ -279,11 +279,11 @@ if (listening) {
 // server's clean exit. Containers are Linux; Windows has no SIGTERM to pass on.
 let launcherReport = null;
 if (listening && process.platform !== "win32") {
-  const launcherHome = mkdtempSync(join(tmpdir(), "omb-smoke-launcher-"));
+  const launcherHome = mkdtempSync(join(tmpdir(), "colonie-smoke-launcher-"));
   const [launcherPort, launcherWebhookPort] = await freePorts(2);
   const launcher = spawn(process.execPath, [join(staging, "server", "server-launcher.js")], {
     cwd: staging,
-    env: { ...fixtureEnv, HOME: launcherHome, USERPROFILE: launcherHome, OMB_DATA_DIR: join(launcherHome, ".openmausbot"), OMB_PORT: String(launcherPort), OMB_WEBHOOK_PORT: String(launcherWebhookPort) },
+    env: { ...fixtureEnv, HOME: launcherHome, USERPROFILE: launcherHome, COLONIE_DATA_DIR: join(launcherHome, ".colonie"), COLONIE_PORT: String(launcherPort), COLONIE_WEBHOOK_PORT: String(launcherWebhookPort) },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let launcherOutput = "";
@@ -322,7 +322,7 @@ if (listening && process.platform !== "win32") {
 // there skips Node's exit-time write); the second must start on top of it.
 let desktopEntryReport = null;
 if (listening) {
-  const entryHome = mkdtempSync(join(tmpdir(), "omb-smoke-entry-"));
+  const entryHome = mkdtempSync(join(tmpdir(), "colonie-smoke-entry-"));
   const cacheDir = join(entryHome, "server-compile-cache");
   const cacheEntries = () => {
     try {
@@ -336,8 +336,8 @@ if (listening) {
       const [entryPort, entryWebhookPort] = await freePorts(2);
       const entry = spawn(process.execPath, [join(staging, "server", "desktop-entry.mjs")], {
         cwd: staging,
-        env: { ...fixtureEnv, HOME: entryHome, USERPROFILE: entryHome, OMB_DATA_DIR: join(entryHome, ".openmausbot"),
-          OMB_PORT: String(entryPort), OMB_WEBHOOK_PORT: String(entryWebhookPort), OMB_SERVER_COMPILE_CACHE: cacheDir },
+        env: { ...fixtureEnv, HOME: entryHome, USERPROFILE: entryHome, COLONIE_DATA_DIR: join(entryHome, ".colonie"),
+          COLONIE_PORT: String(entryPort), COLONIE_WEBHOOK_PORT: String(entryWebhookPort), COLONIE_SERVER_COMPILE_CACHE: cacheDir },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let entryOutput = "";
@@ -424,7 +424,7 @@ if (
   mcpReport.error ||
   mcpReport.exit?.timeout ||
   mcpReport.exit?.code !== 0 ||
-  mcpReport.responses?.find((response) => response.id === 1)?.result?.serverInfo?.name !== "openmausbot-mcp" ||
+  mcpReport.responses?.find((response) => response.id === 1)?.result?.serverInfo?.name !== "colonie-mcp" ||
   mcpReport.responses?.find((response) => response.id === 2)?.result?.structuredContent?.status !== "connected" ||
   JSON.stringify(mcpReport.responses?.find((response) => response.id === 3)?.result) !== "{}"
 ) {

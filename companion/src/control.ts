@@ -46,7 +46,7 @@ export interface ControlOptions {
    * call that phone holds. */
   revoked?: (deviceId: string) => void;
   /** Re-read Tailscale after the sidecar has started. People commonly install,
-   * sign in, or enable Tailscale while OpenMausBot is already running. */
+   * sign in, or enable Tailscale while Colonie is already running. */
   refreshTailscale?: () => Promise<void>;
   /** The adapters Windows has on a Public network (windows-network.ts). Tests
    * pass their own; the sidecar uses the real check. */
@@ -371,7 +371,7 @@ function page(): string {
   return `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OpenMausBot Companion</title>
+<title>Colonie Companion</title>
 <style>
   :root { color-scheme: light dark; --fg: #111; --dim: #666; --line: #0002; --bg: #fff; --card: #fafafa; }
   @media (prefers-color-scheme: dark) {
@@ -397,7 +397,7 @@ function page(): string {
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 <main>
-  <h1>OpenMausBot Companion</h1>
+  <h1>Colonie Companion</h1>
   <p class="sub">Your phone reaches this computer through here. Only pair a device you trust.</p>
   <section id="where"></section>
   <section id="pair"></section>

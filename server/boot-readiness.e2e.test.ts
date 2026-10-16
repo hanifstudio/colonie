@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { afterEach, expect, it } from "vitest";
-import { runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { runControlColonie, verificationServerEnvironment } from "../scripts/control-colonie.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 function freshHome(): string {
-  const home = mkdtempSync(join(tmpdir(), "omb-boot-readiness-"));
+  const home = mkdtempSync(join(tmpdir(), "colonie-boot-readiness-"));
   homes.push(home);
   mkdirSync(join(home, "tmp"), { recursive: true });
   writeFileSync(join(home, "config.json"), JSON.stringify({
@@ -58,7 +58,7 @@ async function boot(home: string, knobs: Record<string, string> = {}) {
     expect(response.status).toBe(200);
     return response.json() as Promise<any>;
   };
-  const control = (...args: string[]) => runControlOmb([...args, "--url", base]) as Promise<any>;
+  const control = (...args: string[]) => runControlColonie([...args, "--url", base]) as Promise<any>;
   const stop = () => waitForExit(child, { signal: "SIGTERM" });
   return { get, control, stop };
 }

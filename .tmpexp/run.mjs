@@ -1,7 +1,7 @@
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { windowsPathDestinations } from "./ext.mjs";
 const cases = [
-  String.raw`[a](C:\Users\Maus\.openmausbot\report.md)`,
+  String.raw`[a](C:\Users\Maus\.colonie\report.md)`,
   String.raw`![b](<D:\.hidden\chart one.png>)`,
   String.raw`[c]: C:\.cache\notes.md`,
   String.raw`[a](C:\Apps\x\(1\).md)`,

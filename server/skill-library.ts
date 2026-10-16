@@ -72,7 +72,7 @@ function loadSkillDirectory(directory: string): BundledSkill | null {
   return { manifest, instructions, directory };
 }
 
-export function loadBundledSkills(root = process.env.OMB_SKILLS_DIR || join(process.cwd(), "skills")): BundledSkill[] {
+export function loadBundledSkills(root = process.env.COLONIE_SKILLS_DIR || join(process.cwd(), "skills")): BundledSkill[] {
   if (!existsSync(root)) return [];
   const skills: BundledSkill[] = [];
   for (const name of readdirSync(root).sort()) {

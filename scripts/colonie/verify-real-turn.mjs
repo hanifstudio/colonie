@@ -63,9 +63,9 @@ try {
     env: {
       PATH: "/usr/bin:/bin", HOME: home, TMPDIR: root,
       XDG_CONFIG_HOME: join(home, ".config"), XDG_CACHE_HOME: join(home, ".cache"), XDG_DATA_HOME: join(home, ".local", "share"),
-      NODE_ENV: "production", COLONIE_PROFILE: "1", OMB_TEST_SEALED_PATH: "1",
-      OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(webhookPort), OMB_LOOPBACK_TRUST: "owner",
-      OMB_STATIC_DIR: join(process.cwd(), "dist"),
+      NODE_ENV: "production", COLONIE_PROFILE: "1", COLONIE_TEST_SEALED_PATH: "1",
+      COLONIE_DATA_DIR: dataDir, COLONIE_PORT: String(port), COLONIE_WEBHOOK_PORT: String(webhookPort), COLONIE_LOOPBACK_TRUST: "owner",
+      COLONIE_STATIC_DIR: join(process.cwd(), "dist"),
     },
   });
   child.stdout.on("data", (chunk) => { log = (log + chunk).slice(-100_000); });

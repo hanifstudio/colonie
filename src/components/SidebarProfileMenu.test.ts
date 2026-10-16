@@ -167,7 +167,7 @@ describe("outward links", () => {
   // app-links does not quietly send Help back to the README
   it("sends Help Center to the docs the website also links to", () => {
     expect(HELP_CENTER_URL).toBe(DOCS_URL);
-    expect(DOCS_URL).toBe("https://github.com/milind-soni/OpenMausBot/tree/main/docs");
+    expect(DOCS_URL).toBe("https://github.com/milind-soni/Colonie/tree/main/docs");
   });
 
   it("sends Send Feedback to the Discord community", () => {
@@ -230,8 +230,8 @@ describe("choosing where the phone connects", () => {
 describe("Get the phone app", () => {
   it("offers iPhone and Android with the links the website and Cloud page use", () => {
     expect(PHONE_APPS.map((app) => [app.id, app.url])).toEqual([["ios", IOS_APP_STORE_URL], ["android", ANDROID_APK_URL]]);
-    expect(IOS_APP_STORE_URL).toBe("https://apps.apple.com/in/app/mausbot/id6803387923");
-    expect(ANDROID_APK_URL).toBe("https://github.com/milind-soni/OpenMausBot/releases/download/android-v1.5.0/OpenMausBot.apk");
+    expect(IOS_APP_STORE_URL).toBe("https://apps.apple.com/in/app/colonie/id6803387923");
+    expect(ANDROID_APK_URL).toBe("https://github.com/milind-soni/Colonie/releases/download/android-v1.5.0/Colonie.apk");
   });
 
   const render = (connect?: PhoneAppConnect[]) => {

@@ -226,15 +226,15 @@ export function companionIdentityHeaders(authenticatedDeviceId?: string, mutatio
     // Lets a response whose URL is intentionally loopback-only (the VPS SSH
     // viewer) fail before opening a tunnel a phone cannot reach. This header
     // carries no authority; it only narrows behavior at the harness.
-    "x-openmausbot-companion": "1",
+    "x-colonie-companion": "1",
   };
   // Never forward a caller-supplied device header. This value comes only
   // from the registry entry which authenticated the bearer above, allowing
   // the harness to bind an encrypted credential (and a Live call) to the
   // same paired phone.
   if (authenticatedDeviceId && /^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
-    out["x-openmausbot-companion-device"] = authenticatedDeviceId;
-    if (mutationToken) out["x-openmausbot-companion-auth"] = mutationToken;
+    out["x-colonie-companion-device"] = authenticatedDeviceId;
+    if (mutationToken) out["x-colonie-companion-auth"] = mutationToken;
   }
   return out;
 }
@@ -293,10 +293,10 @@ function harnessControlCheck(options: ProxyOptions) {
       accept: "application/json",
       "content-type": "application/json",
       "content-length": String(Buffer.byteLength(body)),
-      "x-openmausbot-companion": "1",
-      "x-openmausbot-companion-device": deviceId,
+      "x-colonie-companion": "1",
+      "x-colonie-companion-device": deviceId,
     };
-    if (mutationToken) headers["x-openmausbot-companion-auth"] = mutationToken;
+    if (mutationToken) headers["x-colonie-companion-auth"] = mutationToken;
     const request = httpRequest({
       hostname: "127.0.0.1",
       port: options.harnessPort,
@@ -377,7 +377,7 @@ export function createProxyHandler(options: ProxyOptions) {
     // The computer owner enables this capability per device, off by default.
     if (isCloudDesktopAccess(method, path) && !device?.cloudDesktopAccess) {
       return sendJson(res, 403, {
-        error: "computer access is off for this device — enable it in OpenMausBot → Settings → Remote access",
+        error: "computer access is off for this device — enable it in Colonie → Settings → Remote access",
       });
     }
 
@@ -472,7 +472,7 @@ export function createProxyHandler(options: ProxyOptions) {
           const fail = () => {
             if (finished) return;
             finished = true;
-            sendJson(res, 502, { error: "OpenMausBot is not ready on this computer" });
+            sendJson(res, 502, { error: "Colonie is not ready on this computer" });
           };
           harness.on("data", (chunk: Buffer) => {
             size += chunk.length;
@@ -650,7 +650,7 @@ export function createProxyHandler(options: ProxyOptions) {
           if (size > MAX_JSON_BODY_BYTES) {
             harness.destroy();
             if (res.headersSent) res.destroy();
-            else sendJson(res, 502, { error: "the response from OpenMausBot was too large" });
+            else sendJson(res, 502, { error: "the response from Colonie was too large" });
             return;
           }
           chunks.push(chunk);
@@ -756,8 +756,8 @@ export function createProxyHandler(options: ProxyOptions) {
         res,
         timedOut ? 504 : 502,
         timedOut
-          ? { error: "OpenMausBot did not respond" }
-          : { error: "OpenMausBot is not running on this computer" },
+          ? { error: "Colonie did not respond" }
+          : { error: "Colonie is not running on this computer" },
       );
     });
     req.pipe(upstream);

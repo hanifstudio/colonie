@@ -9,12 +9,12 @@ import { waitForExit } from "../../server/testing/cleanup.ts";
 const root = mkdtempSync(join(tmpdir(), "colonie-crypto-probe-"));
 const data = join(root, "data"); mkdirSync(data);
 writeFileSync(join(data, "config.json"), JSON.stringify({ language: "en", defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" },
-  instances: { "codex-acp": { driver: "codex-acp", config: { cli: process.execPath, args: [resolve("server/devone/testing/fake-agent.ts")] }, environment: { DEVONE_FAKE_STATE: join(root, "fake.json") } } } }), { mode: 0o600 });
+  instances: { "codex-acp": { driver: "codex-acp", config: { cli: process.execPath, args: [resolve("server/acp/testing/fake-agent.ts")] }, environment: { COLONIE_FAKE_STATE: join(root, "fake.json") } } } }), { mode: 0o600 });
 const port = await freePortBlock([0, 1]);
 const systemKeychain = process.argv.includes("--system-keychain");
 const freshCryptoName = process.argv.includes("--fresh-crypto-name");
 const fixtureName = `Colonie Credential Fixture ${crypto.randomUUID()}`;
-const env = { ...process.env, ...(!systemKeychain ? { HOME: root, USERPROFILE: root } : {}), OMB_DATA_DIR: data, COLONIE_USER_DATA: join(root, "profile"), OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1) };
+const env = { ...process.env, ...(!systemKeychain ? { HOME: root, USERPROFILE: root } : {}), COLONIE_DATA_DIR: data, COLONIE_USER_DATA: join(root, "profile"), COLONIE_PORT: String(port), COLONIE_WEBHOOK_PORT: String(port + 1) };
 delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_START_URL; delete env.COMPOSIO_API_KEY;
 const app = await _electron.launch({ executablePath: resolve("release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie"), args: [], env, timeout: 30_000 });
 try {
@@ -37,7 +37,7 @@ try {
     } catch (error) { result.syncRoundtrip = false; result.syncError = (error as Error).message; }
     return result;
   }, { plaintext: `colonie_synthetic_${crypto.randomUUID()}`, fixtureName, systemKeychain, freshCryptoName });
-  const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+  const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
   writeFileSync(join(evidence, `credential-crypto-probe${systemKeychain ? freshCryptoName ? "-system-keychain-fresh-name" : "-system-keychain-existing-name" : ""}.json`), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
 } finally {

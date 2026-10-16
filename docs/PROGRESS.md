@@ -63,12 +63,12 @@ behind `/api/internal/`'s own bearer and cannot join the public table.
 | `pnpm lint` | only the inherited `savedWorkspace` warning, which is unused at HEAD too |
 | `pnpm build` (renderer bundle) | exit 0, `vite build` in 24.6s |
 | `pnpm colonie:ui-check` (isolated fixture, Playwright) | `{"ok":true,"errors":[]}`, real renderer turns; the recorded prompt carries the Colonie sections with the user message last |
-| `node --experimental-strip-types scripts/control-omb.ts launch` | boots; `/api/health` = `{"app":"colonie","pid":…,"static":false,…}`; `/api/config` carries no `vps`, `cloudHome` or `boat` |
-| `pnpm control:omb doctor` against that fixture | `ok:false`, `availableEngines: []` — the same answer from HEAD in a worktree at `/tmp/colonie-base`, so inherited |
+| `node --experimental-strip-types scripts/control-colonie.ts launch` | boots; `/api/health` = `{"app":"colonie","pid":…,"static":false,…}`; `/api/config` carries no `vps`, `cloudHome` or `boat` |
+| `pnpm control:colonie doctor` against that fixture | `ok:false`, `availableEngines: []` — the same answer from HEAD in a worktree at `/tmp/colonie-base`, so inherited |
 | the 31 files that fail in the full non-e2e suite, run at HEAD and here | 195 failures at HEAD, 184 here, none new, 11 gone |
 | `pnpm exec vitest run server/tts/tts.test.ts server/shared-computers.gate.test.ts server/remote-sessions.test.ts server/shared-computers.test.ts scripts/testing/index-route-ratchet.test.ts scripts/testing/ci-retry-list.test.ts` | 6 files, 78 passed |
 | `pnpm exec vitest run server/index.test.ts` | 185 passed, 72 failed — all inherited, 82 at HEAD |
-| `pnpm exec vitest run server/devone/native-settings.test.ts server/devone/context-integrity.test.ts` | 9 passed (the moved `acp-inputs`/`acp-live` routes answer) |
+| `pnpm exec vitest run server/acp/native-settings.test.ts server/acp/context-integrity.test.ts` | 9 passed (the moved `acp-inputs`/`acp-live` routes answer) |
 | the `src/` suite, 350 files | 3363 passed, 1 failed — the inherited `lazy-screens` |
 | `pnpm test:electron` | 285 passed, 1 skipped |
 
@@ -81,8 +81,8 @@ fails at HEAD as well.
 
 ### What is left
 
-1. The technical rename: `openmausbot`/`devone` → `colonie` in the identifiers
-   that were left alone on purpose — protocol schemes, `OMB_*`/`OPENMAUSBOT_*`
+1. The technical rename: `colonie`/`colonie` → `colonie` in the identifiers
+   that were left alone on purpose — protocol schemes, `COLONIE_*`/`COLONIE_*`
    environment names, data-directory names, bundle ids, the built speech app,
    the ACP/MCP client identity, `package.json`'s scripts. 404 files.
 2. Dead cloud branches in the renderer, inert because no server sends them any
@@ -104,22 +104,22 @@ four earlier slices had left stale.
 
 | commit | what went |
 |---|---|
-| `1e429989` | `OpenMausBot` → `Colonie` in every human-facing string under `server/`, `src/`, `electron/`, `scripts/` and `companion/`: window and menu titles, the `server/brand.ts` default name, agent prompts, MCP tool descriptions and their errors, `control-omb` help and refusals |
+| `1e429989` | `Colonie` → `Colonie` in every human-facing string under `server/`, `src/`, `electron/`, `scripts/` and `companion/`: window and menu titles, the `server/brand.ts` default name, agent prompts, MCP tool descriptions and their errors, `control-colonie` help and refusals |
 | `3cfa31e7` | the stale bookkeeping: shard weights naming the deleted `org-library` tests, the `null` hole `4bb5abfb` left in the flaky-retry list, the route ratchet's three lowered counts (157 / 10 / 2), the Settings section count after `8abc87f9`, and `UpdateBanner`'s "My Cloud's page" |
 
 Identifiers deliberately keep the old spelling, so nothing that reads a value
-starts misreading one: `openmausbot://` schemes and `openmausbot:*` message
-types, `OMB_*`/`OPENMAUSBOT_*` environment names, `x-openmausbot-*` headers,
-`openmausbot.*` storage keys, `.openmausbot` data directories,
-`com.openmausbot.*` bundle ids, the npm package and CLI names, the built
-`OpenMausBot Speech.app`, and the ACP/MCP client identities a provider sees.
+starts misreading one: `colonie://` schemes and `colonie:*` message
+types, `COLONIE_*`/`COLONIE_*` environment names, `x-colonie-*` headers,
+`colonie.*` storage keys, `.colonie` data directories,
+`com.colonie.*` bundle ids, the npm package and CLI names, the built
+`Colonie Speech.app`, and the ACP/MCP client identities a provider sees.
 They move in the technical rename.
 
 One value could not wait. `/api/health` answers `{ app: "colonie" }`, because it
 is the desktop app's proof that the server it just launched is its own, so the
 eight checkers moved with it: the Electron boot probe, the companion origin
 gateway and managed tunnel, `companion/src/proxy.ts`, `scripts/mcp-server.ts`,
-`scripts/control-omb.ts`, `scripts/verify-workspace-backup.ts`,
+`scripts/control-colonie.ts`, `scripts/verify-workspace-backup.ts`,
 `scripts/colonie/verify-real-turn.mjs` and the Linux package smoke test.
 
 ### Verified after `1e429989`
@@ -130,7 +130,7 @@ gateway and managed tunnel, `companion/src/proxy.ts`, `scripts/mcp-server.ts`,
 | `pnpm exec vitest run` over 445 files (every `*.test.ts`/`*.test.mjs` outside `*.e2e.test.ts`) | 437 files passed, 4560 passed, 10 failed, 2 skipped |
 | `pnpm test:electron` | 285 passed, 1 skipped |
 | `pnpm exec vitest run server/index.test.ts` | 278 passed, including `/api/health` and the brand name |
-| `pnpm exec vitest run server/mcp-server.test.ts server/control-omb.test.ts server/remote-sessions.test.ts companion/test/origin.test.ts companion/test/proxy.test.ts` | 4 files passed |
+| `pnpm exec vitest run server/mcp-server.test.ts server/control-colonie.test.ts server/remote-sessions.test.ts companion/test/origin.test.ts companion/test/proxy.test.ts` | 4 files passed |
 
 All 10 failures in the full run were that stale bookkeeping set, in six files:
 `duration-sequencer` (2), `ci-retry-list` (4), `index-route-ratchet` (1),
@@ -146,7 +146,7 @@ waits for the cloud slice, which owns `server/index.ts`.
 
 Two other sets fail for this machine's reasons and were proven inherited the
 same way — by stashing the slice and re-running at HEAD: the isolated
-verification loop in `server/control-omb.test.ts` (2 tests; the fake engine
+verification loop in `server/control-colonie.test.ts` (2 tests; the fake engine
 cannot pick a provider instance here) and the HTTP-fixture trio
 `paired-thread-targets-api` / `chatgpt-plan-api` / `cloud-home-server` (8 tests).
 Both sets passed in the full run.
@@ -163,7 +163,7 @@ Both sets passed in the full run.
    the shared place model in one, the server half in the other. The owner
    waived the data migration — stored `computer: "cloud"` bots and `cc-*` rows
    only have to not crash, not to keep their old wording.
-2. The technical rename: `openmausbot`/`devone` → `colonie` in identifiers —
+2. The technical rename: `colonie`/`colonie` → `colonie` in identifiers —
    protocol schemes, environment names, data-directory names, the ACP/MCP client
    identity, `package.json`'s scripts. 404 files still name the old one.
 3. The VPS `172.104.33.55`: stop `colonie-https.service`,
@@ -175,13 +175,13 @@ Both sets passed in the full run.
 `server/hosted-models.ts` replaced instance configs with a workspace's own model
 catalog, handed an engine the workspace token as its provider key, refused
 engine-setting writes, and reported a hosted workspace's provider list and
-health as read-only. It armed itself from `OMB_HOSTED_MODELS` /
-`OMB_HOSTED_MODEL_TOKEN` plus a portal contract, so no local install ever had
+health as read-only. It armed itself from `COLONIE_HOSTED_MODELS` /
+`COLONIE_HOSTED_MODEL_TOKEN` plus a portal contract, so no local install ever had
 one — but every model-selection path carried a branch for it.
 
 | commit | what went |
 |---|---|
-| `4cdb464c` | `server/hosted-models.ts` and its three constants; 22 branches in `server/index.ts` (`.configs()`, `.select()`, `.allows()`, `.error()`, `.resetTask()`, `.reconcile()`, `.decorate()`, the `X-Omb-Hosted-Model-Policy` header, the provider-settings refusals); the `hosted` dep and its 403 in `server/routes/antigravity-leftovers.ts`; the `reset` callback on `Store.followBotModel`; the `OMB_HOSTED_MODEL*` skip in `server/cli-probe-env.test.ts` |
+| `4cdb464c` | `server/hosted-models.ts` and its three constants; 22 branches in `server/index.ts` (`.configs()`, `.select()`, `.allows()`, `.error()`, `.resetTask()`, `.reconcile()`, `.decorate()`, the `X-Colonie-Hosted-Model-Policy` header, the provider-settings refusals); the `hosted` dep and its 403 in `server/routes/antigravity-leftovers.ts`; the `reset` callback on `Store.followBotModel`; the `COLONIE_HOSTED_MODEL*` skip in `server/cli-probe-env.test.ts` |
 
 12 files changed, 36 insertions(+), 247 deletions(-).
 
@@ -196,7 +196,7 @@ one — but every model-selection path carried a branch for it.
 `Store.followBotModel` lost its third parameter: with both hosted call sites
 gone nothing passed a reset callback, so the store no longer carries a hook
 that only a hosted workspace used. `server/cli-probe-env.test.ts` got
-*stronger*: `OMB_HOSTED_MODELS`/`OMB_HOSTED_MODEL_TOKEN` are now injected
+*stronger*: `COLONIE_HOSTED_MODELS`/`COLONIE_HOSTED_MODEL_TOKEN` are now injected
 as ordinary secrets and asserted not to reach a spawned CLI, instead of being
 skipped because a desktop holding them used to refuse to boot.
 
@@ -212,7 +212,7 @@ guards), then the visible Cloud place, then the rename, then the VPS.
 Settings → Workspaces was an operator's view of the client workspaces on one
 server: create one, add and remove people, suspend, resume, delete, read usage.
 It appeared only where `config.fleet.available` was true, which needed a `fleet`
-agent on this machine's socket — and that agent came from the `openmausbot
+agent on this machine's socket — and that agent came from the `colonie
 fleet` command removed in `7b7e0f48`. Nothing left in the app can put one there.
 
 | commit | what went |
@@ -251,24 +251,24 @@ only asserts that such a URL is not a device-pairing request.
    the `cloudBackend`/`autoStartVps`/`cloudHome` wire fields and the `place.*` /
    `cloud.*` locale keys — then the data migration that re-points stored
    `computer: "cloud"` bots at `local`.
-3. The `openmausbot`/`devone` → `colonie` rename: 753 files and 3810
-   occurrences for `openmausbot`, 85 and 586 for `devone`. Not mechanical —
+3. The `colonie`/`colonie` → `colonie` rename: 753 files and 3810
+   occurrences for `colonie`, 85 and 586 for `colonie`. Not mechanical —
    protocol schemes, env vars and data-directory names are mixed in.
 4. The VPS `172.104.33.55`: stop `colonie-https.service`,
    `colonie-platform.service` and `colonie.service`, then delete its data. Last
    and irreversible; not yet confirmed by the owner.
 
-## 2026-10-16 — the `openmausbot` command-line product is gone
+## 2026-10-16 — the `colonie` command-line product is gone
 
 The npm CLI was the upstream server install: `setup`, `serve`, `service install`
 (systemd/launchd), `login`, `access`, `fleet` and `pair`, plus the Cloudflare
 tunnel `serve --tunnel` opens. The local app never used it — `server/index.ts`
-and `electron/` import none of those modules — so it is `openmausbot` code that
+and `electron/` import none of those modules — so it is `colonie` code that
 only exists “di luar local”.
 
 | commit | what went |
 |---|---|
-| `7b7e0f48` | `server/cli.ts`, `openmausbot.ts`, `pair-cli.ts`, `cli-prompts.ts`, `cli-setup.ts`, `cli-phone-setup.ts`, `service-cli.ts`, `service-unit.ts`, `fleet.ts`, `fleet-cli.ts`, `fleet-agent.ts`, `server/tunnel.ts`; their thirteen test files; `scripts/build-npm-package.mjs`; `scripts/colonie/verify-headless-pairing.mjs`; `docs/cli-onboarding.md`; `.github/workflows/npm-package.yml` and its dispatch from `release.yml`; the `OMB_TUNNEL_SOCKET` second listener in `server/index.ts`; the `omb`/`pair` scripts and the `@clack/prompts`/`qrcode-terminal` deps (+ lockfile) |
+| `7b7e0f48` | `server/cli.ts`, `acp.ts`, `pair-cli.ts`, `cli-prompts.ts`, `cli-setup.ts`, `cli-phone-setup.ts`, `service-cli.ts`, `service-unit.ts`, `fleet.ts`, `fleet-cli.ts`, `fleet-agent.ts`, `server/tunnel.ts`; their thirteen test files; `scripts/build-npm-package.mjs`; `scripts/colonie/verify-headless-pairing.mjs`; `docs/cli-onboarding.md`; `.github/workflows/npm-package.yml` and its dispatch from `release.yml`; the `COLONIE_TUNNEL_SOCKET` second listener in `server/index.ts`; the `colonie`/`pair` scripts and the `@clack/prompts`/`qrcode-terminal` deps (+ lockfile) |
 
 43 files changed, 23 insertions(+), 8010 deletions(-).
 
@@ -334,8 +334,8 @@ Read while cutting the edge. Two findings worth keeping:
   four modules and `server/cloud-home.ts` (+ `cloud-home-start.ts`,
   `cloud-secrets*.ts`, `hosted-models.ts`, `shared/cloud-home.ts`), plus the
   `CLOUD_HOME` guards and the `cc-*`/`cloud` place states.
-- The `openmausbot` CLI is atomic. `server/cli.ts` holds one option table shared
-  by `serve`, `service` and `fleet`; `openmausbot.ts` and `pair-cli.ts` are its
+- The `colonie` CLI is atomic. `server/cli.ts` holds one option table shared
+  by `serve`, `service` and `fleet`; `acp.ts` and `pair-cli.ts` are its
   entries, and `service-*`, `fleet-*` and `caddy.ts` hang off it. No module
   under `index.ts` imports any of them, but nothing can be cut from the middle:
   deleting the CLI is all-or-nothing, and it is the cleanest single win left on
@@ -377,8 +377,8 @@ Branch `colonie/local-only`.
 |---|---|
 | `4e46a482` | the Organization enrollment surface: `OrganisationRow`, `CompanyModels`, `company-models`, `CompanyBackupSettings`, `scripts/verify-company-backups.mjs`, the `organization` deep link and its `engineSummary` fields, 58 locale keys |
 | `359124be` | the Organization package library in the app: `src/lib/org-library.ts`, `TeamLibraryPanelOrg`, `OrgSkillsCard`, `PackageProvenance`, `Bot.installedPackage`, 32 `orgLibrary.*` locale keys, its docs and UI e2e test |
-| `103d792f` | the Electron Organization bridges and company backups: `managed-desktop`, `organization-entry`, `organization-branding`, `org-library.mjs`, `company-backups*`, `company-backup-schedule`, `organization-reopen`, their IPC and preload bridges, the updater relaunch patch. The shared encrypted store moved to `electron/encrypted-record-store.mjs`; the desktop-bridge flag is now `--omb-desktop-bridges=1` |
-| `61d5b904` | the server side of enrollment: `server/managed-desktop.ts`, `server/managed-policy.ts` and their tests, the `openmausbot:managed-desktop-*` messages, the Company provider swap, the policy refusals (models, computers, MCP, pairing), the config frame's `managedPolicy`, and the Company branch in default/thread model selection |
+| `103d792f` | the Electron Organization bridges and company backups: `managed-desktop`, `organization-entry`, `organization-branding`, `org-library.mjs`, `company-backups*`, `company-backup-schedule`, `organization-reopen`, their IPC and preload bridges, the updater relaunch patch. The shared encrypted store moved to `electron/encrypted-record-store.mjs`; the desktop-bridge flag is now `--colonie-desktop-bridges=1` |
+| `61d5b904` | the server side of enrollment: `server/managed-desktop.ts`, `server/managed-policy.ts` and their tests, the `colonie:managed-desktop-*` messages, the Company provider swap, the policy refusals (models, computers, MCP, pairing), the config frame's `managedPolicy`, and the Company branch in default/thread model selection |
 | `ab62d5ca` | the server half of the Organization library: `server/org-library.ts` (1155 lines) and its two test files, the `OrgLibrary` instance and its Electron relay, the `/api/org-library/*` routes and the test relay, the New bot install-status filter, `redownloadedOrgLibraryPath`, `scripts/verify-organization-settings.mjs` leftovers, and the stale docs. A row an earlier organization install left behind is still read |
 | `b00a2f62` | the renderer's policy surfaces: `managedPolicy`/`policy`/`readOnly`/`managed`/`managedBy` across store, ModelPicker, SimpleModelPane, McpServersPanel, PlaceChip, ComputerPanel, CompanionSection, EnginesSettings, ChatView, EngineSetup, AutomaticRecoverySettings, CloudEngineSignIn, and the 5 `policy.*` locale keys |
 
@@ -401,7 +401,7 @@ docs under `docs/plans/`.
 
 `pnpm colonie:ui-check` and `pnpm colonie:desktop-check` both exit 0 on
 `ab62d5ca` (renderer and Electron window, fake engines, streaming,
-reconnection and receipts; evidence in `.devone/evidence/`). One desktop run
+reconnection and receipts; evidence in `.colonie-dev/evidence/`). One desktop run
 failed on a leftover Electron process and passed on a re-run; the same commit
 passes in a clean worktree, so the failure was environmental.
 
@@ -409,7 +409,7 @@ passes in a clean worktree, so the failure was environmental.
 
 | commit | what went |
 |---|---|
-| `0eadac2f` | `CloudAccountSettings`, `ProIntroduction`, `ConnectedWorkspacesSettings`, `CloudMove`, `CloudOwner`, `CloudSetup`, `CloudEngineSignIn` and `src/lib/cloud-setup.ts` with their tests; the `cloudAccount`/`desktopWorkspaces` Settings sections and their store fields (`CLOUD_LINK_SETTINGS`, `appSettingsCloudLink`); the Settings rail's Servers entry; the `openmausbot://cloud` deep link; `cloudSignInDue` and the cloud-home sign-in branch in `App`; the profile menu's "Use your Cloud on your phone" destination (`CloudPhoneDestination`, the `cloud` phone target); `CloudMoveImport` in the backup settings; `useCloudOwner` and the "My Cloud · always on" switcher label (40 files, −3357/+151) |
+| `0eadac2f` | `CloudAccountSettings`, `ProIntroduction`, `ConnectedWorkspacesSettings`, `CloudMove`, `CloudOwner`, `CloudSetup`, `CloudEngineSignIn` and `src/lib/cloud-setup.ts` with their tests; the `cloudAccount`/`desktopWorkspaces` Settings sections and their store fields (`CLOUD_LINK_SETTINGS`, `appSettingsCloudLink`); the Settings rail's Servers entry; the `colonie://cloud` deep link; `cloudSignInDue` and the cloud-home sign-in branch in `App`; the profile menu's "Use your Cloud on your phone" destination (`CloudPhoneDestination`, the `cloud` phone target); `CloudMoveImport` in the backup settings; `useCloudOwner` and the "My Cloud · always on" switcher label (40 files, −3357/+151) |
 
 The Cloud *place* stays: `shared/cloud-computer.ts`, `CloudScreenPreview`,
 `CloudBackendPicker`, `ComputerPanel`, `cloud-plan.ts`, the server's
@@ -427,14 +427,14 @@ the place.
 | `pnpm check:electron` | Syntax-checked 139 Electron modules |
 | `pnpm i18n:check` | valid, 10 languages, 3580 English strings |
 | `pnpm exec vitest run src/` | 3438 passed / 10 failed — the 4 inherited failures plus 6 assertions on the removed sections, all updated in this commit; the final run after the fixes is green for the touched files |
-| `pnpm colonie:ui-check` | exit 0, evidence `.devone/evidence/renderer-check.json` |
+| `pnpm colonie:ui-check` | exit 0, evidence `.colonie-dev/evidence/renderer-check.json` |
 
 ### 2026-10-16 — the Cloud catalogs, the Cloud's Composio broker, and Copy this computer here
 
 | commit | what went |
 |---|---|
 | `95e477e8` | the 44 catalog keys with no reader left after `0eadac2f`: `pro.*` (all but `pro.signIn`), `cloudSetup.*`, `settings.section.cloudAccount`, `settings.section.desktopWorkspaces`, `sidebar.cloudOwner`, `sidebar.menu.connectPhone.cloud*` — 10 languages, 3580 → 3536 English strings |
-| `92a28c00` | `electron/managed-composio.mjs` and its test; `main.mjs`'s broker URL, its child-env term, the credential registration and the post-restart sync. The packaged app no longer registers with the upstream `openmausbot-composio.milindsoni201.workers.dev` broker, so a person's own Composio key is the only path. The server's own `OMB_COMPOSIO_BROKER_*` reader stays: env-driven, inert without a setter |
+| `92a28c00` | `electron/managed-composio.mjs` and its test; `main.mjs`'s broker URL, its child-env term, the credential registration and the post-restart sync. The packaged app no longer registers with the upstream `colonie-composio.milindsoni201.workers.dev` broker, so a person's own Composio key is the only path. The server's own `COLONIE_COMPOSIO_BROKER_*` reader stays: env-driven, inert without a setter |
 | `4bb5abfb` | Copy this computer here, end to end: `electron/cloud-move.mjs` (with `.d.mts` and its 32 node tests), `main.mjs`'s block and its `cloud-move:*` IPC, the preload bridge, the `ogb` entry, `server/cloud-move.ts`, `server/cloud-move-http.ts` and both their test files, the `cloudMove.*` copy (72 English keys) and `docs/copy-workspace.md` (−4220/+47) |
 
 `cloudPageSenderAllowed` moved from the deleted module into `cloud-home.mjs`.
@@ -460,7 +460,7 @@ delete together with it.
 | `pnpm test:electron` | 359 tests, 358 passed, 0 failed, 1 skipped (was 391/390/0/1) |
 | `pnpm exec vitest run src/ electron/` | 3761 passed, 4 failed — the same four inherited rebrand assertions (`live-call-media` ×2, `CallView.journeys`, `lazy-screens`), identical at `94cc3689` |
 | `pnpm exec vitest run server/workspace-backup.test.ts server/workspace-backup-worker.test.ts server/workspace-backup-policy.test.ts server/restart.test.ts server/surface.test.ts` | 94 passed |
-| `pnpm colonie:ui-check` | exit 0, `.devone/evidence/renderer-check.json` |
+| `pnpm colonie:ui-check` | exit 0, `.colonie-dev/evidence/renderer-check.json` |
 | `pnpm exec vitest run server/index.test.ts` | 200 passed / 79 failed — inherited, not this branch's: with these changes stashed, `restores a live unanswered provider question after a server restart` fails the same way (400 where the fixture wants 201) |
 
 `electron/managed-composio.test.mjs` never ran under any script (`pnpm
@@ -471,7 +471,7 @@ it, and its removal is what took that count from 139 to 137.
 
 | commit | what went |
 |---|---|
-| `a457eee6` | the desktop half: `electron/cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs` (with their `.d.mts`), their node tests and the cloud-account IPC test, plus `main.mjs`'s account client and stored sign-in, the saved Cloud-home server, the `openmausbot://cloud` entry, the `cloud-plan:*` IPC and the Cloud page's microphone/clipboard rule, the preload's `cloudAccount`/`cloudPlan` bridges and the `ogb.d.ts` entries, `src/lib/cloud-plan.ts`, `place-view.ts`'s `useCloudPlanPaid`/`see-plan`/`open-my-cloud`, `scripts/verify-cloud-account.mjs`, `docs/verification/cloud-account.md`, and 404 catalog entries (`cloudAccount.*`, `cloudPlan.*`, `cloudHome.*`, `cloudPhone.*`; English 3464 → 3393) (39 files, −3671/+196) |
+| `a457eee6` | the desktop half: `electron/cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs` (with their `.d.mts`), their node tests and the cloud-account IPC test, plus `main.mjs`'s account client and stored sign-in, the saved Cloud-home server, the `colonie://cloud` entry, the `cloud-plan:*` IPC and the Cloud page's microphone/clipboard rule, the preload's `cloudAccount`/`cloudPlan` bridges and the `ogb.d.ts` entries, `src/lib/cloud-plan.ts`, `place-view.ts`'s `useCloudPlanPaid`/`see-plan`/`open-my-cloud`, `scripts/verify-cloud-account.mjs`, `docs/verification/cloud-account.md`, and 404 catalog entries (`cloudAccount.*`, `cloudPlan.*`, `cloudHome.*`, `cloudPhone.*`; English 3464 → 3393) (39 files, −3671/+196) |
 
 What `main.mjs` keeps is the local app: the updater answers only this
 computer's own page in the main window (`updaterPageAllowed`), device
@@ -500,7 +500,7 @@ gets ──` and `// ── end this app's own page ──`.
 | `pnpm exec vitest run electron/app-permissions.node-test.mjs electron/preload.node-test.mjs electron/confirm-dialog.node-test.mjs electron/remote-clipboard-permission.node-test.mjs` | 37 passed |
 | `pnpm exec vitest run src/locales/ src/pair/ src/components/FailedTurnRow.place.test.ts src/components/SettingsModal.serverPairing.test.ts` | 27 passed |
 | `pnpm i18n:check` | valid, 10 languages, 3393 English strings |
-| `pnpm colonie:ui-check` | exit 0, `.devone/evidence/renderer-check.json` |
+| `pnpm colonie:ui-check` | exit 0, `.colonie-dev/evidence/renderer-check.json` |
 
 `electron/credential-persistence.test.mjs` cannot load under vitest: it uses
 `node:test` while being named `*.test.mjs`. It is untouched by this branch,
@@ -556,12 +556,12 @@ focused vitest green:
 4. ~~**Desktop bridges.**~~ Done in `a457eee6` (`cloud-account.mjs`,
    `cloud-home.mjs`, `cloud-entry.mjs`, their IPC, preload bridges,
    `ogb.d.ts` entries, `verify-cloud-account.mjs`, `src/lib/cloud-plan.ts` and
-   the `openmausbot://cloud` deep link); `cloud-move.mjs` and
+   the `colonie://cloud` deep link); `cloud-move.mjs` and
    `managed-composio.mjs` in `4bb5abfb` and `92a28c00`.
 5. ~~**`deploy/`** (container/self-host targets).~~ Done in `4665d9a5`;
    the **data migration** for `computer: "cloud"` rows and the wire fields
    still follow with the place (step 2).
-6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
+6. Docs and the `colonie`/`colonie` → `colonie` rename, including the
    half-finished "Colonie Cloud" strings and `docs/cloud-pro.md`, which still
    describes the deleted account and Cloud home.
 7. VPS `172.104.33.55`: stop the services, then delete the data. Last,
@@ -601,8 +601,8 @@ They are inherited, not caused by this branch. Triaged individually:
 - 121 under `server/`, 23 under `scripts/testing/` — `*.e2e.test.ts` and `*-ui.e2e.test.ts` needing a live CLI agent, a real browser or a hosted fixture.
 - `scripts/testing/verification-docs.test.ts` reads `enterprise/server/workspace-access.ts`, absent from this fork.
 - `scripts/testing/index-route-ratchet.test.ts` counts server/index.ts request paths above the recorded baseline (owner WIP added routes).
-- `shared/place-view.test.ts` wants en.json to still say "OpenMausBot Cloud" while the catalog says "Colonie Cloud" — half-finished rebrand.
-- `CallView.journeys` / `live-call-media` want "Open OpenMausBot at a secure https address" while the app says "Colonie".
+- `shared/place-view.test.ts` wants en.json to still say "Colonie Cloud" while the catalog says "Colonie Cloud" — half-finished rebrand.
+- `CallView.journeys` / `live-call-media` want "Open Colonie at a secure https address" while the app says "Colonie".
 - `lazy-screens` expects `App.tsx` in the launch bundle; `main.tsx` imports it dynamically (already true at `94cc3689`).
 - `electron/credential-persistence.test.mjs` is a `node --test` file caught by the vitest glob.
 - `server/colonie/chief/chief.e2e.test.ts` fails the same way on `94cc3689`.
@@ -617,7 +617,7 @@ One was ours and is fixed in `2982ec22`: `SettingsModal.appearance.test.ts` stil
 4. The desktop Cloud bridges: `cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs`, `cloud-move.mjs`.
 5. The server's hosted half: `CLOUD_HOME`/`HOSTED_WORKSPACE` modes, `cloud-secrets-boot`, `server/cloud-lending.ts`, `server/lending-memory.ts`, `server/managed-desktop.ts`.
 6. Directories: `deploy/` (container/self-host targets). `companion/` stays: it is remote access to the local app, not Cloud.
-7. Docs and the `openmausbot`/`devone` → `colonie` rename, including the half-finished "Colonie Cloud" strings above.
+7. Docs and the `colonie`/`colonie` → `colonie` rename, including the half-finished "Colonie Cloud" strings above.
 8. VPS `172.104.33.55`: stop the services, then delete the data. Last, irreversible, and only with explicit confirmation.
 
 ## 2026-10-14 — M11 step 5 proven, step 4b prepared (not yet run on the host)
@@ -626,12 +626,12 @@ Commit `322ad8f5`. The VPS exists: Ubuntu 24.04, x86_64, 8 GB RAM, 4 vCPU,
 160 GB (Linode `g6-dedicated-4`, region ap-south). Above the 4 GB floor, and
 x86_64, which the Codex adapter's per-architecture binary requires.
 
-### Step 5 — `OMB_LOOPBACK_TRUST=service` — proven
+### Step 5 — `COLONIE_LOOPBACK_TRUST=service` — proven
 
 Both modes run against an isolated headless fixture (`env -i`, scratchpad
-`HOME` and `OMB_DATA_DIR`), session-less loopback requests:
+`HOME` and `COLONIE_DATA_DIR`), session-less loopback requests:
 
-| route | default (`owner`) | `OMB_LOOPBACK_TRUST=service` |
+| route | default (`owner`) | `COLONIE_LOOPBACK_TRUST=service` |
 |---|---|---|
 | `/api/health` | 200 | 200 |
 | `/api/config` | **200** | **403** |
@@ -641,7 +641,7 @@ Both modes run against an isolated headless fixture (`env -i`, scratchpad
 
 Server log confirms the choice each way: `local requests: owner trust
 (self-hosted default)` versus `local requests: service trust
-(OMB_LOOPBACK_TRUST)`. This matters because every bot's shell is a loopback
+(COLONIE_LOOPBACK_TRUST)`. This matters because every bot's shell is a loopback
 caller: under the default, a workspace member could ask a bot to curl the local
 API and rewrite settings, keys, MCP servers or webhooks as the owner. The
 setting is baked into the systemd unit with that reason written beside it.
@@ -662,7 +662,7 @@ setting is baked into the systemd unit with that reason written beside it.
 
 ### Blocker — the fork has no remote of its own
 
-`git remote -v` shows only upstream `milind-soni/OpenMausBot`. Every commit in
+`git remote -v` shows only upstream `milind-soni/Colonie`. Every commit in
 this session, including the ~45k-line retirement, exists **only on the
 development laptop**. That is both a single point of failure and the reason the
 deployment has no clean way to move the code. The runbook's first step is
@@ -745,16 +745,16 @@ run `pnpm build:server` — not only `pnpm typecheck`.
 ## 2026-10-14 — M11 step 4a: headless operation proven (verification only, no code change)
 
 Colonie was booted with no Electron, no display and no inherited environment
-(`env -i`), from an isolated `HOME` and `OMB_DATA_DIR` under the session
-scratchpad, on port 18891, with `COLONIE_PROFILE=1` and `OMB_STATIC_DIR` pointed
+(`env -i`), from an isolated `HOME` and `COLONIE_DATA_DIR` under the session
+scratchpad, on port 18891, with `COLONIE_PROFILE=1` and `COLONIE_STATIC_DIR` pointed
 at a freshly built `dist/`. This is the first evidence for the claim; it was
 previously carried only by inherited `docs/self-hosting.md`, which describes
-OpenMausBot and not this fork.
+Colonie and not this fork.
 
 ### Proven
 
 - `pnpm build` succeeds after the driver retirement (exit 0, `vite build` ok).
-- `GET /api/health` answers `{"app":"openmausbot","static":true,...}`. The
+- `GET /api/health` answers `{"app":"colonie","static":true,...}`. The
   server serves the renderer itself; no separate web server is involved.
 - `GET /` returns the built React document, and its 3.8 MB entry bundle
   (`/assets/index-DRHPKXNx.js`) answers `200` with the full body.
@@ -768,7 +768,7 @@ OpenMausBot and not this fork.
 ### Engine sign-in on a server — works, with a condition
 
 Colonie's ACP sign-in is a **terminal** route by design (`server/contracts.ts`,
-`AcpRuntime.signInCommand()` in `server/devone/acp-runtime.ts`, surfaced by
+`AcpRuntime.signInCommand()` in `server/acp/acp-runtime.ts`, surfaced by
 `POST` handling at `server/index.ts:24447`, which returns
 `{ terminal: { command } }`). The command carries the isolated config dir, e.g.
 `CLAUDE_CONFIG_DIR="<data>/native/claude" claude /login`.
@@ -782,7 +782,7 @@ step in the deployment runbook rather than discovering it on the day.
 
 - An actual agent turn headless against a real engine. The isolated fixture has
   no engine login (`authenticated: false` for both), and signing one in would
-  need the owner's credentials. The `server/devone/*.e2e.test.ts` suites do
+  need the owner's credentials. The `server/acp/*.e2e.test.ts` suites do
   exercise the full conversation path in Node without Electron against the fake
   engine, and they pass, but that is not a real-provider claim.
 - Reaching the server from another machine. The loopback binding is deliberate;
@@ -795,8 +795,8 @@ step in the deployment runbook rather than discovering it on the day.
 Branch `chore/retire-legacy-drivers`, commit `2ddc2898`. 101 files, 43663 deletions.
 
 - Audit first, and it is what made the slice safe: the two surviving ACP drivers
-  (`server/devone/codex-acp.ts`, `claude-acp.ts`) import **nothing** from
-  `server/drivers/`. `server/devone/profile.ts` already filtered every configured
+  (`server/acp/codex-acp.ts`, `claude-acp.ts`) import **nothing** from
+  `server/drivers/`. `server/acp/profile.ts` already filtered every configured
   instance through `isColonieAcpDriver`, so the inherited drivers have been
   unreachable at runtime since M8-C. 93 files and ~42k lines removed.
 - `server/drivers/builtIn.ts` is now the two ACP drivers and nothing else.
@@ -818,15 +818,15 @@ Branch `chore/retire-legacy-drivers`, commit `2ddc2898`. 101 files, 43663 deleti
 ### Evidence (Node 24 via /opt/homebrew/opt/node@24)
 
 - `pnpm typecheck` — exit 0.
-- `pnpm exec vitest run server/devone server/drivers server/cli-setup.test.ts
+- `pnpm exec vitest run server/acp server/drivers server/cli-setup.test.ts
   server/managed-desktop.test.ts server/model-providers-docs.test.ts
   server/config.test.ts server/enterprise.test.ts server/brand.test.ts`
   — 29 files: **588 passed, 1 skipped, 2 failed**.
 
 ### The 2 failures are pre-existing, not caused by this slice
 
-`server/devone/profile.test.ts` (expects `config.onboarding?.version` to be 1,
-gets 0) and `server/devone/start.e2e.test.ts` (expects `tour.done`, gets `[]`)
+`server/acp/profile.test.ts` (expects `config.onboarding?.version` to be 1,
+gets 0) and `server/acp/start.e2e.test.ts` (expects `tour.done`, gets `[]`)
 fail **identically on `main`**, confirmed by running them in a detached
 `git worktree` at `main`. They belong to the onboarding work in `e6576d55` and
 are an open bug independent of driver retirement.
@@ -874,9 +874,9 @@ Branch `chore/retire-enterprise`, commit `578730f2`. 28 files, 1974 deletions.
 - `pnpm exec vitest run server/spend-cap-api.test.ts server/license-expiry-api.test.ts`
   — 2 files, 11 tests passed. Both drive a stand-in layer through the surviving
   hook, so they prove the hook still grants and expires entitlements correctly.
-- Isolated boot (`OMB_DATA_DIR` and `HOME` under the session scratchpad, port
-  18797) with `OMB_LICENSE_KEY=omb1.not.real`, then `GET /api/edition`:
-  `{"edition":"oss","features":[],"notice":"OMB_LICENSE_KEY is set but no
+- Isolated boot (`COLONIE_DATA_DIR` and `HOME` under the session scratchpad, port
+  18797) with `COLONIE_LICENSE_KEY=colonie1.not.real`, then `GET /api/edition`:
+  `{"edition":"oss","features":[],"notice":"COLONIE_LICENSE_KEY is set but no
   enterprise layer exists at .../enterprise or .../server/enterprise"}`.
   Both CI assertions reproduced: `"edition":"oss"` and the missing-layer notice.
 
@@ -914,25 +914,25 @@ than to this slice.
   and `index.ts`. Its `LICENSE` forbids hosting for third parties, reselling and
   white-labelling without a written agreement. `FEATURES` places multiple
   workspaces (`admin`), the workspace spend cap (`budgets`) and SSO inside it.
-- `OMB_LOOPBACK_TRUST` is honoured in `server/request-auth.ts:116`, independent of
+- `COLONIE_LOOPBACK_TRUST` is honoured in `server/request-auth.ts:116`, independent of
   `enterprise/`. The self-hosted default is `owner` trust, under which every bot
   shell is an owner-trusted loopback caller.
 - `WireMessage` (`shared/wire.ts:399`) carries `role: "bot" | "user"` and no author
   field; no `workspaceId` exists in `shared/wire.ts` or `server/store.ts`.
-- `server/index.ts:16481` serves non-`/api/` GETs from `OMB_STATIC_DIR`
+- `server/index.ts:16481` serves non-`/api/` GETs from `COLONIE_STATIC_DIR`
   (`server/index.ts:672`), so the server can deliver the built UI itself.
 - `electron-builder.colonie.yml` sets `mac: target: dir`, `identity: null`,
   `notarize: false`, and has no `win` section. It therefore produces no installer,
   is refused by Gatekeeper on another machine, and offers no Windows build.
 - Non-test line counts: `server/drivers` excluding `acp/` 17143, `server/drivers/acp`
-  6205, `server/devone` + `server/colonie` 4690, `server` total 135570, `src` 89776,
+  6205, `server/acp` + `server/colonie` 4690, `server` total 135570, `src` 89776,
   `server/index.ts` 26100.
 
 ### Unverified — must be proven before they enter a plan
 
 - Headless operation of this fork on a server, and the built UI delivered from a
   remote server to a browser. The code path exists; the behaviour is not tested.
-  Inherited `docs/self-hosting.md` claims it for OpenMausBot, not for Colonie.
+  Inherited `docs/self-hosting.md` claims it for Colonie, not for Colonie.
 - Whether retiring the non-ACP drivers is dependency-complete; no audit has run.
 
 ### Blockers
@@ -958,7 +958,7 @@ than to this slice.
   files as full-path Markdown links (`colonie.capabilities.v6`), so links
   become clickable file cards instead of inert prose. No `attach_file` tool
   exists on the ACP path; authorization reuses the message-link grant.
-- Files: `server/devone/context.ts` (v5→v6), `src/state/store.tsx`
+- Files: `server/acp/context.ts` (v5→v6), `src/state/store.tsx`
   (`filePreview` + `openFilePreview`/`closeFilePreview`, exclusive with the
   other side panels, cleared on select/switchTask/view change),
   `src/components/AttachmentPreview.tsx` (`FilePreviewScope`,
@@ -1014,7 +1014,7 @@ than to this slice.
   registers the owner/admin Chief and per-bot skills routes, serves the internal
   `/api/internal/colonie-workspace-mcp` loopback relay, runs child assignments under
   their own ACP conversation (`runColonieAssignment`), and cancels exact work on Stop,
-  bot deletion and shutdown. `server/devone/context.ts` composes the skills index and
+  bot deletion and shutdown. `server/acp/context.ts` composes the skills index and
   Chief/assignment sections dynamically, never on stable pins. `server/store.ts`
   elects one workspace Chief: the first seeded bot, or the oldest bot on an upgraded
   workspace without one.
@@ -1030,8 +1030,8 @@ than to this slice.
   - `pnpm typecheck` — **passed**; `pnpm lint` (oxlint --deny-warnings) — **passed**;
     `pnpm build` (production renderer + server) — **passed**.
   - `pnpm exec vitest run server/store.test.ts server/colonie/
-    server/devone/memory.e2e.test.ts server/devone/context.e2e.test.ts
-    server/devone/context-integrity.test.ts server/devone/conversations.e2e.test.ts
+    server/acp/memory.e2e.test.ts server/acp/context.e2e.test.ts
+    server/acp/context-integrity.test.ts server/acp/conversations.e2e.test.ts
     src/components/BotSettingsDialog.simple.test.ts src/components/ChatView.controls.test.ts`
     — **289 passed across 22 files**.
   - `server/colonie/chief/chief.e2e.test.ts` — **2 passed**, both providers, canonical
@@ -1054,7 +1054,7 @@ than to this slice.
   through the normal profile, an enabled guide reaches a real dispatch receipt as a
   `skills.index` section, turning the guide off from the profile excludes it from the
   next dispatch, and the user's own message bytes are preserved. Evidence:
-  `.devone/evidence/{claude-,}chief-skills-renderer-check.json`.
+  `.colonie-dev/evidence/{claude-,}chief-skills-renderer-check.json`.
 - Verification caught and fixed a real integration bug: two tool mounts (connected
   apps + Colonie workspace) were merged into one wrapper whose `release` released
   shared sub-leases, so the second message in a conversation failed with
@@ -1089,7 +1089,7 @@ than to this slice.
   `verification/colonie-memory.md`.
 - Actual check under Node 25.8.1:
   `PATH="/opt/homebrew/opt/node@24/bin:$PATH" pnpm exec vitest run
-  server/devone/codex-acp.test.ts` — **22 passed**. Real-SDK simulated-provider
+  server/acp/codex-acp.test.ts` — **22 passed**. Real-SDK simulated-provider
   tests additionally prove separate analysis sessions/events, cleanup, tool-output
   refusal, cancellation and preservation of the normal user's native session.
   This is runtime-boundary evidence only, not automatic-memory/renderer/desktop or
@@ -1106,15 +1106,15 @@ than to this slice.
 - Actual focused checks (all with the Node path above):
   - `pnpm exec vitest run server/colonie/memory/
     src/components/bot-settings/ColonieMemorySection.test.ts
-    server/devone/context.e2e.test.ts server/devone/context-integrity.test.ts
-    server/devone/application.e2e.test.ts server/devone/codex-acp.test.ts
+    server/acp/context.e2e.test.ts server/acp/context-integrity.test.ts
+    server/acp/application.e2e.test.ts server/acp/codex-acp.test.ts
     src/components/BotSettingsDialog.simple.test.ts` — **91 passed / 11 files**.
   - Final durable-job/storage/Stop follow-up:
     `pnpm exec vitest run server/colonie/memory/
     src/components/bot-settings/ColonieMemorySection.test.ts
-    server/devone/conversations.e2e.test.ts` — **48 passed / 7 files**. Runs
+    server/acp/conversations.e2e.test.ts` — **48 passed / 7 files**. Runs
     overlap; their test counts are not added together.
-  - `pnpm exec vitest run server/devone/memory.e2e.test.ts` — **2 passed**, one
+  - `pnpm exec vitest run server/acp/memory.e2e.test.ts` — **2 passed**, one
     per provider. Canonical disposable SDK/HTTP fixtures prove capture, scoped
     recall, source quotes, fresh native sessions, immediate correction/provenance,
     stale edit 409, natural-language forget/suppression, off and full server restart
@@ -1132,7 +1132,7 @@ than to this slice.
   during a new-thread transition; locators and transition waits were corrected.
   One concurrent source fixture startup timed out with an empty log; a later run
   passed without relaxing its timeout. Evidence:
-  `.devone/evidence/{memory-renderer,claude-memory-desktop}-check.json` and screenshots.
+  `.colonie-dev/evidence/{memory-renderer,claude-memory-desktop}-check.json` and screenshots.
 - `node scripts/colonie/memory-provider-check.ts --real --claude` — **passed**:
   two analysis/five foreground requests, inherited CLI auth, disposable data/workspace,
   and no accepted tool activity. Claude captured a synthetic preference, recalled
@@ -1141,7 +1141,7 @@ than to this slice.
   recipe rejected an old codename appearing as a historical qualifier; the corrected
   contract checks one active preference and the actual current-value answer.
   Receipts show `Silverwren, replacing Amberfinch`, not two active conflicting facts.
-  Evidence: `.devone/evidence/claude-acp-memory-real-check.json`. This is bounded
+  Evidence: `.colonie-dev/evidence/claude-acp-memory-real-check.json`. This is bounded
   real-provider ACP evidence, not a real-provider packaged sign-in check.
 - Final `pnpm colonie:package` — **passed**, rebuilding
   `release/colonie/mac-arm64/Colonie.app` after storage and Stop changes.
@@ -1150,7 +1150,7 @@ than to this slice.
   capture/profile, distinct-session recall, full app restart with the same session/
   pin, then UI memory-off and another restart with retained review/no recall block.
   Renderer errors are empty. Evidence:
-  `.devone/evidence/{claude-,}memory-packaged-fixture-check.json`. Screenshots and
+  `.colonie-dev/evidence/{claude-,}memory-packaged-fixture-check.json`. Screenshots and
   synthetic real-provider receipts were inspected. Artifact ownership was
   coordinated with the onboarding lead; its source changes are preserved.
 - Remaining boundaries: real Codex memory is unverified while its latest quota
@@ -1164,8 +1164,8 @@ than to this slice.
 
 ## Onboarding adaptation to Colonie (implemented, isolated fixture-verified)
 
-- Owner asked to reuse the inherited OpenMausBot first-run UI for Colonie. The
-  welcome flow was already mounted (`src/App.tsx`) but was still OpenMausBot
+- Owner asked to reuse the inherited Colonie first-run UI for Colonie. The
+  welcome flow was already mounted (`src/App.tsx`) but was still Colonie
   shaped. Owner-decided scope: keep the feature reel as-is, keep Hello /
   Permissions / Meet your bot, make the phone beat "coming soon", frame the
   engines beat as Codex / Claude Code, and disable the guided tour + first
@@ -1187,13 +1187,13 @@ than to this slice.
     src/lib/i18n.test.ts` — **100 passed across 10 files**; the two updated
     onboarding component tests pass. `SettingsModal` suite — **84 passed**.
   - `node --experimental-strip-types scripts/verify-onboarding-ui.ts
-    <handle>` against a fresh `control-omb ui launch` fixture — **passed**. The
+    <handle>` against a fresh `control-colonie ui launch` fixture — **passed**. The
     real renderer/fake-engine recipe proves profile-save retry, reduced-motion
     reel, the engines beat's provider framing + inventory-refresh failure,
     the phone coming-soon beat, welcome completion with **no** guided tour,
     dismissed-after-reload, Settings replay (no app-tour button), and a
     skip-while-saving. Screenshots:
-    `.omb-scratch/verify-evidence/onboarding/{welcome,reel,engines,meet-bot,complete}.png`.
+    `.colonie-scratch/verify-evidence/onboarding/{welcome,reel,engines,meet-bot,complete}.png`.
 - Not covered: the real Electron preload bridge, provider sign-in, and a real
   phone pairing (not part of this slice). The tour code is retained, not
   deleted, so re-enabling it is a small follow-up.
@@ -1203,7 +1203,7 @@ than to this slice.
 - Owner ran the rebuilt app and asked for five changes, all applied:
   1. Hello beat: name and email are required; "Maybe later" removed. The
      top-right "Skip tour" still leaves the whole flow.
-  2. Feature reel: visible `OpenMausBot`/`Maus` strings changed to `Colonie`
+  2. Feature reel: visible `Colonie`/`Maus` strings changed to `Colonie`
      (Terminal command, terminal welcome/ready lines, browser tab title,
      mini-card title; Hands bot name and composer placeholder; Channels member
      name). Reel content is otherwise unchanged per the owner's earlier call.
@@ -1222,26 +1222,26 @@ than to this slice.
   `pnpm exec vitest run src/components/onboarding src/lib/onboarding.test.ts
   src/lib/i18n.test.ts` — **84 passed**. The isolated recipe
   `scripts/verify-onboarding-ui.ts` passed end to end against a fresh
-  `control-omb ui launch` fixture (no phone beat; name/email required), with
+  `control-colonie ui launch` fixture (no phone beat; name/email required), with
   refreshed screenshots. `pnpm colonie:package` rebuilt
   `release/colonie/mac-arm64/Colonie.app` and
-  `node scripts/devone/package-check.ts` passed with isolated data.
+  `node scripts/colonie/package-check.ts` passed with isolated data.
 - Brand-sweep evidence (isolated, no live app/data): `pnpm typecheck`,
   `pnpm lint`, `pnpm i18n:check` clean; the changed test files + locales ran
   **490 passed**.
 - Owner follow-up: the global "Skip tour" is now disabled on the greeting
   (name/email) beat, so that step is truly mandatory; other beats keep it.
-- Colonie brand sweep (owner: "replace OpenMausBot with Colonie wherever you
+- Colonie brand sweep (owner: "replace Colonie with Colonie wherever you
   find it"): 83 English i18n values and ~30 renderer files changed, plus the
   tests that asserted that copy; changed English keys were dropped from the
   non-English packs and `source-hashes.json` so `pnpm i18n:check` stays green
   (they fall back to English). Deliberately left unchanged because they are not
   user-facing copy and changing them would break things: GitHub repository
-  URLs, the `openmausbot://` deep-link scheme, `OMB_*`/format/backup
+  URLs, the `colonie://` deep-link scheme, `COLONIE_*`/format/backup
   identifiers, `server/cli-*` text, and the server-side brand default (177
   server files still reference the historical name). The one English test that
   uses the deep-link scheme (`ChatMarkdown.renderers.test.ts`) keeps the
-  original `OpenMausBot://` scheme case.
+  original `Colonie://` scheme case.
 - Fresh-install seed fix (owner: "I want to feel what a user feels"):
   `electron/colonie-config.mjs` `initializeColonieData` used to write a new
   `config.json` with onboarding **already complete** and every `tour.*` hint
@@ -1249,7 +1249,7 @@ than to this slice.
   no fresh install ever saw onboarding. It now seeds an empty record
   (`completedAt: ""`, `version: 0`, `hintsSeen: []`). Confirmed by wiping the
   data dir and relaunching the rebuilt app: `~/.colonie/config.json` shows the
-  empty record and the welcome flow appears. `server/devone/branding.test.ts`
+  empty record and the welcome flow appears. `server/acp/branding.test.ts`
   passes (it only asserts an existing config is not overwritten).
 - Second suppressor found while re-testing: `src/main.tsx` called
   `setEmailGateDone("skipped")` on every boot, so `welcomeDue`'s legacy-grace
@@ -1271,7 +1271,7 @@ than to this slice.
 
 - Owner approved a general behavioral foundation after an empty-SOUL Biscuit
   conversation volunteered connector sign-in during small talk. Runtime code
-  changes are confined to `server/devone/context.ts`; concurrent UI/icon work
+  changes are confined to `server/acp/context.ts`; concurrent UI/icon work
   was inspected and preserved.
 - Factory identity v2 now supplies the agreed task-agnostic foundation: respond
   to intent, adapt to conversation/persona, progress on actionable requests,
@@ -1284,20 +1284,20 @@ than to this slice.
 - Verification used Node 25.8.1 via
   `PATH="/opt/homebrew/opt/node@24/bin:$PATH"` (the local node@24 path currently
   resolves to that version):
-  - `pnpm exec vitest run server/devone/context.e2e.test.ts
-    server/devone/context-integrity.test.ts server/devone/application.e2e.test.ts
-    server/devone/codex-acp.test.ts` — **23 passed across four files**. Canonical
+  - `pnpm exec vitest run server/acp/context.e2e.test.ts
+    server/acp/context-integrity.test.ts server/acp/application.e2e.test.ts
+    server/acp/codex-acp.test.ts` — **23 passed across four files**. Canonical
     disposable SDK/HTTP fixtures cover both providers, context isolation,
     exact input, continuation/restart, plain baselines and integrity guards.
   - `pnpm typecheck` and
-    `pnpm exec oxlint --deny-warnings server/devone/context.ts` — **passed**.
+    `pnpm exec oxlint --deny-warnings server/acp/context.ts` — **passed**.
   - Disposable `colonie-foundation-check.ts` under the approved OpenCode temp
     directory — **passed**, using canonical `launchVerificationServer` and
-    `runControlOmb` with explicit fixture URL. Two empty-SOUL bots (Claude/Codex)
+    `runControlColonie` with explicit fixture URL. Two empty-SOUL bots (Claude/Codex)
     each received greeting, capability and email-draft requests. Six completed
     receipts prove v2/v3 context delivery, unchanged user messages, empty SOUL,
     stable native sessions/snapshots and exact fake-agent input.
-    Evidence: `/var/folders/1n/rxzlp39527zgdbz2chq7p41h0000gn/T/openmausbot-verification-evidence/server-1791711062539-5457.log.foundation.json`.
+    Evidence: `/var/folders/1n/rxzlp39527zgdbz2chq7p41h0000gn/T/colonie-verification-evidence/server-1791711062539-5457.log.foundation.json`.
 - This is simulated-provider execution evidence, not proof of real-model answer
   quality. No live app/data/credentials, real-provider request, renderer/desktop
   check or package rebuild was involved. Existing conversations retain their
@@ -1363,10 +1363,10 @@ than to this slice.
 - Evidence (isolated, no live app/data): `pnpm typecheck`, `pnpm lint`,
   `git diff --check` clean; `pnpm exec vitest run` on `Avatar.test.ts`,
   `BloubAvatar.test.ts`, `bloub-gaze.test.ts`, `bloub-frame-fit.test.ts` and
-  `server/devone/branding.test.ts` — 23 passed.
+  `server/acp/branding.test.ts` — 23 passed.
 - Rebuild: `pnpm colonie:package` passed under Node 25.8.1; artifact
   `release/colonie/mac-arm64/Colonie.app` rebuilt with the deep palette in the
-  production bundle. Packaged smoke `node scripts/devone/package-check.ts`
+  production bundle. Packaged smoke `node scripts/colonie/package-check.ts`
   passed with an isolated temp data dir, simulated provider (`real: false`)
   and zero renderer errors.
 
@@ -1390,7 +1390,7 @@ than to this slice.
 - Two client tests that still asserted the pre-rename product name while the
   copy now renders `brand().name` ("Colonie") were updated:
   `SettingsModal.updates.test.ts` and `OrganisationRow.test.ts`. Tests whose
-  source strings are literally still "OpenMausBot" (server brand default,
+  source strings are literally still "Colonie" (server brand default,
   Cloud/backup copy, PairPage) were left unchanged and still pass.
 - Evidence (isolated, no live app/data): `pnpm typecheck`, `pnpm lint`,
   `pnpm i18n:check`, `git diff --check` clean. Full unit suite: 13006 passed,
@@ -1401,9 +1401,9 @@ than to this slice.
   the affected files pass, including the three Bloub gaze tests (20 tests).
 - Rebuild: `pnpm colonie:package` passed under Node 25.8.1; artifact
   `release/colonie/mac-arm64/Colonie.app` rebuilt with HugeIcons paths in the
-  production bundle. Packaged smoke `node scripts/devone/package-check.ts`
+  production bundle. Packaged smoke `node scripts/colonie/package-check.ts`
   passed with an isolated temp data dir, simulated provider (`real: false`)
-  and zero renderer errors (`.devone/evidence/packaged-fixture-check.json`).
+  and zero renderer errors (`.colonie-dev/evidence/packaged-fixture-check.json`).
   No real-provider check was run for this slice.
 
 ## Profile menu — phone disabled, help/feedback removed (implemented, unit-verified)
@@ -1439,7 +1439,7 @@ than to this slice.
   and `ComposerQueuedMessages.tsx`.
 - Evidence: unit suites passed; `pnpm colonie:package` passed under Node
   25.8.1 and the packaged smoke passed with zero renderer errors
-  (`.devone/evidence/packaged-fixture-check.json` at that time).
+  (`.colonie-dev/evidence/packaged-fixture-check.json` at that time).
 
 ## HugeIcons migration — profile menu and Settings (implemented, unit-verified)
 
@@ -1538,7 +1538,7 @@ results, not intended success.
   under the app data dir, so its sessions/sign-in/history never mix into the
   user's own `~/.codex`/`~/.claude`. This is how the app runs — not a mode and not
   a toggle. The user signs in once inside Colonie (accepted).
-- `server/devone/profile.ts`: `devoneInstances(configured, nativeBase)` injects
+- `server/acp/profile.ts`: `colonieInstances(configured, nativeBase)` injects
   `CODEX_HOME` (codex-acp) and `CLAUDE_CONFIG_DIR` (claude-acp) into every ACP
   instance environment, pointing at `native/<codex|claude>`; app-set values win so
   separation is guaranteed regardless of stored config.
@@ -1546,11 +1546,11 @@ results, not intended success.
   `native/codex` and `native/claude` at boot.
 - Limit stated, not hidden: account/service-level facts (e.g. usage counting)
   cannot be separated from the account.
-- Evidence: `server/devone/profile.test.ts` asserts the injection and that `HOME`
-  is not overridden; new `server/devone/isolation.e2e.test.ts` boots the isolated
+- Evidence: `server/acp/profile.test.ts` asserts the injection and that `HOME`
+  is not overridden; new `server/acp/isolation.e2e.test.ts` boots the isolated
   fixture and proves both engines spawn with the config dir under the app data
   dir (`native/codex`, `native/claude`) — 2 passed. `pnpm lint` and
-  `pnpm typecheck` clean. `server/devone/` suite: 274 passed; the single
+  `pnpm typecheck` clean. `server/acp/` suite: 274 passed; the single
   `start.e2e.test.ts` failure is the pre-existing Node-22-vs-24 launcher guard,
   not this change.
 
@@ -1589,10 +1589,10 @@ results, not intended success.
   selection; the New Bot dialog now shows "Sign in to a model provider…" and
   disables Create (plus a link to model settings), instead of submitting an empty
   model and failing server validation.
-- Evidence: `server/devone/auth.e2e.test.ts` (fixture `devone-unauth`: engines
+- Evidence: `server/acp/auth.e2e.test.ts` (fixture `colonie-unauth`: engines
   spawn signed out via the push, `/api/bot-defaults` is empty, the endpoint signs
-  in, and the snapshot flips to signed-in) and `server/devone/isolation.e2e.test.ts`
-  pass; `server/devone/application.e2e.test.ts` still passes. `pnpm lint`,
+  in, and the snapshot flips to signed-in) and `server/acp/isolation.e2e.test.ts`
+  pass; `server/acp/application.e2e.test.ts` still passes. `pnpm lint`,
   `pnpm typecheck` clean; client component tests for NewBotDialog/EngineSetup pass.
   `pnpm colonie:test`: 49 passed; the one `start.e2e.test.ts` failure is the
   pre-existing Node-22-vs-24 launcher guard.
@@ -1653,7 +1653,7 @@ results, not intended success.
   - `node scripts/colonie/credential-ui-check.ts` — **passed** actual React UI with
     loopback Composio and synthetic keys: empty/setup, masked saved/config source,
     failed removal, real rejected-key reason, removal/catalog disappearance, and
-    immutable environment-source removal. Evidence: `.devone/evidence/credential-ui-check.json`.
+    immutable environment-source removal. Evidence: `.colonie-dev/evidence/credential-ui-check.json`.
   - `pnpm colonie:package` — **passed**, including TypeScript and production renderer/
     server build; final artifact rebuilt with origin metadata.
   - `node scripts/colonie/credential-desktop-check.ts` and `--migration` — **passed**
@@ -1665,7 +1665,7 @@ results, not intended success.
     document was not actually empty after key removal, and Electron evaluation
     needed encrypted bytes passed in rather than dynamic fs import. The final checks
     assert key removal and preservation of unrelated fields, not blanket file deletion.
-- Evidence: `.devone/evidence/credential-desktop-check.json`,
+- Evidence: `.colonie-dev/evidence/credential-desktop-check.json`,
   `credential-desktop-migration-check.json`, crypto probe JSON and credential UI
   screenshots. All provider/account traffic is loopback simulated, with **zero model
   turns and zero real-provider requests** in this follow-up. Full/provider regression
@@ -1728,15 +1728,15 @@ results, not intended success.
   new servers off even when incoming JSON says enabled. The fixture now uses the
   explicit enable PATCH, matching actual UI. Both-provider HTTP/MCP flow passed.
 - Node 24.13.1 focused regression:
-  `pnpm exec vitest run server/devone/ server/colonie/ server/mcp-registry.test.ts
+  `pnpm exec vitest run server/acp/ server/colonie/ server/mcp-registry.test.ts
   server/mcp-http.test.ts server/mcp-oauth.test.ts server/config.test.ts
-  server/store.test.ts scripts/control-omb.test.ts src/components/SidebarFooterNav.test.ts
+  server/store.test.ts scripts/control-colonie.test.ts src/components/SidebarFooterNav.test.ts
   src/components/McpServersPanel.test.ts src/components/McpServersPanel.embedded.test.ts
   src/components/BotSettingsDialog.simple.test.ts src/components/Sidebar.simple-mode.test.ts
   src/state/store.test.ts` — **686 tests passed across 24 files**.
 - Later lifecycle/receipt checks:
-  `pnpm exec vitest run server/colonie/ server/devone/native-settings.test.ts
-  server/devone/codex-acp.test.ts src/components/McpServersPanel.test.ts
+  `pnpm exec vitest run server/colonie/ server/acp/native-settings.test.ts
+  server/acp/codex-acp.test.ts src/components/McpServersPanel.test.ts
   src/components/McpServersPanel.embedded.test.ts src/components/SidebarFooterNav.test.ts`
   — **55 passed across seven files**, including idle discovery/no idle execution,
   bearer revocation, key redaction, Composio missing-session recovery, native
@@ -1745,7 +1745,7 @@ results, not intended success.
   — **passed** against the real service using a newly generated disposable user.
   Discovered tools and executed the public `HACKERNEWS_GET_TOP_STORIES` read;
   retained only shapes/success/public-ID presence and deleted the created session.
-  Evidence: `.devone/evidence/composio-api-check.json`.
+  Evidence: `.colonie-dev/evidence/composio-api-check.json`.
 - `pnpm colonie:package` passed and rebuilt the arm64 artifact. The initial
   packaged key-entry attempt **failed** in the disposable macOS home/profile:
   `safeStorage.encryptStringAsync` could not encrypt the value. This is an
@@ -1756,20 +1756,20 @@ results, not intended success.
 - `node scripts/colonie/connected-tools-web-check.ts` — **passed** synthetic
   credential save, write-only public config, custom import/Test/enable, profile
   access selection and a Composio fixture execution through actual React UI.
-  Evidence: `.devone/evidence/connected-tools-web-check.json` and screenshots.
-- `node scripts/devone/package-check.ts --claude --connected-tools` and the same
+  Evidence: `.colonie-dev/evidence/connected-tools-web-check.json` and screenshots.
+- `node scripts/colonie/package-check.ts --claude --connected-tools` and the same
   command without `--claude` — **passed** actual production renderer/server/Electron
   with Composio/SDK fixtures. Both select Composio and a local Custom MCP through
   the normal UI, execute Allow, refuse Deny, and preserve native session/tool policy
   after app restart. An initial Test-result locator incorrectly required an exact
   standalone tool name; it was fixed to match the actual combined result text.
-  Evidence: `.devone/evidence/{claude-,}packaged-fixture-connected-tools-check.json`.
-- `COMPOSIO_API_KEY=<explicit supplied key> node scripts/devone/package-check.ts
+  Evidence: `.colonie-dev/evidence/{claude-,}packaged-fixture-connected-tools-check.json`.
+- `COMPOSIO_API_KEY=<explicit supplied key> node scripts/colonie/package-check.ts
   --real --claude --connected-tools` — **passed** inherited native CLI auth,
   disposable workspace/user, Composio search plus public Hacker News read via
   the Colonie relay, and marker recall after a full app restart. Receipts prove
   actual completed calls/targets; this is not merely an assistant success claim.
-  Evidence: `.devone/evidence/claude-packaged-real-connected-tools-check.json`.
+  Evidence: `.colonie-dev/evidence/claude-packaged-real-connected-tools-check.json`.
   Key values are absent from prompt/receipt/evidence. No real Codex request was made.
 - Typecheck, lint and locale check passed. Inspected app/profile screenshots and
   real receipts. Final nested-outcome check, package rebuild, fixture smoke and
@@ -1789,12 +1789,12 @@ results, not intended success.
   passed again, verifying actual completed Composio calls after the final outcome/
   lifecycle changes; no private connected accounts were used. A final cosmetic
   simplification removed the unsupported second-account shortcut; final rebuild
-  and `node scripts/devone/package-check.ts --claude --connected-tools` passed
+  and `node scripts/colonie/package-check.ts --claude --connected-tools` passed
   afterward. No additional real request was made for that UI-only adjustment.
 - The supplied project key is absent from source/docs and evidence (a file-name-only
   exact-match check passed). No key was hardcoded, committed or copied into native
   agent configuration. The secure-store failure is preserved explicitly in
-  `.devone/evidence/composio-secure-store-blocker.json`; passing runtime-backed
+  `.colonie-dev/evidence/composio-secure-store-blocker.json`; passing runtime-backed
   package results are not used to overwrite that evidence boundary.
 - M8's connection/execution scope is complete: Composio only as ready-to-use,
   generic Custom MCP, per-bot access, normal UI, recorded exact inputs/calls, and
@@ -1825,7 +1825,7 @@ results, not intended success.
 - Previews read at most ten recent rows and normalize/cap display text at 180
   characters. They are derived wire data, not saved profile/model context; tool and
   digest rows are skipped. The ACP runtime/session/pinning boundary is reused.
-- `pnpm exec vitest run server/devone/conversations.e2e.test.ts
+- `pnpm exec vitest run server/acp/conversations.e2e.test.ts
   src/lib/thread-preferences.test.ts src/components/TaskPicker.test.ts` —
   **28 passed**, including both-provider same-bot concurrent permissions,
   wrong-thread answers, independent Stop, transcripts/profile versions and full
@@ -1835,10 +1835,10 @@ results, not intended success.
   presentation now takes an explicit conversations prop; tests preserve legacy
   presentation and verify the new Simple behavior. The eight-file UI set then
   passed **181 tests**. A later broader run caught the missing profile-helper
-  import in the new preview projection and old OpenMausBot updater-label
+  import in the new preview projection and old Colonie updater-label
   expectations; corrected both and reran instead of counting failed runs as passes.
 - Final focused regression command:
-  `pnpm exec vitest run server/devone/ src/state/store.test.ts
+  `pnpm exec vitest run server/acp/ src/state/store.test.ts
   src/lib/thread-preferences.test.ts src/components/TaskPicker.test.ts
   src/components/Sidebar*.test.ts src/components/BotThreads.test.ts
   src/components/ChatView.controls.test.ts src/components/ChatView.follow.test.ts`
@@ -1853,13 +1853,13 @@ results, not intended success.
   finite menu animations before capture.
 - `pnpm colonie:package` passed with TypeScript, renderer/server builds and staged
   native adapters; inherited CSS optimizer/chunk notices were nonfatal.
-  `node scripts/devone/package-check.ts --claude --conversations` and the same
+  `node scripts/colonie/package-check.ts --claude --conversations` and the same
   command without `--claude` **passed** through the production packaged app and
   SDK fixtures. The normal Simple UI creates/switches conversations, displays
   parallel approval/working and background Unread, routes Allow/Deny/Stop, retains
   both native sessions/profiles after quit/reopen, and works with hidden trees and
   at 600px. API patches only give fixture conversations unambiguous titles.
-  Evidence: `.devone/evidence/{claude-,}packaged-fixture-conversations-check.json`
+  Evidence: `.colonie-dev/evidence/{claude-,}packaged-fixture-conversations-check.json`
   and default-navigation/parallel-approvals/parallel-working/narrow screenshots.
 - Inspected screenshots and receipts. This milestone's provider behavior is
   **simulated**, with actual production renderer/server/Electron evidence. No
@@ -1869,8 +1869,8 @@ results, not intended success.
   `git diff --check` passed. Final rebuild/check after the tooltip-copy adjustment
   is next; M8 remains the next feature milestone.
 - Final `pnpm colonie:package` passed after the tooltip adjustment. Both
-  `node scripts/devone/package-check.ts --claude --conversations` and
-  `node scripts/devone/package-check.ts --conversations` passed again against that
+  `node scripts/colonie/package-check.ts --claude --conversations` and
+  `node scripts/colonie/package-check.ts --conversations` passed again against that
   exact artifact; renderer errors are empty. Inspected the final narrow screenshot
   with completed menu animation and the JSON isolation/restart results. Final lint
   and `git diff --check` passed. This slice is complete for the recorded fixture
@@ -1895,11 +1895,11 @@ results, not intended success.
   even in Advanced mode. Only explicit opt-in reveals ACP receipts/manifest/preview
   links. Normal bot settings show no transport/hash/setup copy.
 - `pnpm typecheck` and `pnpm lint` passed. Isolated HTTP/default/isolation/restart
-  and SDK integrity retest: `pnpm exec vitest run server/devone/context.e2e.test.ts
-  server/devone/application.e2e.test.ts server/devone/context-integrity.test.ts` —
+  and SDK integrity retest: `pnpm exec vitest run server/acp/context.e2e.test.ts
+  server/acp/application.e2e.test.ts server/acp/context-integrity.test.ts` —
   **5 passed**. A fresh default turn now proves app, persona and saved SOUL are
   included without any context configuration call; plain fixtures explicitly opt out.
-- `node scripts/devone/ui-check.ts --claude --desktop --profile --native` —
+- `node scripts/colonie/ui-check.ts --claude --desktop --profile --native` —
   **passed** with the SDK fixture and real React/Electron. Normal profile/shared
   instruction editing preceded the first turn; the inspector was hidden until
   explicitly enabled through Settings. Allow/Deny/Stop/reconnect also passed.
@@ -1912,32 +1912,32 @@ results, not intended success.
 - The first parallel build attempt exceeded its 120-second deadline; the Codex
   desktop fixture also timed out during the last streaming turn while that build
   was running. Reran the fixture alone without changing its assertions/timeouts:
-  `node scripts/devone/ui-check.ts --desktop --profile --native` — **passed**.
+  `node scripts/colonie/ui-check.ts --desktop --profile --native` — **passed**.
   A separate `pnpm colonie:package` run with a 240-second command deadline
   **passed**, including TypeScript/build/staged providers, and rebuilt the final
   artifact. These earlier timeouts were not reported as passes.
-- `node scripts/devone/package-check.ts --claude --native --profile` and
-  `node scripts/devone/package-check.ts --native --profile` — **passed** against
+- `node scripts/colonie/package-check.ts --claude --native --profile` and
+  `node scripts/colonie/package-check.ts --native --profile` — **passed** against
   the final production app with isolated SDK fixtures. Both prove profile/shared
   instructions edited through normal UI, no default inspector, first-turn context
   applied automatically, explicit developer opt-in, and pin/session continuity
   after profile updates and full app restart. Evidence:
-  `.devone/evidence/{claude-,}packaged-fixture-profile-defaults-check.json` and
+  `.colonie-dev/evidence/{claude-,}packaged-fixture-profile-defaults-check.json` and
   matching default-chat/native-settings/context/chat screenshots.
-- `node scripts/devone/package-check.ts --real --claude --native --profile` —
+- `node scripts/colonie/package-check.ts --real --claude --native --profile` —
   **passed** with two bounded no-tool requests and inherited native auth in a
   disposable workspace. Profile editing was through the normal UI before any ACP
   inspection. Claude returned `Colonie|Context verifier|CONTEXT_SOUL_471`, then
-  `DEVONE_PACKAGE_471` after full restart; receipts retain the same pin/session.
-  Evidence: `.devone/evidence/claude-packaged-real-profile-defaults-check.json`.
+  `COLONIE_PACKAGE_471` after full restart; receipts retain the same pin/session.
+  Evidence: `.colonie-dev/evidence/claude-packaged-real-profile-defaults-check.json`.
   No real Codex request was made; its quota blocker remains separately recorded.
 - Focused regression:
-  `pnpm exec vitest run server/devone/ server/store.test.ts src/state/store.test.ts
+  `pnpm exec vitest run server/acp/ server/store.test.ts src/state/store.test.ts
   src/lib/interface-mode.test.ts src/components/BotSettingsDialog.simple.test.ts
   src/components/BotSettingsDialog.caption.test.ts
   src/components/SkillsSection.behavior.test.ts src/components/SkillsSection.test.ts`
   — **369 tests passed across 16 files**. Full upstream suite not run.
-- `node scripts/devone/ui-check.ts --claude --desktop --native --context` also
+- `node scripts/colonie/ui-check.ts --claude --desktop --native --context` also
   **passed** with the updated Simple provider picker and explicit developer opt-in.
   Final lint, locale check (10 languages/3700 English strings), package TypeScript
   checks and `git diff --check` passed. Inspected the packaged default-chat image
@@ -1970,34 +1970,34 @@ results, not intended success.
   app sharing, bot isolation, plain/legacy baseline, discovery-before-profile-edit,
   effective mode changes, new-thread updates and full server restart.
 - Node 24.13.1 commands:
-  - `pnpm exec vitest run server/devone/context.e2e.test.ts
-    server/devone/codex-acp.test.ts server/devone/native-settings.test.ts` —
+  - `pnpm exec vitest run server/acp/context.e2e.test.ts
+    server/acp/codex-acp.test.ts server/acp/native-settings.test.ts` —
     **28 tests passed**.
-  - `pnpm exec vitest run server/devone/ server/store.test.ts server/config.test.ts
+  - `pnpm exec vitest run server/acp/ server/store.test.ts server/config.test.ts
     server/harness/registry.test.ts src/state/store.test.ts
     src/components/ChatView.follow.test.ts src/components/BloubAvatar.test.ts
     shared/approval-mode.test.ts src/components/ApprovalModeSelector.test.tsx` —
     **543 tests passed across 14 files**. The full upstream suite was not run.
-  - `pnpm exec vitest run server/devone/context-integrity.test.ts` — **1 passed**;
+  - `pnpm exec vitest run server/acp/context-integrity.test.ts` — **1 passed**;
     cross-bot input, damaged/missing pin, no-dispatch failure and restored continuity.
-  - `node scripts/devone/ui-check.ts --claude --desktop --native --context` and
-    `node scripts/devone/ui-check.ts --desktop --native --context` — **passed**.
+  - `node scripts/colonie/ui-check.ts --claude --desktop --native --context` and
+    `node scripts/colonie/ui-check.ts --desktop --native --context` — **passed**.
     Real React/Electron with SDK fixtures proves controls, preview, manifest,
     pinned-change notice, streaming/reconnect, Allow/Deny, Stop and continuation.
-    Evidence: `.devone/evidence/{claude-,}desktop-scoped-context-check.json`.
+    Evidence: `.colonie-dev/evidence/{claude-,}desktop-scoped-context-check.json`.
   - `pnpm colonie:package` — **passed**, including renderer/server TypeScript checks,
     rebuilt arm64 artifact with inherited nonfatal CSS/chunk notices.
-  - `node scripts/devone/package-check.ts --claude --native --context` and
-    `node scripts/devone/package-check.ts --native --context` — **passed** through
+  - `node scripts/colonie/package-check.ts --claude --native --context` and
+    `node scripts/colonie/package-check.ts --native --context` — **passed** through
     the production renderer/server with disposable SDK fixtures, including full
     app restart and pinned original context after app/SOUL edits.
-  - `node scripts/devone/package-check.ts --real --claude --native --context` —
+  - `node scripts/colonie/package-check.ts --real --claude --native --context` —
     **passed** with inherited native authentication and two bounded no-tool
     requests in a disposable workspace. Claude returned
     `Colonie|Context verifier|CONTEXT_SOUL_471` from supplied app/persona/SOUL context,
-    then `DEVONE_PACKAGE_471` after full app restart. Both receipts keep the same
+    then `COLONIE_PACKAGE_471` after full app restart. Both receipts keep the same
     native session/snapshot and offered effort `low`; renderer errors were empty.
-    Evidence: `.devone/evidence/claude-packaged-real-scoped-context-check.json`
+    Evidence: `.colonie-dev/evidence/claude-packaged-real-scoped-context-check.json`
     and matching preview/context/chat screenshots. No real Codex request was made.
 - `pnpm typecheck`, `pnpm lint`, `pnpm i18n:check` and `git diff --check` passed.
   Final cross-bot input guard/block-index display were added after the real run;
@@ -2005,11 +2005,11 @@ results, not intended success.
   smoke follows below. Real Codex quota remains a separate blocker.
 - Final review corrected legacy-pin comparison so an unchanged old/plain profile
   does not falsely show a settings-change notice. Reran
-  `pnpm exec vitest run server/devone/context.e2e.test.ts
-  server/devone/context-integrity.test.ts` — **3 passed**; rebuilt the final artifact
+  `pnpm exec vitest run server/acp/context.e2e.test.ts
+  server/acp/context-integrity.test.ts` — **3 passed**; rebuilt the final artifact
   with `pnpm colonie:package` and ran
-  `node scripts/devone/package-check.ts --claude --native --context` — **passed**.
-  The earlier final-package `node scripts/devone/package-check.ts --native` also
+  `node scripts/colonie/package-check.ts --claude --native --context` — **passed**.
+  The earlier final-package `node scripts/colonie/package-check.ts --native` also
   passed the plain Codex baseline. Final lint and `git diff --check` passed.
   No extra real-provider requests were needed for these guard/inspector changes.
   M7-B is complete for this scoped acceptance matrix; M8 custom MCP is next.
@@ -2029,13 +2029,13 @@ results, not intended success.
   server TypeScript checks, and rebuilt `release/colonie/mac-arm64/Colonie.app`.
   Existing CSS optimizer/chunk-size notices were nonfatal. `pnpm lint`,
   `pnpm i18n:check` and `git diff --check` passed.
-- `node scripts/devone/package-check.ts --claude --native` passed against the
+- `node scripts/colonie/package-check.ts --claude --native` passed against the
   packaged production renderer/server with a disposable SDK agent fixture,
   home, data, profile and workspace. Discovery sent zero prompts; native effort
   and the session survived a full app restart; renderer errors were empty.
-  Inspected `.devone/evidence/claude-packaged-fixture-native-settings.png` and
+  Inspected `.colonie-dev/evidence/claude-packaged-fixture-native-settings.png` and
   confirmed the visible panel copy is English. Result:
-  `.devone/evidence/claude-packaged-fixture-check.json` (`real: false`, `ok: true`).
+  `.colonie-dev/evidence/claude-packaged-fixture-check.json` (`real: false`, `ok: true`).
 - This update establishes product language and updates existing copy; M7-B
   context composition/persona/SOUL implementation is still next. No real-provider
   request was made for this copy change; the real Codex blocker remains open.
@@ -2070,14 +2070,14 @@ results, not intended success.
   offered native effort, a bounded request and the effective receipt.
 - The same command without `--claude`: discovery/settings were accepted, but the
   model request **hit the Codex account usage limit**. The agent returned a quota
-  message and the turn failed. Evidence: `.devone/evidence/codex-acp-native-controls.json`.
+  message and the turn failed. Evidence: `.colonie-dev/evidence/codex-acp-native-controls.json`.
   No retry or billing change was attempted. Codex fixtures still passed;
   real-provider M7-A Codex is not reported as passed until quota is available again.
 - Package rebuild and Native controls verification through the production Claude
   renderer and both provider package fixtures were planned here and completed
   in the following results.
 - The final package was rebuilt from the current source. Commands
-  `node scripts/devone/package-check.ts --native`, `--claude --native`, and
+  `node scripts/colonie/package-check.ts --native`, `--claude --native`, and
   `--real --claude --native --tools` **passed**. The recipe selects effort in the
   production Native panel, ensures discovery has not sent a prompt, tests offered
   modes and restoration, then proves effort survives restart. Real Claude also
@@ -2091,16 +2091,16 @@ results, not intended success.
   inherited CSS optimizer/chunk-size notices.
 - No additional real Codex request followed the usage limit. This feature slice
   is implemented and fixture-verified, with the real Codex blocker still recorded.
-  Package/receipt/screenshot evidence is under `.devone/evidence/`.
+  Package/receipt/screenshot evidence is under `.colonie-dev/evidence/`.
 - The package was rebuilt after changing conflict responses to HTTP 409;
-  the final `node scripts/devone/package-check.ts --claude --native` recipe passed.
+  the final `node scripts/colonie/package-check.ts --claude --native` recipe passed.
   Native settings/history retest: 10 tests passed; final lint, locale check and
   `git diff --check` passed. No additional Codex model request was made.
 
 ## M5/M6 implementation record — Colonie branding and Claude
 
 - Added Colonie app/package identity, primary commands and a dedicated build
-  config. Existing `~/.devone` data and DevOne Electron profiles are reused in
+  config. Existing `~/.colonie-dev` data and Colonie Electron profiles are reused in
   place when present; fresh installs use Colonie paths. No native cwd/session
   paths are rewritten and compatibility environment/command aliases remain.
 - Adopted pinned MIT Bloub engine code with provenance and a React/SVG wrapper.
@@ -2108,25 +2108,25 @@ results, not intended success.
   explicit fallbacks, uploaded avatars keep their original rendering path.
   Static app/Dock/startup/favicon assets are generated from that same engine.
 - `node scripts/colonie/icons.ts`: generated SVG, PNG and macOS ICNS assets.
-  `vitest run server/devone/branding.test.ts src/components/BloubAvatar.test.ts`:
+  `vitest run server/acp/branding.test.ts src/components/BloubAvatar.test.ts`:
   3 tests passed (path preservation, independent masks/static rendering and mapping).
 - `pnpm colonie:package`: built the arm64 Colonie app and included maintained
   Codex and Claude adapters/native dependencies plus Bloub notices.
-- `node scripts/devone/package-check.ts --upgrade`: passed. Launched the old
-  DevOne artifact with disposable legacy data, then the Colonie artifact without
+- `node scripts/colonie/package-check.ts --upgrade`: passed. Launched the old
+  Colonie artifact with disposable legacy data, then the Colonie artifact without
   an explicit data override; the same native session/history continued. Evidence:
-  `.devone/evidence/devone-upgrade-check.json`.
-- `node scripts/devone/package-check.ts --real`: passed the Colonie artifact with
+  `.colonie-dev/evidence/colonie-upgrade-check.json`.
+- `node scripts/colonie/package-check.ts --real`: passed the Colonie artifact with
   real Codex and full application restart/native continuity.
-- Extracted the shared ACP runner to `server/devone/acp-runtime.ts`; provider
+- Extracted the shared ACP runner to `server/acp/acp-runtime.ts`; provider
   descriptors own executable, native mode ids and setup guidance. Claude uses
   upstream adapter `0.88.0`, SDK/native dependency `0.3.293`, native existing login,
   manual `default` mode and explicit Full `bypassPermissions` when available.
-- `node scripts/devone/provider-check.ts --real --claude`: passed bounded real
+- `node scripts/colonie/provider-check.ts --real --claude`: passed bounded real
   Claude reply, native session reload/marker and disposable file read.
-- `node scripts/devone/ui-check.ts --claude --desktop`: passed the real Electron
+- `node scripts/colonie/ui-check.ts --claude --desktop`: passed the real Electron
   UI against the SDK fixture: streaming/reconnect, context, Allow/Deny, Stop and
-  next turn. `node scripts/devone/package-check.ts --real --claude`: passed real
+  next turn. `node scripts/colonie/package-check.ts --real --claude`: passed real
   Claude through the packaged UI, including app restart and same native session.
 - Shared protocol suite expanded to both providers. It exposed test receipt
   cross-contamination from repeated thread ids; the per-test receipt directory
@@ -2154,18 +2154,18 @@ results, not intended success.
   without `--claude`: passed **native interactive Allow/Deny for both providers**.
   Allow produced only the disposable fixture file with the exact contents; Deny
   raised a native permission request and left the file absent. Evidence:
-  `.devone/evidence/{claude-acp,codex-acp}-native-permissions.json`.
+  `.colonie-dev/evidence/{claude-acp,codex-acp}-native-permissions.json`.
 
 ### Final verification and handoff
 
 - Final packaged commands
-  `node scripts/devone/package-check.ts --real --claude --tools` and
-  `node scripts/devone/package-check.ts --real --tools` passed for both providers.
+  `node scripts/colonie/package-check.ts --real --claude --tools` and
+  `node scripts/colonie/package-check.ts --real --tools` passed for both providers.
   These use the actual Colonie desktop composer/approval controls, prove native
   session memory after application restart, produce the allowed disposable file,
   and leave the denied file absent. Exact input receipts have empty app
   instructions. Evidence: `claude-packaged-real-check.json`,
-  `packaged-real-check.json` and corresponding screenshots under `.devone/evidence`.
+  `packaged-real-check.json` and corresponding screenshots under `.colonie-dev/evidence`.
 - The expanded app fixtures also prove queued follow-ups and server restart for
   both providers. The Claude desktop fixture chooses Claude through the real
   model picker. Both development desktop/UI recipes passed with the SDK fixture.
@@ -2178,7 +2178,7 @@ results, not intended success.
   bundled server/production UI, then the new packaged desktop with the same
   disposable legacy home. **The updated upgrade recipe passed**, with the same
   native session id and preserved absolute cwd. It does not operate on the
-  user's currently running DevOne app.
+  user's currently running Colonie app.
 - Colonie now keeps desktop logs under its own selected profile, honors explicit
   fixture server ports, and skips creation of the unsupported phone-credential
   identity at startup. Earlier isolated logs showed an optional phone-key
@@ -2194,7 +2194,7 @@ results, not intended success.
   and uploaded-avatar crop/zoom behavior is preserved. Light/dark and
   reduced-motion evidence covers 30 concurrent avatars at several sizes.
 - `docs/COLONIE.md` is the current source/build/update/verification guide.
-  `DEVONE.md` and old launch environment/command names are compatibility aliases.
+  `COLONIE.md` and old launch environment/command names are compatibility aliases.
 
 M5 and M6 are complete for the recorded core acceptance scope. The build remains
 local unsigned macOS arm64; optional protocol extensions, all native agent
@@ -2212,7 +2212,7 @@ features and later personalization/automation are not claimed as complete.
   This supersedes the earlier proposed order that placed Claude after
   personalization/custom MCP, and the suggestion of only a compatibility probe.
   M6 now requires actual desktop/core-workflow parity and provider evidence.
-- Visual direction added by the user: replace the OpenMausBot blob/mascot with
+- Visual direction added by the user: replace the Colonie blob/mascot with
   assets/code from `https://github.com/jeremy-prt/bloub`, to differentiate Colonie.
   Recorded as part of M5 branding, before M6 Claude integration.
 - Read Bloub README, architecture and LICENSE. Reviewed revision:
@@ -2233,7 +2233,7 @@ features and later personalization/automation are not claimed as complete.
   `PLAN.md` records approved M5/M6 and the proposed subsequent feature milestones.
 - This session changes documentation only. No runtime rename, artwork replacement,
   data migration, persona/SOUL/Chief integration or Claude support is claimed. Historical phase-1
-  command/artifact evidence below keeps its original DevOne names.
+  command/artifact evidence below keeps its original Colonie names.
 
 Verification for this update: documentation consistency reviewed;
 `git diff --check` passed. No runtime behavior changed, so application tests were
@@ -2241,7 +2241,7 @@ not run for this documentation milestone.
 
 ## Completed
 
-- Cloned OpenMausBot into this workspace at upstream commit
+- Cloned Colonie into this workspace at upstream commit
   `974670059884139d5a7c115e4bfae2b5ee778fec`.
 - Read root agent instructions and `docs/verification/README.md`.
 - `pnpm install --frozen-lockfile`: passed (834 packages); installed from the
@@ -2263,7 +2263,7 @@ not run for this documentation milestone.
 | Live event fold | `src/state/store.tsx` | Add new-path incremental output |
 | Chat renderer | `src/components/ChatView.tsx` | Reuse UI |
 | Desktop process/profile | `electron/main.mjs` | Reuse with isolated fork launcher |
-| Isolated verification | `scripts/control-omb.ts`, `docs/verification/` | Follow; extend for ACP fixture |
+| Isolated verification | `scripts/control-colonie.ts`, `docs/verification/` | Follow; extend for ACP fixture |
 
 Important discovery: upstream intentionally discards in-flight reply deltas in
 the renderer. Streaming needs a real UI change. Dispatch-time code also prepends
@@ -2274,15 +2274,15 @@ replacing only transport would not solve unwanted instructions.
 
 - Pinned ACP SDK `1.7.0` and Codex ACP adapter `2.1.1` installed.
 - `PATH=<Node-24-bin>:$PATH pnpm typecheck`: passed for the new runner.
-- `PATH=<Node-24-bin>:$PATH pnpm exec vitest run server/devone/codex-acp.test.ts`:
+- `PATH=<Node-24-bin>:$PATH pnpm exec vitest run server/acp/codex-acp.test.ts`:
   8 tests passed. Real SDK/stdio fixture proves exact input, ignored legacy
   context, streaming, multi-turn continuity, process restart/load, allow/deny,
   Stop, parallel-thread isolation, and failure without silent empty-session fallback.
-- `node scripts/devone/provider-check.ts --real` under Node 24: passed three
+- `node scripts/colonie/provider-check.ts --real` under Node 24: passed three
   bounded requests with inherited Codex authentication in a disposable workspace.
-  The model returned `DEVONE_OK`, remembered `DEVONE_SESSION_829` after runner
-  restart, and read `fixture.txt` as `DEVONE_FILE_OK` using a native tool.
-  Exact receipts and events: `.devone/evidence/provider-check.json`.
+  The model returned `COLONIE_OK`, remembered `COLONIE_SESSION_829` after runner
+  restart, and read `fixture.txt` as `COLONIE_FILE_OK` using a native tool.
+  Exact receipts and events: `.colonie-dev/evidence/provider-check.json`.
 - Initial checks caught TypeScript strip-only parameter properties and SDK API
   type differences; both were corrected before the successful real-provider run.
 
@@ -2291,36 +2291,36 @@ workflow evidence is listed separately below.
 
 ### M2 — application integration
 
-- A DevOne runtime profile registers only the new `codex-acp` driver. Data and
-  Electron profile are separate from the installed OpenMausBot.
+- A Colonie runtime profile registers only the new `codex-acp` driver. Data and
+  Electron profile are separate from the installed Colonie.
 - Direct dispatch takes the new path before legacy compaction, persona, SOUL,
   memory, recall, skills, setup/learn rewrites and application MCP assembly.
 - Added exact input receipts, a chat `ACP context` dialog, and incremental reply
   rendering with snapshot hydration and SSE offset deduplication.
 - Unsupported history editing is refused before transcript mutation. Unsupported
   legacy bot-settings and automation controls are hidden in the phase-1 fleet.
-- `pnpm exec vitest run server/devone/application.e2e.test.ts`: passed. Isolated
+- `pnpm exec vitest run server/acp/application.e2e.test.ts`: passed. Isolated
   HTTP flow proves input fidelity despite unwanted bot metadata, native continuity,
   approval, persistence and native session loading after the application server
-  restarts. Evidence is printed as a persistent fixture log and `.devone.json`.
-- `node scripts/devone/ui-check.ts`: passed. Real Chromium renderer + isolated
+  restarts. Evidence is printed as a persistent fixture log and `.colonie-dev.json`.
+- `node scripts/colonie/ui-check.ts`: passed. Real Chromium renderer + isolated
   SDK fixture: live text before completion, exact input dialog, continuation,
   Allow once, Deny, Stop and a subsequent turn. Screenshots and receipts:
-  `.devone/evidence/renderer-*`.
-- `node scripts/devone/ui-check.ts --desktop`: passed the same workflow through
+  `.colonie-dev/evidence/renderer-*`.
+- `node scripts/colonie/ui-check.ts --desktop`: passed the same workflow through
   the reused Electron shell with an isolated profile. Evidence:
-  `.devone/evidence/desktop-*`. This was development Electron + simulated agent,
+  `.colonie-dev/evidence/desktop-*`. This was development Electron + simulated agent,
   not yet the packaged application or a real provider through the UI.
 - Typecheck and full lint passed. Focused regression set: 390 tests passed in
   seven files; application restart fixture separately passed. An earlier footer
   fixture lacked `instances` in its mock; it was updated and a phase-1 visibility
   assertion added. Electron syntax checks passed; Electron unit suite: 637 passed,
   3 platform-specific skips, zero failures.
-- `pnpm devone:build`: passed; frontend, bundled server and staged Codex runtime.
+- `pnpm colonie:build`: passed; frontend, bundled server and staged Codex runtime.
   Bundled adapter `2.1.1` uses compatible Codex `0.159.3`.
-- `pnpm exec electron-builder --config electron-builder.devone.yml --mac --dir
+- `pnpm exec electron-builder --config electron-builder.colonie-dev.yml --mac --dir
   --publish never`: passed; local arm64 app at
-  `release/devone/mac-arm64/DevOne.app`. Packaged workflow verification followed
+  `release/colonie/mac-arm64/Colonie.app`. Packaged workflow verification followed
   in M3/M4 below.
 
 ### M3/M4 — packaged native verification and handoff
@@ -2336,8 +2336,8 @@ workflow evidence is listed separately below.
 - Input-recording failure refuses dispatch and cleans up the session. Failure
   to update a completed receipt cannot leave the application permanently busy.
 - Final focused regression run:
-  `pnpm exec vitest run server/devone/ server/store.test.ts
-  server/harness/registry.test.ts server/config.test.ts scripts/control-omb.test.ts
+  `pnpm exec vitest run server/acp/ server/store.test.ts
+  server/harness/registry.test.ts server/config.test.ts scripts/control-colonie.test.ts
   src/state/store.test.ts src/components/ChatView.follow.test.ts
   src/components/BotSettingsDialog.test.ts src/components/SidebarFooterNav.test.ts`
   — **532 tests passed across 10 files**. A subsequently added source-launcher
@@ -2347,21 +2347,21 @@ workflow evidence is listed separately below.
   `pnpm check:electron`: passed. Locale catalogs valid; 156 Electron modules
   syntax-checked. The earlier Electron unit suite passed 637 tests with three
   platform-specific skips.
-- Final `pnpm devone:ui-check` and `pnpm devone:desktop-check`: passed, now
+- Final `pnpm colonie:ui-check` and `pnpm colonie:desktop-check`: passed, now
   including a renderer reload during streaming and no duplicate final reply.
-- Final `pnpm devone:package`: passed and rebuilt the actual arm64 `.app`.
+- Final `pnpm colonie:package`: passed and rebuilt the actual arm64 `.app`.
   Upstream CSS `::highlight` optimizer and large-chunk notices are non-fatal.
-- Final `pnpm devone:package-check`: passed with the deterministic SDK agent.
+- Final `pnpm colonie:package-check`: passed with the deterministic SDK agent.
   It launches the production renderer and embedded server, sends through the
   composer, inspects exact context, quits/reopens the app and loads the same
-  persisted native session. `.devone/evidence/packaged-fixture-check.json`.
-- Final `node scripts/devone/package-check.ts --real`: **passed with real Codex
+  persisted native session. `.colonie-dev/evidence/packaged-fixture-check.json`.
+- Final `node scripts/colonie/package-check.ts --real`: **passed with real Codex
   through the packaged desktop UI**. Two bounded prompts returned
-  `DEVONE_PACKAGED_OK` and, after complete application restart,
-  `DEVONE_PACKAGE_471`. Both receipts show the same native session, no added
+  `COLONIE_PACKAGED_OK` and, after complete application restart,
+  `COLONIE_PACKAGE_471`. Both receipts show the same native session, no added
   instructions, and the effective native model `gpt-5.6-terra`.
   Runtime manifest: adapter `2.1.1`, compatible bundled CLI `0.159.3`.
-  Evidence: `.devone/evidence/packaged-real-check.json`, `packaged-real-chat.png`,
+  Evidence: `.colonie-dev/evidence/packaged-real-check.json`, `packaged-real-chat.png`,
   `packaged-real-context.png`. Renderer error list is empty. The first debug
   launch emitted macOS task-policy diagnostics, without affecting the workflow.
 - The earlier independent real-provider runner check also proved a native read
@@ -2370,12 +2370,12 @@ workflow evidence is listed separately below.
 - Fork startup uses separate data/profile, disables upstream signup/analytics,
   automatic binary updating, computer-daemon startup and app registration. Fresh
   startup shows a Codex contact and a neutral application greeting. Unsupported
-  legacy guided-tour steps are skipped in fresh DevOne data.
-- Added `docs/DEVONE.md` with run, configuration, build, verification and update
-  commands, and `docs/verification/devone-acp.md` with evidence boundaries.
+  legacy guided-tour steps are skipped in fresh Colonie data.
+- Added `docs/COLONIE.md` with run, configuration, build, verification and update
+  commands, and `docs/verification/colonie-acp.md` with evidence boundaries.
 - All verification used owned disposable data/profile/workspaces. Existing CLI
   login was inherited by the explicitly bounded real checks; token contents were
-  not read. User-installed OpenMausBot data was not used for verification.
+  not read. User-installed Colonie data was not used for verification.
 
 ## Acceptance summary
 
@@ -2470,13 +2470,13 @@ Observed results:
 | Same restart: paired client reads bots | HTTP 200 |
 | Paired client tries creating another pairing | HTTP 403 |
 | Paired admin creates another pairing | HTTP 200 |
-| Separate clean fixture, `openmausbot serve`, `service`: CLI bootstrap code redeemed | HTTP 200; admin + client scopes |
+| Separate clean fixture, `colonie serve`, `service`: CLI bootstrap code redeemed | HTTP 200; admin + client scopes |
 | CLI fixture: paired cookie reads config; sessionless pairing creation | HTTP 200 / 403 |
 
 Decision: keep the repository unit's default `service` setting for shared use.
 For this single-owner commissioning, the installed unit deliberately has
 `/etc/systemd/system/colonie.service.d/10-single-owner.conf` overriding it to
-`OMB_LOOPBACK_TRUST=owner`. The existing raw-index unit has no startup pairing
+`COLONIE_LOOPBACK_TRUST=owner`. The existing raw-index unit has no startup pairing
 capability; choosing `service` without preparing an admin session would leave
 the owner unable to bootstrap access. Headless pairing itself works: the
 supported CLI `serve` path supplies its own limited pairing capability, or an
@@ -2536,9 +2536,9 @@ Next action belongs to the owner (HANDOVER step 2). Run these personally:
 ```bash
 ssh colonie-vps
 sudo -iu colonie
-export OMB_DATA_DIR=/opt/colonie/data
-CODEX_HOME="$OMB_DATA_DIR/native/codex" node /opt/colonie/app/dist-devone/codex-acp/node_modules/@openai/codex/bin/codex.js login --device-auth
-CLAUDE_CONFIG_DIR="$OMB_DATA_DIR/native/claude" /opt/colonie/app/dist-devone/claude-acp/claude-native auth login
+export COLONIE_DATA_DIR=/opt/colonie/data
+CODEX_HOME="$COLONIE_DATA_DIR/native/codex" node /opt/colonie/app/dist-colonie/codex-acp/node_modules/@openai/codex/bin/codex.js login --device-auth
+CLAUDE_CONFIG_DIR="$COLONIE_DATA_DIR/native/claude" /opt/colonie/app/dist-colonie/claude-acp/claude-native auth login
 ```
 
 Stop here until owner sign-in is complete. Then HANDOVER step 3 must prove one
@@ -2614,7 +2614,7 @@ capabilities, bot name, and enabled-guides blocks before the literal user
 request. No app-managed tools were mounted and `connectedToolCalls` was empty.
 All returned observations and full application-authored prompt receipts,
 including both failed checks, are saved locally in
-`.devone/evidence/vps-real-turn-2026-10-14.json` (ignored by Git, mode 0600).
+`.colonie-dev/evidence/vps-real-turn-2026-10-14.json` (ignored by Git, mode 0600).
 No credential contents are included.
 
 Validation/cleanup:
@@ -2682,14 +2682,14 @@ native issuance and renewal; it does not install a private CA on the phone.
   127.0.0.1:18891 app listener with immediate SSE flushing. Port 80 redirects to
   HTTPS and supports ACME validation. The app and webhook listeners remain
   loopback-only. No webhook ingress was added.
-- Updated the app unit's launcher to the maintained `openmausbot serve` CLI,
+- Updated the app unit's launcher to the maintained `colonie serve` CLI,
   which supplies its child the existing private stdin capability and can mint
   the initial owner pairing code under `service` trust. This bootstrap was
   proven in isolated fixtures; no reusable admin token is added to the unit.
   The local source unit and installed unit both use this launcher.
 - Removed `/etc/systemd/system/colonie.service.d/10-single-owner.conf` and set
-  `OMB_PUBLIC_URL=https://172.104.33.55` in `20-public-access.conf`. Effective
-  `OMB_LOOPBACK_TRUST` is now `service`, including all sessionless bot loopback
+  `COLONIE_PUBLIC_URL=https://172.104.33.55` in `20-public-access.conf`. Effective
+  `COLONIE_LOOPBACK_TRUST` is now `service`, including all sessionless bot loopback
   calls. New owner bootstrap invitations appear in the service journal; a
   successfully paired admin can create later device invitations through UI.
 
@@ -2765,7 +2765,7 @@ YE2, IP SAN 172.104.33.55, valid October 13 20:00:22 UTC through October 20
 reboot have not been observed.
 
 Detailed non-secret evidence is retained in
-`.devone/evidence/public-ip-pairing-2026-10-14.json` (Git-ignored, mode 0600).
+`.colonie-dev/evidence/public-ip-pairing-2026-10-14.json` (Git-ignored, mode 0600).
 Production writes were deployment configuration and the application's own
 startup invitation, not automated test conversations or session redemption.
 No owner invitation is included in docs or evidence artifacts.
@@ -2903,7 +2903,7 @@ dependencies there, and executed one bounded real Cloud turn with the owner's
 existing native Claude authentication mounted read-only:
 
 ```bash
-ssh colonie-vps 'systemd-run --unit=colonie-platform-real-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+ssh colonie-vps 'systemd-run --unit=colonie-platform-real-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node --experimental-transform-types scripts/colonie/verify-platform-neon.ts --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-colonie/claude-acp/index.js --native-cli /opt/colonie/app/dist-colonie/claude-acp/claude-native'
 ```
 
 Actual result: maintained `claude-acp` returned exactly
@@ -2923,14 +2923,14 @@ Combined fixture suite: 156 tests in 8 files passed at that source milestone.
 Real Chromium with synthetic identities/provider replies passed Cloud signup,
 recovery-key display, workspace and first bot creation, message/reply and
 reload persistence, and an invited signup that skipped workspace/engine setup
-at a 390×844 viewport. Evidence: `.devone/evidence/platform-browser-ui.json`
+at a 390×844 viewport. Evidence: `.colonie-dev/evidence/platform-browser-ui.json`
 and screenshots. This is browser rendering evidence, not a physical phone.
 
 The initial Electron check failed on a checker selector, then another run
 timed out waiting for signup. Neither was counted as success. A fresh isolated
 rerun explicitly selected account mode and passed Cloud signup/chat/reload,
 Local creation, opening its separate loopback server, and the main process's
-account-ownership check. Evidence: `.devone/evidence/platform-native-ui.json`.
+account-ownership check. Evidence: `.colonie-dev/evidence/platform-native-ui.json`.
 This milestone did not yet test a Local bot turn or a packaged app; the
 checker is now being extended for both. All profiles and accounts are fixtures.
 
@@ -3015,7 +3015,7 @@ Actual commands/results:
 ```bash
 pnpm exec vitest run server/colonie/platform/ src/components/colonie-platform/ src/lib/colonie-platform.test.ts server/composio.test.ts server/composio-availability.test.ts
 node --test electron/colonie-workspaces.node-test.mjs electron/colonie-workspaces-credentials.node-test.mjs electron/colonie-platform.node-test.mjs electron/app-permissions.node-test.mjs
-PLAYWRIGHT_BROWSERS_PATH=.devone/browsers pnpm colonie:build
+PLAYWRIGHT_BROWSERS_PATH=.colonie-dev/browsers pnpm colonie:build
 pnpm exec electron-builder --config electron-builder.colonie.yml --mac --arm64 --publish never
 node --experimental-transform-types scripts/colonie/verify-platform-ui.ts --desktop --executable release/colonie/mac-arm64/Colonie.app/Contents/MacOS/Colonie
 ```
@@ -3025,7 +3025,7 @@ passed. Typecheck, complete UI/server/native-adapter build and ad-hoc signing
 completed. The final isolated packaged Mac check passed Cloud signup/chat/reload,
 Local creation/onboarding/ACP chat, and switching with separate histories.
 Evidence: `/tmp/colonie-platform-packaged-check-final.log` and
-`.devone/evidence/platform-native-ui.json`. The DM and Local provider replies
+`.colonie-dev/evidence/platform-native-ui.json`. The DM and Local provider replies
 in this renderer check are simulated; it does not prove real Local login,
 quarantined installation, or a physical phone.
 
@@ -3053,7 +3053,7 @@ systemd unit:
 
 ```bash
 node scripts/colonie/build-platform.mjs
-ssh colonie-vps 'systemd-run --unit=colonie-platform-release-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-neon.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+ssh colonie-vps 'systemd-run --unit=colonie-platform-release-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-neon.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-colonie/claude-acp/index.js --native-cli /opt/colonie/app/dist-colonie/claude-acp/claude-native'
 ```
 
 Actual result: full PostgreSQL workflow passed and real Claude returned exactly
@@ -3222,8 +3222,8 @@ alone follows a read-only auth donor link in an isolated temporary directory.
 ```sh
 node scripts/colonie/build-platform.mjs
 scp dist-platform/verify-cloud-chat.mjs colonie-vps:/opt/colonie/platform-app/dist-platform/verify-cloud-chat.mjs
-ssh colonie-vps 'systemd-run --unit=colonie-invited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/platform-data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/platform-data/native-claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
-ssh colonie-vps 'systemd-run --unit=colonie-inherited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-devone/claude-acp/index.js --native-cli /opt/colonie/app/dist-devone/claude-acp/claude-native'
+ssh colonie-vps 'systemd-run --unit=colonie-invited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/platform-data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/platform-data/native-claude --adapter /opt/colonie/app/dist-colonie/claude-acp/index.js --native-cli /opt/colonie/app/dist-colonie/claude-acp/claude-native'
+ssh colonie-vps 'systemd-run --unit=colonie-inherited-chat-check --collect --wait --pipe --property=User=colonie --property=Group=colonie --property=WorkingDirectory=/opt/colonie/platform-app --property=ProtectSystem=strict --property=ProtectHome=yes --property=PrivateTmp=yes --property=ReadOnlyPaths=/opt/colonie/data /usr/bin/node dist-platform/verify-cloud-chat.mjs --infra-file /opt/colonie/platform-verification/infra.json --real --auth-root /opt/colonie/data/native/claude --adapter /opt/colonie/app/dist-colonie/claude-acp/index.js --native-cli /opt/colonie/app/dist-colonie/claude-acp/claude-native'
 ```
 
 Both fixtures proved the invited-member human DM and reply through real HTTP
@@ -3295,7 +3295,7 @@ Final Mac report (`/tmp/colonie-ui-recovery-desktop-shipped.log`, exit 0): the
 same shipped 0.2.0 executable loaded the recovered Cloud UI, displayed chat
 and the simulated error, created/opened Local, completed deterministic ACP
 Local chat and returned to the separate Cloud history. No real native login.
-Screenshots in `.devone/evidence/platform-native-cloud.png` and
+Screenshots in `.colonie-dev/evidence/platform-native-cloud.png` and
 `platform-mobile-human-dm.png` were visually inspected. The mobile screenshot
 waits for the drawer's closing animation to finish. The OS emitted a nonfatal
 task-policy warning; the renderer reported no JavaScript errors.
@@ -3357,7 +3357,7 @@ Claude release check is historical, not a current availability claim.
 Next action, performed by the owner (not the agent):
 
 ```sh
-ssh -t colonie-vps 'sudo -u colonie env CLAUDE_CONFIG_DIR=/opt/colonie/platform-data/native-claude /opt/colonie/app/dist-devone/claude-acp/claude-native auth login'
+ssh -t colonie-vps 'sudo -u colonie env CLAUDE_CONFIG_DIR=/opt/colonie/platform-data/native-claude /opt/colonie/app/dist-colonie/claude-acp/claude-native auth login'
 ```
 
 Then the agent may run one bounded isolated invited-member real-provider check
@@ -3372,7 +3372,7 @@ locale checks passed (the hook's default Node 22 emitted the engine-version
 warning; the application builds/checks above used the explicit Node 24 path).
 Only the owner's `colonie` remote was pushed; upstream `origin` was untouched.
 The code change is separate from the earlier beta commit and remains unmerged.
-Aggregate recovery evidence is `.devone/evidence/ui-recovery-2026-10-15.json`,
+Aggregate recovery evidence is `.colonie-dev/evidence/ui-recovery-2026-10-15.json`,
 including explicit `realAiAvailable: false` and the pending owner reconnect.
 
 ### Owner rejected the partial recovery — full UI remains unrestored
@@ -3521,7 +3521,7 @@ also completed deterministic ACP onboarding/chat and switched back to Cloud
 without crossing message histories. No native engine login was performed.
 The checks used isolated accounts/data; no production conversation was touched.
 
-JSON evidence is `.devone/evidence/platform-browser-ui.json` and
+JSON evidence is `.colonie-dev/evidence/platform-browser-ui.json` and
 `platform-native-ui.json`. Profile, identity and SOUL screenshots are the
 `platform-browser-bot-*.png` / `platform-native-bot-*.png` files, with the
 read-only mobile view in `platform-mobile-bot-profile.png`. The final browser
@@ -3550,7 +3550,7 @@ Deployment commands/results:
 ```sh
 rsync -az --exclude '.DS_Store' dist/ colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/dist/
 rsync -az dist-platform/ colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/dist-platform/
-scp .devone/evidence/bot-profile-20261015/SHA256SUMS colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/SHA256SUMS
+scp .colonie-dev/evidence/bot-profile-20261015/SHA256SUMS colonie-vps:/opt/colonie/platform-app/bot-profile-20261015-stage/SHA256SUMS
 ssh colonie-vps 'bash -s' < /tmp/colonie-bot-profile-deploy.sh
 # Manifest verified all 211 files; script exited 0; colonie-platform active.
 ```
@@ -3574,7 +3574,7 @@ A read-only Python HTTPS check fetched `/`, the actual PlatformApp module,
 HTML/module matched local SHA-256 values, bootstrap was the platform origin,
 and the anonymous avatar read returned 401. Evidence, exact deployment script,
 manifest and final logs are preserved under
-`.devone/evidence/bot-profile-20261015/`; public check JSON explicitly records
+`.colonie-dev/evidence/bot-profile-20261015/`; public check JSON explicitly records
 `realAgentTurnVerified: false` and `productionConversationMutation: false`.
 Readiness/health is deployment evidence only, not a conversation test.
 
@@ -3629,7 +3629,7 @@ pnpm exec vitest run src/components/colonie-platform/platform-flow.test.ts src/c
 ```
 
 Completed audit/extraction reports are retained under
-`.devone/evidence/ui-recovery-20261015/`. The root owns Cloud controller,
+`.colonie-dev/evidence/ui-recovery-20261015/`. The root owns Cloud controller,
 settings and verification-script integration; workers have nonoverlapping
 file scopes. Next: review/integrate the shared original shell and scoped
 search, finish renderer/desktop/tenant checks on frozen source, then continue
@@ -3644,7 +3644,7 @@ Stopped all remaining task build/typecheck process trees with SIGTERM; checked
 the selected process IDs afterward (none remained alive). The DeepSeek workers
 had already been interrupted with exit 130 at the earlier owner-review boundary.
 Their unfinished Composer and bot-document source is retained, with hashes, in
-`.devone/evidence/ui-recovery-20261015/deferred-workers/`; those partial edits
+`.colonie-dev/evidence/ui-recovery-20261015/deferred-workers/`; those partial edits
 were removed from the review checkpoint without discarding their backup.
 No review server or new browser/app was launched, and nothing from this
 checkpoint was deployed. Work is stopped at the owner's request.
@@ -3661,7 +3661,7 @@ using one bounded check at a time to reduce machine load.
 ### Preview preparation stopped after owner concern
 
 Owner authorized a preview. Ran only `nice -n 15 env GOMAXPROCS=2
-UV_THREADPOOL_SIZE=2 pnpm exec vite build --outDir .devone/ui-preview-dist`;
+UV_THREADPOOL_SIZE=2 pnpm exec vite build --outDir .colonie-dev/ui-preview-dist`;
 no worker or parallel test was started. Packaging still took too long for
 the requested review, so stopped the remaining preview build tree. No review
 server/browser was launched; no live data or deployment changed. Preview is

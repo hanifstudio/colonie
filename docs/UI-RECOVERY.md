@@ -8,7 +8,7 @@ the full restoration remains the goal across those increments.
 
 The reference is the pre-multi-workspace Colonie fork at `744da8df`, with the
 existing `Colonie-0.1.101-arm64` artifact available as a visual reference. This
-is the ACP fork, not every upstream OpenMausBot feature that happens to remain
+is the ACP fork, not every upstream Colonie feature that happens to remain
 in the source tree. Reachability must be checked against the fork's actual
 Simple, Advanced, developer-tool and ACP-driver conditions.
 

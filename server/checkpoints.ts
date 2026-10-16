@@ -238,10 +238,10 @@ function gitEnv(shadow: string, cwd: string): NodeJS.ProcessEnv {
   env.GIT_WORK_TREE = resolve(cwd);
   env.GIT_CONFIG_GLOBAL = join(shadow, "gitconfig");
   env.GIT_CONFIG_SYSTEM = join(shadow, "gitconfig_empty");
-  env.GIT_AUTHOR_NAME = "OpenMausBot Checkpoint";
-  env.GIT_AUTHOR_EMAIL = "checkpoint@openmausbot.local";
-  env.GIT_COMMITTER_NAME = "OpenMausBot Checkpoint";
-  env.GIT_COMMITTER_EMAIL = "checkpoint@openmausbot.local";
+  env.GIT_AUTHOR_NAME = "Colonie Checkpoint";
+  env.GIT_AUTHOR_EMAIL = "checkpoint@colonie.local";
+  env.GIT_COMMITTER_NAME = "Colonie Checkpoint";
+  env.GIT_COMMITTER_EMAIL = "checkpoint@colonie.local";
   return env;
 }
 
@@ -305,7 +305,7 @@ function serialize<T>(key: string, fn: () => Promise<T>): Promise<T> {
 // would discard the pre-turn commit a still-running turn diffs against at its
 // end. A pin keeps that commit reachable until release(). The pin's name is
 // hashed so any token is a legal ref name.
-const LIVE_REFS = "refs/omb-live/";
+const LIVE_REFS = "refs/colonie-live/";
 function liveRef(pin: string): string {
   return LIVE_REFS + createHash("sha256").update(pin).digest("hex").slice(0, 16);
 }

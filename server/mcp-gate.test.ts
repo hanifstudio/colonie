@@ -56,7 +56,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     if (delayedList) { send(delayedList.id, catalog()); delayedList = undefined; }
     return;
   }
-  send(msg.id, { scope: process.env.OMB_GATE_TOOL_SCOPE ?? null, upstreamOnly: process.env.UPSTREAM_ONLY });
+  send(msg.id, { scope: process.env.COLONIE_GATE_TOOL_SCOPE ?? null, upstreamOnly: process.env.UPSTREAM_ONLY });
 });
 `;
 
@@ -75,9 +75,9 @@ describe("mcp-gate", () => {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
         ...process.env,
-        OMB_GATE_NAME: "shop",
-        OMB_GATE_SPILL_DIR: join(scratch, "spill"),
-        OMB_GATE_UPSTREAM: JSON.stringify({
+        COLONIE_GATE_NAME: "shop",
+        COLONIE_GATE_SPILL_DIR: join(scratch, "spill"),
+        COLONIE_GATE_UPSTREAM: JSON.stringify({
           command: process.execPath,
           args: [upstreamJs],
           env: { SCRIPT: script, UPSTREAM_ONLY: "yes" },
@@ -117,7 +117,7 @@ describe("mcp-gate", () => {
   };
 
   beforeEach(() => {
-    scratch = mkdtempSync(join(tmpdir(), "omb-gate-test-"));
+    scratch = mkdtempSync(join(tmpdir(), "colonie-gate-test-"));
     lines = [];
     waiting = [];
   });
@@ -138,8 +138,8 @@ describe("mcp-gate", () => {
     expect(JSON.parse(await nextLine())).toEqual({ jsonrpc: "2.0", id: 7, result: { echoed: "tools/list", params: null } });
   });
 
-  it.each([undefined, "not-json", "{}", '{"OMB_GATE_NAME":"notes","OMB_GATE_TOOL_SCOPE":"{}"}'])("refuses missing or corrupt private gate settings before spawning upstream: %s", value => {
-    const key = `OMB_GATE_CONFIG_${"a".repeat(64)}`;
+  it.each([undefined, "not-json", "{}", '{"COLONIE_GATE_NAME":"notes","COLONIE_GATE_TOOL_SCOPE":"{}"}'])("refuses missing or corrupt private gate settings before spawning upstream: %s", value => {
+    const key = `COLONIE_GATE_CONFIG_${"a".repeat(64)}`;
     start({}, value === undefined ? {} : { [key]: value }, SCOPED_UPSTREAM, ["--config-env", key]);
     return once(gate!, "close").then(([code]) => {
       expect(code).toBe(1);
@@ -191,7 +191,7 @@ describe("mcp-gate", () => {
 
   it("honours a budget the harness sets", async () => {
     const products = Array.from({ length: 300 }, (_, i) => ({ id: `p${i}`, blurb: "x".repeat(300) }));
-    start({ content: [{ type: "text", text: JSON.stringify({ products }) }], structuredContent: undefined }, { OMB_GATE_BUDGET: "2000" });
+    start({ content: [{ type: "text", text: JSON.stringify({ products }) }], structuredContent: undefined }, { COLONIE_GATE_BUDGET: "2000" });
     const text = (await call("search_products")).result.content[0].text;
     expect(text.length).toBeLessThan(2_400);
   });
@@ -202,7 +202,7 @@ describe("mcp-gate", () => {
     await nextLine();
     // proven by the upstream having started at all: it reads SCRIPT from the
     // env the gate passed through. Gate-only keys must not reach it.
-    expect(JSON.parse(JSON.stringify(process.env.OMB_GATE_UPSTREAM ?? null))).toBe(null);
+    expect(JSON.parse(JSON.stringify(process.env.COLONIE_GATE_UPSTREAM ?? null))).toBe(null);
   });
 
   it("spawns an upstream named as a bare command on PATH", async () => {
@@ -218,8 +218,8 @@ describe("mcp-gate", () => {
       stdio: ["pipe", "pipe", "pipe"],
       env: {
         ...process.env,
-        OMB_GATE_NAME: "shop",
-        OMB_GATE_UPSTREAM: JSON.stringify({ command: "node", args: [upstreamJs], env: { SCRIPT: script } }),
+        COLONIE_GATE_NAME: "shop",
+        COLONIE_GATE_UPSTREAM: JSON.stringify({ command: "node", args: [upstreamJs], env: { SCRIPT: script } }),
       },
     }) as ChildProcessWithoutNullStreams;
     createInterface({ input: gate.stdout }).on("line", (line) => {
@@ -239,7 +239,7 @@ describe("mcp-gate", () => {
     expect(answer.result.someOtherShape.length).toBe(40_000);
   });
 
-  const selected = { OMB_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), OMB_GATE_BUDGET: "0" };
+  const selected = { COLONIE_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), COLONIE_GATE_BUDGET: "0" };
 
   it("filters each catalog page and rejects a withheld call before upstream execution", async () => {
     start({}, selected, SCOPED_UPSTREAM);
@@ -265,14 +265,14 @@ describe("mcp-gate", () => {
 
   it("enforces deny precedence without trimming when the result budget is zero", async () => {
     const text = "z".repeat(40_000);
-    start({ text }, { OMB_GATE_BUDGET: "0", OMB_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:*"], deny: ["mcp:shop:write"] }) }, SCOPED_UPSTREAM);
+    start({ text }, { COLONIE_GATE_BUDGET: "0", COLONIE_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:*"], deny: ["mcp:shop:write"] }) }, SCOPED_UPSTREAM);
     expect((await call("write")).error).toMatchObject({ code: -32602 });
     expect((await call("read", 2)).result.content[0].text).toBe(text);
     expect(existsSync(join(scratch, "spill"))).toBe(false);
   });
 
   it.each(["{", "null", '{"allow":null}'])("exits on invalid scope %s before starting the upstream", async (scope) => {
-    start({}, { OMB_GATE_TOOL_SCOPE: scope }, SCOPED_UPSTREAM);
+    start({}, { COLONIE_GATE_TOOL_SCOPE: scope }, SCOPED_UPSTREAM);
     const closed = once(gate!, "close");
     gate!.stdin.end();
     const [code] = await closed;
@@ -331,8 +331,8 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   };
 
   it("checks call_tool against the tool it runs only when its upstream is the tool directory", async () => {
-    const scope = { OMB_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), OMB_GATE_BUDGET: "600" };
-    start({}, { ...scope, OMB_GATE_DIRECTORY: "1" }, DIRECTORY_UPSTREAM);
+    const scope = { COLONIE_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), COLONIE_GATE_BUDGET: "600" };
+    start({}, { ...scope, COLONIE_GATE_DIRECTORY: "1" }, DIRECTORY_UPSTREAM);
     send({ jsonrpc: "2.0", id: 1, method: "tools/list" });
     expect(JSON.parse(await nextLine()).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["search_tools", "describe_tool", "call_tool", "read"]);
     expect((await callWith("call_tool", { name: "write", arguments: {} }, 2)).error).toMatchObject({ code: -32602 });
@@ -346,7 +346,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   });
 
   it("treats those names as ordinary tools for any other upstream", async () => {
-    start({}, { OMB_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), OMB_GATE_BUDGET: "600" }, DIRECTORY_UPSTREAM);
+    start({}, { COLONIE_GATE_TOOL_SCOPE: JSON.stringify({ allow: ["mcp:shop:read"] }), COLONIE_GATE_BUDGET: "600" }, DIRECTORY_UPSTREAM);
     send({ jsonrpc: "2.0", id: 1, method: "tools/list" });
     expect(JSON.parse(await nextLine()).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["read"]);
     expect((await callWith("call_tool", { name: "read", arguments: {} }, 2)).error).toMatchObject({ code: -32602 });

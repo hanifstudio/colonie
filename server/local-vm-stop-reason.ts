@@ -9,7 +9,7 @@ function recordPath(key: string, dataDir: string): string {
 }
 
 /** Record the runtime's actual finish timestamp. An external stop later gets
- * a different timestamp and must not be misreported as OMB's idle shutdown. */
+ * a different timestamp and must not be misreported as COLONIE's idle shutdown. */
 export function recordLocalVmIdleStop(key: string, stoppedAt: string | null | undefined, dataDir = DATA_DIR): void {
   if (!stoppedAt) return;
   mkdirSync(join(dataDir, "local-vm-stops"), { recursive: true, mode: 0o700 });

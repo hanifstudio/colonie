@@ -24,7 +24,7 @@ export interface CompanionPairingRoute {
 
 /** The address to type into a phone, written the way both phone apps read
  * it. A bare `host:port` is plain HTTP on that port to them, so a hosted
- * route shown as `abc.openmausbot.com:443` sent the typed code over HTTP to a
+ * route shown as `abc.colonie.com:443` sent the typed code over HTTP to a
  * TLS port and failed on every phone. Hosted routes are written with their
  * scheme (and without the default port); direct routes keep `host:port`. */
 export function companionPairingAddressText(route: CompanionPairingRoute): string {

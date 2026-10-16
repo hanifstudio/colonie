@@ -1,6 +1,6 @@
 # Colonie milestone plan
 
-Phase 1 M0–M4 completed under the DevOne name. Actual commands/evidence and
+Phase 1 M0–M4 completed under the Colonie name. Actual commands/evidence and
 positive user feedback on Codex are in `PROGRESS.md`. **M5: Colonie branding**
 and **M6: Claude core-workflow integration** are implemented and verified.
 M7-A native controls are implemented and verified with both provider fixtures
@@ -37,7 +37,7 @@ change* in `SPEC.md`. Milestones above predate that decision.
    names, verification scripts and documentation. Separate product identity from
    historical evidence, native provider ids, upstream names and legal attribution.
 2. Choose the persisted-data strategy explicitly. Preserve access to existing
-   DevOne chats/settings/receipts and Codex session ids, either with a documented
+   Colonie chats/settings/receipts and Codex session ids, either with a documented
    legacy path or an idempotent migration. Renaming must not reset conversations.
 3. Apply the rename coherently. Document compatibility aliases if old commands
    or environment variables remain. Leave the workspace folder location unchanged
@@ -58,7 +58,7 @@ change* in `SPEC.md`. Milestones above predate that decision.
    idle/hidden animation work bounded and clean up on unmount. Capture visual
    evidence of the real renderer and packaged app in isolated fixtures.
 7. Build and launch the new Colonie artifact. Verify fresh startup, existing
-   DevOne-data upgrade, repeat startup and session continuation in isolated
+   Colonie-data upgrade, repeat startup and session continuation in isolated
    fixtures. Record paths and commands in the run guide and progress log.
 
 Done when the visible product/build identity and default mascot/art are Colonie,
@@ -170,7 +170,7 @@ Final lifecycle/outcome checks and package fixtures passed; real packaged Claude
 search/read and native restart passed after the runtime changes. The final UI-only
 adjustment was rebuilt and package-smoked separately. Address encrypted credential
 persistence before claiming the packaged key-entry workflow fully verified; see
-`PROGRESS.md` and `.devone/evidence/composio-secure-store-blocker.json` evidence.
+`PROGRESS.md` and `.colonie-dev/evidence/composio-secure-store-blocker.json` evidence.
 
 Credential follow-up: explicit source/origin/masked key, key versus account state,
 operation-specific failures, no catalog without a key, immutable environment-source
@@ -216,7 +216,7 @@ Colonie runs the ACP engines with their own config directory under the app data
 dir, so its sessions, sign-in and history never touch the user's own CLI state
 (`~/.codex`, `~/.claude`). This is how Colonie always runs — not a mode and not a
 toggle:
-- `server/devone/profile.ts` injects `CODEX_HOME` (codex-acp) and
+- `server/acp/profile.ts` injects `CODEX_HOME` (codex-acp) and
   `CLAUDE_CONFIG_DIR` (claude-acp) into every ACP instance's environment, pointing
   at `~/.colonie/native/<codex|claude>` (`nativeBase` = `NATIVE_DIR`).
 - `server/config.ts` passes `NATIVE_DIR` and creates those directories at boot.
@@ -247,7 +247,7 @@ the app, without reading credentials:
 - New-bot creation is blocked (with a setup pointer) when no engine can run yet,
   instead of failing validation on an empty model.
 - The login lands in the isolated config dir (M8-D). Verified with the signed-out
-  fixture (`devone-unauth`); a real provider sign-in is not verified in an isolated
+  fixture (`colonie-unauth`); a real provider sign-in is not verified in an isolated
   fixture (it needs completing a real login).
 
 ### D1 — frontend/backend legacy retirement (deferred architecture milestone)
@@ -284,7 +284,7 @@ M8-C UX cleanup and should have its own implementation/review/verification plan.
 and the non-ACP engine drivers — because the shared-workspace work needs them gone
 first. They follow D1's classify-then-retire rule and do not complete D1. The
 inherited `docs/` audit named in `SPEC.md` is added to D1's inventory: those pages
-describe OpenMausBot's runtime, not this fork's.
+describe Colonie's runtime, not this fork's.
 
 ### M9 — memory, Chief coordination and routines (proposed)
 
@@ -358,10 +358,10 @@ ACP. Steps are ordered so each one is useful on its own.
    not a replacement for D1.
 4. **Prove headless operation, then deploy to the owner's VPS.** The UI/server
    split already exists, and `server/index.ts` serves the built UI from
-   `OMB_STATIC_DIR`, but neither headless operation nor remote UI delivery is
+   `COLONIE_STATIC_DIR`, but neither headless operation nor remote UI delivery is
    verified for this fork. Verify both against an isolated deployment before
    planning around them. Engine sign-in happens on the server.
-5. **Enforce `OMB_LOOPBACK_TRUST=service`** on any server a second person reaches,
+5. **Enforce `COLONIE_LOOPBACK_TRUST=service`** on any server a second person reaches,
    with evidence that session-less loopback is refused the owner routes. Required
    before anyone else is admitted; not required for the owner's solo always-on use.
 6. **Message author.** Attribution only: who wrote a message, who approved an

@@ -13,7 +13,7 @@ export interface EnvironmentDescriptor {
 export type SessionState =
   // `service`: a shared server that does not treat this machine as its owner
   | { kind: "loopback"; trust?: "service" }
-  // `cloudGuest`: on an OMB Cloud home, a device that is not one of the
+  // `cloudGuest`: on an COLONIE Cloud home, a device that is not one of the
   // owner's own; it writes only in `openedThreads`, the conversations it opened.
   | { kind: "session"; id: string; label: string; scopes: string[]; expiresAt: number; cloudGuest?: true; openedThreads?: string[] }
   | { kind: "unauthenticated"; error: string }
@@ -51,7 +51,7 @@ export async function readSessionState(fetchImpl: typeof fetch = fetch): Promise
 }
 
 /** Why the pair page shows on this machine: the server trusts local
- * requests only as a service (OMB_LOOPBACK_TRUST=service, or a hosted
+ * requests only as a service (COLONIE_LOOPBACK_TRUST=service, or a hosted
  * workspace), so an SSH tunnel is not the owner and must sign in. */
 export const SERVICE_TRUST_REASON = "This server does not treat this computer as its owner. Sign in or pair this browser to continue.";
 
@@ -74,7 +74,7 @@ export function takePairingCodeFromLocation(): string | null {
   return decodeURIComponent(m[1]);
 }
 
-/** The OMB Cloud page's "Use in your browser" link, `/pair#signin=omb_pair_…`:
+/** The COLONIE Cloud page's "Use in your browser" link, `/pair#signin=omb_pair_…`:
  * a single-use browser sign-in the Cloud's Admin opened on this machine. Taken
  * off the address bar and out of this tab's history entry before anything
  * renders, and never shown. */
@@ -162,7 +162,7 @@ export function signInWithBrowserGrant(credential: string, attemptId: string, fe
   return pairWithCode({ code: credential, label: defaultDeviceLabel(), attemptId, browser: true }, fetchImpl);
 }
 
-/** Whose OMB Cloud this browser signed in to, from `GET /api/auth/session`:
+/** Whose COLONIE Cloud this browser signed in to, from `GET /api/auth/session`:
  * only a browser sign-in's session on a Cloud home says. */
 export function cloudOwnerOf(session: unknown): string | null {
   const record = Object(session) as { cloudHome?: unknown; owner?: unknown }; // SAFETY: read with typeof checks below

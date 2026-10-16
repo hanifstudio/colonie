@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { verificationServerEnvironment } from "../scripts/control-colonie.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { excludedWorkspaceAuthPath } from "./workspace-backup-policy.ts";
@@ -48,11 +48,11 @@ function expectSignedOut(instance: Record<string, any>) {
 }
 
 beforeAll(async () => {
-  home = mkdtempSync(join(tmpdir(), "omb-chatgpt-api-"));
+  home = mkdtempSync(join(tmpdir(), "colonie-chatgpt-api-"));
   mkdirSync(join(home, "tmp"));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
-  logPath = join(tmpdir(), `omb-chatgpt-api-${port}-${process.pid}.log`);
+  logPath = join(tmpdir(), `colonie-chatgpt-api-${port}-${process.pid}.log`);
   // Non-product instance names avoid adding unrelated native CLIs to this fixture.
   writeFileSync(join(home, "config.json"), JSON.stringify({ instances: {
     fixture: { driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") } },

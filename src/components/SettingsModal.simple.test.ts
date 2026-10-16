@@ -152,7 +152,7 @@ describe("Settings in Simple mode", () => {
   });
 
   it("drops Account when nothing on it is shown", () => {
-    // an OMB Cloud home in a browser: no desktop account pages, nobody to invite, not an admin
+    // an COLONIE Cloud home in a browser: no desktop account pages, nobody to invite, not an admin
     vi.stubGlobal("window", {});
     fixture.config = { ...fixture.config, cloudHome: true };
     expect(pages(render())).toEqual(["general", "appearance", "ai", "computers"]);

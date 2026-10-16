@@ -35,7 +35,7 @@ const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
  * legacy profile named work from accidentally restoring work-client. */
 export function browserRestoreKey(session: string): string {
   if (!/^[A-Za-z0-9_.-]{1,96}$/.test(session)) throw new Error("Invalid browser session.");
-  return `omb-${createHash("sha256").update(session).digest("hex")}`;
+  return `colonie-${createHash("sha256").update(session).digest("hex")}`;
 }
 
 function browserSessionsDirectory(env: NodeJS.ProcessEnv): string {
@@ -47,7 +47,7 @@ function browserSessionsDirectory(env: NodeJS.ProcessEnv): string {
 }
 
 function managedBrowserConfigPath(env: NodeJS.ProcessEnv): string {
-  return join(browserSessionsDirectory(env), "..", "omb-managed-config.json");
+  return join(browserSessionsDirectory(env), "..", "colonie-managed-config.json");
 }
 
 function ensureManagedBrowserConfig(env: NodeJS.ProcessEnv): string {
@@ -220,7 +220,7 @@ interface BrowserLookupOptions {
 }
 
 function packagedBrowser(options: BrowserLookupOptions) {
-  const resources = (options.env ?? process.env).OMB_RESOURCES_PATH;
+  const resources = (options.env ?? process.env).COLONIE_RESOURCES_PATH;
   if (!resources) return null;
   try {
     return browserBundlePaths(join(resolve(resources), "browser-engine"), `${options.platform ?? process.platform}-${options.arch ?? process.arch}`);
@@ -233,13 +233,13 @@ function completePackage(bundle: NonNullable<ReturnType<typeof packagedBrowser>>
   return [bundle.manifest, bundle.engine, bundle.chrome, bundle.licenses].every(exists);
 }
 
-/** OMB_AGENT_BROWSER_PATH, then the complete desktop bundle, pinned download, then
+/** COLONIE_AGENT_BROWSER_PATH, then the complete desktop bundle, pinned download, then
  * PATH (a package or image that installed it globally). */
 export function resolveAgentBrowserBinary(options: BrowserLookupOptions = {}): string | null {
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
   const exists = options.exists ?? existsSync;
-  const override = env.OMB_AGENT_BROWSER_PATH?.trim();
+  const override = env.COLONIE_AGENT_BROWSER_PATH?.trim();
   if (override) return resolve(override) && exists(resolve(override)) ? resolve(override) : null;
   const bundle = packagedBrowser(options);
   if (bundle && exists(bundle.directory)) return completePackage(bundle, exists) ? bundle.engine : null;
@@ -433,14 +433,14 @@ export function agentBrowserIntegration(input: {
     AGENT_BROWSER_RESTORE: browserRestoreKey(input.session),
     AGENT_BROWSER_RESTORE_SAVE: input.persistent === false ? "never" : "auto",
     AGENT_BROWSER_ENCRYPTION_KEY: input.encryptionKey,
-    // OMB owns launch settings. A user's unrelated native CLI config must not
+    // COLONIE owns launch settings. A user's unrelated native CLI config must not
     // inject a shared Chrome profile or a different saved-state path.
     AGENT_BROWSER_CONFIG: managedBrowserConfigPath(browserRuntimeEnv({
       ...(sourceEnv.HOME ? { HOME: sourceEnv.HOME } : {}),
       ...(sourceEnv.USERPROFILE ? { USERPROFILE: sourceEnv.USERPROFILE } : {}),
     })),
   };
-  // A Linux host with no display cannot run headed Chrome, and OMB's managed
+  // A Linux host with no display cannot run headed Chrome, and COLONIE's managed
   // browser is headless automation (docs/browser-packaging.md). Pin headless
   // there even for a headed-capable caller. The engine's own flag is
   // AGENT_BROWSER_HEADED; an explicit "0" pins the default so a daemon that
@@ -507,7 +507,7 @@ export function agentBrowserFrame(input: {
   env: Record<string, string>;
   timeoutMs?: number;
 }): Promise<{ png: string; format: string }> {
-  const file = join(tmpdir(), `openmausbot-browser-${randomUUID()}.png`);
+  const file = join(tmpdir(), `colonie-browser-${randomUUID()}.png`);
   return new Promise((settle, fail) => {
     const child = spawn(input.binaryPath, ["screenshot", file], {
         env: browserRuntimeEnv(input.env),

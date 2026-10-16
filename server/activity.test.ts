@@ -48,7 +48,7 @@ let dataDir: string;
 let eventsDir: string;
 
 beforeEach(() => {
-  dataDir = mkdtempSync(join(tmpdir(), "omb-activity-"));
+  dataDir = mkdtempSync(join(tmpdir(), "colonie-activity-"));
   eventsDir = join(dataDir, "events");
   mkdirSync(eventsDir);
 });

@@ -47,7 +47,7 @@ describe("harness MCP capability proxy", () => {
   it("sends the cloud computer's calls to its own harness route", async () => {
     status = 200;
     payload = { result: { tools: [{ name: "screenshot" }] } };
-    await expect(harnessMcpRequest(frame("initialize"), connection("computer"))).resolves.toMatchObject({ result: { serverInfo: { name: "openmausbot-computer" } } });
+    await expect(harnessMcpRequest(frame("initialize"), connection("computer"))).resolves.toMatchObject({ result: { serverInfo: { name: "colonie-computer" } } });
     await expect(harnessMcpRequest(frame("tools/list"), connection("computer"))).resolves.toEqual({ jsonrpc: "2.0", id: 1, result: { tools: [{ name: "screenshot" }] } });
     expect(requests.at(-1)).toEqual({ path: "/api/internal/computer/mcp", auth: "Bearer scoped-capability", body: { method: "tools/list", params: {} } });
     status = 401;
@@ -84,7 +84,7 @@ describe("harness MCP capability proxy", () => {
     status = 200;
     payload = { result: { tools: [{ name: "agent_browser_snapshot" }] } };
     const child: ChildProcessWithoutNullStreams = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./harness-mcp-proxy.ts", import.meta.url)), "computer"], {
-      env: { OMB_HARNESS_URL: url, OMB_MCP_TOKEN: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
+      env: { COLONIE_HARNESS_URL: url, COLONIE_MCP_TOKEN: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
     const result = new Promise<unknown>((resolve, reject) => {
@@ -107,7 +107,7 @@ describe("harness MCP capability proxy", () => {
 
   it("refuses to start without a known tool family", async () => {
     const child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./harness-mcp-proxy.ts", import.meta.url)), "shell"], {
-      env: { OMB_HARNESS_URL: url, OMB_MCP_TOKEN: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
+      env: { COLONIE_HARNESS_URL: url, COLONIE_MCP_TOKEN: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
     });
     const code = await new Promise<number | null>((resolve) => child.once("close", resolve));
     expect(code).toBe(2);

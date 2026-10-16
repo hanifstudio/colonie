@@ -86,7 +86,7 @@ if (process.platform === "linux") {
   assert(!/docker|kubepods|lxc/.test(cgroup), "Sandbox verification requires a non-container Linux host; upstream agent-browser disables Chromium's sandbox for this cgroup");
 }
 
-const fixture = await mkdtemp(join(tmpdir(), "omb-browser-smoke-"));
+const fixture = await mkdtemp(join(tmpdir(), "colonie-browser-smoke-"));
 const fixtureHome = join(fixture, "home");
 const env = {
   PATH: process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32") : "/usr/bin:/bin",
@@ -95,8 +95,8 @@ const env = {
   XDG_CONFIG_HOME: join(fixture, "config"), XDG_CACHE_HOME: join(fixture, "cache"),
   XDG_DATA_HOME: join(fixture, "data"), XDG_RUNTIME_DIR: join(fixture, "run"),
   TMPDIR: join(fixture, "tmp"), TMP: join(fixture, "tmp"), TEMP: join(fixture, "tmp"),
-  OMB_DATA_DIR: join(fixture, "omb"), OMB_RESOURCES_PATH: resolve(values.resources),
-  ...(values["engine-candidate"] ? { OMB_AGENT_BROWSER_PATH: enginePath, AGENT_BROWSER_EXECUTABLE_PATH: paths.chrome } : {}),
+  COLONIE_DATA_DIR: join(fixture, "colonie"), COLONIE_RESOURCES_PATH: resolve(values.resources),
+  ...(values["engine-candidate"] ? { COLONIE_AGENT_BROWSER_PATH: enginePath, AGENT_BROWSER_EXECUTABLE_PATH: paths.chrome } : {}),
   // macOS's per-user temp directory is long; keep Unix socket paths <104 bytes.
   AGENT_BROWSER_SOCKET_DIR: join(fixture, "s"),
   AGENT_BROWSER_DEFAULT_TIMEOUT: "15000", LANG: "en_US.UTF-8", NO_COLOR: "1",
@@ -105,7 +105,7 @@ for (const key of ["SystemRoot", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "PATHEXT"])
   if (process.platform === "win32" && process.env[key]) env[key] = process.env[key];
 }
 for (const directory of new Set([fixtureHome, env.APPDATA, env.LOCALAPPDATA, env.XDG_CONFIG_HOME,
-  env.XDG_CACHE_HOME, env.XDG_DATA_HOME, env.XDG_RUNTIME_DIR, env.TMPDIR, env.OMB_DATA_DIR, env.AGENT_BROWSER_SOCKET_DIR])) {
+  env.XDG_CACHE_HOME, env.XDG_DATA_HOME, env.XDG_RUNTIME_DIR, env.TMPDIR, env.COLONIE_DATA_DIR, env.AGENT_BROWSER_SOCKET_DIR])) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
 }
 // Isolate even source-module initialization. No inherited account credentials,
@@ -267,7 +267,7 @@ process.once("SIGTERM", interrupt);
 try {
   const { browserEngineStatus, agentBrowserIntegration, prepareBrowserSessionState, closeBrowserSession: closeSession } = await import("../server/browser-engine.ts");
   closeBrowserSession = closeSession;
-  const status = browserEngineStatus({ dataDir: env.OMB_DATA_DIR, env });
+  const status = browserEngineStatus({ dataDir: env.COLONIE_DATA_DIR, env });
   assert.equal(status.kind, "ready", `Fresh-home runtime did not discover the bundle: ${JSON.stringify(status)}`);
   assert.equal(resolve(status.binaryPath), resolve(enginePath), "Runtime did not select the engine under test");
   const engineVersion = await run(enginePath, ["--version"], env);
@@ -275,7 +275,7 @@ try {
   assert.equal(engineVersion, `agent-browser ${engineVersionExpected}`, `Unexpected engine version: ${engineVersion}`);
   assert(chromeVersion.includes(spec.chrome.version), `Unexpected Chromium version: ${chromeVersion}`);
 
-  const title = `OpenMausBot bundled browser ${randomBytes(6).toString("hex")}`;
+  const title = `Colonie bundled browser ${randomBytes(6).toString("hex")}`;
   server = createServer((_request, response) => {
     fixtureRequests += 1;
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
@@ -289,7 +289,7 @@ try {
   const url = `http://127.0.0.1:${server.address().port}/`;
   for (const name of ["alpha", "beta"]) {
     const integration = agentBrowserIntegration({ binaryPath: status.binaryPath,
-      session: `omb-${name[0]}-${randomBytes(4).toString("hex")}`,
+      session: `colonie-${name[0]}-${randomBytes(4).toString("hex")}`,
       encryptionKey: randomBytes(32).toString("hex"), persistent: false, env });
     assert.equal(resolve(integration.env.AGENT_BROWSER_EXECUTABLE_PATH ?? ""), resolve(paths.chrome), "MCP did not receive bundled Chromium");
     assert.equal(integration.env.AGENT_BROWSER_RESTORE_SAVE, "never");
@@ -300,7 +300,7 @@ try {
     await assert.rejects(readFile(join(env.AGENT_BROWSER_SOCKET_DIR, `${integration.env.AGENT_BROWSER_SESSION}.pid`)), { code: "ENOENT" });
     const client = mcp(integration);
     clients.push(client);
-    await client.request("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "omb-bundle-smoke", version: "1" } });
+    await client.request("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "colonie-bundle-smoke", version: "1" } });
     client.proc.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);
     const inventory = await client.request("tools/list");
     assert(inventory.tools.some((tool) => tool.name === "agent_browser_open"), "Browser tools missing from MCP core profile");
@@ -311,8 +311,8 @@ try {
   await alpha.tool("agent_browser_fill", { selector: "#message", text: "Bundled browser works" });
   await alpha.tool("agent_browser_click", { selector: "#submit" });
   assert.equal((await alpha.tool("agent_browser_get_text", { selector: "#result" })).data.text, "Bundled browser works");
-  const storage = "({ local: localStorage.getItem('omb-smoke'), cookie: document.cookie })";
-  const setStorage = (value) => `(() => { localStorage.setItem('omb-smoke', '${value}'); document.cookie = 'omb_smoke=${value}; Path=/; SameSite=Lax'; return ${storage}; })()`;
+  const storage = "({ local: localStorage.getItem('colonie-smoke'), cookie: document.cookie })";
+  const setStorage = (value) => `(() => { localStorage.setItem('colonie-smoke', '${value}'); document.cookie = 'omb_smoke=${value}; Path=/; SameSite=Lax'; return ${storage}; })()`;
   assert.deepEqual((await alpha.tool("agent_browser_eval", { script: setStorage("alpha") })).data.result, { local: "alpha", cookie: "omb_smoke=alpha" });
   assert.deepEqual((await beta.tool("agent_browser_eval", { script: storage })).data.result, { local: null, cookie: "" }, "Second bot inherited first bot's state");
   assert.deepEqual((await beta.tool("agent_browser_eval", { script: setStorage("beta") })).data.result, { local: "beta", cookie: "omb_smoke=beta" });

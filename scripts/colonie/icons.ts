@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const dir = resolve(".devone/generated-art");
+const dir = resolve(".colonie-dev/generated-art");
 mkdirSync(dir, { recursive: true });
 const entry = join(dir, "icon-render.mjs");
 await build({ stdin: { contents: `import {createElement} from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
@@ -18,7 +18,7 @@ export const svg=renderToStaticMarkup(createElement(BloubFrame,{frame:engine.sam
   resolveDir: resolve("."), loader: "tsx" }, outfile: entry, bundle: true, platform: "node", format: "esm", jsx: "automatic", external: ["react", "react-dom/server", "react/jsx-runtime"] });
 const { svg } = await import(pathToFileURL(entry).href);
 writeFileSync(resolve("public/colonie.svg"), svg);
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const browser = await chromium.launch({ headless: true });
 try {

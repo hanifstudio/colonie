@@ -16,7 +16,7 @@ import {
 const dirs: string[] = [];
 
 function tempFile() {
-  const dir = mkdtempSync(join(tmpdir(), "omb-routines-"));
+  const dir = mkdtempSync(join(tmpdir(), "colonie-routines-"));
   dirs.push(dir);
   return join(dir, "routines.json");
 }

@@ -1,4 +1,4 @@
-// Test fixture: what a guest left behind on an OMB Cloud home before it was
+// Test fixture: what a guest left behind on an COLONIE Cloud home before it was
 // personal (server/cloud-owner.ts), made the way the server records it: a
 // conversation or room whose opener is nobody (thread-starters.json), a
 // routine whose writer is nobody and that carries no owner fingerprint

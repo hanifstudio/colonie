@@ -223,7 +223,7 @@ describe("failures come back as reasons", () => {
 
 describe("the decision log", () => {
   it("writes one 0600 row per call with no message text and no key", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "omb-decider-log-"));
+    const dataDir = mkdtempSync(join(tmpdir(), "colonie-decider-log-"));
     const logs: string[] = [];
     for (const method of ["log", "warn", "error", "info", "debug"] as const) {
       vi.spyOn(console, method).mockImplementation((...args: unknown[]) => { logs.push(args.map(String).join(" ")); });

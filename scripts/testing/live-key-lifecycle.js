@@ -1,4 +1,4 @@
-// Evaluate with control:omb ui eval in its disposable threads preview only.
+// Evaluate with control:colonie ui eval in its disposable threads preview only.
 // No credential is saved and getUserMedia never touches a physical device.
 (async () => {
   if (location.pathname !== "/__threads.html") throw new Error("Use the isolated ui launch preview");

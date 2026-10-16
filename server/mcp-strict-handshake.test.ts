@@ -2,7 +2,7 @@
 // server: "Unrecognized field 'schemaValidation'") against the
 // handshakes the engines really send. The payloads below were captured from
 // the real binaries (Oct 8 2026) talking to testing/fake-http-mcp-server.ts
-// with `strictInitialize`; OMB's own client and its stdio proxy send the
+// with `strictInitialize`; COLONIE's own client and its stdio proxy send the
 // minimal handshake and pass.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
@@ -102,14 +102,14 @@ describe("strict initialize fixture", () => {
     expect(fake.initializes).toEqual([SCHEMA_VALIDATION, CODEX]);
   });
 
-  it("accepts OMB's own client, which sends the minimal handshake", async () => {
+  it("accepts COLONIE's own client, which sends the minimal handshake", async () => {
     fake = await startFakeHttpMcp({ strictInitialize: "http-400", tools: TOOLS });
     const client = new RemoteMcpClient({ type: "http", url: fake.url, headers: {} });
-    await client.initialize("OpenMausBot", AbortSignal.timeout(5_000));
+    await client.initialize("Colonie", AbortSignal.timeout(5_000));
     const listed = await client.request("tools/list", {}, AbortSignal.timeout(5_000)) as { tools: Array<{ name: string }> };
     expect(listed.tools.map((tool) => tool.name)).toEqual(["report", "campaigns"]);
     await client.close();
-    expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "OpenMausBot", version: "1" } }]);
+    expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Colonie", version: "1" } }]);
   });
 
   it.each([
@@ -117,7 +117,7 @@ describe("strict initialize fixture", () => {
     ["Claude Code", CLAUDE],
     ["Grok", GROK],
     ["schemaValidation", SCHEMA_VALIDATION],
-  ])("serves %s's handshake through OMB's stdio proxy, forwarding none of its fields", async (_name, handshake) => {
+  ])("serves %s's handshake through COLONIE's stdio proxy, forwarding none of its fields", async (_name, handshake) => {
     fake = await startFakeHttpMcp({ strictInitialize: "http-400", tools: TOOLS });
     const descriptor = mcpStdioServer({ type: "http", url: fake.url, headers: {} })!;
     child = spawn(descriptor.command, ["--experimental-strip-types", "--no-warnings", ...descriptor.args!], { stdio: "pipe", env: { ...process.env, ...descriptor.env } });
@@ -130,7 +130,7 @@ describe("strict initialize fixture", () => {
     expect((await ask(1, "initialize", handshake)).result.serverInfo.name).toBe("fake-http-mcp");
     child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);
     expect((await ask(2, "tools/list")).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["report", "campaigns"]);
-    expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "OpenMausBot tool proxy", version: "1" } }]);
+    expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Colonie tool proxy", version: "1" } }]);
   });
 
   // The proxy cannot tell a Colonie sign-in from a key typed into a

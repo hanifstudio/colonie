@@ -157,7 +157,7 @@ export type ImportResult = PackageImportResult | { alreadyAdded: true; installId
 /** Deterministic, so reconnecting to the same organization recognizes what
  * it already added. `packageId` is Admin's package UUID. */
 export function orgInstallId(adminOrigin: string, organizationId: string, packageId: string): string {
-  return createHash("sha256").update(`omb-install:v1\n${adminOrigin}\n${organizationId}\n${packageId}`, "utf8").digest("hex").slice(0, 32);
+  return createHash("sha256").update(`colonie-install:v1\n${adminOrigin}\n${organizationId}\n${packageId}`, "utf8").digest("hex").slice(0, 32);
 }
 
 export function memberFromAgent(agent: PackageAgent): TeamManifestMember {

@@ -9,18 +9,18 @@ import en from "./en.json";
 import { locales } from "./index";
 
 // One name per thing, in every word a person reads:
-// - OpenMausBot Cloud: the paid plan, and its sign-in in Settings.
+// - Colonie Cloud: the paid plan, and its sign-in in Settings.
 // - My Cloud: the person's always-on home in the cloud.
 // - Cloud computer: a desktop in the cloud that a bot uses.
 // - This computer: the device the app runs on.
 // - Plan page: the web page with the plan, payments and use.
 // "Local VM" keeps its name. "Cloud" alone never names a Works on choice,
-// "OMB" is never shown, and "Boat" names only the provider behind a person's
+// "COLONIE" is never shown, and "Boat" names only the provider behind a person's
 // own key (Settings → API keys).
 const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
-  ["OMB Cloud", /OMB Cloud/i, "OpenMausBot Cloud"],
-  // \b before "_" fails, so environment names such as OMB_PUBLIC_IPV4 pass.
-  ["OMB", /\bOMB\b/, "OpenMausBot"],
+  ["COLONIE Cloud", /COLONIE Cloud/i, "Colonie Cloud"],
+  // \b before "_" fails, so environment names such as COLONIE_PUBLIC_IPV4 pass.
+  ["COLONIE", /\bOMB\b/, "Colonie"],
   ["Cloud box", /Cloud box/i, "Cloud computer"],
   ["Hosted desktop", /Hosted desktop/i, "Cloud computer"],
   ["Cloud VM", /Cloud VM/i, "Cloud computer"],
@@ -60,7 +60,7 @@ const isSource = (name: string) => /\.(?:ts|tsx|mjs|cjs|js)$/.test(name) && !/\.
  * snippet keeps it everywhere; otherwise only literals containing a snippet. */
 const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = [
   { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
-  { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
+  { file: "server/workspace-backup.ts", snippet: "COLONIE-WORKSPACE-1", why: "a backup file's format marker" },
 ];
 
 function* sources(dir: string): Generator<string> {
@@ -107,7 +107,7 @@ const allows = (entry: (typeof ALLOWED)[number], finding: { file: string; text: 
   entry.file === finding.file && (entry.snippet === undefined || finding.text.includes(entry.snippet));
 
 describe("one name per thing", () => {
-  it("English copy uses OpenMausBot Cloud, My Cloud, Cloud computer, This computer and Plan page", () => {
+  it("English copy uses Colonie Cloud, My Cloud, Cloud computer, This computer and Plan page", () => {
     const offending = Object.entries(en as Record<string, string>)
       .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) && !Object.hasOwn(EN_ALLOWED, key))
       // English keys are UI copy, so lower-case "boat" counts too.
@@ -115,7 +115,7 @@ describe("one name per thing", () => {
     expect(offending).toEqual([]);
   });
 
-  it("translations never show OMB or T3, and say Boat only where the English does", () => {
+  it("translations never show COLONIE or T3, and say Boat only where the English does", () => {
     const offending = Object.entries(locales).filter(([code]) => code !== "en").flatMap(([code, pack]) =>
       Object.entries(pack)
         .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
@@ -155,13 +155,13 @@ describe("one name per thing", () => {
 
   it("the check catches each retired word, and lets own-key Boat and env names through", () => {
     for (const bad of [
-      "Sign in to OMB Cloud", "restart OMB", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
+      "Sign in to COLONIE Cloud", "restart COLONIE", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
       "Open your Cloud dashboard", "Connect to my Cloud", "Your Cloud is ready", "Let my Cloud use this Mac",
       "Local (this computer)", "Choose Cloud to wake", "Auto, Cloud or Browser", "including one from T3",
       "Auto uses this Boat", "New Boat computer",
     ]) expect(retiredIn(bad), bad).not.toEqual([]);
     for (const good of [
-      "Sign in to OpenMausBot Cloud", "set OMB_PUBLIC_IPV4", "Open My Cloud", "Choose Cloud computer to wake",
+      "Sign in to Colonie Cloud", "set COLONIE_PUBLIC_IPV4", "Open My Cloud", "Choose Cloud computer to wake",
       "Included with your Cloud plan", "Add a Boat API key in Settings → API keys", "Connect Boat", "Check boat.dev",
       "Local VM", "Open your Plan page",
     ]) expect(retiredIn(good), good).toEqual([]);

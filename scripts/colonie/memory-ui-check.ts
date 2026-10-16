@@ -3,14 +3,14 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
 import type { Browser, ElectronApplication, Page } from "playwright";
-import { launchVerificationServer, verificationServerEnvironment } from "../control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../control-colonie.ts";
 import { mountPreview } from "../testing/preview-fixture.ts";
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium, _electron } = await import("playwright");
 const claude = process.argv.includes("--claude");
 const desktop = process.argv.includes("--desktop");
-const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"]);
+const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"]);
 const api = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json", origin: fixture.info.url },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(15_000) });
@@ -22,7 +22,7 @@ const bot = (await api("GET", "/api/bots")).bots[0];
 await api("PATCH", `/api/bots/${bot.id}`, { name: "Memory Bot", memoryEnabled: true, memoryUpkeep: true,
   modelSelection: { instanceId: claude ? "claude-acp" : "codex-acp", model: "agent-default" }, computer: "off" });
 const preview = await mountPreview(fixture, { entry: "/scripts/testing/threads-preview.tsx", route: "/__colonie-memory.html", title: "Colonie memory verification", logLevel: "warn" });
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const label = `${claude ? "claude-" : ""}memory-${desktop ? "desktop" : "renderer"}`;
 const result: Record<string, unknown> = { simulatedProvider: true, renderer: true, desktop, fixture: fixture.info };
 const errors: string[] = [];
@@ -37,7 +37,7 @@ const waitFor = async (condition: () => Promise<boolean>) => {
 try {
   if (desktop) {
     const env = { ...process.env, ...verificationServerEnvironment({}, fixture.info.dataDir, Number(new URL(fixture.info.url).port)),
-      DEVONE_PROFILE: "1", DEVONE_USER_DATA: join(fixture.info.dataDir, "electron-profile"), ELECTRON_START_URL: preview.previewUrl };
+      COLONIE_PROFILE: "1", COLONIE_USER_DATA: join(fixture.info.dataDir, "electron-profile"), ELECTRON_START_URL: preview.previewUrl };
     delete env.ELECTRON_RUN_AS_NODE;
     electron = await _electron.launch({ args: [resolve(".")], env, timeout: 30_000 });
     await waitFor(async () => { page = electron!.windows().find((window) => window.url().includes("__colonie-memory.html")); return Boolean(page); });

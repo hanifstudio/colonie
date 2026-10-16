@@ -469,7 +469,7 @@ export function LocalVmIdleTimeoutSetting({
 }
 
 export function LocalComputerSection() {
-  // An OMB Cloud home has no Local VM: it neither
+  // An COLONIE Cloud home has no Local VM: it neither
   // checks for one nor explains how to set one up.
   const cloudHome = useStore().state.config?.cloudHome === true;
   const [status, setStatus] = useState<Status | null>(null);

@@ -13,7 +13,7 @@ Regression checks (all use disposable fixtures):
 
 ```sh
 pnpm exec vitest run server/room-handoffs.test.ts server/direct-coordination.e2e.test.ts server/room-coordination.e2e.test.ts
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
+COLONIE_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
 ```
 
 Gated fake-model turns prove a teammate starts before the Chief settles,
@@ -114,7 +114,7 @@ queued work starts prevents dispatch.
 pnpm exec vitest run server/peer-roster.test.ts server/post-to-room.test.ts server/room-coordination.e2e.test.ts server/direct-coordination.e2e.test.ts server/room-handoffs.test.ts server/peer-allowlist.e2e.test.ts
 ```
 
-The coordination suites use `launchVerificationServer`, `control-omb`, and the
+The coordination suites use `launchVerificationServer`, `control-colonie`, and the
 actual agents MCP proxy with a scripted provider and disposable HOME/data.
 They assert discovered targets, accepted or refused tool calls, durable
 handoff state, the destination conversation, and absence of dispatch after
@@ -131,7 +131,7 @@ pnpm exec vitest run server/room-recovery.e2e.test.ts server/testing/room-handof
 pnpm exec vitest run server/direct-coordination.e2e.test.ts --maxWorkers=1
 pnpm exec vitest run server/turn-dispatch-guard.test.ts
 pnpm exec vitest run server/comms.test.ts server/thread-aware-bots.e2e.test.ts server/routine-delegation.e2e.test.ts server/independent-threads-api.test.ts server/peer-allowlist.e2e.test.ts server/steer-queue.test.ts
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
+COLONIE_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
 ```
 
 The integration suite launches the disposable control fixture and drives the
@@ -196,7 +196,7 @@ routine back to a normal user conversation.
 
 Use an isolated home and data directory, never the running app. Create Maya,
 Eli (developer) and Nora (reviewer), set an explicit shared working folder, and
-create Launch and Delivery rooms through `control-omb`. Send through
+create Launch and Delivery rooms through `control-colonie`. Send through
 `send-channel`, wait on the source channel, and retain `messages` plus the
 actual files and executed tool evidence. Follow [channels](channels.md) and
 [chat UI](chat-ui.md) for the common launch/control paths.
@@ -242,7 +242,7 @@ nodes were completed and reported. Nora actually executed the tests. The exact
 CSV output, a rerun of the generated test, and two independent held-out cases
 all passed. The actual renderer also passed receipt navigation and Chief grant
 checks. Evidence (fixture and temporary auth copy removed):
-`/tmp/omb-live-team-0913.MwRY2k/nested-gpt-5.6-sol-1789255210986/result.json`
+`/tmp/colonie-live-team-0913.MwRY2k/nested-gpt-5.6-sol-1789255210986/result.json`
 and `independent-checks.json` beside it.
 
 Two isolated `gpt-5.6-sol` trials used temporary work folders and real tools:
@@ -250,16 +250,16 @@ Two isolated `gpt-5.6-sol` trials used temporary work folders and real tools:
 - Delivery: Clive consulted Mira, assigned Patch, requested Nora's independent
   checks and then Quill's launch copy. The actual CSV exporter and tests passed;
   no deployment or publishing was requested. Evidence:
-  `/tmp/omb-live-team-0913.MwRY2k/delivery-gpt-5.6-sol-1789253057867/result.json`
+  `/tmp/colonie-live-team-0913.MwRY2k/delivery-gpt-5.6-sol-1789253057867/result.json`
   and `transcripts.json` beside it.
 - Nested: Clive could reach only Patch; Patch could reach only Nora. The durable
   tree was Clive → Patch → Nora, all completed and reported. Nora executed the
   unittest suite, exact export command and schema/email checks. Patch then
   resumed, followed by Clive, in about 146 seconds. Evidence:
-  `/tmp/omb-live-team-0913.MwRY2k/nested-gpt-5.6-sol-1789253398198/result.json`.
+  `/tmp/colonie-live-team-0913.MwRY2k/nested-gpt-5.6-sol-1789253398198/result.json`.
 
 The first run also exposed a model-quality limitation: Patch claimed Nora had
-verified its work without a corresponding OMB handoff. Clive correctly treated
+verified its work without a corresponding COLONIE handoff. Clive correctly treated
 that claim as insufficient and requested an actual independent check. Prompts
 now explicitly require real coordination receipts for named-bot participation;
 this is guidance, not a guarantee that every model report is truthful. The

@@ -36,7 +36,7 @@ import { SimpleBotPanel } from "./bot-settings/SimpleBotPanel";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import type { PromptPreviewData } from "./bot-settings/PromptPreview";
 import { PromptPreview } from "./bot-settings/PromptPreview";
-import { isColonieAcpDriver } from "../../shared/devone";
+import { isColonieAcpDriver } from "../../shared/acp";
 import { AcpContextDialog } from "./AcpContextDialog";
 import { useDeveloperTools } from "@/lib/developer-tools";
 import { BotConnectedTools } from "./BotConnectedTools";

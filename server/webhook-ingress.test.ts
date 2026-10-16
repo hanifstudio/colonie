@@ -21,7 +21,7 @@ let manager: WebhookManager;
 const queued: Array<Record<string, unknown>> = [];
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), "omb-webhook-ingress-"));
+  dir = mkdtempSync(join(tmpdir(), "colonie-webhook-ingress-"));
   manager = new WebhookManager({
     file: join(dir, "webhooks.json"),
     botState: () => "ready",
@@ -61,7 +61,7 @@ describe("webhook-only ingress", () => {
   it("exposes health but nothing from the main Colonie API", async () => {
     const health = await fetch(`${ingress.baseUrl}/health`);
     expect(health.status).toBe(200);
-    expect(await health.json()).toEqual({ app: "openmausbot-webhooks", ready: true });
+    expect(await health.json()).toEqual({ app: "colonie-webhooks", ready: true });
     expect((await fetch(`${ingress.baseUrl}/api/bots`)).status).toBe(404);
   });
 
@@ -148,7 +148,7 @@ describe("requests with a wrong secret", () => {
   });
 
   it("neither evicts real deliveries nor rewrites the file for each request", async () => {
-    const floodDir = mkdtempSync(join(tmpdir(), "omb-webhook-flood-"));
+    const floodDir = mkdtempSync(join(tmpdir(), "colonie-webhook-flood-"));
     const file = join(floodDir, "webhooks.json");
     const emitted = new Set<string>();
     let runs = 0;

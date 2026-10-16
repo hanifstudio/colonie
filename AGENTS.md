@@ -1,4 +1,4 @@
-# OpenMausBot agent notes
+# Colonie agent notes
 
 Before claiming a server or conversation change works, follow
 [`docs/verification/README.md`](docs/verification/README.md). Always launch an
@@ -11,10 +11,10 @@ More specific `AGENTS.md` files override this note within their directories.
 `docs/HANDOVER.md` is the current state of the work, the goal in the owner's own
 words, what is verified, what is next, and the traps already hit. Read it before
 `docs/SPEC.md` and `docs/PLAN.md`, and prefer it over the rest of `docs/`: most
-of those pages describe upstream OpenMausBot's product and runtime rather than
+of those pages describe upstream Colonie's product and runtime rather than
 this fork, and following them steers work in the wrong direction.
 
-## Colonie fork (DevOne compatibility paths)
+## Colonie fork (Colonie compatibility paths)
 
 Read `docs/SPEC.md`, `docs/PLAN.md`, and `docs/PROGRESS.md` before changing
 the fork. The target is macOS desktop and Codex/Claude through the upstream ACP
@@ -23,12 +23,12 @@ SDK and their maintained `@agentclientprotocol/*-acp` adapters. Do not build on 
 
 Preserve useful upstream UI, persistence, HTTP/SSE, and Electron infrastructure.
 Keep our ACP execution boundary independently understandable. User messages
-must not acquire OpenMausBot personas, memory, recall, team, or automation
+must not acquire Colonie personas, memory, recall, team, or automation
 instructions. Native Codex/project instructions remain agent-owned. Record the
 exact application-authored prompt before dispatch so it can be inspected.
 
 Use isolated data directories and fixtures for all verification. Never read
-credential contents or mutate the user's installed OpenMausBot. A real-provider
+credential contents or mutate the user's installed Colonie. A real-provider
 check must use a disposable workspace, inherited CLI authentication, and a
 clearly bounded request. Distinguish simulated, real-provider, renderer, and
 desktop evidence in `docs/PROGRESS.md`.

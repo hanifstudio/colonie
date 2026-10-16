@@ -3,7 +3,7 @@
 ## Product name and implementation status
 
 The product name is **Colonie** (latest user decision, 2026-10-09, superseding
-the earlier Normie choice). **DevOne** is the existing phase-1 implementation/build
+the earlier Normie choice). **Colonie** is the existing phase-1 implementation/build
 name, not a second product. Colonie branding (rename and Bloub-based mascot/art)
 and the full Claude core-workflow integration are implemented and verified.
 Current app: `release/colonie/mac-arm64/Colonie.app`. Legacy data/source/protocol
@@ -16,7 +16,7 @@ work; the personal-desktop framing in the sections below predates it.
 
 ## Goal
 
-Keep the OpenMausBot chat/agent desktop experience while replacing its agent
+Keep the Colonie chat/agent desktop experience while replacing its agent
 connection with an independently implemented ACP client. Use existing local
 Codex authentication and maintained upstream adapters instead of maintaining
 Codex's native protocol. Work in small verified milestones with repository
@@ -27,7 +27,7 @@ SOUL/standing instructions, and a Chief role are wanted. Transparent execution
 means the user can understand and control the application's added context; the
 empty application context in phase 1 is a baseline, not the final product UX.
 
-## Phase 1 — completed baseline (DevOne)
+## Phase 1 — completed baseline (Colonie)
 
 - macOS desktop; Codex first.
 - New local runner using `@agentclientprotocol/sdk` and
@@ -41,7 +41,7 @@ empty application context in phase 1 is a baseline, not the final product UX.
   team, skill, routine, or MCP additions on the new path.
 - Inspect the exact application-authored input, working directory, model/mode,
   session identity, and any explicitly configured extra instructions.
-- Own application data is separate from `~/.openmausbot`.
+- Own application data is separate from `~/.colonie`.
 
 Native Codex system/project instructions, tools, login configuration, and model
 behavior are not replaced by ACP. Transparency covers what this application
@@ -84,7 +84,7 @@ Codex adapter directly; a registry picker can follow after the core flow works.
 ## Decisions
 
 - 2026-10-09: Start from upstream commit
-  `974670059884139d5a7c115e4bfae2b5ee778fec` (OpenMausBot 0.1.101).
+  `974670059884139d5a7c115e4bfae2b5ee778fec` (Colonie 0.1.101).
 - Reuse application infrastructure, replace the protocol implementation.
 - Preserve native CLI authentication; ACP does not itself supply subscription
   entitlement. Pin/test adapter updates rather than auto-update on each launch.
@@ -115,7 +115,7 @@ Codex adapter directly; a registry picker can follow after the core flow works.
   feature restoration. A minimal compatibility check is not this milestone's
   completion criterion. Establish shared multi-provider boundaries and verify
   provider differences before building more features on them.
-- 2026-10-09: Replace the OpenMausBot mascot/art using
+- 2026-10-09: Replace the Colonie mascot/art using
   [jeremy-prt/bloub](https://github.com/jeremy-prt/bloub) as the visual foundation,
   so Colonie has a distinct product appearance. Include this in M5 branding;
   full Claude integration remains the immediate next milestone.
@@ -125,18 +125,18 @@ Codex adapter directly; a registry picker can follow after the core flow works.
 Rename the fork's product-facing identity, desktop bundle identity, build
 artifacts, project-owned commands and documentation coherently, and replace the
 default mascot/art with a Bloub-based Colonie treatment. Audit persisted
-paths before selecting a migration: existing DevOne chats, settings, input
+paths before selecting a migration: existing Colonie chats, settings, input
 receipts and native session references must remain usable. Do not silently
-rename the workspace directory or touch the user's original OpenMausBot install.
+rename the workspace directory or touch the user's original Colonie install.
 
 Acceptance: a newly built Colonie app opens from its artifact, displays the new
-name and visual identity, continues an existing DevOne conversation and uses the
+name and visual identity, continues an existing Colonie conversation and uses the
 same local ACP execution behavior. Fresh and existing-data startup must be
 verified separately with disposable fixtures. Existing upstream notices and
 attribution are retained.
 
 Implemented data strategy: fresh installations use `.colonie`/Colonie profile;
-existing `.devone`/DevOne profile paths are reused in place, without copying or
+existing `.colonie-dev`/Colonie profile paths are reused in place, without copying or
 rewriting native cwd/session references. Explicit location overrides take
 precedence. Fresh desktop and old-artifact upgrade fixtures passed.
 
@@ -154,7 +154,7 @@ precedence. Fresh desktop and old-artifact upgrade fixtures passed.
   mascot illustrations. Produce matching static app/Dock/startup/favicons where
   needed. Preserve user-uploaded avatars.
 - Select Colonie defaults for shape, palette and expression. Replacing the
-  OpenMausBot visual does not itself establish an original design: Bloub describes
+  Colonie visual does not itself establish an original design: Bloub describes
   itself as an x.ai-avatar recreation. Its MIT code notice must accompany reused
   code; retain Jérémy Perret attribution and the repository's stated distinction
   between code licensing and the reference design.
@@ -478,7 +478,7 @@ What this requires, against the code as it stands:
   `http://127.0.0.1:${SERVER_PORT}` unconditionally. It must load a configured
   workspace address instead when the person chose cloud, and pair that client so
   the session is authorised.
-- `OMB_LOOPBACK_TRUST=service` belongs to cloud mode's server, not to local mode.
+- `COLONIE_LOOPBACK_TRUST=service` belongs to cloud mode's server, not to local mode.
 
 ### Execution stays on ACP
 
@@ -500,7 +500,7 @@ implies no execution change.
   holder, and the team does not need its features. `server/enterprise.ts` stays as
   the hook point and reports the open-source edition. Multiple workspaces and the
   workspace spend cap live in that folder and become owned work if wanted later.
-- `OMB_LOOPBACK_TRUST=service` is required on any server more than one person
+- `COLONIE_LOOPBACK_TRUST=service` is required on any server more than one person
   reaches. The self-hosted default trusts every loopback caller as the owner, and
   every bot shell is a loopback caller, so a member could otherwise drive a bot
   into changing settings, keys, MCP servers or webhooks. The setting lives in
@@ -560,7 +560,7 @@ on its own.
 
 ### Evidence discipline for inherited documentation
 
-Inherited `docs/` pages describe OpenMausBot's product decisions and its runtime,
+Inherited `docs/` pages describe Colonie's product decisions and its runtime,
 not this fork's. Source presence and documentation presence are both separate from
 runtime support here. Any claim taken from inherited documentation is marked as
 unverified until it is re-checked against this fork, and must not enter a plan on

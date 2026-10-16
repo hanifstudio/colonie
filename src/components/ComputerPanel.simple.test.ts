@@ -14,7 +14,7 @@ const fixture = vi.hoisted(() => {
   const ogb: Record<string, unknown> = {};
   vi.stubGlobal("window", { ogb });
   vi.stubGlobal("document", { visibilityState: "visible" });
-  vi.stubGlobal("localStorage", { getItem: (key: string) => key.startsWith("omb-computer-panel-view") ? view.current : null, setItem: () => {} });
+  vi.stubGlobal("localStorage", { getItem: (key: string) => key.startsWith("colonie-computer-panel-view") ? view.current : null, setItem: () => {} });
   return {
     advanced: false,
     view,

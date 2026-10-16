@@ -106,7 +106,7 @@ export function openPlaceAction(
     case "change-routine": dispatch({ type: "toggleSettings", open: true, section: "routines", botId: target.botId }); return true;
     case "sign-in": appSettings("engines"); return true;
     case "open-vm-settings":
-      window.sessionStorage?.setItem("openmausbot.settings.section", "computer");
+      window.sessionStorage?.setItem("colonie.settings.section", "computer");
       appSettings("computer");
       return true;
     case "clear-pin":

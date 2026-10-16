@@ -32,13 +32,13 @@ export function daysMs(value: string | undefined, fallbackDays: number): number 
 /** How long a session lives after its last renewal. A session used with half
  * the term or less left is renewed for the full term again (see `renew`), so
  * a device in regular use keeps working; one that goes quiet lapses.
- * OMB_SESSION_TTL_DAYS overrides the 30-day default. */
-export const SESSION_TTL_MS = daysMs(process.env.OMB_SESSION_TTL_DAYS, 30);
+ * COLONIE_SESSION_TTL_DAYS overrides the 30-day default. */
+export const SESSION_TTL_MS = daysMs(process.env.COLONIE_SESSION_TTL_DAYS, 30);
 /** The most a session may live from the day it was paired, however often it
  * is used. Renewal never pushes a session past this, so a stolen cookie has a
- * bounded life and every device re-pairs occasionally. OMB_SESSION_MAX_DAYS
+ * bounded life and every device re-pairs occasionally. COLONIE_SESSION_MAX_DAYS
  * overrides the 180-day default. */
-export const SESSION_MAX_AGE_MS = daysMs(process.env.OMB_SESSION_MAX_DAYS, 180);
+export const SESSION_MAX_AGE_MS = daysMs(process.env.COLONIE_SESSION_MAX_DAYS, 180);
 /** Renewal is due once half the term or less is left. */
 export const SESSION_RENEW_WHEN_LEFT_MS = SESSION_TTL_MS / 2;
 
@@ -80,7 +80,7 @@ const sessionSchema = z.object({
   membershipAuthority: z.literal("portal").optional(),
   /** A browser sign-in (PairingCode `browser`): accepted only as its browser's cookie, never as a bearer token. */
   cookieOnly: z.literal(true).optional(),
-  /** Whose OMB Cloud a browser sign-in signed in to (its PairingCode `owner`). */
+  /** Whose COLONIE Cloud a browser sign-in signed in to (its PairingCode `owner`). */
   owner: z.string().max(254).optional(),
 });
 
@@ -98,7 +98,7 @@ export interface PublicSession {
   expiresAt: number;
   /** The account that signed in, when it was an account and not a code. */
   email?: string;
-  /** Whose OMB Cloud a browser sign-in signed in to. */
+  /** Whose COLONIE Cloud a browser sign-in signed in to. */
   owner?: string;
 }
 
@@ -112,11 +112,11 @@ export interface PairingCode {
   label: string;
   createdAt: number;
   expiresAt: number;
-  /** A browser sign-in (an OMB Cloud page's "Use in your browser"): only a
+  /** A browser sign-in (an COLONIE Cloud page's "Use in your browser"): only a
    * browser sign-in redeems it, only by its credential, and a browser sign-in
    * redeems no other window. */
   browser?: true;
-  /** A browser sign-in's owner, the OMB Cloud account's email, which the
+  /** A browser sign-in's owner, the COLONIE Cloud account's email, which the
    * sign-in page shows before anything is redeemed. */
   owner?: string;
 }
@@ -226,7 +226,7 @@ export class SessionRegistry {
   private readonly options: SessionStoreOptions;
   private readonly openMarker: string;
   private closed = false;
-  /** Set on an OMB Cloud home (requireAdmin): only admin scope, anywhere. */
+  /** Set on an COLONIE Cloud home (requireAdmin): only admin scope, anywhere. */
   private adminOnly: string | null = null;
 
   // No parameter properties: the server runs this file under Node's
@@ -326,7 +326,7 @@ export class SessionRegistry {
   }
 
   /** From now on no pairing window, sign-in or session without admin scope
-   * is opened, redeemed, issued or accepted; `refusal` says why (an OMB
+   * is opened, redeemed, issued or accepted; `refusal` says why (an COLONIE
    * Cloud home is personal: server/cloud-owner.ts). Sessions stored without
    * it stop authenticating; the caller revokes them. */
   requireAdmin(refusal: string): void {

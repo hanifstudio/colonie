@@ -41,10 +41,10 @@ import { buildSystemPrompt } from "./system-prompt.ts";
 import { workspaceDir } from "./workspace.ts";
 
 // skills.ts resolves storage through workspaceDir(botId) → DATA_DIR, which
-// reads OMB_DATA_DIR at import time — so point the suite at a scratch dir
+// reads COLONIE_DATA_DIR at import time — so point the suite at a scratch dir
 // via vitest's per-file process env before importing. Simpler: use a unique
 // botId per test; workspaces land under the real DATA_DIR's scratch when
-// OMB_DATA_DIR is set by the harness. Here we isolate by botId.
+// COLONIE_DATA_DIR is set by the harness. Here we isolate by botId.
 const SKILL = (name: string, description = "Reviews a PR the way this team reviews PRs.") =>
   `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n\nDo the thing.\n`;
 
@@ -62,8 +62,8 @@ let scratch: string;
 let bot: string;
 
 beforeEach(() => {
-  scratch = mkdtempSync(join(tmpdir(), "omb-skills-"));
-  process.env.OMB_TEST_UNUSED = scratch; // keep cleanup symmetrical
+  scratch = mkdtempSync(join(tmpdir(), "colonie-skills-"));
+  process.env.COLONIE_TEST_UNUSED = scratch; // keep cleanup symmetrical
   bot = `test-bot-${Math.random().toString(36).slice(2, 10)}`;
 });
 

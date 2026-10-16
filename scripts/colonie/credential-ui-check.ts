@@ -1,19 +1,19 @@
 /** Targeted credential UI check: synthetic key, loopback Composio, no model turns. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { launchVerificationServer } from "../control-omb.ts";
+import { launchVerificationServer } from "../control-colonie.ts";
 import { mountPreview } from "../testing/preview-fixture.ts";
 import { fakeComposio } from "../../server/colonie/connections/testing/fake-composio.ts";
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const service = await fakeComposio();
 const browser = await chromium.launch({ headless: true });
 const result: Record<string, unknown> = { simulatedComposio: true, realProviderRequests: 0, modelTurns: 0 };
 try {
   for (const external of [false, true]) {
-    const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"], undefined, service.origin, external);
+    const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"], undefined, service.origin, external);
     const preview = await mountPreview(fixture, { entry: "/scripts/testing/threads-preview.tsx", route: "/__credential.html", title: "Colonie credential UI verification", logLevel: "warn" });
     const page = await browser.newPage({ viewport: { width: 1400, height: 950 } });
     const api = async (method: string, path: string, body?: unknown) => {

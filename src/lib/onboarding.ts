@@ -12,7 +12,7 @@ export interface OnboardingStatus {
   version: number;
   reelSeen: boolean;
   hintsSeen: string[];
-  /** OMB Cloud home only: when a bot's turn first finished there. The
+  /** COLONIE Cloud home only: when a bot's turn first finished there. The
    * server writes it. */
   firstTurnAt?: string;
 }
@@ -35,7 +35,7 @@ export interface WelcomeViewer {
   /** This session may write the workspace config. Finishing the welcome
    * flow is such a write, and `PUT /api/config` is admin-only. */
   canSave: boolean;
-  /** An OMB Cloud home (docs/cloud-pro.md): its first run is the engine
+  /** An COLONIE Cloud home (docs/cloud-pro.md): its first run is the engine
    * sign-in, not the welcome flow, which describes the person's computer. */
   cloudHome?: boolean;
 }

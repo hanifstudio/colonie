@@ -711,7 +711,7 @@ export interface ConfigStatus {
   browserEngine?: BrowserEngineSummary;
   /** Named browser sessions any bot can be pointed at. */
   browserProfiles?: BrowserProfile[];
-  /** This server is an OMB Cloud home: it offers no "this computer" and no
+  /** This server is an COLONIE Cloud home: it offers no "this computer" and no
    * Local VM. Absent everywhere else. */
   cloudHome?: boolean;
 }

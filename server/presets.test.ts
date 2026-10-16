@@ -15,7 +15,7 @@ let home: string;
 /** A real Store, skill store and memory in a throwaway home, the importer,
  * and a preset store on a file in that home. */
 async function installation() {
-  home = mkdtempSync(join(tmpdir(), "omb-presets-"));
+  home = mkdtempSync(join(tmpdir(), "colonie-presets-"));
   vi.resetModules();
   vi.stubEnv("HOME", home);
   vi.stubEnv("USERPROFILE", home);

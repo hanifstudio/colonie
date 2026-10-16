@@ -6,10 +6,10 @@
 // together when a local-only app has no second server to be started for.
 // Every launcher in this repo honours it through one restartPolicy:
 //
-//   - `openmausbot serve` (cli.ts serveUntilStopped), which systemd, launchd,
+//   - `colonie serve` (cli.ts serveUntilStopped), which systemd, launchd,
 //     fleet and a terminal all run;
 //   - the container image's launcher (server-launcher.ts);
-//   - the OMB Cloud home's launcher (cloud-home-start.ts);
+//   - the COLONIE Cloud home's launcher (cloud-home-start.ts);
 //   - the desktop app's supervisor, which starts its server again after any
 //     exit (electron/server-supervisor.mjs).
 //

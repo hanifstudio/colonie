@@ -7,22 +7,22 @@ import assert from "node:assert/strict";
 
 if (!process.argv.includes("--real")) throw new Error("Pass --real for the bounded real-provider memory check.");
 const root = mkdtempSync(join(tmpdir(), "colonie-memory-real-"));
-process.env.OMB_DATA_DIR = join(root, "data");
+process.env.COLONIE_DATA_DIR = join(root, "data");
 const cwd = join(root, "workspace");
 mkdirSync(cwd);
-const { ClaudeAcpDriver } = await import("../../server/devone/claude-acp.ts");
-const { CodexAcpDriver } = await import("../../server/devone/codex-acp.ts");
-const { AcpRuntime } = await import("../../server/devone/acp-runtime.ts");
+const { ClaudeAcpDriver } = await import("../../server/acp/claude-acp.ts");
+const { CodexAcpDriver } = await import("../../server/acp/codex-acp.ts");
+const { AcpRuntime } = await import("../../server/acp/acp-runtime.ts");
 const { ColonieMemoryStore } = await import("../../server/colonie/memory/store.ts");
 const { ColonieMemoryService } = await import("../../server/colonie/memory/service.ts");
-const { contextCandidate } = await import("../../server/devone/context.ts");
-const { inputReceipts } = await import("../../server/devone/receipts.ts");
+const { contextCandidate } = await import("../../server/acp/context.ts");
+const { inputReceipts } = await import("../../server/acp/receipts.ts");
 const driver = process.argv.includes("--claude") ? ClaudeAcpDriver : CodexAcpDriver;
 const instance = await driver.create({ instanceId: driver.driverKind, displayName: "Memory verification", enabled: true,
   environment: {}, config: driver.defaultConfig() });
 const adapter = instance.adapter as InstanceType<typeof AcpRuntime>;
 const profile = { id: "memory-verifier", name: "Memory verifier", title: "", description: "", soul: "" };
-const store = new ColonieMemoryStore(process.env.OMB_DATA_DIR!);
+const store = new ColonieMemoryStore(process.env.COLONIE_DATA_DIR!);
 let analysisCount = 0;
 const service = new ColonieMemoryService(store, { bot: (id) => id === profile.id ? profile : undefined,
   owns: (id, thread) => id === profile.id && thread.startsWith("memory-real-"),
@@ -98,7 +98,7 @@ try {
 } finally {
   await service.stop();
   await instance.dispose();
-  const evidence = resolve(".devone/evidence");
+  const evidence = resolve(".colonie-dev/evidence");
   mkdirSync(evidence, { recursive: true });
   const output = join(evidence, `${driver.driverKind}-memory-real-check.json`);
   writeFileSync(output, JSON.stringify(result, null, 2), { mode: 0o600 });

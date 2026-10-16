@@ -611,7 +611,7 @@
   "settings.experimental.error": "Não foi possível salvar a preferência do recurso experimental.",
   "settings.experimental.browser": "Navegador integrado",
   "settings.experimental.browserOff": "Desligado por padrão. Ative para que bots compatíveis usem uma aba de navegador que você pode acompanhar e assumir.",
-  "settings.experimental.browserWindows": "Ainda não disponível nesta máquina Windows: instale o motor do navegador com `openmausbot browser install`.",
+  "settings.experimental.browserWindows": "Ainda não disponível nesta máquina Windows: instale o motor do navegador com `colonie browser install`.",
   "settings.experimental.browserAria": "Ativar o navegador integrado",
   "browser.noEngine": "Este servidor não tem motor de navegador.",
   "settings.profiles.title": "Perfis de navegador",

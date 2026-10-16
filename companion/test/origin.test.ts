@@ -20,21 +20,21 @@ describe("private managed origin", () => {
     expect(companionOriginSocket("127.0.0.1:8810")).toBeNull();
     expect(companionOriginSocket("/tmp/origin.sock", "linux")).toBeNull();
     expect(
-      companionOriginSocket("/tmp/omb-companion-origin-test/origin.sock", "linux"),
-    ).toBe("/tmp/omb-companion-origin-test/origin.sock");
+      companionOriginSocket("/tmp/colonie-companion-origin-test/origin.sock", "linux"),
+    ).toBe("/tmp/colonie-companion-origin-test/origin.sock");
     expect(
       companionOriginSocket(
-        "\\\\.\\pipe\\openmausbot-companion-origin-42-12345678-1234-1234-1234-123456789abc",
+        "\\\\.\\pipe\\colonie-companion-origin-42-12345678-1234-1234-1234-123456789abc",
         "win32",
       ),
-    ).toContain("openmausbot-companion-origin-42");
+    ).toContain("colonie-companion-origin-42");
     expect(companionOriginSocket("\\\\.\\pipe\\foreign", "win32")).toBeNull();
   });
 
   it.runIf(process.platform !== "win32")(
     "binds a private socket that serves the same HTTP handler",
     async () => {
-      const directory = fs.mkdtempSync(path.join(os.tmpdir(), "omb-companion-origin-test-"));
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), "colonie-companion-origin-test-"));
       directories.push(directory);
       fs.chmodSync(directory, 0o700);
       const socketPath = path.join(directory, "origin.sock");
@@ -62,7 +62,7 @@ describe("private managed origin", () => {
   it.runIf(process.platform !== "win32")(
     "rejects and closes the socket when its permissions cannot be restricted",
     async () => {
-      const directory = fs.mkdtempSync(path.join(os.tmpdir(), "omb-companion-origin-test-"));
+      const directory = fs.mkdtempSync(path.join(os.tmpdir(), "colonie-companion-origin-test-"));
       directories.push(directory);
       fs.chmodSync(directory, 0o700);
       const socketPath = path.join(directory, "origin.sock");

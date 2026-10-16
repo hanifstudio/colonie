@@ -1,7 +1,7 @@
 // Per-turn MCP entry point for the tools the harness serves itself: the
 // built-in browser and the cloud computer. argv[2] names which one. Only a
 // turn-scoped capability crosses into the agent process; engine commands,
-// session names, and provider credentials (the Boat token) stay in OMB.
+// session names, and provider credentials (the Boat token) stay in COLONIE.
 import { pathToFileURL } from "node:url";
 
 const MAX_INPUT_BYTES = 1_048_576;
@@ -57,7 +57,7 @@ export async function harnessMcpRequest(
   const name = NAMES[connection.kind];
   if (message.method === "initialize") return {
     jsonrpc: "2.0", id,
-    result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: `openmausbot-${connection.kind}`, version: "1" } },
+    result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: `colonie-${connection.kind}`, version: "1" } },
   };
   if (message.method === "ping") return { jsonrpc: "2.0", id, result: {} };
   if (message.method !== "tools/list" && message.method !== "tools/call") return failure(id, message.method, "Method not found.", -32601);
@@ -86,7 +86,7 @@ export async function harnessMcpRequest(
 }
 
 function run(kind: HarnessMcpKind): void {
-  const connection = { url: process.env.OMB_HARNESS_URL ?? "", token: process.env.OMB_MCP_TOKEN ?? "", kind };
+  const connection = { url: process.env.COLONIE_HARNESS_URL ?? "", token: process.env.COLONIE_MCP_TOKEN ?? "", kind };
   let input = Buffer.alloc(0);
   let pending = 0;
   const output = (message: unknown) => {

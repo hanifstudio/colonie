@@ -277,7 +277,7 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
  * (server/request-auth.ts) or, for a standalone harness, from loopback.
  *
  * `POST /api/live/device-revoked`: a phone was just unpaired (the device id
- * rides in `x-openmausbot-companion-device`), so the harness ends the Live
+ * rides in `x-colonie-companion-device`), so the harness ends the Live
  * call that phone holds. A phone's requests reach the harness as this
  * computer's own, so nothing else would tell it the phone lost its access. */
 const COMPANION_NOTICES: ReadonlyArray<{ method: string; path: RegExp }> = [

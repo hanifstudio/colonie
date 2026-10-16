@@ -7,12 +7,12 @@
 // permission-proxy). All state comes from env, injected by the harness when
 // it builds the integration (catalogProfileFromEnv and
 // toolCallContextFromEnv read it). The main ones:
-//   OMB_HARNESS_URL  base URL of the harness (http://127.0.0.1:8799)
-//   OMB_BOT_ID       the calling bot's id (excluded from list_bots; sender)
-//   OMB_COMMS_TOKEN  shared secret for the localhost-only internal endpoints
-//   OMB_TURN_DEPTH   this turn's comms depth (the harness refuses recursion)
-//   OMB_EXTERNAL_RUNTIME  "1" for a standing process: peer tools and polling only
-//   OMB_CHIEF_OF_STAFF    "1" for a Chief of Staff, the only bot shown the Chief-only tools
+//   COLONIE_HARNESS_URL  base URL of the harness (http://127.0.0.1:8799)
+//   COLONIE_BOT_ID       the calling bot's id (excluded from list_bots; sender)
+//   COLONIE_COMMS_TOKEN  shared secret for the localhost-only internal endpoints
+//   COLONIE_TURN_DEPTH   this turn's comms depth (the harness refuses recursion)
+//   COLONIE_EXTERNAL_RUNTIME  "1" for a standing process: peer tools and polling only
+//   COLONIE_CHIEF_OF_STAFF    "1" for a Chief of Staff, the only bot shown the Chief-only tools
 //
 // This file is the stdio front end only. What the tools are and which a turn
 // sees: agents-catalog.ts. What a call does: agents-call.ts. How the harness
@@ -46,7 +46,7 @@ async function handle(msg: Json) {
       ok(id, {
         protocolVersion: (params.protocolVersion as string) ?? "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "openmausbot-agents", version: "0.1.0" },
+        serverInfo: { name: "colonie-agents", version: "0.1.0" },
       });
       return;
     case "notifications/initialized":

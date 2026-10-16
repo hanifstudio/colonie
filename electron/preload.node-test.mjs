@@ -52,7 +52,7 @@ test("exposes the full local-shell bridge on window.ogb", () => {
   assert.equal(exposed.name, "ogb");
   assert.equal(typeof exposed.api, "object");
   // The settings channel is local-shell only, so it exists on the bridge
-  // exactly when the page is local (no --omb-local-origin in argv here).
+  // exactly when the page is local (no --colonie-local-origin in argv here).
   assert.equal(typeof exposed.api.onOpenAppSettings, "function");
 });
 

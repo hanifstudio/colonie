@@ -134,7 +134,7 @@ function httpsOrigin(value: string | null | undefined): string | null {
  * callback. `browserOrigin` is the origin that browser proved it is using
  * (its Origin header, equal to the request's own origin); `configured` are
  * this server's public addresses (a Cloud home's, a hosted workspace's, a
- * connected domain, OMB_PUBLIC_URL). The browser's own origin wins when it
+ * connected domain, COLONIE_PUBLIC_URL). The browser's own origin wins when it
  * is one of them or none is set; otherwise the first configured one does,
  * never a Host header nobody vouched for. */
 export function mcpCallbackOrigin(browserOrigin: string | null, configured: ReadonlyArray<string | null | undefined>): string | null {
@@ -429,7 +429,7 @@ export class McpOAuthManager {
       const response = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "OpenMausBot", version: "1" } } }),
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Colonie", version: "1" } } }),
         redirect: "error",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
@@ -451,7 +451,7 @@ export class McpOAuthManager {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({
-        client_name: "OpenMausBot",
+        client_name: "Colonie",
         redirect_uris: [redirectUri],
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],

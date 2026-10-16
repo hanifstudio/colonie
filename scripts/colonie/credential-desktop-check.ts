@@ -16,13 +16,13 @@ const port = await freePortBlock([0, 1]);
 writeFileSync(join(data, "config.json"), JSON.stringify({ language: "en", onboarding: { completedAt: new Date().toISOString(), version: 1, hintsSeen: ["tour.composer", "tour.model", "tour.computer", "tour.computer-browser", "tour.tools", "tour.apps", "tour.apps-panel", "tour.automations", "tour.automations-page", "tour.done"] },
   defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" },
   ...(migration ? { composio: { apiKey: service.key } } : {}),
-  instances: { "codex-acp": { driver: "codex-acp", config: { cli: process.execPath, args: [resolve("server/devone/testing/fake-agent.ts")] }, environment: { DEVONE_FAKE_STATE: join(root, "fake.json") } } } }), { mode: 0o600 });
+  instances: { "codex-acp": { driver: "codex-acp", config: { cli: process.execPath, args: [resolve("server/acp/testing/fake-agent.ts")] }, environment: { COLONIE_FAKE_STATE: join(root, "fake.json") } } } }), { mode: 0o600 });
 // HOME is inherited solely for the OS Keychain; all app credentials/data are new fixture files.
-const env = { ...process.env, OMB_DATA_DIR: data, COLONIE_USER_DATA: profile, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-  OMB_COMPOSIO_API: `${service.origin}/api/v3.1`, OMB_COMPOSIO_TOOLKITS_API: `${service.origin}/api/v3` };
+const env = { ...process.env, COLONIE_DATA_DIR: data, COLONIE_USER_DATA: profile, COLONIE_PORT: String(port), COLONIE_WEBHOOK_PORT: String(port + 1),
+  COLONIE_COMPOSIO_API: `${service.origin}/api/v3.1`, COLONIE_COMPOSIO_TOOLKITS_API: `${service.origin}/api/v3` };
   delete env.COMPOSIO_API_KEY; delete env.COLONIE_COMPOSIO_CREDENTIAL_SOURCE; delete env.COLONIE_COMPOSIO_CREDENTIAL_ORIGIN; delete env.ELECTRON_RUN_AS_NODE; delete env.ELECTRON_START_URL;
-delete env.OMB_COMPOSIO_BROKER_URL; delete env.OMB_COMPOSIO_BROKER_TOKEN;
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+delete env.COLONIE_COMPOSIO_BROKER_URL; delete env.COLONIE_COMPOSIO_BROKER_TOKEN;
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const result: Record<string, unknown> = { syntheticOnly: true, isolatedDataAndProfile: true, setup: migration ? "existing workspace key migration" : "normal user key entry", keychainHome: "inherited OS context", realProviderRequests: 0, modelTurns: 0 };
 let app: ElectronApplication | undefined; let page: Page | undefined;
 async function close() {

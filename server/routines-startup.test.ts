@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie } from "../scripts/control-colonie.ts";
 import { RoutineManager, type RoutineRun } from "./routines.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
@@ -31,7 +31,7 @@ it("recovers queued/due work without resurrecting an interrupted routine after r
     const reusedBot = (await api("POST", "/api/bots", { name: "Reused routine conversation" })).bot;
     const reusedPeer = (await api("POST", "/api/bots", { name: "New user handoff peer" })).bot;
     await api("POST", `/api/bots/${reusedBot.id}/messages`, { text: "A later user request that owns its own pending handoff." });
-    await runControlOmb(["wait", "--bot", reusedBot.id, "--task", reusedBot.threadId, "--url", url]);
+    await runControlColonie(["wait", "--bot", reusedBot.id, "--task", reusedBot.threadId, "--url", url]);
     const scheduled = (await api("POST", "/api/routines", {
       name: "Due at startup", prompt: "Report after the restart", botId: scheduledBot.id,
       schedule: { type: "once", at: Date.now() + 60 * 60_000 },
@@ -96,12 +96,12 @@ it("recovers queued/due work without resurrecting an interrupted routine after r
       if (process.env[key]) env[key] = process.env[key];
     }
     Object.assign(env, {
-      HOME: dataDir, USERPROFILE: dataDir, OMB_DATA_DIR: dataDir,
+      HOME: dataDir, USERPROFILE: dataDir, COLONIE_DATA_DIR: dataDir,
       APPDATA: join(dataDir, "AppData", "Roaming"), LOCALAPPDATA: join(dataDir, "AppData", "Local"),
       XDG_CONFIG_HOME: join(dataDir, ".config"), XDG_CACHE_HOME: join(dataDir, ".cache"),
       XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
       TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
-      OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
+      COLONIE_PORT: new URL(url).port, COLONIE_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
       PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy",
     });
     const log = openSync(logPath, "a", 0o600);
@@ -144,8 +144,8 @@ it("recovers queued/due work without resurrecting an interrupted routine after r
       { timeout: 10_000 },
     ).toEqual({});
     const scheduledRun = runs.find((run) => run.routineId === scheduled.id)!;
-    const wait = await runControlOmb(["wait", "--bot", scheduledBot.id, "--task", scheduledRun.threadId!, "--url", url]);
-    const messages = await runControlOmb(["messages", "--bot", scheduledBot.id, "--task", scheduledRun.threadId!, "--url", url]);
+    const wait = await runControlColonie(["wait", "--bot", scheduledBot.id, "--task", scheduledRun.threadId!, "--url", url]);
+    const messages = await runControlColonie(["messages", "--bot", scheduledBot.id, "--task", scheduledRun.threadId!, "--url", url]);
     expect(wait).toMatchObject({ status: "settled" });
     const evidence = { fixture: fixture.info, restartPid: restarted.pid, runs, wait, messages };
     writeFileSync(`${logPath}.routines-restart.json`, JSON.stringify(evidence, null, 2));

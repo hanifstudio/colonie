@@ -15,7 +15,7 @@ pnpm test:packaged-server
 ```
 
 The API fixture launches the shared isolated server and fake engine. It uses
-`control-omb` for create, send, wait, edit and Stop. Its new manual operation is
+`control-colonie` for create, send, wait, edit and Stop. Its new manual operation is
 `POST /api/bots/:id/compact` with `{ "threadId": "owned-thread-id" }`; this uses
 normal turn admission, returns 202, and completes through that thread's ordinary
 busy/idle state. The route accepts no agent-written summary or file path.

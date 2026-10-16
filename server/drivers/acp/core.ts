@@ -9,8 +9,8 @@
 // (initialize, authenticate) and the native session are established once,
 // and later turns prompt the live session directly instead of paying the
 // full handshake per message. The pool mirrors the Claude driver: a session
-// closes after OMB_ACP_SESSION_IDLE_MS of quiet (default 10 minutes, floored
-// by OMB_ACP_SESSION_IDLE_MIN_MS default 10s), when the spawn contract
+// closes after COLONIE_ACP_SESSION_IDLE_MS of quiet (default 10 minutes, floored
+// by COLONIE_ACP_SESSION_IDLE_MIN_MS default 10s), when the spawn contract
 // changes, when the child crashes, when an interrupt's cancel goes
 // unanswered, and on stopAll/dispose. A resume cursor left by an earlier
 // session resumes through session/load|resume when the process had to
@@ -918,8 +918,8 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
        *  agent's own log also restart the prompt's idle deadline, so a
        *  turn that is visibly retrying is never stopped as stuck. */
       const startQuietWatch = (threadId: string, session: AcpSession, current: AcpTurn) => {
-        const noticeAfterMs = envOr("OMB_ACP_QUIET_NOTICE_MS", 60_000);
-        const tickMs = envOr("OMB_ACP_QUIET_TICK_MS", 15_000);
+        const noticeAfterMs = envOr("COLONIE_ACP_QUIET_NOTICE_MS", 60_000);
+        const tickMs = envOr("COLONIE_ACP_QUIET_TICK_MS", 15_000);
         const logPath = support.statusLog && session.sessionId
           ? support.statusLog.path(session.env, session.sessionId)
           : null;
@@ -1824,7 +1824,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
                   "initialize",
                   {
                     protocolVersion: 1,
-                    clientInfo: { name: "openmausbot", version: "0.0.0" },
+                    clientInfo: { name: "colonie", version: "0.0.0" },
                     clientCapabilities: {
                       fs: {
                         readTextFile: support.clientFileSystem === true,

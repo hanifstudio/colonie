@@ -44,8 +44,8 @@ const DEVICE_ID = /^[\w-]{1,128}$/;
  * chose); in the desktop app the harness has already checked the companion's
  * private token before this runs (server/request-auth.ts). */
 function companionDevice(req: IncomingMessage): string | undefined {
-  if (req.headers["x-openmausbot-companion"] !== "1") return undefined;
-  const device = req.headers["x-openmausbot-companion-device"];
+  if (req.headers["x-colonie-companion"] !== "1") return undefined;
+  const device = req.headers["x-colonie-companion-device"];
   return typeof device === "string" && DEVICE_ID.test(device) ? device : undefined;
 }
 
@@ -93,7 +93,7 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
 
     // The companion unpaired a phone: end the call that phone holds, if any.
     if (method === "POST" && path === "/api/live/device-revoked") {
-      if (req.headers["x-openmausbot-companion"] !== "1") return json(res, 403, { error: "Only the phone companion can report an unpaired phone." });
+      if (req.headers["x-colonie-companion"] !== "1") return json(res, 403, { error: "Only the phone companion can report an unpaired phone." });
       const device = companionDevice(req);
       if (!device) return json(res, 400, { error: "The unpaired phone was not named." });
       return json(res, 200, { call: deps.calls.deviceRevoked(device) });

@@ -7,7 +7,7 @@ import { chmodSync, existsSync, readFileSync, mkdirSync, rmSync, statSync, unlin
 import { join } from "node:path";
 
 import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
-import { devoneProfile } from "./devone/profile.ts";
+import { colonieProfile } from "./acp/profile.ts";
 import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import { ensureSections, readSections, changeEmptySection } from "./section-context.ts";
 import type { TeamComputers } from "./team-computers.ts";
@@ -1833,7 +1833,7 @@ export class Store {
       this.appendMessage(bot.threadId, {
         role: "bot",
         kind: "text",
-        text: devoneProfile() ? "Hi! What would you like help with?" : `Hi, I'm ${name}. What would you like me to do?`,
+        text: colonieProfile() ? "Hi! What would you like help with?" : `Hi, I'm ${name}. What would you like me to do?`,
       });
     }
     return bot;
@@ -2900,8 +2900,8 @@ export class Store {
    * random friendly name like every other bot. */
   seedIfEmpty() {
     if (!this.needsSeed()) return;
-    const bot = this.createBot(devoneProfile() ? { name: "Codex", color: "purple" } : {});
-    if (devoneProfile()) {
+    const bot = this.createBot(colonieProfile() ? { name: "Codex", color: "purple" } : {});
+    if (colonieProfile()) {
       this.patchBot(bot.id, { computer: "off" });
       // Colonie's first bot is the workspace Chief by default.
       this.setChiefOfStaff(bot.id);
@@ -2913,7 +2913,7 @@ export class Store {
    * existing bot instead of starting with none. The section-scoped store
    * shape plus Colonie's single empty section already means "one Chief". */
   ensureWorkspaceChief() {
-    if (!devoneProfile()) return;
+    if (!colonieProfile()) return;
     if (this.bots.some((bot) => bot.chiefOfStaff)) return;
     const candidates = this.bots.filter((bot) => !bot.hidden);
     if (!candidates.length) return;

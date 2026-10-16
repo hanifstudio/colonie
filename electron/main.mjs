@@ -92,7 +92,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 127.0.0.1 explicitly — vite binds IPv4; a bare "localhost" here can
 // resolve to ::1 and paint a black window
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
-let SERVER_PORT = Number(process.env.OMB_PORT) || 8799;
+let SERVER_PORT = Number(process.env.COLONIE_PORT) || 8799;
 const APP_ICON = path.join(__dirname, process.env.COLONIE_PROFILE === "1" ? "resources/colonie-icon.png" : "resources/app-icon.png");
 let desktopViewerWindow = null;
 let desktopViewerOwner = null;
@@ -187,7 +187,7 @@ function applyUnreadBadge(win = mainWindow) {
 // intercepting input. This app is not graphics-heavy, so reliability wins.
 if (process.platform === "linux") {
   app.disableHardwareAcceleration();
-  app.setDesktopName("com.openmausbot.app.desktop");
+  app.setDesktopName("com.colonie.app.desktop");
 }
 
 // One instance per user: without this lock a second launch forks a second
@@ -304,9 +304,9 @@ const serverSupervisor = createServerSupervisor({
 function desktopDataDir() {
   // Match the historical desktop fallback for an unset or empty override,
   // then pass this exact resolved path to the utility child. server/config.ts
-  // intentionally treats an empty OMB_DATA_DIR differently, so inheriting it
+  // intentionally treats an empty COLONIE_DATA_DIR differently, so inheriting it
   // without normalization would lease one directory and write another.
-  return process.env.OMB_DATA_DIR || path.join(app.getPath("home"), ".openmausbot");
+  return process.env.COLONIE_DATA_DIR || path.join(app.getPath("home"), ".colonie");
 }
 
 async function stopUtilityServer(proc, timeoutMs = UTILITY_SERVER_STOP_TIMEOUT_MS) {
@@ -932,7 +932,7 @@ function syncPhoneSecretKey(proc) {
 function syncDesktopMutationToken(proc) {
   try {
     proc.postMessage({
-      type: "openmausbot:desktop-mutation-token",
+      type: "colonie:desktop-mutation-token",
       token: desktopMutationToken,
       companionToken: companionMutationToken,
     });
@@ -994,18 +994,18 @@ async function startServerOn(port) {
     // server gets only a private capability that validates that same live
     // owner; fallback-port children must not race to replace the parent lease.
     ...desktopDataDirLease.utilityServerLeaseEnvironment(),
-    OMB_DATA_DIR: desktopDataDir(),
+    COLONIE_DATA_DIR: desktopDataDir(),
     // A packaged utility child must never fall back to a descriptor inherited
     // from the launching shell. It starts fail-closed until this exact main
     // process sends the private in-memory connection after spawn.
-    OMB_DESKTOP_PARENT: "1",
-    OMB_STATIC_DIR: path.join(process.resourcesPath, "ui"),
-    OMB_RESOURCES_PATH: process.resourcesPath,
-    OMB_SKILLS_DIR: path.join(process.resourcesPath, "skills"),
-    OMB_PORT: String(port),
+    COLONIE_DESKTOP_PARENT: "1",
+    COLONIE_STATIC_DIR: path.join(process.resourcesPath, "ui"),
+    COLONIE_RESOURCES_PATH: process.resourcesPath,
+    COLONIE_SKILLS_DIR: path.join(process.resourcesPath, "skills"),
+    COLONIE_PORT: String(port),
     // the server advertises this to remote clients so version skew is visible
-    OMB_APP_VERSION: app.getVersion(),
-    OMB_USER_DATA: app.getPath("userData"),
+    COLONIE_APP_VERSION: app.getVersion(),
+    COLONIE_USER_DATA: app.getPath("userData"),
     ...(secureCredentials.composioApiKey
       ? { COMPOSIO_API_KEY: secureCredentials.composioApiKey }
       : {}),
@@ -1015,18 +1015,18 @@ async function startServerOn(port) {
       ? secureCredentials.composioCredentialOrigin ?? "existing-device-store" : "environment",
     ...(composioMigrationPending ? { COLONIE_COMPOSIO_MIGRATION_PENDING: "1" } : {}),
     // "we could not read your keys" must not reach the UI as "you have none"
-    OMB_CREDENTIAL_STORE: credentialStoreUnavailable ? "unavailable" : "ok",
+    COLONIE_CREDENTIAL_STORE: credentialStoreUnavailable ? "unavailable" : "ok",
     // one env var per stored workspace secret (xai/box/voice/OpenCode Go);
     // the server prefers these over config.json, whose plaintext fields
     // the boot migration has deleted
     ...workspaceCredentialEnv(secureCredentials),
   };
-  delete childEnv.OMB_BROWSER_CONNECTION;
+  delete childEnv.COLONIE_BROWSER_CONNECTION;
   // Set here or not at all, never inherited from the launching shell. The
   // bootstrap removes it before the server runs, so nothing the server
   // spawns sees it.
-  delete childEnv.OMB_SERVER_COMPILE_CACHE;
-  if (compileCacheDir) childEnv.OMB_SERVER_COMPILE_CACHE = compileCacheDir;
+  delete childEnv.COLONIE_SERVER_COMPILE_CACHE;
+  if (compileCacheDir) childEnv.COLONIE_SERVER_COMPILE_CACHE = compileCacheDir;
   slog(`fork ${entry} port=${port}`);
   const proc = utilityProcess.fork(entry, [], {
     env: childEnv,
@@ -1102,7 +1102,7 @@ async function startServerPackaged() {
   // two passes: a quit-and-reopen relaunch can race the dying instance's
   // server during teardown — one settle-and-retry covers it
   let everyPortForeignOwned = true;
-  const requestedPort = Number(process.env.OMB_PORT);
+  const requestedPort = Number(process.env.COLONIE_PORT);
   const ports = process.env.COLONIE_PROFILE === "1" && Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort <= 65535
     ? [requestedPort] : [8799, 18799, 28799];
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -1246,7 +1246,7 @@ function openDesktopViewer(owner, rawUrl, rawTitle, contextId) {
       sandbox: true,
       // Keep provider cookies away from the app renderer and discard them on
       // app exit. The secret-bearing URL is sufficient to authenticate.
-      partition: "openmausbot-desktop-viewer",
+      partition: "colonie-desktop-viewer",
     },
   });
   desktopViewerWindow = viewer;
@@ -1331,7 +1331,7 @@ function ensureDesktopWorkspace(owner) {
   const manager = createDesktopWorkspaceManager({
     owner,
     createView: (options) => new WebContentsView(options),
-    partitionPrefix: `openmausbot-desktop-workspace-${randomUUID()}`,
+    partitionPrefix: `colonie-desktop-workspace-${randomUUID()}`,
     notify: (state) => {
       if (!owner.isDestroyed() && !owner.webContents.isDestroyed()) {
         owner.webContents.send("desktop-workspace:state", state);
@@ -1618,7 +1618,7 @@ function createWindow() {
       // renderer's remote-only feature gates. Keep the two facts independent:
       // upstream's origin boundary must not erase the client-mode marker.
       additionalArguments: [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
-        ...(app.isPackaged && !desktopRemoteAccess && process.env.DEVONE_PROFILE !== "1" ? ["--omb-company-desktop=1"] : [])],
+        ...(app.isPackaged && !desktopRemoteAccess && process.env.COLONIE_PROFILE !== "1" ? ["--colonie-company-desktop=1"] : [])],
     },
   });
   mainWindow = win;
@@ -1723,14 +1723,14 @@ function createWindow() {
   // Packaged CI smoke hook. It validates the real renderer/preload bridge and
   // same-origin embedded server, then follows the normal window-close path.
   // No debugging port or sandbox override is needed.
-  if (process.env.OMB_SMOKE_TEST === "1") {
+  if (process.env.COLONIE_SMOKE_TEST === "1") {
     win.webContents.once("did-finish-load", async () => {
       try {
         const result = await win.webContents.executeJavaScript(`
           (async () => {
             if (!window.ogb?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
             let crashPromise = null;
-            if (${JSON.stringify(process.env.OMB_SMOKE_CUA === "1")}) {
+            if (${JSON.stringify(process.env.COLONIE_SMOKE_CUA === "1")}) {
               crashPromise = new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
                   unsubscribe?.();
@@ -1786,7 +1786,7 @@ function createWindow() {
             `unexpected packaged renderer URL: ${result.location} (expected ${expectedLocation})`,
           );
         }
-        if (process.env.OMB_SMOKE_BUNDLED_CUA === "1") {
+        if (process.env.COLONIE_SMOKE_BUNDLED_CUA === "1") {
           const connection = await cuaReady;
           const expectedDriver = path.join(
             process.resourcesPath,
@@ -1824,7 +1824,7 @@ function createWindow() {
       } catch (error) {
         console.error(`[smoke] renderer-failed ${error?.stack ?? error}`);
       } finally {
-        if (process.env.OMB_SMOKE_KEEP_OPEN !== "1") win.close();
+        if (process.env.COLONIE_SMOKE_KEEP_OPEN !== "1") win.close();
       }
     });
   }
@@ -1945,7 +1945,7 @@ ipcMain.handle("desktop:export-diagnostics", localOnly("desktop:export-diagnosti
 // copy of the chat UI instead of the file. Ask where to put it and copy it
 // there instead: a save dialog tells the user the file landed somewhere and
 // where, which a silent copy into ~/Downloads does not. The path is
-// renderer-controlled, so it must resolve inside ~/.openmausbot and be a
+// renderer-controlled, so it must resolve inside ~/.colonie and be a
 // regular file — never a symlink escape or directory.
 ipcMain.handle("desktop:save-file", localOnly("desktop:save-file", async (event, rawPath) => {
   return withSavableFile(rawPath, { home: os.homedir() }, async ({ defaultName, copyTo }) => {
@@ -2439,7 +2439,7 @@ app.whenReady().then(async () => {
       // config.json. The parent retains ownership across utility-child port
       // fallbacks and restarts for the entire desktop process lifetime.
       desktopDataDirLease = acquireDataDirLease(desktopDataDir(), {
-        legacyDataDir: process.env.DEVONE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".opengrokbot"),
+        legacyDataDir: process.env.COLONIE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".opengrokbot"),
       });
     } catch (error) {
       dialog.showErrorBox(
@@ -2451,7 +2451,7 @@ app.whenReady().then(async () => {
     }
   }
   if (app.isPackaged) {
-    if (process.env.DEVONE_PROFILE !== "1") app.setAsDefaultProtocolClient("openmausbot");
+    if (process.env.COLONIE_PROFILE !== "1") app.setAsDefaultProtocolClient("colonie");
     // Chromium adds this capability below JavaScript, so renderer requests
     // can mutate the local harness while a Full-access shell using curl
     // cannot impersonate the person operating the desktop app.
@@ -2543,7 +2543,7 @@ app.whenReady().then(async () => {
   // connection descriptor on first render. Never blocks window creation on
   // failure — computer use degrades to "unavailable", the rest still works.
   cuaReady =
-    process.env.DEVONE_PROFILE !== "1" && !desktopRemoteAccess && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
+    process.env.COLONIE_PROFILE !== "1" && !desktopRemoteAccess && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
       ? startCua().catch((e) => {
           console.error("[cua] start failed:", e);
           return { mode: "unavailable", reason: String(e) };
@@ -2598,7 +2598,7 @@ app.whenReady().then(async () => {
   if (hostedAccount) void hostedAccount.restore().catch(() => {});
   // in-app auto-update (packaged only) — checks GitHub releases and downloads
   // by itself; only "Restart to update", the person's click, installs
-  if (process.env.DEVONE_PROFILE !== "1") startUpdater();
+  if (process.env.COLONIE_PROFILE !== "1") startUpdater();
   refreshApplicationMenu();
   app.on("activate", () => {
     if (desktopTray?.show()) return;

@@ -50,7 +50,7 @@ export interface QuestionRequestCardData {
   version: 1;
   questions: AskQuestion[];
   /** Where the ask came from: a real tool call ("tool", also the meaning
-   * of absent on cards saved before this field existed) or a block OMB
+   * of absent on cards saved before this field existed) or a block COLONIE
    * parsed out of model-authored output ("output", only on cards the removed
    * Computer engine left in older conversations). Only drives the
    * agent-composed badge; it never changes how a card is answered. */

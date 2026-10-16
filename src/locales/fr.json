@@ -604,7 +604,7 @@
   "settings.experimental.error": "Impossible d'enregistrer le réglage de la fonctionnalité expérimentale.",
   "settings.experimental.browser": "Navigateur intégré",
   "settings.experimental.browserOff": "Désactivé par défaut. Activez-le pour que les bots compatibles utilisent un onglet que vous pouvez suivre et reprendre.",
-  "settings.experimental.browserWindows": "Pas encore disponible sur cette machine Windows : installez le moteur du navigateur avec `openmausbot browser install`.",
+  "settings.experimental.browserWindows": "Pas encore disponible sur cette machine Windows : installez le moteur du navigateur avec `colonie browser install`.",
   "settings.experimental.browserAria": "Activer le navigateur intégré",
   "browser.noEngine": "Ce serveur n'a pas de moteur de navigateur.",
   "settings.profiles.title": "Profils de navigateur",

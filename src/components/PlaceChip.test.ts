@@ -127,7 +127,7 @@ describe("the places a conversation can be pinned to", () => {
     expect(availability()).toMatchObject({ vm: true, local: true });
   });
 
-  it("never reaches them on an OMB Cloud home", () => {
+  it("never reaches them on an COLONIE Cloud home", () => {
     fixture.config = { cloudHome: true };
     expect(availability()).toMatchObject({ vm: false, local: false });
   });

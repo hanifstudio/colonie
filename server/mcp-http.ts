@@ -59,7 +59,7 @@ export const REMOTE_MCP_STARTUP_MS = 30_000;
 /** The private environment record one remote-proxy mount reads its settings
  * from, when several mounts share one environment (Codex): only this name
  * reaches argv, never the address or a header value. */
-export const REMOTE_MCP_CONFIG_ENV = /^OMB_REMOTE_MCP_CONFIG_[a-f0-9]{64}$/;
+export const REMOTE_MCP_CONFIG_ENV = /^COLONIE_REMOTE_MCP_CONFIG_[a-f0-9]{64}$/;
 
 interface JsonRpcMessage {
   jsonrpc?: unknown;

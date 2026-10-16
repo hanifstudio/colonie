@@ -77,7 +77,7 @@ export function WelcomeGate({ viewer }: { viewer: WelcomeViewer | null }) {
     });
   // Explicit desktop connection Settings need no local provider onboarding.
   // Organisation remains optional; closing Settings resumes the normal tour.
-  // OMB Cloud steps it aside too, but only when the Cloud page's "Open in the
+  // COLONIE Cloud steps it aside too, but only when the Cloud page's "Open in the
   // app" link opened it; a normal visit there keeps the tour as before.
   if (state.appSettingsOpen && state.appSettingsSection === "organization") return null;
   if (!state.welcomeOpen && !due) return null;

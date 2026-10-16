@@ -16,9 +16,9 @@ import type { Store } from "./store.ts";
  */
 
 /** Resolve the handoff directory the same way the server resolves its data
- * dir (server/cli.ts): OMB_DATA_DIR wins, else ~/.openmausbot. */
+ * dir (server/cli.ts): COLONIE_DATA_DIR wins, else ~/.colonie. */
 export function handoffDir(): string {
-  return join(process.env.OMB_DATA_DIR || join(homedir(), ".openmausbot"), "handoffs");
+  return join(process.env.COLONIE_DATA_DIR || join(homedir(), ".colonie"), "handoffs");
 }
 
 export interface HandoffInput {

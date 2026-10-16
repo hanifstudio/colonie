@@ -7,7 +7,7 @@
 // up until Ctrl-C. The synthetic `docker` answers only inspection and the two
 // screenshot execs; each capture returns the captured desktop with another
 // character typed at its prompt, so a refresh is visible on the phone. It never reaches a real container runtime,
-// VM, or the user's OpenMausBot data.
+// VM, or the user's Colonie data.
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
-import { launchVerificationServer, type VerificationServer } from "./control-omb.ts";
+import { launchVerificationServer, type VerificationServer } from "./control-colonie.ts";
 import { fixtureApi } from "./testing/preview-fixture.ts";
 import { fakeVncDesktop } from "./testing/fake-vnc-desktop.ts";
 import { decodePng } from "./testing/png.ts";
@@ -106,7 +106,7 @@ async function waitFor(url: string, child: ChildProcess): Promise<void> {
   throw new Error(`${url} did not come up`);
 }
 
-const scratch = mkdtempSync(join(tmpdir(), "omb-ios-local-vm-"));
+const scratch = mkdtempSync(join(tmpdir(), "colonie-ios-local-vm-"));
 const bin = join(scratch, "bin");
 const frames = join(scratch, "frames");
 const fixtureTarget = join(scratch, "target.json");
@@ -142,7 +142,7 @@ try {
 const fs = require('node:fs');
 let args = process.argv.slice(2);
 if (args[0] === '-H') args = args.slice(2);
-const labels = ${JSON.stringify({ "com.openmausbot.local-vm": "1", "com.openmausbot.cua-driver": CUA_DRIVER_VERSION, "com.openmausbot.cua-base": BASE_IMAGE_DIGEST, "com.openmausbot.image-layer": IMAGE_LAYER_VERSION, "com.openmausbot.workspace": "1" })};
+const labels = ${JSON.stringify({ "com.colonie.local-vm": "1", "com.colonie.cua-driver": CUA_DRIVER_VERSION, "com.colonie.cua-base": BASE_IMAGE_DIGEST, "com.colonie.image-layer": IMAGE_LAYER_VERSION, "com.colonie.workspace": "1" })};
 const imageId = 'sha256:' + 'a'.repeat(64);
 const counter = ${JSON.stringify(join(scratch, "captures"))};
 const target = fs.existsSync(${JSON.stringify(fixtureTarget)}) ? JSON.parse(fs.readFileSync(${JSON.stringify(fixtureTarget)}, 'utf8')) : null;
@@ -156,12 +156,12 @@ else if (args[0] === 'exec') result = args.includes('--version') ? 'cua-driver $
   : args.includes('health_report') ? {schema_version:'1',overall:'ok',checks:[]} : {};
 else if (args[0] === 'info') result = 'fixture';
 else if (args[0] === 'image' && args[1] === 'inspect') result = [{Id:imageId,Config:{Labels:labels}}];
-else if (args[0] === 'inspect' && (args[1] === 'openmausbot-computer' || args[1] === target?.containerName)) result = [{
+else if (args[0] === 'inspect' && (args[1] === 'colonie-computer' || args[1] === target?.containerName)) result = [{
   Config:{Image:${JSON.stringify(IMAGE)},Labels:args[1] === target?.containerName ? {...labels,${JSON.stringify(TARGET_LABEL)}:target.label} : labels,Env:['VNC_PW=fixture-password']},
   State:{Running:true},Image:imageId,
   Mounts:[{Type:'bind',Source:args[1] === target?.containerName
-    ? require('node:path').join(process.env.OMB_DATA_DIR,'vm-homes',target.label.slice(0,16))
-    : require('node:path').join(process.env.OMB_DATA_DIR,'vm-home'),Destination:'/home/cua/workspace',RW:true}],
+    ? require('node:path').join(process.env.COLONIE_DATA_DIR,'vm-homes',target.label.slice(0,16))
+    : require('node:path').join(process.env.COLONIE_DATA_DIR,'vm-home'),Destination:'/home/cua/workspace',RW:true}],
   HostConfig:{PortBindings:{'6901/tcp':[{HostIp:'127.0.0.1',HostPort:'${desktop.port}'}]},
     Privileged:false,Memory:4294967296,MemorySwap:4294967296,NanoCpus:2000000000,PidsLimit:512,
     CapDrop:['ALL'],CapAdd:['CAP_SETUID','CAP_SETGID'],IpcMode:'private',ShmSize:536870912,
@@ -198,10 +198,10 @@ process.stdout.write(typeof result === 'string' ? result : JSON.stringify(result
       PATH: process.env.PATH,
       HOME: companionHome,
       USERPROFILE: companionHome,
-      OMB_PORT: harnessPort,
-      OMB_COMPANION_PORT: String(companionPort),
-      OMB_CONTROL_PORT: String(controlPort),
-      OMB_COMPANION_DIR: join(companionHome, "companion"),
+      COLONIE_PORT: harnessPort,
+      COLONIE_COMPANION_PORT: String(companionPort),
+      COLONIE_CONTROL_PORT: String(controlPort),
+      COLONIE_COMPANION_DIR: join(companionHome, "companion"),
     },
     stdio: ["ignore", "inherit", "inherit"],
   });

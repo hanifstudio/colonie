@@ -3,13 +3,13 @@
 Launch the isolated full-app fixture following [Chat UI](chat-ui.md):
 
 ```sh
-node --experimental-strip-types scripts/control-omb.ts ui launch
+node --experimental-strip-types scripts/control-colonie.ts ui launch
 ```
 
 In a second terminal, pass its exact printed handle:
 
 ```sh
-node --experimental-strip-types scripts/verify-onboarding-ui.ts /tmp/openmausbot-verify-data-XXXXXX/ui.json
+node --experimental-strip-types scripts/verify-onboarding-ui.ts /tmp/colonie-verify-data-XXXXXX/ui.json
 ```
 
 The recipe resets the workspace onboarding record first, so it can rerun on one
@@ -23,7 +23,7 @@ the engines beat's provider framing with a refresh failure that keeps its
 inventory, no phone beat, welcome completion, no guided tour after finishing,
 persistence after reload, the greeting's disabled "Skip tour", and the Settings
 replay with a skip while its save is pending. Screenshots are retained in
-`.omb-scratch/verify-evidence/onboarding/` with a PASS line for each workflow.
+`.colonie-scratch/verify-evidence/onboarding/` with a PASS line for each workflow.
 Actual provider authentication and native Electron permissions remain covered
 by their separate platform recipes, not this browser fixture.
 
@@ -31,7 +31,7 @@ Stop the launcher with Ctrl-C; it owns and removes only its disposable home.
 
 ## Colonie adaptations (Oct 11 2026)
 
-The OpenMausBot onboarding is reused, with these Colonie changes:
+The Colonie onboarding is reused, with these Colonie changes:
 
 | Surface | Change |
 |---|---|
@@ -40,7 +40,7 @@ The OpenMausBot onboarding is reused, with these Colonie changes:
 | Hello beat | Name and email are now required; the "Maybe later" skip is gone and the top-right "Skip tour" is disabled on this beat, so it is truly mandatory (`src/components/onboarding/beats/HelloBeat.tsx`, `src/components/onboarding/WelcomeFlow.tsx`). |
 | Phone beat | Removed from the flow entirely (`src/components/onboarding/beats/PhoneBeat.tsx` deleted; `beatsFor` in `src/lib/onboarding.ts`). |
 | Meet your bot | Adds a Bloub body picker beside the color picker; the bot preview and the flow guide follow the pointer anywhere in the window (`followGlobalPointer`) (`src/components/onboarding/beats/MeetYourBotBeat.tsx`, `src/components/onboarding/WelcomeFlow.tsx`). |
-| Reel | Per the owner's call it stays as designed, with the visible `OpenMausBot` / `Maus` strings changed to `Colonie` (`src/components/onboarding/reel/scenes/`). |
+| Reel | Per the owner's call it stays as designed, with the visible `Colonie` / `Maus` strings changed to `Colonie` (`src/components/onboarding/reel/scenes/`). |
 | Permissions | Unchanged. |
 
 Covered by `src/components/onboarding/WelcomeGate.test.ts`,

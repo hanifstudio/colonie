@@ -15,31 +15,31 @@ export const CREDENTIAL_ENV_NAMES = [
   "XAI_API_KEY",
   "MISTRAL_API_KEY",
   "CEREBRAS_API_KEY",
-  "OMB_ANTHROPIC_API_KEY",
-  "OMB_ANTHROPIC_API_URL",
-  "OMB_HOSTED_MODEL_TOKEN",
-  "OMB_HOSTED_MODELS",
+  "COLONIE_ANTHROPIC_API_KEY",
+  "COLONIE_ANTHROPIC_API_URL",
+  "COLONIE_HOSTED_MODEL_TOKEN",
+  "COLONIE_HOSTED_MODELS",
   "OPENAI_COMPAT_API_KEY",
   "OPENAI_COMPAT_URL",
-  "OMB_OPENAI_API_KEY",
-  "OMB_OPENROUTER_API_KEY",
+  "COLONIE_OPENAI_API_KEY",
+  "COLONIE_OPENROUTER_API_KEY",
   "BOX_TOKEN",
   "OPENCODE_API_KEY",
-  "OMB_TTS_KEY",
-  "OMB_FISH_AUDIO_API_KEY",
-  "OMB_JEV_API_KEY",
-  "OMB_OPENAI_IMAGE_KEY",
-  "OMB_CUSTOM_IMAGE_KEY",
-  "OMB_OPENAI_LIVE_KEY",
+  "COLONIE_TTS_KEY",
+  "COLONIE_FISH_AUDIO_API_KEY",
+  "COLONIE_JEV_API_KEY",
+  "COLONIE_OPENAI_IMAGE_KEY",
+  "COLONIE_CUSTOM_IMAGE_KEY",
+  "COLONIE_OPENAI_LIVE_KEY",
   "COMPOSIO_API_KEY",
-  "OMB_COMPOSIO_BROKER_TOKEN",
-  "OMB_CLOUD_BOAT_TOKEN",
-  "OMB_CLOUD_VOICE_TOKEN",
-  "OMB_CLOUD_DECIDER_TOKEN",
+  "COLONIE_COMPOSIO_BROKER_TOKEN",
+  "COLONIE_CLOUD_BOAT_TOKEN",
+  "COLONIE_CLOUD_VOICE_TOKEN",
+  "COLONIE_CLOUD_DECIDER_TOKEN",
   // Browser capability files and app-owned state paths are private even
   // though they are not traditional API credentials.
-  "OMB_BROWSER_CONNECTION",
-  "OMB_USER_DATA",
+  "COLONIE_BROWSER_CONNECTION",
+  "COLONIE_USER_DATA",
 ];
 
 // Credential-shaped tokens (server/redact.ts parity): unmistakable formats
@@ -342,7 +342,7 @@ export function buildDiagnosticsReport({
 export function diagnosticsFileName(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   return (
-    `openmausbot-diagnostics-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+    `colonie-diagnostics-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
     `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.txt`
   );
 }

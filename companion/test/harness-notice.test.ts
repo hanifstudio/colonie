@@ -46,9 +46,9 @@ describe("notifyDeviceRevoked", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ method: "POST", url: "/api/live/device-revoked", body: "" });
     expect(seen[0].headers).toMatchObject({
-      "x-openmausbot-companion": "1",
-      "x-openmausbot-companion-device": "phone-1",
-      "x-openmausbot-companion-auth": TOKEN,
+      "x-colonie-companion": "1",
+      "x-colonie-companion-device": "phone-1",
+      "x-colonie-companion-auth": TOKEN,
     });
     // the phone's bearer means nothing to the harness and never travels
     expect(seen[0].headers.authorization).toBeUndefined();
@@ -58,8 +58,8 @@ describe("notifyDeviceRevoked", () => {
   it("sends no relay token to a standalone harness", async () => {
     const { port, seen } = await harness();
     await expect(notifyDeviceRevoked({ harnessPort: port, deviceId: "phone-1" })).resolves.toBe(true);
-    expect(seen[0].headers["x-openmausbot-companion-device"]).toBe("phone-1");
-    expect(seen[0].headers["x-openmausbot-companion-auth"]).toBeUndefined();
+    expect(seen[0].headers["x-colonie-companion-device"]).toBe("phone-1");
+    expect(seen[0].headers["x-colonie-companion-auth"]).toBeUndefined();
   });
 
   it("reports a refusal, and never names a malformed device", async () => {

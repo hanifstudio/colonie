@@ -5,7 +5,7 @@
 //
 // On Windows, Google's Antigravity runtime unpacks 0.34-1.26 GB every time it
 // starts and leaves it behind whenever it is stopped by force. Folders in
-// OMB's own temp folder are also swept automatically; the system temp folder
+// COLONIE's own temp folder are also swept automatically; the system temp folder
 // is searched only here, when the person asks, because other apps start the
 // same runtime (server/drivers/antigravity-temp.ts).
 //

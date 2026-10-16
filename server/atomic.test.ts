@@ -29,7 +29,7 @@ const { renameWithRetry, writeFileAtomic, writeFileAtomicIfChanged } = await imp
 describe("writeFileAtomic", () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "omb-atomic-"));
+    dir = mkdtempSync(join(tmpdir(), "colonie-atomic-"));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -86,7 +86,7 @@ describe("writeFileAtomic", () => {
 describe("writeFileAtomic durability", () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "omb-atomic-"));
+    dir = mkdtempSync(join(tmpdir(), "colonie-atomic-"));
     vi.mocked(spied.fsyncSync).mockClear();
   });
   afterEach(() => {
@@ -112,7 +112,7 @@ describe("writeFileAtomic durability", () => {
 describe("writeFileAtomicIfChanged", () => {
   let dir: string;
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "omb-atomic-"));
+    dir = mkdtempSync(join(tmpdir(), "colonie-atomic-"));
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });

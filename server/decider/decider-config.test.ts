@@ -14,28 +14,28 @@ describe("decider config", () => {
   beforeEach(() => {
     rmSync(DATA_DIR, { recursive: true, force: true });
     mkdirSync(DATA_DIR, { recursive: true });
-    delete process.env.OMB_JEV_API_KEY;
+    delete process.env.COLONIE_JEV_API_KEY;
   });
-  afterEach(() => { delete process.env.OMB_JEV_API_KEY; });
+  afterEach(() => { delete process.env.COLONIE_JEV_API_KEY; });
 
   it("saving decision-model settings never reloads the engine fleet", () => {
     expect(providerReloadKeys({ decider: { enabled: true, key: KEY, jobs: { roomRouting: false } } })).toEqual([]);
   });
 
   it("engines never inherit the key, nor Cloud Pro's included token", () => {
-    const childEnv: Record<string, string | undefined> = { OMB_JEV_API_KEY: KEY, OMB_CLOUD_DECIDER_TOKEN: "omb_decide_included", PATH: "/usr/bin" };
+    const childEnv: Record<string, string | undefined> = { COLONIE_JEV_API_KEY: KEY, COLONIE_CLOUD_DECIDER_TOKEN: "omb_decide_included", PATH: "/usr/bin" };
     stripWorkspaceCredentialEnv(childEnv);
     expect(childEnv).toEqual({ PATH: "/usr/bin" });
   });
 
   it("the env key wins over the file, and a save keeps the env in step", () => {
     writeFileSync(join(DATA_DIR, "config.json"), JSON.stringify({ decider: { enabled: true, key: "" } }));
-    process.env.OMB_JEV_API_KEY = KEY;
+    process.env.COLONIE_JEV_API_KEY = KEY;
     expect(loadConfig().decider?.key).toBe(KEY);
     syncCredentialEnv({ decider: { key: "tsk_new" } });
-    expect(process.env.OMB_JEV_API_KEY).toBe("tsk_new");
+    expect(process.env.COLONIE_JEV_API_KEY).toBe("tsk_new");
     syncCredentialEnv({ decider: { key: "" } });
-    expect(process.env.OMB_JEV_API_KEY).toBeUndefined();
+    expect(process.env.COLONIE_JEV_API_KEY).toBeUndefined();
   });
 
   it("saving a key persists the switch and the room job on, merged into the section", () => {

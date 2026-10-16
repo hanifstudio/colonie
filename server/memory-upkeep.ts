@@ -68,7 +68,7 @@ export interface UpkeepDeps {
   tidyHour: () => number;
   /** Wraps each synchronous burst of writes this makes to one bot's memory
    * (capture, organize, tidy), so the host can tell them from writes made
-   * elsewhere (an OMB Cloud home: server/lending-memory.ts). */
+   * elsewhere (an COLONIE Cloud home: server/lending-memory.ts). */
   writing?: <T>(botId: string, write: () => T) => T;
   now?: () => Date;
   log?: (line: string) => void;

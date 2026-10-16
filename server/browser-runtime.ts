@@ -32,7 +32,7 @@ export function browserRuntimeEnv(overrides: Record<string, string | undefined>)
   return { ...env, ...overrides };
 }
 
-/** The page size of a headless browser OMB launches, in CSS pixels.
+/** The page size of a headless browser COLONIE launches, in CSS pixels.
  *
  * agent-browser sizes the Chrome *window* (`--window-size=1280,720`). Full
  * Chrome in headless mode (Chrome for Testing, as the Docker image installs)
@@ -45,7 +45,7 @@ export function browserRuntimeEnv(overrides: Record<string, string | undefined>)
 export const BROWSER_VIEWPORT = { width: 1280, height: 720 } as const;
 export const BROWSER_VIEWPORT_ARGS = ["set", "viewport", String(BROWSER_VIEWPORT.width), String(BROWSER_VIEWPORT.height)] as const;
 
-/** Only a headless browser this server launches is OMB's to size. A browser
+/** Only a headless browser this server launches is COLONIE's to size. A browser
  * attached over CDP is someone's own Chrome, and a headed window is the
  * user's to size. */
 export function ownsBrowserViewport(env: NodeJS.ProcessEnv): boolean {
@@ -95,7 +95,7 @@ class BrowserClient {
     this.child.on("close", () => { void this.stop(new TransportError("Browser connection closed.")); });
     this.ready = this.rpc("initialize", {
       protocolVersion: "2024-11-05", capabilities: {},
-      clientInfo: { name: "openmausbot-browser", version: "1" },
+      clientInfo: { name: "colonie-browser", version: "1" },
     }, Math.max(this.requestTimeoutMs, HANDSHAKE_TIMEOUT_MS)).then((result) => {
       if (!result || typeof result !== "object" || !("protocolVersion" in result)) {
         throw new TransportError("Browser engine returned an invalid handshake.");
@@ -337,7 +337,7 @@ export class BrowserRuntime {
       }
       try {
         // The model sees slimmed schemas and text-only, bounded results; the
-        // launch/session parameters OMB owns never reach the engine from a call.
+        // launch/session parameters COLONIE owns never reach the engine from a call.
         const request = method === "tools/call" ? stripHarnessOwnedArguments(params) : params;
         let result = await entry.client.rpc(method, request);
         beforeDispatch?.(); // A turn revoked while the tool ran receives no result.

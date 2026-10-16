@@ -24,8 +24,8 @@ import { randomUUID } from "node:crypto";
 import { parseAskQuestions, questionAnswersByQuestion } from "../shared/ask-question.ts";
 import { allowsTool, parseToolScope } from "../shared/tool-scope.ts";
 
-const selection = parseToolScope(process.env.OMB_PERMISSION_TOOL_SCOPE === undefined
-  ? undefined : (() => { try { return JSON.parse(process.env.OMB_PERMISSION_TOOL_SCOPE); } catch { return null; } })());
+const selection = parseToolScope(process.env.COLONIE_PERMISSION_TOOL_SCOPE === undefined
+  ? undefined : (() => { try { return JSON.parse(process.env.COLONIE_PERMISSION_TOOL_SCOPE); } catch { return null; } })());
 if (!selection.ok) throw new Error(selection.error);
 const allowQuestion = allowsTool(selection.scope, { kind: "mcp", server: "ogb", name: "ask_user" });
 
@@ -190,7 +190,7 @@ async function handle(msg: any) {
       result: {
         protocolVersion: msg.params?.protocolVersion ?? "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "openmausbot-permissions", version: "1" },
+        serverInfo: { name: "colonie-permissions", version: "1" },
       },
     });
   }

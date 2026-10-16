@@ -20,7 +20,7 @@ describe("where a conversation works", () => {
     expect(effectivePlace({ computer: undefined }, task)).toBe("local");
   });
 
-  it("offers every place on a desktop or self-hosted server, and only the browser on an OMB Cloud home", () => {
+  it("offers every place on a desktop or self-hosted server, and only the browser on an COLONIE Cloud home", () => {
     for (const config of [null, undefined, {}, { cloudHome: false }]) {
       expect(PLACES.filter((place) => placeOffered(place, config))).toEqual(["vm", "local", "browser"]);
     }

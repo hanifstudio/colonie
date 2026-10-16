@@ -18,9 +18,9 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 // Every name on the shared lists, and one more under the control plane's
-// OMB_CLOUD_ prefix, so a credential added to a list later is covered too.
+// COLONIE_CLOUD_ prefix, so a credential added to a list later is covered too.
 const secretNames = [...new Set<string>([
-  ...WORKSPACE_CREDENTIAL_ENV, ...PROVIDER_CREDENTIAL_ENV, ...CONTROL_PLANE_ENV, "OMB_CLOUD_FIXTURE_TOKEN",
+  ...WORKSPACE_CREDENTIAL_ENV, ...PROVIDER_CREDENTIAL_ENV, ...CONTROL_PLANE_ENV, "COLONIE_CLOUD_FIXTURE_TOKEN",
 ])];
 const secrets: Record<string, string> = Object.fromEntries(secretNames.map((name) => {
   const unique = randomBytes(12).toString("hex");
@@ -59,8 +59,8 @@ function expectNoCredentials(file: string) {
 }
 
 beforeAll(async () => {
-  home = mkdtempSync(join(tmpdir(), "omb-cli-probe-env-"));
-  const dataDir = join(home, ".openmausbot");
+  home = mkdtempSync(join(tmpdir(), "colonie-cli-probe-env-"));
+  const dataDir = join(home, ".colonie");
   mkdirSync(dataDir, { recursive: true });
   // Answers like a signed-in Claude Code; `probe` (the CLI test) and
   // `update` (the Claude update) record the environment they ran with.
@@ -87,7 +87,7 @@ else if (args.at(-1) === "--version") console.log("9.9.9 (Claude Code)");
       PATH: process.env.PATH,
       ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: home, USERPROFILE: home, COLONIE_DATA_DIR: dataDir, COLONIE_PORT: String(port), COLONIE_WEBHOOK_PORT: String(port + 1),
       ...kept,
       ...secrets,
     },

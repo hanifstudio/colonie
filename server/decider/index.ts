@@ -13,7 +13,7 @@
 // vendor, a malformed answer: each comes back as { ok: false, reason } and
 // the caller does exactly what it did before this module existed.
 //
-// The credential is the person's own Jev key (Settings, or OMB_JEV_API_KEY),
+// The credential is the person's own Jev key (Settings, or COLONIE_JEV_API_KEY),
 // with `decider.baseUrl` or Jev's own.
 import type { AppConfig } from "../config.ts";
 import { JEV_DEFAULT_BASE_URL, jevBackend } from "./jev.ts";

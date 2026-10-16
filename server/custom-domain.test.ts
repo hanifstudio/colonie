@@ -107,7 +107,7 @@ describe("domain verification", () => {
     expect(Number.isNaN(Date.parse(result.verifiedAt))).toBe(false);
     expect(lookup).toHaveBeenCalledExactlyOnceWith("bots.company.com");
     expect(request).toHaveBeenCalledTimes(2);
-    expect(request.mock.calls[0]![0].pathname).toBe("/.well-known/openmausbot/environment");
+    expect(request.mock.calls[0]![0].pathname).toBe("/.well-known/colonie/environment");
     const token = request.mock.calls[1]![0].pathname.slice(CUSTOM_DOMAIN_CHALLENGE_PATH.length);
     expect(token).toMatch(/^[a-f0-9]{64}$/);
     expect(verifier.challenge(token)).toBeNull();
@@ -141,7 +141,7 @@ describe("domain verification", () => {
     expect(request.mock.calls[0]![1]).toEqual(address);
   });
 
-  it("rejects another OMB server", async () => {
+  it("rejects another COLONIE server", async () => {
     const { verifier, request } = fixture();
     request.mockResolvedValueOnce({ environmentId: "another-server" });
     await expect(verifier.verify("bots.company.com")).rejects.toThrow("does not point to this");
@@ -244,7 +244,7 @@ describe("HTTPS transport", () => {
     for (const [url, options] of httpsRequestMock.mock.calls as [URL, RequestOptions][]) {
       expect(url.hostname).toBe("bots.company.com");
       expect(options).toMatchObject({ method: "GET", agent: false, rejectUnauthorized: true });
-      expect(options.headers).toEqual({ Accept: "application/json", "User-Agent": "OpenMausBot-domain-check" });
+      expect(options.headers).toEqual({ Accept: "application/json", "User-Agent": "Colonie-domain-check" });
       const callback = vi.fn();
       options.lookup!("bots.company.com", { all: false }, callback);
       expect(callback).toHaveBeenCalledWith(null, "8.8.8.8", 4);

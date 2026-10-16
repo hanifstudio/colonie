@@ -36,7 +36,7 @@ export const LIVE_DATA_CHANNEL = {
 /** Tests and fixtures point this at server/testing/fake-openai-live.ts.
  * Only a loopback http URL is accepted, read at call time. */
 export function liveBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.OMB_OPENAI_LIVE_URL?.trim() ?? "";
+  const override = env.COLONIE_OPENAI_LIVE_URL?.trim() ?? "";
   return /^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(override) ? override : OPENAI_BASE;
 }
 

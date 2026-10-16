@@ -30,7 +30,7 @@ describe("the invited address on a pair link", () => {
   });
 });
 
-describe("the OMB Cloud page's \"Use in your browser\" link", () => {
+describe("the COLONIE Cloud page's \"Use in your browser\" link", () => {
   const credential = `omb_pair_${"b".repeat(43)}`;
   it("is taken off the address bar and out of history before anything renders, whatever it carries", () => {
     const replaceState = vi.fn();

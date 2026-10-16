@@ -1,7 +1,7 @@
-# OpenMausBot MCP server
+# Colonie MCP server
 
-The OpenMausBot desktop app includes a local stdio MCP server. It lets another MCP client coordinate your
-OpenMausBot team while the desktop app and its harness are running.
+The Colonie desktop app includes a local stdio MCP server. It lets another MCP client coordinate your
+Colonie team while the desktop app and its harness are running.
 
 ## What it can do
 
@@ -16,14 +16,14 @@ change credentials, or control computer/VM lifecycle. Those actions stay in the 
 
 ## From a source checkout
 
-Start OpenMausBot, then configure the MCP client to run:
+Start Colonie, then configure the MCP client to run:
 
 ```json
 {
   "mcpServers": {
-    "openmausbot": {
+    "colonie": {
       "command": "pnpm",
-      "args": ["--dir", "/absolute/path/to/OpenMausBot", "mcp"]
+      "args": ["--dir", "/absolute/path/to/Colonie", "mcp"]
     }
   }
 }
@@ -35,7 +35,7 @@ loopback without one. A shared server with service loopback trust needs a
 session for almost every tool, reads included. To authorize an external MCP
 client:
 
-1. In OpenMausBot, open **Settings → Phone → Set up a phone** and reveal the
+1. In Colonie, open **Settings → Phone → Set up a phone** and reveal the
    one-time pairing code.
 2. Exchange it locally (remove spaces from the displayed code):
 
@@ -52,8 +52,8 @@ client:
    ```json
    "env": {
      "ELECTRON_RUN_AS_NODE": "1",
-     "OMB_PORT": "8799",
-     "OPENMAUSBOT_TOKEN": "omb_sess_..."
+     "COLONIE_PORT": "8799",
+     "COLONIE_TOKEN": "omb_sess_..."
    }
    ```
 
@@ -70,34 +70,34 @@ macOS example:
 ```json
 {
   "mcpServers": {
-    "openmausbot": {
-      "command": "/Applications/OpenMausBot.app/Contents/MacOS/OpenMausBot",
-      "args": ["/Applications/OpenMausBot.app/Contents/Resources/server/mcp-server.js"],
+    "colonie": {
+      "command": "/Applications/Colonie.app/Contents/MacOS/Colonie",
+      "args": ["/Applications/Colonie.app/Contents/Resources/server/mcp-server.js"],
       "env": { "ELECTRON_RUN_AS_NODE": "1" }
     }
   }
 }
 ```
 
-On Windows, use the installed `OpenMausBot.exe` as `command`, the adjacent
+On Windows, use the installed `Colonie.exe` as `command`, the adjacent
 `resources\\server\\mcp-server.js` as the argument, and the same `ELECTRON_RUN_AS_NODE=1` environment value.
-The usual per-user install is under `%LOCALAPPDATA%\\Programs\\OpenMausBot`.
+The usual per-user install is under `%LOCALAPPDATA%\\Programs\\Colonie`.
 
-On Ubuntu `.deb` installs, the executable is normally `/opt/OpenMausBot/openmausbot` and the script is
-`/opt/OpenMausBot/resources/server/mcp-server.js`. Use the same environment value.
+On Ubuntu `.deb` installs, the executable is normally `/opt/Colonie/colonie` and the script is
+`/opt/Colonie/resources/server/mcp-server.js`. Use the same environment value.
 
 ## Connection discovery
 
-With no configuration, the MCP process probes OpenMausBot's three desktop ports (`8799`, `18799`, and `28799`)
-and accepts only a health response that identifies itself as OpenMausBot. This handles the desktop's normal
+With no configuration, the MCP process probes Colonie's three desktop ports (`8799`, `18799`, and `28799`)
+and accepts only a health response that identifies itself as Colonie. This handles the desktop's normal
 fallback when another local process already owns port 8799.
 
-Set `OMB_PORT` to force one local port, or `OPENMAUSBOT_URL` to use an explicit HTTP(S) origin. Cleartext remote
+Set `COLONIE_PORT` to force one local port, or `COLONIE_URL` to use an explicit HTTP(S) origin. Cleartext remote
 HTTP is rejected unless `ALLOW_INSECURE_HTTP=true`; HTTPS should be used outside loopback. An optional
-`OPENMAUSBOT_TOKEN` is sent as a bearer token for authenticated reverse proxies. When a token is set, an
-explicit `OPENMAUSBOT_URL` or `OMB_PORT` is required so the credential is never sent while probing unrelated
-local ports. `OPENMAUSBOT_MCP_TIMEOUT_MS` can set an HTTP timeout between 1,000 and 120,000 milliseconds.
-In packaged builds, `OPENMAUSBOT_TOKEN` is required for mutating tools as
+`COLONIE_TOKEN` is sent as a bearer token for authenticated reverse proxies. When a token is set, an
+explicit `COLONIE_URL` or `COLONIE_PORT` is required so the credential is never sent while probing unrelated
+local ports. `COLONIE_MCP_TIMEOUT_MS` can set an HTTP timeout between 1,000 and 120,000 milliseconds.
+In packaged builds, `COLONIE_TOKEN` is required for mutating tools as
 described above; it is not a generic reverse-proxy secret.
 
 ## Tools

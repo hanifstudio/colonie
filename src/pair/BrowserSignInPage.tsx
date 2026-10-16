@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { newAttemptId, signInWithBrowserGrant } from "../lib/session";
 
-/** The OMB Cloud page's "Use in your browser" lands here (/pair#signin=…):
+/** The COLONIE Cloud page's "Use in your browser" lands here (/pair#signin=…):
  * whose Cloud this is, as the machine recorded it, and one Continue. Nothing
  * is redeemed until the person continues, so a link someone else sent never
  * signs this browser in to their Cloud unseen. The credential is never shown. */

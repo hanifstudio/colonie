@@ -2,17 +2,17 @@ import { readFileSync, writeFileSync, openSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { expect, it } from "vitest";
-import { launchVerificationServer, verificationServerEnvironment } from "../../../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../../../scripts/control-colonie.ts";
 import { waitForExit } from "../../testing/cleanup.ts";
 import { startFakeHttpMcp } from "../../testing/fake-http-mcp-server.ts";
 import { fakeComposio } from "./testing/fake-composio.ts";
-import type { AcpInputReceipt } from "../../../shared/devone.ts";
+import type { AcpInputReceipt } from "../../../shared/acp.ts";
 
 it.each(["codex-acp", "claude-acp"])("mounts Composio/custom MCP for %s with scope, native continuity, permission and Stop", async (provider) => {
   const composio = await fakeComposio();
   const custom = await startFakeHttpMcp({ tools: [{ name: "read_fixture", inputSchema: { type: "object" } }], callResult: () => ({ content: [{ type: "text", text: "CUSTOM_HTTP_FIXTURE_OK" }] }) });
   const sse = await startFakeHttpMcp({ transport: "sse", tools: [{ name: "read_sse", inputSchema: { type: "object" } }] });
-  const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["devone"], undefined, composio.origin);
+  const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["colonie"], undefined, composio.origin);
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   const evidence: unknown[] = [fixture.info];
@@ -94,7 +94,7 @@ it.each(["codex-acp", "claude-acp"])("mounts Composio/custom MCP for %s with sco
     composio.sessions.clear();
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const log = openSync(logPath, "a", 0o600);
-    restarted = spawn(process.execPath, [join(import.meta.dirname, "../../index.ts")], { env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), DEVONE_PROFILE: "1", OMB_COMPOSIO_API: `${composio.origin}/api/v3.1`, OMB_COMPOSIO_TOOLKITS_API: `${composio.origin}/api/v3` }, stdio: ["ignore", log, log] }); closeSync(log);
+    restarted = spawn(process.execPath, [join(import.meta.dirname, "../../index.ts")], { env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), COLONIE_PROFILE: "1", COLONIE_COMPOSIO_API: `${composio.origin}/api/v3.1`, COLONIE_COMPOSIO_TOOLKITS_API: `${composio.origin}/api/v3` }, stdio: ["ignore", log, log] }); closeSync(log);
     await expect.poll(async () => { try { return (await api("GET", "/api/health")).app; } catch { return null; } }, { timeout: 20_000 }).toBe("colonie");
     await send("mcp list"); await idle();
     expect((await receipts()).at(-1)?.sessionId).toBe(nativeSession);

@@ -59,10 +59,10 @@ describe("U1: one line and at most one action for every state", () => {
     for (const state of PLACE_STATES) {
       const view = placeViewOf(state, PARAMS, { role: "admin", server: "mac" });
       const words = `${view.short} ${view.line} ${view.action?.label ?? ""}`;
-      expect(words, state).not.toMatch(/Boat|OMB|Hosted desktop|Cloud box|Works on to Auto|\btools?\b/i);
+      expect(words, state).not.toMatch(/Boat|COLONIE|Hosted desktop|Cloud box|Works on to Auto|\btools?\b/i);
     }
     for (const [id, sentence] of Object.entries(PLACE_WORDS)) {
-      expect(sentence, id).not.toMatch(/Boat|OMB|Hosted desktop|Cloud box|Works on to Auto|\btools?\b/i);
+      expect(sentence, id).not.toMatch(/Boat|COLONIE|Hosted desktop|Cloud box|Works on to Auto|\btools?\b/i);
     }
   });
 });

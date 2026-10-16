@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { api, useStore } from "@/state/store";
-import type { AcpInputReceipt } from "../../shared/devone";
+import type { AcpInputReceipt } from "../../shared/acp";
 import { useModalDialog } from "@/hooks/use-modal-dialog";
 import type { AcpContextView } from "../../shared/acp-context";
 import { AcpContextControls, ContextSections } from "./AcpContextControls";

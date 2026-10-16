@@ -12,11 +12,11 @@ dist-server
 .DS_Store
 *.tsbuildinfo
 electron/resources/speech-helper
-electron/resources/OpenMausBot Speech.app
+electron/resources/Colonie Speech.app
 # stale helper from the removed Teach a skill recorder
-electron/resources/OpenMausBot Recorder.app
+electron/resources/Colonie Recorder.app
 release
-.omb-scratch
+.colonie-scratch
 .wrangler/
 .dev.vars
 .dev.vars.*
@@ -41,5 +41,5 @@ deploy/podman/.env
 deploy/podman/.env.*
 !deploy/podman/.env.example
 /.env
-.devone/
-dist-devone/
+.colonie-dev/
+dist-colonie/

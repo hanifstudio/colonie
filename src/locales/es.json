@@ -604,7 +604,7 @@
   "settings.experimental.error": "No se pudo guardar el ajuste de la función experimental.",
   "settings.experimental.browser": "Navegador integrado",
   "settings.experimental.browserOff": "Desactivado por defecto. Actívalo para que los bots compatibles usen una pestaña del navegador que puedes ver y tomar.",
-  "settings.experimental.browserWindows": "Aún no disponible en este equipo con Windows: instala el motor del navegador con `openmausbot browser install`.",
+  "settings.experimental.browserWindows": "Aún no disponible en este equipo con Windows: instala el motor del navegador con `colonie browser install`.",
   "settings.experimental.browserAria": "Activar el navegador integrado",
   "browser.noEngine": "Este servidor no tiene motor de navegador.",
   "settings.profiles.title": "Perfiles de navegador",

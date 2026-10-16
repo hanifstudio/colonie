@@ -76,10 +76,10 @@ posixOnly("Live call e2e", () => {
     chmodSync(FAKE_CLAUDE, 0o755);
     chmodSync(FAKE_ACP, 0o755);
     live = await startFakeOpenAiLive();
-    home = mkdtempSync(join(tmpdir(), "omb-live-call-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    home = mkdtempSync(join(tmpdir(), "colonie-live-call-"));
+    mkdirSync(join(home, ".colonie"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".colonie", "config.json"),
       JSON.stringify({
         instances: {
           claude: {
@@ -103,10 +103,10 @@ posixOnly("Live call e2e", () => {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         HOME: home,
         USERPROFILE: home,
-        OMB_PORT: String(port),
-        OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_OPENAI_LIVE_URL: live.url,
-        OMB_OPENAI_LIVE_KEY: LIVE_KEY,
+        COLONIE_PORT: String(port),
+        COLONIE_WEBHOOK_PORT: String(port + 1),
+        COLONIE_OPENAI_LIVE_URL: live.url,
+        COLONIE_OPENAI_LIVE_KEY: LIVE_KEY,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -266,7 +266,7 @@ posixOnly("Live call e2e", () => {
   // own requests: only the companion can say the phone was unpaired.
   it("ends a phone's call, and refuses it another, once the companion says it was unpaired", async () => {
     const bot = await createBot();
-    const phone = { "x-openmausbot-companion": "1", "x-openmausbot-companion-device": "phone-e2e" };
+    const phone = { "x-colonie-companion": "1", "x-colonie-companion-device": "phone-e2e" };
     const sse = await openSse(`${base}/api/events`);
     try {
       const before = live.sessions.length;
@@ -278,7 +278,7 @@ posixOnly("Live call e2e", () => {
       await sse.until((frame) => frame.kind === "live.call" && frame.call?.callId === call.callId && frame.call?.status === "live");
 
       // another phone's unpairing is not this call's business
-      expect(await post("/api/live/device-revoked", {}, { ...phone, "x-openmausbot-companion-device": "phone-other" }))
+      expect(await post("/api/live/device-revoked", {}, { ...phone, "x-colonie-companion-device": "phone-other" }))
         .toEqual({ status: 200, body: { call: null } });
       expect(await post("/api/live/device-revoked", {}, phone)).toMatchObject({ status: 200, body: { call: { callId: call.callId } } });
       await live.waitForCommand(session.id, (c) => c.type === "session.close", 5_000);

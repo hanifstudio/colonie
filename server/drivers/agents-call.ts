@@ -41,14 +41,14 @@ export interface ToolCallResult {
 }
 
 /** The context a spawned proxy was given:
- *   OMB_BOT_ID, OMB_THREAD_ID, OMB_TURN_DEPTH, plus the catalog switches
+ *   COLONIE_BOT_ID, COLONIE_THREAD_ID, COLONIE_TURN_DEPTH, plus the catalog switches
  *   (agents-catalog.ts) and the harness address and token (agents-client.ts). */
 export function toolCallContextFromEnv(env: NodeJS.ProcessEnv): ToolCallContext {
   const profile = catalogProfileFromEnv(env);
   return {
     botId: profile.botId,
-    threadId: env.OMB_THREAD_ID ?? "",
-    depth: Number(env.OMB_TURN_DEPTH ?? "0") || 0,
+    threadId: env.COLONIE_THREAD_ID ?? "",
+    depth: Number(env.COLONIE_TURN_DEPTH ?? "0") || 0,
     externalRuntime: profile.externalRuntime,
     coordinating: profile.coordinating,
     sharedComputers: profile.sharedComputers,

@@ -3,7 +3,7 @@ import { composioCredentialStatus } from "./credential-status.ts";
 import { credentialOperationError, maskedComposioKey } from "../../../shared/composio-credential.ts";
 
 it("distinguishes project keys from broker availability and returns masked source-specific metadata", () => {
-  expect(composioCredentialStatus({}, { OMB_COMPOSIO_BROKER_TOKEN: "synthetic" })).toMatchObject({ available: false, source: "none", maskedKey: null, canRemove: false });
+  expect(composioCredentialStatus({}, { COLONIE_COMPOSIO_BROKER_TOKEN: "synthetic" })).toMatchObject({ available: false, source: "none", maskedKey: null, canRemove: false });
   const key = "ak_synthetic_fixture_1234";
   expect(composioCredentialStatus({ composio: { apiKey: key } }, {})).toMatchObject({ available: true, source: "workspace-settings", maskedKey: "ak_syn••••••••1234", canRemove: true });
   expect(composioCredentialStatus({ composio: { apiKey: key } }, { COMPOSIO_API_KEY: key })).toMatchObject({ source: "environment", canRemove: false });
@@ -11,7 +11,7 @@ it("distinguishes project keys from broker availability and returns masked sourc
   expect(composioCredentialStatus({ composio: { apiKey: key } }, { COMPOSIO_API_KEY: key, COLONIE_COMPOSIO_CREDENTIAL_SOURCE: "secure-store", COLONIE_COMPOSIO_CREDENTIAL_ORIGIN: "workspace-migration" })).toMatchObject({ origin: "workspace-migration" });
   expect(JSON.stringify(composioCredentialStatus({ composio: { apiKey: key } }, {}))).not.toContain(key);
   expect(maskedComposioKey("ak_short")).toBe("••••••••");
-  expect(composioCredentialStatus({ composio: { apiKey: key } }, { OMB_CREDENTIAL_STORE: "unavailable" })).toMatchObject({ storage: "unreadable", canRemove: false });
+  expect(composioCredentialStatus({ composio: { apiKey: key } }, { COLONIE_CREDENTIAL_STORE: "unavailable" })).toMatchObject({ storage: "unreadable", canRemove: false });
 });
 
 it("preserves real IPC failure reasons and says removal failed rather than not saved", () => {

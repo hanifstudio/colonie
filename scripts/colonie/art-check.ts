@@ -2,11 +2,11 @@ import { resolve, join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { mountPreview } from "../testing/preview-fixture.ts";
 
-process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".devone/browsers");
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const preview = await mountPreview({ info: { url: "http://127.0.0.1:1" } }, { entry: "/scripts/colonie/art-preview.tsx", route: "/__colonie-art.html", title: "Colonie artwork", logLevel: "warn" });
 const browser = await chromium.launch({ headless: true });
-const evidence = resolve(".devone/evidence"); mkdirSync(evidence, { recursive: true });
+const evidence = resolve(".colonie-dev/evidence"); mkdirSync(evidence, { recursive: true });
 const errors: string[] = [];
 const result: Record<string, unknown> = {};
 try {

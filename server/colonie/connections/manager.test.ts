@@ -10,8 +10,8 @@ import { fakeComposio } from "./testing/fake-composio.ts";
 
 it("permits idle discovery, blocks idle execution, revokes old leases and never forwards a project key", async () => {
   const service = await fakeComposio();
-  const previousApi = process.env.OMB_COMPOSIO_API;
-  process.env.OMB_COMPOSIO_API = `${service.origin}/api/v3.1`;
+  const previousApi = process.env.COLONIE_COMPOSIO_API;
+  process.env.COLONIE_COMPOSIO_API = `${service.origin}/api/v3.1`;
   rmSync(join(DATA_DIR, "connected-apps"), { recursive: true, force: true });
   saveBotAppPolicy("relay-bot", { toolkits: ["hackernews"], customServers: [] }, policyHash(botAppPolicy("relay-bot")));
   let manager!: ConnectedTools;
@@ -52,6 +52,6 @@ it("permits idle discovery, blocks idle execution, revokes old leases and never 
   } finally {
     manager.dispose(); server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve()));
     await service.close();
-    if (previousApi === undefined) delete process.env.OMB_COMPOSIO_API; else process.env.OMB_COMPOSIO_API = previousApi;
+    if (previousApi === undefined) delete process.env.COLONIE_COMPOSIO_API; else process.env.COLONIE_COMPOSIO_API = previousApi;
   }
 });

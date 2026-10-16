@@ -11,7 +11,7 @@
 // current one plays, which gets the same perceived latency with far fewer
 // moving parts — and no socket to leak when a turn is interrupted.
 //
-// The base URL is ElevenLabs itself; OMB_ELEVENLABS_API overrides it for dev
+// The base URL is ElevenLabs itself; COLONIE_ELEVENLABS_API overrides it for dev
 // and tests. Only a key being saved is verified, and that is always an own
 // key.
 
@@ -22,7 +22,7 @@ const FORMAT = "mp3_44100_64";
 const ELEVENLABS_API_DEFAULT = "https://api.elevenlabs.io/v1";
 /** The base URL this key is sent to. */
 export const elevenLabsProviderApi = (env: NodeJS.ProcessEnv = process.env): string =>
-  env.OMB_ELEVENLABS_API || ELEVENLABS_API_DEFAULT;
+  env.COLONIE_ELEVENLABS_API || ELEVENLABS_API_DEFAULT;
 
 export interface Voice {
   id: string;

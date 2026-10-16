@@ -8,7 +8,7 @@ files:
   - electron/**
   - "!electron/**/*.test.*"
   - "!electron/resources/speech-helper*"
-  - "!electron/resources/OpenMausBot Speech.app/**"
+  - "!electron/resources/Colonie Speech.app/**"
   - "!**/node_modules/**"
   - package.json
 asar: true
@@ -17,19 +17,19 @@ extraResources:
     to: ui
   - from: dist-server
     to: server
-    filter: ["**/*", "!server/**/*.test.*", "!server/devone/testing/**"]
-  - from: dist-devone/codex-acp
+    filter: ["**/*", "!server/**/*.test.*", "!server/acp/testing/**"]
+  - from: dist-colonie/codex-acp
     to: codex-acp
-  - from: dist-devone/codex-acp/node_modules/@openai/codex
+  - from: dist-colonie/codex-acp/node_modules/@openai/codex
     to: codex-acp/node_modules/@openai/codex
-  - from: dist-devone/codex-acp/node_modules/@openai/codex-darwin-${arch}
+  - from: dist-colonie/codex-acp/node_modules/@openai/codex-darwin-${arch}
     to: codex-acp/node_modules/@openai/codex-darwin-${arch}
-  - from: dist-devone/claude-acp
+  - from: dist-colonie/claude-acp
     to: claude-acp
   - from: LICENSE
-    to: licenses/OpenMausBot-LICENSE.txt
+    to: licenses/Colonie-LICENSE.txt
   - from: NOTICE
-    to: licenses/OpenMausBot-NOTICE.txt
+    to: licenses/Colonie-NOTICE.txt
   - from: third_party/bloub/LICENSE
     to: licenses/Bloub-LICENSE.txt
   - from: third_party/bloub/PROVENANCE.md

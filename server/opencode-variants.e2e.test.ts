@@ -4,12 +4,12 @@ import { createServer } from "node:http";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie } from "../scripts/control-colonie.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 // Deliberate opt-in: never discover the user's CLI or install a dependency.
 // The supplied binary runs against synthetic config and an owned loopback API.
-const cli = process.env.OMB_OPENCODE_E2E_CLI;
+const cli = process.env.COLONIE_OPENCODE_E2E_CLI;
 const test = cli ? it : it.skip;
 
 type Receipt = { marker?: string; endpoint: string; model: string; effort?: string; effortPresent: boolean };
@@ -68,17 +68,17 @@ test("persists per-conversation OpenCode efforts and sends them through ACP afte
     return result;
   };
   const control = async (args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlColonie([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };
   const isolatedEnv: NodeJS.ProcessEnv = {
-    HOME: dataDir, USERPROFILE: dataDir, OMB_DATA_DIR: dataDir,
+    HOME: dataDir, USERPROFILE: dataDir, COLONIE_DATA_DIR: dataDir,
     APPDATA: join(dataDir, "AppData", "Roaming"), LOCALAPPDATA: join(dataDir, "AppData", "Local"),
     XDG_CONFIG_HOME: join(dataDir, ".config"), XDG_CACHE_HOME: join(dataDir, ".cache"),
     XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
     TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
-    OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
+    COLONIE_PORT: new URL(url).port, COLONIE_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
     PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy",
   };
   for (const key of ["SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "LANG", "LC_ALL", "TZ"]) {
@@ -128,10 +128,10 @@ test("persists per-conversation OpenCode efforts and sends them through ACP afte
     // The shared launcher deliberately installs only Claude. Seed this owned
     // fixture's optional instance while stopped, then exercise its real API.
     await waitForExit(fixture.child, { signal: "SIGTERM" });
-    const ombConfigPath = join(dataDir, "config.json");
-    const ombConfig = JSON.parse(readFileSync(ombConfigPath, "utf8"));
-    ombConfig.instances.opencodeGo = { driver: "opencodeGo", displayName: "OpenCode fixture", config: { cli: wrapper } };
-    writeFileSync(ombConfigPath, JSON.stringify(ombConfig));
+    const colonieConfigPath = join(dataDir, "config.json");
+    const colonieConfig = JSON.parse(readFileSync(colonieConfigPath, "utf8"));
+    colonieConfig.instances.opencodeGo = { driver: "opencodeGo", displayName: "OpenCode fixture", config: { cli: wrapper } };
+    writeFileSync(colonieConfigPath, JSON.stringify(colonieConfig));
     await restart();
     const instances = (await api("GET", "/api/instances")).instances;
     const instance = instances.find((entry: any) => entry.instanceId === "opencodeGo");

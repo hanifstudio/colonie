@@ -6,7 +6,7 @@ import { createComposioSession, composioRequest, disposableComposioUser, session
 const key = process.env.COMPOSIO_API_KEY;
 if (!key) throw new Error("COMPOSIO_API_KEY is required for this explicit real-service check");
 const userId = disposableComposioUser();
-const evidence = resolve(".devone/evidence");
+const evidence = resolve(".colonie-dev/evidence");
 mkdirSync(evidence, { recursive: true });
 const result: Record<string, unknown> = { realComposio: true, realAgent: false, userId, requestBudget: 2 };
 let session: Awaited<ReturnType<typeof createComposioSession>> | undefined;

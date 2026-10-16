@@ -29,7 +29,7 @@ export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reacha
   };
   const entry = (place: Place) => {
     const view = placeViewFor(placeFacts({ bot, place, seat, config: state.config, instances: state.instances, local }));
-    // A place this server never offers (an OMB Cloud home) is not reachable.
+    // A place this server never offers (an COLONIE Cloud home) is not reachable.
     const offered = placeOffered(place, state.config);
     return { view, reachable: offered && !placeBlocked(view) };
   };

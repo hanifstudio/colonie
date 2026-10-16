@@ -4,7 +4,7 @@ import { RemoteMcpClient } from "../../mcp-http.ts";
 
 const sessionSchema = z.object({ session_id: z.string().min(1), mcp: z.object({ url: z.string().url(), type: z.enum(["http", "sse"]) }) });
 export type ComposioSession = z.infer<typeof sessionSchema>;
-export function composioApiBase() { return (process.env.OMB_COMPOSIO_API ?? "https://backend.composio.dev/api/v3.1").replace(/\/$/, ""); }
+export function composioApiBase() { return (process.env.COLONIE_COMPOSIO_API ?? "https://backend.composio.dev/api/v3.1").replace(/\/$/, ""); }
 export function disposableComposioUser() { return `colonie_fixture_${randomUUID()}`; }
 export async function composioRequest(key: string, path: string, method = "GET", body?: unknown, signal?: AbortSignal) {
   const response = await fetch(`${composioApiBase()}${path}`, { method, redirect: "error", headers: { "x-api-key": key, ...(body !== undefined ? { "content-type": "application/json" } : {}) },

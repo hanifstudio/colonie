@@ -28,7 +28,7 @@ let registry: SessionRegistry;
 const file = () => join(dir, "sessions.json");
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "omb-sessions-"));
+  dir = mkdtempSync(join(tmpdir(), "colonie-sessions-"));
   clock = 1_700_000_000_000;
   registry = new SessionRegistry({ file: file(), now: () => clock });
 });
@@ -98,7 +98,7 @@ describe("the native-app encoding of a pairing window", () => {
   });
 });
 
-describe("a browser sign-in window (an OMB Cloud page's \"Use in your browser\")", () => {
+describe("a browser sign-in window (an COLONIE Cloud page's \"Use in your browser\")", () => {
   it("is redeemed only by a browser sign-in, only by its credential, and only once", () => {
     const { code, credential } = registry.openPairing({ scopes: ["admin", "client"], label: "Web browser", browser: true });
     // Not by an app or a typed code, which leave it open.
@@ -590,7 +590,7 @@ describe("stream tickets", () => {
   });
 });
 
-describe("admin scope only (an OMB Cloud home is personal: server/cloud-owner.ts)", () => {
+describe("admin scope only (an COLONIE Cloud home is personal: server/cloud-owner.ts)", () => {
   const PERSONAL = "My Cloud is personal: only your own devices can connect.";
   it("opens, redeems, issues and accepts nothing without admin scope; the owner's devices are unaffected", () => {
     // Made before the rule applies (as a stored session is at boot).

@@ -7,7 +7,7 @@ import { readThreadEvents } from "./thread-events.ts";
 
 const dirs: string[] = [];
 function tmp() {
-  const d = mkdtempSync(join(tmpdir(), "omb-thread-events-"));
+  const d = mkdtempSync(join(tmpdir(), "colonie-thread-events-"));
   dirs.push(d);
   return d;
 }
@@ -151,7 +151,7 @@ describe("readThreadEvents", () => {
       threadId: "t1",
       type: "request.opened",
       requestType: "question",
-      tool: "omb-ask",
+      tool: "colonie-ask",
       summary: "Which framework?",
     };
     writeFileSync(

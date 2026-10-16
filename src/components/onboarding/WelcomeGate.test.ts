@@ -90,7 +90,7 @@ describe("who gets the welcome flow", () => {
     expect(tree?.props.hosted).toBe(true);
   });
 
-  it("leaves an OMB Cloud home's first run to its engine sign-in", () => {
+  it("leaves an COLONIE Cloud home's first run to its engine sign-in", () => {
     vi.stubGlobal("window", REMOTE_PAGE);
     expect(gate({ hosted: false, canSave: true, cloudHome: true }).tree).toBeNull();
     // Settings → Replay welcome tour still opens it there
@@ -114,7 +114,7 @@ describe("who gets the welcome flow", () => {
     await flush();
     expect(store.api).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
-    expect(localStorage.getItem("omb.onboarding.sharedWorkspaceHint")).toBe("1");
+    expect(localStorage.getItem("colonie.onboarding.sharedWorkspaceHint")).toBe("1");
     // once dismissed, a fresh visit in this browser does not show it again
     fixture.values = [];
     expect(render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() })).html).toBe("");

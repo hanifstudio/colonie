@@ -1,8 +1,8 @@
-# Colonie ACP verification (DevOne-compatible fixture paths)
+# Colonie ACP verification (Colonie-compatible fixture paths)
 
-Follow the isolation rules in [README.md](README.md). The DevOne fixture is
+Follow the isolation rules in [README.md](README.md). The Colonie fixture is
 launched through the existing `launchVerificationServer` control surface with
-the explicit `devone` provider option. It creates a temporary home/data dir,
+the explicit `colonie` provider option. It creates a temporary home/data dir,
 selects a free server/webhook port pair and configures only the repository's
 SDK-based fake agent. No native provider credentials cross into that fixture.
 
@@ -22,16 +22,16 @@ printed by the fixture.
 ## Renderer and development desktop
 
 ```sh
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.devone/browsers" pnpm exec playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.colonie-dev/browsers" pnpm exec playwright install chromium
 pnpm colonie:ui-check
 pnpm colonie:desktop-check
-node scripts/devone/ui-check.ts --claude --desktop
-node scripts/devone/ui-check.ts --native --desktop
-node scripts/devone/ui-check.ts --native --claude --desktop
-node scripts/devone/ui-check.ts --native --desktop --context
-node scripts/devone/ui-check.ts --native --claude --desktop --context
-node scripts/devone/ui-check.ts --native --desktop --profile
-node scripts/devone/ui-check.ts --native --claude --desktop --profile
+node scripts/colonie/ui-check.ts --claude --desktop
+node scripts/colonie/ui-check.ts --native --desktop
+node scripts/colonie/ui-check.ts --native --claude --desktop
+node scripts/colonie/ui-check.ts --native --desktop --context
+node scripts/colonie/ui-check.ts --native --claude --desktop --context
+node scripts/colonie/ui-check.ts --native --desktop --profile
+node scripts/colonie/ui-check.ts --native --claude --desktop --profile
 node scripts/colonie/art-check.ts
 ```
 
@@ -39,7 +39,7 @@ These drive the real React application against the SDK agent fixture. The
 desktop command uses the reused Electron shell with its own temporary profile.
 Assertions include visible partial output, reload/reconnect during a turn, one
 final reply, exact input dialog, continuation, Allow once, Deny, Stop and the
-next turn. Screenshots and receipts are in `.devone/evidence/renderer-*` and
+next turn. Screenshots and receipts are in `.colonie-dev/evidence/renderer-*` and
 `desktop-*`. A simulated tool event is not proof of executing a real shell tool.
 
 ## Packaged desktop and native provider
@@ -47,23 +47,23 @@ next turn. Screenshots and receipts are in `.devone/evidence/renderer-*` and
 ```sh
 pnpm colonie:package
 pnpm colonie:package-check
-node scripts/devone/package-check.ts --claude
-node scripts/devone/provider-check.ts --real
-node scripts/devone/provider-check.ts --real --claude
-node scripts/devone/package-check.ts --real --tools
-node scripts/devone/package-check.ts --real --claude --tools
-node scripts/devone/package-check.ts --upgrade
-node scripts/devone/package-check.ts --native
-node scripts/devone/package-check.ts --native --claude
-node scripts/devone/package-check.ts --real --native --claude --tools
-node scripts/devone/package-check.ts --native --context
-node scripts/devone/package-check.ts --claude --native --context
-node scripts/devone/package-check.ts --real --claude --native --context
-node scripts/devone/package-check.ts --native --profile
-node scripts/devone/package-check.ts --claude --native --profile
-node scripts/devone/package-check.ts --real --claude --native --profile
-node scripts/devone/package-check.ts --conversations
-node scripts/devone/package-check.ts --claude --conversations
+node scripts/colonie/package-check.ts --claude
+node scripts/colonie/provider-check.ts --real
+node scripts/colonie/provider-check.ts --real --claude
+node scripts/colonie/package-check.ts --real --tools
+node scripts/colonie/package-check.ts --real --claude --tools
+node scripts/colonie/package-check.ts --upgrade
+node scripts/colonie/package-check.ts --native
+node scripts/colonie/package-check.ts --native --claude
+node scripts/colonie/package-check.ts --real --native --claude --tools
+node scripts/colonie/package-check.ts --native --context
+node scripts/colonie/package-check.ts --claude --native --context
+node scripts/colonie/package-check.ts --real --claude --native --context
+node scripts/colonie/package-check.ts --native --profile
+node scripts/colonie/package-check.ts --claude --native --profile
+node scripts/colonie/package-check.ts --real --claude --native --profile
+node scripts/colonie/package-check.ts --conversations
+node scripts/colonie/package-check.ts --claude --conversations
 node scripts/colonie/native-controls-check.ts --real --claude
 ```
 
@@ -76,7 +76,7 @@ the actual UI: Allow produces the disposable file and Deny leaves it absent.
 Both close
 and reopen the app and verify the same native session id. The separate runner
 check also reads one disposable fixture file with a real native tool. The
-`--upgrade` fixture runs the old DevOne artifact's bundled server/production UI
+`--upgrade` fixture runs the old Colonie artifact's bundled server/production UI
 and then opens Colonie with that disposable legacy home, proving path/session
 preservation without a data move or dependence on the legacy desktop's native
 credential startup. Packaged test teardown is bounded and reaps only owned
@@ -104,7 +104,7 @@ bounded no-tool requests: identify the app/role/SOUL label from supplied context
 then recall a disposable marker after restart. This is distinct from fake-agent
 scope isolation evidence.
 
-`server/devone/context.e2e.test.ts` uses the canonical isolated launcher for both
+`server/acp/context.e2e.test.ts` uses the canonical isolated launcher for both
 providers and multiple bots. It proves shared app scope, bot isolation, plain and
 pre-M7-B baselines, discovery-before-edit, new-thread updates and full server
 restart. The SDK fake agent serializes shared fixture state across adapter
@@ -122,7 +122,7 @@ HTTP fixtures explicitly disable additions inside their disposable data.
 
 ## Multiple conversations on one bot
 
-`server/devone/conversations.e2e.test.ts` launches an isolated server with the SDK
+`server/acp/conversations.e2e.test.ts` launches an isolated server with the SDK
 agent for both providers. Two same-bot conversations hold separate permissions
 and native sessions, Stop one without stopping the other, keep transcript/profile
 ownership, then reload both sessions after full server restart. It also rejects
@@ -138,7 +138,7 @@ session ids and retained pins. Preview text is a bounded display-only recent tai
 not a context/memory addition. Title labeling uses fixture API patches; navigation,
 messages, approvals, Stop and display settings use actual UI controls.
 
-Evidence: `.devone/evidence/{claude-,}packaged-fixture-conversations-check.json`
+Evidence: `.colonie-dev/evidence/{claude-,}packaged-fixture-conversations-check.json`
 and corresponding default-navigation/parallel-approvals/parallel-working/narrow
 screenshots. These are real renderer/desktop workflows with simulated agents;
 they do not establish native-provider parallel throughput. Existing bounded real
@@ -147,17 +147,17 @@ provider evidence remains separate, and the Codex usage-limit blocker is retaine
 The scripts quit only processes they launched and remove only their owned
 temporary directory. They leave evidence in the checkout and native-provider
 session history under the provider's normal ownership. They do not read login
-token contents or mutate the installed OpenMausBot.
+token contents or mutate the installed Colonie.
 
 ## M8 connected tools
 
 ```sh
 pnpm exec vitest run server/colonie/connections/connections.e2e.test.ts
 node scripts/colonie/connected-tools-web-check.ts
-node scripts/devone/package-check.ts --connected-tools
-node scripts/devone/package-check.ts --claude --connected-tools
+node scripts/colonie/package-check.ts --connected-tools
+node scripts/colonie/package-check.ts --claude --connected-tools
 COMPOSIO_API_KEY="<project-key>" node scripts/colonie/composio-api-check.ts
-COMPOSIO_API_KEY="<project-key>" node scripts/devone/package-check.ts --real --claude --connected-tools
+COMPOSIO_API_KEY="<project-key>" node scripts/colonie/package-check.ts --real --claude --connected-tools
 ```
 
 HTTP fixtures use the canonical launcher with an explicitly validated loopback
@@ -176,7 +176,7 @@ public Hacker News read, then marker recall after restart. Receipts prove actual
 Composio calls/targets/statuses rather than accepting a claimed model answer alone.
 The standalone API check deletes its newly created session when finished.
 
-Evidence is under `.devone/evidence/*connected-tools*` and `composio-api-check.json`.
+Evidence is under `.colonie-dev/evidence/*connected-tools*` and `composio-api-check.json`.
 No credential or private connected-account content belongs in evidence. The
 unsigned macOS fixture could not encrypt a new credential through safeStorage;
 this failed check is recorded separately, not bypassed as a successful secure-store

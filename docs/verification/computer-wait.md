@@ -42,7 +42,7 @@ The park-and-resume cases prove:
   once when the seat is already free, and drops resumes that a newer message,
   a newer generation, or a deleted thread superseded.
 
-Waiting is bounded by the computer wait ceiling (`OMB_COMPUTER_WAIT_MAX_MS`,
+Waiting is bounded by the computer wait ceiling (`COLONIE_COMPUTER_WAIT_MAX_MS`,
 30 minutes by default). At the ceiling the turn parks instead of failing, and
 it resumes on its own when the computer is free. Cancellation checks the exact
 turn generation.

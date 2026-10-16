@@ -49,7 +49,7 @@ let mutationToken: string | null = null;
 parentPort?.on("message", ({ data }) => {
   if (!data || typeof data !== "object") return;
   const message = data as Record<string, unknown>;
-  if (message.type !== "openmausbot:companion-mutation-token") return;
+  if (message.type !== "colonie:companion-mutation-token") return;
   if (typeof message.token === "string" && /^[A-Za-z0-9_-]{43}$/.test(message.token)) {
     mutationToken = message.token;
   }
@@ -62,15 +62,15 @@ const num = (value: string | undefined, fallback: number): number => {
   return Number.isInteger(parsed) && parsed > 0 && parsed < 65536 ? parsed : fallback;
 };
 
-const HARNESS_PORT = num(process.env.OMB_PORT, 8799);
-const WEBHOOK_PORT = num(process.env.OMB_WEBHOOK_PORT, HARNESS_PORT + 1);
-const COMPANION_PORT = num(process.env.OMB_COMPANION_PORT, 8810);
-const CONTROL_PORT = num(process.env.OMB_CONTROL_PORT, 8811);
-const SERVICE_TYPE = "_openmausbot._tcp";
-let hostedUrl = hostedCompanionUrl(process.env.OMB_COMPANION_HOSTED_URL);
-const PRIVATE_ORIGIN = companionOriginSocket(process.env.OMB_COMPANION_INTERNAL_ORIGIN);
+const HARNESS_PORT = num(process.env.COLONIE_PORT, 8799);
+const WEBHOOK_PORT = num(process.env.COLONIE_WEBHOOK_PORT, HARNESS_PORT + 1);
+const COMPANION_PORT = num(process.env.COLONIE_COMPANION_PORT, 8810);
+const CONTROL_PORT = num(process.env.COLONIE_CONTROL_PORT, 8811);
+const SERVICE_TYPE = "_colonie._tcp";
+let hostedUrl = hostedCompanionUrl(process.env.COLONIE_COMPANION_HOSTED_URL);
+const PRIVATE_ORIGIN = companionOriginSocket(process.env.COLONIE_COMPANION_INTERNAL_ORIGIN);
 const SECRET_PUBLIC_KEY = normalizedPhoneSecretPublicKey(
-  process.env.OMB_PHONE_SECRET_PUBLIC_KEY ?? "",
+  process.env.COLONIE_PHONE_SECRET_PUBLIC_KEY ?? "",
 );
 
 /** Ports the harness takes for itself, and what it uses each for.
@@ -101,10 +101,10 @@ const conflict = (name: string, port: number): string | null => {
  * Read once at startup and cached. An override wins, and a harness that is
  * not up or has no profile falls back rather than blocking — the name is a
  * label, and no part of pairing depends on it. */
-let cachedName = process.env.OMB_COMPANION_NAME?.trim() || "";
+let cachedName = process.env.COLONIE_COMPANION_NAME?.trim() || "";
 
 /** What this computer is called on the phone. Never empty. */
-const machineName = (): string => cachedName || "OpenMausBot";
+const machineName = (): string => cachedName || "Colonie";
 
 /** Ask the harness whose computer this is, once, at startup. Every failure
  * is survivable: the name is a label, and no part of pairing depends on it. */
@@ -119,7 +119,7 @@ async function refreshMachineName(): Promise<void> {
     const owner = config.profile?.name?.trim();
     if (owner) cachedName = `${owner}'s computer`;
   } catch {
-    /* not up, or no profile — "OpenMausBot" is a fine thing to be called */
+    /* not up, or no profile — "Colonie" is a fine thing to be called */
   }
 }
 
@@ -211,7 +211,7 @@ const listen = (server: ReturnType<typeof createServer>, port: number, host: str
       // own ports are ruled out above, and "close whatever is using it"
       // sends someone hunting through `lsof` for a process they started.
       const hint = ` — another copy of the companion may already be running; ${
-        port === COMPANION_PORT ? "OMB_COMPANION_PORT" : "OMB_CONTROL_PORT"
+        port === COMPANION_PORT ? "COLONIE_COMPANION_PORT" : "COLONIE_CONTROL_PORT"
       } chooses a different one`;
       reject(
         error.code === "EADDRINUSE"
@@ -244,7 +244,7 @@ const listen = (server: ReturnType<typeof createServer>, port: number, host: str
  * advertise and print where to point the phone. */
 async function main(): Promise<void> {
   const clash =
-    conflict("OMB_COMPANION_PORT", COMPANION_PORT) ?? conflict("OMB_CONTROL_PORT", CONTROL_PORT);
+    conflict("COLONIE_COMPANION_PORT", COMPANION_PORT) ?? conflict("COLONIE_CONTROL_PORT", CONTROL_PORT);
   if (clash) throw new Error(`${clash}. Pick another port.`);
 
   // The sidecar's own two ports, for the same reason as the harness's: bound
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
   // sockets exist to prevent.
   if (COMPANION_PORT === CONTROL_PORT) {
     throw new Error(
-      `OMB_COMPANION_PORT and OMB_CONTROL_PORT are both port ${COMPANION_PORT}, and they cannot share one: ` +
+      `COLONIE_COMPANION_PORT and COLONIE_CONTROL_PORT are both port ${COMPANION_PORT}, and they cannot share one: ` +
         `the first is open to your network and the second must never be. Pick another port.`,
     );
   }

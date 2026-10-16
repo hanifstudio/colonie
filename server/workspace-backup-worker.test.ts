@@ -22,7 +22,7 @@ vi.mock("node:worker_threads", async importOriginal => {
 const TIMEOUT_MS = 120_000;
 
 it("keeps the request loop running during the snapshot copy, not just encryption", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "omb-backup-worker-"));
+  const directory = mkdtempSync(join(tmpdir(), "colonie-backup-worker-"));
   const first = "file-0000.txt", last = "file-0319.txt";
   for (let i = 0; i < 320; i++) writeFileSync(join(directory, `file-${String(i).padStart(4, "0")}.txt`), "synthetic");
   let observedCopy = false;
@@ -50,7 +50,7 @@ it("keeps the request loop running during the snapshot copy, not just encryption
 // that connection opening or closing used to fail the snapshot outright
 // ("database is locked", or Node's "not an error").
 it("waits for another connection's moment on the message database instead of failing the snapshot", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "omb-backup-worker-busy-"));
+  const directory = mkdtempSync(join(tmpdir(), "colonie-backup-worker-busy-"));
   const database = join(directory, "messages.db");
   const store = new DatabaseSync(database);
   store.exec("PRAGMA journal_mode = WAL");
@@ -87,7 +87,7 @@ it("waits for another connection's moment on the message database instead of fai
 }, TIMEOUT_MS);
 
 it("removes only the failed worker's partial snapshot after an abrupt exit", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "omb-backup-worker-exit-"));
+  const directory = mkdtempSync(join(tmpdir(), "colonie-backup-worker-exit-"));
   let pending: Promise<{ error?: unknown }> | undefined;
   try {
     writeFileSync(join(directory, "existing.txt"), "synthetic earlier export");

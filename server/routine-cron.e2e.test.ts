@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlColonie } from "../scripts/control-colonie.ts";
 import { nextCronRuns } from "../shared/routine-schedule.ts";
 
 it("takes cron through the real routine tools, applying the bot's own routine at once, preserving its zone and rejecting invalid API input", async () => {
@@ -23,7 +23,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     if (method !== "GET") evidence.push({ method, path, body, status: response.status, result: value });
     return value;
   };
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlColonie([...args, "--url", fixture.info.url]) as Promise<any>;
   try {
     expect((await cli("doctor")).ok).toBe(true);
     const { bot } = await cli("new-bot", "--name", "Cron fixture");

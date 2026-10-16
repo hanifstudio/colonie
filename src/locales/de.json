@@ -611,7 +611,7 @@
   "settings.experimental.error": "Die Einstellung für die experimentelle Funktion konnte nicht gespeichert werden.",
   "settings.experimental.browser": "Eingebauter Browser",
   "settings.experimental.browserOff": "Standardmäßig aus. Aktiviere ihn, damit unterstützte Bots einen Browser-Tab nutzen, den du sehen und übernehmen kannst.",
-  "settings.experimental.browserWindows": "Auf diesem Windows-Rechner noch nicht verfügbar: installiere die Browser-Engine mit `openmausbot browser install`.",
+  "settings.experimental.browserWindows": "Auf diesem Windows-Rechner noch nicht verfügbar: installiere die Browser-Engine mit `colonie browser install`.",
   "settings.experimental.browserAria": "Eingebauten Browser aktivieren",
   "browser.noEngine": "Dieser Server hat keine Browser-Engine.",
   "settings.profiles.title": "Browser-Profile",

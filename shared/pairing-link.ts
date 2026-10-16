@@ -1,5 +1,5 @@
-// The one `openmausbot://pair` link builder. The desktop's phone setup, the
-// headless server's pairing endpoint and `openmausbot pair` all print this
+// The one `colonie://pair` link builder. The desktop's phone setup, the
+// headless server's pairing endpoint and `colonie pair` all print this
 // link; the Android and iOS scanners read it (android/core Connection.kt
 // `PairingInvite.parse`, ios CompanionCore Client.swift `PairingInvite.parse`).
 //
@@ -178,5 +178,5 @@ export function phonePairingLink({
   const secretKey = validSecretPublicKey(secretPublicKey);
   if (secretKey) fields.push(["secretKey", secretKey]);
 
-  return `openmausbot://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
+  return `colonie://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
 }

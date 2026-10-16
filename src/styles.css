@@ -588,7 +588,7 @@
 }
 
 /* ── Meadow ───────────────────────────────────────────────────────────────
-   The MausBot brand look: a white page, a sidebar washed in the faintest
+   The Colonie brand look: a white page, a sidebar washed in the faintest
    green, mint for the selected row and a calm green accent. Like Daylight,
    your own bubble is the one dark surface (green-black), so it gets the same
    @scope treatment further down. The brand green #1f8a52 carries white at
@@ -1697,6 +1697,6 @@ button:disabled.bg-danger {
 [data-sidebar] :is(button, [role="button"]):not(:disabled, [aria-busy="true"]) {
   cursor: pointer;
 }
-::highlight(omb-citation-source) {
+::highlight(colonie-citation-source) {
   background-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
 }

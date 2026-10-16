@@ -23,8 +23,8 @@ const MAX_ERROR_BYTES = 64 * 1024;
  * either argument makes the renderer unsafe or makes a live relay look local. */
 export function desktopCompanionRendererArguments(localOrigin, remoteAccess) {
   return [
-    `--omb-local-origin=${localOrigin}`,
-    ...(remoteAccess ? ["--openmausbot-remote-client"] : []),
+    `--colonie-local-origin=${localOrigin}`,
+    ...(remoteAccess ? ["--colonie-remote-client"] : []),
   ];
 }
 
@@ -67,7 +67,7 @@ export function normalizeDesktopCompanionEndpoint(value) {
   const hostname = parsed.hostname.toLowerCase();
   const tailscaleHttp = parsed.protocol === "http:" && hostname.endsWith(".ts.net");
   const managedHttps =
-    parsed.protocol === "https:" && hostname.endsWith(".openmausbot.com");
+    parsed.protocol === "https:" && hostname.endsWith(".colonie.com");
   if (
     (!tailscaleHttp && !managedHttps) ||
     parsed.username ||

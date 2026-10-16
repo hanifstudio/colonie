@@ -15,10 +15,11 @@
     "dist-electron/**",
     "dist-native/**",
     "dist-server/**",
-    "dist-devone/**",
-    ".devone/**",
+    "dist-colonie/**",
+    ".colonie-dev/**",
     "electron/vendor/**",
     "release/**",
+    ".colonie-scratch/**",
     "third_party/**",
     "electron/resources/**"
   ]

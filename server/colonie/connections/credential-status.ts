@@ -11,7 +11,7 @@ export function composioCredentialStatus(cfg: AppConfig, env: NodeJS.ProcessEnv 
   const source = !key ? "none" : key === injected
     ? hint === "secure-store" || hint === "workspace-settings" ? hint : "environment"
     : "workspace-settings";
-  const storage = env.OMB_CREDENTIAL_STORE === "unavailable" ? "unreadable"
+  const storage = env.COLONIE_CREDENTIAL_STORE === "unavailable" ? "unreadable"
     : env.COLONIE_COMPOSIO_MIGRATION_PENDING === "1" ? "migration-pending" : "available";
   const storedOrigin = env.COLONIE_COMPOSIO_CREDENTIAL_ORIGIN;
   const origin = source === "none" || source === "environment" ? source : source === "secure-store"

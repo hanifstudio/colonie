@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export const RUN_CARD_KEY = "omb-show-run-card";
+export const RUN_CARD_KEY = "colonie-show-run-card";
 
 // Only a renderer preference: no conversation or server configuration belongs
 // here. Keep a session choice even if private/blocked storage rejects reads or
