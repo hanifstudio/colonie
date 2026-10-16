@@ -1,10 +1,10 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { DATA_DIR } from "../../config.ts";
-import { botAppPolicy, policyHash, saveBotAppPolicy } from "./policy.ts";
+import { BotAppPolicies, policyHash } from "./policy.ts";
 import { ConnectedTools } from "./manager.ts";
 import { fakeComposio } from "./testing/fake-composio.ts";
 
@@ -12,8 +12,9 @@ it("permits idle discovery, blocks idle execution, revokes old leases and never 
   const service = await fakeComposio();
   const previousApi = process.env.COLONIE_COMPOSIO_API;
   process.env.COLONIE_COMPOSIO_API = `${service.origin}/api/v3.1`;
-  rmSync(join(DATA_DIR, "connected-apps"), { recursive: true, force: true });
-  saveBotAppPolicy("relay-bot", { toolkits: ["hackernews"], customServers: [] }, policyHash(botAppPolicy("relay-bot")));
+  const root = mkdtempSync(join(tmpdir(), "colonie-connected-apps-"));
+  const policies = new BotAppPolicies(join(root, "bots"));
+  policies.save("relay-bot", { toolkits: ["hackernews"], customServers: [] }, policyHash(policies.read("relay-bot")));
   let manager!: ConnectedTools;
   const server = createServer(async (req, res) => {
     let body = ""; for await (const chunk of req) body += chunk;
@@ -22,7 +23,7 @@ it("permits idle discovery, blocks idle execution, revokes old leases and never 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let userId = "isolated_fixture_user";
-  manager = new ConnectedTools({ origin, credentials: () => ({ key: service.key, userId }), recordUserId: (value) => { userId = value; }, owns: () => true });
+  manager = new ConnectedTools({ origin, policies, sessions: join(root, "sessions"), credentials: () => ({ key: service.key, userId }), recordUserId: (value) => { userId = value; }, owns: () => true });
   try {
     const mount = manager.mount("relay-bot", "relay-thread", "fixture", {});
     const remote = mount.servers[0]!;
@@ -53,5 +54,19 @@ it("permits idle discovery, blocks idle execution, revokes old leases and never 
     manager.dispose(); server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve()));
     await service.close();
     if (previousApi === undefined) delete process.env.COLONIE_COMPOSIO_API; else process.env.COLONIE_COMPOSIO_API = previousApi;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("keeps each workspace's app policies in the directory it was given", () => {
+  const roots = [mkdtempSync(join(tmpdir(), "colonie-policy-a-")), mkdtempSync(join(tmpdir(), "colonie-policy-b-"))];
+  try {
+    const [a, b] = roots.map((root) => new BotAppPolicies(join(root, "bots")));
+    a!.save("bot", { toolkits: ["gmail"], customServers: [] }, policyHash(a!.read("bot")));
+    expect(a!.read("bot").toolkits).toEqual(["gmail"]);
+    expect(b!.read("bot")).toEqual({ toolkits: [], customServers: [] });
+    expect(() => b!.save("bot", { toolkits: ["slack"], customServers: [] }, policyHash(a!.read("bot")))).toThrow(/changed/);
+  } finally {
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
   }
 });

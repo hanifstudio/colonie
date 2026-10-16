@@ -10,7 +10,7 @@ import { contextCandidate, contextPin } from "./acp/context.ts";
 import { conversationPreview } from "./acp/conversation-preview.ts";
 import { colonieProfile } from "./acp/profile.ts";
 import { ConnectedTools } from "./colonie/connections/manager.ts";
-import { botAppPolicy } from "./colonie/connections/policy.ts";
+import { BotAppPolicies } from "./colonie/connections/policy.ts";
 import { connectedToolsRoutes } from "./colonie/connections/routes.ts";
 import { composioCredentialStatus } from "./colonie/connections/credential-status.ts";
 import { composioCredentialRoutes } from "./colonie/connections/credential-routes.ts";
@@ -3046,7 +3046,9 @@ const store = new Store(
   (instanceId) => registry.cliTarget(instanceId)?.driverKind,
 );
 const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), ENVIRONMENT_ID);
+const botAppPolicies = new BotAppPolicies(join(DATA_DIR, "connected-apps", "bots"));
 const connectedTools = new ConnectedTools({ origin: `http://127.0.0.1:${PORT}`,
+  policies: botAppPolicies, sessions: join(DATA_DIR, "connected-apps", "sessions"),
   credentials: () => cfg.composio?.apiKey ? { key: cfg.composio.apiKey, userId: cfg.composio.userId } : null,
   recordUserId: (userId) => { cfg.composio = { ...cfg.composio, userId }; saveConfig({ composio: { userId } }); },
   owns: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
@@ -3103,7 +3105,7 @@ const colonieChief = new ColonieChief({
  * one ACP mount, so a turn sees both without either lifecycle being lost. */
 type AcpToolMounts = { tools: import("./colonie/connections/contracts.ts").AcpToolMount; extra?: import("./colonie/connections/contracts.ts").AcpToolMount };
 async function acpToolMount(botId: string, threadId: string, instanceId: string): Promise<AcpToolMounts> {
-  const policy = botAppPolicy(botId);
+  const policy = botAppPolicies.read(botId);
   const custom = customMcpServers(cfg, policy.customServers);
   if (policy.customServers.some((name) => !custom[name])) throw new Error("A custom MCP server selected for this bot is disabled or missing. Update Connected apps in its profile.");
   const signedIn = await withMcpSignIn(custom, mcpOAuth);
@@ -14141,6 +14143,7 @@ ROUTES.push(createColonieSkillsRoutes({ service: colonieSkills, exists: (botId) 
 // existing broadcast already refreshes every window; no extra signal is needed.
 ROUTES.push(createChiefRoutes({ chief: colonieChief, exists: (botId) => Boolean(store.bot(botId)) }));
 ROUTES.push(connectedToolsRoutes({
+  policies: botAppPolicies,
   exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task) => threadBusy(botId, task.threadId)
     || registry.instances().some((instance) => instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(task.threadId))),
   configured: () => Boolean(cfg.composio?.apiKey), customNames: () => Object.keys(customMcpServers(cfg)),

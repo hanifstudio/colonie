@@ -4,13 +4,12 @@ import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { McpServer } from "@agentclientprotocol/sdk";
 import { z } from "zod";
-import { DATA_DIR } from "../../config.ts";
 import { writeFileAtomic } from "../../atomic.ts";
 import type { McpServerSpec } from "../../contracts.ts";
 import { isRemoteMcpServer } from "../../mcp-registry.ts";
 import { connectorCallFromFrame, serviceSlugForCandidates } from "../../connector-verdict.ts";
 import { McpHttpError, type RemoteMcpClient } from "../../mcp-http.ts";
-import { botAppPolicy, policyHash } from "./policy.ts";
+import { policyHash, type BotAppPolicies } from "./policy.ts";
 import { createComposioSession, sessionClient, type ComposioSession } from "./composio-client.ts";
 import type { AcpToolMount } from "./contracts.ts";
 import type { ConnectedToolCall } from "../../../shared/connected-apps.ts";
@@ -20,6 +19,9 @@ const META_TOOLS = new Set(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOO
 const persisted = z.object({ revision: z.string(), session: z.object({ session_id: z.string(), mcp: z.object({ url: z.string(), type: z.enum(["http", "sse"]) }) }) }).strict();
 interface Dependencies {
   origin: string;
+  policies: BotAppPolicies;
+  /** Where Composio sessions are kept between turns, one file per lease. */
+  sessions: string;
   credentials(): { key: string; userId?: string } | null;
   recordUserId(userId: string): void;
   owns(botId: string, threadId: string): boolean;
@@ -53,7 +55,7 @@ export class ConnectedTools {
   constructor(deps: Dependencies) { this.deps = deps; }
 
   mount(botId: string, threadId: string, instanceId: string, custom: Record<string, McpServerSpec>): AcpToolMount {
-    const policy = botAppPolicy(botId);
+    const policy = this.deps.policies.read(botId);
     const credential = policy.toolkits.length ? this.deps.credentials() : null;
     if (policy.toolkits.length && !credential?.key) throw new Error("Connect Composio in app settings before using these apps.");
     let userId = credential?.userId ?? "";
@@ -97,14 +99,14 @@ export class ConnectedTools {
   dispose() { for (const lease of this.leases.values()) lease.mount.release(); }
   private assertCurrent(lease: Lease) {
     const credential = this.deps.credentials();
-    if (lease.released || !this.deps.owns(lease.botId, lease.threadId) || policyHash(botAppPolicy(lease.botId)) !== lease.policyRevision
+    if (lease.released || !this.deps.owns(lease.botId, lease.threadId) || policyHash(this.deps.policies.read(lease.botId)) !== lease.policyRevision
       || (lease.key && (credential?.key !== lease.key || credential.userId !== lease.userId))) throw new Error("Connected app access changed. Send a new message to refresh the connection.");
   }
   private async client(lease: Lease): Promise<RemoteMcpClient> {
     if (lease.client) return lease.client;
     if (lease.connecting) return lease.connecting;
     lease.connecting = (async () => {
-      const directory = join(DATA_DIR, "connected-apps", "sessions");
+      const directory = this.deps.sessions;
       const file = join(directory, `${policyHash([lease.botId, lease.threadId, lease.instanceId])}.json`);
       let session: ComposioSession | undefined;
       try {
@@ -118,7 +120,7 @@ export class ConnectedTools {
         writeFileAtomic(file, JSON.stringify({ revision: lease.revision, session }, null, 2), { mode: 0o600 });
       };
       if (!session) {
-        session = await createComposioSession(lease.key, lease.userId, botAppPolicy(lease.botId).toolkits, signal);
+        session = await createComposioSession(lease.key, lease.userId, this.deps.policies.read(lease.botId).toolkits, signal);
         persist();
       }
       let client = sessionClient(lease.key, session);
@@ -130,7 +132,7 @@ export class ConnectedTools {
           // Authentication/network failures never fall back to broader access.
           await client.close().catch(() => {});
           this.assertCurrent(lease);
-          session = await createComposioSession(lease.key, lease.userId, botAppPolicy(lease.botId).toolkits, signal);
+          session = await createComposioSession(lease.key, lease.userId, this.deps.policies.read(lease.botId).toolkits, signal);
           persist(); client = sessionClient(lease.key, session);
           await client.initialize("Colonie", signal);
         }
@@ -166,7 +168,7 @@ export class ConnectedTools {
         if (!lease.active) throw new Error("This conversation has no active request");
         const name = (frame.params as any)?.name;
         if (typeof name !== "string") throw new Error("Tool name is required");
-        const policy = botAppPolicy(lease.botId);
+        const policy = this.deps.policies.read(lease.botId);
         const classified = connectorCallFromFrame(frame);
         if (name.startsWith("COMPOSIO_") && !META_TOOLS.has(name)) throw new Error("This Composio helper is not enabled");
         if (classified.kind === "unrecognized" || (classified.kind === "tools" && classified.names.some((tool) => !policy.toolkits.includes(serviceSlugForCandidates(tool, policy.toolkits) ?? "")))) throw new Error("This app is not enabled for this bot");
@@ -186,7 +188,7 @@ export class ConnectedTools {
       }
       if (frame.method === "tools/list") {
         const listed = z.object({ tools: z.array(z.object({ name: z.string() }).passthrough()) }).passthrough().parse(result);
-        const policy = botAppPolicy(lease.botId);
+        const policy = this.deps.policies.read(lease.botId);
         result = { ...listed, tools: listed.tools.filter((tool) => META_TOOLS.has(tool.name) || policy.toolkits.includes(serviceSlugForCandidates(tool.name, policy.toolkits) ?? "")) };
       }
       const safeResult = JSON.parse(JSON.stringify(result).split(lease.key).join("[redacted]"));

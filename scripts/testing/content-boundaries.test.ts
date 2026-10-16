@@ -40,6 +40,17 @@ describe("shared content boundaries", () => {
     },
   );
 
+  it.each(["policy.ts", "manager.ts", "routes.ts"])(
+    "server/colonie/connections/%s gets its storage from its caller, not global config",
+    (module) => {
+      const path = resolve(ROOT, "server/colonie/connections", module);
+      const config = resolve(ROOT, "server/config.ts");
+      const forbidden = valueImports(path).filter((specifier) =>
+        specifier.startsWith(".") && resolve(dirname(path), specifier) === config);
+      expect(forbidden).toEqual([]);
+    },
+  );
+
   it.each(["shared/transcript-attachments.ts", "shared/thread-address.ts"])(
     "%s has no static application-layer imports",
     (module) => {

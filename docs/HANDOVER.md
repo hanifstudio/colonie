@@ -63,10 +63,29 @@ e2e (all five files), and the Linux package check (missing
 `usr/share/applications/com.colonie.app.desktop` in the DEB). Diagnosing these
 is the next CI task before requiring the `CI` check.
 
-Next action: E02 first slice — inspect `server/config.ts` and
-`server/message-db.ts`, pick one store/connection boundary that reads global
-config, and record its outcome, scope, acceptance, and bounded checks here before
-editing. Remote enforcement remains unverified until the owner decides.
+## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
+
+`message-db.ts` (12 importers, 30+ module functions) is too wide for a first
+slice. Chosen instead: `server/colonie/connections/`, whose `policy.ts` and
+`manager.ts` read `DATA_DIR` from `config.ts` directly.
+
+- Outcome: `server/index.ts` builds one `BotAppPolicies` from an explicit
+  directory and passes it, plus the sessions directory, to `ConnectedTools` and
+  the connected-tools routes. Nothing in `connections/` imports `config.ts`.
+- Scope: `connections/{policy,manager,routes}.ts`, their test, three composition
+  lines in `server/index.ts`. On-disk layout (`<data>/connected-apps/bots|sessions`)
+  is unchanged, so stored data and backups are unaffected. Shutdown already goes
+  through `connectedTools.dispose()`.
+- Acceptance: two disposable roots keep separate policies; the manager test and
+  connections e2e pass; typecheck/lint; `content-boundaries.test.ts` rejects a
+  `config.ts` import from `connections/` (red/green in a disposable copy).
+- Budget: focused vitest only, 120 s per command, one job at a time, two repairs.
+
+Done locally (PROGRESS "E02.1"). Next action: E02.2 — pick the next store that
+reads `DATA_DIR` with few importers (survey in PROGRESS) and repeat the same
+pattern: caller-owned path, a two-root test, a `content-boundaries` case. Do not
+take `message-db.ts`, `store.ts`, or `config.ts` until smaller slices settle the
+pattern. Ask the owner only if a slice changes on-disk layout or stored data.
 
 ## M0 trial checkpoint — still open
 

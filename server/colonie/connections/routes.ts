@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { PASS, type RouteHandler } from "../../routes/table.ts";
-import { botAppPolicy, policyHash, policySchema, saveBotAppPolicy } from "./policy.ts";
+import { policyHash, policySchema, type BotAppPolicies } from "./policy.ts";
 
 interface Dependencies {
+  policies: BotAppPolicies;
   exists(botId: string): boolean;
   busy(botId: string): boolean;
   configured(): boolean;
@@ -25,10 +26,10 @@ export function connectedToolsRoutes(deps: Dependencies): RouteHandler {
       // Body reading can yield while a turn/discovery starts; check at the write boundary.
       if (!deps.exists(botId)) { ctx.json(ctx.res, 404, { error: "No such bot" }); return; }
       if (deps.busy(botId)) { ctx.json(ctx.res, 409, { error: "Wait for this bot's conversations to finish before changing app access." }); return; }
-      saveBotAppPolicy(botId, parsed.data.preferences, parsed.data.expectedRevision);
+      deps.policies.save(botId, parsed.data.preferences, parsed.data.expectedRevision);
       deps.invalidateBot(botId);
     }
-    const policy = botAppPolicy(botId);
+    const policy = deps.policies.read(botId);
     ctx.json(ctx.res, 200, { ...policy, revision: policyHash(policy), configured: deps.configured() });
   };
 }

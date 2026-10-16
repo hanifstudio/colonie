@@ -3,6 +3,22 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — E02.1 connected-apps storage owned at bootstrap
+
+`server/colonie/connections/` no longer imports `config.ts`. `BotAppPolicies`
+(class in `policy.ts`) takes its directory; `ConnectedTools` and the
+connected-tools routes receive it, plus the sessions directory, from
+`server/index.ts`. On-disk paths are unchanged (`<data>/connected-apps/bots|sessions`).
+
+- `vitest run server/colonie/connections scripts/testing/content-boundaries.test.ts scripts/testing/index-route-ratchet.test.ts` — 6 files, 15/15, including the new two-root isolation test and the isolated-server connections e2e (codex-acp and claude-acp fixtures).
+- Repair 1/2: the first e2e run failed — the fixture server runs under Node strip-only TypeScript, which rejects a constructor parameter property. Replaced with an explicit field; nothing enforces this at typecheck yet.
+- Guard: `content-boundaries.test.ts` now rejects a value import of `server/config.ts` from `connections/{policy,manager,routes}.ts`. Disposable copy: current passes, a `DATA_DIR` import fails, a type-only import passes.
+- `tsc -b` + server tsc: no errors in changed files; four errors in `server/acp/acp-runtime.ts` belong to concurrent uncommitted ACP work. `oxlint --deny-warnings` on changed files clean.
+
+Candidate next slices (importers / `DATA_DIR` uses): `acp/settings.ts` 2/3,
+`profile-learned.ts` 2/3, `mcp-gate-config.ts` 2/2, `published-teams.ts` 3/3,
+`acp/receipts.ts` 5/3. Real-provider and desktop behavior were not exercised.
+
 ## 2026-10-17 — inherited license files and cloudflared removed
 
 Owner directed a full break from the OpenMaus inheritance: deleted `LICENSE`,
