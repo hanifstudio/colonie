@@ -143,6 +143,8 @@ tests. Acceptance per stage as written below. Budget: one vitest run at a time,
 Progress: stage 1 done (ten e2e files deleted, PROGRESS). Stage 3a done: group
 HTTP routes, agent-facing channel MCP tools and the control CLI's channel commands
 are gone. Do not release before stage 4: the renderer still calls the removed routes.
+Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures
+(it still builds retired drivers; CI's macOS step fails with 409 until then).
 Next: 3b — room orchestration in `server/index.ts` (peel from the callers inward:
 `startGroupTurn`, `runGroupMemberTurn`, goal runs, handoffs; `tsc` unused-local errors
 mark each next layer), then the `room-*`/`group-*` modules with their unit tests,

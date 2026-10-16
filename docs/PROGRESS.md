@@ -78,6 +78,25 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — CI result for the smoke repairs, and the Linux smoke's dead premise
+
+CI run 38977146364 (commit `60455277`): the packaged server smoke now **passes on
+Ubuntu and Windows** (it failed everywhere before). The Ubuntu package job got past
+the `.desktop` file check and then failed later: `scripts/smoke-linux-package.mjs`
+waited for the packaged app to contact a managed Composio broker at launch.
+`server/composio.ts` reads that broker only when `COLONIE_COMPOSIO_BROKER_TOKEN` is
+set, and no Colonie code supplies one since hosting was retired, so the request can
+never happen. Removed the slow-broker fixture, its env var and its assertion; all
+other assertions in that smoke are unchanged. Not verifiable on macOS (needs the
+Ubuntu package job).
+
+Still red, causes known: the macOS "approval mode transitions" step
+(`scripts/smoke-approval-modes.cjs`) builds its fleet from the retired drivers
+`claudeAgent`, `codex`, `antigravityAgent` and `grokAgent` and fails at its first send
+with 409; it needs a rewrite onto the ACP fixtures (queued, not removed from CI, so
+the missing evidence stays visible). Vitest shards: dominated by room tests and
+`server/index.test.ts` (see the rooms entries). Renderer UI smoke: not investigated.
+
 ## 2026-10-17 — rooms retirement, stage 3a (routes and agent-facing tools)
 
 Removed the eleven `/api/groups…` route groups from `server/index.ts` (create,
