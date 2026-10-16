@@ -1,5 +1,42 @@
 # Colonie progress
 
+## 2026-10-16 — the company-model policy is gone
+
+`server/hosted-models.ts` replaced instance configs with a workspace's own model
+catalog, handed an engine the workspace token as its provider key, refused
+engine-setting writes, and reported a hosted workspace's provider list and
+health as read-only. It armed itself from `OMB_HOSTED_MODELS` /
+`OMB_HOSTED_MODEL_TOKEN` plus a portal contract, so no local install ever had
+one — but every model-selection path carried a branch for it.
+
+| commit | what went |
+|---|---|
+| `4cdb464c` | `server/hosted-models.ts` and its three constants; 22 branches in `server/index.ts` (`.configs()`, `.select()`, `.allows()`, `.error()`, `.resetTask()`, `.reconcile()`, `.decorate()`, the `X-Omb-Hosted-Model-Policy` header, the provider-settings refusals); the `hosted` dep and its 403 in `server/routes/antigravity-leftovers.ts`; the `reset` callback on `Store.followBotModel`; the `OMB_HOSTED_MODEL*` skip in `server/cli-probe-env.test.ts` |
+
+12 files changed, 36 insertions(+), 247 deletions(-).
+
+### Verified after `4cdb464c`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` | clean |
+| `pnpm exec vitest run server/thread-model.test.ts server/routes/antigravity-leftovers.test.ts server/drivers/claude.test.ts server/cloud-home.test.ts server/routes/thread-models.test.ts` | 5 files passed, 248 passed, 1 skipped |
+| `pnpm exec vitest run server/cli-probe-env.test.ts server/config.test.ts` | 2 files passed, 190 passed |
+
+`Store.followBotModel` lost its third parameter: with both hosted call sites
+gone nothing passed a reset callback, so the store no longer carries a hook
+that only a hosted workspace used. `server/cli-probe-env.test.ts` got
+*stronger*: `OMB_HOSTED_MODELS`/`OMB_HOSTED_MODEL_TOKEN` are now injected
+as ordinary secrets and asserted not to reach a spawned CLI, instead of being
+skipped because a desktop holding them used to refuse to boot.
+
+### What is left
+
+Unchanged from the entry below, minus this module. The Cloud-home cluster is
+next (`cloud-home*`, `cloud-owner`, `cloud-secrets*`, `cloud-lending`,
+`lending-memory`, `included-services`, `shared/cloud-home` and the `CLOUD_HOME`
+guards), then the visible Cloud place, then the rename, then the VPS.
+
 ## 2026-10-16 — the Workspaces screen and the fleet socket are gone
 
 Settings → Workspaces was an operator's view of the client workspaces on one
