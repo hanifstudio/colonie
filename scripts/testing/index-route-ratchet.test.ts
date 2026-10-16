@@ -11,8 +11,8 @@ const EXACT: Record<string, number> = {
   // after the cloud slice deleted them with the cloud lending code raised this
   // by two; they are internal-only, resolved behind /api/internal/'s own
   // bearer, so they cannot move to server/routes with the public table.
-  'path === "/': 143,
-  "path.match(": 80,
+  'path === "/': 142,
+  "path.match(": 70,
   "path.startsWith(": 10,
   ".exec(path)": 18,
   ".test(path)": 1,

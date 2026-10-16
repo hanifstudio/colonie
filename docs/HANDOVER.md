@@ -125,7 +125,7 @@ M0.4 still needs fresh-session pickup/review evidence. Review so far is self-rev
 unexpected-failure recovery and unattended execution remain unproven. Preserve
 these limits while scoped foundation work proceeds; do not claim M0 complete.
 
-## Active task: rooms retirement, stages 1–2 (picked up October 17, second session)
+## Active task: rooms retirement (picked up October 17, second session)
 
 CI evidence that justifies doing this now: after the static job went green,
 the remaining red vitest shards are dominated by `server/index.test.ts` (68
@@ -139,6 +139,15 @@ live importer; `room-*` modules and `group-goal-run`/`group-thread-usage` are st
 imported by `server/index.ts`, so they wait for stage 3 together with their unit
 tests. Acceptance per stage as written below. Budget: one vitest run at a time,
 `--maxWorkers=1`, background for the e2e files, two repairs per stage.
+
+Progress: stage 1 done (ten e2e files deleted, PROGRESS). Stage 3a done: group
+HTTP routes, agent-facing channel MCP tools and the control CLI's channel commands
+are gone. Do not release before stage 4: the renderer still calls the removed routes.
+Next: 3b — room orchestration in `server/index.ts` (peel from the callers inward:
+`startGroupTurn`, `runGroupMemberTurn`, goal runs, handoffs; `tsc` unused-local errors
+mark each next layer), then the `room-*`/`group-*` modules with their unit tests,
+store tables (check backup/restore compatibility of persisted `groups.json` before
+dropping reads), routines/wire/package flows, then stage 4 renderer and stage 5 tests.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 

@@ -78,6 +78,25 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — rooms retirement, stage 3a (routes and agent-facing tools)
+
+Removed the eleven `/api/groups…` route groups from `server/index.ts` (create,
+setup, tasks, task rename/delete/switch, patch, read, delete, messages, queue
+cancel, queue steer, interrupt: 522 lines) and the code that became unused once
+they were gone (six `channel-queue` imports, `clientGroupPatchViolation`, a request
+schema, the task-switch guard). The 1:1 steered queue is separate (`steer-queue.ts`)
+and untouched. The control MCP server (`scripts/mcp-server.ts`) loses its five
+channel tools and the `channel` target in the task/wait/interrupt tools
+(`target_type` now accepts only `bot`); `scripts/control-colonie.ts` loses the
+channel commands; `scripts/verify-group-vm.ts` is deleted.
+
+- Method note: a first cut removed only the first `if` after each `m = path.match(...)`, leaving sibling `if (m && …)` blocks that would have run on another route's match. `tsc` could not see that. Redone with sibling-aware removal and the seams inspected.
+- Route guard counts lowered to 142 / 70 (`index-route-ratchet.test.ts`), never raised.
+- `tsc -p tsconfig.server.json` 0 errors; `oxlint --deny-warnings .` clean.
+- `vitest run server/mcp-server.test.ts server/control-colonie.test.ts`: baseline (with my changes stashed) was 56 passed / 2 failed; after, 54 passed / 2 failed, the same two ("launches, drives a real fake-engine turn…", "scripts the fake engine's tool calls…"), inherited and undiagnosed. Channel cases were deleted or rewritten to bot-only: create-channel, channel sends, channel task routes, channel wait/interrupt; two cases now assert that a `channel` target is refused.
+- Left for next slices: `store.ts` tables, `server/index.ts` room orchestration (`startGroupTurn`, `runGroupMemberTurn`, goal runs, handoffs) and the room modules with their unit tests, `routines.ts`/`wire.ts` references, team backup/package flows (`verify-team-backup.ts`, `verify-threads.ts` still create groups), and the whole renderer (stage 4). The renderer's `GroupView` now calls routes that return 404, so this must not be released before stage 4.
+- Not run: the e2e suites, the renderer, packaging.
+
 ## 2026-10-17 — rooms retirement, stage 1 (room-only e2e files)
 
 Ran all 24 room/group test files (`vitest run`, `--maxWorkers=1`, background):

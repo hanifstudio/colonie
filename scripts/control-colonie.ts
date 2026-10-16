@@ -21,7 +21,7 @@ export const FIXTURE_STARTER_BOT_NAME = "Fixture Starter";
 const FAKE_ACP = join(ROOT, "server", "testing", "fake-acp-cli.ts");
 // `ui` verbs never discover anything: each takes the handle its launch printed.
 const MUTATING = new Set([
-  "new-bot", "new-channel", "send", "send-channel", "interrupt", "set-model", "edit",
+  "new-bot", "send", "interrupt", "set-model", "edit",
   "ui click", "ui type", "ui press", "ui flag", "ui eval",
 ]);
 
@@ -61,20 +61,14 @@ export const HELP = `control-colonie — verify a running Colonie instance throu
 read-only:
   doctor [--url URL]
   bots [--url URL]
-  channels [--url URL]
   models [--url URL]
   messages --bot ID [--task ID] [--limit 30] [--url URL]
-  messages --channel ID [--task ID] [--limit 30] [--url URL]
   wait --bot ID [--task ID] [--timeout 30] [--url URL]
-  wait --channel ID [--task ID] [--timeout 30] [--url URL]
 
 mutating (an explicit --url or COLONIE_URL/COLONIE_PORT is required):
   new-bot --name NAME [--url URL]
-  new-channel --name NAME --members ID,ID [--url URL]
   send --bot ID --text TEXT [--task ID] [--dry-run] [--url URL]
-  send-channel --channel ID --text TEXT [--task ID] [--dry-run] [--url URL]
   interrupt --bot ID [--task ID] [--dry-run] [--url URL]
-  interrupt --channel ID [--task ID] [--dry-run] [--url URL]
   edit --bot ID --message ID --text TEXT [--task ID] [--dry-run] [--url URL]
   set-model --bot ID --instance ID --model ID [--task ID] [--effort LEVEL] [--dry-run] [--url URL]
 
@@ -140,13 +134,10 @@ function configuredUrl(raw: unknown, env: NodeJS.ProcessEnv, requiredForMutation
   return validateBaseUrl(explicit);
 }
 
-function target(values: Record<string, unknown>): { type: "bot" | "channel"; id: string } {
+function target(values: Record<string, unknown>): { type: "bot"; id: string } {
   const bot = typeof values.bot === "string" ? values.bot.trim() : "";
-  const channel = typeof values.channel === "string" ? values.channel.trim() : "";
-  if (Boolean(bot) === Boolean(channel)) {
-    throw new ControlColonieError("provide exactly one of --bot ID or --channel ID");
-  }
-  return bot ? { type: "bot", id: bot } : { type: "channel", id: channel };
+  if (!bot) throw new ControlColonieError("provide --bot ID");
+  return { type: "bot", id: bot };
 }
 
 function dryRun(command: string, values: Record<string, unknown>, tool: string, args: Record<string, unknown>) {
@@ -196,9 +187,9 @@ export async function runControlColonie(
     };
   }
 
-  if (command === "bots" || command === "channels" || command === "models") {
+  if (command === "bots" || command === "models") {
     const values = parse(command, args);
-    const tool = command === "bots" ? "list_bots" : command === "channels" ? "list_channels" : "list_available_models";
+    const tool = command === "bots" ? "list_bots" : "list_available_models";
     return call(tool, {}, values.url);
   }
 
@@ -215,37 +206,17 @@ export async function runControlColonie(
     }, values.url);
   }
 
-  if (command === "new-channel") {
-    const values = parse(command, args, {
-      name: { type: "string" },
-      members: { type: "string" },
-      section: { type: "string" },
-    });
-    const memberIds = required(values.members, "--members").split(",").map((id) => id.trim()).filter(Boolean);
-    if (!memberIds.length || new Set(memberIds).size !== memberIds.length) {
-      throw new ControlColonieError("--members must contain unique comma-separated bot IDs");
-    }
-    return call("create_channel", {
-      name: required(values.name, "--name"),
-      member_ids: memberIds,
-      ...(values.section ? { section: values.section } : {}),
-    }, values.url);
-  }
-
-  if (command === "send" || command === "send-channel") {
+  if (command === "send") {
     const values = parse(command, args, {
       bot: { type: "string" },
-      channel: { type: "string" },
       text: { type: "string" },
       task: { type: "string" },
       "dry-run": { type: "boolean", default: false },
     });
-    const expected = command === "send" ? "bot" : "channel";
     const destination = target(values);
-    if (destination.type !== expected) throw new ControlColonieError(`${command} requires --${expected} ID`);
-    const tool = expected === "bot" ? "send_bot_message" : "send_channel_message";
+    const tool = "send_bot_message";
     const input = {
-      [`${expected}_id`]: destination.id,
+      bot_id: destination.id,
       text: required(values.text, "--text"),
       ...(values.task !== undefined ? { task_id: required(values.task, "--task") } : {}),
     };
@@ -290,7 +261,6 @@ export async function runControlColonie(
   if (command === "wait" || command === "messages" || command === "interrupt") {
     const values = parse(command, args, {
       bot: { type: "string" },
-      channel: { type: "string" },
       task: { type: "string" },
       timeout: { type: "string" },
       limit: { type: "string" },
@@ -307,9 +277,8 @@ export async function runControlColonie(
       }, values.url);
     }
     if (command === "messages") {
-      const tool = destination.type === "bot" ? "get_bot_messages" : "get_channel_messages";
-      return call(tool, {
-        [`${destination.type}_id`]: destination.id,
+      return call("get_bot_messages", {
+        bot_id: destination.id,
         ...pinned,
         limit: positiveInteger(values.limit, "--limit", 30, 200),
       }, values.url);

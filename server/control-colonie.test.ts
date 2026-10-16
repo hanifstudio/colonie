@@ -139,10 +139,14 @@ describe("control-colonie command mapping", () => {
   it("maps bounded reads and dry-run actions without reimplementing them", async () => {
     const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => ({ name, args }));
     const env = { COLONIE_URL: "http://127.0.0.1:19999" };
-    await expect(runControlColonie(["messages", "--channel", "room-1", "--limit", "20"], {
+    await expect(runControlColonie(["messages", "--bot", "bot-1", "--limit", "20"], {
       callTool: callTool as any,
       env,
-    })).resolves.toEqual({ name: "get_channel_messages", args: { channel_id: "room-1", limit: 20 } });
+    })).resolves.toEqual({ name: "get_bot_messages", args: { bot_id: "bot-1", limit: 20 } });
+    await expect(runControlColonie(["messages", "--channel", "room-1"], {
+      callTool: callTool as any,
+      env,
+    })).rejects.toBeInstanceOf(Error);
 
     await expect(runControlColonie(["send", "--bot", "bot-1", "--text", "hello", "--dry-run"], {
       callTool: callTool as any,
