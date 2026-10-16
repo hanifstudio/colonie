@@ -18,14 +18,10 @@ export type PlaceAvailability = Record<Place, boolean>;
  * conversation can be pinned there: the same view the Works on cards and
  * the Simple grid read, so the chip never offers a place the panel would
  * grey out, and names a problem in the same few words. */
-export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reachable: boolean; policy: boolean }> {
+export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reachable: boolean }> {
   const { state } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const seat = usePlaceSeat(state.config, capabilities.host.platform);
-  const backend = bot.cloudBackend === "vps" ? "vps" : "box";
-  // Places the enrolled organisation disallows, or this server never
-  // offers (an OMB Cloud home), are not reachable.
-  const allowed = state.config?.managedPolicy?.computers ?? { thisComputer: true, localVm: true, box: true, vps: true };
   const providerSupportsLocal = instanceSupportsLocalComputer(state.instances, bot);
   const local = {
     ready: localComputerSelectable({ capabilities, providerSupportsLocal }),
@@ -33,9 +29,9 @@ export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reacha
   };
   const entry = (place: Place) => {
     const view = placeViewFor(placeFacts({ bot, place, seat, config: state.config, instances: state.instances, local }));
-    const policy = (place === "cloud" ? allowed[backend] : place === "vm" ? allowed.localVm : place === "local" ? allowed.thisComputer : true)
-      && placeOffered(place, state.config);
-    return { view, policy, reachable: policy && !placeBlocked(view) };
+    // A place this server never offers (an OMB Cloud home) is not reachable.
+    const offered = placeOffered(place, state.config);
+    return { view, reachable: offered && !placeBlocked(view) };
   };
   return { cloud: entry("cloud"), vm: entry("vm"), local: entry("local"), browser: entry("browser") };
 }
@@ -130,10 +126,10 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
             </button>
             {PLACES.filter((place) => placeOffered(place, state.config)).map((place) => {
               const selected = task?.surface === place;
-              const { view, reachable, policy } = places[place];
-              // A problem is named in the panel's own few words; a place
-              // the organisation or this server never offers stays plain.
-              const detail = !policy ? t("place.unavailable") : placeHasIssue(view) ? view.short : t(DESCRIPTION[place]);
+              const { view, reachable } = places[place];
+              // A problem is named in the panel's own few words; a place this
+              // server never offers is not listed at all.
+              const detail = placeHasIssue(view) ? view.short : t(DESCRIPTION[place]);
               return (
                 <button
                   key={place}
@@ -141,7 +137,7 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
                   role="menuitemradio"
                   aria-checked={selected}
                   disabled={!reachable}
-                  title={!policy ? t("place.unavailable") : placeHasIssue(view) ? view.line : undefined}
+                  title={placeHasIssue(view) ? view.line : undefined}
                   onClick={() => choose(place)}
                   className={cn("flex items-start gap-3 px-4 py-2 text-left", reachable ? "hover:bg-control/60" : "cursor-not-allowed opacity-45", selected && "bg-control/40")}
                 >

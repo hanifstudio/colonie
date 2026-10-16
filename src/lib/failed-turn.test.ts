@@ -53,8 +53,6 @@ describe("failed turn text", () => {
     expect(activityPreview(loginRow, undefined)).toBe("Not logged in · Please run /login");
     // a too-old Claude Code gets the update offer, never a sign-in promise
     expect(activityPreview({ ...loginRow, name: "error: needs a newer Claude Code", claudeUpdate: true }, engine())).toBe("needs a newer Claude Code");
-    // …even on a company-managed Claude, which chat cannot update
-    expect(signedOutEngine({ ...loginRow, claudeUpdate: true }, engine({ readOnly: true }))).toBeUndefined();
   });
 
   it("previews a plan-limit refusal whole and leaves ordinary steps alone", () => {

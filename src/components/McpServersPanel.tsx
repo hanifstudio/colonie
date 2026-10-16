@@ -54,9 +54,7 @@ interface McpOAuthClientListing {
   clientSecretConfigured: boolean;
   redirectUri: string;
 }
-/** managedBy: the enrolled organisation has not approved this server, so it
- * stays configured but never reaches bots. */
-export type McpServerListing = (StdioMcpListing | RemoteMcpListing) & { managedBy?: string };
+export type McpServerListing = StdioMcpListing | RemoteMcpListing;
 
 export function isRemoteMcpListing(server: McpServerListing): server is RemoteMcpListing {
   return "url" in server;
@@ -234,9 +232,6 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
   nativeSettings?: boolean;
 } = {}) {
   const { state: store, dispatch } = useStore();
-  // While enrolled with custom servers off, only approved servers can be added.
-  const policy = store.config?.managedPolicy;
-  const restricted = Boolean(policy && !policy.mcp.allowCustom);
   const [servers, setServers] = useState<McpServerListing[] | null>(null);
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<McpDraft>(EMPTY_DRAFT);
@@ -621,7 +616,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
         <span className="text-[12px] font-medium text-success">{whopConnected ? t("apps.connected") : ""}</span>
         {signingIn ? <button type="button" onClick={() => signInAbort.current?.abort()} className="rounded-full bg-control px-3 py-1.5 text-[12px] text-ink">{t("mcp.auth.cancel")}</button> :
           <button type="button" aria-label={t(whopConnected ? "whop.disconnect" : "whop.connect")}
-            disabled={pending || (servers !== null && !whopConnected && (Boolean(whopServer?.managedBy) || (restricted && !policy?.mcp.allowlist.length)))}
+            disabled={pending}
             onClick={() => void (servers === null ? load() : whopConnected && whopServer ? signOut(whopServer) : connectWhop())}
             className="flex min-w-[80px] items-center justify-center gap-1.5 rounded-full bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-40">
             {pending ? <HIcon icon={Loading02Icon} size={13} className="animate-spin" /> : servers === null ? t("connectors.action.retry") : t(whopConnected ? "connectors.disconnect" : "connectors.action.connect")}
@@ -668,8 +663,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
             </button>
             <button
               type="button"
-              disabled={busy !== null || restricted}
-              title={restricted && policy ? t("policy.managedBy", { organization: policy.organizationName }) : undefined}
+              disabled={busy !== null}
               onClick={() => {
                 setImportOpen((open) => !open);
                 setError(null);
@@ -681,8 +675,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
             </button>
             <button
               type="button"
-              disabled={busy !== null || (restricted && !policy?.mcp.allowlist.length)}
-              title={restricted && policy ? t("policy.managedBy", { organization: policy.organizationName }) : undefined}
+              disabled={busy !== null}
               onClick={() => {
                 setEditing("new");
                 setDraft(EMPTY_DRAFT);
@@ -695,8 +688,6 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
             </button>
           </div>
         </div>
-
-        {restricted && policy && <p role="status" className="mt-3 text-[12.5px] leading-relaxed text-ink-secondary">{t("policy.mcpRestricted", { organization: policy.organizationName })}</p>}
         {nativeSettings && <ClaudeMcpSwitch />}
 
         {importOpen && (
@@ -940,9 +931,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                         <span className="min-w-0 truncate text-[14px] font-medium text-ink">{whop ? "Whop" : server.name}</span>
                         <span className={cn("rounded-full px-2 py-0.5 text-[10.5px]", server.enabled ? "bg-success/10 text-success" : "bg-raised text-ink-secondary")}>{t(server.enabled ? "mcp.badge.on" : "mcp.badge.off")}</span>
                         {auth && <span className={cn("rounded-full px-2 py-0.5 text-[10.5px]", auth === "signed-in" ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>{t(auth === "signed-in" ? "mcp.auth.signedIn" : "mcp.auth.needsSignIn")}</span>}
-                        {server.managedBy && <span className="rounded-full bg-raised px-2 py-0.5 text-[10.5px] text-ink-secondary">{t("policy.managedBy", { organization: server.managedBy })}</span>}
                       </div>
-                      {server.managedBy && <div className="mt-1 text-[11.5px] text-ink-secondary">{t("policy.mcpBlocked", { organization: server.managedBy })}</div>}
                       <div className="mt-1 truncate font-mono text-[11.5px] text-ink-secondary">{isRemoteMcpListing(server) ? server.url : [server.command, ...server.args].join(" ")}</div>
                       {isRemoteMcpListing(server)
                         ? server.headerKeys.length > 0 && <div className="mt-1 truncate text-[11px] text-ink-secondary">{t("mcp.headersSaved", { keys: server.headerKeys.join(", ") })}</div>
@@ -955,7 +944,7 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
                           <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> {t("mcp.auth.cancel")}
                         </button>
                       ) : canSignIn ? (
-                        <button type="button" disabled={busy !== null || signingIn !== null || Boolean(server.managedBy)} onClick={() => void signIn(server)} className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-2 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-40">
+                        <button type="button" disabled={busy !== null || signingIn !== null} onClick={() => void signIn(server)} className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-2 text-[12px] font-medium text-white hover:brightness-110 disabled:opacity-40">
                           <HIcon icon={Login01Icon} size={14} /> {t(whop ? "whop.connect" : "mcp.auth.signIn")}
                         </button>
                       ) : auth === "signed-in" ? (

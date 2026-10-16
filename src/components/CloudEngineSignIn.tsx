@@ -18,9 +18,9 @@ import { useStore, type InstanceInfo } from "@/state/store";
 type Choice = "claude" | "codex" | "grok";
 type ChoiceKind = "claudeAgent" | "codex" | "grokAgent";
 
-/** The person's own engine of that kind: not a local-model or read-only one. */
+/** The person's own engine of that kind: not a local-model one. */
 export function cloudEngine(instances: readonly InstanceInfo[], driverKind: ChoiceKind): InstanceInfo | undefined {
-  return instances.find((instance) => instance.driverKind === driverKind && instance.access !== "custom" && !instance.readOnly);
+  return instances.find((instance) => instance.driverKind === driverKind && instance.access !== "custom");
 }
 
 export function CloudEngineSignIn() {

@@ -236,10 +236,9 @@ describe("thread control placement", () => {
     // the offer replaces the plain Retry until they pick a path
     expect(markup).not.toContain(">Retry<");
   });
-  it("updates only a local Claude Code engine from chat", () => {
+  it("updates only a Claude Code engine from chat", () => {
     const claude = { instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude" } as InstanceInfo;
     expect(claudeUpdateTarget(claude)).toBe(claude);
-    expect(claudeUpdateTarget({ ...claude, readOnly: true })).toBeUndefined();
     expect(claudeUpdateTarget({ ...claude, driverKind: "codex" })).toBeUndefined();
     expect(claudeUpdateTarget(undefined)).toBeUndefined();
   });

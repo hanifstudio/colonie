@@ -419,14 +419,3 @@ describe("Claude provider and account selection", () => {
     expect(onSelect).toHaveBeenCalledExactlyOnceWith(personal);
   });
 });
-
-describe("organisation policy", () => {
-  it("shows an engine the organisation disallows as managed and dimmed, not hidden", () => {
-    const blocked: InstanceInfo = { ...engine(), policy: { organizationName: "Fixture Agency", reason: "Fixture Agency allows only company models on this computer. Choose a Company model for this bot." } };
-    const markup = renderToStaticMarkup(createElement(ModelEngineRail, { instances: [blocked], onSelect: () => {} }));
-    expect(markup).toContain('aria-label="OpenAI · Managed by Fixture Agency"');
-    expect(markup).toContain("opacity-40");
-    const allowed = renderToStaticMarkup(createElement(ModelEngineRail, { instances: [engine()], onSelect: () => {} }));
-    expect(allowed).not.toContain("Managed by");
-  });
-});

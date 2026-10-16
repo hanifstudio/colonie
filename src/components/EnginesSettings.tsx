@@ -254,18 +254,8 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
       .finally(() => setUpdating(false));
   };
 
-  const policyNote = instance.policy && <p className="mb-2 text-[12px] leading-relaxed text-ink-secondary">
-    <span className="font-medium text-ink">{t("policy.managedBy", { organization: instance.policy.organizationName })}</span> · {instance.policy.reason}
-  </p>;
-  if (instance.readOnly) return <EngineCard instance={instance}>
-    {policyNote}
-    <p className="text-[13px] leading-relaxed text-ink-secondary">{t("organization.managedEngine")}</p>
-    {!engineReady(instance) && <p className="mt-2 text-[12px] text-ink-secondary">{t("organization.engineUnavailable")}</p>}
-  </EngineCard>;
-
   return (
     <EngineCard instance={instance}>
-      {policyNote}
       {!engineReady(instance) && <EngineSetup instance={instance} intent={instance.access === "custom" ? "inject" : "cloud"} unframed />}
       {engineReady(instance) && <ApiKeyEngineManage instance={instance} className="mt-3" />}
       {instance.snapshot.update && <EngineUpdateNotice update={instance.snapshot.update} instance={instance} className="mt-3" />}
@@ -364,7 +354,7 @@ export function EnginesSettings() {
   // (and a Set CLI… path) for engines the running build doesn't recognize.
   // Key engines have no CLI; keep them once their key is saved, or the card
   // (and the only way back to a mistyped key) vanishes (MOCA-292).
-  const rows = state.instances.filter((i) => i.readOnly || i.cli !== undefined || i.cliDefault !== undefined || i.snapshot.state === "unavailable" || isApiKeyEngine(i));
+  const rows = state.instances.filter((i) => i.cli !== undefined || i.cliDefault !== undefined || i.snapshot.state === "unavailable" || isApiKeyEngine(i));
 
   return (
     <div className="flex min-w-0 flex-col gap-6 pb-2">

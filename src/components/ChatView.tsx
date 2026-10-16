@@ -334,10 +334,9 @@ function PlaceFailedRow({ place, botId, threadId, onRetry }: {
   return <ErrorRow message={view.line} action={view.action && onClick ? { label: view.action.label, onClick } : null} />;
 }
 
-/** Only a local, editable Claude Code engine can be updated from chat; a
- * company-managed one is the organisation's to update. */
+/** Only a local, editable Claude Code engine can be updated from chat. */
 export function claudeUpdateTarget(engine: InstanceInfo | undefined): InstanceInfo | undefined {
-  return engine?.driverKind === "claudeAgent" && !engine.readOnly ? engine : undefined;
+  return engine?.driverKind === "claudeAgent" ? engine : undefined;
 }
 
 /** A failed turn's stored row ("error: …", src/lib/failed-turn.ts), shown

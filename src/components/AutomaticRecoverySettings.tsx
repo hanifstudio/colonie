@@ -12,7 +12,7 @@ export function AutomaticRecoverySettings() {
   const [error, setError] = useState("");
   const inFlight = useRef(false);
   const value = draft ?? state.config?.automaticRecovery ?? { enabled: false };
-  const engines = state.instances.filter((instance) => instance.snapshot.state === "available" && !instance.policy);
+  const engines = state.instances.filter((instance) => instance.snapshot.state === "available");
   const engine = engines.find((instance) => instance.instanceId === value.backup?.instanceId);
   const models = engine?.models.options.filter((model) => engine.snapshot.authenticated !== false || model.custom) ?? [];
   const ready = models.some((model) => model.id === value.backup?.model);

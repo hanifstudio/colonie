@@ -416,7 +416,7 @@ function ManagedEngineSetup({ instance, signInOnly }: { instance: InstanceInfo; 
  * Settings → API keys, never a terminal command or a sign-in. Claude on the
  * workspace key still needs its CLI first, which the install card covers. */
 export function isApiKeyEngine(instance: InstanceInfo | undefined): boolean {
-  if (!instance || instance.access !== "api" || instance.managed) return false;
+  if (!instance || instance.access !== "api") return false;
   return instance.driverKind !== "claudeAgent" || Boolean(instance.snapshot.version);
 }
 

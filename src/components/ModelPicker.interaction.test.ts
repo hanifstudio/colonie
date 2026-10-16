@@ -281,7 +281,6 @@ describe("the way into local models", () => {
     expect(offersLocalModels(signedIn(), 0)).toBe(true);
     expect(offersLocalModels(signedOut(), 0)).toBe(true);
     expect(offersLocalModels(notFound(), 0)).toBe(false);
-    expect(offersLocalModels({ ...signedIn(), policy: { organizationName: "Fixture", reason: "Not allowed" } }, 0)).toBe(false);
     expect(offersLocalModels(codex, 0)).toBe(false);
     expect(offersLocalModels(codex, 2)).toBe(true);
     expect(offersLocalModels(undefined, 0)).toBe(false);

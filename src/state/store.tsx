@@ -720,22 +720,9 @@ export interface ConfigStatus {
   browserEngine?: BrowserEngineSummary;
   /** Named browser sessions any bot can be pointed at. */
   browserProfiles?: BrowserProfile[];
-  /** The enrolled organisation's read-only desktop policy; null when this
-   * desktop is not enrolled or its Admin sends no policy. */
-  managedPolicy?: ManagedPolicySummary | null;
   /** This server is an OMB Cloud home: it offers no "this computer" and no
    * Local VM (server/cloud-home.ts). Absent everywhere else. */
   cloudHome?: boolean;
-}
-
-export interface ManagedPolicySummary {
-  organizationName: string;
-  version: number;
-  companyModelsOnly: boolean;
-  allowedEngines: "all" | string[];
-  mcp: { allowCustom: boolean; allowlist: string[] };
-  computers: { thisComputer: boolean; localVm: boolean; box: boolean; vps: boolean };
-  remoteAccess: boolean;
 }
 
 export interface BrowserEngineSummary {
@@ -761,7 +748,7 @@ export interface BrowserProfile {
 // Settings shows (a saved key's Test button used to vanish that way).
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome"
+  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -796,7 +783,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     edition: frame.edition,
     budgets: frame.budgets,
     billing: frame.billing,
-    managedPolicy: frame.managedPolicy,
     ...(frame.cloudHome ? { cloudHome: true } : {}),
   };
 }
@@ -824,12 +810,6 @@ export interface InstanceInfo {
   /** Optional presentation override belonging to this instance, independent
    * of the driver that runs it. */
   icon?: import("../../shared/provider-icon").ProviderIcon;
-  /** Company instances are owned by the desktop parent, never editable here. */
-  readOnly?: boolean;
-  managed?: { organizationId: string; organizationName: string };
-  /** The enrolled organisation's desktop policy does not allow bots to run on
-   * this instance: shown, but disabled, with the server's reason. */
-  policy?: { organizationName: string; reason: string };
   snapshot: {
     state: "available" | "unavailable";
     reason?: string;

@@ -672,27 +672,6 @@ describe("the model picker in Simple mode", () => {
     expect(region(menu(onCodex.html), "data-simple-models", "data-simple-effort-band")).toContain("data-simple-account");
   });
 
-  it("dims a provider its organisation blocks and says why, with no setup to offer", () => {
-    const blocked: InstanceInfo = { ...openaiKey, policy: { organizationName: "Acme", reason: "Acme allows only company models." } };
-    fixture.instances = [claude(), blocked];
-    const forBot = bot();
-    const opened = open(forBot);
-    const rows = inside(opened).filter((node) => node.props["data-simple-provider"] !== undefined);
-    const row = rows.find((node) => node.props["data-simple-provider"] === "openai")!;
-    expect(row.props["aria-label"]).toBe("OpenAI · API key · Managed by Acme");
-    expect(row.props.title).toBe("OpenAI · Managed by Acme");
-    expect(String(row.props.className)).toContain("opacity-40");
-    expect(String(rows.find((node) => node.props["data-simple-provider"] === "claude")!.props.className)).not.toContain("opacity-40");
-
-    pane(opened)!.props.onProvider(blocked);
-    const list = region(menu(render(forBot).html), "data-simple-models", "data-simple-effort-band");
-    expect(list).toContain("Managed by Acme");
-    expect(list).toContain("Bots cannot use this model provider while this computer is connected to Acme.");
-    expect(list).not.toContain("needs to be set up");
-    expect(list).not.toContain("data-simple-set-up");
-    expect(fixture.refreshModels).not.toHaveBeenCalled();
-  });
-
   it("tells same-named models apart by their route, even with a twin behind Show all", () => {
     fixture.instances = [engine("pi", "piAgent", "pi", "custom", [
       { id: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5", custom: true, provider: "anthropic" },

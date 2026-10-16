@@ -81,7 +81,7 @@ export function probeLocalModels(
  * once they list a local model. */
 export function offersLocalModels(instance: InstanceInfo | undefined, localCount: number): boolean {
   if (!instance) return false;
-  return localCount > 0 || (instance.driverKind === "claudeAgent" && !needsCli(instance) && !instance.policy);
+  return localCount > 0 || (instance.driverKind === "claudeAgent" && !needsCli(instance));
 }
 
 /** The others capitalize cleanly; "xhigh" would read "Xhigh". */
@@ -424,16 +424,15 @@ export function ModelEngineRail({ instances, selectedInstance, claudeInstance, o
   const { subscription, api, custom: local } = railProviders(instances, selectedInstance, claudeInstance, openaiInstance);
   const railButton = ({ instance, target, selected, label }: RailProvider) => {
     const attention = needsCli(target) || needsSignIn(target) || Boolean(target.snapshot.update);
-    const managedBy = target.policy ? t("policy.managedBy", { organization: target.policy.organizationName }) : undefined;
     return (
       <button
         type="button"
         key={instance.instanceId}
         onClick={() => onSelect(target)}
-        aria-label={managedBy ? `${label} · ${managedBy}` : label}
+        aria-label={label}
         aria-pressed={selected}
-        title={`${label} · ${managedBy ?? engineStatus(target)}`}
-        className={cn("relative flex size-9 items-center justify-center rounded-lg", selected ? "bg-control ring-1 ring-hairline/50" : "hover:bg-control/60", managedBy && "opacity-40")}
+        title={`${label} · ${engineStatus(target)}`}
+        className={cn("relative flex size-9 items-center justify-center rounded-lg", selected ? "bg-control ring-1 ring-hairline/50" : "hover:bg-control/60")}
       >
         <InstanceProviderMark instance={target} size={18} />
         {/* the same provider can sit in Cloud and API keys: the key marks which */}
@@ -684,7 +683,7 @@ export function ModelPicker({
   };
 
   const lookForLocal = (instance: InstanceInfo) => {
-    if (needsCli(instance) || instance.policy || probingLocal === instance.instanceId) return;
+    if (needsCli(instance) || probingLocal === instance.instanceId) return;
     setProbingLocal(instance.instanceId);
     void probeLocalModels(instance.instanceId, refreshInstanceModels).then(() =>
       setProbingLocal((current) => (current === instance.instanceId ? null : current)));
@@ -737,7 +736,7 @@ export function ModelPicker({
   };
 
   const pick = (instance: InstanceInfo, model: string) => {
-    if (bot.busy || instance.policy) return;
+    if (bot.busy) return;
     const nextSelection = modelSelectionForPick(selection, instance, model);
     // Simple mode has no scope choice: an owner's pick is also the bot's
     // default, while a Cloud guest changes only their own conversation.
@@ -814,7 +813,7 @@ export function ModelPicker({
   const simpleOfficial = customOnly || simpleSignIn ? [] : official;
   const simpleLocal = partitionCustomModels(custom);
   const simpleAll = [...simpleOfficial, ...simpleLocal.pinned, ...simpleLocal.rest];
-  const simpleSetup = Boolean(railInstance && (railInstance.policy || needsCli(railInstance) || (simpleSignIn && simpleAll.length === 0)));
+  const simpleSetup = Boolean(railInstance && (needsCli(railInstance) || (simpleSignIn && simpleAll.length === 0)));
   const simpleSuggested = railInstance
     ? suggestedModels(simpleAll, railInstance.models.default, currentModel, COMPACT_MODEL_COUNT)
     : [];
@@ -968,7 +967,6 @@ export function ModelPicker({
               account={railInstance && simpleAccounts.length > 1 ? (
                 <ClaudeAccountSelect accounts={simpleAccounts} selectedId={railInstance.instanceId} onSelect={browseSimple} />
               ) : undefined}
-              managedBy={railInstance?.policy?.organizationName ?? null}
               // With several accounts the select above names the one at issue.
               needsSetup={railInstance && simpleSetup ? { name: simpleAccounts.length > 1 ? railInstance.displayName : simpleLabel } : null}
               signIn={railInstance && simpleSignIn && !simpleSetup ? { name: simpleLabel } : null}
@@ -1105,13 +1103,7 @@ export function ModelPicker({
                   </button>
                 )}
 
-                {railInstance.policy ? (
-                  // The organisation does not allow this engine: shown, never pickable.
-                  <div data-policy-blocked className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 text-[12.5px] leading-relaxed text-ink-secondary">
-                    <p className="font-medium text-ink">{t("policy.managedBy", { organization: railInstance.policy.organizationName })}</p>
-                    <p className="mt-1">{t("policy.modelBlocked", { organization: railInstance.policy.organizationName })}</p>
-                  </div>
-                ) : blocked ? (
+                {blocked ? (
                   <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1">
                     <EngineSetup instance={railInstance} intent={pane === "custom" ? "inject" : "cloud"} />
                     {railInstance.claudeAccount && needsSignIn(railInstance) && pane !== "custom" && (

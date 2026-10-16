@@ -120,8 +120,6 @@ describe("Settings → Engines → setup cards", () => {
       expect(html.indexOf(label)).toBeLessThan(html.lastIndexOf("</details>"));
       expect(html).not.toContain(other);
       expect(html).not.toContain("Provider icon");
-      fixture.instances = [{ ...instance, readOnly: true }];
-      expect(renderToStaticMarkup(createElement(EnginesSettings))).not.toContain(label);
     }
     fixture.instances = [{ ...claude, access: "custom" }, {
       ...chatgpt, snapshot: { ...chatgpt.snapshot, authenticationUnavailableReason: "Not supported on this server" },
@@ -129,25 +127,6 @@ describe("Settings → Engines → setup cards", () => {
     const unsupported = renderToStaticMarkup(createElement(EnginesSettings));
     expect(unsupported).not.toContain("Add Claude account");
     expect(unsupported).not.toContain("Add ChatGPT account");
-  });
-
-  it("shows every Company provider as read-only while preserving personal controls", () => {
-    vi.stubGlobal("window", {});
-    fixture.bots = [];
-    fixture.instances = ["claudeAgent", "codex", "openai-compat"].map((driverKind) => ({
-      instanceId: `company.fixture.${driverKind}`, displayName: `Company ${driverKind}`, driverKind, readOnly: true,
-      snapshot: { state: "available", authenticated: true }, models: { default: "model", options: [] },
-      // Ignore even accidentally supplied mutation metadata for read-only rows.
-      authentication: { method: "device-code", signOut: true }, install: { signInCommand: "fixture login" },
-    }));
-    const companyOnly = renderToStaticMarkup(createElement(EnginesSettings));
-    for (const driver of ["claudeAgent", "codex", "openai-compat"]) expect(companyOnly).toContain(`Company ${driver}`);
-    expect(companyOnly).toContain("managed by your organization");
-    for (const control of ["Set CLI", "CLI path and updates", "Sign out of ChatGPT", "Update Claude", "fixture login", "Add Claude account", "Add ChatGPT account"]) expect(companyOnly).not.toContain(control);
-    fixture.instances.push({ instanceId: "personal", displayName: "Personal Claude", driverKind: "claudeAgent", cliDefault: "claude",
-      snapshot: { state: "available" }, models: { default: "sonnet", options: [] } });
-    const withPersonal = renderToStaticMarkup(createElement(EnginesSettings));
-    expect(withPersonal).toContain("Set CLI"); expect(withPersonal).toContain("CLI path and updates"); expect(withPersonal).toContain("Update Claude");
   });
 
   it("preserves one-click server installs and updates inside engine cards", () => {
@@ -236,11 +215,6 @@ describe("Settings → Engines → setup cards", () => {
     const remote = renderToStaticMarkup(createElement(EnginesSettings));
     expect(remote).toContain("open Settings → API keys on the computer running Colonie");
     expect(remote).not.toContain("Change key");
-
-    // A Company-managed key is not the person's to change.
-    vi.stubGlobal("window", {});
-    fixture.instances = [{ ...openai({ state: "available", authenticated: true, version: null }), managed: { organizationId: "org", organizationName: "Acme" } }];
-    expect(renderToStaticMarkup(createElement(EnginesSettings))).not.toContain("Change key");
   });
 });
 

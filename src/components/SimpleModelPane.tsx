@@ -39,7 +39,6 @@ export function SimpleModelPane({
   providers,
   onProvider,
   account,
-  managedBy,
   needsSetup,
   signIn,
   onSetUp,
@@ -62,7 +61,6 @@ export function SimpleModelPane({
   /** A sign-in with several accounts: the switch between them. */
   account?: ReactNode;
   /** The organisation whose policy keeps bots off the browsed provider. */
-  managedBy?: string | null;
   /** The browsed provider cannot list models yet (setup or sign-in). */
   needsSetup?: { name: string } | null;
   /** The browsed provider lists only its local models until it is signed in. */
@@ -109,10 +107,7 @@ export function SimpleModelPane({
             // key): the key on its mark says which is which, as on the rail.
             const apiKey = provider.target.access === "api";
             const name = providerName(provider);
-            const policy = provider.target.policy
-              ? t("policy.managedBy", { organization: provider.target.policy.organizationName })
-              : undefined;
-            const spoken = [name, apiKey ? t("model.simple.apiKey") : undefined, policy].filter(Boolean).join(" · ");
+            const spoken = [name, apiKey ? t("model.simple.apiKey") : undefined].filter(Boolean).join(" · ");
             return (
               <button
                 key={provider.instance.instanceId}
@@ -120,13 +115,12 @@ export function SimpleModelPane({
                 data-simple-provider={provider.instance.instanceId}
                 aria-pressed={provider.selected}
                 aria-label={spoken === name ? undefined : spoken}
-                title={[name, policy ?? (apiKey ? t("model.apiKeyHint") : undefined)].filter(Boolean).join(" · ")}
+                title={[name, apiKey ? t("model.apiKeyHint") : undefined].filter(Boolean).join(" · ")}
                 onClick={() => onProvider(provider.target)}
                 className={cn(
                   row,
                   "font-medium",
                   provider.selected ? "bg-raised-hover text-accent-text" : "text-ink hover:bg-control/60",
-                  policy && "opacity-40",
                 )}
               >
                 <span className="relative flex shrink-0">
@@ -150,12 +144,6 @@ export function SimpleModelPane({
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {providers.length === 0 ? (
               <p className={note}>{t("model.noProviders")}</p>
-            ) : managedBy ? (
-              // The organisation does not allow this provider: shown, never pickable.
-              <div data-simple-policy className={cn(note, "leading-relaxed")}>
-                <p className="font-medium text-ink">{t("policy.managedBy", { organization: managedBy })}</p>
-                <p className="mt-1">{t("policy.modelBlocked", { organization: managedBy })}</p>
-              </div>
             ) : needsSetup ? (
               <div className="flex flex-col items-start gap-3 px-2 py-1.5 text-[12.5px] text-ink-secondary">
                 <span>{t("model.simple.needsSetup", { name: needsSetup.name })}</span>

@@ -1257,7 +1257,6 @@ export function ComputerPanel({
 
   // The six Works-on places, shared by the Advanced cards and the Simple grid
   // so both run exactly the same availability rules and selection actions.
-  const managedPolicy = state.config?.managedPolicy;
   // While a turn holds this conversation's cloud computer: only one that is
   // really starting spins (busyBoatView).
   const busyBoat = busyBoatView(boatState, profileBot.busy === true);
@@ -1295,17 +1294,14 @@ export function ComputerPanel({
     ["off", "vm.dest.off", "computer.dest.offDesc", PowerIcon],
   ] as const).filter(([mode]) => mode === null || mode === "off" || placeOffered(mode, state.config)).map(([mode, labelKey, descriptionKey, Icon]) => {
     const selected = mode === null ? !profileBot.computer : profileBot.computer === mode;
-    // A place the enrolled organisation disallows is not offered.
-    const managedKind = mode === "local" ? "thisComputer" : mode === "vm" ? "localVm" : mode === "cloud" ? (profileBot.cloudBackend === "vps" ? "vps" : "box") : null;
-    const managedBy = managedPolicy && managedKind && !managedPolicy.computers[managedKind] ? t("policy.managedBy", { organization: managedPolicy.organizationName }) : undefined;
     // The card, the Simple tile and the chip read the same view: a place no
     // setting here can make work is not offered, and a place with a problem
     // names it in its few words, its line on hover.
     const view = mode === null ? autoView : mode === "cloud" ? cloudView : viewOf(mode);
-    const disabled = Boolean(managedBy) || placeBlocked(view);
-    const issue = !managedBy && placeHasIssue(view);
-    const unavailableTitle = managedBy ?? (issue ? view.line : mode === "browser" ? t("computer.browserOnlyTitle") : undefined);
-    return { mode, labelKey, descriptionKey, Icon, simpleLabel: worksOnSimpleLabel(mode ?? undefined, capabilities.host.platform), selected, managedBy, disabled, unavailableTitle, view, issue };
+    const disabled = placeBlocked(view);
+    const issue = placeHasIssue(view);
+    const unavailableTitle = issue ? view.line : mode === "browser" ? t("computer.browserOnlyTitle") : undefined;
+    return { mode, labelKey, descriptionKey, Icon, simpleLabel: worksOnSimpleLabel(mode ?? undefined, capabilities.host.platform), selected, disabled, unavailableTitle, view, issue };
   });
   /** The Works on choice's own line and action, under the cards and the grid. */
   const worksOnView = placeOptions.find(({ selected }) => selected)?.view ?? autoView;
@@ -1944,7 +1940,7 @@ export function ComputerPanel({
               {t(state.config?.cloudHome ? "computer.worksOnHintCloudHome" : "computer.worksOnHint")}
             </p>
           <div role="group" aria-label={t("computer.destinationAria")} className="mt-3 grid auto-rows-fr grid-cols-2 gap-2">
-            {placeOptions.map(({ mode, labelKey, descriptionKey, Icon, selected, managedBy, disabled, unavailableTitle, issue, view }) => (
+            {placeOptions.map(({ mode, labelKey, descriptionKey, Icon, selected, disabled, unavailableTitle, issue, view }) => (
               <button
                 key={mode ?? "auto"}
                 disabled={disabled}
@@ -1967,7 +1963,7 @@ export function ComputerPanel({
                   <span>{t(labelKey)}</span>
                 </span>
                 <span className="mt-1.5 block text-[11px] leading-4 text-ink-secondary">
-                  {managedBy ?? (issue ? view.short : t(descriptionKey))}
+                  {issue ? view.short : t(descriptionKey)}
                 </span>
               </button>
             ))}
