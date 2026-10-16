@@ -1,5 +1,56 @@
 # Colonie progress
 
+## 2026-10-16 — the Workspaces screen and the fleet socket are gone
+
+Settings → Workspaces was an operator's view of the client workspaces on one
+server: create one, add and remove people, suspend, resume, delete, read usage.
+It appeared only where `config.fleet.available` was true, which needed a `fleet`
+agent on this machine's socket — and that agent came from the `openmausbot
+fleet` command removed in `7b7e0f48`. Nothing left in the app can put one there.
+
+| commit | what went |
+|---|---|
+| `8abc87f9` | `src/components/WorkspacesSection.tsx` and its test; the Settings section entry, its simple-mode hiding, its lazy route and its admin-entitlement filter; `server/fleet-client.ts` and the `/api/fleet` proxy; the `fleet` field in the config frame and `configStatus`; `"workspaces"` from the settings section union; the 40 `workspaces.*` keys in all ten locale catalogs with their source hashes; `docs/verification/fleet.md` and `workspaces.md` with their index entries |
+
+19 files changed, 10 insertions(+), 862 deletions(-).
+
+### Verified after `8abc87f9`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm i18n:check` | ten catalogs valid, 3353 English strings (was 3393) |
+| `pnpm exec vitest run src/components/SettingsModal.simple.test.ts src/state/store.test.ts src/components/lazy-screens.test.ts src/lib/phone-pairing.test.ts src/locales/vocabulary.test.ts src/locales/words.test.ts` | 218 passed, 1 failed |
+| `pnpm exec vitest run server/index.test.ts -t "identifies itself"` | 1 passed — the server boots and answers /api/health without the route |
+
+The one failure is the known `lazy-screens.test.ts` “leaves the on-request
+screens out of it” case. Proven inherited, not a regression: with this slice
+stashed the same file fails the same test at HEAD (1 failed, 12 passed). The
+`?desktop-settings=workspaces` deep-link fixture in that file became `general`;
+`src/lib/phone-pairing.test.ts` keeps the now-unknown id on purpose, since it
+only asserts that such a URL is not a device-pairing request.
+
+### What is left
+
+1. The Cloud-home cluster in the server — `cloud-home*`, `cloud-owner`,
+   `cloud-secrets*`, `cloud-lending`, `lending-memory`, `hosted-models`,
+   `included-services`, `shared/cloud-home` — and every `CLOUD_HOME` guard that
+   reads them. They are imported by `server/index.ts` alone; the mentions
+   elsewhere are comments.
+2. The visible Cloud place (Stage B): `Surface`/`"cloud"` in the wire and the
+   `cc-*` states, `ComputerPanel`, `CloudScreenPreview`, `CloudBackendPicker`,
+   `src/lib/cloud-guest.ts`, `src/lib/remote-desktop.ts`, `shared/cloud-computer.ts`,
+   `server/cloud-computer-tools.ts`, `server/cloud-backend.ts`, `server/boat*.ts`,
+   the `cloudBackend`/`autoStartVps`/`cloudHome` wire fields and the `place.*` /
+   `cloud.*` locale keys — then the data migration that re-points stored
+   `computer: "cloud"` bots at `local`.
+3. The `openmausbot`/`devone` → `colonie` rename: 753 files and 3810
+   occurrences for `openmausbot`, 85 and 586 for `devone`. Not mechanical —
+   protocol schemes, env vars and data-directory names are mixed in.
+4. The VPS `172.104.33.55`: stop `colonie-https.service`,
+   `colonie-platform.service` and `colonie.service`, then delete its data. Last
+   and irreversible; not yet confirmed by the owner.
+
 ## 2026-10-16 — the `openmausbot` command-line product is gone
 
 The npm CLI was the upstream server install: `setup`, `serve`, `service install`
