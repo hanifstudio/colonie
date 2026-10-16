@@ -1,5 +1,47 @@
 # Colonie progress
 
+## 2026-10-16 — the bundled HTTPS edge is gone
+
+`serve --domain HOST` shipped a pinned Caddy: `server/caddy.ts` downloaded the
+binary, wrote a `Caddyfile` into the data dir, ran it beside the server and asked
+it for a Let's Encrypt certificate. The `service` unit granted ports 80/443 for
+it. That is server deployment, and the deploy targets went in `4665d9a5`, so it
+goes too.
+
+| commit | what went |
+|---|---|
+| `23be56aa` | `server/caddy.ts` and its test; the `--domain` serve path in `server/cli.ts` (option comment, help text, the serve guard, and `caddyBinary`/`caddy`/`startCaddy`/`ensureCaddy`/`RunningCaddy`), plus the port-80/443 capability in `server/service-unit.ts` and its `--domain` passthrough in `server/service-cli.ts` |
+
+`--domain` stays: `fleet init --domain HOST` still uses it, so its hostname
+normalizer moved from `caddy.ts` into `cli.ts` unchanged and the parse tests for
+it were retargeted at `fleet`.
+
+### Verified after `23be56aa`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm exec vitest run server/service-unit.test.ts server/service-cli.test.ts server/cli.test.ts` | 38 passed |
+
+### What is left of the Cloud removal, and why it is not a folder delete
+
+Read while cutting the edge. Two findings worth keeping:
+
+- The hosted half is cleaner than its comment count suggests.
+  `server/cloud-owner.ts` is imported by `server/index.ts` alone — the mentions in
+  `sessions.ts`, `store.ts`, `thread-starters.ts` and `workspace-backup.ts` are
+  comments. `server/cloud-lending.ts` and `server/lending-memory.ts` are imported
+  by `index.ts` alone. So the Cloud-home block deletes as one piece with those
+  four modules and `server/cloud-home.ts` (+ `cloud-home-start.ts`,
+  `cloud-secrets*.ts`, `hosted-models.ts`, `shared/cloud-home.ts`), plus the
+  `CLOUD_HOME` guards and the `cc-*`/`cloud` place states.
+- The `openmausbot` CLI is atomic. `server/cli.ts` holds one option table shared
+  by `serve`, `service` and `fleet`; `openmausbot.ts` and `pair-cli.ts` are its
+  entries, and `service-*`, `fleet-*` and `caddy.ts` hang off it. No module
+  under `index.ts` imports any of them, but nothing can be cut from the middle:
+  deleting the CLI is all-or-nothing, and it is the cleanest single win left on
+  the server side.
+
 ## 2026-10-16 — the deploy targets are gone
 
 Branch `colonie/local-only`.
