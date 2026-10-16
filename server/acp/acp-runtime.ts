@@ -7,7 +7,8 @@ import { isAbsolute, join, resolve } from "node:path";
 import { Readable, Writable } from "node:stream";
 import {
   client, methods, ndJsonStream, PROTOCOL_VERSION,
-  type ClientConnection, type InitializeResponse, type LoadSessionResponse,
+  type ClientConnection, type CreateElicitationRequest, type CreateElicitationResponse,
+  type InitializeResponse, type LoadSessionResponse,
   type NewSessionResponse, type PermissionOption, type RequestPermissionRequest,
   type RequestPermissionResponse, type SessionNotification, type SessionConfigOption,
   type ToolCallUpdate, type PromptRequest, type PromptResponse, type SetSessionConfigOptionResponse, type SetSessionConfigOptionRequest,
@@ -29,6 +30,8 @@ import type { AcpToolMount } from "../colonie/connections/contracts.ts";
 import type { ConnectedToolsReceipt } from "../../shared/connected-apps.ts";
 import { DATA_DIR } from "../config.ts";
 import { SHELL_TOOL } from "../../shared/tool-name.ts";
+import { ASK_USER_QUESTION_TOOL, askQuestionSummary, questionChoices } from "../../shared/ask-question.ts";
+import { elicitationAnswerContent, parseElicitationAsk, type ElicitationAsk } from "./elicitation.ts";
 
 const require = createRequire(import.meta.url);
 const configSchema = z.object({
@@ -66,6 +69,15 @@ export interface AcpAuthStatus {
  * `kind: "none"` means signed out. It is the reliable signal for both. */
 const AUTH_STATUS_UPDATE_METHOD = "_auth/status_update";
 type AuthStatusPush = { kind?: string };
+/** What this client tells every agent it can present. Form elicitation is a
+ * real capability and has to be advertised: the claude adapter bridges
+ * `AskUserQuestion` to an ACP form elicitation only for a client that declares
+ * it (`this.clientCapabilities?.elicitation?.form`), and asks any other client
+ * for a plain tool permission instead — a question rendered as Allow/Deny.
+ * URL elicitation is not advertised: this app has no surface that opens the
+ * agent's own URL flow, and declining it is honest where a card that cannot
+ * complete would not be. */
+const CLIENT_CAPABILITIES = { elicitation: { form: {} } };
 const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 /** Tokens the agent reported for one turn. The maintained adapters put them
  * under `_meta` on the prompt result; some agents report at the root. `input`
@@ -110,6 +122,12 @@ type PendingPermission = {
   options: PermissionOption[];
   resolve: (response: RequestPermissionResponse) => void;
 };
+/** A form the agent is waiting on the person to answer. */
+type PendingElicitation = {
+  turnId: string;
+  ask: ElicitationAsk;
+  resolve: (response: CreateElicitationResponse) => void;
+};
 type LiveSession = {
   mounts: AcpToolMount[];
   threadId: string;
@@ -121,6 +139,7 @@ type LiveSession = {
   id?: string;
   turn?: ActiveTurn;
   permissions: Map<string, PendingPermission>;
+  elicitations: Map<string, PendingElicitation>;
   tools: Set<string>;
   loading: boolean;
   closed: boolean;
@@ -295,6 +314,34 @@ export class AcpRuntime implements ProviderAdapter {
     return result;
   }
 
+  private elicitation(session: LiveSession, request: CreateElicitationRequest): Promise<CreateElicitationResponse> {
+    const turn = session.turn;
+    // A form the person cannot answer resolves the agent's own ask as
+    // cancelled, exactly as a permission nobody can take does.
+    const scope = request as { sessionId?: unknown };
+    if (session.closed || session.loading || !turn || turn.finished || turn.cancelled || scope.sessionId !== session.id) {
+      return Promise.resolve({ action: "cancel" });
+    }
+    const ask = parseElicitationAsk(request);
+    if (!ask) return Promise.resolve({ action: "cancel" });
+    const requestId = newId();
+    // Register before emitting: a listener may answer synchronously.
+    const result = new Promise<CreateElicitationResponse>((resolve) => {
+      session.elicitations.set(requestId, { turnId: turn.id, ask, resolve });
+    });
+    // A question, never a permission: no approval mode may answer it for the
+    // person, and the card carries the model's own questions and options. The
+    // tool is left as the honest constant — ACP's elicitation names no tool,
+    // it only says whether a tool call is waiting on the answer.
+    this.emit(session, { type: "request.opened", requestId, requestType: "question",
+      tool: scope.toolCallId === undefined ? "question" : ASK_USER_QUESTION_TOOL,
+      summary: askQuestionSummary(ask.questions),
+      choices: questionChoices(ask.questions),
+      questions: ask.questions,
+    });
+    return result;
+  }
+
   private catalog(session: LiveSession): void {
     const option = session.state?.configOptions?.find((entry) => entry.category === "model" || entry.id === "model");
     if (option?.type !== "select") return;
@@ -307,7 +354,7 @@ export class AcpRuntime implements ProviderAdapter {
     this.flushText(session);
     turn.finished = true;
     if (turn.cancelled) { ok = false; stopReason = "cancelled"; }
-    this.cancelPermissions(session);
+    this.cancelAsks(session);
     for (const mount of session.mounts) mount.deactivate();
     if (turn.receipt) {
       turn.receipt.connectedToolCalls = session.mounts.flatMap((mount) => mount.calls());
@@ -324,10 +371,15 @@ export class AcpRuntime implements ProviderAdapter {
     if (!session.closed) session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
   }
 
-  private cancelPermissions(session: LiveSession): void {
+  private cancelAsks(session: LiveSession): void {
     for (const [requestId, pending] of session.permissions) {
       session.permissions.delete(requestId);
       pending.resolve({ outcome: { outcome: "cancelled" } });
+      this.emit(session, { type: "request.resolved", requestId, behavior: "deny", source: "system" });
+    }
+    for (const [requestId, pending] of session.elicitations) {
+      session.elicitations.delete(requestId);
+      pending.resolve({ action: "cancel" });
       this.emit(session, { type: "request.resolved", requestId, behavior: "deny", source: "system" });
     }
   }
@@ -337,7 +389,7 @@ export class AcpRuntime implements ProviderAdapter {
     session.closed = true;
     for (const mount of session.mounts) mount.release();
     clearTimeout(session.idleTimer);
-    this.cancelPermissions(session);
+    this.cancelAsks(session);
     session.connection.close();
     session.child.kill("SIGTERM");
     let killTimer: ReturnType<typeof setTimeout> | undefined;
@@ -393,7 +445,7 @@ export class AcpRuntime implements ProviderAdapter {
       .connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
     const timer = setTimeout(() => connection.close(new Error("ACP auth request timed out")), timeoutMs);
     try {
-      const init = await connection.agent.request(methods.agent.initialize, { protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" }, clientCapabilities: {} });
+      const init = await connection.agent.request(methods.agent.initialize, { protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" }, clientCapabilities: CLIENT_CAPABILITIES });
       return await action(connection, init, auth);
     } finally {
       clearTimeout(timer);
@@ -506,13 +558,14 @@ export class AcpRuntime implements ProviderAdapter {
     if (this.disposed || this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
     const child = this.spawnAdapter(cwd);
     const session = { threadId: input.threadId, cwd, child, mounts: this.mountsOf(input),
-      permissions: new Map(), tools: new Set(), loading: true, closed: false, stderr: "", modeEpoch: 0,
+      permissions: new Map(), elicitations: new Map(), tools: new Set(), loading: true, closed: false, stderr: "", modeEpoch: 0,
     } as LiveSession;
     // Bounded failure diagnostics, never protocol or prompt context.
     child.stderr.on("data", (chunk: Buffer) => { session.stderr = (session.stderr + chunk.toString()).slice(-4000); });
     session.connection = client({ name: "Colonie" })
       .onNotification(methods.client.session.update, ({ params }) => this.update(session, params))
       .onRequest(methods.client.session.requestPermission, ({ params }) => this.permission(session, params))
+      .onRequest(methods.client.elicitation.create, ({ params }) => this.elicitation(session, params))
       .connect(ndJsonStream(Writable.toWeb(child.stdin), Readable.toWeb(child.stdout)));
     this.sessions.set(input.threadId, session);
     const exited = (message: string) => {
@@ -537,7 +590,7 @@ export class AcpRuntime implements ProviderAdapter {
       session.initialization = await this.setup(session, session.connection.agent.request(methods.agent.initialize, {
         protocolVersion: PROTOCOL_VERSION, clientInfo: { name: "Colonie", version: "0.1.0" },
         // Codex performs filesystem/shell work itself; do not advertise unimplemented host tools.
-        clientCapabilities: {},
+        clientCapabilities: CLIENT_CAPABILITIES,
       }));
       const mcpServers = input.acpTools?.servers ?? [];
       for (const server of mcpServers) {
@@ -648,7 +701,7 @@ export class AcpRuntime implements ProviderAdapter {
     if (!session || !turn || turn.finished || turnId && turnId !== turn.id) return;
     turn.cancelled = true;
     for (const mount of session.mounts) mount.deactivate();
-    this.cancelPermissions(session);
+    this.cancelAsks(session);
     await session.connection.agent.notify(methods.agent.session.cancel, { sessionId: session.id! }).catch(() => {});
     await Promise.race([turn.done, new Promise<void>((resolve) => setTimeout(resolve, 1500).unref())]);
     if (!turn.finished) {
@@ -657,10 +710,24 @@ export class AcpRuntime implements ProviderAdapter {
     }
   }
 
-  async respondToRequest(threadId: string, requestId: string, decision: { behavior: "allow" | "deny" | "answer"; always?: boolean }) {
+  async respondToRequest(threadId: string, requestId: string, decision: { behavior: "allow" | "deny" | "answer"; message?: string; always?: boolean }) {
     const session = this.sessions.get(threadId);
-    const pending = session?.permissions.get(requestId);
-    if (!session || !pending || session.turn?.id !== pending.turnId || session.turn.finished) return "unavailable" as const;
+    if (!session || session.turn?.finished) return "unavailable" as const;
+    // A question: the person's own words go back under the form's own keys so
+    // the adapter can fold them into the tool (or MCP server) that asked. No
+    // mode ever answers one, and an answer that files nothing is a decline.
+    const question = session.elicitations.get(requestId);
+    if (question && session.turn?.id === question.turnId) {
+      session.elicitations.delete(requestId);
+      const content = decision.behavior === "answer" && decision.message
+        ? elicitationAnswerContent(question.ask, decision.message)
+        : null;
+      question.resolve(content ? { action: "accept", content } : { action: "decline" });
+      this.emit(session, { type: "request.resolved", requestId, behavior: content ? "answer" : "deny", source: "user" });
+      return content ? "answered" as const : "rejected" as const;
+    }
+    const pending = session.permissions.get(requestId);
+    if (!pending || session.turn?.id !== pending.turnId) return "unavailable" as const;
     const kind = decision.behavior === "allow" ? decision.always ? "allow_always" : "allow_once" : "reject_once";
     const option = pending.options.find((entry) => entry.kind === kind)
       ?? (decision.behavior === "deny" ? pending.options.find((entry) => entry.kind === "reject_always") : undefined);

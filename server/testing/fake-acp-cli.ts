@@ -66,6 +66,12 @@
 //   FAKE_ACP_MCP_TRANSPORTS  comma list of remote MCP transports the agent
 //                       advertises in initialize (mcpCapabilities), e.g. "http,sse"
 //   FAKE_ACP_PERMISSION_OPTIONS JSON options override in permission mode
+//   FAKE_ACP_QUESTION_MESSAGE  question mode's message (the lone question's own
+//                       text; several questions read their text per field)
+//   FAKE_ACP_QUESTION_SCHEMA  question mode's full form schema (JSON), for a
+//                       multi-select or a several-question card
+//   FAKE_ACP_QUESTION_ANSWER  path the client's answer to the form is written
+//                       to (JSON, as it arrived)
 //   FAKE_ACP_STARTED_FILE  written when session/prompt arrives, in every mode:
 //                       the "the engine has the turn" signal a test waits for
 //                       before stopping or steering mid-turn
@@ -443,6 +449,12 @@ const configCalls: Array<{ method: string; params: unknown }> = [];
 // pending server→client permission request id → resolver
 let pendingPermissionId: number | null = null;
 let onPermissionAnswered: ((allowed: boolean) => void) | null = null;
+// pending server→client form elicitation id → resolver. A question the agent
+// asks the person takes this shape in the real adapters (the claude adapter
+// bridges AskUserQuestion to an elicitation whenever the client advertises the
+// capability), never a permission request.
+let pendingElicitationId: number | null = null;
+let onElicitationAnswered: ((response: unknown) => void) | null = null;
 // pending server→client cursor/ask_question probe → resolver (the unsupported
 // method the driver must reject rather than guess a shape for)
 let pendingAskQuestionId: number | null = null;
@@ -649,6 +661,14 @@ function handle(msg: any) {
   if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined) && msg.id === pendingAskQuestionId) {
     pendingAskQuestionId = null;
     onAskQuestionAnswered?.();
+    return;
+  }
+  // client's response to our form elicitation (a question)
+  if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined) && msg.id === pendingElicitationId) {
+    pendingElicitationId = null;
+    // what the client answered, for tests asserting the folded content
+    if (process.env.FAKE_ACP_QUESTION_ANSWER) writeFileSync(process.env.FAKE_ACP_QUESTION_ANSWER, JSON.stringify(msg.result ?? null));
+    onElicitationAnswered?.(msg.result);
     return;
   }
   // client's response to our permission request
@@ -1294,26 +1314,36 @@ function handle(msg: any) {
         return;
       }
       if (mode === "question") {
-        pendingPermissionId = 9002;
-        onPermissionAnswered = () => {
+        // A question takes the protocol's own form elicitation — the shape the
+        // claude adapter bridges AskUserQuestion to (and the shape an MCP
+        // server asks through), with one `question_<n>` field per question and
+        // its per-question "Other" companion beside it.
+        pendingElicitationId = 9002;
+        onElicitationAnswered = () => {
           out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "answered the question" } } } });
           complete();
         };
         out({
           jsonrpc: "2.0",
-          id: pendingPermissionId,
-          method: "session/request_permission",
+          id: pendingElicitationId,
+          method: "elicitation/create",
           params: {
+            mode: "form",
             sessionId: String(liveSession),
-            toolCall: { toolCallId: "interaction_color", kind: "other", title: "Which color?" },
-            options: process.env.FAKE_ACP_QUESTION_OPTIONS ? JSON.parse(process.env.FAKE_ACP_QUESTION_OPTIONS) : [
-              { optionId: "blue-id", kind: "allow_once", name: "Blue" },
-              {
-                optionId: "green-id",
-                kind: "allow_once",
-                name: process.env.FAKE_ACP_PAD_QUESTION_OPTION ? " Green " : "Green",
+            message: process.env.FAKE_ACP_QUESTION_MESSAGE ?? "Which color?",
+            requestedSchema: process.env.FAKE_ACP_QUESTION_SCHEMA ? JSON.parse(process.env.FAKE_ACP_QUESTION_SCHEMA) : {
+              type: "object",
+              properties: {
+                question_0: {
+                  type: "string",
+                  oneOf: [
+                    { const: "Blue", title: "Blue" },
+                    { const: "Green", title: "Green" },
+                  ],
+                },
+                question_0_custom: { type: "string", title: "Other" },
               },
-            ],
+            },
           },
         });
         return;
