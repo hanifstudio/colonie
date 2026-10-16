@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
@@ -171,5 +171,16 @@ describe("CI concurrency", () => {
       expect(job.needs).toBe("static");
       expect(job.if).toBe("needs.static.outputs.runtime == 'true'");
     }
+  });
+
+  it("runs every architecture guard in the static job on every change", () => {
+    // The static job never depends on CI selection, so a guard named here runs
+    // even when the runtime jobs are skipped. Dropping or renaming one fails.
+    const guards = ["scripts/testing/content-boundaries.test.ts", "scripts/testing/index-route-ratchet.test.ts"];
+    const step = workflow.jobs.static.steps.find((entry: { name?: string }) => entry.name === "Enforce architecture boundaries");
+    expect(step).toMatchObject({ run: `pnpm exec vitest run ${guards.join(" ")}` });
+    expect(step.if).toBeUndefined();
+    expect(step["continue-on-error"]).toBeUndefined();
+    for (const guard of guards) expect(existsSync(new URL(`../${guard}`, import.meta.url)), guard).toBe(true);
   });
 });

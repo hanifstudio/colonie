@@ -71,6 +71,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Verify CI selection and documentation references
         run: pnpm exec vitest run scripts/ci-scope.test.ts scripts/ci-workflow.test.ts scripts/testing/verification-docs.test.ts
+      # Named here, not left to vitest discovery, so the guards run on every
+      # change, docs-only ones included, before any runtime job is scheduled.
+      - name: Enforce architecture boundaries
+        run: pnpm exec vitest run scripts/testing/content-boundaries.test.ts scripts/testing/index-route-ratchet.test.ts
       - name: Validate locale catalogs
         run: pnpm i18n:check
       - run: pnpm typecheck
