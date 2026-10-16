@@ -54,8 +54,8 @@ import {
   type ApprovalMode,
 } from "../shared/approval-mode.ts";
 import { createApprovalModeSupport } from "./harness-capabilities.ts";
-import { escapeAttribute } from "../src/lib/composer-attachments.ts";
-import { threadRefUrl } from "../src/lib/thread-refs.ts";
+import { escapeAttribute } from "../shared/transcript-attachments.ts";
+import { threadRefUrl } from "../shared/thread-address.ts";
 import {
   CREDENTIAL_TARGETS,
   credentialResumeOutcome,

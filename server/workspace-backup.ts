@@ -14,7 +14,7 @@ import { Worker } from "node:worker_threads";
 import * as tar from "tar";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { writeFileAtomic } from "./atomic.ts";
-import { escapeAttribute, splitTranscriptAttachments } from "../src/lib/composer-attachments.ts";
+import { escapeAttribute, splitTranscriptAttachments } from "../shared/transcript-attachments.ts";
 import { WORKSPACE_BACKUP_CLIENT_KEYS } from "../shared/workspace-backup-client.ts";
 import { ephemeralWorkspaceTokenPath, excludedWorkspaceAuthPath, portableWorkspaceConfig, restoredWorkspaceConfig } from "./workspace-backup-policy.ts";
 import type { WorkspaceBackupClientState, WorkspaceBackupPrivateMetadata, WorkspaceBackupSummary } from "../shared/workspace-backup.ts";
