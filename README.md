@@ -444,36 +444,20 @@ OpenMausBot is free and open source. If it does real work for you, you can
 with a one-time contribution or a monthly sponsorship. Your support helps fund ongoing development
 and maintenance; OpenMausBot remains free and open source.
 
-## Run from a terminal or on a server
+## Run locally
 
-With Node 24 or newer, install once and run:
+With Node 24 or newer:
 
 ```sh
-npm install -g openmausbot
-openmausbot
+pnpm install
+pnpm colonie:web
 ```
 
-Or use `npx openmausbot` without a global install. First launch guides you with
-arrow-key choices: choose AI access, sign in or paste a hidden API key, choose
-a model, and optionally connect a phone. Next time, the same command reuses your
-saved setup and opens OpenMausBot on this computer. Keep the terminal open; Ctrl-C stops
-the server, not your saved work. Use `--no-open` to skip opening the browser.
-
-Phone access is optional and defaults to skipping. Choose an explicitly
-approved managed public HTTPS endpoint protected by pairing, an existing
-Tailscale connection, or your own HTTPS reverse proxy. Both native apps pair from
-this flow: the QR is an app link when you are connecting an Android phone, and the
-iOS app takes either that or the web link. A browser works on either phone. A phone
-cannot use a localhost link. `--local` ignores saved remote access for one launch;
-`--no-pair` suppresses phone prompts and invitations but does not disable a saved
-remote connection.
-
-Run `openmausbot setup` to reconfigure without resetting bots or conversations;
-the saved model default applies only to new bots. Native setup confirms provider
-sign-in; API setup asks before a potentially billable test message. API keys are
-saved as plaintext, not encrypted, in private `config.json` (`0600` on Unix).
-See the [short setup guide](docs/cli-onboarding.md) for account differences,
-phone choices, credential storage, and cancellation.
+That starts the local server and opens the preview at a loopback address. First
+launch guides you through AI access, a model and an optional phone, and the same
+data is reused next time. The desktop app is that same server behind an Electron
+window (`pnpm colonie`). Keep the terminal open; Ctrl-C stops the server, not
+your saved work.
 
 ## License
 

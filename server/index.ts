@@ -29,7 +29,7 @@ import { createChiefRoutes } from "./colonie/chief/routes.ts";
 import type { ChiefAssignment, ChiefBot } from "../shared/colonie-chief.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, rmSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, mkdirSync } from "node:fs";
 import { writeFileAtomic } from "./atomic.ts";
 import { rm as removeDirectory } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -25691,22 +25691,6 @@ server.listen(PORT, "127.0.0.1", async () => {
   setInterval(expireDelegationsNow, DELEGATION_SWEEP_MS).unref();
 });
 
-// A second listener for `openmausbot serve --tunnel` (server/tunnel.ts): the
-// connector gateway on this machine forwards public traffic to this IPC path.
-// Nothing changes about the loopback bind above. Requests arriving here have
-// no peer address, which request-auth treats as "through a proxy": a session
-// is required, never loopback trust, whatever headers the request carries.
-const TUNNEL_SOCKET = process.env.OMB_TUNNEL_SOCKET?.trim() || null;
-let tunnelListener: ReturnType<typeof createServer> | null = null;
-if (TUNNEL_SOCKET) {
-  if (process.platform !== "win32") rmSync(TUNNEL_SOCKET, { force: true });
-  tunnelListener = createServer(handleRequest);
-  desktopViewer.attach(tunnelListener, handleRequest);
-  tunnelListener.listen(TUNNEL_SOCKET, () => {
-    console.log(`openmausbot tunnel listener on ${TUNNEL_SOCKET}`);
-  });
-}
-
 const gracefulShutdown = createGracefulShutdown({
   cleanup: [
     () => {
@@ -25730,7 +25714,6 @@ const gracefulShutdown = createGracefulShutdown({
       colonieMemory.stop();
       colonieChief.dispose();
       webhookIngress?.server.close();
-      tunnelListener?.close();
     },
     async () => { await registry.disposeAll(); },
     async () => {

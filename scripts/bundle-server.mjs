@@ -42,10 +42,6 @@ const yamlEsmPlugin = {
 const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",
-  // the `openmausbot` command (serve/pair/sessions/status) for the npm
-  // package, the container image and checkouts; pair-cli.ts stays as an alias
-  "openmausbot.ts",
-  "pair-cli.ts",
   "workspace-backup.worker.ts",
   // the OMB Cloud Pro home image's entry point (Dockerfile, cloud-home): it
   // spawns index.js beside it and the Caddy edge
@@ -104,11 +100,10 @@ await build({
   logLevel: "info",
 });
 
-// `openmausbot serve --tunnel` (server/tunnel.ts) spawns the connector guardian
-// as its own process, so it has to exist as a file beside the server, not only
-// as code inlined into the bundle that imports its neighbours. Bundled under
-// its own name: the same code the desktop app runs from
-// electron/managed-companion-guardian-main.mjs, so a fix lands in both.
+// The tunnel guardian runs as its own process, so it has to exist as a file
+// beside the server, not only as code inlined into the bundle that imports its
+// neighbours. Bundled under its own name: the same code the desktop app runs
+// from electron/managed-companion-guardian-main.mjs, so a fix lands in both.
 await build({
   entryPoints: [join(root, "electron", "managed-companion-guardian-main.mjs")],
   bundle: true,

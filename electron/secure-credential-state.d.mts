@@ -1,5 +1,4 @@
-// Types for secure-credential-state.mjs as the headless server uses it
-// (server/tunnel.ts). Keep in step with the implementation.
+// Types for secure-credential-state.mjs. Keep in step with the implementation.
 export type CredentialDocument = Record<string, unknown>;
 
 export interface SecureCredentialState {

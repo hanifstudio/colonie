@@ -1,5 +1,4 @@
-// Types for managed-companion-tunnel.mjs as the headless server uses it
-// (server/tunnel.ts). Keep in step with the implementation.
+// Types for managed-companion-tunnel.mjs. Keep in step with the implementation.
 export declare const MANAGED_COMPANION_ENDPOINT_FIELD: string;
 export declare const MANAGED_COMPANION_TOKEN_FIELD: string;
 

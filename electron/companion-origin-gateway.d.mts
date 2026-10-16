@@ -1,5 +1,4 @@
-// Types for companion-origin-gateway.mjs as the headless server uses it
-// (server/tunnel.ts). Keep in step with the implementation.
+// Types for companion-origin-gateway.mjs. Keep in step with the implementation.
 export declare const MANAGED_COMPANION_ORIGIN_HOST: string;
 export declare const MANAGED_COMPANION_ORIGIN_PORT: number;
 
