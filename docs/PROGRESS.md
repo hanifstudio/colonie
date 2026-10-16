@@ -36,27 +36,60 @@ reconnection and receipts; evidence in `.devone/evidence/`). One desktop run
 failed on a leftover Electron process and passed on a re-run; the same commit
 passes in a clean worktree, so the failure was environmental.
 
-### Next, in order
+### Next: the Cloud removal, in order
 
-The owner chose to keep **only** the Local workspace: Cloud, Boat and the
-own-VPS place all go. `companion/` still stays.
+The owner chose to keep **only** the Local workspace: the Cloud computer (Boat),
+the own-VPS place, the Cloud account/plan and the Cloud home all go.
+`companion/` still stays.
 
-1. The Organization package library on the server: `server/org-library.ts`, its
-   routes and e2e test, the `org` source in `server/presets.ts`,
-   `server/package-import.ts`, `shared/wire.ts` `InstalledPackageMetadata`,
-   the `orgLibrary.*`/`organization.*` leftovers, and the org half of
-   `server/workspace-backup-policy.ts`.
-2. Cloud account, engine sign-in and plan: `CloudAccountSettings`,
-   `CloudEngineSignIn`, `ProIntroduction`, `CloudBackendPicker`, `cloud-plan`,
-   the plan/Boat fields in `shared/place-view.ts` and `src/lib/place-view.ts`.
-3. The `cloud` place itself: `shared/cloud-computer.ts`, `server/cloud-*.ts`,
-   `server/lending-*.ts`, `server/cloud-home*-start`, `CLOUD_HOME`/
-   `HOSTED_WORKSPACE`, the Cloud move/backup surfaces (`CloudMove`,
-   `ConnectedWorkspacesSettings`, `PeopleSection`, the cloud half of
-   `WorkspaceBackupSettings`), and the place picker's Cloud/Boat/VPS entries.
-4. The desktop Cloud bridges: `cloud-account.mjs`, `cloud-home.mjs`,
-   `cloud-entry.mjs`, `cloud-move.mjs`, `managed-composio.mjs`.
-5. `deploy/` (container/self-host targets).
+The Organization work is finished, so what remains is one compact feature that
+touches everything at once. The couplings found while sizing it decide the
+order:
+
+- `electron/cloud-account.mjs` owns the `CloudAccountState` type, which
+  `src/lib/cloud-plan.ts` formats, which `src/lib/place-view.ts` words, which
+  `shared/place-view.ts` types as the `cc-*` place states. The account, the
+  plan and the cloud place states are one graph.
+- `CLOUD_HOME` / `HOSTED_WORKSPACE` in `server/index.ts` gate the whole hosted
+  half: `cloud-home*.ts`, `cloud-owner.ts`, `cloud-backend.ts`,
+  `cloud-secrets*.ts`, `cloud-move*`, `cloud-computer-tools.ts`,
+  `cloud-lending.ts`, `lending-memory.ts`, `boat*.ts`, `caddy.ts`,
+  `checkpoints.ts`, `auto-vm-claims.ts` — about 40 modules, each imported only
+  by `server/index.ts` and its own test.
+- `state.config.cloudHome` is the server fact the renderer branches on
+  (`SettingsModal` sections, `Sidebar`'s workspace switcher, `ChatView`'s
+  `useCanWriteIn` guest mode, `PeopleSection`, phone pairing,
+  `WorkspaceBackupSettings`'s `CloudMoveImport`).
+- Bots in an existing data dir can carry `computer: "cloud"` and
+  `cloudBackend`, so removing the place needs a boot migration (re-point them
+  to `local` and drop the backend) or they must keep rendering.
+
+Order, each step its own commit with `pnpm exec tsc --noEmit`,
+`pnpm exec tsc -p tsconfig.server.json --noEmit`, `pnpm i18n:check` and the
+focused vitest green:
+
+1. **Renderer surfaces.** Delete `CloudAccountSettings`, `ProIntroduction`,
+   `ConnectedWorkspacesSettings`, `CloudMove`, `CloudOwner`, `CloudSetup`,
+   `CloudEngineSignIn`, `CloudScreenPreview`, `CloudBackendPicker` and the
+   `cloud-plan`/`cloud-setup`/`cloud-guest` helpers with them; prune
+   `SettingsModal` (the `cloudAccount`/`desktopWorkspaces` sections),
+   `App.tsx`, `Sidebar`, `SidebarProfileMenu`, `ComputerPanel`,
+   `bot-settings/AccessSection`, `WorkspaceBackupSettings`, `ChatView`.
+   The `cloud` place disappears from the picker, the grid and the chip.
+2. **Place model.** Drop `"cloud"` from `Place`, every `cc-*`/`vps` state and
+   the cloud actions from `shared/place-view.ts`, and the matching
+   `place.view.*`/`place.action.*`/`cloud.*`/`computer.chooseCloud*` locale
+   keys; drop `shared/cloud-computer.ts` and the `cloudBackend`/`cloudHome`
+   fields from `shared/wire.ts`.
+3. **Server hosted half.** Delete the `CLOUD_HOME`/`HOSTED_WORKSPACE` block and
+   the ~40 modules above with their routes, tests and data files
+   (`lending-routines.json`, `lending-memory.json`, boat journals).
+4. **Desktop bridges.** `cloud-account.mjs`, `cloud-home.mjs`,
+   `cloud-entry.mjs`, `cloud-move.mjs`, `managed-composio.mjs`, their IPC,
+   preload bridges, `ogb.d.ts` entries, `verify-cloud-account.mjs` and the
+   `openmausbot://cloud` deep link.
+5. **Data migration** for `computer: "cloud"` rows, then `deploy/`
+   (container/self-host targets).
 6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
    half-finished "Colonie Cloud" strings.
 7. VPS `172.104.33.55`: stop the services, then delete the data. Last,

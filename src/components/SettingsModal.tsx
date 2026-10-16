@@ -41,13 +41,10 @@ import { ServerPairingCard } from "./ServerPairingCard";
 import { PeopleSection } from "./PeopleSection";
 import { ActivitySection } from "./ActivitySection";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
-import { currentPhonePairingTarget, phonePairingSettingsAction } from "@/lib/phone-pairing";
+import { currentPhonePairingTarget } from "@/lib/phone-pairing";
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { RemoteComputerSection } from "./RemoteComputerSection";
-import { ConnectedWorkspacesSettings } from "./ConnectedWorkspacesSettings";
-import { CloudAccountSettings } from "./CloudAccountSettings";
-import { ProSettingsCard } from "./ProIntroduction";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
 import { effortLabel } from "./ModelPicker";
 import { EFFORT_LEVELS, isEffortLevel } from "../../shared/wire";
@@ -108,9 +105,7 @@ export const SECTIONS: Array<{
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "box", "xai", "mistral", "cerebras", "vps", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
   { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "rooms", "who answers"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
-  { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building02Icon, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
-  { id: "cloudAccount", group: "account", labelKey: "settings.section.cloudAccount", icon: UserIcon, keywords: ["cloud", "account", "personal", "sign in", "pro", "subscription", "billing"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
   { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
   { id: "people", group: "account", labelKey: "settings.section.people", icon: UsersIcon, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
@@ -133,8 +128,8 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
   { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "decisionModel"] },
-  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["companion", "desktopWorkspaces", "computer"] },
-  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["cloudAccount", "people", "activity"] },
+  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["companion", "computer"] },
+  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["people", "activity"] },
 ];
 
 /** Advanced-only pages. A deep link to one still opens it in Simple mode, as
@@ -784,13 +779,9 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const q = query.trim().toLowerCase();
   const ownerOrAdmin = useOwnerOrAdmin(!workspace);
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
-  const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance" || entry.id === "desktopWorkspaces")
+  const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
-    .filter((entry) => entry.id !== "desktopWorkspaces" || Boolean(window.ogb?.environments))
-    // On the person's own Cloud in this app's window, the plan shows read only (cloudPlan);
-    // never on any other server open here (a VPS, a hosted workspace, someone else's).
-    .filter((entry) => entry.id !== "cloudAccount" || Boolean(window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true)))
     // the operator's screen for other workspaces exists only where a fleet agent does
     .filter((entry) => entry.id !== "workspaces" || workspacesAvailable(state.config))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access,
@@ -886,13 +877,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
    * stacked Simple page. */
   const renderSection = (id: AppSettingsSection) => {
     switch (id) {
-      case "desktopWorkspaces":
-        return <ConnectedWorkspacesSettings />;
-      case "cloudAccount":
-        return (window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true)) && !remoteActive
-          ? <CloudAccountSettings linkRequest={state.appSettingsCloudLink} cloudHome={state.config?.cloudHome === true}
-            onConnectPhone={() => dispatch(phonePairingSettingsAction())} />
-          : null;
       case "general":
         if (workspace) return <>
           <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1"><AdvancedModeRow /></div>
@@ -905,7 +889,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
               <AdvancedModeRow />
               {colonieFleet && advanced && <DeveloperToolsRow />}
             </div>
-            <ProSettingsCard />
             <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
               <ProfileFields />
             </Card>
@@ -1020,7 +1003,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         // "Connect your phone" lands on the one pairing that fits this window:
         // this computer's phone flow, or this server's (or Cloud's) pairing code.
         const phoneFocus = state.appSettingsPhonePairing;
-        const computerPairs = currentPhonePairingTarget(state.config?.cloudHome === true) === "computer";
+        const computerPairs = currentPhonePairingTarget() === "computer";
         return (
           <>
             <RemoteComputerSection />

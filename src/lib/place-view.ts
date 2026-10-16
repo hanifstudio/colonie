@@ -137,7 +137,7 @@ export function openPlaceAction(
   target: { botId: string; threadId?: string; place?: Place },
   dispatch: (action: Action) => void,
 ): boolean {
-  const appSettings = (section: "engines" | "computer" | "connections" | "cloudAccount") =>
+  const appSettings = (section: "engines" | "computer" | "connections") =>
     dispatch({ type: "toggleAppSettings", open: true, section });
   switch (id) {
     case "choose-model": dispatch({ type: "toggleSettings", open: true, section: "model", botId: target.botId }); return true;
@@ -155,13 +155,11 @@ export function openPlaceAction(
       const desktop = window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
       if (desktop) { void desktop.openDashboard().catch(() => {}); return true; }
       if (window.ogb?.cloudPlan) { void window.ogb.cloudPlan.manage().catch(() => {}); return true; }
-      appSettings("cloudAccount");
-      return true;
+      return false;
     }
     case "open-my-cloud": {
       const desktop = window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
       if (desktop) void desktop.connectHome().catch(() => {});
-      else appSettings("cloudAccount");
       return true;
     }
     case "clear-pin":

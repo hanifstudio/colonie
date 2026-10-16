@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   beatWidth,
   beatsFor,
-  cloudSignInDue,
   flowDotsShown,
   completionPatch,
   EMPTY_ONBOARDING,
@@ -99,33 +98,17 @@ describe("welcomeViewer", () => {
   });
 });
 
-describe("first run on an OMB Cloud home", () => {
+describe("a Cloud home's viewer", () => {
   // What the machine's /api/auth/session answers the desktop app once
-  // "Connect to my Cloud" has paired it (server/index.ts, cloud-home.ts).
+  // "Connect to my Cloud" has paired it (server/cloud-home.ts).
   const connected = welcomeViewer({ kind: "session", scopes: ["admin", "client"], via: "cookie", cloudHome: true });
-  const engine = (id: string, authenticated: boolean | undefined, state = "available") => ({ id, state, authenticated });
-  const ready = (instance: ReturnType<typeof engine>) => instance.state === "available" && instance.authenticated !== false;
-  const signedOut = [engine("claude", false), engine("codex", false), engine("opencodeGo", undefined, "unavailable")];
 
-  it("routes the connected app to the engine sign-in, not the welcome flow", () => {
-    expect(cloudSignInDue(connected, { connected: true, instances: signedOut }, ready)).toBe(true);
+  it("skips the welcome flow", () => {
     expect(welcomeDue({ onboarding: EMPTY_ONBOARDING }, { remoteClient: false, legacyDone: false, ...connected })).toBe(false);
   });
 
-  it("hands over to the chat once any engine can run", () => {
-    for (const signedIn of [engine("claude", true), engine("codex", true), engine("anthropic-key", undefined)]) {
-      expect(cloudSignInDue(connected, { connected: true, instances: [...signedOut, signedIn] }, ready)).toBe(false);
-    }
-  });
-
-  it("waits for the server, and changes nothing anywhere else", () => {
-    expect(cloudSignInDue(connected, { connected: false, instances: signedOut }, ready)).toBe(false);
-    expect(cloudSignInDue(connected, { connected: true, instances: [] }, ready)).toBe(false);
-    expect(cloudSignInDue(null, { connected: true, instances: signedOut }, ready)).toBe(false);
-    // a paired phone without admin scope cannot sign engines in
-    expect(cloudSignInDue({ ...connected, canSave: false }, { connected: true, instances: signedOut }, ready)).toBe(false);
+  it("changes nothing anywhere else", () => {
     for (const viewer of [LOCAL_VIEWER, { hosted: true, canSave: true }, welcomeViewer({ kind: "session", scopes: ["admin", "client"] })]) {
-      expect(cloudSignInDue(viewer, { connected: true, instances: signedOut }, ready)).toBe(false);
       expect(welcomeDue({ onboarding: EMPTY_ONBOARDING }, { remoteClient: false, legacyDone: false, ...viewer })).toBe(true);
     }
   });

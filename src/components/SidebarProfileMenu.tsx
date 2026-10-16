@@ -32,19 +32,16 @@ import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
 import { ShortcutHint } from "./ShortcutHint";
 import { useSidebarPhoneStatus } from "./SidebarPhoneButton";
 import { useStore, type Action } from "@/state/store";
-import type { CloudAccountBridge, CloudAccountState } from "../../electron/cloud-account.mjs";
 import { useUpdaterState, type UpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import {
-  cloudPhoneDestination,
   connectPhoneEntry,
   currentPhonePairingTarget,
   loadPhonePairingAccess,
   phoneDestinations,
   phonePairingSettingsAction,
-  type CloudPhoneDestination,
   type ConnectPhoneEntry,
   type PhoneDestination,
   type PhonePairingAccess,
@@ -202,8 +199,8 @@ export function useUpdateItem(): UpdateEntry | null {
 
 /** Connect your phone for this window, once it is known whether this
  * session may pair one. This computer's own phone flow needs no asking. */
-function useConnectPhoneEntry(cloudHome: boolean): ConnectPhoneEntry | null {
-  const target = currentPhonePairingTarget(cloudHome);
+function useConnectPhoneEntry(): ConnectPhoneEntry | null {
+  const target = currentPhonePairingTarget();
   const [access, setAccess] = useState<PhonePairingAccess | null>(null);
   useEffect(() => {
     if (target === "computer") return;
@@ -218,32 +215,10 @@ function useConnectPhoneEntry(cloudHome: boolean): ConnectPhoneEntry | null {
   return connectPhoneEntry(target, access);
 }
 
-/** On this computer only: the person's Cloud as a phone destination, from
- * the verified native snapshot (null elsewhere, signed out, or no plan). */
-export function useCloudPhoneDestination(enabled: boolean): { cloud: CloudPhoneDestination; bridge?: CloudAccountBridge } {
-  const bridge = enabled && !window.ogb?.remoteClient?.active ? window.ogb?.cloudAccount : undefined;
-  const [account, setAccount] = useState<CloudAccountState | null>(null);
-  useEffect(() => {
-    if (!bridge) return;
-    let active = true, updated = false;
-    const unsubscribe = bridge.onState((next) => { updated = true; if (active) setAccount(next); });
-    // Reads the native snapshot only; never signs in, refreshes or connects.
-    void bridge.state().then((next) => { if (active && !updated) setAccount(next); }).catch(() => {});
-    return () => { active = false; unsubscribe(); };
-  }, [bridge]);
-  return bridge ? { cloud: cloudPhoneDestination(account), bridge } : { cloud: null };
-}
-
-/** What choosing a destination does. Here: Settings → Remote access on this
- * window's pairing. Cloud: open the Cloud in this window on its phone
- * pairing, as Settings → OMB Cloud's Use your Cloud on your phone does; if
- * that fails, Settings → OMB Cloud, which says what to do. */
-export function selectPhoneDestination(destination: PhoneDestination, { bridge, dispatch }: { bridge?: Pick<CloudAccountBridge, "connectHomeForPhone">; dispatch: (action: Action) => void }): void {
-  if (destination.id !== "cloud" || !bridge) {
-    dispatch(phonePairingSettingsAction());
-    return;
-  }
-  void bridge.connectHomeForPhone().catch(() => dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" }));
+/** What choosing a destination does: Settings → Remote access on this
+ * window's pairing. */
+export function selectPhoneDestination({ dispatch }: { dispatch: (action: Action) => void }): void {
+  dispatch(phonePairingSettingsAction());
 }
 
 /** The phone entries at the top of the menu: a Connect your phone line per
@@ -265,13 +240,12 @@ export function phoneMenuItems({
 }): SidebarMenuItem[] {
   return [
     ...destinations.map((destination) => ({
-      key: destination.id === "cloud" ? "connect-phone-cloud" : "connect-phone",
+      key: "connect-phone",
       label: t("sidebar.menu.connectPhone"),
       subtitle: t(destination.subtitleKey),
-      ...(destination.noteKey ? { note: t(destination.noteKey) } : {}),
       icon: <HIcon icon={SmartphoneIcon} size={18} />,
       trailing:
-        destination.id === "here" && destination.target === "computer" && connected ? (
+        destination.target === "computer" && connected ? (
           <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-success" />
         ) : undefined,
       disabled: true,
@@ -290,9 +264,8 @@ export function phoneMenuItems({
 export function SidebarProfileMenu() {
   const { state, dispatch } = useStore();
   const phone = useSidebarPhoneStatus();
-  const connectPhone = useConnectPhoneEntry(state.config?.cloudHome === true);
-  const cloudPhone = useCloudPhoneDestination(connectPhone?.target === "computer");
-  const destinations = phoneDestinations(connectPhone, cloudPhone.cloud);
+  const connectPhone = useConnectPhoneEntry();
+  const destinations = phoneDestinations(connectPhone);
   const update = useUpdateItem();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [phoneAppOpen, setPhoneAppOpen] = useState(false);
@@ -300,7 +273,7 @@ export function SidebarProfileMenu() {
 
   const profile = state.config?.profile;
   const name = profileLabel(profile);
-  const connectTo = (destination: PhoneDestination) => selectPhoneDestination(destination, { bridge: cloudPhone.bridge, dispatch });
+  const connectTo = () => selectPhoneDestination({ dispatch });
 
   const items: SidebarMenuItem[] = [
     ...phoneMenuItems({
@@ -375,7 +348,7 @@ export function SidebarProfileMenu() {
         connect={destinations.map((destination) => ({
           key: destination.id,
           subtitle: t(destination.subtitleKey),
-          onSelect: () => connectTo(destination),
+          onSelect: () => connectTo(),
         }))}
       />
     </>

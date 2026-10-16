@@ -22,7 +22,7 @@ const fixture = vi.hoisted(() => ({
   dispatch: vi.fn(),
   switches: [] as ComponentProps<typeof Switch>[],
 }));
-// The Cloud account card reads the host platform (what a saved sign-in still locked asks for).
+// The host capabilities the Settings rows read.
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({ capabilities: { host: { platform: "darwin" } } }) }));
 
 vi.mock("@/state/store", async (importOriginal) => ({
@@ -244,28 +244,4 @@ describe("Settings → Appearance", () => {
     expect(html).not.toContain("settings.threadDisplay");
   });
 
-  it("offers desktop connections as a top-level page without exposing the list remotely", () => {
-    fixture.section = "desktopWorkspaces";
-    vi.stubGlobal("window", { ogb: { environments: {} } });
-    const local = render();
-    expect(local).toContain('<option value="desktopWorkspaces" selected="">Servers</option>');
-    expect(local).toContain("Server address or pairing link");
-    expect(local).toContain("Name (optional)");
-    expect(local).toContain("Your servers");
-    expect(local).toContain("npx openmausbot pair --label");
-    fixture.section = "general";
-    vi.stubGlobal("window", { ogb: { workspaces: {} } });
-    expect(render()).not.toContain('<option value="desktopWorkspaces"');
-  });
-
-  it("offers personal Cloud separately and only through the local desktop bridge", () => {
-    fixture.section = "cloudAccount";
-    vi.stubGlobal("window", { ogb: { cloudAccount: {} } });
-    expect(render()).toContain('<option value="cloudAccount" selected="">Colonie Cloud</option>');
-    expect(render()).toContain("Free local use");
-    fixture.section = "appearance";
-    vi.stubGlobal("window", {}); expect(render()).not.toContain('<option value="cloudAccount"');
-    vi.stubGlobal("window", { ogb: { cloudAccount: {}, remoteClient: { active: true } } });
-    expect(render()).not.toContain('<option value="cloudAccount"');
-  });
 });

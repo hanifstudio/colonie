@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./components/HIcon";
-import { CLOUD_LINK_SETTINGS, StoreProvider, useStore } from "@/state/store";
+import { StoreProvider, useStore } from "@/state/store";
 import { useWelcomeViewer, WelcomeGate } from "@/components/onboarding/WelcomeGate";
-import { cloudSignInDue, type WelcomeViewer } from "@/lib/onboarding";
 import { LiveCallHost } from "@/components/LiveCallHost";
 import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { initAnalytics } from "@/lib/analytics";
@@ -20,13 +19,9 @@ import {
 } from "@/components/lazy-screens";
 import { WorkspaceBackupRecovery } from "@/components/WorkspaceBackupSettings";
 import { UpdateBanner } from "@/components/UpdateBanner";
-import { ProIntroduction } from "@/components/ProIntroduction";
 import { DesktopCapabilitiesProvider, useDesktopCapabilities } from "@/components/DesktopCapabilities";
 import { WindowCaptionButtons } from "@/components/WindowCaptionButtons";
 import { NoEngines } from "@/components/NoEngines";
-import { CloudEngineSignIn } from "@/components/CloudEngineSignIn";
-import { CloudSetup } from "@/components/CloudSetup";
-import { engineReady } from "@/components/EngineLibrary";
 import { CommandPalette } from "@/components/CommandPalette";
 import { setLocale } from "@/lib/i18n";
 import { useAppKeyboardShortcuts } from "@/lib/use-app-keyboard-shortcuts";
@@ -36,7 +31,7 @@ import { phonePairingSettingsAction, takePhonePairingRequest } from "@/lib/phone
 
 /** The one original shell: every layout, chrome, drawer, shortcut and palette
  * behavior, mounted by `Application` under the local store. */
-export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
+export function Shell() {
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const unreadCount =
@@ -45,30 +40,6 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const twoSidePanelsFit = useMediaQuery(TWO_SIDE_PANELS_FIT, true);
   const sidebarAndPanelFit = useMediaQuery(SIDEBAR_AND_PANEL_FIT, true);
-  useEffect(() => {
-    if (!window.ogb?.environments) return;
-    // A saved server's Computer access panel, or ("copy") its Copy this computer here panel.
-    const open = (computerId?: string | null, panel?: "copy") => {
-      if (computerId) {
-        const target = new URL(window.location.href);
-        target.searchParams.set(panel === "copy" ? "copy-to" : "share-computer", computerId);
-        window.history.replaceState(null, "", `${target.pathname}${target.search}${target.hash}`);
-      }
-      dispatch({ type: "toggleAppSettings", open: true, section: "desktopWorkspaces" });
-    };
-    const url = new URL(window.location.href);
-    const requestedSettings = url.searchParams.get("desktop-settings");
-    if (requestedSettings === "workspaces" ||
-      ((requestedSettings === "cloud" || requestedSettings === "cloud-settings") && window.ogb.cloudAccount && !remoteClient)) {
-      url.searchParams.delete("desktop-settings");
-      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-      if (requestedSettings === "cloud") dispatch(CLOUD_LINK_SETTINGS);
-      // The lending menu-bar item: Settings → OMB Cloud, with no automatic action.
-      else if (requestedSettings === "cloud-settings") dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" });
-      else open();
-    }
-    return window.ogb.environments.onOpenSettings?.(open);
-  }, [dispatch]);
   // "Use your Cloud on your phone" opens the Cloud in this window at
   // /?desktop-settings=phone: its own phone pairing, in any window, on any
   // server. It only opens Settings there; no code is made until a click.
@@ -122,10 +93,6 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
     state.connected &&
     state.instances.length > 0 &&
     !state.instances.some((i) => i.snapshot.state === "available");
-  // An OMB Cloud home with none of the person's own engines signed in yet:
-  // its first run, and every bot until then, is the engine sign-in.
-  const cloudSignIn = cloudSignInDue(viewer, state, engineReady);
-
   // App-wide shortcuts: ⌘N new bot · ⌘1–9 jump to bot · ⌘⇧[ / ⌘⇧] prev/next · ⌘/ or ? shortcuts cheat sheet.
   useAppKeyboardShortcuts({
     bots: state.bots,
@@ -214,14 +181,8 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
   // shell signals the request over the bridge (Cmd+, accelerates the item).
   // Local-shell only: remote server pages never receive the channel, and ogb
   // is absent in the browser.
-  // "cloud" is openmausbot://cloud (the Cloud page's "Open in the app"):
-  // OMB Cloud, marked as opened by the link so that view signs in or connects.
   useEffect(() => {
-    return window.ogb?.onOpenAppSettings?.(section => dispatch(section === "cloud" && window.ogb?.cloudAccount && !remoteClient
-      ? CLOUD_LINK_SETTINGS
-      : section === "cloud-settings" && window.ogb?.cloudAccount && !remoteClient
-        ? { type: "toggleAppSettings", open: true, section: "cloudAccount" }
-        : { type: "toggleAppSettings", open: true }));
+    return window.ogb?.onOpenAppSettings?.(() => dispatch({ type: "toggleAppSettings", open: true }));
   }, [dispatch]);
 
   // The viewer outlives ComputerPanel and can target any bot, so release control
@@ -252,7 +213,6 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
     <div className="flex h-full flex-col">
       {/* fixed-position popup, bottom-left — outside the layout flow */}
       <UpdateBanner />
-      {<ProIntroduction quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} />}
       <div className="relative flex min-h-0 flex-1">
       {!calendarFocus && <button
         type="button"
@@ -292,8 +252,6 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
           onClose={() => setLocalVmWorkspaceBotId(null)}
           onOpenComputer={openComputerFromWorkspace}
         />
-      ) : cloudSignIn ? (
-        <CloudEngineSignIn />
       ) : noEngines ? (
         <NoEngines />
       ) : group ? (
@@ -346,9 +304,6 @@ export function Shell({ viewer = null }: { viewer?: WelcomeViewer | null }) {
       {!remoteClient && state.activityOpen && bot && <ActivityPanel key={`activity:${bot.id}`} bot={bot} />}
       {!remoteClient && state.filePreview && <FilePreviewPanel key={`file:${state.filePreview.threadId}:${state.filePreview.messageId}:${state.filePreview.path}`} preview={state.filePreview} />}
       {state.appSettingsOpen && <SettingsModal />}
-      {/* On the person's Cloud: its setup checklist, and after it Move to
-          Cloud's one-time card on an empty Cloud (desktop app only). */}
-      <CloudSetup viewer={viewer} />
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}
@@ -386,7 +341,7 @@ function Application() {
     <DesktopCapabilitiesProvider>
       <StoreProvider>
         <ThreadRefsProvider>
-          <Shell viewer={viewer} />
+          <Shell />
         </ThreadRefsProvider>
         <WelcomeGate viewer={viewer} />
         <LiveCallHost />

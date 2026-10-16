@@ -110,7 +110,6 @@ import { phoneSettingsAction, SidebarPhoneButton } from "./SidebarPhoneButton";
 import { SidebarAppsButton, SidebarFooterNav } from "./SidebarFooterNav";
 import { GlassBar, GlassScrollFrame, GlassScroller } from "./GlassScrollFrame";
 import { DesktopWorkspaceSwitcher } from "./DesktopWorkspaceSwitcher";
-import { useCloudOwner } from "./CloudOwner";
 import { profileInitials, SidebarProfileMenu } from "./SidebarProfileMenu";
 import { SidebarSectionHeader } from "./SidebarSectionHeader";
 import { useShowThreads } from "@/lib/thread-preferences";
@@ -1906,7 +1905,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
 }) {
   const { state, dispatch } = useStore();
   const now = useRelativeNow();
-  const cloudOwner = useCloudOwner(state.config?.cloudHome === true);
   const showThreads = useShowThreads();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const { capabilities } = useDesktopCapabilities();
@@ -2330,7 +2328,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
             {/* Gives way first when the row is tight; only the switcher's own
                 button opts out of the drag region. */}
             <div data-sidebar-top-switcher className="flex min-w-0 max-w-[140px] items-center">
-              {workspace?.switcher ?? <DesktopWorkspaceSwitcher inline cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />}
+              {workspace?.switcher ?? <DesktopWorkspaceSwitcher inline />}
             </div>
           </div>
         )}
@@ -2475,7 +2473,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
         </div>
       </div>
 
-      {density === "icons" && (workspace?.switcher ?? <DesktopWorkspaceSwitcher compact cloudHome={state.config?.cloudHome === true} owner={cloudOwner} />)}
+      {density === "icons" && (workspace?.switcher ?? <DesktopWorkspaceSwitcher compact />)}
       {/* Search */}
       <div className={cn("pt-1 pb-3", density === "icons" ? "hidden" : "px-3")}>
         <div className="flex items-center gap-2 rounded-md border border-hairline/40 bg-inset/40 px-2.5 py-1.5 focus-within:border-focus">

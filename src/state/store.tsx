@@ -870,9 +870,7 @@ export interface InstanceInfo {
 
 export type AppSettingsSection =
   | "general"
-  | "desktopWorkspaces"
   | "organization"
-  | "cloudAccount"
   | "appearance"
   | "experimental"
   | "connections"
@@ -962,10 +960,6 @@ export interface AppState {
   filePreview: { threadId: string; messageId: string; path: string; name: string } | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
-  /** Non-zero while Settings → OMB Cloud is open because of the Cloud page's
-   * openmausbot://cloud link; each link counts up. Any other
-   * toggleAppSettings (another section, the same one by hand, closing) sets 0. */
-  appSettingsCloudLink: number;
   /** Counts up each time Settings opens on the phone pairing ("Connect your
    * phone"): Remote access scrolls to the pairing that fits this window and
    * focuses the button that shows the code. Any other toggleAppSettings sets 0. */
@@ -1256,7 +1250,7 @@ export type Action =
   | { type: "closeFilePreview" }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
-  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection; cloudLink?: boolean; phonePairing?: boolean }
+  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection; phonePairing?: boolean }
   | { type: "toggleShortcuts"; open?: boolean }
   | { type: "toggleWelcome"; open?: boolean }
   | { type: "toggleTour"; open?: boolean }
@@ -1460,10 +1454,6 @@ function optimisticUserMessage(
     channelMode,
   };
 }
-
-/** Settings → OMB Cloud as opened by openmausbot://cloud (the Cloud page's
- * "Open in the app"); that view then signs in or connects by itself. */
-export const CLOUD_LINK_SETTINGS = { type: "toggleAppSettings", open: true, section: "cloudAccount", cloudLink: true } as const satisfies Action;
 
 export function reducer(state: AppState, action: Action): AppState {
   if (action.type === "messageAdded" || action.type === "messagePatched" || action.type === "threadActive" || action.type === "optimisticMessageRemoved") {
@@ -2146,7 +2136,6 @@ export function reducer(state: AppState, action: Action): AppState {
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
         appSettingsSection: action.section ?? state.appSettingsSection,
-        appSettingsCloudLink: action.cloudLink && open ? state.appSettingsCloudLink + 1 : 0,
         appSettingsPhonePairing: action.phonePairing && open ? state.appSettingsPhonePairing + 1 : 0,
         settingsOpen: open ? false : state.settingsOpen,
         computerOpen: open ? false : state.computerOpen,
@@ -2507,7 +2496,6 @@ export const initialState: AppState = {
   filePreview: null,
   appSettingsOpen: false,
   appSettingsSection: "general",
-  appSettingsCloudLink: 0,
   appSettingsPhonePairing: 0,
   shortcutsOpen: false,
   welcomeOpen: false,

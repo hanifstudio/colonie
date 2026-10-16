@@ -26,7 +26,7 @@ it("English copy says Organization and installation, not Organisation or workspa
 // keep "workspace", so the guard names the retired phrases, not the word.
 const HARDCODED = [
   "electron/environments.cjs", "electron/main.mjs",
-  "src/components/DesktopWorkspaceSwitcher.tsx", "src/components/ConnectedWorkspacesSettings.tsx", "src/components/LocalVmWorkspace.tsx",
+  "src/components/DesktopWorkspaceSwitcher.tsx", "src/components/LocalVmWorkspace.tsx",
   "src/components/VoiceSettings.tsx", "src/components/bot-settings/AccessSection.tsx",
   "src/components/BrowserPanel.tsx", "src/lib/call-capability.ts", "server/container-computer.ts",
 ];

@@ -77,7 +77,7 @@ export function welcomeViewer(session: unknown): WelcomeViewer {
  * A session that cannot save the workspace config never gets it: it would
  * fail to save and come back on every visit. On a hosted workspace the tour
  * waits until the session is known to be an admin's. A Cloud home opens on
- * its engine sign-in instead (cloudSignInDue); the flow can still be replayed
+ * its engine sign-in instead; the flow can still be replayed
  * from Settings. Callers that pass none of these fields keep the old answer. */
 export function welcomeDue(
   config: { onboarding?: OnboardingStatus } | null | undefined,
@@ -197,19 +197,6 @@ export function engineSummary<Instance extends SummaryInstance>(
   const personal = engines.filter(ready);
   const setup = engines.filter((instance) => !ready(instance));
   return { ready: personal, setup, allReady: personal.length > 0 && setup.length === 0 };
-}
-
-/** Whether a Cloud home shows its engine sign-in in place of a chat: the
- * person connected from the desktop app (an admin session), and nothing there
- * can run a bot yet. The default bot then shows the sign-in card rather than
- * failing its first turn. Like the no-engines screen, this waits for the
- * first /api/instances answer rather than flashing on a guess. */
-export function cloudSignInDue<Instance>(
-  viewer: WelcomeViewer | null,
-  state: { connected: boolean; instances: readonly Instance[] },
-  ready: (instance: Instance) => boolean,
-): boolean {
-  return Boolean(viewer?.cloudHome && viewer.canSave) && state.connected && state.instances.length > 0 && !state.instances.some(ready);
 }
 
 // ── motion ─────────────────────────────────────────────────────────────

@@ -57,16 +57,14 @@ vi.mock("./RemoteComputerSection", () => ({ RemoteComputerSection: marker("compa
 vi.mock("./CustomDomainSettings", () => ({ CustomDomainSettings: () => null }));
 vi.mock("./CompanionSection", () => ({ CompanionSection: () => null }));
 vi.mock("./ServerPairingCard", () => ({ ServerPairingCard: () => null }));
-vi.mock("./ConnectedWorkspacesSettings", () => ({ ConnectedWorkspacesSettings: marker("desktopWorkspaces") }));
 vi.mock("./LocalComputerSection", () => ({ LocalComputerSection: marker("computer") }));
-vi.mock("./CloudAccountSettings", () => ({ CloudAccountSettings: marker("cloudAccount") }));
 vi.mock("./PeopleSection", () => ({ PeopleSection: marker("people") }));
 vi.mock("./ActivitySection", () => ({ ActivitySection: marker("activity") }));
 vi.mock("./UsageSection", () => ({ UsageSection: marker("usage") }));
 vi.mock("./WorkspaceBackupSettings", () => ({ WorkspaceBackupSettings: marker("backups") }));
 vi.mock("./RoomTurnTimeoutSettings", () => ({ RoomTurnTimeoutSettings: () => null }));
 
-const desktop = { ogb: { environments: {}, organization: {}, cloudAccount: {} } };
+const desktop = { ogb: { environments: {}, organization: {} } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,17 +91,17 @@ const blocks = (html: string) => [...html.matchAll(/data-settings-block="([^"]+)
 const markers = (html: string) => [...html.matchAll(/MARKER:([^;]+);/g)].map((match) => match[1]);
 
 describe("Settings in Simple mode", () => {
-  it("draws at most five pages on the desktop, and none of the Advanced-only ones", () => {
+  it("draws its pages on the desktop, and none of the Advanced-only ones", () => {
     const html = render();
-    expect(pages(html)).toEqual(["general", "appearance", "ai", "computers", "account"]);
+    expect(pages(html)).toEqual(["general", "appearance", "ai", "computers"]);
     expect(SIMPLE_PAGES.length).toBeLessThanOrEqual(5);
     // a flat list: no group headings, no per-section rail entries
     expect(html).not.toContain("data-settings-group=");
     expect(html).not.toContain("data-settings-section=");
     for (const hidden of ["usage", "backups", "experimental", "workspaces", "skills"]) expect(html).not.toContain(`value="${hidden}"`);
-    // the narrow-window picker offers the same five pages
+    // the narrow-window picker offers the same pages
     const picker = html.match(/<select aria-label="Settings"[\s\S]*?<\/select>/)![0];
-    expect([...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1])).toEqual(["general", "appearance", "ai", "computers", "account"]);
+    expect([...picker.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1])).toEqual(["general", "appearance", "ai", "computers"]);
   });
 
   it("files every Advanced page under one Simple page, or hides it", () => {
@@ -135,21 +133,14 @@ describe("Settings in Simple mode", () => {
     expect(html).toContain("More providers for OpenCode bots");
   });
 
-  it("stacks Remote access, Servers, Local VM and the built-in browser on Computers", () => {
+  it("stacks Remote access, Local VM and the built-in browser on Computers", () => {
     fixture.section = "companion";
     const html = render();
     expect(currentPage(html)).toBe("computers");
-    expect(blocks(html)).toEqual(["companion", "desktopWorkspaces", "computer", "browser"]);
+    expect(blocks(html)).toEqual(["companion", "computer", "browser"]);
     const headings = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((match) => match[1]);
-    expect(headings).toEqual(["Remote access", "Servers", "Local VM", "Built-in browser"]);
+    expect(headings).toEqual(["Remote access", "Local VM", "Built-in browser"]);
     expect(html).toContain('aria-label="Enable the built-in browser"');
-  });
-
-  it("shows OMB Cloud on Account in the desktop app", () => {
-    fixture.section = "cloudAccount";
-    const html = render();
-    expect(currentPage(html)).toBe("account");
-    expect(blocks(html)).toEqual(["cloudAccount"]);
   });
 
   it("adds People and Activity to Account for a hosted workspace's admins in a browser", () => {
@@ -157,7 +148,6 @@ describe("Settings in Simple mode", () => {
     fixture.ownerOrAdmin = true;
     fixture.section = "people";
     const html = render();
-    // no Servers page without the desktop bridge, and no desktop-only account pages
     expect(pages(html)).toEqual(["general", "appearance", "ai", "computers", "account"]);
     expect(blocks(html)).toEqual(["people", "activity"]);
   });
@@ -169,13 +159,13 @@ describe("Settings in Simple mode", () => {
     expect(pages(render())).toEqual(["general", "appearance", "ai", "computers"]);
   });
 
-  it("keeps a paired remote client's reduced set: Appearance, and Computers with Remote access and Servers", () => {
+  it("keeps a paired remote client's reduced set: Appearance, and Computers with Remote access", () => {
     vi.stubGlobal("window", { ogb: { ...desktop.ogb, remoteClient: { active: true } } });
-    fixture.section = "desktopWorkspaces";
+    fixture.section = "companion";
     const html = render();
     expect(pages(html)).toEqual(["appearance", "computers"]);
     expect(currentPage(html)).toBe("computers");
-    expect(blocks(html)).toEqual(["companion", "desktopWorkspaces"]);
+    expect(blocks(html)).toEqual(["companion"]);
     expect(html).not.toContain('aria-label="Enable the built-in browser"');
   });
 
@@ -187,9 +177,7 @@ describe("Settings in Simple mode", () => {
     ["decisionModel", "ai"],
     ["companion", "computers"],
     ["remote", "computers"],
-    ["desktopWorkspaces", "computers"],
     ["computer", "computers"],
-    ["cloudAccount", "account"],
   ])("lands a deep link to %s on %s", (section, page) => {
     fixture.section = section;
     const html = render();
@@ -204,7 +192,7 @@ describe("Settings in Simple mode", () => {
   ])("opens a hidden page (%s) for as long as it is the open one", (section, content) => {
     fixture.section = section;
     const html = render();
-    expect(pages(html)).toEqual(["general", "appearance", "ai", "computers", "account", section]);
+    expect(pages(html)).toEqual(["general", "appearance", "ai", "computers", section]);
     expect(currentPage(html)).toBe(section);
     if (content === "skillAuthoring") expect(html).toContain("Bots may write their own skills");
     else expect(markers(html)).toContain(content);
