@@ -66,6 +66,9 @@
 //   FAKE_ACP_MCP_TRANSPORTS  comma list of remote MCP transports the agent
 //                       advertises in initialize (mcpCapabilities), e.g. "http,sse"
 //   FAKE_ACP_PERMISSION_OPTIONS JSON options override in permission mode
+//   FAKE_ACP_STARTED_FILE  written when session/prompt arrives, in every mode:
+//                       the "the engine has the turn" signal a test waits for
+//                       before stopping or steering mid-turn
 //   FAKE_ACP_DUMP   path to write {argv, env} as JSON, so a test can assert
 //                   argv shape (agent/stdio flags) and env hygiene
 //   FAKE_ACP_LAUNCH_COUNT_FILE  read-increment-write a process counter at
@@ -856,6 +859,12 @@ function handle(msg: any) {
         }) + "\n");
       }
       emitConfigUpdates("session/prompt", msg.params.sessionId);
+      // The prompt is in hand. FAKE_ACP_STARTED_FILE tells a test it can act
+      // "during the turn" without racing the busy flag, which flips at claim;
+      // written for every mode, not only echo-gated.
+      if (process.env.FAKE_ACP_STARTED_FILE) {
+        try { writeFileSync(process.env.FAKE_ACP_STARTED_FILE, String(Date.now())); } catch {}
+      }
       if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_VARIANTS) {
         writeFileSync(`${process.env.FAKE_ACP_DUMP}.selection.json`, JSON.stringify({
           sessionId: msg.params.sessionId, model: currentModel, variant: currentVariant,
@@ -1126,9 +1135,6 @@ function handle(msg: any) {
           complete();
         };
         const gate = process.env.FAKE_ACP_GATE_FILE;
-        // FAKE_ACP_STARTED_FILE: written the moment the prompt arrives, so a
-        // test can act "during the turn" (after the harness's pre-turn
-        // checkpoint) without racing the busy flag, which flips at claim.
         const started = process.env.FAKE_ACP_STARTED_FILE;
         if (started) writeFileSync(started, String(Date.now()));
         if (gate && !existsSync(gate)) {

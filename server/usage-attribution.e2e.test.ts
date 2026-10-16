@@ -8,16 +8,23 @@
 //
 // POSIX-gated like the other CLI e2es (the fakes are shebang scripts).
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
 const FAKE_ACP = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
-const FAKE_CODEX = join(SERVER_DIR, "testing", "fake-codex-app-server.ts");
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter: the same stdio boundary, a different program. */
+const ACP_CONFIG = { cli: process.execPath, args: [FAKE_ACP] };
+// The modes the maintained Claude adapter advertises; the runtime validates
+// set_mode against the session's own list.
+const ACP_MODES = { FAKE_ACP_MODES: "default,bypassPermissions" };
+// The models the price tests select, offered the way a real session offers
+// them: the runtime refuses a selection the session does not advertise.
+const ACP_MODELS = { FAKE_ACP_MODELS: "fake-model,claude-fake,grok-4.7" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -27,8 +34,8 @@ posixOnly("usage attribution e2e", () => {
   let home: string;
   let stderr = "";
   let finishGate: string;
-  let codexSteerGate: string;
-  let costState: string;
+  let acpStarted: string;
+  let slowStarted: string;
 
   type Reply = { status: number; body: any };
   const request = async (headers: Record<string, string>, method: string, path: string, body?: unknown): Promise<Reply> => {
@@ -61,40 +68,43 @@ posixOnly("usage attribution e2e", () => {
     return created as { id: string; threadId: string };
   };
   const owner = { kind: "owner" };
+  /** The engine having the prompt in hand. The busy flag flips when the turn
+   * is claimed, before the engine is asked to do anything; an interrupt in
+   * that window never reaches the running turn, so the tests that stop a turn
+   * wait for the scripted engine to announce it started. */
+  const engineStarted = async (file: string, what: string) => waitFor(() => existsSync(file), what);
+  const arm = (file: string) => rmSync(file, { force: true });
 
   beforeAll(async () => {
-    for (const fake of [FAKE_CLAUDE, FAKE_ACP, FAKE_CODEX]) chmodSync(fake, 0o755);
+    chmodSync(FAKE_ACP, 0o755);
     home = mkdtempSync(join(tmpdir(), "colonie-attribution-"));
     mkdirSync(join(home, ".colonie"), { recursive: true });
     finishGate = join(home, "finish-steered-turn.gate");
-    codexSteerGate = join(home, "codex-steer-refused.gate");
-    costState = join(home, "claude-cost-state");
-    mkdirSync(costState);
+    acpStarted = join(home, "acp-started");
+    slowStarted = join(home, "slow-started");
     writeFileSync(
       join(home, ".colonie", "config.json"),
       JSON.stringify({
         instances: {
-          claude: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
-          // restores a session's running cost on --resume, like the real CLI
-          claudeResumed: {
-            driver: "claudeAgent",
-            environment: { FAKE_CLAUDE_COST_STATE: costState },
-            config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" },
-          },
+          // Colonie is ACP-only: every engine here is the scripted ACP fake
+          // behind the claude-acp flavor.
+          claude: { driver: "claude-acp", environment: { ...ACP_MODES, ...ACP_MODELS }, config: ACP_CONFIG },
+          // holds a turn open until the gate file exists: the deterministic
+          // busy window the steer tests need
           claudeSlow: {
-            driver: "claudeAgent",
-            environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finishGate },
-            config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" },
+            driver: "claude-acp",
+            environment: { ...ACP_MODES, ...ACP_MODELS, FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: finishGate, FAKE_ACP_STARTED_FILE: slowStarted },
+            config: ACP_CONFIG,
           },
           // no live session: a message while busy waits in the server-side queue
-          acp: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "hang" }, config: { cli: FAKE_ACP, fullAuto: true } },
-          // reports tokens (10 in, 5 out) but no price, like every engine but Claude
-          acpHappy: { driver: "grokAgent", config: { cli: FAKE_ACP, fullAuto: true } },
-          codexRace: {
-            driver: "codex",
-            environment: { FAKE_CODEX_MODE: "question", FAKE_CODEX_ASK_HOLD: "1", FAKE_CODEX_STEER_ERROR_FILE: codexSteerGate },
-            config: { cli: FAKE_CODEX },
+          acp: {
+            driver: "claude-acp",
+            environment: { ...ACP_MODES, ...ACP_MODELS, FAKE_ACP_MODE: "hang", FAKE_ACP_STARTED_FILE: acpStarted },
+            config: ACP_CONFIG,
           },
+          // names the models the price tests select, and reports tokens
+          // (10 in, 5 out) without a price, like every engine but Claude
+          acpHappy: { driver: "claude-acp", environment: { ...ACP_MODES, ...ACP_MODELS }, config: ACP_CONFIG },
         },
       }),
     );
@@ -132,7 +142,7 @@ posixOnly("usage attribution e2e", () => {
     expect((await api("POST", `/api/bots/${listed.id}/messages`, { text: "priced from the list" })).status).toBe(202);
     await waitFor(() => ledger(listed.id).length === 1, "the listed model's turn to be booked");
     const row = ledger(listed.id)[0];
-    expect(row).toMatchObject({ driverKind: "grokAgent", model: "grok-4.7", input: 10, output: 5, costSource: "estimated" });
+    expect(row).toMatchObject({ driverKind: "claude-acp", model: "grok-4.7", input: 10, output: 5, costSource: "estimated" });
     // xAI's list price for grok-4.7: $2 in, $6 out per million tokens
     expect(row.costUsd).toBeCloseTo((10 * 2 + 5 * 6) / 1_000_000, 12);
 
@@ -152,8 +162,10 @@ posixOnly("usage attribution e2e", () => {
 
   it("a queued message leaves the running turn with its starter, and its own turn is booked on its own", async () => {
     const bot = await newBot("acp", "fake-model");
+    arm(acpStarted);
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "owner's work" })).status).toBe(202);
-    await waitFor(async () => (await getBot(bot.id)).busy === true, "the owner's turn to start");
+    await engineStarted(acpStarted, "the owner's turn to reach the engine");
+    arm(acpStarted);
     const asPaired = await asPerson();
     const queued = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "person's follow-up" });
     expect(queued.body.queued).toBe(true);
@@ -162,84 +174,56 @@ posixOnly("usage attribution e2e", () => {
     await waitFor(() => ledger(bot.id).length === 1, "the owner's turn to be booked");
     expect(ledger(bot.id)[0].trigger).toEqual(owner);
 
-    await waitFor(async () => (await getBot(bot.id)).messages.some((m: any) => m.text === "person's follow-up"), "the queued turn to start");
+    await engineStarted(acpStarted, "the queued turn to reach the engine");
     await api("POST", `/api/bots/${bot.id}/interrupt`);
     await waitFor(() => ledger(bot.id).length === 2, "the queued turn to be booked");
     expect(ledger(bot.id)[1].trigger).toEqual(owner);
     await waitFor(async () => (await getBot(bot.id)).busy === false, "the bot to go idle");
   }, 40_000);
 
-  it("words steered into a running turn do not re-book it", async () => {
-    rmSync(finishGate, { force: true });
+  it("words sent into a running turn wait in the queue: an ACP engine has no live steer channel", async () => {
+    arm(finishGate);
+    arm(slowStarted);
     const bot = await newBot("claudeSlow", "claude-fake");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "first" })).status).toBe(202);
-    await waitFor(async () => (await getBot(bot.id)).messages.some((m: any) => m.kind === "activity"), "the tool chip");
+    await engineStarted(slowStarted, "the gated turn to reach the engine");
     const asPaired = await asPerson();
-    let steered: Reply;
+    let sent: Reply;
     try {
-      steered = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "and also this" });
+      sent = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "and also this" });
     } finally {
       writeFileSync(finishGate, "finish");
     }
-    expect(steered.body.steered).toBe(true);
-    await waitFor(() => ledger(bot.id).length === 1, "the steered turn to be booked");
-    expect(ledger(bot.id)[0]).toMatchObject({ trigger: owner, costUsd: 0.01, costSource: "reported" });
+    // Steering is a native-driver capability; ACP has no live channel, so the
+    // words queue instead of folding into the turn that is already running.
+    expect(sent.body).toMatchObject({ queued: true });
+    expect(sent.body).not.toHaveProperty("steered");
+    // The words did not fold into the turn that was running: the ledger books
+    // two of the person's turns, not one that swallowed both messages.
+    await waitFor(() => ledger(bot.id).length === 2, "both turns to be booked");
+    expect(ledger(bot.id).map((row) => row.trigger)).toEqual([owner, owner]);
+    await waitFor(async () => (await getBot(bot.id)).busy === false, "the queue to drain");
   }, 40_000);
 
-  it("books each Claude turn at its own cost when the next turn resumes the session in a new process", async () => {
-    // Every turn gets a fresh comms token, so the next one relaunches the CLI
-    // with --resume, and the CLI's first total then counts the earlier turn.
-    const bot = await newBot("claudeResumed", "claude-fake");
-    expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "first turn" })).status).toBe(202);
-    await waitFor(() => ledger(bot.id).length === 1, "the first turn to be booked");
-    await waitFor(async () => (await getBot(bot.id)).busy === false, "the first turn to settle");
-    expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "second turn" })).status).toBe(202);
-    await waitFor(() => ledger(bot.id).length === 2, "the second turn to be booked");
-    const [session] = readdirSync(costState).filter((name) => name.endsWith(".json"));
-    expect(JSON.parse(readFileSync(join(costState, session!), "utf8")).total).toBe(0.02);
-    expect(ledger(bot.id).map((row) => [row.costUsd, row.costSource])).toEqual([[0.01, "reported"], [0.01, "reported"]]);
-    await waitFor(async () => (await getBot(bot.id)).busy === false, "the second turn to settle");
-  }, 40_000);
-
-  it("pressing Steer on a queued message does not re-book the running turn", async () => {
-    writeFileSync(codexSteerGate, "refuse live steers until the test clears this gate");
-    const model = (await api("GET", "/api/instances")).body.instances.find((i: any) => i.instanceId === "codexRace").models.default;
-    const bot = await newBot("codexRace", model);
-    expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "owner's codex turn" })).status).toBe(202);
-    await waitFor(async () => (await getBot(bot.id)).messages.some((m: any) => m.card), "the question card");
+  it("pressing Steer on a queued message leaves it queued: an ACP engine cannot fold it in", async () => {
+    arm(finishGate);
+    arm(slowStarted);
+    const bot = await newBot("claudeSlow", "claude-fake");
+    expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "owner's gated turn" })).status).toBe(202);
+    await engineStarted(slowStarted, "the gated turn to reach the engine");
     const asPaired = await asPerson();
     const queued = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "steer these words" });
     expect(queued.body.queued).toBe(true);
-    rmSync(codexSteerGate, { force: true });
     const steered = await asPaired("POST", `/api/bots/${bot.id}/queue/${queued.body.queueId}/steer`, { threadId: bot.threadId });
-    expect(steered.body.steered).toBe(true);
+    expect(steered.body).toMatchObject({ queued: true });
+    expect(steered.body).not.toHaveProperty("steered");
 
-    await api("POST", `/api/bots/${bot.id}/interrupt`);
-    await waitFor(() => ledger(bot.id).length === 1, "the steered codex turn to be booked");
-    expect(ledger(bot.id)[0].trigger).toEqual(owner);
-  }, 40_000);
-
-  it("a room's queued message leaves the running room turn with its starter", async () => {
-    const bot = await newBot("acp", "fake-model");
-    const room = (await api("POST", "/api/groups", {
-      name: "Attribution room",
-      memberIds: [bot.id],
-      setup: { bulletin: "", defaultResponder: { kind: "member", botId: bot.id } },
-    })).body.group;
-    const working = async () => (await api("GET", "/api/bots?messages=30")).body.groups.find((g: any) => g.id === room.id);
-    expect((await api("POST", `/api/groups/${room.id}/messages`, { text: "owner's room turn" })).status).toBe(202);
-    await waitFor(async () => (await working())?.busyBotId === bot.id, "the room turn to start");
-    const asPaired = await asPerson();
-    expect((await asPaired("POST", `/api/groups/${room.id}/messages`, { text: "person's room follow-up" })).body.queued).toBe(true);
-
-    await api("POST", `/api/groups/${room.id}/interrupt`, {});
-    await waitFor(() => ledger(bot.id).length >= 1, "the owner's room turn to be booked");
-    expect(ledger(bot.id)[0].trigger).toEqual(owner);
-    await waitFor(async () => (await working())?.messages.some((m: any) => m.text === "person's room follow-up"), "the queued room turn to start");
-    await waitFor(async () => (await working())?.busyBotId === bot.id, "the queued room turn to run");
-    await api("POST", `/api/groups/${room.id}/interrupt`, {});
-    await waitFor(() => ledger(bot.id).length >= 2, "the queued room turn to be booked");
-    expect(ledger(bot.id)[1].trigger).toEqual(owner);
+    writeFileSync(finishGate, "finish");
+    // The words did not fold into the turn that was running: the ledger books
+    // two of the person's turns, not one that swallowed both messages.
+    await waitFor(() => ledger(bot.id).length === 2, "both turns to be booked");
+    expect(ledger(bot.id).map((row) => row.trigger)).toEqual([owner, owner]);
+    await waitFor(async () => (await getBot(bot.id)).busy === false, "the queue to drain");
   }, 40_000);
 
   it("a guarded relay books the turn to the person it names; without one it is this machine's", async () => {
