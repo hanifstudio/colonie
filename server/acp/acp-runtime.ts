@@ -28,6 +28,7 @@ import type { NativeSettings, NativeSettingChange, NativeOption } from "../../sh
 import type { AcpToolMount } from "../colonie/connections/contracts.ts";
 import type { ConnectedToolsReceipt } from "../../shared/connected-apps.ts";
 import { DATA_DIR } from "../config.ts";
+import { SHELL_TOOL } from "../../shared/tool-name.ts";
 
 const require = createRequire(import.meta.url);
 const configSchema = z.object({
@@ -271,8 +272,16 @@ export class AcpRuntime implements ProviderAdapter {
     const result = new Promise<RequestPermissionResponse>((resolve) => {
       session.permissions.set(requestId, { turnId: turn.id, options: request.options, resolve });
     });
+    // The tool identity the app grants and logs, not the ACP category: a shell
+    // command folds to `shell` exactly as the retired native drivers folded it
+    // (an always-allow key reads "shell:echo hi"), and anything else keeps the
+    // tool's own programmatic name where the agent supplied one. `kind` is a UI
+    // hint (execute/read/edit), never a tool the person could name.
+    const rawInput = request.toolCall.rawInput as { command?: unknown } | null | undefined;
+    const command = typeof rawInput?.command === "string" ? rawInput.command : undefined;
     this.emit(session, { type: "request.opened", requestId, requestType: "permission",
-      tool: request.toolCall.kind ?? "tool", summary: request.toolCall.title ?? "Agent requests permission",
+      tool: command ? SHELL_TOOL : request.toolCall.name ?? request.toolCall.kind ?? "tool",
+      summary: command ?? request.toolCall.title ?? "Agent requests permission",
       choices: request.options.map((option) => option.name),
       allowSession: request.options.some((option) => option.kind === "allow_always"),
     });
