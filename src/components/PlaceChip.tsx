@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
 import { instanceSupportsLocalComputer, localComputerDisabledReason, localComputerSelectable } from "@/lib/local-computer";
-import { effectivePlace, PLACES, placeLabelKey, placeOffered, type Place } from "@/lib/place";
+import { effectivePlace, PLACES, placeLabelKey, type Place } from "@/lib/place";
 import { placeBlocked, placeFacts, placeViewFor, usePlaceSeat } from "@/lib/place-view";
 import { useStore, type Bot, type Task } from "@/state/store";
 import type { PlaceView } from "../../shared/place-view";
@@ -29,9 +29,7 @@ export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reacha
   };
   const entry = (place: Place) => {
     const view = placeViewFor(placeFacts({ bot, place, seat, config: state.config, instances: state.instances, local }));
-    // A place this server never offers (an COLONIE Cloud home) is not reachable.
-    const offered = placeOffered(place, state.config);
-    return { view, reachable: offered && !placeBlocked(view) };
+    return { view, reachable: !placeBlocked(view) };
   };
   return { vm: entry("vm"), local: entry("local"), browser: entry("browser") };
 }
@@ -60,7 +58,6 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
   const [open, setOpen] = useState(false);
   const motion = useMenuMotion(open);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { state } = useStore();
   const places = usePlaceViews(bot);
   const effective = effectivePlace(bot, task);
   const pinned = Boolean(task?.surface);
@@ -124,11 +121,10 @@ export function PlaceChip({ bot, task, live, disabled = false, onPin }: {
               </span>
               {!pinned && <HIcon icon={Tick01Icon} size={14} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />}
             </button>
-            {PLACES.filter((place) => placeOffered(place, state.config)).map((place) => {
+            {PLACES.map((place) => {
               const selected = task?.surface === place;
               const { view, reachable } = places[place];
-              // A problem is named in the panel's own few words; a place this
-              // server never offers is not listed at all.
+              // A problem is named in the panel's own few words.
               const detail = placeBlocked(view) ? view.short : t(DESCRIPTION[place]);
               return (
                 <button

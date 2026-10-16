@@ -11,14 +11,6 @@ export const PLACES: readonly Place[] = ["vm", "local", "browser"];
 /** What the chip shows: a place, the bot's Auto, or Off. */
 export type EffectivePlace = Place | "auto" | "off";
 
-/** Whether this server offers a place at all. An COLONIE Cloud home is a headless
- * cloud server: "this computer" there would be the server, not the person's own
- * machine, and a Local VM needs a container runtime it cannot run. So it offers
- * only the built-in browser; every other server offers all three places. */
-export function placeOffered(place: Place, config: { cloudHome?: boolean } | null | undefined): boolean {
-  return !config?.cloudHome || place === "browser";
-}
-
 /** The conversation's pin wins over the bot's Works on, except Off, exactly
  * as the server resolves it. */
 export function effectivePlace(bot: Pick<Bot, "computer">, task?: Pick<Task, "surface"> | null): EffectivePlace {

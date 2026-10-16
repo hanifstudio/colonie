@@ -45,7 +45,7 @@ function WorkingFolder({ bot }: { bot: Bot }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const canPick = Boolean(window.ogb?.pickFolder);
+  const canPick = Boolean(window.colonie?.pickFolder);
   const task = bot.tasks?.find((t) => t.threadId === bot.threadId);
   const pinned = task?.cwd; // undefined = not yet, null = legacy home, string = folder
   const pinnedElsewhere = pinned !== undefined && (pinned ?? undefined) !== bot.cwd;
@@ -63,7 +63,7 @@ function WorkingFolder({ bot }: { bot: Bot }) {
     }
   };
   const pick = async () => {
-    const chosen = await window.ogb?.pickFolder?.(bot.cwd);
+    const chosen = await window.colonie?.pickFolder?.(bot.cwd);
     if (chosen) void save(chosen);
   };
 

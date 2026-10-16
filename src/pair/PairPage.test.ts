@@ -6,7 +6,7 @@ const f = vi.hoisted(() => ({ effects: [] as EffectCallback[], pair: vi.fn() }))
 vi.mock("react", async original => ({ ...await original<typeof import("react")>(), useEffect: (effect: EffectCallback) => { f.effects.push(effect); } }));
 vi.mock("../lib/session", async original => ({ ...await original<typeof import("../lib/session")>(), pairWithCode: f.pair, readSessionState: vi.fn().mockResolvedValue({ kind: "unauthenticated", error: "" }) }));
 vi.mock("../components/DesktopWorkspaceSwitcher", () => ({ DesktopWorkspaceSwitcher: () => null }));
-import { PairPage, pairIntro, pairsAutomatically } from "./PairPage";
+import { PairPage, pairsAutomatically } from "./PairPage";
 
 const code = "ABCD-EFGH-JK23";
 const render = (initialCode: string | null) => { f.effects = []; return renderToStaticMarkup(createElement(PairPage, { initialCode })); };
@@ -25,8 +25,8 @@ it("in the desktop app, a code the link carried connects at once; a browser stil
   expect(pairsAutomatically(null, true)).toBe(false);
 });
 
-it("opening My Cloud from the app needs no click and no code to type", async () => {
-  vi.stubGlobal("window", { ogb: { workspaces: {} } });
+it("opening from the desktop app needs no click and no code to type", async () => {
+  vi.stubGlobal("window", { colonie: { workspaces: {} } });
   f.pair.mockResolvedValue({ ok: true });
   const html = render(code);
   expect(html).toContain("Connecting to this Colonie…");
@@ -37,7 +37,7 @@ it("opening My Cloud from the app needs no click and no code to type", async () 
 });
 
 it("a code that no longer works falls back to the form, with the reason", async () => {
-  vi.stubGlobal("window", { ogb: { workspaces: {} } });
+  vi.stubGlobal("window", { colonie: { workspaces: {} } });
   f.pair.mockResolvedValue({ ok: false, error: "That pairing code has expired." });
   render(code); f.effects[0](); await flush();
   expect(replaced).toEqual([]);
@@ -48,15 +48,4 @@ it("a browser keeps the code in the form for the person to confirm", () => {
   const html = render(code);
   expect(html).toContain(`value="${code}"`); expect(html).toContain(">Connect</button>");
   f.effects[0]?.(); expect(f.pair).not.toHaveBeenCalled();
-});
-
-it("My Cloud says where its connection starts, never 'the code shown on the server'", () => {
-  const cloud = pairIntro({ mode: "code", sent: false, email: "", cloudHome: true });
-  // It names the app's own button and Settings section, as they are labelled.
-  expect(cloud).toContain("choose Open My Cloud in the Colonie app");
-  expect(cloud).toContain("Settings → Colonie Cloud");
-  expect(cloud).toContain("on your Plan page");
-  expect(cloud).not.toContain("shown on the server");
-  expect(pairIntro({ mode: "code", sent: false, email: "", cloudHome: false })).toContain("shown on the server");
-  expect(pairIntro({ mode: "email", sent: true, email: "a@b.test", cloudHome: false })).toContain("a@b.test");
 });

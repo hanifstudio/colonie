@@ -83,12 +83,12 @@ async function verifySandboxedPreload() {
   try {
     await probe.loadURL("data:text/html,<title>preload probe</title>");
     const exposed = await probe.webContents.executeJavaScript(`({
-      ogb: typeof window.ogb,
-      platform: window.ogb?.platform,
-      browser: typeof window.ogb?.browser,
+      colonie: typeof window.colonie,
+      platform: window.colonie?.platform,
+      browser: typeof window.colonie?.browser,
     })`);
     const expectedBrowser = process.platform === "win32" ? "undefined" : "object";
-    if (exposed.ogb !== "object" || exposed.platform !== process.platform || exposed.browser !== expectedBrowser) {
+    if (exposed.colonie !== "object" || exposed.platform !== process.platform || exposed.browser !== expectedBrowser) {
       throw new Error(`sandboxed preload bridge was not exposed correctly: ${JSON.stringify(exposed)}`);
     }
     process.stdout.write("sandboxed-preload-bridge-loaded\n");

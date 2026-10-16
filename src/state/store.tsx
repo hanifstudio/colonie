@@ -711,9 +711,6 @@ export interface ConfigStatus {
   browserEngine?: BrowserEngineSummary;
   /** Named browser sessions any bot can be pointed at. */
   browserProfiles?: BrowserProfile[];
-  /** This server is an COLONIE Cloud home: it offers no "this computer" and no
-   * Local VM. Absent everywhere else. */
-  cloudHome?: boolean;
 }
 
 export interface BrowserEngineSummary {
@@ -739,7 +736,7 @@ export interface BrowserProfile {
 // Settings shows (a saved key's Test button used to vanish that way).
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "cloudHome"
+  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -771,7 +768,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     edition: frame.edition,
     budgets: frame.budgets,
     billing: frame.billing,
-    ...(frame.cloudHome ? { cloudHome: true } : {}),
   };
 }
 
@@ -858,7 +854,6 @@ export interface InstanceInfo {
 
 export type AppSettingsSection =
   | "general"
-  | "organization"
   | "appearance"
   | "experimental"
   | "connections"
@@ -2628,7 +2623,7 @@ export async function persistBotUpdate(
   signal: AbortSignal,
   request: (path: string, init?: RequestInit) => Promise<{ bot: BotAnnouncement }> = api,
   trustedApprovals: TrustedApprovalBridge | undefined =
-    typeof window === "undefined" ? undefined : window.ogb?.approvals,
+    typeof window === "undefined" ? undefined : window.colonie?.approvals,
   currentBot?: BotAnnouncement,
 ): Promise<BotAnnouncement> {
   const {
@@ -2809,7 +2804,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () =>
       createBotPatchQueue({
         send: (botId, patch, signal, currentBot) =>
-          persistBotUpdate(botId, patch, signal, api, window.ogb?.approvals, currentBot),
+          persistBotUpdate(botId, patch, signal, api, window.colonie?.approvals, currentBot),
         reconcile: async (botId, signal) => {
           const result: { bots: BotAnnouncement[] } = await api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}`, { signal });
           return result.bots.find((candidate) => candidate.id === botId) ?? null;
@@ -2890,12 +2885,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // The private path is required for Custom; use it for every
           // confirmed desktop switch so optimistic Ask cannot hide the
           // original mode while a pending write waits its turn.
-          if (patch.resetApprovalToAsk && window.ogb?.approvals) {
-            return window.ogb.approvals.setMode(botId, "ask", {
+          if (patch.resetApprovalToAsk && window.colonie?.approvals) {
+            return window.colonie.approvals.setMode(botId, "ask", {
               threadId, modelSelection: patch.modelSelection, updateBotDefault: Boolean(patch.updateBotDefault),
             });
           }
-          return persistTaskApproval(botId, threadId, patch, window.ogb?.approvals);
+          return persistTaskApproval(botId, threadId, patch, window.colonie?.approvals);
         });
       // Later edits still get saved after an earlier failure, but a send
       // awaiting this batch must observe every rejected setting in it. A
@@ -3409,7 +3404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               memberIds: action.memberIds,
               name: action.name,
               section: action.section,
-              ...(window.ogb?.remoteClient?.active
+              ...(window.colonie?.remoteClient?.active
                 ? { setup: { bulletin: "", defaultResponder: { kind: "mentions" } } }
                 : {}),
             }),
@@ -3509,8 +3504,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // channel. Ask, Edits, and Auto can use the thread settings route.
           const needsDesktop = mode === "full" || mode === "custom" || current === "custom";
           const refreshed = needsDesktop
-            ? window.ogb?.approvals
-              ? window.ogb.approvals.setMode(action.botId, mode, {
+            ? window.colonie?.approvals
+              ? window.colonie.approvals.setMode(action.botId, mode, {
                 threadId: action.threadId, threadOnly: true, refreshPermissions: true, acknowledgeLocalAuto,
               })
               : Promise.reject(new Error("This approval change requires the packaged desktop app"))
@@ -3699,7 +3694,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return () => rawDispatch({ type: "routinesHydrated", routines, runs });
         },
       },
-      ...(window.ogb?.remoteClient?.active ? [] : [{
+      ...(window.colonie?.remoteClient?.active ? [] : [{
         key: "webhooks",
         request: async () => {
           const { webhooks, attempts, ingress } = await api("/api/webhooks");

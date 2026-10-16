@@ -1,7 +1,7 @@
 // The release's CI gate (release.yml, job `ci`): ship only a commit whose
 // code passed CI (ci.yml's gate job `CI`, with the vitest shards really run).
 //
-// Proof is accepted in this order (docs/ci.md, "Main and releases"):
+// Proof is accepted in this order:
 //   (a) a finished CI run on the release commit itself;
 //   (b) a finished CI run on any commit with the same git tree (the all-OS
 //       manual run prepare-release.yml starts on the bump branch, when main

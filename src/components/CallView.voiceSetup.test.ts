@@ -124,7 +124,7 @@ beforeEach(() => {
   fixture.startCall.mockClear();
   fixture.endCall.mockClear();
   fixture.track.mockClear();
-  vi.stubGlobal("window", { ogb: { speechStart: () => {} } });
+  vi.stubGlobal("window", { colonie: { speechStart: () => {} } });
 });
 afterEach(() => {
   resetLiveMedia();
@@ -217,7 +217,7 @@ describe("setting up a voice from the call button", () => {
   it("opens the remote agent settings instead on a desktop paired to another computer", () => {
     // This Mac speaks with the host's voices; the host has a key but no
     // default voice, and Pepper has none of its own.
-    vi.stubGlobal("window", { ogb: { speechStart: () => {}, remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { speechStart: () => {}, remoteClient: { active: true } } });
     fixture.config = { tts: { configured: true, ready: false } };
     click(find(render(), "data-call-button"));
     const help = render();
@@ -238,7 +238,7 @@ describe("setting up a voice from the call button", () => {
   });
 
   it("opens the member's chat first from a room on a paired desktop", () => {
-    vi.stubGlobal("window", { ogb: { speechStart: () => {}, remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { speechStart: () => {}, remoteClient: { active: true } } });
     fixture.config = { tts: { configured: true, ready: true } };
     const room: Props = {
       targetId: "room-1",

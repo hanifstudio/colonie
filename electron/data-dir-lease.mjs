@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, linkSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { linkSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 
@@ -342,22 +342,8 @@ function validateDataDir(dataDir) {
   return dataDir;
 }
 
-function prepareDataDir(dataDir, legacyDataDir) {
+function prepareDataDir(dataDir) {
   validateDataDir(dataDir);
-  if (legacyDataDir !== undefined) {
-    validateDataDir(legacyDataDir);
-    // Preserve the server's pre-rename migration order. Acquiring the new
-    // directory first would create it and make the later one-time rename a
-    // no-op, presenting an existing user with an empty workspace.
-    if (!existsSync(dataDir) && existsSync(legacyDataDir)) {
-      try {
-        renameSync(legacyDataDir, dataDir);
-      } catch {
-        // Match the established migration: cross-device/busy falls through
-        // to a fresh directory, while the untouched legacy data remains.
-      }
-    }
-  }
   try {
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   } catch (error) {
@@ -445,7 +431,7 @@ function validateChildDelegation(dataDir, encoded) {
 }
 
 function acquireDataDirLeaseInternal(dataDir, options = {}) {
-  const leasePath = prepareDataDir(dataDir, options.legacyDataDir);
+  const leasePath = prepareDataDir(dataDir);
   if (options.guardDelegatedChild !== false) assertNoLiveDelegatedChild(dataDir);
   const owner = {
     version: 1,
@@ -524,8 +510,8 @@ function acquireDataDirLeaseInternal(dataDir, options = {}) {
 }
 
 /** Claim exclusive ownership of one persistent Colonie data directory. */
-export function acquireDataDirLease(dataDir, options = {}) {
-  return acquireDataDirLeaseInternal(dataDir, options);
+export function acquireDataDirLease(dataDir) {
+  return acquireDataDirLeaseInternal(dataDir);
 }
 
 /**

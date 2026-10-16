@@ -64,7 +64,7 @@ export function CompanionNewBotDialog() {
 }
 
 export function NewBotDialog(props: Parameters<typeof LocalNewBotDialog>[0] = {}) {
-  return typeof window !== "undefined" && window.ogb?.remoteClient?.active
+  return typeof window !== "undefined" && window.colonie?.remoteClient?.active
     ? <CompanionNewBotDialog /> : <LocalNewBotDialog {...props} />;
 }
 
@@ -86,7 +86,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
   const [audience, setAudience] = useState<VisibilityMode>("everyone");
   const [people, setPeople] = useState("");
   const ownerOrAdmin = useOwnerOrAdmin();
-  const choosesVisibility = !defaultsMode && typeof window !== "undefined" && !window.ogb && ownerOrAdmin === true;
+  const choosesVisibility = !defaultsMode && typeof window !== "undefined" && !window.colonie && ownerOrAdmin === true;
   const dialog = useRef<HTMLDivElement>(null);
   const closeRef = useRef(() => {});
   closeRef.current = () => {

@@ -72,7 +72,7 @@ describe("the engines beat", () => {
   });
 
   it("never offers organisation sign-in, even on the local desktop", () => {
-    vi.stubGlobal("window", { ogb: { organization: { onState: vi.fn(), state: vi.fn() } } });
+    vi.stubGlobal("window", { colonie: { organization: { onState: vi.fn(), state: vi.fn() } } });
     const { html } = render();
     expect(store.dispatch).not.toHaveBeenCalledWith({ type: "toggleAppSettings", open: true, section: "organization" });
     expect(html).not.toContain("Using");

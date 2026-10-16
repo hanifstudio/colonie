@@ -18,7 +18,7 @@ export function MacLocalControl() {
     setPending(true);
     setError(null);
     try {
-      await window.ogb?.localControl?.retry();
+      await window.colonie?.localControl?.retry();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -30,8 +30,8 @@ export function MacLocalControl() {
     setError(null);
     setAwaitingGrant(true);
     try {
-      await window.ogb?.permOpenSettings?.("accessibility");
-      await window.ogb?.permOpenSettings?.("screen");
+      await window.colonie?.permOpenSettings?.("accessibility");
+      await window.colonie?.permOpenSettings?.("screen");
     } catch (reason) {
       setAwaitingGrant(false);
       setError(reason instanceof Error ? reason.message : String(reason));

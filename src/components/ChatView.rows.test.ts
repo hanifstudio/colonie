@@ -174,8 +174,8 @@ describe("chat transcript rows", () => {
   // device, outside the store. The read-aloud buttons pick up a switch at the
   // next store event, here the settings beside the chat closing.
   it("follows this device's voice choice at the next store event", async () => {
-    const bridge = window.ogb;
-    window.ogb = { ...bridge, platform: "darwin", remoteClient: { active: true } } as typeof window.ogb;
+    const bridge = window.colonie;
+    window.colonie = { ...bridge, platform: "darwin", remoteClient: { active: true } } as typeof window.colonie;
     const kept = new Map<string, string>();
     vi.stubGlobal("localStorage", { getItem: (key: string) => kept.get(key) ?? null, setItem: (key: string, value: string) => kept.set(key, value) });
     vi.stubGlobal("speechSynthesis", { getVoices: () => [] });
@@ -196,7 +196,7 @@ describe("chat transcript rows", () => {
       expect(speak()).toEqual([`${t("chat.speak.needsKey")} (off)`, `${t("chat.speak.needsKey")} (off)`]);
     } finally {
       // the stubbed globals go in afterAll
-      window.ogb = bridge;
+      window.colonie = bridge;
     }
   });
 });

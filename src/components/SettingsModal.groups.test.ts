@@ -110,7 +110,7 @@ describe("Settings rail groups", () => {
   });
 
   it("shows every desktop page under its labelled group", () => {
-    vi.stubGlobal("window", { ogb: { environments: {} } });
+    vi.stubGlobal("window", { colonie: { environments: {} } });
     const html = render();
     for (const label of ["You", "AI", "Computers", "Account"]) expect(html).toContain(`>${label}</div>`);
     expect(html).toContain("glass-surface");
@@ -131,12 +131,12 @@ describe("Settings rail groups", () => {
   });
 
   it("shows a paired remote client only Appearance and Remote access", () => {
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, environments: {} } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true }, environments: {} } });
     expect(rail(render())).toEqual({ you: ["appearance", "companion"] });
   });
 
   it("keeps the old deep links landing on the same page", () => {
-    vi.stubGlobal("window", { ogb: { environments: {} } });
+    vi.stubGlobal("window", { colonie: { environments: {} } });
     fixture.section = "remote" as AppSettingsSection;
     expect(render()).toContain('data-settings-section="companion" aria-current="page"');
     fixture.section = "connections";

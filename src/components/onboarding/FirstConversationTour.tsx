@@ -24,7 +24,7 @@ const COPY: Record<SpotlightId, { key: "onboarding.spot.composer" | "onboarding.
 
 export function FirstConversationTour({ quiet = false }: { quiet?: boolean }) {
   const { state, dispatch } = useStore();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const record = state.config?.onboarding;
   // the guided tour covers the composer and the model chip; this watcher
   // only explains the two cards that appear on their own

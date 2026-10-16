@@ -29,7 +29,7 @@ describe("custom MCP registry", () => {
   });
 
   it("refuses harness-owned environment names in stored and renderer entries", () => {
-    for (const key of ["COLONIE_HARNESS_URL", "OGB_BOX_TOKEN", "ELECTRON_RUN_AS_NODE"]) {
+    for (const key of ["COLONIE_HARNESS_URL", "COLONIE_BOX_TOKEN", "ELECTRON_RUN_AS_NODE"]) {
       expect(parseStoredMcpServer("notes", { command: "notes-mcp", env: { [key]: "bad" } })).toEqual({
         ok: false,
         error: `Environment variable “${key}” is reserved by Colonie.`,

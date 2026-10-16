@@ -47,7 +47,7 @@ export async function copyText(text: string): Promise<CopyResult> {
   if (!text.trim()) return "empty";
   if (await writeWeb(text)) return "copied";
   try {
-    if (typeof window !== "undefined" && (await window.ogb?.copyText?.(text)) === true) return "copied";
+    if (typeof window !== "undefined" && (await window.colonie?.copyText?.(text)) === true) return "copied";
   } catch {
     // both mechanisms failed
   }

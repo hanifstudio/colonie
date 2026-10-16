@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CompanionAccountState } from "../types/ogb";
+import type { CompanionAccountState } from "../types/colonie";
 import {
   claimPhonePairingAttempt,
   closePhonePairingIfOwned,

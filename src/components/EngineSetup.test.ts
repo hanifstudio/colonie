@@ -50,7 +50,7 @@ describe("managed engine setup errors", () => {
   }
 
   function render(engine: InstanceInfo): string {
-    vi.stubGlobal("window", { ogb: { platform: "darwin" } });
+    vi.stubGlobal("window", { colonie: { platform: "darwin" } });
     return renderToStaticMarkup(createElement(StoreProvider, null, createElement(EngineSetup, { instance: engine })));
   }
 
@@ -82,7 +82,7 @@ describe("managed engine setup errors", () => {
 
 describe("engines set up with a key in Settings", () => {
   it("opens Settings → API keys instead of offering a terminal command", () => {
-    vi.stubGlobal("window", { ogb: { platform: "darwin" } });
+    vi.stubGlobal("window", { colonie: { platform: "darwin" } });
     const engine: InstanceInfo = {
       ...instance({ state: "unavailable", reason: "No API key — open Settings → API keys." }),
       instanceId: "openaiCompat",
@@ -111,7 +111,7 @@ describe("install from Settings on the server", () => {
     };
   }
   function render(engine: InstanceInfo): string {
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     return renderToStaticMarkup(createElement(StoreProvider, null, createElement(EngineSetup, { instance: engine })));
   }
 
@@ -138,7 +138,7 @@ describe("install from Settings on the server", () => {
 
   it("turns the update notice into a button when the server can update", () => {
     const update = { title: "Kimi update available", message: "Newer models need it.", command: "npm install -g kimi-fixture@latest" };
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     const withServer = renderToStaticMarkup(createElement(StoreProvider, null, createElement(EngineUpdateNotice, { update, instance: npmEngine({ state: "available", authenticated: true }) })));
     expect(withServer).toContain("Update Kimi on this server");
     expect(withServer).toContain("Prefer a terminal?");
@@ -150,7 +150,7 @@ describe("install from Settings on the server", () => {
 
 describe("server device-code sign-in", () => {
   it("offers the distinct ChatGPT plan connection without the legacy Codex command", () => {
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     const engine: InstanceInfo = {
       ...instance({ state: "available", authenticated: false, chatgptPlan: true }),
       instanceId: "chatgpt", displayName: "ChatGPT plan", driverKind: "codex",
@@ -165,7 +165,7 @@ describe("server device-code sign-in", () => {
   });
 
   it("explains unavailable hosted plan auth without offering a broken login or install", () => {
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     const engine: InstanceInfo = {
       ...instance({ state: "unavailable", authenticated: false, chatgptPlan: true, authenticationUnavailableReason: "Hosted ChatGPT plan access requires approval." }),
       instanceId: "chatgpt", displayName: "ChatGPT plan", driverKind: "codex",
@@ -179,7 +179,7 @@ describe("server device-code sign-in", () => {
   });
 
   it("uses the supported browser sign-in flow instead of asking a remote user to run a command", () => {
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     const engine: InstanceInfo = {
       ...instance({ state: "available", authenticated: false }),
       instanceId: "codex",
@@ -195,7 +195,7 @@ describe("server device-code sign-in", () => {
   });
 
   it("does not ask to sign in when installing a CLI for local-model injection", () => {
-    vi.stubGlobal("window", { ogb: { platform: "linux" } });
+    vi.stubGlobal("window", { colonie: { platform: "linux" } });
     const engine: InstanceInfo = {
       ...instance({ state: "available", authenticated: false }),
       authentication: { method: "device-code" },
@@ -211,8 +211,8 @@ describe("API-key engine setup", () => {
   function keyEngine(driverKind: string, snapshot: InstanceInfo["snapshot"]): InstanceInfo {
     return { ...instance(snapshot), instanceId: driverKind, driverKind, displayName: "Grok (API)", access: "api", install: { docsUrl: "https://console.x.ai" } };
   }
-  const render = (engine: InstanceInfo, ogb: Record<string, unknown> = { platform: "darwin" }) => {
-    vi.stubGlobal("window", { ogb });
+  const render = (engine: InstanceInfo, colonie: Record<string, unknown> = { platform: "darwin" }) => {
+    vi.stubGlobal("window", { colonie });
     return renderToStaticMarkup(createElement(StoreProvider, null, createElement(EngineSetup, { instance: engine })));
   };
 

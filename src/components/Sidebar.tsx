@@ -401,7 +401,7 @@ function RoomContextMenu({
   const motion = useHeldMenuMotion(menu);
   const shown = motion.value;
   const { state, dispatch } = useStore();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const group = shown ? state.groups.find((g) => g.id === shown.groupId) : undefined;
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(group?.name ?? "");
@@ -760,7 +760,7 @@ export function BotContextMenu({
   const shown = motion.value;
   const { state, dispatch } = useStore();
   const showThreads = useShowThreads();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const advanced = useAdvancedMode();
   const bot = shown ? state.bots.find((b) => b.id === shown.botId) : undefined;
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1385,7 +1385,7 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   const showThreads = !props.accountWorkspace && threadsPreference;
   const advanced = useAdvancedMode();
   const liveMedia = useLiveMedia();
-  const remoteClient = typeof window !== "undefined" && window.ogb?.remoteClient?.active === true;
+  const remoteClient = typeof window !== "undefined" && window.colonie?.remoteClient?.active === true;
   const [renaming, setRenaming] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   // a search opens this bot only when it has a matching thread or folder to
@@ -1906,7 +1906,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
   const { state, dispatch } = useStore();
   const now = useRelativeNow();
   const showThreads = useShowThreads();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const { capabilities } = useDesktopCapabilities();
   const importReturnRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -2040,7 +2040,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
 
   useEffect(() => {
     if (remoteClient) return;
-    return window.ogb?.onPackageInstall?.((url) => {
+    return window.colonie?.onPackageInstall?.((url) => {
       setTeamInstallUrl(url);
       setTeamLibraryOpen(true);
     });

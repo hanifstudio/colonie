@@ -432,7 +432,7 @@ winOnly("resolveCli (Windows)", () => {
     onPath();
     const payload = JSON.stringify({
       mcpServers: {
-        ogb: {
+        colonie: {
           command: "C:\\Program Files\\nodejs\\node.exe",
           args: ["a b", "%PATH%", "x&y|z", "q^r", "<in>out"],
           env: { TOK: 'he said "hi"' },

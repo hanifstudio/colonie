@@ -28,8 +28,8 @@ export const phonePairingSettingsAction = (): Extract<Action, { type: "toggleApp
  * remote server's (the preload withholds it there). */
 export function currentPhonePairingTarget(): PhonePairingTarget {
   // SAFETY: the preload's narrow bridge; `companion` is read for presence only.
-  const ogb = typeof window === "undefined" ? undefined : (window.ogb as { companion?: unknown; remoteClient?: { active?: boolean } } | undefined);
-  return phonePairingTarget({ companion: Boolean(ogb?.companion), remoteClient: ogb?.remoteClient?.active === true });
+  const colonie = typeof window === "undefined" ? undefined : (window.colonie as { companion?: unknown; remoteClient?: { active?: boolean } } | undefined);
+  return phonePairingTarget({ companion: Boolean(colonie?.companion), remoteClient: colonie?.remoteClient?.active === true });
 }
 
 /** Where a phone pairs from this window. `companion`: this window has the

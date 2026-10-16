@@ -81,7 +81,7 @@ export function approvalCardOutcome(card: OptionCardData): string | undefined {
   return t("approval.status.allowed");
 }
 
-/** The tool's own name is noise to a human: mcp__ogb__computer_batch is
+/** The tool's own name is noise to a human: mcp__colonie__computer_batch is
  * "computer batch", Bash is "run a command", LINEAR_CREATE_LINEAR_COMMENT
  * is "create linear comment". */
 export function toolLabel(tool?: string): string {

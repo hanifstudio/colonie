@@ -14,7 +14,7 @@ export function PermissionsBeat({ onNext, onSkip, setMascot, bump }: BeatProps) 
 
   useEffect(() => {
     setMascot("listening");
-    const poll = () => window.ogb?.permStatus?.().then(setPerms).catch(() => {});
+    const poll = () => window.colonie?.permStatus?.().then(setPerms).catch(() => {});
     poll();
     // keep polling — the user may grant in System Settings and come back
     const timer = setInterval(poll, 2000);
@@ -46,14 +46,14 @@ export function PermissionsBeat({ onNext, onSkip, setMascot, bump }: BeatProps) 
             <HIcon icon={Tick01Icon} size={16} className="shrink-0 text-success" />
           ) : denied ? (
             <button
-              onClick={() => window.ogb?.permOpenSettings?.("mic")}
+              onClick={() => window.colonie?.permOpenSettings?.("mic")}
               className="shrink-0 rounded-lg bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-raised-hover"
             >
               {t("onboarding.perms.openSettings")}
             </button>
           ) : (
             <button
-              onClick={() => window.ogb?.permRequestMic?.().then(() => window.ogb?.permStatus?.().then(setPerms))}
+              onClick={() => window.colonie?.permRequestMic?.().then(() => window.colonie?.permStatus?.().then(setPerms))}
               className="shrink-0 rounded-lg bg-raised px-3 py-1.5 text-[13px] text-ink transition-colors hover:bg-raised-hover"
             >
               {t("onboarding.perms.enable")}

@@ -27,7 +27,7 @@ import type { CitationAttachment } from "@/lib/citations";
 
 /** Electron 32 removed File.path — only the preload can name a file. */
 export function pathForFile(file: File): string {
-  return window.ogb?.getPathForFile?.(file) ?? "";
+  return window.colonie?.getPathForFile?.(file) ?? "";
 }
 
 /** Renders pending attachments and their composer actions. */

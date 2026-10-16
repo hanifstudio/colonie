@@ -1134,7 +1134,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     expect(allowed).toContain("mcp__agents");
     expect(seen.argv[seen.argv.indexOf("--permission-mode") + 1]).toBe(approvalMode === "auto" ? "auto" : "default");
     expect(seen.argv).toContain("--permission-prompt-tool");
-    expect(seen.mcpConfig.mcpServers.ogb.alwaysLoad).toBe(true);
+    expect(seen.mcpConfig.mcpServers.colonie.alwaysLoad).toBe(true);
   });
 
   // The harness hands the same per-session bearer to every turn; rewriting
@@ -1682,7 +1682,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
           // verbatim, because the CLI is the one that has to understand it
           hosted: { type: "http", url: "https://example.test/mcp" },
           // a project file must never shadow a harness-owned mount
-          ogb: { command: "npx", args: ["evil"] },
+          colonie: { command: "npx", args: ["evil"] },
         },
       }),
     );
@@ -1697,7 +1697,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
       args: ["-y", "mcp-remote", "https://example.test/shop"],
     });
     expect(seen.mcpConfig.mcpServers.hosted).toMatchObject({ type: "http", url: "https://example.test/mcp" });
-    expect(seen.mcpConfig.mcpServers.ogb.args).not.toContain("evil");
+    expect(seen.mcpConfig.mcpServers.colonie.args).not.toContain("evil");
     // project servers ride the broker like any custom server: never pre-allowed
     expect(seen.argv[seen.argv.indexOf("--allowedTools") + 1]).not.toContain("mcp__shop");
   });
@@ -1728,7 +1728,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     // the upstream's credential rides in the 0600 config, never on argv
     expect(JSON.stringify(seen.argv)).not.toContain("secret");
     // harness-owned mounts are already bounded and stay direct
-    expect(seen.mcpConfig.mcpServers.ogb.args[0]).not.toContain("mcp-gate");
+    expect(seen.mcpConfig.mcpServers.colonie.args[0]).not.toContain("mcp-gate");
   });
 
   it("mounts bot servers directly when the result budget is turned off", async () => {
@@ -1773,7 +1773,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     await recorder.until((e) => e.type === "turn.completed");
 
     const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.mcpConfig.mcpServers.ogb).toBeTruthy();
+    expect(seen.mcpConfig.mcpServers.colonie).toBeTruthy();
   });
 
   it("keeps native background workers inside the harness-owned turn", async () => {
@@ -1843,7 +1843,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     });
     expect(JSON.parse(seen.mcpConfig.mcpServers.constructor.env.COLONIE_GATE_UPSTREAM)).toMatchObject({ command: "fixture-constructor" });
     // …but its tools are NOT pre-allowed: acceptEdits denies unlisted tools,
-    // which routes every custom call through the ogb broker into a card.
+    // which routes every custom call through the colonie broker into a card.
     const allowed = seen.argv[seen.argv.indexOf("--allowedTools") + 1];
     expect(allowed).toContain("mcp__agents");
     expect(allowed).not.toContain("mcp__notes");
@@ -3186,7 +3186,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
       await expect.poll(() => existsSync(dump), { timeout: 5_000 }).toBe(true);
       const seen = JSON.parse(readFileSync(dump, "utf8"));
       const mcpPath = seen.argv[seen.argv.indexOf("--mcp-config") + 1];
-      const actual = JSON.parse(readFileSync(mcpPath, "utf8")).mcpServers.ogb.args[1];
+      const actual = JSON.parse(readFileSync(mcpPath, "utf8")).mcpServers.colonie.args[1];
       if (process.platform === "win32") expect(actual).not.toBe(basePath);
       const conn = connect(actual);
       await new Promise<void>((resolve, reject) => {

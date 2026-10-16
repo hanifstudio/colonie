@@ -21,7 +21,7 @@ import { t } from "@/lib/i18n";
  * desktop app there is nothing to switch; a Cloud home still says what it is,
  */
 export function DesktopWorkspaceSwitcher({ compact = false, inline = false }: { compact?: boolean; inline?: boolean }) {
-  const bridge = window.ogb?.workspaces;
+  const bridge = window.colonie?.workspaces;
   const [current, setCurrent] = useState<{ local: boolean; name: string; origin?: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");

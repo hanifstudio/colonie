@@ -15,8 +15,8 @@ protocols:
 # stranded on its installed version.
 publish:
   - provider: github
-    owner: milind-soni
-    repo: Colonie
+    owner: hanifstudio
+    repo: colonie
 
 directories:
   buildResources: build
@@ -182,7 +182,7 @@ linux:
   executableName: colonie
   synopsis: Your own team of AI bots, in a chat app
   description: A local-first chat app for running a team of AI agents.
-  maintainer: Milind Soni <46266943+milind-soni@users.noreply.github.com>
+  maintainer: Colonie contributors <46266943+hanifstudio@users.noreply.github.com>
   vendor: Colonie
   syncDesktopName: true
   # The reviewed x64 CLI runtime is staged before packaging and remains

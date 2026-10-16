@@ -3,14 +3,14 @@ import { ArrowLeft01Icon, CircleIcon, Loading02Icon, RotateCcwIcon, ShieldCheckI
 import { HIcon } from "./HIcon";
 import { usePageVisible } from "@/lib/page-visible";
 import { t } from "@/lib/i18n";
-import type { AndroidDeviceInput, AndroidDeviceStatus, AndroidUsbDevice } from "@/types/ogb";
+import type { AndroidDeviceInput, AndroidDeviceStatus, AndroidUsbDevice } from "@/types/colonie";
 
 type UnitPoint = { x: number; y: number };
 
 const EMPTY_STATUS: AndroidDeviceStatus = { available: false, devices: [] };
 
 export function useAndroidUsbDevices() {
-  const bridge = window.ogb?.androidDevice;
+  const bridge = window.colonie?.androidDevice;
   const [status, setStatus] = useState<AndroidDeviceStatus>(EMPTY_STATUS);
   const pageVisible = usePageVisible();
 
@@ -49,7 +49,7 @@ function deviceLabel(device: AndroidUsbDevice) {
 }
 
 export function AndroidDevicePanel({ status }: { status: AndroidDeviceStatus }) {
-  const bridge = window.ogb?.androidDevice;
+  const bridge = window.colonie?.androidDevice;
   const pageVisible = usePageVisible();
   const authorized = status.devices.filter((device) => device.state === "device");
   const [serial, setSerial] = useState(authorized[0]?.serial ?? status.devices[0]?.serial ?? "");

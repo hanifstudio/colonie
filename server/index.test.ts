@@ -181,7 +181,7 @@ const managedBoatNameForFixture = (botId: string): string => {
   const environmentScope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
   const botPrefix = botId.slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, "") || "bot";
   const botHash = createHash("sha256").update(botId).digest("hex").slice(0, 6);
-  return `ogb-${environmentScope}-${botPrefix}-${botHash}`;
+  return `colonie-${environmentScope}-${botPrefix}-${botHash}`;
 };
 
 
@@ -1359,9 +1359,9 @@ describe("harness HTTP API", () => {
         .find((candidate: { id: string }) => candidate.id === bot.id)?.busy, { timeout: 5_000 }).toBe(true);
 
       const dump = z.object({
-        mcpConfig: z.object({ mcpServers: z.object({ ogb: z.object({ args: z.array(z.string()) }) }) }),
+        mcpConfig: z.object({ mcpServers: z.object({ colonie: z.object({ args: z.array(z.string()) }) }) }),
       }).parse(await readJsonFileWhenReady(isolatedDump));
-      questionSocket = connect(dump.mcpConfig.mcpServers.ogb.args[1]!);
+      questionSocket = connect(dump.mcpConfig.mcpServers.colonie.args[1]!);
       questionSocket.on("data", (chunk) => {
         socketBuffer += chunk.toString();
         const newline = socketBuffer.indexOf("\n");
@@ -7456,9 +7456,9 @@ describe("harness HTTP API", () => {
       // the permission socket the driver handed its proxy, from the MCP
       // config the fake read back
       const dump = z.object({
-        mcpConfig: z.object({ mcpServers: z.object({ ogb: z.object({ args: z.array(z.string()) }) }) }),
+        mcpConfig: z.object({ mcpServers: z.object({ colonie: z.object({ args: z.array(z.string()) }) }) }),
       }).parse(await readJsonFileWhenReady(fakeClaudeDump));
-      const socketPath = dump.mcpConfig.mcpServers.ogb.args[1];
+      const socketPath = dump.mcpConfig.mcpServers.colonie.args[1];
       const raise = async (id: string, command: string) => {
         const conn = connect(socketPath);
         conns.push(conn);

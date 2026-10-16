@@ -56,10 +56,10 @@ function storage() {
 
 const fresh = { onboarding: EMPTY_ONBOARDING };
 // The desktop app's own page: the full bridge, remoteClient included.
-const LOCAL_PAGE = { ogb: { platform: "darwin", remoteClient: { active: false }, workspaces: {} } };
+const LOCAL_PAGE = { colonie: { platform: "darwin", remoteClient: { active: false }, workspaces: {} } };
 // A hosted workspace the desktop app opened (Server → Connect hosted
 // workspace…): preload exposes only its remote-safe subset, still truthy.
-const REMOTE_PAGE = { ogb: { platform: "darwin", workspaces: {}, getCapabilities: () => ({}) } };
+const REMOTE_PAGE = { colonie: { platform: "darwin", workspaces: {}, getCapabilities: () => ({}) } };
 beforeEach(() => {
   fixture.values = [];
   fixture.index = 0;
@@ -88,14 +88,6 @@ describe("who gets the welcome flow", () => {
     const { tree } = gate({ hosted: true, canSave: true });
     expect(tree?.type).toBe(WelcomeFlow);
     expect(tree?.props.hosted).toBe(true);
-  });
-
-  it("leaves an COLONIE Cloud home's first run to its engine sign-in", () => {
-    vi.stubGlobal("window", REMOTE_PAGE);
-    expect(gate({ hosted: false, canSave: true, cloudHome: true }).tree).toBeNull();
-    // Settings → Replay welcome tour still opens it there
-    store.state = { ...store.state, welcomeOpen: true };
-    expect(gate({ hosted: false, canSave: true, cloudHome: true }).tree?.type).toBe(WelcomeFlow);
   });
 
   it("gives a hosted member a note instead, and nothing that writes the workspace config", async () => {
@@ -160,7 +152,7 @@ describe("who gets the welcome flow", () => {
 
   it("shows nothing to a remote client member or while a browser's session is unknown", () => {
     expect(gate(null).tree).toBeNull();
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true } } });
     expect(gate({ hosted: true, canSave: false }).tree).toBeNull();
     expect(gate(LOCAL_VIEWER).tree).toBeNull();
   });

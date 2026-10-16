@@ -274,7 +274,7 @@ export function ErrorRow({
           <MacCuaRecoveryActions reason={message} />}
         {message.includes("subscription_sharing_usage_limit_exceeded") ? (
           <a href={CHATGPT_USAGE_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex rounded-lg bg-ink px-3 py-1.5 text-[12.5px] font-medium text-app" onClick={(event) => {
-            if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
+            if (window.colonie?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
           }}>{t("engineSetup.chatgpt.manageUsage")}</a>
         ) : claudeUpdateInstance ? (
           <ClaudeUpdatePrompt instance={claudeUpdateInstance} onRetry={onRetry} />
@@ -476,7 +476,7 @@ const Bubble = memo(function Bubble({
   onReply: (message: Message) => void;
 }) {
   const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch } = useChatRows();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
   // bot side of the chat under the peer's name, with the model-facing
@@ -830,7 +830,7 @@ function EmptyChat({ bot }: { bot: Bot }) {
       {!advanced ? <div className="text-[17px] font-semibold text-ink">{bot.name}</div> : <RenameTitle
         value={bot.name}
         onCommit={(name) => {
-          if (window.ogb?.remoteClient?.active) {
+          if (window.colonie?.remoteClient?.active) {
             void api(`/api/bots/${bot.id}/profile`, { method: "PATCH", body: JSON.stringify({ name }) })
               .then(({ bot: updated }) => dispatch({ type: "botPatched", bot: updated }))
               .catch((cause) => dispatch({ type: "error", message: cause instanceof Error ? cause.message : String(cause) }));
@@ -1118,7 +1118,7 @@ export interface AccountConversationControls {
 export function ChatView({ bot: profile, accountConversation }: { bot: Bot; accountConversation?: AccountConversationControls }) {
   const bot = useMemo(() => currentTaskBot(profile), [profile]);
   const { state, dispatch } = useStore();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   // Simple mode reaches other threads from the sidebar; the header picker is Advanced only.
   // Windows has no native caption buttons (renderer-drawn, see
   // WindowCaptionButtons); this header is the window drag region, and the
@@ -1382,7 +1382,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               <RenameTitle
                 value={bot.name}
                 onCommit={(name) => {
-                  if (window.ogb?.remoteClient?.active) {
+                  if (window.colonie?.remoteClient?.active) {
                     void api(`/api/bots/${bot.id}/profile`, { method: "PATCH", body: JSON.stringify({ name }) })
                       .then(({ bot: updated }) => dispatch({ type: "botPatched", bot: updated }))
                       .catch((cause) => dispatch({ type: "error", message: cause instanceof Error ? cause.message : String(cause) }));
@@ -1719,7 +1719,7 @@ function ChatHeaderMenu({ bot, messages, findOpen, onFind, accountWorkspace = fa
   accountWorkspace?: boolean;
 }) {
   const { state, dispatch } = useStore();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const usage = usageSummary(bot, state.instances);
   // Simple mode keeps these in sight but locked, so people know where they
   // live without being handed builder tools by default.

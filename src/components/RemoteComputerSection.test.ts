@@ -41,8 +41,8 @@ describe("self-hosted server pairing links", () => {
 });
 
 describe("remote connection Settings", () => {
-  const render = (ogb?: unknown) => {
-    vi.stubGlobal("window", { ogb });
+  const render = (colonie?: unknown) => {
+    vi.stubGlobal("window", { colonie });
     setLocale("en");
     return renderToStaticMarkup(createElement(RemoteComputerSection));
   };

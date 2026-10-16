@@ -88,7 +88,7 @@ describe("sidebar top row", () => {
   const desktop = () => vi.stubGlobal("window", {
     innerWidth: 1280,
     location: { protocol: "http:", search: "" },
-    ogb: { workspaces: { state: () => new Promise(() => {}), menu: () => Promise.resolve() } },
+    colonie: { workspaces: { state: () => new Promise(() => {}), menu: () => Promise.resolve() } },
   });
   const topRow = (html: string) => {
     const start = html.indexOf("data-sidebar-top-row");

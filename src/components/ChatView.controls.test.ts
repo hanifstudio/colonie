@@ -177,13 +177,13 @@ describe("thread control placement", () => {
   it("offers trusted modes in the composer without requiring a Full bot default", () => {
     const fullBot = { ...bot, busy: false, approvalMode: "full" as const };
     expect(renderToStaticMarkup(createElement(ChatView, { bot: fullBot }))).not.toContain("Use bot’s Full access for this thread");
-    window.ogb = { approvals: { setMode: vi.fn() } } as unknown as NonNullable<Window["ogb"]>;
+    window.colonie = { approvals: { setMode: vi.fn() } } as unknown as NonNullable<Window["colonie"]>;
     expect(renderToStaticMarkup(createElement(ChatView, { bot: fullBot }))).not.toContain("Use bot’s Full access for this thread");
     renderToStaticMarkup(createElement(ChatView, { bot }));
     expect(fixture.approval?.trustedModesAvailable).toBe(true);
     fixture.approval!.onSelect("custom");
     expect(fixture.dispatch).toHaveBeenLastCalledWith({ type: "updateTask", botId: "bot", threadId: "selected", patch: { approvalMode: "custom" } });
-    delete window.ogb;
+    delete window.colonie;
   });
 
   it("explains provider safety errors without offering an ineffective Retry", () => {
@@ -298,7 +298,7 @@ describe("thread control placement", () => {
   it("offers the matching macOS Settings and relaunch actions only for a named CUA permission failure", () => {
     fixture.platform = "darwin";
     fixture.localMessage = "Screen Recording required";
-    window.ogb = { platform: "darwin", permOpenSettings: vi.fn(), relaunch: vi.fn() } as unknown as NonNullable<Window["ogb"]>;
+    window.colonie = { platform: "darwin", permOpenSettings: vi.fn(), relaunch: vi.fn() } as unknown as NonNullable<Window["colonie"]>;
     const screen = renderToStaticMarkup(createElement(ErrorRow, {
       message: "CUA Driver is not ready for this computer — embedded host failed: Screen Recording required. Relaunch Colonie after granting any missing macOS permission.",
     }));
@@ -320,7 +320,7 @@ describe("thread control placement", () => {
     fixture.localReasonCode = "cua-driver-unavailable";
     fixture.platform = "other";
     fixture.localMessage = "";
-    delete window.ogb;
+    delete window.colonie;
   });
   it.each([
     "شغّل الاختبارات\nThen run typecheck\nوبعدها ارفع الفرع",
@@ -379,11 +379,11 @@ describe("thread control placement", () => {
   });
 
   it("keeps both controls hidden for remote clients", () => {
-    window.ogb = { remoteClient: { active: true } } as NonNullable<Window["ogb"]>;
+    window.colonie = { remoteClient: { active: true } } as NonNullable<Window["colonie"]>;
     const markup = renderToStaticMarkup(createElement(ChatView, { bot }));
     expect(markup).not.toContain("data-test-model-control");
     expect(markup).not.toContain("data-test-approval-control");
-    delete window.ogb;
+    delete window.colonie;
   });
 
   it.each([true, false])("pins a place per conversation from the composer only in Advanced (advanced: %s)", (advanced) => {

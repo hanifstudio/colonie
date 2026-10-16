@@ -97,7 +97,7 @@ export function BotSettingsDialog({ bot, overlay = false, saveStatus }: {
     .filter((entry) => !workspace || SIMPLE_PANEL_SECTIONS.has(entry.id))
     .filter((entry) => !codexAcp || ["overview", "identity", "soul", "skills", "memory", "access", "model", "permissions"].includes(entry.id))
     .filter((entry) => entry.id !== "slack" || slackUrl !== null)
-    .filter((entry) => entry.id !== "visibility" || (!window.ogb && ownerOrAdmin === true));
+    .filter((entry) => entry.id !== "visibility" || (!window.colonie && ownerOrAdmin === true));
   const visibleSections = sections.filter((entry) => sectionMatches(entry, q));
 
   const [overview, setOverview] = useState<BotOverview | null>(null);

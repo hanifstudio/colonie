@@ -37,7 +37,7 @@ export function Shell() {
   const unreadCount =
     state.bots.filter((bot) => !bot.hidden && botShowsUnread(bot)).length +
     state.groups.filter((group) => group.unread).length;
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const twoSidePanelsFit = useMediaQuery(TWO_SIDE_PANELS_FIT, true);
   const sidebarAndPanelFit = useMediaQuery(SIDEBAR_AND_PANEL_FIT, true);
   // "Use your Cloud on your phone" opens the Cloud in this window at
@@ -102,7 +102,7 @@ export function Shell() {
   });
 
   useEffect(() => {
-    window.ogb?.setUnreadCount?.(unreadCount);
+    window.colonie?.setUnreadCount?.(unreadCount);
   }, [unreadCount]);
 
   // Warm connected-account state as soon as the local server is available.
@@ -179,16 +179,16 @@ export function Shell() {
 
   // The macOS app menu's Preferences… item lives in the desktop shell, so the
   // shell signals the request over the bridge (Cmd+, accelerates the item).
-  // Local-shell only: remote server pages never receive the channel, and ogb
+  // Local-shell only: remote server pages never receive the channel, and colonie
   // is absent in the browser.
   useEffect(() => {
-    return window.ogb?.onOpenAppSettings?.(() => dispatch({ type: "toggleAppSettings", open: true }));
+    return window.colonie?.onOpenAppSettings?.(() => dispatch({ type: "toggleAppSettings", open: true }));
   }, [dispatch]);
 
   // The viewer outlives ComputerPanel and can target any bot, so release control
   // here (always mounted) when a bot's viewer closes. release() is idempotent.
   useEffect(() => {
-    return window.ogb?.desktopViewer?.onState((viewer) => {
+    return window.colonie?.desktopViewer?.onState((viewer) => {
       if (viewer.open || !viewer.contextId) return;
       const botId = viewer.contextId;
       void fetch(`/api/bots/${botId}/computer/control`, {
@@ -326,7 +326,7 @@ export function Shell() {
           swallow the buttons (dead clicks, no hover). z-40 keeps true
           modals (z-50, later in DOM) painting above the buttons. */}
       <WindowCaptionButtons
-        visible={capabilities.windowChrome === "win-caption" && Boolean(window.ogb?.windowControls)}
+        visible={capabilities.windowChrome === "win-caption" && Boolean(window.colonie?.windowControls)}
       />
     </div>
   );

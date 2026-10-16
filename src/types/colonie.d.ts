@@ -91,7 +91,7 @@ const __APP_VERSION__: string;
   }
 
   interface Window {
-    ogb?: {
+    colonie?: {
       platform: NodeJS.Platform;
       workspaces?: {
         state: () => Promise<{ local: boolean; name: string; origin?: string }>;

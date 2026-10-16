@@ -221,12 +221,11 @@ function ProfileFields() {
 }
 
 /** This app's updates, which download by themselves. Shown once the desktop
- * app answers: on this computer's page and the person's own Cloud page, never
- * on another server's, where its buttons would do nothing. "Ready" names the
- * app: on My Cloud's Settings it is this app that restarts, not the Cloud. */
+ * app answers, on this computer's page, never on another server's, where its
+ * buttons would do nothing. "Ready" names the app that restarts. */
 export function UpdatesRow() {
   const s = useUpdaterState();
-  const updater = window.ogb?.updater;
+  const updater = window.colonie?.updater;
   if (!s || !updater) return null;
   const label =
     s.status === "checking"
@@ -662,7 +661,7 @@ function BuiltInBrowserRow() {
   const browser = builtInBrowserEnabled(state.config);
   const desktopBrowser = browserAvailable(state.config);
   const browserInstallable = state.config?.browserEngine?.installable === true;
-  const browserBlockedOnWindows = window.ogb?.platform === "win32" && !desktopBrowser && !browserInstallable;
+  const browserBlockedOnWindows = window.colonie?.platform === "win32" && !desktopBrowser && !browserInstallable;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -727,11 +726,11 @@ function DiagnosticsRow() {
   const [result, setResult] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const exportDiagnostics = async () => {
-    if (!window.ogb?.exportDiagnostics || exporting) return;
+    if (!window.colonie?.exportDiagnostics || exporting) return;
     setExporting(true);
     setResult(null);
     try {
-      const path = await window.ogb.exportDiagnostics();
+      const path = await window.colonie.exportDiagnostics();
       if (path) setResult({ kind: "success", message: t("settings.diagnostics.saved", { path }) });
     } catch (e) {
       setResult({ kind: "error", message: e instanceof Error ? e.message : String(e) });
@@ -765,7 +764,7 @@ function DiagnosticsRow() {
 export function SettingsModal({ workspace }: { workspace?: { general: ReactNode; connections: ReactNode } } = {}) {
   const { state, dispatch } = useStore();
   const advanced = useAdvancedMode();
-  const remoteActive = !workspace && window.ogb?.remoteClient?.active === true;
+  const remoteActive = !workspace && window.colonie?.remoteClient?.active === true;
   const section: AppSettingsSection =
     (remoteActive && !["appearance", "desktopWorkspaces"].includes(state.appSettingsSection)) || state.appSettingsSection === "remote"
       ? "companion"
@@ -773,19 +772,18 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  useEffect(() => window.ogb?.environments?.onOpenSettings?.(() => setQuery("")), []);
-  useEffect(() => window.ogb?.onOpenAppSettings?.(() => setQuery("")), []);
+  useEffect(() => window.colonie?.environments?.onOpenSettings?.(() => setQuery("")), []);
+  useEffect(() => window.colonie?.onOpenAppSettings?.(() => setQuery("")), []);
   const q = query.trim().toLowerCase();
   const ownerOrAdmin = useOwnerOrAdmin(!workspace);
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "companion" || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
-    // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access,
-    // and an COLONIE Cloud home is personal: nobody is invited to it
-    .filter((entry) => entry.id !== "people" || (!window.ogb && state.config?.cloudHome !== true))
+    // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
+    .filter((entry) => entry.id !== "people" || !window.colonie)
     // the activity log belongs to a workspace served to a browser, and to its admins
-    .filter((entry) => entry.id !== "activity" || (!window.ogb && ownerOrAdmin === true));
+    .filter((entry) => entry.id !== "activity" || (!window.colonie && ownerOrAdmin === true));
   // the Skills surface browses the shared library, which exists only where
   // features.skillsLibrary switched it on
   const availableSections = baseSections.filter((entry) => entry.id !== "skills" || skillsLibraryEnabled(state.config));
@@ -969,15 +967,11 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
               </details>
               <div className="pt-2 text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary">{t("keys.integrations.title")}</div>
               <ApiKeyRow section="opencodeGo" />
-              {/* A Cloud owner has no terminal there: the keys for other
-                  providers, just below, are the way on. */}
-              {state.config?.cloudHome !== true && (
-                <p className="-mt-2 text-[11.5px] leading-relaxed text-ink-secondary">
+              <p className="-mt-2 text-[11.5px] leading-relaxed text-ink-secondary">
                   {/* {command} marks where the code chip goes, so a translator can move it */}
                   {t("keys.opencode.providersHint").split("{command}").flatMap((part, index) =>
                     index === 0 ? [part] : [<code key={index} className="font-mono">opencode auth login</code>, part])}
                 </p>
-              )}
               <OpenCodeProviderKeys />
               <details className="rounded-lg border border-hairline/40 bg-inset px-3 py-2">
                 <summary className="cursor-pointer text-[13px] text-ink-secondary">{t("settings.connections.selfHost")}</summary>
@@ -996,7 +990,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         return <WorkspaceBackupSettings />;
       case "companion": {
         // "Connect your phone" lands on the one pairing that fits this window:
-        // this computer's phone flow, or this server's (or Cloud's) pairing code.
+        // this computer's phone flow, or this server's pairing code.
         const phoneFocus = state.appSettingsPhonePairing;
         const computerPairs = currentPhonePairingTarget() === "computer";
         return (
@@ -1009,7 +1003,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
                 a remote client of a hosted workspace: its requests carry that server's session, and
                 Settings there is the only place that server's phones can be paired from (MOCA-84).
                 The server decides who may act — an owner or an admin session — not this gate. */}
-            <ServerPairingCard cloudHome={state.config?.cloudHome === true} focusRequest={computerPairs ? 0 : phoneFocus} />
+            <ServerPairingCard focusRequest={computerPairs ? 0 : phoneFocus} />
             {!remoteActive && <CompanionSection profileEmail={state.config?.profile?.email} focusRequest={computerPairs ? phoneFocus : 0} />}
           </>
         );

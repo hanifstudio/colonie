@@ -667,7 +667,7 @@ describe("ChatMarkdown attachments", () => {
     const revealInFolder = vi.fn(async () => "shown" as const);
 
     it("offers Show in folder in the local desktop app, without printing the path", () => {
-      vi.stubGlobal("window", { ogb: { revealInFolder, remoteClient: { active: false } } });
+      vi.stubGlobal("window", { colonie: { revealInFolder, remoteClient: { active: false } } });
       try {
         const html = render(true);
         expect(html).toContain("the linked file is outside this conversation&#x27;s workspace");
@@ -679,7 +679,7 @@ describe("ChatMarkdown attachments", () => {
     });
 
     it("shows the full path as selectable text to a remote client instead", () => {
-      vi.stubGlobal("window", { ogb: { revealInFolder, remoteClient: { active: true } } });
+      vi.stubGlobal("window", { colonie: { revealInFolder, remoteClient: { active: true } } });
       try {
         const html = render(true);
         expect(html).not.toContain("Show in folder");
@@ -694,7 +694,7 @@ describe("ChatMarkdown attachments", () => {
     });
 
     it("leaves other failures alone", () => {
-      vi.stubGlobal("window", { ogb: { revealInFolder, remoteClient: { active: false } } });
+      vi.stubGlobal("window", { colonie: { revealInFolder, remoteClient: { active: false } } });
       try {
         const html = render(false);
         expect(html).not.toContain("Show in folder");

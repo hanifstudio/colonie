@@ -12,7 +12,7 @@
     if (!row) throw new Error(`Missing fixture chat: ${name}`);
     row.click();
   };
-  const bridge = window.ogb;
+  const bridge = window.colonie;
   const previousMode = mode.callMode();
   let microphoneStarts = 0;
   const results = {};
@@ -36,7 +36,7 @@
       await new Promise((resolve) => setTimeout(resolve, 150));
       await settle();
       let finishSave;
-      window.ogb = { ...bridge, speechStop: async () => {}, setCredential: () => new Promise((resolve) => { finishSave = resolve; }) };
+      window.colonie = { ...bridge, speechStop: async () => {}, setCredential: () => new Promise((resolve) => { finishSave = resolve; }) };
       document.querySelector('[aria-label="Live call with Pepper"]').click();
       await settle();
       const input = document.querySelector('input[aria-label="OpenAI API key for Live calls"]');
@@ -62,7 +62,7 @@
     document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     await media.hangUpLiveCall();
     media.resetLiveMedia();
-    window.ogb = bridge;
+    window.colonie = bridge;
     mode.setCallMode(previousMode);
   }
 })()

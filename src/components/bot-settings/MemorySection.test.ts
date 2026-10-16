@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { MemoryCapacity, MemoryFileInfo, MemoryJournalRow } from "@/lib/memory";
 
-// DesktopCapabilities reads `window.ogb` at module scope for its context
+// DesktopCapabilities reads `window.colonie` at module scope for its context
 // default; the src suite runs under vitest's "node" environment (no
 // window), so it is stubbed the way AccessSection.test.ts does.
 vi.mock("../DesktopCapabilities", () => ({

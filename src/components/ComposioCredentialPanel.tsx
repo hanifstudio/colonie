@@ -39,8 +39,8 @@ export function ComposioCredentialPanel({ onStatus }: { onStatus(status: Composi
     if (action === "remove" && !status.canRemove) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const config: ConfigStatus = window.ogb?.setCredential
-        ? await window.ogb.setCredential("composioApiKey", key)
+      const config: ConfigStatus = window.colonie?.setCredential
+        ? await window.colonie.setCredential("composioApiKey", key)
         : await api("/api/config", { method: "PUT", body: JSON.stringify({ composio: { apiKey: key } }) });
       dispatch({ type: "configStatus", config });
       const next: ComposioCredentialStatus = await api("/api/colonie/composio/credential");

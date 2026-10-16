@@ -17,7 +17,7 @@ import { BotSettingsDialog } from "./BotSettingsDialog";
 import { DesktopCapabilitiesProvider } from "./DesktopCapabilities";
 
 const bot = { id: "bot-1", name: "Maily" } as never as Bot;
-// The provider reads window.ogb.platform on render, so each case sees its stub.
+// The provider reads window.colonie.platform on render, so each case sees its stub.
 const header = () => {
   const html = renderToStaticMarkup(createElement(DesktopCapabilitiesProvider, null, createElement(BotSettingsDialog, { bot })));
   return html.match(/<div class="([^"]*)"><span id="bot-settings-title"/)?.[1] ?? "";
@@ -27,12 +27,12 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("bot settings caption inset", () => {
   it("drops the close button below the Windows caption buttons", () => {
-    vi.stubGlobal("window", { ogb: { platform: "win32" } });
+    vi.stubGlobal("window", { colonie: { platform: "win32" } });
     expect(header()).toContain("pt-[28px]");
   });
 
   it("keeps the header flush elsewhere", () => {
-    vi.stubGlobal("window", { ogb: { platform: "darwin" } });
+    vi.stubGlobal("window", { colonie: { platform: "darwin" } });
     const classes = header();
     expect(classes).toContain("py-3");
     expect(classes).not.toContain("pt-[28px]");

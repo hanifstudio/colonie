@@ -96,7 +96,7 @@ beforeEach(() => {
   fixture.endCall.mockClear();
   fixture.track.mockClear();
   fixture.dispatch.mockClear();
-  vi.stubGlobal("window", { ogb: { speechStart: () => {} } });
+  vi.stubGlobal("window", { colonie: { speechStart: () => {} } });
 });
 afterEach(() => {
   resetLiveMedia();

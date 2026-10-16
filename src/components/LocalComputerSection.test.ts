@@ -181,18 +181,10 @@ describe("Local VM inventory UI", () => {
 });
 
 describe("Settings → Computers", () => {
-  afterEach(() => { storeFixture.config = null; });
   const cards = () => [...renderToStaticMarkup(createElement(LocalComputerSection)).matchAll(/<div class="text-\[15px\] font-medium text-ink">([^<]+)<\/div>/g)].map((match) => match[1]);
 
   it("sets up a Local VM on a desktop or self-hosted server", () => {
     expect(cards()).toEqual(expect.arrayContaining(["Local VM", "Setup"]));
-  });
-
-  it("shows no Local VM, and no steps to install one, where it cannot exist", () => {
-    storeFixture.config = { cloudHome: true };
-    const titles = cards();
-    expect(titles).not.toContain("Local VM");
-    expect(titles).not.toContain("Setup");
   });
 });
 

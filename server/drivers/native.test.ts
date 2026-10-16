@@ -24,8 +24,8 @@ describe("appendNative", () => {
             {
               name: "computer",
               env: [
-                { name: "OGB_BOX_ID", value: "boat-7" },
-                { name: "OGB_BOX_TOKEN", value: "box_live_dontlogme" },
+                { name: "COLONIE_BOX_ID", value: "boat-7" },
+                { name: "COLONIE_BOX_TOKEN", value: "box_live_dontlogme" },
               ],
             },
           ],
@@ -37,7 +37,7 @@ describe("appendNative", () => {
     expect(log).not.toContain("box_live_dontlogme");
     // the shape a debugger needs is still there: which server, which var
     expect(log).toContain("session/new");
-    expect(log).toContain("OGB_BOX_TOKEN");
+    expect(log).toContain("COLONIE_BOX_TOKEN");
     expect(log).toContain("boat-7");
   });
 

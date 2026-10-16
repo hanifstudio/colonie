@@ -47,7 +47,7 @@ import {
   type PhonePairingAccess,
 } from "@/lib/phone-pairing";
 
-/** "Milind Soni" → "MS", "milind" → "M", "you@x.dev" → "Y", unset → "?" */
+/** "Colonie contributors" → "MS", "milind" → "M", "you@x.dev" → "Y", unset → "?" */
 export function profileInitials(profile?: { name?: string; email?: string }): string {
   const name = profile?.name?.trim();
   if (name) {
@@ -151,7 +151,7 @@ interface UpdateEntry {
  * and the person's own Cloud page, so until it does there is no entry. */
 export function useUpdateItem(): UpdateEntry | null {
   const state = useUpdaterState();
-  const updater = window.ogb?.updater;
+  const updater = window.colonie?.updater;
   const [pending, setPending] = useState(false);
   const [checkedAt, setCheckedAt] = useState(0);
   const status = state?.status ?? "idle";

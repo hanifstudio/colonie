@@ -15,7 +15,7 @@ import { t } from "@/lib/i18n";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 
 const LINUX_GUIDE_URL =
-  "https://github.com/milind-soni/Colonie/blob/main/docs/linux-desktop.md#enable-local-control";
+  "https://github.com/hanifstudio/colonie/blob/main/docs/linux-desktop.md#enable-local-control";
 
 export function LinuxLocalControl() {
   const { capabilities } = useDesktopCapabilities();
@@ -31,7 +31,7 @@ export function LinuxLocalControl() {
   const bundledDriver = local.driverSource === "bundled";
 
   const run = async (action: "enable" | "disable" | "retry") => {
-    if (!window.ogb?.localControl) return;
+    if (!window.colonie?.localControl) return;
     setPending(action);
     setError(null);
     try {
@@ -42,7 +42,7 @@ export function LinuxLocalControl() {
           return;
         }
       }
-      await window.ogb.localControl[action]();
+      await window.colonie.localControl[action]();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {

@@ -17,7 +17,7 @@ export function WorkspaceBackupRestartNotice({ onRetry }: { onRetry?: () => void
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState(false);
   const lock = useRef(false);
-  const relaunch = typeof window !== "undefined" && !window.ogb?.remoteClient?.active ? window.ogb?.relaunch : undefined;
+  const relaunch = typeof window !== "undefined" && !window.colonie?.remoteClient?.active ? window.colonie?.relaunch : undefined;
   const restart = async () => {
     if (!relaunch || lock.current || restarting) return;
     lock.current = true; setRestarting(true); setError(false);

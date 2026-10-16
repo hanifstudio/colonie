@@ -1,5 +1,5 @@
 // Renderer bridge. contextIsolation stays on; the renderer only ever sees
-// this narrow surface (window.ogb), never Node or ipcRenderer itself.
+// this narrow surface (window.colonie), never Node or ipcRenderer itself.
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // Sandboxed preloads receive Electron's restricted `require`, which cannot
@@ -273,6 +273,6 @@ const bridge = {
 };
 
 contextBridge.exposeInMainWorld(
-  "ogb",
+  "colonie",
   isLocalPage ? bridge : Object.fromEntries(Object.entries(bridge).filter(([key]) => REMOTE_SAFE.has(key))),
 );

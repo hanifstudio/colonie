@@ -1,6 +1,6 @@
 // The known-flaky list (ci-retry-list.json) and how a test is matched to it.
 // Shared by the vitest runner (ci-retry-runner.ts) and the job-summary step
-// (ci-retry-summary.mjs). docs/ci.md, "Flaky tests".
+// (ci-retry-summary.mjs).
 import { readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";

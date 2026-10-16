@@ -35,7 +35,7 @@ vi.mock("@/state/store", async (original) => {
   return { ...actual, useStore: () => ({ state: { ...actual.initialState, bots: avatarBots, groups: [avatarGroup] }, dispatch: vi.fn() }) };
 });
 // This file renders to a string with no DOM, so the module is replaced
-// whole rather than spread over: its context default reads window.ogb at
+// whole rather than spread over: its context default reads window.colonie at
 // import time. An empty caption chrome is the non-Windows layout.
 vi.mock("./DesktopCapabilities", () => ({
   useDesktopCapabilities: () => ({ capabilities: { dictation: { available: false } } }),
@@ -47,7 +47,7 @@ import { UsageSection } from "./UsageSection";
 import { TeamMapPage } from "./TeamMapPage";
 import { BotInstructionsDialog } from "./BotInstructionsDialog";
 const render = (component: Parameters<typeof renderToStaticMarkup>[0]) => {
-  vi.stubGlobal("window", { ogb: undefined });
+  vi.stubGlobal("window", { colonie: undefined });
   vi.stubGlobal("document", { body: {} });
   return renderToStaticMarkup(component);
 };

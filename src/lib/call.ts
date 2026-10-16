@@ -29,7 +29,7 @@ export function startCall(targetId: string) {
   // in the desktop app (My Cloud) has no speech bridge (electron/preload.cjs
   // REMOTE_SAFE): nothing listens there, and its Live call goes on.
   speaker.stop();
-  void window.ogb?.speechStop?.();
+  void window.colonie?.speechStop?.();
   current = targetId;
   notify();
 }
@@ -41,7 +41,7 @@ export function endCall(targetId?: string): boolean {
   if (current === null) return false;
   current = null;
   speaker.stop();
-  void window.ogb?.speechStop?.();
+  void window.colonie?.speechStop?.();
   notify();
   return true;
 }

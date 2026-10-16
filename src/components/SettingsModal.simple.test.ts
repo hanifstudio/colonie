@@ -63,7 +63,7 @@ vi.mock("./UsageSection", () => ({ UsageSection: marker("usage") }));
 vi.mock("./WorkspaceBackupSettings", () => ({ WorkspaceBackupSettings: marker("backups") }));
 vi.mock("./RoomTurnTimeoutSettings", () => ({ RoomTurnTimeoutSettings: () => null }));
 
-const desktop = { ogb: { environments: {}, organization: {} } };
+const desktop = { colonie: { environments: {}, organization: {} } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -152,14 +152,13 @@ describe("Settings in Simple mode", () => {
   });
 
   it("drops Account when nothing on it is shown", () => {
-    // an COLONIE Cloud home in a browser: no desktop account pages, nobody to invite, not an admin
-    vi.stubGlobal("window", {});
-    fixture.config = { ...fixture.config, cloudHome: true };
+    // the desktop app in a browser-less window: no sign-in-by-email page, nobody to invite, not an admin
+    vi.stubGlobal("window", { colonie: {} });
     expect(pages(render())).toEqual(["general", "appearance", "ai", "computers"]);
   });
 
   it("keeps a paired remote client's reduced set: Appearance, and Computers with Remote access", () => {
-    vi.stubGlobal("window", { ogb: { ...desktop.ogb, remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { ...desktop.colonie, remoteClient: { active: true } } });
     fixture.section = "companion";
     const html = render();
     expect(pages(html)).toEqual(["appearance", "computers"]);

@@ -292,8 +292,8 @@ export function ApiKeyRow({
     testGeneration.current++;
     setVerdict(null);
     const electronSlot = ELECTRON_CREDENTIAL[section];
-    const request = window.ogb?.setCredential && electronSlot
-      ? window.ogb.setCredential(electronSlot, next)
+    const request = window.colonie?.setCredential && electronSlot
+      ? window.colonie.setCredential(electronSlot, next)
       : api("/api/config", {
           method: "PUT",
           body: JSON.stringify(SECTIONS[section].body(next, !configured)),

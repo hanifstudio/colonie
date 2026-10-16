@@ -7,12 +7,12 @@ import type { UpdaterState } from "@/lib/updater";
 
 const fixture = vi.hoisted(() => ({ state: { status: "idle" } as UpdaterState }));
 // As the real hook: no state without the desktop app's updater bridge.
-vi.mock("@/lib/updater", () => ({ useUpdaterState: () => (window.ogb?.updater ? fixture.state : null) }));
+vi.mock("@/lib/updater", () => ({ useUpdaterState: () => (window.colonie?.updater ? fixture.state : null) }));
 vi.mock("../lib/brand", () => ({ brand: () => ({ name: "Colonie" }) }));
 import { UpdateBanner } from "./UpdateBanner";
 
 afterEach(() => vi.unstubAllGlobals());
-function render(state: UpdaterState, window: object = { ogb: { updater: {} } }) {
+function render(state: UpdaterState, window: object = { colonie: { updater: {} } }) {
   fixture.state = state;
   vi.stubGlobal("window", window);
   return renderToStaticMarkup(createElement(UpdateBanner));
@@ -20,7 +20,7 @@ function render(state: UpdaterState, window: object = { ogb: { updater: {} } }) 
 
 const LOCAL = "http://127.0.0.1:8799";
 const OTHER = "https://bots.example.test";
-/** The window.ogb that electron/preload.cjs gives a server's page: the updater
+/** The window.colonie that electron/preload.cjs gives a server's page: the updater
  * bridge goes only to this computer's own page (LOCAL), never another server's. */
 function serverPageBridge(origin: string) {
   let bridge: unknown;
@@ -42,16 +42,16 @@ function serverPageBridge(origin: string) {
 
 describe("UpdateBanner", () => {
   it("shows the ready update and its restart on this computer's page", () => {
-    const html = render({ status: "downloaded", version: "0.2.0" }, { location: { origin: LOCAL }, ogb: serverPageBridge(LOCAL) });
+    const html = render({ status: "downloaded", version: "0.2.0" }, { location: { origin: LOCAL }, colonie: serverPageBridge(LOCAL) });
     expect(html).toContain("Colonie 0.2.0 is ready");
     expect(html).toContain("Restart to update");
     expect(html).toContain("Later");
   });
 
   it("is absent from another server's page, which never gets the updater", () => {
-    const ogb = serverPageBridge(OTHER) as { updater?: unknown };
-    expect(ogb.updater).toBeUndefined();
-    expect(render({ status: "downloaded", version: "0.2.0" }, { location: { origin: OTHER }, ogb })).toBe("");
+    const colonie = serverPageBridge(OTHER) as { updater?: unknown };
+    expect(colonie.updater).toBeUndefined();
+    expect(render({ status: "downloaded", version: "0.2.0" }, { location: { origin: OTHER }, colonie })).toBe("");
   });
 
   // Updates download by themselves: nothing to do yet, so nothing to show.

@@ -221,7 +221,7 @@ import { forgetKey, noteKeyAccepted, noteKeyRejected, onKeyRejectionChange } fro
 import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert } from "./spend.ts";
 
 import { entitled } from "./enterprise.ts";
-import { HOSTED_CONTRACT_HEADER, HOSTED_CONTRACT_METADATA, HOSTED_CONTRACT_VERSION } from "./hosted-contract.ts";
+
 import { describeSpawnFailure, execCli } from "./procs.ts";
 import { blockedTarget, buildNotification, buildSpendNotification, type Notification } from "./notify.ts";
 import {
@@ -628,9 +628,9 @@ import { createLiveRoutes } from "./routes/live.ts";
 import { createUsageRoutes } from "./routes/usage.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
-const PORT = Number(process.env.COLONIE_PORT || process.env.OGB_PORT || 8799);
+const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
-// Behind a proxy or tunnel, the base URL senders should use (docs/self-hosting.md).
+// Behind a proxy or tunnel, the base URL senders should use.
 const WEBHOOK_PUBLIC_URL = process.env.COLONIE_WEBHOOK_PUBLIC_URL || undefined;
 const STATIC_DIR = process.env.COLONIE_STATIC_DIR || null;
 const MIME: Record<string, string> = {
@@ -11005,7 +11005,7 @@ const webhooks = new WebhookManager({
   // delivery:"post" webhooks land in a dedicated "Updates" task, never
   // bot.threadId (the bot's currently-selected task) -- see
   // resolvePostThread below. Fixes
-  // https://github.com/milind-soni/Colonie/issues/2071: a post used to
+  // https://github.com/hanifstudio/colonie/issues/2071: a post used to
   // land wherever the owner (or another automation) had last switched
   // that bot's selection, including a live conversation.
   post: (botId, threadId, text) => {
@@ -14058,7 +14058,6 @@ function configStatus() {
       version: cfg.onboarding?.version ?? 0,
       reelSeen: cfg.onboarding?.reelSeen === true,
       hintsSeen: cfg.onboarding?.hintsSeen ?? [],
-      ...(cfg.onboarding?.firstTurnAt ? { firstTurnAt: cfg.onboarding.firstTurnAt } : {}),
     },
     // Which browser this server can give bots: the desktop app's surface,
     // the agent-browser engine, or nothing yet (with the reason).
@@ -14565,18 +14564,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
   let m: RegExpMatchArray | null = null;
   let releaseWorkspaceRequest: (() => void) | undefined;
   try {
-    // Unlike the legacy reachability probe, this attests the running
-    // server's portal-membership capability, including live entitlement.
-    if (method === "GET" && path === "/api/health/hosted") {
-      res.setHeader("cache-control", "no-store");
-      const hosted = hostedWorkspaceConfiguration();
-      if (!hosted?.portalMembership || !workspaceAccess || !entitled("admin")) {
-        return json(res, 503, { error: "Hosted workspace readiness is unavailable." });
-      }
-      res.setHeader(HOSTED_CONTRACT_HEADER, String(HOSTED_CONTRACT_VERSION));
-      
-      return json(res, 200, { ok: true, service: "colonie", membershipAuthority: "portal", workspace: hosted.workspace, ...HOSTED_CONTRACT_METADATA });
-    }
     // Hosted workspaces have one sign-in authority. A missing optional layer
     // must not accidentally reactivate legacy email/QR credential minting.
     if (HOSTED_WORKSPACE) {
@@ -21402,7 +21389,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         } else if (parseSurface(body.surface)) {
           patch.surface = parseSurface(body.surface);
           patch.surfaceSource = "user";
-        } else return json(res, 400, { error: "surface must be cloud, vm, local, browser, or null to follow the bot" });
+        } else return json(res, 400, { error: "surface must be vm, local, browser, or null to follow the bot" });
       }
       if (body.pinnedMessageId !== undefined) {
         if (body.pinnedMessageId === null || body.pinnedMessageId === "") patch.pinnedMessageId = undefined;

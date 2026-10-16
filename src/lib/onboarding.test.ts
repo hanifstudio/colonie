@@ -78,9 +78,6 @@ describe("welcomeViewer", () => {
     expect(welcomeViewer({})).toEqual(LOCAL_VIEWER);
     expect(welcomeViewer(null)).toEqual(LOCAL_VIEWER);
     expect(welcomeViewer({ scopes: ["admin"], hosted: "yes" })).toEqual({ hosted: false, canSave: true });
-    // an COLONIE Cloud home says so; only a literal true counts
-    expect(welcomeViewer({ kind: "session", scopes: ["admin", "client"], cloudHome: true })).toEqual({ hosted: false, canSave: true, cloudHome: true });
-    expect(welcomeViewer({ kind: "session", scopes: ["admin", "client"], cloudHome: "yes" })).toEqual({ hosted: false, canSave: true });
   });
 
   it("calls only a hosted session without admin scope a hosted member", () => {
@@ -95,22 +92,6 @@ describe("welcomeViewer", () => {
     expect(spotlightsQuiet({ hosted: true, canSave: false })).toBe(true);
     expect(spotlightsQuiet({ hosted: false, canSave: false })).toBe(false);
     expect(spotlightsQuiet(LOCAL_VIEWER)).toBe(false);
-  });
-});
-
-describe("a Cloud home's viewer", () => {
-  // What the machine's /api/auth/session answers the desktop app once
-  // "Connect to my Cloud" has paired it.
-  const connected = welcomeViewer({ kind: "session", scopes: ["admin", "client"], via: "cookie", cloudHome: true });
-
-  it("skips the welcome flow", () => {
-    expect(welcomeDue({ onboarding: EMPTY_ONBOARDING }, { remoteClient: false, legacyDone: false, ...connected })).toBe(false);
-  });
-
-  it("changes nothing anywhere else", () => {
-    for (const viewer of [LOCAL_VIEWER, { hosted: true, canSave: true }, welcomeViewer({ kind: "session", scopes: ["admin", "client"] })]) {
-      expect(welcomeDue({ onboarding: EMPTY_ONBOARDING }, { remoteClient: false, legacyDone: false, ...viewer })).toBe(true);
-    }
   });
 });
 

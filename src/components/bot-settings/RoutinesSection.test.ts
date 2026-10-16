@@ -7,7 +7,7 @@ import type { Routine, RoutineRun } from "@/lib/routines";
 
 // RoutinesSection mounts RoutineEditor from RoutineCalendarPage.tsx (only
 // when "New schedule" is clicked, which these tests never do) but that
-// module's top-level import of DesktopCapabilities reads `window.ogb` at
+// module's top-level import of DesktopCapabilities reads `window.colonie` at
 // import time; the src test suite runs under vitest's "node" environment
 // (no window), so it must be stubbed as SidebarBotListItem.test.ts does.
 vi.mock("@/components/DesktopCapabilities", () => ({

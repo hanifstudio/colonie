@@ -27,7 +27,7 @@ import { allowsTool, parseToolScope } from "../shared/tool-scope.ts";
 const selection = parseToolScope(process.env.COLONIE_PERMISSION_TOOL_SCOPE === undefined
   ? undefined : (() => { try { return JSON.parse(process.env.COLONIE_PERMISSION_TOOL_SCOPE); } catch { return null; } })());
 if (!selection.ok) throw new Error(selection.error);
-const allowQuestion = allowsTool(selection.scope, { kind: "mcp", server: "ogb", name: "ask_user" });
+const allowQuestion = allowsTool(selection.scope, { kind: "mcp", server: "colonie", name: "ask_user" });
 
 const socketPath = process.argv[2] ?? "";
 

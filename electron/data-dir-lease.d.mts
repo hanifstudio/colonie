@@ -17,10 +17,7 @@ export declare class DataDirLeaseError extends Error {
   override readonly name: "DataDirLeaseError";
 }
 
-export declare function acquireDataDirLease(
-  dataDir: string,
-  options?: { legacyDataDir?: string },
-): OwnedDataDirLease;
+export declare function acquireDataDirLease(dataDir: string): OwnedDataDirLease;
 
 export declare function acquireDataDirLeaseForProcess(
   dataDir: string,

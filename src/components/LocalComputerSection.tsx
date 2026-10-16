@@ -18,7 +18,6 @@ import { HIcon } from "./HIcon";
 import { Card, CommandLine } from "./SettingsPrimitives";
 import { MacLocalControl } from "./MacLocalControl";
 import { cn } from "@/lib/cn";
-import { useStore } from "@/state/store";
 
 type Action = "pull" | "run" | "start" | "stop" | "remove" | "recreate";
 
@@ -469,9 +468,6 @@ export function LocalVmIdleTimeoutSetting({
 }
 
 export function LocalComputerSection() {
-  // An COLONIE Cloud home has no Local VM: it neither
-  // checks for one nor explains how to set one up.
-  const cloudHome = useStore().state.config?.cloudHome === true;
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<Action | null>(null);
@@ -513,7 +509,6 @@ export function LocalComputerSection() {
   }, []);
 
   useEffect(() => {
-    if (cloudHome) return;
     let active = true;
     let timer: number | undefined;
     let controller: AbortController | undefined;
@@ -539,7 +534,7 @@ export function LocalComputerSection() {
       controller?.abort();
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [cloudHome, refresh, refreshKey]);
+  }, [refresh, refreshKey]);
 
   useEffect(() => {
     if (status?.mode !== "per-bot") {
@@ -584,7 +579,7 @@ export function LocalComputerSection() {
     return body as Status;
   };
 
-  const confirmAction = (message: string) => window.ogb?.confirm ? window.ogb.confirm(message) : window.confirm(message);
+  const confirmAction = (message: string) => window.colonie?.confirm ? window.colonie.confirm(message) : window.confirm(message);
 
   const act = async (action: Action) => {
     if (pending !== null || actionController.current) return;
@@ -705,7 +700,6 @@ export function LocalComputerSection() {
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
       <MacLocalControl />
 
-      {!cloudHome && <>
       <Card
         title={t("vm.main.title")}
         subtitle={perBot
@@ -943,7 +937,6 @@ export function LocalComputerSection() {
           {status?.base_image_ref ? <> · {t("vm.safety.baseImage", { image: status.base_image_ref })}</> : null}
         </div>
       </Card>
-      </>}
     </>
   );
 }

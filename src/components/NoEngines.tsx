@@ -17,7 +17,7 @@ import { brand } from "../lib/brand";
 
 export function NoEngines() {
   const { state, dispatch, refreshInstances } = useStore();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   const [rechecking, setRechecking] = useState(false);
   const recheck = async () => {
     setRechecking(true);
@@ -86,7 +86,7 @@ export function NoEngines() {
                 {subscription.map(card)}
                 {/* One way in for every pasted-key provider, not a card each:
                     they all finish in the same place. */}
-                {api.length > 0 && window.ogb?.remoteClient?.active !== true && (
+                {api.length > 0 && window.colonie?.remoteClient?.active !== true && (
                   <button
                     type="button"
                     data-no-engines-api-keys

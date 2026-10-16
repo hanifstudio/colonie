@@ -7,7 +7,7 @@ import { DesktopWorkspaceSwitcher } from "./DesktopWorkspaceSwitcher";
 afterEach(() => { vi.unstubAllGlobals(); });
 
 it("names the saved-server switcher with the product word, not workspace", () => {
-  vi.stubGlobal("window", { ogb: { workspaces: { state: () => new Promise(() => {}), menu: () => Promise.resolve() } } });
+  vi.stubGlobal("window", { colonie: { workspaces: { state: () => new Promise(() => {}), menu: () => Promise.resolve() } } });
   const html = renderToStaticMarkup(createElement(DesktopWorkspaceSwitcher));
   expect(html).toContain('aria-label="Switch server: Servers"');
   expect(html).toContain(">Servers<");

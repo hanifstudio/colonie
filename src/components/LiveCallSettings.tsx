@@ -45,8 +45,8 @@ export function LiveCallSettings({ onClose }: { onClose: () => void }) {
     setSaving(true);
     setError(null);
     try {
-      const status: ConfigStatus = window.ogb?.setCredential
-        ? await window.ogb.setCredential("openaiLiveKey", "")
+      const status: ConfigStatus = window.colonie?.setCredential
+        ? await window.colonie.setCredential("openaiLiveKey", "")
         : await api("/api/config", { method: "PUT", body: JSON.stringify({ live: { key: "" } }) });
       dispatch({ type: "configStatus", config: status });
     } catch (removeError) {
@@ -120,7 +120,7 @@ export function LiveCallSettings({ onClose }: { onClose: () => void }) {
         </span>
       </div>
       {changingKey && <LiveKeySetup compact onSaved={() => setChangingKey(false)} />}
-      <div className="text-[11.5px] text-ink-tertiary">{liveDisclosure({ cloudHome: state.config?.cloudHome === true })} {t("call.live.cost")}</div>
+      <div className="text-[11.5px] text-ink-tertiary">{liveDisclosure()} {t("call.live.cost")}</div>
       {error && <div className="text-[12px] text-danger">{error}</div>}
     </div>
   );

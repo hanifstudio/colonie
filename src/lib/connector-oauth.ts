@@ -12,7 +12,7 @@ export function reusableConnectionUrl(page: PendingAuthorization | null | undefi
 /** Reserve the tab during the click, before an authorization request can
  * consume the browser's user activation. Only our unused blank is closed. */
 export function reserveConnectionPage() {
-  const openExternal = window.ogb?.openExternal;
+  const openExternal = window.colonie?.openExternal;
   let page: Window | null = null;
   let navigated = false;
   let cancelled = false;

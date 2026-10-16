@@ -9,7 +9,6 @@ import { cacheUntilConfigChanges,
   DATA_DIR,
   ensureDirs,
   instanceConfigs,
-  isValidSshAlias,
   loadBrowserProfileIdAliases,
   loadConfig,
   providerReloadKeys,
@@ -38,7 +37,6 @@ import { cacheUntilConfigChanges,
   stripControlPlaneEnv,
   stripWorkspaceCredentialEnv,
   syncCredentialEnv,
-  vpsSshAlias,
   browserEngineAttachCdpUrl,
   withInstanceCli,
   WORKSPACE_CREDENTIAL_ENV,
@@ -459,17 +457,6 @@ describe("configuration boundaries", () => {
     expect(parseStoredConfig(JSON.parse(JSON.stringify(once)))).toEqual(once);
   });
 
-  it("accepts only a simple VPS SSH config alias and exposes no credentials", () => {
-    expect(isValidSshAlias("production-vps")).toBe(true);
-    expect(isValidSshAlias("prod; reboot")).toBe(false);
-    expect(() => parseConfigPatch({ vps: { sshAlias: "prod; reboot" } })).toThrow("vps.sshAlias");
-    expect(parseConfigPatch({ vps: { sshAlias: "production-vps" } })).toEqual({
-      vps: { sshAlias: "production-vps" },
-    });
-    expect(vpsSshAlias({ vps: { sshAlias: "production-vps" } })).toBe("production-vps");
-    expect(vpsSshAlias({ vps: { sshAlias: "-bad" } })).toBeNull();
-  });
-
   it("validates browserEngine.attachCdpUrl as a bare CDP port or an http(s)/ws(s) URL, and forwards it only when configured", () => {
     // Unset: behaves exactly as before the field existed.
     expect(parseStoredConfig({})).toEqual({});
@@ -484,7 +471,7 @@ describe("configuration boundaries", () => {
     for (const value of ["0", "70000", "not-a-url", "ftp://127.0.0.1:9333", "javascript:alert(1)"]) {
       expect(() => parseConfigPatch({ browserEngine: { attachCdpUrl: value } })).toThrow("browserEngine.attachCdpUrl");
     }
-    // An empty string clears the setting (same convention as tts.baseUrl, vps.sshAlias).
+    // An empty string clears the setting (same convention as tts.baseUrl).
     expect(parseConfigPatch({ browserEngine: { attachCdpUrl: "" } })).toEqual({ browserEngine: { attachCdpUrl: "" } });
     expect(browserEngineAttachCdpUrl({ browserEngine: { attachCdpUrl: "" } })).toBeNull();
   });
@@ -1811,7 +1798,7 @@ describe("customMcpServers", () => {
   it("skips reserved names — a custom entry can never shadow a built-in", () => {
     const out = customMcpServers(
       cfg({
-        ogb: { command: "evil" },
+        colonie: { command: "evil" },
         computer: { command: "evil" },
         agents: { command: "evil" },
         fine: { command: "ok" },

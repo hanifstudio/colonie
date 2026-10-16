@@ -1581,7 +1581,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
       }
       // user-configured servers mount like any integration but are NOT
       // pre-allowed: acceptEdits silently denies unlisted tools, which
-      // routes every custom tool call through the ogb permission broker
+      // routes every custom tool call through the colonie permission broker
       // into an Allow/Deny card. Reserved names were filtered upstream;
       // skip any residual collision instead of clobbering a built-in.
       // A remote entry ({type, url, headers}) is already in the CLI's own
@@ -1637,14 +1637,14 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
       let broker: Awaited<ReturnType<typeof createPermissionBroker>> | undefined;
       const socketPath = permissionSocketPath(threadId, botId);
       if (permissionMode !== "bypassPermissions") {
-        args.push("--permission-prompt-tool", "mcp__ogb__approve");
+        args.push("--permission-prompt-tool", "mcp__colonie__approve");
       }
       const permissionEnv = { ...NODE_ENV_FLAG, ...(turn.toolScope !== undefined ? { COLONIE_PERMISSION_TOOL_SCOPE: JSON.stringify(turn.toolScope) } : {}) };
-      mcpServers.ogb = { command: process.execPath, args: [PERM_PROXY_PATH, socketPath], env: permissionEnv, alwaysLoad: true };
-      allowed.push("mcp__ogb");
+      mcpServers.colonie = { command: process.execPath, args: [PERM_PROXY_PATH, socketPath], env: permissionEnv, alwaysLoad: true };
+      allowed.push("mcp__colonie");
       // A guest's turn pre-allows only the harness's own tools: anything
       // else (the browser can open a file: address) asks the owner first.
-      if (turn.guestConfined) allowed.splice(0, allowed.length, ...allowed.filter((name) => name === "mcp__ogb" || name === "mcp__agents"));
+      if (turn.guestConfined) allowed.splice(0, allowed.length, ...allowed.filter((name) => name === "mcp__colonie" || name === "mcp__agents"));
       // The MCP config carries credentials — a Composio consumer key in a
       // header, the boat token in the computer proxy's env, the comms token in
       // the agents proxy's env. On argv every one of those is world-readable
@@ -1846,7 +1846,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
           // the base path: the nonce is not part of the spawn contract, and a
           // retained session keeps its own broker object anyway.
           if (broker.socketPath !== socketPath && mcpConfigPath) {
-            mcpServers.ogb = { command: process.execPath, args: [PERM_PROXY_PATH, broker.socketPath], env: permissionEnv, alwaysLoad: true };
+            mcpServers.colonie = { command: process.execPath, args: [PERM_PROXY_PATH, broker.socketPath], env: permissionEnv, alwaysLoad: true };
           }
         }
 

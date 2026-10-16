@@ -29,8 +29,8 @@ export function isServerPairingLink(input: string): boolean {
 }
 
 export function RemoteComputerSection() {
-  const bridge = window.ogb?.remoteClient;
-  const environments = window.ogb?.environments;
+  const bridge = window.colonie?.remoteClient;
+  const environments = window.colonie?.environments;
   const [state, setState] = useState<DesktopRemoteClientState>({ active: bridge?.active === true });
   const [connection, setConnection] = useState<"server" | "companion">(environments ? "server" : "companion");
   const [serverLink, setServerLink] = useState("");

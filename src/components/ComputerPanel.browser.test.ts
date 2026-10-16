@@ -10,7 +10,7 @@ const fixture = vi.hoisted(() => {
   vi.stubGlobal("document", { visibilityState: "visible" });
   const view = { current: "browser" };
   vi.stubGlobal("localStorage", { getItem: () => view.current });
-  return { config: {} as FeatureFlagConfig & { cloudHome?: boolean }, view };
+  return { config: {} as FeatureFlagConfig, view };
 });
 // These cover the Advanced panel; ComputerPanel.simple.test.ts covers Simple.
 vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => true, setAdvancedMode: () => {} }));
@@ -26,7 +26,7 @@ import { ComputerPanel } from "./ComputerPanel";
 
 afterAll(() => vi.unstubAllGlobals());
 const bot = { id: "browser-fixture", name: "Browser fixture", modelSelection: { instanceId: "fixture" } } as Bot;
-const render = (config: FeatureFlagConfig & { cloudHome?: boolean }, browser?: boolean) => {
+const render = (config: FeatureFlagConfig, browser?: boolean) => {
   fixture.config = config;
   return renderToStaticMarkup(createElement(ComputerPanel, { bot: { ...bot, browser } }));
 };
@@ -81,7 +81,7 @@ describe("Computer panel on a narrow screen", () => {
 
 describe("Computer panel Works on", () => {
   const places = (markup: string) => [...markup.matchAll(/<span>(Auto|Local VM|This computer|Browser|Off)<\/span>/g)].map((match) => match[1]);
-  const computerTab = (config: FeatureFlagConfig & { cloudHome?: boolean }) => {
+  const computerTab = (config: FeatureFlagConfig) => {
     fixture.view.current = "computer";
     try { return render(config); } finally { fixture.view.current = "browser"; }
   };
@@ -90,12 +90,6 @@ describe("Computer panel Works on", () => {
     const markup = computerTab({});
     expect(places(markup)).toEqual(["Auto", "Local VM", "This computer", "Browser", "Off"]);
     expect(markup).toContain("Choose where this bot can use a computer.</p>");
-  });
-
-  it("lists neither on My Cloud, and says why", () => {
-    const markup = computerTab({ cloudHome: true });
-    expect(places(markup)).toEqual(["Auto", "Browser", "Off"]);
-    expect(markup).toContain("Choose where this bot works. To let it use your Mac, turn on Let My Cloud use this Mac");
   });
 });
 

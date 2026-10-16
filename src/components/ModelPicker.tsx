@@ -25,7 +25,6 @@ import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { repeatedModelLabels, SimpleModelPane } from "./SimpleModelPane";
 import { useAdvancedMode } from "@/lib/interface-mode";
-import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { friendlyEffort, simpleEffortLevels } from "@/lib/model-friendly";
 import { t } from "@/lib/i18n";
 import { COMPACT_SQUARE } from "@/lib/compact-chip";
@@ -526,10 +525,6 @@ export function ModelPicker({
   // Simple mode opens on the plain-words view; a provider's "Set up" (or
   // Advanced mode) shows the full picker in the same popover.
   const advanced = useAdvancedMode();
-  const ownerOrAdmin = useOwnerOrAdmin();
-  // Guests can choose a model for their own Cloud conversation, not change
-  // the shared bot's default. Keep choices thread-only until authority loads.
-  const simpleUpdatesBotDefault = !state.config?.cloudHome || ownerOrAdmin === true;
   const [fullView, setFullView] = useState(false);
   const [pendingSwitch, setPendingSwitch] = useState<{ botId: string; threadId: string;
     selection: ModelSelection; updateBotDefault: boolean; name: string } | null>(null);
@@ -740,7 +735,7 @@ export function ModelPicker({
     const nextSelection = modelSelectionForPick(selection, instance, model);
     // Simple mode has no scope choice: an owner's pick is also the bot's
     // default, while a Cloud guest changes only their own conversation.
-    const updateBotDefault = !threadId || (simpleView ? simpleUpdatesBotDefault : scope === "bot");
+    const updateBotDefault = !threadId || (simpleView ? true : scope === "bot");
     const targets = updateBotDefault ? [currentTaskBot(profile, threadId ?? bot.threadId), profile] : [bot];
     if (targets.some((target) => modelSwitchNeedsAsk(approvalModeFor(target),
       state.instances.find((candidate) => candidate.instanceId === target.modelSelection.instanceId)?.driverKind,
@@ -838,7 +833,7 @@ export function ModelPicker({
     current: selection.effort,
     // Follow the same Cloud authority rule as a Simple model pick.
     onPick: (level: EffortLevel) => dispatch({ type: "setModel", botId: bot.id, threadId,
-      ...(threadId && simpleUpdatesBotDefault ? { updateBotDefault: true } : {}), selection: { ...selection, effort: level } }),
+      ...(threadId ? { updateBotDefault: true } : {}), selection: { ...selection, effort: level } }),
   } : null;
 
   // In a thread's picker the bot's model says so, beside the thread's own.
@@ -1006,7 +1001,7 @@ export function ModelPicker({
               onPick={(model) => railInstance && pick(railInstance, model)}
               variantsRow={active?.capabilities?.modelVariants ? (
                 // A closed select shows only its choice, so it keeps a short name.
-                <ModelVariantRow compact wide bot={bot} threadId={threadId} updateBotDefault={Boolean(threadId) && simpleUpdatesBotDefault}
+                <ModelVariantRow compact wide bot={bot} threadId={threadId} updateBotDefault={Boolean(threadId)}
                   label={<span className="shrink-0 text-[12px] font-medium text-ink-secondary">{t("model.simple.reasoning")}</span>} />
               ) : undefined}
               effort={simpleEffort}
@@ -1018,7 +1013,7 @@ export function ModelPicker({
           ) : (
           <>
           {pickerInstances.length > 0 && <ModelEngineRail instances={pickerInstances} selectedInstance={railInstance} claudeInstance={claudeRailInstance} openaiInstance={openaiRailInstance} onSelect={selectRail}
-            onAddApiKeys={window.ogb?.remoteClient?.active === true ? undefined : openApiKeys} />}
+            onAddApiKeys={window.colonie?.remoteClient?.active === true ? undefined : openApiKeys} />}
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
             {threadId && (
@@ -1269,7 +1264,7 @@ export function ModelPicker({
               </button>
               {/* A remote client's settings hide the keys section, so the
                   shortcut would land somewhere else. */}
-              {window.ogb?.remoteClient?.active !== true && (
+              {window.colonie?.remoteClient?.active !== true && (
                 <button type="button" data-model-add-api-keys onClick={openApiKeys} className="flex shrink-0 items-center gap-1.5 px-4 py-2 text-[12px] text-ink-secondary hover:bg-control/60 hover:text-ink">
                   <HIcon icon={Key01Icon} size={12} aria-hidden="true" />
                   {apiKeysLabel(pickerInstances)}

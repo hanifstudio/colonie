@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { StoreProvider, type Group, type Message } from "@/state/store";
 
-// Replaced whole: its context default reads window.ogb at import time. An
+// Replaced whole: its context default reads window.colonie at import time. An
 // empty caption chrome is the non-Windows layout.
 vi.mock("./DesktopCapabilities", () => ({
   useDesktopCapabilities: () => ({ capabilities: { dictation: { available: false } } }),
@@ -78,7 +78,7 @@ describe("room header", () => {
     // to icons, so it wraps below 48rem. The query lives on the
     // container's child row: a container query never matches the container
     // element itself.
-    vi.stubGlobal("window", { ogb: undefined });
+    vi.stubGlobal("window", { colonie: undefined });
     let markup: string;
     try {
       markup = renderToStaticMarkup(createElement(StoreProvider, null, createElement(GroupView, { group: room })));

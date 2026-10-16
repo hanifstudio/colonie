@@ -37,9 +37,9 @@ describe("where Connect your phone pairs", () => {
   });
 
   it("reads the window's bridges", () => {
-    vi.stubGlobal("window", { ogb: { companion: {} } });
+    vi.stubGlobal("window", { colonie: { companion: {} } });
     expect(currentPhonePairingTarget()).toBe("computer");
-    vi.stubGlobal("window", { ogb: { companion: {}, remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { companion: {}, remoteClient: { active: true } } });
     expect(currentPhonePairingTarget()).toBe("server");
     // a browser
     vi.stubGlobal("window", {});

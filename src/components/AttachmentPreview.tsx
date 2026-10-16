@@ -479,9 +479,9 @@ export function MessageFolderFiles({ folderPath, listing, message }: {
 // offered for reveal: main refuses them. Shared by the inline bot link and its
 // attachment chip; the caller sets the text size.
 const REVEALABLE_PATH = /^(?:\/(?!\/)|[a-zA-Z]:[\\/])/;
-function revealBridge(): NonNullable<Window["ogb"]>["revealInFolder"] {
-  const ogb = typeof window === "undefined" ? undefined : window.ogb;
-  return ogb?.remoteClient?.active ? undefined : ogb?.revealInFolder;
+function revealBridge(): NonNullable<Window["colonie"]>["revealInFolder"] {
+  const colonie = typeof window === "undefined" ? undefined : window.colonie;
+  return colonie?.remoteClient?.active ? undefined : colonie?.revealInFolder;
 }
 
 export function OutsideWorkspaceFile({ filePath }: { filePath: string }) {

@@ -31,7 +31,7 @@ import { HIcon } from "./HIcon";
 import { api, currentTaskBot, useStore, type Bot, type ConfigStatus } from "@/state/store";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { ComputerFilesPane } from "./ComputerFilesPane";
-import { effectivePlace, isComputerPlace, placeLabelKey, placeOffered } from "@/lib/place";
+import { effectivePlace, isComputerPlace, placeLabelKey } from "@/lib/place";
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
 import { usePageVisible } from "@/lib/page-visible";
@@ -225,8 +225,7 @@ export function ComputerPanel({
   const isLinux = capabilities.host.platform === "linux";
   const pageVisible = usePageVisible();
   const providerSupportsLocal = instanceSupportsLocalComputer(state.instances, bot);
-  // An COLONIE Cloud home never offers this computer.
-  const localSelectable = placeOffered("local", state.config) && localComputerSelectable({ capabilities, providerSupportsLocal });
+  const localSelectable = localComputerSelectable({ capabilities, providerSupportsLocal });
   const [localAutoWarningTarget, setLocalAutoWarningTarget] = useState<string | null>(null);
   const localDisabledReason = localComputerDisabledReason({ capabilities, providerSupportsLocal });
   // Where this app runs and who is looking: every place below is worded
@@ -365,7 +364,7 @@ export function ComputerPanel({
   // live viewer so a remount/switch mid-session doesn't wrongly resume it.
   useEffect(() => {
     let alive = true;
-    const dv = window.ogb?.desktopViewer;
+    const dv = window.colonie?.desktopViewer;
     if (dv?.currentState) {
       void dv
         .currentState()
@@ -563,12 +562,12 @@ export function ComputerPanel({
   // the user denied — surface the Settings repair path instead of spinning.
   const [localMisses, setLocalMisses] = useState(0);
   useEffect(() => {
-    if (panelView !== "computer" || phase !== "local" || !computerStatusCurrent || !window.ogb || isLinux || !pageVisible) return;
+    if (panelView !== "computer" || phase !== "local" || !computerStatusCurrent || !window.colonie || isLinux || !pageVisible) return;
     let alive = true;
     setLocalMisses(0);
     const shoot = async () => {
       try {
-        const url = await window.ogb!.screenFrame();
+        const url = await window.colonie!.screenFrame();
         if (alive && url) setLocalFrame(url);
         else if (alive) setLocalMisses((n) => n + 1);
       } catch {
@@ -671,7 +670,7 @@ export function ComputerPanel({
     // A plain-web development session still needs a synchronous blank tab;
     // the packaged app uses the reliable Electron viewer window below.
     let fallbackTab: Window | null = null;
-    if (!window.ogb?.desktopViewer && !window.ogb?.openExternal) {
+    if (!window.colonie?.desktopViewer && !window.colonie?.openExternal) {
       fallbackTab = window.open("", "_blank");
       if (fallbackTab) fallbackTab.opener = null;
     }
@@ -685,13 +684,13 @@ export function ComputerPanel({
       const viewerUrl = vmViewerUrl;
       if (!viewerUrl) throw new LocalizedPanelError("computer.err.noDesktopLink");
 
-      if (window.ogb?.desktopViewer) {
-        const opened = await window.ogb.desktopViewer.open(viewerUrl, t("computer.viewerTitle", { name: bot.name }), bot.id);
+      if (window.colonie?.desktopViewer) {
+        const opened = await window.colonie.desktopViewer.open(viewerUrl, t("computer.viewerTitle", { name: bot.name }), bot.id);
         if (!opened) throw new LocalizedPanelError("computer.err.openDesktop");
       } else if (fallbackTab) {
         fallbackTab.location.replace(viewerUrl);
-      } else if (window.ogb?.openExternal) {
-        const opened = await window.ogb.openExternal(viewerUrl);
+      } else if (window.colonie?.openExternal) {
+        const opened = await window.colonie.openExternal(viewerUrl);
         if (!opened) throw new LocalizedPanelError("computer.err.openDesktopLink");
       } else if (!window.open(viewerUrl, "_blank", "noopener")) {
         throw new LocalizedPanelError("computer.err.popupBlocked");
@@ -831,7 +830,7 @@ export function ComputerPanel({
     ["local", "vm.dest.local", "computer.dest.localDesc", MonitorIcon],
     ["browser", "vm.dest.browser", "computer.dest.browserDesc", GlobeIcon],
     ["off", "vm.dest.off", "computer.dest.offDesc", PowerIcon],
-  ] as const).filter(([mode]) => mode === null || mode === "off" || placeOffered(mode, state.config)).map(([mode, labelKey, descriptionKey, Icon]) => {
+  ] as const).map(([mode, labelKey, descriptionKey, Icon]) => {
     const selected = mode === null ? !profileBot.computer : profileBot.computer === mode;
     // The card, the Simple tile and the chip read the same view: a place no
     // setting here can make work is not offered, and a place with a problem
@@ -1096,7 +1095,7 @@ export function ComputerPanel({
               </span>
               {phase === "local" && !isLinux && localMisses >= 3 && (
                 <button
-                  onClick={() => window.ogb?.permOpenSettings?.("screen")}
+                  onClick={() => window.colonie?.permOpenSettings?.("screen")}
                   className="mt-1 rounded-lg bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover"
                 >
                   {t("computer.openSettings")}
@@ -1159,7 +1158,7 @@ export function ComputerPanel({
         {advanced &&
           phase === "vm" &&
           vmStatus?.mode === "per-bot" &&
-          window.ogb?.desktopWorkspace &&
+          window.colonie?.desktopWorkspace &&
           onOpenVmWorkspace && (
             <button
               type="button"
@@ -1208,7 +1207,7 @@ export function ComputerPanel({
             <button
               onClick={() => {
                 controlAction("release");
-                void window.ogb?.desktopViewer?.close(bot.id);
+                void window.colonie?.desktopViewer?.close(bot.id);
               }}
               disabled={controlPending}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
@@ -1290,7 +1289,7 @@ export function ComputerPanel({
           <div className="mt-4 rounded-xl bg-card p-4">
             <div className="text-[15px] font-medium text-ink">{t("computer.worksOn")}</div>
             <p className="mt-1 text-[12px] leading-5 text-ink-secondary">
-              {t(state.config?.cloudHome ? "computer.worksOnHintCloudHome" : "computer.worksOnHint")}
+              {t("computer.worksOnHint")}
             </p>
           <div role="group" aria-label={t("computer.destinationAria")} className="mt-3 grid auto-rows-fr grid-cols-2 gap-2">
             {placeOptions.map(({ mode, labelKey, descriptionKey, Icon, selected, disabled, unavailableTitle, issue, view }) => (

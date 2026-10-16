@@ -75,8 +75,8 @@ function requireUpdaterTarget(resources, label) {
   const updateFile = path.join(resources, "app-update.yml");
   requireFile(updateFile);
   const update = readFileSync(updateFile, "utf8");
-  if (!/^owner: milind-soni$/m.test(update) || !/^repo: Colonie$/m.test(update)) {
-    fail(`${label} app-update.yml does not point at milind-soni/Colonie`);
+  if (!/^owner: hanifstudio$/m.test(update) || !/^repo: colonie$/m.test(update)) {
+    fail(`${label} app-update.yml does not point at hanifstudio/Colonie`);
   }
 }
 
@@ -425,7 +425,7 @@ const fields = execFileSync(
 for (const expected of [
   "Package: colonie",
   "Architecture: amd64",
-  "Maintainer: Milind Soni",
+  "Maintainer: Colonie contributors",
   "Section: utils",
   "Priority: optional",
 ]) {

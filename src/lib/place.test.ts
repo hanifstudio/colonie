@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectivePlace, isComputerPlace, PLACES, placeLabelKey, placeOffered, toolPlace } from "./place";
+import { effectivePlace, isComputerPlace, placeLabelKey, toolPlace } from "./place";
 import { toolSurfaceKind } from "../../shared/tool-surface";
 
 describe("where a conversation works", () => {
@@ -18,13 +18,6 @@ describe("where a conversation works", () => {
     const task = { surface: "cloud" } as unknown as { surface: "vm" | "local" | "browser" | undefined };
     expect(effectivePlace(bot, null)).toBe("local");
     expect(effectivePlace({ computer: undefined }, task)).toBe("local");
-  });
-
-  it("offers every place on a desktop or self-hosted server, and only the browser on an COLONIE Cloud home", () => {
-    for (const config of [null, undefined, {}, { cloudHome: false }]) {
-      expect(PLACES.filter((place) => placeOffered(place, config))).toEqual(["vm", "local", "browser"]);
-    }
-    expect(PLACES.filter((place) => placeOffered(place, { cloudHome: true }))).toEqual(["browser"]);
   });
 
   it("names places with one label key each", () => {

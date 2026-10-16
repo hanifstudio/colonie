@@ -23,7 +23,7 @@ export async function createConfiguredBot(
   draft: BotCreationDraft,
   request: typeof api = api,
   update: typeof persistBotUpdate = persistBotUpdate,
-  approvals = typeof window === "undefined" ? undefined : window.ogb?.approvals,
+  approvals = typeof window === "undefined" ? undefined : window.colonie?.approvals,
   visibility?: BotVisibility,
 ): Promise<{ bot: Bot; warnings: string[] }> {
   const template = await preparedBotTemplate(draft);

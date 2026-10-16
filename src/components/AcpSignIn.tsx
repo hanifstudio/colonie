@@ -26,7 +26,7 @@ export function AcpSignIn({ instanceId }: { instanceId: string }) {
       if (result.terminal) {
         // Run the login in a real Terminal; only fall back to showing the
         // command when no terminal can be launched (a browser client).
-        const opened = await window.ogb?.signInTerminal?.(instanceId);
+        const opened = await window.colonie?.signInTerminal?.(instanceId);
         if (!opened) setTerminal(result.terminal.command);
       }
       await refresh();

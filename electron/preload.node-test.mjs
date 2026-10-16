@@ -48,8 +48,8 @@ const emit = (channel, ...args) => {
 };
 const subscriberCount = (channel) => listeners.get(channel)?.size ?? 0;
 
-test("exposes the full local-shell bridge on window.ogb", () => {
-  assert.equal(exposed.name, "ogb");
+test("exposes the full local-shell bridge on window.colonie", () => {
+  assert.equal(exposed.name, "colonie");
   assert.equal(typeof exposed.api, "object");
   // The settings channel is local-shell only, so it exists on the bridge
   // exactly when the page is local (no --colonie-local-origin in argv here).

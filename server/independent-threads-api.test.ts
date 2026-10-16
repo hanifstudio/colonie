@@ -53,7 +53,7 @@ describe("independent bot tasks through the isolated control surface", () => {
   };
   const permission = async (model: string, id: string) => {
     const launched = await dump(model);
-    const socketPath = launched.mcpConfig.mcpServers.ogb.args.at(-1);
+    const socketPath = launched.mcpConfig.mcpServers.colonie.args.at(-1);
     const socket = connect(socketPath);
     sockets.push(socket);
     await new Promise<void>((resolve, reject) => {

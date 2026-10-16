@@ -65,7 +65,7 @@ export function useBotSettingsDerived(bot: Bot) {
   // only autoApprove. Full and Custom need the packaged desktop's trusted
   // channel (SettingsPanel used the same test before the dialog replaced it).
   const approvalMode = approvalModeFor(bot);
-  const trustedModesAvailable = Boolean(window.ogb?.approvals && capabilities.host.packaged);
+  const trustedModesAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged);
   const canCoordinate = engine?.capabilities?.agentsMcp === true;
   const canUseConnectedApps = engine?.capabilities?.composioMcp === true;
   const connectedAppsConfigured = state.config?.composio?.configured === true;
@@ -73,7 +73,7 @@ export function useBotSettingsDerived(bot: Bot) {
   const connectorGrantState: ConnectorGrantsState = connectorGrantsState(bot);
   const canUseBrowser = engine?.capabilities?.browserMcp === true;
   const desktopBrowser = browserAvailable(state.config);
-  const browserBlockedOnWindows = window.ogb?.platform === "win32" && !desktopBrowser;
+  const browserBlockedOnWindows = window.colonie?.platform === "win32" && !desktopBrowser;
   const browserFeature = builtInBrowserEnabled(state.config);
   const browserAllowed = bot.browser !== false;
   const browserEnabled = browserFeature && browserAllowed;

@@ -16,7 +16,7 @@ import { isColonieAcpDriver } from "../../shared/acp";
 type Platform = "darwin" | "win32" | "linux";
 
 function hostPlatform(): Platform {
-  const platform = window.ogb?.platform;
+  const platform = window.colonie?.platform;
   if (platform === "darwin" || platform === "win32" || platform === "linux") return platform;
   const userAgent = navigator.userAgent;
   if (userAgent.includes("Mac")) return "darwin";
@@ -51,18 +51,18 @@ export function needsCli(instance: InstanceInfo | undefined): boolean {
 }
 
 /** A terminal opened from this page runs on the machine the server runs on:
- * the desktop app's own window on its own server. Never a browser, a paired
- * remote client, or My Cloud, where a terminal command is a dead end. */
-export function serverTerminal(cloudHome: boolean): boolean {
-  return Boolean(window.ogb?.openInstallTerminal) && window.ogb?.remoteClient?.active !== true && !cloudHome;
+ * the desktop app's own window on its own server. Never a browser or a paired
+ * remote client, where a terminal command is a dead end. */
+export function serverTerminal(): boolean {
+  return Boolean(window.colonie?.openInstallTerminal) && window.colonie?.remoteClient?.active !== true;
 }
 
 /** Grok Build cannot run here (no Grok CLI on this server, an older Cloud
  * computer image for one) and nobody here can install it. Its models are
  * still an xAI API key away, so the card says that instead of handing over
  * an install command that cannot run. */
-export function grokKeyInstead(instance: InstanceInfo, cloudHome: boolean): boolean {
-  return instance.driverKind === "grokAgent" && needsCli(instance) && !serverTerminal(cloudHome);
+export function grokKeyInstead(instance: InstanceInfo): boolean {
+  return instance.driverKind === "grokAgent" && needsCli(instance) && !serverTerminal();
 }
 
 export function CommandRow({
@@ -75,7 +75,7 @@ export function CommandRow({
   compact?: boolean;
 }) {
   const [status, setStatus] = useState<"copied" | "failed" | "opened" | null>(null);
-  const canOpen = typeof window !== "undefined" && Boolean(window.ogb?.openInstallTerminal);
+  const canOpen = typeof window !== "undefined" && Boolean(window.colonie?.openInstallTerminal);
 
   const settle = (next: "copied" | "failed" | "opened") => {
     setStatus(next);
@@ -91,7 +91,7 @@ export function CommandRow({
     : status === "failed" ? <HIcon icon={MultiplicationSignIcon} size={size} className="text-danger" /> : <HIcon icon={Copy01Icon} size={size} />;
 
   const openTerminal = async () => {
-    const opened = await window.ogb!.openInstallTerminal!(command);
+    const opened = await window.colonie!.openInstallTerminal!(command);
     settle(opened ? "opened" : "copied");
   };
 
@@ -326,7 +326,7 @@ function ManagedEngineSetup({ instance, signInOnly }: { instance: InstanceInfo; 
     }
     if (!auth.flowId || !auth.authorizationUrl) throw new Error(t("engineSetup.googleNoLink"));
     setFlow({ flowId: auth.flowId, authorizationUrl: auth.authorizationUrl });
-    if (window.ogb?.openExternal) await window.ogb.openExternal(auth.authorizationUrl);
+    if (window.colonie?.openExternal) await window.colonie.openExternal(auth.authorizationUrl);
     else window.open(auth.authorizationUrl, "_blank", "noopener,noreferrer");
   });
 
@@ -434,7 +434,7 @@ function apiKeySetup(instance: InstanceInfo): boolean {
 
 function GrokKeyInstead({ className, unframed }: { className?: string; unframed: boolean }) {
   const { dispatch } = useStore();
-  const remote = window.ogb?.remoteClient?.active === true;
+  const remote = window.colonie?.remoteClient?.active === true;
   return (
     <div data-engine-setup-key-instead className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
       <div className="flex items-start gap-2.5">
@@ -462,7 +462,7 @@ function GrokKeyInstead({ className, unframed }: { className?: string; unframed:
  * A typo'd key still counts as saved, and this is the way back to fix it. */
 function ApiKeyEngineSetup({ instance, className, unframed, configured = false }: { instance: InstanceInfo; className?: string; unframed: boolean; configured?: boolean }) {
   const { dispatch } = useStore();
-  const remote = window.ogb?.remoteClient?.active === true;
+  const remote = window.colonie?.remoteClient?.active === true;
   const copy = configured
     ? { title: "engineSetup.apiKey.configuredTitle", description: remote ? "engineSetup.apiKey.configuredRemote" : "engineSetup.apiKey.configuredDescription", action: "engineSetup.apiKey.change" } as const
     : { title: "engineSetup.apiKey.title", description: remote ? "engineSetup.apiKey.remote" : "engineSetup.apiKey.description", action: "engineSetup.apiKey.open" } as const;
@@ -520,8 +520,6 @@ export function EngineSetup({
    * model that runs this CLI with the organisation's access). */
   description?: string;
 }) {
-  const { state } = useStore();
-  const cloudHome = state.config?.cloudHome === true;
   const install = instance.install;
   const installCommand = installCommandFor(install);
   const signInCommand = install?.signInCommand;
@@ -562,7 +560,7 @@ export function EngineSetup({
     return <ApiKeyEngineSetup instance={instance} className={className} unframed={unframed} />;
   }
 
-  if (intent === "cloud" && grokKeyInstead(instance, cloudHome)) {
+  if (intent === "cloud" && grokKeyInstead(instance)) {
     return <GrokKeyInstead className={className} unframed={unframed} />;
   }
 
@@ -604,7 +602,7 @@ export function EngineSetup({
           <DeviceSignIn key={instance.instanceId} instanceId={instance.instanceId} browserPkce={browserSignIn} provider={provider} />
           {/* Grok keeps its terminal sign-in for people who prefer one, where
               a terminal runs on this server; the code above needs none. */}
-          {deviceSignIn && provider === "grok" && signInCommand && serverTerminal(cloudHome) && (
+          {deviceSignIn && provider === "grok" && signInCommand && serverTerminal() && (
             <details className="mt-2 rounded-lg border border-hairline/50 bg-app px-2.5 py-2 text-[11.5px] text-ink-secondary">
               <summary className="cursor-pointer select-none">{t("engineSetup.preferTerminal")}</summary>
               <CommandRow command={signInCommand} actionLabel={t("engineSetup.openSignIn")} compact />

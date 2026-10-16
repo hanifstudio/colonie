@@ -27,7 +27,7 @@ const state = (patch: Partial<UpdaterState>): UpdaterState => ({ status: "idle",
 
 describe("profileInitials", () => {
   it("takes the first letter of the first two words", () => {
-    expect(profileInitials({ name: "Milind Soni" })).toBe("MS");
+    expect(profileInitials({ name: "Colonie contributors" })).toBe("MS");
     expect(profileInitials({ name: "Ada Byron Lovelace" })).toBe("AB");
   });
 
@@ -167,7 +167,7 @@ describe("outward links", () => {
   // app-links does not quietly send Help back to the README
   it("sends Help Center to the docs the website also links to", () => {
     expect(HELP_CENTER_URL).toBe(DOCS_URL);
-    expect(DOCS_URL).toBe("https://github.com/milind-soni/Colonie/tree/main/docs");
+    expect(DOCS_URL).toBe("https://github.com/hanifstudio/colonie/tree/main/docs");
   });
 
   it("sends Send Feedback to the Discord community", () => {
@@ -231,7 +231,7 @@ describe("Get the phone app", () => {
   it("offers iPhone and Android with the links the website and Cloud page use", () => {
     expect(PHONE_APPS.map((app) => [app.id, app.url])).toEqual([["ios", IOS_APP_STORE_URL], ["android", ANDROID_APK_URL]]);
     expect(IOS_APP_STORE_URL).toBe("https://apps.apple.com/in/app/colonie/id6803387923");
-    expect(ANDROID_APK_URL).toBe("https://github.com/milind-soni/Colonie/releases/download/android-v1.5.0/Colonie.apk");
+    expect(ANDROID_APK_URL).toBe("https://github.com/hanifstudio/colonie/releases/download/android-v1.5.0/Colonie.apk");
   });
 
   const render = (connect?: PhoneAppConnect[]) => {

@@ -506,7 +506,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
       const scope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
       const prefix = bot.id.slice(0, 8).replace(/[^a-z0-9]/g, "");
       const suffix = createHash("sha256").update(bot.id).digest("hex").slice(0, 6);
-      boatRow = { id: "bx_23456789", name: `ogb-${scope}-${prefix}-${suffix}`, state: "archived" };
+      boatRow = { id: "bx_23456789", name: `colonie-${scope}-${prefix}-${suffix}`, state: "archived" };
       allowBoatCreation = true;
       if (state === "missing-auto") { boatRow = null; vmState({ failed: true }); }
       boatCalls.length = 0; boatPrompts.length = 0;
@@ -808,7 +808,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
       const scope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
       const prefix = bots[0].id.slice(0, 8).replace(/[^a-z0-9]/g, "");
       const suffix = createHash("sha256").update(bots[0].id).digest("hex").slice(0, 6);
-      boatRow = { id: "bx_23456789", name: `ogb-${scope}-${prefix}-${suffix}`, state: "archived" };
+      boatRow = { id: "bx_23456789", name: `colonie-${scope}-${prefix}-${suffix}`, state: "archived" };
       boatCalls.length = 0; boatPrompts.length = 0;
       // The speaker keeps its own engine; its Boat is woken and mounted as
       // its computer tools, and Boat's runner is never asked.

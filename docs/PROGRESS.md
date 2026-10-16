@@ -434,8 +434,8 @@ the place.
 | commit | what went |
 |---|---|
 | `95e477e8` | the 44 catalog keys with no reader left after `0eadac2f`: `pro.*` (all but `pro.signIn`), `cloudSetup.*`, `settings.section.cloudAccount`, `settings.section.desktopWorkspaces`, `sidebar.cloudOwner`, `sidebar.menu.connectPhone.cloud*` — 10 languages, 3580 → 3536 English strings |
-| `92a28c00` | `electron/managed-composio.mjs` and its test; `main.mjs`'s broker URL, its child-env term, the credential registration and the post-restart sync. The packaged app no longer registers with the upstream `colonie-composio.milindsoni201.workers.dev` broker, so a person's own Composio key is the only path. The server's own `COLONIE_COMPOSIO_BROKER_*` reader stays: env-driven, inert without a setter |
-| `4bb5abfb` | Copy this computer here, end to end: `electron/cloud-move.mjs` (with `.d.mts` and its 32 node tests), `main.mjs`'s block and its `cloud-move:*` IPC, the preload bridge, the `ogb` entry, `server/cloud-move.ts`, `server/cloud-move-http.ts` and both their test files, the `cloudMove.*` copy (72 English keys) and `docs/copy-workspace.md` (−4220/+47) |
+| `92a28c00` | `electron/managed-composio.mjs` and its test; `main.mjs`'s broker URL, its child-env term, the credential registration and the post-restart sync. The packaged app no longer registers with the upstream hosted Composio broker, so a person's own Composio key is the only path. The server's own `COLONIE_COMPOSIO_BROKER_*` reader stays: env-driven, inert without a setter |
+| `4bb5abfb` | Copy this computer here, end to end: `electron/cloud-move.mjs` (with `.d.mts` and its 32 node tests), `main.mjs`'s block and its `cloud-move:*` IPC, the preload bridge, the `colonie` entry, `server/cloud-move.ts`, `server/cloud-move-http.ts` and both their test files, the `cloudMove.*` copy (72 English keys) and `docs/copy-workspace.md` (−4220/+47) |
 
 `cloudPageSenderAllowed` moved from the deleted module into `cloud-home.mjs`.
 Three IPC fixtures read `main.mjs` by section marker, so the copy block's
@@ -471,7 +471,7 @@ it, and its removal is what took that count from 139 to 137.
 
 | commit | what went |
 |---|---|
-| `a457eee6` | the desktop half: `electron/cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs` (with their `.d.mts`), their node tests and the cloud-account IPC test, plus `main.mjs`'s account client and stored sign-in, the saved Cloud-home server, the `colonie://cloud` entry, the `cloud-plan:*` IPC and the Cloud page's microphone/clipboard rule, the preload's `cloudAccount`/`cloudPlan` bridges and the `ogb.d.ts` entries, `src/lib/cloud-plan.ts`, `place-view.ts`'s `useCloudPlanPaid`/`see-plan`/`open-my-cloud`, `scripts/verify-cloud-account.mjs`, `docs/verification/cloud-account.md`, and 404 catalog entries (`cloudAccount.*`, `cloudPlan.*`, `cloudHome.*`, `cloudPhone.*`; English 3464 → 3393) (39 files, −3671/+196) |
+| `a457eee6` | the desktop half: `electron/cloud-account.mjs`, `cloud-home.mjs`, `cloud-entry.mjs` (with their `.d.mts`), their node tests and the cloud-account IPC test, plus `main.mjs`'s account client and stored sign-in, the saved Cloud-home server, the `colonie://cloud` entry, the `cloud-plan:*` IPC and the Cloud page's microphone/clipboard rule, the preload's `cloudAccount`/`cloudPlan` bridges and the `colonie.d.ts` entries, `src/lib/cloud-plan.ts`, `place-view.ts`'s `useCloudPlanPaid`/`see-plan`/`open-my-cloud`, `scripts/verify-cloud-account.mjs`, `docs/verification/cloud-account.md`, and 404 catalog entries (`cloudAccount.*`, `cloudPlan.*`, `cloudHome.*`, `cloudPhone.*`; English 3464 → 3393) (39 files, −3671/+196) |
 
 What `main.mjs` keeps is the local app: the updater answers only this
 computer's own page in the main window (`updaterPageAllowed`), device
@@ -555,7 +555,7 @@ focused vitest green:
    (`lending-routines.json`, `lending-memory.json`, boat journals).
 4. ~~**Desktop bridges.**~~ Done in `a457eee6` (`cloud-account.mjs`,
    `cloud-home.mjs`, `cloud-entry.mjs`, their IPC, preload bridges,
-   `ogb.d.ts` entries, `verify-cloud-account.mjs`, `src/lib/cloud-plan.ts` and
+   `colonie.d.ts` entries, `verify-cloud-account.mjs`, `src/lib/cloud-plan.ts` and
    the `colonie://cloud` deep link); `cloud-move.mjs` and
    `managed-composio.mjs` in `4bb5abfb` and `92a28c00`.
 5. ~~**`deploy/`** (container/self-host targets).~~ Done in `4665d9a5`;
@@ -574,7 +574,7 @@ Branch `colonie/local-only`, based on the owner WIP snapshot `94cc3689`.
 | commit | what went |
 |---|---|
 | `6802b429` | `src/components/colonie-platform/`, `server/colonie/platform/`, `shared/colonie-platform.ts`, `src/lib/colonie-platform.ts`, `colonie-classic-ui.ts`, `app-shell-account.ts`; second UI shell |
-| `a0a207f3` | `electron/colonie-platform.mjs`, `colonie-workspaces*.mjs`; the desktop Cloud account mode and its IPC, credential vault path and `window.ogb.colonieWorkspaces` |
+| `a0a207f3` | `electron/colonie-platform.mjs`, `colonie-workspaces*.mjs`; the desktop Cloud account mode and its IPC, credential vault path and `window.colonie.colonieWorkspaces` |
 | `23772cf8` | `evals/` (upstream behavior-eval harness), `apps/docs/` (published guide), their scripts, workflows, workspace package and the two tests that read them |
 | `ca49a7bd` | the Organization settings surface: `OrganizationSettings`, `OrganizationIdentity`, `use-organization-branding`, its rail entry, deep link and the avatar icon picker |
 | `b6af3313` | `cloudflare/` (Colonie Cloud control plane + Composio broker), the `broker:*`/`control-plane:*` scripts and their CI jobs |
@@ -662,7 +662,7 @@ setting is baked into the systemd unit with that reason written beside it.
 
 ### Blocker — the fork has no remote of its own
 
-`git remote -v` shows only upstream `milind-soni/Colonie`. Every commit in
+`git remote -v` shows only upstream `hanifstudio/Colonie`. Every commit in
 this session, including the ~45k-line retirement, exists **only on the
 development laptop**. That is both a single point of failure and the reason the
 deployment has no clean way to move the code. The runbook's first step is

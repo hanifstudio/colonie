@@ -17,7 +17,7 @@ export function WindowCaptionButtons({ visible }: { visible: boolean }) {
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
-    const controls = window.ogb?.windowControls;
+    const controls = window.colonie?.windowControls;
     if (!controls) return;
     let alive = true;
     void controls.state().then(({ maximized }) => {
@@ -31,7 +31,7 @@ export function WindowCaptionButtons({ visible }: { visible: boolean }) {
   }, []);
 
   if (!visible) return null;
-  const controls = window.ogb?.windowControls;
+  const controls = window.colonie?.windowControls;
 
   // SAFETY: Electron's documented -webkit-app-region CSS property is not in
   // React's CSSProperties type, but the renderer accepts it as an inline style.

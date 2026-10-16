@@ -60,7 +60,7 @@ export function LocalScreenPreview() {
   const start = async () => {
     if (
       !preview.available ||
-      !window.ogb?.beginScreenPreviewIntent ||
+      !window.colonie?.beginScreenPreviewIntent ||
       !navigator.mediaDevices?.getDisplayMedia
     ) {
       setPhase("unavailable");
@@ -71,7 +71,7 @@ export function LocalScreenPreview() {
     releaseStream("requesting", "computer.screen.waiting");
     const currentRequest = requestId.current;
     const result = await requestScreenPreview({
-      beginIntent: () => window.ogb!.beginScreenPreviewIntent(),
+      beginIntent: () => window.colonie!.beginScreenPreviewIntent(),
       getDisplayMedia: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
     });
 

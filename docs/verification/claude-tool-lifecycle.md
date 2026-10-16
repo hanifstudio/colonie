@@ -17,7 +17,7 @@ That result must not settle a submitted user turn or consume its permissions.
 The regression fixture emits this result, then asks for WebFetch permission,
 and only finishes the parent after the test releases a file gate.
 
-The small `agents` and `ogb` MCP servers use `alwaysLoad: true` so the first
+The small `agents` and `colonie` MCP servers use `alwaysLoad: true` so the first
 prompt includes coordination and approval tools. Other MCP servers retain
 normal deferred loading. This prevents the deferred-lookup dependency; it
 does not magically reconnect a crashed server or override a user's denied

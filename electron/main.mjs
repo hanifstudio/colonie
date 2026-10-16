@@ -1617,8 +1617,7 @@ function createWindow() {
       // loopback relay, so it is a trusted local page while also needing the
       // renderer's remote-only feature gates. Keep the two facts independent:
       // upstream's origin boundary must not erase the client-mode marker.
-      additionalArguments: [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
-        ...(app.isPackaged && !desktopRemoteAccess && process.env.COLONIE_PROFILE !== "1" ? ["--colonie-company-desktop=1"] : [])],
+      additionalArguments: desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
     },
   });
   mainWindow = win;
@@ -1728,7 +1727,7 @@ function createWindow() {
       try {
         const result = await win.webContents.executeJavaScript(`
           (async () => {
-            if (!window.ogb?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
+            if (!window.colonie?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
             let crashPromise = null;
             if (${JSON.stringify(process.env.COLONIE_SMOKE_CUA === "1")}) {
               crashPromise = new Promise((resolve, reject) => {
@@ -1736,7 +1735,7 @@ function createWindow() {
                   unsubscribe?.();
                   reject(new Error("timed out waiting for CUA crash invalidation"));
                 }, 10000);
-                const unsubscribe = window.ogb.onCapabilitiesChanged((next) => {
+                const unsubscribe = window.colonie.onCapabilitiesChanged((next) => {
                   if (next.localComputer.reasonCode !== "daemon-exited") return;
                   clearTimeout(timeout);
                   unsubscribe();
@@ -1745,7 +1744,7 @@ function createWindow() {
               });
             }
             const [initialCapabilities, healthResponse, ownerMutationResponse] = await Promise.all([
-              window.ogb.getCapabilities(),
+              window.colonie.getCapabilities(),
               fetch("/api/health"),
               fetch("/api/auth/stream-ticket", { method: "POST" }),
             ]);
@@ -1766,8 +1765,8 @@ function createWindow() {
                 throw new Error("CUA was not ready before the simulated crash");
               }
               cuaCrashReason = await crashPromise;
-              cuaRetryStatus = await window.ogb.localControl.retry();
-              capabilities = await window.ogb.getCapabilities();
+              cuaRetryStatus = await window.colonie.localControl.retry();
+              capabilities = await window.colonie.getCapabilities();
             }
             return {
               initialCapabilities,
@@ -2228,11 +2227,6 @@ const updaterPageAllowed = event => senderIsLocal(event)
   && workspaceSenderAllowed(event, mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null, environmentsState, rendererOrigin());
 // ── end this app's own page ──
 
-const savedWorkspace = id => {
-  const env = environmentsState.environments.find(entry => entry.id === id);
-  if (!env) throw new Error("This server is no longer connected");
-  return env;
-};
 // window.confirm() has no parent window, so window managers (notably tiling
 // ones on Linux) can't center it — it lands at a default screen origin
 // instead of over the app. Route renderer confirms through the main process
@@ -2438,9 +2432,7 @@ app.whenReady().then(async () => {
       // Acquire before either plaintext credential migration reads or writes
       // config.json. The parent retains ownership across utility-child port
       // fallbacks and restarts for the entire desktop process lifetime.
-      desktopDataDirLease = acquireDataDirLease(desktopDataDir(), {
-        legacyDataDir: process.env.COLONIE_PROFILE === "1" ? undefined : path.join(app.getPath("home"), ".colonie"),
-      });
+      desktopDataDirLease = acquireDataDirLease(desktopDataDir());
     } catch (error) {
       dialog.showErrorBox(
         "Colonie could not start safely",
@@ -2596,9 +2588,13 @@ app.whenReady().then(async () => {
   // local app is usable. This background network work never gates LAN pairing
   // or the first window.
   if (hostedAccount) void hostedAccount.restore().catch(() => {});
-  // in-app auto-update (packaged only) — checks GitHub releases and downloads
-  // by itself; only "Restart to update", the person's click, installs
-  if (process.env.COLONIE_PROFILE !== "1") startUpdater();
+  // In-app auto-update (packaged only) — checks GitHub releases and downloads
+  // by itself; only "Restart to update", the person's click, installs.
+  // This fork is a local-only macOS app with no release channel of its own: a
+  // packaged build's app-update.yml is inferred from package.json's repository,
+  // so checking would poll a foreign GitHub feed. Point the shipped macOS app
+  // at nothing; the retained Linux/Windows packaging keeps its updater.
+  if (process.platform !== "darwin" && process.env.COLONIE_PROFILE !== "1") startUpdater();
   refreshApplicationMenu();
   app.on("activate", () => {
     if (desktopTray?.show()) return;

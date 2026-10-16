@@ -160,7 +160,7 @@ done without evidence, and do not hand them a decision they have already made.
 | | |
 |---|---|
 | Repo | `https://github.com/hanifstudio/colonie` (private, remote `colonie`) |
-| `origin` | still upstream `milind-soni/Colonie` — leave it alone |
+| `origin` | still upstream `hanifstudio/Colonie` — leave it alone |
 | VPS | `ssh colonie-vps` (root@172.104.33.55, key `~/.ssh/id_ed25519_akamai`) |
 | Host | Ubuntu 24.04.4, x86_64, 8 GB, 4 vCPU, 146 GB free |
 | On the VPS | app at `/opt/colonie/app`, data at `/opt/colonie/data`, user `colonie` |

@@ -185,9 +185,9 @@ files. The new ACP selection, Pi extension and capacity cleanup suites passed
 on Windows without a cleanup warning. The existing ACP suite's temporary-home
 cleanup warning also occurs in the unchanged-production baseline.
 
-[Feature draft #2101](https://github.com/milind-soni/Colonie/pull/2101)
+[Feature draft #2101](https://github.com/hanifstudio/colonie/pull/2101)
 keeps those prerequisites out of its diff. Maintainer preflight repair #2088 and
-[Windows cleanup draft #2100](https://github.com/milind-soni/Colonie/pull/2100)
+[Windows cleanup draft #2100](https://github.com/hanifstudio/colonie/pull/2100)
 must land before the clean feature branch can have green upstream CI. The
 cleanup candidate's exact-head full fork CI also passed all 26 checks; its one
 unchanged network-fixture failure and focused rerun are disclosed in that PR.

@@ -11,20 +11,20 @@ import type { FeatureFlagConfig } from "@/lib/feature-flags";
 // effect would have reached (it never runs here).
 const fixture = vi.hoisted(() => {
   const view = { current: "computer" as string };
-  const ogb: Record<string, unknown> = {};
-  vi.stubGlobal("window", { ogb });
+  const colonie: Record<string, unknown> = {};
+  vi.stubGlobal("window", { colonie });
   vi.stubGlobal("document", { visibilityState: "visible" });
   vi.stubGlobal("localStorage", { getItem: (key: string) => key.startsWith("colonie-computer-panel-view") ? view.current : null, setItem: () => {} });
   return {
     advanced: false,
     view,
-    ogb,
+    colonie,
     platform: "darwin" as "darwin" | "win32" | "linux",
     values: [] as unknown[],
     index: 0,
     own: 0,
     seed: {} as Record<string, unknown>,
-    config: {} as FeatureFlagConfig & { cloudHome?: boolean },
+    config: {} as FeatureFlagConfig,
     instances: [] as InstanceInfo[],
     android: false,
     dispatch: (() => {}) as (...args: unknown[]) => void,
@@ -182,7 +182,7 @@ beforeEach(() => {
   fixture.api = vi.fn(() => Promise.resolve({ features: { browser: true } }));
   fixture.setAdvancedMode = vi.fn();
   fixture.ownerOrAdmin = null;
-  for (const key of Object.keys(fixture.ogb)) delete fixture.ogb[key];
+  for (const key of Object.keys(fixture.colonie)) delete fixture.colonie[key];
 });
 
 describe("Computer panel tabs", () => {
@@ -453,7 +453,7 @@ describe("Technical controls", () => {
   });
 
   it("hides two desktops and Delete VM in Simple, keeps them in Advanced", () => {
-    fixture.ogb.desktopWorkspace = {};
+    fixture.colonie.desktopWorkspace = {};
     fixture.seed = {
       phase: "vm",
       resolved: { botId: "scout", threadId: "thread-scout", computer: "vm" },

@@ -84,7 +84,7 @@ export interface WebhookManagerOptions {
    *  any future explicit-reset entry point. Absent (a host with no task
    *  creation support) makes every `post` delivery fail with 503 instead
    *  of silently falling back to a shared/ambient thread -- see
-   *  https://github.com/milind-soni/Colonie/issues/2071. */
+   *  https://github.com/hanifstudio/colonie/issues/2071. */
   resolvePostThread?: (trigger: WebhookTrigger, forceNew: boolean) => string | undefined;
   /** The execution store commits this identity together with the queued run. */
   findRun?: (webhookId: string, deliveryId: string) => { id: string } | null;

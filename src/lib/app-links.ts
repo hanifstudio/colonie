@@ -2,9 +2,8 @@
 // About dialog. They are collected here so "where does Help go?" has one
 // answer rather than one per call site.
 export const APP_NAME = "Colonie";
-export const APP_REPOSITORY = "https://github.com/milind-soni/Colonie";
-/** The docs tree is the help centre, and it is where colonie.com sends
- * people too — one destination, not two competing ones. */
+export const APP_REPOSITORY = "https://github.com/hanifstudio/colonie";
+/** The docs tree is the help centre: one destination, not two competing ones. */
 export const DOCS_URL = `${APP_REPOSITORY}/tree/main/docs`;
 export const HELP_CENTER_URL = DOCS_URL;
 export const APPROVAL_LEVELS_URL = `${APP_REPOSITORY}/blob/main/docs/approval-levels.md`;
@@ -13,12 +12,8 @@ export const APPROVAL_LEVELS_URL = `${APP_REPOSITORY}/blob/main/docs/approval-le
  * Discord in minutes instead of sitting open as an issue. */
 export const FEEDBACK_URL = "https://discord.gg/9Wb8MEpXRs";
 export const RELEASES_URL = `${APP_REPOSITORY}/releases`;
-export const PRO_URL = "https://www.colonie.com/pro";
-/** Every COLONIE Cloud plan side by side (Personal, Pro, Max). */
-export const PRICING_URL = "https://www.colonie.com/pricing";
 export const LICENSE_URL = `${APP_REPOSITORY}/blob/main/LICENSE`;
-/** The phone apps, the same two links colonie.com (lib/config.ts) and the
- * Cloud page offer. iOS is on the App Store, listed as "Colonie". Android is
+/** The phone apps: iOS is on the App Store, listed as "Colonie". Android is
  * an APK attached to a GitHub release: the link names a version, so a new
  * Android release updates it here too. */
 export const IOS_APP_STORE_URL = "https://apps.apple.com/in/app/colonie/id6803387923";
@@ -45,8 +40,8 @@ export function platformLabel(platform?: string): string | null {
 /** Hands a link to the default browser through the preload bridge, falling
  * back to a new tab when the app runs in a plain browser. */
 export async function openExternalLink(url: string): Promise<void> {
-  if (window.ogb?.openExternal) {
-    await window.ogb.openExternal(url);
+  if (window.colonie?.openExternal) {
+    await window.colonie.openExternal(url);
     return;
   }
   window.open(url, "_blank", "noopener,noreferrer");

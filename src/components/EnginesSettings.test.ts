@@ -211,7 +211,7 @@ describe("Settings → Engines → setup cards", () => {
     expect(saved).not.toContain("OpenAI needs an API key");
 
     // A remote client cannot reach this server's key settings.
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true } } });
     const remote = renderToStaticMarkup(createElement(EnginesSettings));
     expect(remote).toContain("open Settings → API keys on the computer running Colonie");
     expect(remote).not.toContain("Change key");

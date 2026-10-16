@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState, Bot } from "@/state/store";
 
-const fixture = vi.hoisted(() => ({ liveConfigured: true, liveCall: null as AppState["liveCall"], cloudHome: false }));
+const fixture = vi.hoisted(() => ({ liveConfigured: true, liveCall: null as AppState["liveCall"] }));
 vi.mock("@/state/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/state/store")>();
   return {
@@ -18,7 +18,6 @@ vi.mock("@/state/store", async (importOriginal) => {
         config: {
           tts: { configured: true, ready: true, voice: "v" },
           live: { configured: fixture.liveConfigured, voice: "marin", readTypedReplies: true, idleMinutes: 5 },
-          cloudHome: fixture.cloudHome,
         } as AppState["config"],
       },
       dispatch: vi.fn(),
@@ -78,8 +77,7 @@ function pressPhone(onStart: (mode: CallMode) => void) {
 beforeEach(() => {
   fixture.liveConfigured = true;
   fixture.liveCall = null;
-  fixture.cloudHome = false;
-  vi.stubGlobal("window", { ogb: { speechStart: vi.fn(), speechStop: vi.fn(async () => {}) } });
+  vi.stubGlobal("window", { colonie: { speechStart: vi.fn(), speechStop: vi.fn(async () => {}) } });
   // the microphone prompt never answers: a Live call stays "starting"
   configureLiveMedia({ getUserMedia: () => new Promise<MediaStream>(() => {}) });
 });
@@ -165,19 +163,16 @@ describe("the call button", () => {
       ["allowed", "Allow microphone access for this app in your computer's privacy settings"],
       ["refused", "Open it in your web browser to make the Live call."],
     ] as const) {
-      for (const cloudHome of [true, false]) {
-        resetLiveMedia();
-        fixture.cloudHome = cloudHome;
-        configureLiveMedia({
-          getUserMedia: async () => { throw new DOMException("denied", "NotAllowedError"); },
-          capabilities: () => ({ dictation: { available: false, engine: "none", onDevice: false, reasonCode: "remote-server" } }) as DesktopCapabilities,
-          pageMicrophone: async () => pageMic,
-        });
-        setCallMode("live");
-        pressPhone(vi.fn());
-        await vi.waitFor(() => expect(liveMedia().phase).toBe("failed"));
-        expect(liveMedia().notice, `${pageMic} cloudHome=${cloudHome}`).toContain(notice);
-      }
+      resetLiveMedia();
+      configureLiveMedia({
+        getUserMedia: async () => { throw new DOMException("denied", "NotAllowedError"); },
+        capabilities: () => ({ dictation: { available: false, engine: "none", onDevice: false, reasonCode: "remote-server" } }) as DesktopCapabilities,
+        pageMicrophone: async () => pageMic,
+      });
+      setCallMode("live");
+      pressPhone(vi.fn());
+      await vi.waitFor(() => expect(liveMedia().phase).toBe("failed"));
+      expect(liveMedia().notice, pageMic).toContain(notice);
     }
   });
 
@@ -210,12 +205,9 @@ describe("the call mode menu", () => {
     expect(items[1]).toMatch(/^ aria-checked="true"/);
   });
 
-  it("says where the OpenAI key stays: this computer, or the person's Cloud", () => {
+  it("says where the OpenAI key stays: this computer", () => {
     const props = { id: "m", mode: "live" as const, onChoose: vi.fn(), onClose: vi.fn() };
     expect(renderToStaticMarkup(createElement(CallModeMenu, props))).toContain("The OpenAI key stays on your computer.");
-    const cloud = renderToStaticMarkup(createElement(CallModeMenu, { ...props, cloudHome: true }));
-    expect(cloud).toContain("The OpenAI key stays on My Cloud.");
-    expect(cloud).not.toContain("stays on your computer");
   });
 
   // Off the Mac's own page, Take turns stays in the menu so the person sees

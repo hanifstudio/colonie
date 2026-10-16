@@ -45,7 +45,7 @@ function callAtlas() {
 
 beforeEach(() => {
   fixture.bots = [atlas];
-  vi.stubGlobal("window", { ogb: { speechStop: vi.fn(async () => {}) } });
+  vi.stubGlobal("window", { colonie: { speechStop: vi.fn(async () => {}) } });
 });
 afterEach(() => {
   resetLiveMedia();

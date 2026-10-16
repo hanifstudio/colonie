@@ -103,7 +103,7 @@ describe("Settings → Appearance", () => {
   });
 
   it("keeps the Advanced mode switch reachable from a paired remote client", () => {
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true } } });
     expect(render()).toContain('aria-label="Advanced mode"');
   });
 
@@ -207,7 +207,7 @@ describe("Settings → Appearance", () => {
   });
 
   it("makes local appearance available remotely without exposing server settings", () => {
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true } } });
     const html = render();
     expect(html).toContain('<option value="appearance" selected="">Appearance</option>');
     expect(html).toContain('<option value="companion">Remote access</option>');

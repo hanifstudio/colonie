@@ -79,7 +79,7 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
   };
   const permission = async (threadId: string, requestId: string) => {
     const launched = await dump(threadId);
-    const socket = connect(launched.mcpConfig.mcpServers.ogb.args.at(-1));
+    const socket = connect(launched.mcpConfig.mcpServers.colonie.args.at(-1));
     sockets.push(socket);
     await new Promise<void>((resolve, reject) => {
       socket.once("connect", resolve);

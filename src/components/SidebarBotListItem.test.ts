@@ -208,7 +208,7 @@ describe("BotListItem", () => {
   it("marks the bot this window is on a Live call with by a green phone badge", () => {
     expect(renderRow(bot())).not.toContain('data-testid="live-call-badge"');
 
-    vi.stubGlobal("window", { ogb: { speechStop: vi.fn(async () => {}) } });
+    vi.stubGlobal("window", { colonie: { speechStop: vi.fn(async () => {}) } });
     // the microphone prompt never answers: the call stays "starting"
     configureLiveMedia({ getUserMedia: () => new Promise<MediaStream>(() => {}) });
     void startLiveCall({ botId: "atlas", threadId: "thread-atlas" });

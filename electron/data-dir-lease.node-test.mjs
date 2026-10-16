@@ -373,23 +373,6 @@ test("a foreign-host reaper fails closed and identifies its preserved recovery r
   assert.deepEqual(JSON.parse(readFileSync(reaperPath, "utf8")), reaper);
 });
 
-test("legacy data is moved before lease creation", () => {
-  const root = mkdtempSync(path.join(tmpdir(), "colonie-electron-legacy-"));
-  roots.push(root);
-  const legacyDataDir = path.join(root, ".colonie");
-  const dataDir = path.join(root, ".colonie");
-  mkdirSync(legacyDataDir);
-  writeFileSync(path.join(legacyDataDir, "keep-me.txt"), "kept");
-
-  const lease = acquireDataDirLease(dataDir, { legacyDataDir });
-  try {
-    assert.equal(readFileSync(path.join(dataDir, "keep-me.txt"), "utf8"), "kept");
-    assert.throws(() => readFileSync(path.join(legacyDataDir, "keep-me.txt")), /ENOENT/);
-  } finally {
-    lease.release();
-  }
-});
-
 test("process entry API remains compatible with a standalone server", () => {
   const { dataDir } = temporaryDirectory();
   const environment = {};

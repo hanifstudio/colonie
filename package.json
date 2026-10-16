@@ -8,10 +8,7 @@
     "type": "git",
     "url": "https://github.com/hanifstudio/colonie.git"
   },
-  "author": {
-    "name": "Milind Soni",
-    "email": "46266943+milind-soni@users.noreply.github.com"
-  },
+  "author": "Colonie contributors",
   "license": "Apache-2.0",
   "desktopName": "com.colonie.desktop",
   "type": "module",

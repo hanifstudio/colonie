@@ -29,7 +29,7 @@ export function ChatGptPlanStatus({ instanceId }: { instanceId: string }) {
     <div data-chatgpt-plan-status className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-secondary">
       <span>{t("engineSetup.chatgpt.using")}</span>
       <a href={CHATGPT_USAGE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline" onClick={(event) => {
-        if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
+        if (window.colonie?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
       }}>{t("engineSetup.chatgpt.manageUsage")}<HIcon icon={SquareArrowUpRightIcon} size={11} /></a>
     </div>
     {!acknowledged && <dialog ref={dialog} data-chatgpt-plan-welcome aria-labelledby={titleId} className="m-auto w-[min(420px,calc(100vw-32px))] rounded-2xl border border-hairline bg-panel p-6 text-ink shadow-2xl backdrop:bg-black/50" onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }} onCancel={(event) => { event.preventDefault(); dismiss(); }}>

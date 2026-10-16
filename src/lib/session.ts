@@ -7,15 +7,13 @@ export interface EnvironmentDescriptor {
   label: string;
   platform: string;
   version: string;
-  capabilities: { remoteSessions: true; selfUpdate: "desktop-managed" | "operator"; emailSignIn?: boolean; sharedComputers?: true; cloudHome?: true };
+  capabilities: { remoteSessions: true; selfUpdate: "desktop-managed" | "operator"; emailSignIn?: boolean; sharedComputers?: true };
 }
 
 export type SessionState =
   // `service`: a shared server that does not treat this machine as its owner
   | { kind: "loopback"; trust?: "service" }
-  // `cloudGuest`: on an COLONIE Cloud home, a device that is not one of the
-  // owner's own; it writes only in `openedThreads`, the conversations it opened.
-  | { kind: "session"; id: string; label: string; scopes: string[]; expiresAt: number; cloudGuest?: true; openedThreads?: string[] }
+  | { kind: "session"; id: string; label: string; scopes: string[]; expiresAt: number }
   | { kind: "unauthenticated"; error: string }
   | { kind: "unreachable"; error: string };
 
@@ -41,10 +39,6 @@ export async function readSessionState(fetchImpl: typeof fetch = fetch): Promise
       label: typeof record.label === "string" ? record.label : "",
       scopes: Array.isArray(record.scopes) ? record.scopes.filter((s): s is string => typeof s === "string") : [],
       expiresAt: typeof record.expiresAt === "number" ? record.expiresAt : 0,
-      ...(record.cloudGuest === true ? {
-        cloudGuest: true as const,
-        openedThreads: Array.isArray(record.openedThreads) ? record.openedThreads.filter((id): id is string => typeof id === "string") : [],
-      } : {}),
     };
   }
   return record.trust === "service" ? { kind: "loopback", trust: "service" } : { kind: "loopback" };
@@ -86,7 +80,7 @@ export function takeBrowserSignInFromLocation(): string | null {
 }
 
 /** What the pair page says when that sign-in could not be used. */
-export const BROWSER_SIGN_IN_FAILED = "This sign-in link has expired or was already used. On My Cloud, choose “Use in your browser” again.";
+export const BROWSER_SIGN_IN_FAILED = "This sign-in link has expired or was already used. Choose “Use in your browser” again.";
 
 /** The invited address carried on a pair link (`/pair?email=…`): prefilled
  * on the sign-in page and dropped from the address bar. Never trusted on
@@ -160,13 +154,6 @@ export async function previewBrowserSignIn(credential: string, fetchImpl: typeof
  * on a retry after a lost answer returns the same session. */
 export function signInWithBrowserGrant(credential: string, attemptId: string, fetchImpl: typeof fetch = fetch): Promise<{ ok: true } | { ok: false; error: string }> {
   return pairWithCode({ code: credential, label: defaultDeviceLabel(), attemptId, browser: true }, fetchImpl);
-}
-
-/** Whose COLONIE Cloud this browser signed in to, from `GET /api/auth/session`:
- * only a browser sign-in's session on a Cloud home says. */
-export function cloudOwnerOf(session: unknown): string | null {
-  const record = Object(session) as { cloudHome?: unknown; owner?: unknown }; // SAFETY: read with typeof checks below
-  return record.cloudHome === true && typeof record.owner === "string" && record.owner ? record.owner : null;
 }
 
 /** Server-side JSON exchanges that end in a session cookie. */

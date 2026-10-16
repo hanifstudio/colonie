@@ -15,7 +15,7 @@ vi.mock("@/lib/mcp-servers", async (importOriginal) => ({
   useMcpServers: () => ({ servers: fixture.servers, error: fixture.mcpError, refresh: vi.fn() }),
 }));
 
-// DesktopCapabilities reads `window.ogb` at module scope for its context
+// DesktopCapabilities reads `window.colonie` at module scope for its context
 // default; the src test suite runs under vitest's "node" environment (no
 // window), so it must be stubbed the same way SidebarBotListItem.test.ts does.
 vi.mock("../DesktopCapabilities", () => ({
@@ -24,7 +24,7 @@ vi.mock("../DesktopCapabilities", () => ({
 
 const { AccessSection } = await import("./AccessSection");
 
-// WorkingFolder (moved into this file) reads window.ogb?.pickFolder directly
+// WorkingFolder (moved into this file) reads window.colonie?.pickFolder directly
 // at render time, same "node" environment gap as above — stub per test, the
 // way desktop.test.ts and EngineUpdateNotice.test.ts do.
 beforeEach(() => { vi.stubGlobal("window", {}); fixture.dispatch.mockReset(); fixture.mcpError = false; fixture.servers = null; fixture.config = null; });

@@ -114,7 +114,7 @@ export function DeviceSignInProgress({ auth, browserPkce = false, provider = "co
         </button>
       </div></>}
       <a href={link} target="_blank" rel="noopener noreferrer" onClick={(event) => {
-        if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(link); }
+        if (window.colonie?.openExternal) { event.preventDefault(); void openExternalLink(link); }
       }} className={browserPkce ? chatgptButton : "flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[12.5px] font-semibold text-white hover:brightness-110"}>
         {browserPkce && <CodexMark size={16} className="fill-current" />}
         {t(browserPkce ? "engineSetup.chatgpt.start" : copy.open)} <HIcon icon={SquareArrowUpRightIcon} size={13} />

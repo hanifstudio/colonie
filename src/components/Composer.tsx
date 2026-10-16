@@ -141,7 +141,7 @@ export function Composer({
   // Simple leaves where a conversation works to its bot's Works on (Auto by
   // default); pinning a place per conversation is an Advanced control.
   const advanced = useAdvancedMode();
-  const remoteClient = window.ogb?.remoteClient?.active === true;
+  const remoteClient = window.colonie?.remoteClient?.active === true;
   // Unified target: a 1:1 bot thread or a room. In a room the @ picker
   // offers members plus @everyone; explicit mentions override the room's
   // configured default responder.
@@ -530,7 +530,7 @@ export function Composer({
   const approvalEngine = modeBot
     ? state.instances.find((instance) => instance.instanceId === modeBot.modelSelection.instanceId)
     : undefined;
-  const trustedThreadAccess = Boolean(!remoteClient && window.ogb?.approvals && capabilities.host.packaged);
+  const trustedThreadAccess = Boolean(!remoteClient && window.colonie?.approvals && capabilities.host.packaged);
   const uploadImage = useCallback(async (file: File): Promise<Attachment | null> => {
     const optimistic = optimisticImageAttachment(file);
     if (!optimistic) return null;
@@ -760,7 +760,7 @@ export function Composer({
   // helper runs; the final transcript stays in the box, ready to edit/send
   useEffect(() => {
     if (!recording) return;
-    const bridge = window.ogb;
+    const bridge = window.colonie;
     if (!bridge) {
       setRecording(false);
       return;
@@ -795,7 +795,7 @@ export function Composer({
   }, [recording, editText]);
 
   const toggleMic = () => {
-    if (!capabilities.dictation.available || !window.ogb) {
+    if (!capabilities.dictation.available || !window.colonie) {
       setSpeechError(t("composer.dictation.unavailable"));
       return;
     }

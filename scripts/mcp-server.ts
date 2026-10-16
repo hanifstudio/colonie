@@ -71,7 +71,7 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
     if (response.status === 403 && !process.env.COLONIE_TOKEN?.trim()) {
       throw new Error(
         "Colonie refused this write because the installed desktop app requires a paired session token. " +
-        "Set COLONIE_TOKEN as described in docs/mcp-server.md.",
+        "Set COLONIE_TOKEN to the paired session token shown by the installed desktop app.",
       );
     }
     throw new Error(`Colonie API error (${response.status}): ${text || response.statusText}`);

@@ -51,23 +51,4 @@ describe("Settings → Connections", () => {
     expect(html.indexOf("data-opencode-provider-keys")).toBeGreaterThan(opencode);
     expect(html).toContain("Keys for other OpenCode providers");
   });
-
-  // A Cloud owner has no terminal there: the terminal command would be a dead
-  // end, and the keys for other OpenCode providers are the way on.
-  it("sends nobody on a Cloud to a terminal, only to the keys for other providers", async () => {
-    const { configStatusFromFrame } = await import("@/state/store");
-    fixture.config = configStatusFromFrame({
-      composio: { configured: false },
-      rooms: { turnTimeoutMinutes: 10 },
-      mcp: { callTimeoutMinutes: 10 },
-      localVm: { mode: "shared", maxInstances: 1 },
-      cloudHome: true,
-    });
-    const { SettingsModal } = await import("./SettingsModal");
-    const html = renderToStaticMarkup(createElement(SettingsModal));
-    expect(html).toContain("OpenCode API key");
-    expect(html).not.toContain("opencode auth login");
-    expect(html).not.toContain("More providers for OpenCode bots");
-    expect(html).toContain("Keys for other OpenCode providers");
-  });
 });

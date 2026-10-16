@@ -126,11 +126,6 @@ describe("the places a conversation can be pinned to", () => {
   it("reaches this computer and a Local VM on a desktop or self-hosted server", () => {
     expect(availability()).toMatchObject({ vm: true, local: true });
   });
-
-  it("never reaches them on an COLONIE Cloud home", () => {
-    fixture.config = { cloudHome: true };
-    expect(availability()).toMatchObject({ vm: false, local: false });
-  });
 });
 
 describe("J11: the chip names a place's problem in the panel's words", () => {

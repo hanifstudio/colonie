@@ -1765,7 +1765,7 @@ export function RoutinesPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const advanced = useAdvancedMode();
-  const routinesOnly = window.ogb?.remoteClient?.active === true;
+  const routinesOnly = window.colonie?.remoteClient?.active === true;
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const [section, setSection] = useState<"calendar" | "logs" | "webhooks">(state.routinesFocus?.section === "logs" ? "logs" : "calendar");
   const [layout, setLayout] = useState<RoutinesLayout>(state.routinesFocus?.view === "list" ? "list" : "week");
@@ -2044,7 +2044,7 @@ export function RoutinesPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
  * routine fires; the shell holds a power assertion for the hour before a
  * due routine and while one runs, plugged in only, and this row shows it. */
 function RoutineWakeBar() {
-  const bridge = typeof window !== "undefined" ? window.ogb?.routines : undefined;
+  const bridge = typeof window !== "undefined" ? window.colonie?.routines : undefined;
   const [state, setState] = useState<DesktopRoutineWake | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {

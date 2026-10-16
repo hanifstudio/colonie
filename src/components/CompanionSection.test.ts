@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CompanionAccountState } from "../types/ogb";
+import type { CompanionAccountState } from "../types/colonie";
 import {
   companionStateRefreshIsCurrent,
   mutateCompanionBridgeState,

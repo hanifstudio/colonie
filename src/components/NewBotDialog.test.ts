@@ -55,7 +55,7 @@ describe("bot draft dialog", () => {
     fixture.admin = false;
     expect(render().html).not.toContain("Who can see it");
     fixture.admin = true;
-    vi.stubGlobal("window", { ogb: {} });
+    vi.stubGlobal("window", { colonie: {} });
     expect(render().html).not.toContain("Who can see it");
   });
   it.each([false, true])("closes after a successful creation when its caller fails (async=%s)", async asyncFailure => {
@@ -86,7 +86,7 @@ describe("bot draft dialog", () => {
     expect(first.focus).not.toHaveBeenCalled();
   });
   it("keeps companion creation on its permitted single-request path", () => {
-    vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
+    vi.stubGlobal("window", { colonie: { remoteClient: { active: true } } });
     const routed = RoutedNewBotDialog();
     expect(routed.type).toBe(CompanionNewBotDialog);
     let tree!: ReturnType<typeof CompanionNewBotDialog>;

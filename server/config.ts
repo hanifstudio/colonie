@@ -20,7 +20,6 @@ import { isRemoteMcpServer, parseStoredMcpServer } from "./mcp-registry.ts";
 import { parseJson, schemaIssue, type JsonObject, type JsonValue } from "./schema.ts";
 
 const optionalText = z.string().optional();
-const SSH_ALIAS = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const LEGACY_BROWSER_PROFILE_ID = /^[A-Za-z0-9_-]{1,40}$/;
 const BROWSER_PROFILE_ID = /^[a-z0-9_-]{1,40}$/;
 
@@ -59,10 +58,6 @@ export const DEFAULT_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 480;
 export const MIN_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 5;
 export const MAX_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 1_440;
 
-export function isValidSshAlias(value: unknown): value is string {
-  return typeof value === "string" && SSH_ALIAS.test(value);
-}
-
 const CDP_PORT = /^[0-9]{1,5}$/;
 const CDP_URL = /^(https?|wss?):\/\/\S+$/i;
 
@@ -77,25 +72,6 @@ export function isValidCdpTarget(value: unknown): value is string {
   return CDP_URL.test(value);
 }
 
-/** Keep the persisted VPS shape deliberately smaller than an SSH connection. */
-export function normalizeVpsConfig(raw: unknown): { sshAlias?: string } {
-  if (raw === undefined || raw === null) return {};
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("vps must be an object containing an SSH config alias");
-  }
-  const alias = (raw as Record<string, unknown>).sshAlias;
-  if (alias === undefined || alias === "") return {};
-  if (!isValidSshAlias(alias)) {
-    throw new Error("vps.sshAlias must be a simple SSH config alias (letters, numbers, dot, dash, or underscore)");
-  }
-  return { sshAlias: alias };
-}
-
-const vpsConfigSchema = z.object({
-  sshAlias: z.string().refine((value) => value === "" || isValidSshAlias(value), {
-    message: "must be a simple SSH config alias",
-  }).optional(),
-});
 /** Attach a bot's browser to a Chrome the operator already has running,
  * instead of agent-browser spawning its own (#1396). Deliberately a
  * server-owned config field, not an env-var passthrough: the ambient
@@ -476,7 +452,6 @@ const appConfigSchema = z.object({
   /** Historical config section name "box" (the persisted config.json key); the
    * provider is Boat now and the key is kept for compatibility. */
   box: z.object({ token: optionalText }).optional(),
-  vps: vpsConfigSchema.optional(),
   /** Optional OpenCode key; persisted write-only and passed only to its child.
    * `providerKeys`: keys for OpenCode's other providers (Venice, Groq…) by the
    * environment name OpenCode reads, also write-only and only for its child.
@@ -634,8 +609,6 @@ export interface AppConfig {
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
   /** Persisted under the historical config key "box" (ascii.dev renamed Box to Boat). */
   box?: { token?: string };
-  /** A named host from the user's SSH config. Authentication stays with SSH. */
-  vps?: { sshAlias?: string };
   opencodeGo?: { apiKey?: string; providerKeys?: Record<string, string> };
   tts?: { key?: string; fishKey?: string; voice?: string; provider?: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai"; baseUrl?: string; model?: string; fishModel?: FishTtsModel };
   /** The decision model; see the schema above and server/decider. */
@@ -769,14 +742,10 @@ export function parseConfigPatch(value: JsonValue): ConfigPatch {
   return parsed.data;
 }
 
-export function vpsSshAlias(cfg: AppConfig): string | null {
-  return isValidSshAlias(cfg.vps?.sshAlias) ? cfg.vps.sshAlias : null;
-}
-
-/** Read-and-revalidate accessor, same shape as vpsSshAlias above: even
- * though loadConfig()/parseStoredConfig() already schema-validate this
- * field, callers that forward it into a child process environment get a
- * second, cheap guarantee rather than trusting a hand-edited config.json. */
+/** Read-and-revalidate accessor: even though loadConfig()/
+ * parseStoredConfig() already schema-validate this field, callers that
+ * forward it into a child process environment get a second, cheap guarantee
+ * rather than trusting a hand-edited config.json. */
 export function browserEngineAttachCdpUrl(cfg: AppConfig): string | null {
   return isValidCdpTarget(cfg.browserEngine?.attachCdpUrl) ? cfg.browserEngine.attachCdpUrl : null;
 }
@@ -944,7 +913,6 @@ export const FLEET_NEUTRAL_KEYS: ReadonlySet<string> = new Set([
   "decider",
   "imageGen",
   "live",
-  "vps",
   "rooms",
   "threads",
   "automaticRecovery",
@@ -1388,7 +1356,6 @@ export function saveConfig(
     }
     disk[key] = merged;
   }
-  if (checkedPatch.vps !== undefined) disk.vps = normalizeVpsConfig(checkedPatch.vps);
   // scalar, not a section: the merge loop above only walks objects
   if (checkedPatch.language !== undefined) disk.language = checkedPatch.language;
   if (checkedPatch.customDomain !== undefined) disk.customDomain = checkedPatch.customDomain;

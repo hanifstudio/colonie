@@ -49,7 +49,7 @@ import {
   type PhonePairingAttemptLock,
   type PhonePairingAttemptQueue,
 } from "../lib/phone-setup";
-import type { CompanionAccountState } from "../types/ogb";
+import type { CompanionAccountState } from "../types/colonie";
 import { ConnectionDetail } from "./ConnectionDetail";
 import { brand } from "../lib/brand";
 
@@ -98,7 +98,7 @@ export type CompanionBridge = {
   revoke: (deviceId: string) => Promise<CompanionState>;
 };
 
-type AccountBridge = NonNullable<NonNullable<Window["ogb"]>["companionAccount"]>;
+type AccountBridge = NonNullable<NonNullable<Window["colonie"]>["companionAccount"]>;
 type StateBridge<T> = { state: () => Promise<T> };
 // functions, not constants: a message resolved at import time would keep the
 // language the app booted in
@@ -118,11 +118,11 @@ interface PhonePairingRequest {
 
 export const companionBridge = (): CompanionBridge | null =>
   // SAFETY: the preload owns this narrow bridge; browser builds are guarded by the optional lookup.
-  (globalThis as { ogb?: { companion?: CompanionBridge } }).ogb?.companion ?? null;
+  (globalThis as { colonie?: { companion?: CompanionBridge } }).colonie?.companion ?? null;
 
 export const companionAccountBridge = (): AccountBridge | null =>
   // SAFETY: Electron exposes only these account operations and never sends credentials to the renderer.
-  (globalThis as { ogb?: { companionAccount?: AccountBridge } }).ogb?.companionAccount ?? null;
+  (globalThis as { colonie?: { companionAccount?: AccountBridge } }).colonie?.companionAccount ?? null;
 
 export const loadCompanionBridgeState = async (
   companion: StateBridge<CompanionState> | null,
