@@ -95,21 +95,6 @@ await build({
   logLevel: "info",
 });
 
-// `serve --tunnel` downloads cloudflared on first use by running the same
-// pinned-digest script the release build uses, as its own process (it runs
-// itself when executed directly, so it must never be inlined into another
-// entry).
-await build({
-  entryPoints: [join(root, "scripts", "prepare-cloudflared.mjs")],
-  bundle: true,
-  platform: "node",
-  target: "node20",
-  format: "esm",
-  outfile: join(root, "dist-server", "prepare-cloudflared.js"),
-  allowOverwrite: true,
-  logLevel: "info",
-});
-
 // The packaged desktop forks this bootstrap rather than index.js
 // (electron/server-child-launch.mjs): it turns on Node's compile cache for the
 // server process, then imports index.js beside it. Copied, not bundled:

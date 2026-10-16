@@ -26,10 +26,6 @@ extraResources:
     to: codex-acp/node_modules/@openai/codex-darwin-${arch}
   - from: dist-colonie/claude-acp
     to: claude-acp
-  - from: LICENSE
-    to: licenses/Colonie-LICENSE.txt
-  - from: NOTICE
-    to: licenses/Colonie-NOTICE.txt
   - from: third_party/bloub/LICENSE
     to: licenses/Bloub-LICENSE.txt
   - from: third_party/bloub/PROVENANCE.md

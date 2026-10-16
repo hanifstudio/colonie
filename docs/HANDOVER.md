@@ -52,9 +52,10 @@ ahead of `origin/main`, so requiring `CI` now would block pushes to `main` until
 suite is green. Creating the ruleset waits for an explicit owner go-ahead.
 
 M0, E01.2, and the documentation clean slate are committed; see PROGRESS
-"landing". Still uncommitted on purpose: the concurrent approval-mode work and the
-deletion of `LICENSE`, `NOTICE`, and `LICENSING.md` (needs an owner decision now
-that the repository is public).
+"landing". The owner then removed the inherited `LICENSE`, `NOTICE`, and `LICENSING.md`
+and the unused cloudflared bundle (no runtime caller; its license copy was the
+root `LICENSE`). Packaging was not run locally; the first package/release run is
+its proof. `package.json` still declares `"license": "Apache-2.0"`.
 
 Next action: E02 first slice — inspect `server/config.ts` and
 `server/message-db.ts`, pick one store/connection boundary that reads global

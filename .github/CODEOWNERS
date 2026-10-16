@@ -1,8 +1,6 @@
-# Maintainer review is required on the edition hook and the licensing files.
+# Maintainer review is required on the edition hook and the workflows.
 # Enforced when the ruleset requires code-owner review.
 /server/enterprise.ts           @hanifstudio
 /server/enterprise.test.ts      @hanifstudio
 /server/brand.ts                @hanifstudio
-/LICENSE                        @hanifstudio
-/LICENSING.md                   @hanifstudio
 /.github/                       @hanifstudio

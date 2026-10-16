@@ -50,18 +50,6 @@ files:
 asar: true
 
 extraResources:
-  # Ship the app's own license terms in every desktop distribution.
-  - from: LICENSE
-    to: licenses/Colonie-LICENSE.txt
-  - from: NOTICE
-    to: licenses/Colonie-NOTICE.txt
-  # cloudflared is distributed under Apache-2.0 as a separate executable.
-  # Colonie itself uses the same full license text; ship another named
-  # copy so the third-party executable's terms remain unambiguous.
-  - from: LICENSE
-    to: licenses/cloudflared-LICENSE.txt
-  - from: third_party/cloudflared/README.md
-    to: licenses/cloudflared-README.md
   - from: third_party/hpke-js/core-LICENSE.txt
     to: licenses/hpke-core-LICENSE.txt
   - from: third_party/hpke-js/common-LICENSE.txt
@@ -107,8 +95,6 @@ mac:
       to: cua-driver
     - from: dist-native/${arch}/cua-sdk
       to: cua-sdk
-    - from: dist-native/cloudflared/darwin-${arch}/cloudflared
-      to: cloudflared/cloudflared
     - from: dist-native/browser/darwin-${arch}
       to: browser-engine
   extendInfo:
@@ -135,8 +121,6 @@ win:
       arch: x64
   icon: electron/resources/colonie-icon.png
   extraResources:
-    - from: dist-native/cloudflared/win32-x64/cloudflared.exe
-      to: cloudflared/cloudflared.exe
     - from: dist-native/browser/win32-x64
       to: browser-engine
     # CUA driver and SDK for Windows — must live outside ASAR for native modules
@@ -186,8 +170,6 @@ linux:
   extraResources:
     - from: dist-native/cua-linux-x64
       to: cua-linux-x64
-    - from: dist-native/cloudflared/linux-x64/cloudflared
-      to: cloudflared/cloudflared
     - from: dist-native/browser/linux-x64
       to: browser-engine
     - from: build/linux-colonie-browser.apparmor

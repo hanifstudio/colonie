@@ -238,28 +238,6 @@ jobs:
             if (bad.length) { console.error(`\n${bad.length} required job(s) did not pass: ${bad.map(([job]) => job).join(", ")}`); process.exit(1); }
           '
 
-  cloudflared-linux-arm64:
-    needs: static
-    if: needs.static.outputs.runtime == 'true'
-    name: cloudflared installer (Linux ARM64)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - name: Install and reuse the pinned connector in an isolated fixture
-        env:
-          COLONIE_ARM64_FIXTURE: ${{ runner.temp }}/colonie-cloudflared-arm64
-        run: |
-          node --input-type=module -e 'import assert from "node:assert/strict"; assert.equal(process.platform, "linux"); assert.equal(process.arch, "arm64");'
-          node scripts/prepare-cloudflared.mjs --current --root "$COLONIE_ARM64_FIXTURE"
-          node scripts/prepare-cloudflared.mjs --current --root "$COLONIE_ARM64_FIXTURE"
-          "$COLONIE_ARM64_FIXTURE/dist-native/cloudflared/linux-arm64/cloudflared" version
-
   foss:
     needs: static
     if: needs.static.outputs.runtime == 'true'

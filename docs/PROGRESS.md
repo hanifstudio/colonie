@@ -3,6 +3,24 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — inherited license files and cloudflared removed
+
+Owner directed a full break from the OpenMaus inheritance: deleted `LICENSE`,
+`NOTICE`, `LICENSING.md`, their packaging entries and CODEOWNERS lines. The root
+`LICENSE` also served as cloudflared's packaged license, and cloudflared had no
+runtime caller (retired tunnel feature), so its bundle went too:
+`prepare-cloudflared.mjs` + test, `third_party/cloudflared/`, the electron-builder
+entries, `build:cloudflared`, the bundle-server step, after-pack/Linux/Windows/
+release checks, and the ARM64 installer CI job. `executableTarget` moved to
+`scripts/executable-target.mjs` (+ test) for the browser scripts; the Linux
+package check now forbids a `cloudflared` resource. The macOS release gate keeps
+a non-empty app signing team check for the browser binaries.
+
+- `node --check` on 7 edited scripts; YAML/JSON parse of 5 configs and package.json.
+- `vitest run` after-pack, executable-target, ci-scope, ci-workflow, verification-docs, both guards — 7 files, 97/97 passed.
+- `node --test electron/package-install-command.node-test.mjs` 9/9; `oxlint --deny-warnings .` clean.
+- Not run: any electron-builder package, signing, or release job.
+
 ## 2026-10-17 — landing M0, E01.2, and the documentation clean slate
 
 Main CI `0d5bc3fd` failed in the static job: committed `verification-docs.test.ts`
