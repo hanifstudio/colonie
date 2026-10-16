@@ -3,8 +3,6 @@ import { launchVerificationServer, runControlColonie, type VerificationServer } 
 
 let fixture: VerificationServer;
 let botId: string;
-let clientToken: string;
-let ownerCookie: string;
 const remote = { "x-forwarded-for": "198.51.100.18", "x-forwarded-proto": "https" };
 
 async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -23,17 +21,6 @@ beforeAll(async () => {
   expect((await runControlColonie(["doctor"], { env }) as any).ok).toBe(true);
   const created = await runControlColonie(["new-bot", "--name", "Browser profile fixture"], { env }) as any;
   botId = created.bot.id;
-
-  const clientPairing = await call("POST", "/api/auth/pairing", { scopes: ["client"] });
-  expect(clientPairing.status).toBe(200);
-  const client = await call("POST", "/api/auth/pair", { code: clientPairing.body.code, label: "Browser client fixture" }, remote);
-  expect(client.status).toBe(200);
-  clientToken = client.body.token;
-
-  const ownerPairing = await call("POST", "/api/auth/pairing", { scopes: ["admin", "client"] });
-  const owner = await call("POST", "/api/auth/pair", { code: ownerPairing.body.code, label: "Browser owner fixture", cookie: true }, remote);
-  expect(owner.status).toBe(200);
-  ownerCookie = owner.headers.get("set-cookie")!.split(";")[0]!;
 }, 30_000);
 
 afterAll(async () => { await fixture?.close(); });
@@ -43,30 +30,21 @@ describe("live browser route authorization", () => {
     const path = `/api/bots/${botId}/browser/${suffix}`;
     const body = method === "POST" ? { viewerId: "forged", type: "take" } : undefined;
     expect((await call(method, path, body, remote)).status).toBe(403);
-    const denied = await call(method, path, body, { ...remote, authorization: `Bearer ${clientToken}` });
-    expect(denied.status).toBe(403);
-    expect(denied.body.error).toContain("admin");
-    const crossOrigin = await call(method, path, body, { ...remote, cookie: ownerCookie, origin: "https://attacker.invalid" });
+    const crossOrigin = await call(method, path, body, { origin: "https://attacker.invalid" });
     expect(crossOrigin.status).toBe(403);
     expect(crossOrigin.body.error).toContain("cross-origin");
     // The authenticated owner gets past authorization to the feature gates;
     // no native browser is installed or launched in this fixture. The built-in
     // browser is on by default, so the first gate met is the missing engine…
     expect((await call("PATCH", "/api/config", { features: { browser: true } })).status).toBe(200);
-    const onByDefault = await call(method, path, body, { ...remote, cookie: ownerCookie });
+    const onByDefault = await call(method, path, body);
     expect(onByDefault.status).toBe(503);
     expect(onByDefault.body.error).toContain("Install the browser engine");
     // …and a browser the person switched off still refuses before the engine.
     expect((await call("PATCH", "/api/config", { features: { browser: false } })).status).toBe(200);
-    const owner = await call(method, path, body, { ...remote, cookie: ownerCookie });
+    const owner = await call(method, path, body);
     expect(owner.status).toBe(409);
     expect(owner.body.error).toContain("Enable this bot's browser");
-  });
-
-  it("does not let client sessions change the bot's browser identity or shared logins", async () => {
-    const headers = { ...remote, authorization: `Bearer ${clientToken}` };
-    expect((await call("PATCH", `/api/bots/${botId}`, { browserProfile: "guest" }, headers)).status).toBe(403);
-    expect((await call("PATCH", "/api/config", { browserProfiles: [], expectedBrowserProfiles: [] }, headers)).status).toBe(403);
   });
 });
 

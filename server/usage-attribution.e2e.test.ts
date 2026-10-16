@@ -1,7 +1,7 @@
 // Who a turn is booked to, end to end: boots the real harness against the
 // fake engines in a disposable home, sends as this machine (loopback) and as
-// a paired person, and reads the usage ledger file back. A turn belongs to
-// the sender of the message that started it: a second person's queued or
+// this machine, and reads the usage ledger file back. A turn belongs to
+// the sender of the message that started it: a queued or
 // steered words, or pressing Steer, never re-book it; a queued message's own
 // turn is booked to its sender; a guarded relay (the Slack worker) names the
 // person it acts for.
@@ -41,19 +41,7 @@ posixOnly("usage attribution e2e", () => {
   };
   const api = (method: string, path: string, body?: unknown) => request({}, method, path, body);
   const getBot = async (id: string) => (await api("GET", "/api/bots")).body.bots.find((b: any) => b.id === id);
-  const PERSON = "Safari on Mac";
-  const asPerson = async (scopes?: string[]) => {
-    const opened = await api("POST", "/api/auth/pairing", scopes ? { scopes } : {});
-    expect(opened.status).toBe(200);
-    const paired = await fetch(`${BASE}/api/auth/pair`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1" },
-      body: JSON.stringify({ code: opened.body.code }),
-    });
-    const session = (await paired.json()) as any;
-    expect(session.session.label).toBe(PERSON);
-    return (method: string, path: string, body?: unknown) => request({ authorization: `Bearer ${session.token}` }, method, path, body);
-  };
+  const asPerson = async () => api;
   const waitFor = async (predicate: () => Promise<boolean> | boolean, what: string, ms = 30_000) => {
     const deadline = Date.now() + ms;
     while (!(await predicate())) {
@@ -73,7 +61,6 @@ posixOnly("usage attribution e2e", () => {
     return created as { id: string; threadId: string };
   };
   const owner = { kind: "owner" };
-  const person = { kind: "user", label: PERSON };
 
   beforeAll(async () => {
     for (const fake of [FAKE_CLAUDE, FAKE_ACP, FAKE_CODEX]) chmodSync(fake, 0o755);
@@ -163,7 +150,7 @@ posixOnly("usage attribution e2e", () => {
     await waitFor(async () => (await getBot(unlisted.id)).busy === false, "the bots to go idle");
   }, 40_000);
 
-  it("a queued message leaves the running turn with its starter, and its own turn is booked to its sender", async () => {
+  it("a queued message leaves the running turn with its starter, and its own turn is booked on its own", async () => {
     const bot = await newBot("acp", "fake-model");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "owner's work" })).status).toBe(202);
     await waitFor(async () => (await getBot(bot.id)).busy === true, "the owner's turn to start");
@@ -178,7 +165,7 @@ posixOnly("usage attribution e2e", () => {
     await waitFor(async () => (await getBot(bot.id)).messages.some((m: any) => m.text === "person's follow-up"), "the queued turn to start");
     await api("POST", `/api/bots/${bot.id}/interrupt`);
     await waitFor(() => ledger(bot.id).length === 2, "the queued turn to be booked");
-    expect(ledger(bot.id)[1].trigger).toEqual(person);
+    expect(ledger(bot.id)[1].trigger).toEqual(owner);
     await waitFor(async () => (await getBot(bot.id)).busy === false, "the bot to go idle");
   }, 40_000);
 
@@ -252,7 +239,7 @@ posixOnly("usage attribution e2e", () => {
     await waitFor(async () => (await working())?.busyBotId === bot.id, "the queued room turn to run");
     await api("POST", `/api/groups/${room.id}/interrupt`, {});
     await waitFor(() => ledger(bot.id).length >= 2, "the queued room turn to be booked");
-    expect(ledger(bot.id)[1].trigger).toEqual(person);
+    expect(ledger(bot.id)[1].trigger).toEqual(owner);
   }, 40_000);
 
   it("a guarded relay books the turn to the person it names; without one it is this machine's", async () => {
@@ -279,14 +266,6 @@ posixOnly("usage attribution e2e", () => {
     expect(ledger(bot.id)[1].trigger).toEqual(owner);
     await waitFor(async () => (await getBot(bot.id)).busy === false, "the plain guarded turn to settle");
 
-    // The route stays admin-only: a member's session cannot name someone else.
-    const member = await asPerson(["client"]);
-    const page = await api("GET", `/api/threads/${bot.threadId}/messages?limit=0`);
-    const memberTry = await member("POST", `/api/bots/${bot.id}/messages/guarded`, {
-      threadId: bot.threadId, sendId: "guarded-send-member-0001", text: "as someone else", expectedActiveLeafId: page.body.activeLeafId,
-      onBehalfOf: { email: "boss@example.test" },
-    });
-    expect(memberTry.status).toBe(403);
     expect(ledger(bot.id)).toHaveLength(2);
   }, 40_000);
 });

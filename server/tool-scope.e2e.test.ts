@@ -48,9 +48,6 @@ it("validates, saves, clears and creates owner tool selections through the isola
     expect((await api("PATCH", path, { title: "Unrelated edit" })).body.bot.toolScope).toEqual({ allow: [] });
     expect((await api("PATCH", path, { toolScope: null })).body.bot).not.toHaveProperty("toolScope");
     expect((await api("PATCH", `${path}/profile`, { toolScope: scope })).status).toBe(400);
-    const paired = (await api("POST", "/api/auth/pairing", { scopes: ["client"] })).body;
-    const session = (await api("POST", "/api/auth/pair", { code: paired.code, label: "Scope fixture client" })).body;
-    expect((await api("PATCH", path, { toolScope: { allow: [] } }, { authorization: `Bearer ${session.token}` })).status).toBe(403);
     expect((await api("PATCH", "/api/config", { newBotDefaults: { profile: { toolScope: { allow: [] } } } })).status).toBe(200);
     expect((await api("POST", "/api/bots", { name: "Inherited no tools" })).body.bot.toolScope).toEqual({ allow: [] });
     expect((await api("POST", "/api/bots", { name: "Explicit reset", settings: { toolScope: null } })).body.bot).not.toHaveProperty("toolScope");

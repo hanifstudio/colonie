@@ -23,20 +23,17 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
     expect(response.status, JSON.stringify(result)).toBe(status);
     return result;
   };
-  // A second person on a paired device. What they queue must still be theirs
-  // after the wait, the crash and the restart: the name rides the durable row.
-  // `id` is the opaque person key the server derives from the session; a row
-  // written straight to the database below keeps the older name-only shape.
-  const PAIRED = { name: "Safari on Mac", id: expect.stringMatching(/^p_[\w-]{22}$/) };
-  const PAIRED_ROW = { name: "Safari on Mac" };
-  let pairedToken = "";
-  const asPairedPerson = async (path: string, body: unknown) => {
+  // A sender name on a durable row. What a queued line carries must survive
+  // the wait, the crash and the restart; a row written straight to the
+  // database below keeps the older name-only shape.
+  const NAMED_ROW = { name: "Safari on Mac" };
+  const asOwner = async (path: string, body: unknown) => {
     const response = await fetch(`${url}${path}`, {
-      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${pairedToken}` },
+      method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(body), signal: AbortSignal.timeout(5_000),
     });
     const result = await response.json() as any;
-    evidence.push({ method: "POST", as: PAIRED.name, path, body, status: response.status, result });
+    evidence.push({ method: "POST", path, body, status: response.status, result });
     expect(response.status, JSON.stringify(result)).toBe(202);
     return result;
   };
@@ -95,15 +92,6 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
     ].join("\n"), { mode: 0o700 });
     await api("PATCH", "/api/instances/claude", { cli: wrapper });
     await api("PATCH", "/api/config", { threads: { maxConcurrentPerBot: 1 } });
-    const pairing = await fetch(`${url}/api/auth/pair`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1" },
-      body: JSON.stringify({ code: (await api("POST", "/api/auth/pairing", {})).code }),
-    });
-    const paired = await pairing.json() as any;
-    expect(pairing.status, JSON.stringify(paired)).toBe(200);
-    expect(paired.session.label).toBe(PAIRED.name);
-    pairedToken = paired.token;
     const bot = (await api("POST", "/api/bots", { name: "Durable follow-ups" }, 201)).bot;
     const uncertain = (await api("POST", "/api/bots", { name: "Uncertain follow-up" }, 201)).bot;
     const later = (await api("POST", `/api/bots/${uncertain.id}/tasks`, { title: "In-flight receipt" }, 201)).task;
@@ -122,7 +110,7 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
     writeFileSync(image, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7f8AAAAASUVORK5CYII=", "base64"));
     const text = `Inspect screenshot after the first task\n\n<attached-image path="${image}" name="fixture.png" />`;
     const body = { text, threadId: bot.threadId, replyToId, sendId: "durable_bot_send_123456" };
-    const queued = await asPairedPerson(`/api/bots/${bot.id}/messages`, body);
+    const queued = await asOwner(`/api/bots/${bot.id}/messages`, body);
     expect(queued).toMatchObject({ queued: true, queueId: expect.any(String) });
     const cancelledBody = { ...body, text: `${text}\n\nCancelled task`, sendId: "cancelled_bot_send_123456" };
     const cancelled = await api("POST", `/api/bots/${bot.id}/messages`, cancelledBody, 202);
@@ -166,7 +154,7 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
       setup: { bulletin: "", defaultResponder: { kind: "member", botId: lostWorker.id } },
     }, 201)).group;
     const lostTarget = await api("POST", `/api/groups/${lost.id}/messages`, { text: "Working before the reply target is lost" }, 202);
-    const lostQueued = await asPairedPerson(`/api/groups/${lost.id}/messages`, {
+    const lostQueued = await asOwner(`/api/groups/${lost.id}/messages`, {
       text: "Reply to a message that disappears", threadId: lost.threadId, replyToId: lostTarget.message.id, sendId: "lost_reply_channel_send_123456",
     });
     expect(lostQueued).toMatchObject({ queued: true, queueId: expect.any(String) });
@@ -187,7 +175,7 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
       const claim = crashed.prepare(
         "INSERT INTO chat_followups(id, kind, owner_id, thread_id, send_id, status, payload) VALUES (?, 'bot', ?, ?, NULL, 'dispatching', ?)",
       );
-      claim.run("claimed_before_append_named", unappended.id, unappended.threadId, JSON.stringify({ text: "Claimed, never appended", sender: PAIRED_ROW }));
+      claim.run("claimed_before_append_named", unappended.id, unappended.threadId, JSON.stringify({ text: "Claimed, never appended", sender: NAMED_ROW }));
       claim.run("claimed_before_append_legacy", unappended.id, unappended.threadId, JSON.stringify({ text: "Claimed by an older build" }));
       claim.run("claimed_before_append_call", unappended.id, unappended.threadId, JSON.stringify({ text: "Claimed from a call", via: "call" }));
       crashed.prepare("UPDATE messages SET json = json_set(json, '$.text', '') WHERE thread_id = ? AND id = ?")
@@ -200,16 +188,16 @@ it("survives a real server crash: queued sends keep receipts, cancellation and u
     const settled = await runControlColonie(["wait", "--bot", bot.id, "--task", bot.threadId, "--url", url]);
     expect(settled).toMatchObject({ status: "settled" });
     expect((await api("POST", `/api/bots/${bot.id}/messages`, body, 202)).message).toMatchObject({
-      sendId: body.sendId, queueId: queued.queueId, replyToId, text, sender: PAIRED,
+      sendId: body.sendId, queueId: queued.queueId, replyToId, text,
     });
     expect((await messages(unappended.threadId)).filter((message) => message.role === "user").map((message) => [message.queueId, message.text, message.sender, message.via])).toEqual([
-      ["claimed_before_append_named", "Claimed, never appended", PAIRED_ROW, undefined],
+      ["claimed_before_append_named", "Claimed, never appended", NAMED_ROW, undefined],
       ["claimed_before_append_legacy", "Claimed by an older build", undefined, undefined],
       ["claimed_before_append_call", "Claimed from a call", undefined, "call"],
     ]);
     await expect.poll(async () => (await messages(lost.threadId)).some((message) => message.tool?.name?.includes("queued channel message could not start")), { timeout: 15_000 }).toBe(true);
     expect((await messages(lost.threadId)).filter((message) => message.queueId === lostQueued.queueId)).toEqual([
-      expect.objectContaining({ role: "user", text: "Reply to a message that disappears", sender: PAIRED }),
+      expect.objectContaining({ role: "user", text: "Reply to a message that disappears" }),
     ]);
     expect((await api("POST", `/api/bots/${bot.id}/messages`, cancelledBody, 409)).error).toContain("cancelled");
     expect(prompts(bot.threadId)).toHaveLength(2);

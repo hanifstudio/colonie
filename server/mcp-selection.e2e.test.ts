@@ -111,7 +111,7 @@ it("imports atomically and mounts the selected MCP servers in fresh direct and r
   });
 }, 90_000);
 
-it("validates MCP grants, refuses live changes and client sessions, and rechecks delayed imports after revocation", async () => {
+it("validates MCP grants, refuses live changes, and serializes delayed imports", async () => {
   await withFixture("hang", async ({ api, control, dump, clearDump, url, evidence }) => {
     const { bot } = await control(["new-bot", "--name", "Working fixture"]) as { bot: Bot };
     const { bot: idle } = await control(["new-bot", "--name", "Idle fixture"]) as { bot: Bot };
@@ -121,14 +121,6 @@ it("validates MCP grants, refuses live changes and client sessions, and rechecks
     expect((await api("PATCH", `/api/bots/${bot.id}`, { mcpServers: ["notes", "notes"] })).body.bot.mcpServers).toEqual(["notes"]);
     expect((await api("PATCH", `/api/bots/${bot.id}`, { title: "Unrelated edit" })).body.bot.mcpServers).toEqual(["notes"]);
     expect((await api("PATCH", `/api/bots/${idle.id}`, { mcpServers: [] })).status).toBe(200);
-    const pair = async (scopes: string[]) => {
-      const opened = await api("POST", "/api/auth/pairing", { scopes });
-      return (await api("POST", "/api/auth/pair", { code: opened.body.code, label: "Fixture client" })).body;
-    };
-    const client = await pair(["client"]);
-    const clientHeaders = { authorization: `Bearer ${client.token}` };
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { mcpServers: [] }, clientHeaders)).status).toBe(403);
-    expect((await api("POST", "/api/mcp/servers/import", { json: "{}" }, clientHeaders)).status).toBe(403);
     await control(["send", "--bot", bot.id, "--text", "Stay active."]);
     await dump();
     expect((await api("PATCH", `/api/bots/${bot.id}`, { mcpServers: [] }, { origin: url })).status).toBe(409);
@@ -149,28 +141,26 @@ it("validates MCP grants, refuses live changes and client sessions, and rechecks
     await control(["interrupt", "--channel", channel.id]);
     await control(["wait", "--channel", channel.id, "--timeout", "30"]);
     await expect.poll(async () => (await api("GET", "/api/bots?messages=0")).body.bots.find((row: Bot) => row.id === bot.id)?.busy).toBe(false);
-    const admin = await pair(["client", "admin"]);
     const body = JSON.stringify({ json: JSON.stringify({ late: command }) });
     let finishBody!: () => void;
     const lateResponse = new Promise<number>((resolve, reject) => {
       const req = request(`${url}/api/mcp/servers/import`, {
-        method: "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body), authorization: `Bearer ${admin.token}` },
+        method: "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
       }, (res) => { res.resume(); res.on("end", () => resolve(res.statusCode!)); });
       req.on("error", reject);
       req.write(body.slice(0, 1));
       finishBody = () => req.end(body.slice(1));
     });
     try {
-      // The import mutex proves the first request authenticated and entered
-      // its body reader before its session is revoked.
+      // The import mutex proves the first request entered its body reader
+      // before a second one arrives.
       await expect.poll(async () => (await api("POST", "/api/mcp/servers/import", { json: "{}" })).status).toBe(409);
-      expect((await api("DELETE", `/api/auth/sessions/${admin.session.id}`)).status).toBe(200);
     } finally {
       finishBody();
     }
     const lateStatus = await lateResponse;
-    evidence.push({ method: "POST", path: "/api/mcp/servers/import", status: lateStatus, revokedDuringBody: true });
-    expect(lateStatus).toBe(401);
+    evidence.push({ method: "POST", path: "/api/mcp/servers/import", status: lateStatus, delayedImport: true });
+    expect(lateStatus).toBeLessThan(400);
     expect((await api("GET", "/api/mcp/servers")).body.servers).toEqual([]);
   });
 }, 60_000);

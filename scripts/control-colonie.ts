@@ -468,11 +468,17 @@ export async function launchVerificationServer(
       ...(extraProviders.includes("codex") ? { codex: {
         driver: "codex", displayName: "Verification Codex", config: { cli: fileURLToPath(new URL("../server/testing/fake-codex-app-server.ts", import.meta.url)) },
       } } : {}),
+      // The maintained ACP adapter drives the fake Claude CLI through
+      // CLAUDE_CODE_EXECUTABLE, so fixtures exercise the real ACP boundary
+      // while the engine stays scripted. Colonie is ACP-only; there is no
+      // native driver to configure any more.
       claude: {
-        driver: "claudeAgent",
+        driver: "claude-acp",
         displayName: "Verification fixture",
-        config: { cli: FAKE_CLI },
-        ...(room?.scripted ? { environment: { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } } : {}),
+        environment: {
+          CLAUDE_CODE_EXECUTABLE: FAKE_CLI,
+          ...(room?.scripted ? { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } : {}),
+        },
       },
     },
   }, null, 2));

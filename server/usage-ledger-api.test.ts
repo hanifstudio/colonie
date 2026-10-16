@@ -27,14 +27,7 @@ describe("usage ledger through real turns", () => {
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(body),
   });
-  const pair = async (label: string, scopes?: string[]) => {
-    const opened = (await (await api("/api/auth/pairing", jsonRequest(scopes ? { scopes } : {}))).json()) as { code: string };
-    const paired = (await (await api("/api/auth/pair", jsonRequest({ code: opened.code, label }))).json()) as { token: string };
-    expect(paired.token).toBeTypeOf("string");
-    return paired.token;
-  };
-
-  it("writes one row per settled turn naming who asked, and reports it by person, bot and model", async () => {
+  it("writes one row per settled turn and reports it by bot and model", async () => {
     const created = await control(["new-bot", "--name", "Ledger probe"]);
     const botId = created.bot.id as string;
 
@@ -42,10 +35,8 @@ describe("usage ledger through real turns", () => {
     await control(["send", "--bot", botId, "--text", "hello from the owner"]);
     expect(JSON.stringify(await control(["wait", "--bot", botId, "--timeout", "30"]))).toContain("settled");
 
-    // Turn 2: a paired device. Without an email sign-in the ledger names it
-    // by its device label, which is still a person, not the machine.
-    const phone = await pair("Ada's phone");
-    const sent = await api(`/api/bots/${encodeURIComponent(botId)}/messages`, jsonRequest({ text: "hello from a phone" }, phone));
+    // Turn 2: the same machine, a second turn.
+    const sent = await api(`/api/bots/${encodeURIComponent(botId)}/messages`, jsonRequest({ text: "hello again" }));
     expect([200, 201, 202]).toContain(sent.status);
     expect(JSON.stringify(await control(["wait", "--bot", botId, "--timeout", "30"]))).toContain("settled");
 
@@ -58,14 +49,12 @@ describe("usage ledger through real turns", () => {
     expect(rows[0].input).toBeGreaterThanOrEqual(10);
     expect(rows[0].output).toBeGreaterThanOrEqual(1);
     expect(rows[0].model).toBeTypeOf("string");
-    expect(rows[1]).toMatchObject({ botId, costUsd: 0.01, trigger: { kind: "user", label: "Ada's phone" } });
+    expect(rows[1]).toMatchObject({ botId, costUsd: 0.01, trigger: { kind: "owner" } });
     // Bookkeeping, never transcript: no message text reaches the ledger.
     expect(readFileSync(file, "utf8")).not.toContain("hello from");
 
     const byUser = (await (await api("/api/usage?groupBy=user")).json()) as any;
-    expect(byUser.groups.map((g: any) => [g.key, g.turns, g.costUsd])).toEqual(
-      expect.arrayContaining([["owner", 1, 0.01], ["user:ada's phone", 1, 0.01]]),
-    );
+    expect(byUser.groups.map((g: any) => [g.key, g.turns, g.costUsd])).toEqual([["owner", 2, 0.02]]);
     expect(byUser.total).toMatchObject({ turns: 2, unpriced: 0 });
     expect(byUser.total.costUsd).toBeCloseTo(0.02, 6);
     const byBot = (await (await api("/api/usage?groupBy=bot")).json()) as any;
@@ -74,10 +63,5 @@ describe("usage ledger through real turns", () => {
     const csv = await api("/api/usage.csv");
     expect(csv.headers.get("content-type")).toContain("text/csv");
     expect((await csv.text()).trim().split("\n")).toHaveLength(3);
-
-    // A chat-only device may spend but not audit.
-    const client = await pair("Client phone", ["client"]);
-    expect((await api("/api/usage", { headers: { authorization: `Bearer ${client}` } })).status).toBe(403);
-    expect((await api("/api/usage.csv", { headers: { authorization: `Bearer ${client}` } })).status).toBe(403);
   }, 120_000);
 });

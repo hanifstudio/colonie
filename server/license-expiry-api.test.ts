@@ -35,13 +35,9 @@ describe("license expiry through the running server", () => {
       `export async function register() { return { customer: "Fixture Co", features: ["budgets"], expiresAt: ${JSON.stringify(expiresAt)} }; }\n`);
     session = await launchVerificationServer(process.env, undefined, undefined, undefined, { dir: layerDir, licenseKey: "fixture-key" });
     const api = (path: string, init: RequestInit = {}) => fetch(`${session!.info.url}${path}`, init);
-    const opened = (await (await api("/api/auth/pairing", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ scopes: ["client"] }) })).json()) as { code: string };
-    const member = ((await (await api("/api/auth/pair", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: opened.code, label: "Member phone" }) })).json()) as { token: string }).token;
     return {
       edition: async () => (await api("/api/edition")).json() as Promise<any>,
-      memberEdition: async () => (await api("/api/edition", { headers: { authorization: `Bearer ${member}` } })).json() as Promise<any>,
       adminConfig: async () => (await api("/api/config")).json() as Promise<any>,
-      memberConfig: async () => (await api("/api/config", { headers: { authorization: `Bearer ${member}` } })).json() as Promise<any>,
       log: () => readFileSync(session!.info.logPath, "utf8"),
     };
   };
@@ -57,11 +53,6 @@ describe("license expiry through the running server", () => {
     expect((await server.adminConfig()).edition).toEqual({
       edition: "enterprise", features: ["budgets"], license: { expiresAt, expiresInDays: edition.expiresInDays },
     });
-    expect((await server.memberConfig()).edition).toEqual({ edition: "enterprise", features: ["budgets"] });
-    // a member's /api/edition says what is entitled, not when it lapses
-    const member = await server.memberEdition();
-    expect(member).toMatchObject({ edition: "enterprise", features: ["budgets"] });
-    expect(member).not.toHaveProperty("expiresInDays");
   }, 90_000);
 
   it("keeps the features working through the grace period and says until when", async () => {
@@ -72,10 +63,6 @@ describe("license expiry through the running server", () => {
     expect(edition.notice).toBe(`COLONIE_LICENSE_KEY expired on ${expiresAt}; enterprise features keep working until ${day(5)} while it is renewed`);
     expect(server.log()).toContain(`enterprise features keep working until ${day(5)}`);
     expect((await server.adminConfig()).edition.license).toMatchObject({ expiresAt, graceEndsAt: day(5) });
-    expect((await server.memberConfig()).edition.license).toBeUndefined();
-    const member = await server.memberEdition();
-    expect(member).toMatchObject({ edition: "enterprise", features: ["budgets"] });
-    for (const field of ["expiresInDays", "graceEndsAt", "notice"]) expect(member).not.toHaveProperty(field);
   }, 90_000);
 
   it("stays quiet far from expiry", async () => {

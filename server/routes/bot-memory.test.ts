@@ -261,21 +261,4 @@ describe("the bot-memory family behind the gate on a real server", () => {
     }
   });
 
-  it("refuses every arm for a chat-only paired session: admin scope, keyed by path", async () => {
-    // A pairing opened without scopes grants both, so ask for chat only.
-    const opened = await fetch(`${fixture.info.url}/api/auth/pairing`, { method: "POST", headers: { "content-type": "application/json", origin: fixture.info.url }, body: JSON.stringify({ scopes: ["client"] }) });
-    expect(opened.status).toBe(200);
-    const code = ((await opened.json()) as { code: string }).code;
-    const paired = await fetch(`${fixture.info.url}/api/auth/pair`, {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: fixture.info.url, "user-agent": "memory-routes-lock" },
-      body: JSON.stringify({ code }),
-    });
-    expect(paired.status).toBe(200);
-    const token = ((await paired.json()) as { token: string }).token;
-    for (const [method, path, body] of arms) {
-      const status = await call(method, path, body, { authorization: `Bearer ${token}`, origin: fixture.info.url });
-      expect(status, `${method} ${path}`).toBe(403);
-    }
-  });
 });

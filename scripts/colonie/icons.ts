@@ -1,4 +1,8 @@
-/** Generate reproducible static artwork from the same pinned Bloub engine. */
+/** Generate reproducible static artwork from the same pinned Bloub engine.
+ *
+ * `public/colonie.svg` stays the mascot (the favicon and the About dialog use
+ * it). The shipping app icon is a flat black placeholder until the owner picks
+ * real artwork: same macOS icon grid, no mark. */
 import { build } from "esbuild";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -21,9 +25,12 @@ writeFileSync(resolve("public/colonie.svg"), svg);
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= resolve(".colonie-dev/browsers");
 const { chromium } = await import("playwright");
 const browser = await chromium.launch({ headless: true });
+// Flat black placeholder app icon on the macOS icon grid: 824x824 content
+// rounded at 0.2237r, centered on a transparent 1024 canvas.
+const appIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="#000000"/></svg>`;
 try {
   const page = await browser.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 });
-  await page.setContent(`<style>html,body{margin:0;background:transparent}</style>${svg}`);
+  await page.setContent(`<style>html,body{margin:0;background:transparent}</style>${appIcon}`);
   const png = resolve("electron/resources/colonie-icon.png");
   await page.screenshot({ path: png, omitBackground: true });
   if (process.platform === "darwin") {

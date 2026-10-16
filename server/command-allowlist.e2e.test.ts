@@ -74,12 +74,6 @@ it("remembers real permission requests, scopes and revokes grants, and preserves
     expect(candidate.command).toBe(command);
     expect(candidate.cwd).toBe((await api("GET", rulesPath)).context.cwd);
 
-    // A member can approve once, but cannot change all of this bot's threads.
-    const pairing = await api("POST", "/api/auth/pairing", { label: "Member fixture", scopes: ["client"] });
-    const paired = await api("POST", "/api/auth/pair", { code: pairing.code });
-    await api("GET", rulesPath, undefined, 403, paired.token);
-    await api("POST", rulesPath, candidate, 403, paired.token);
-    await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId: first.id, behavior: "allow", rememberCommand: true }, 403, paired.token);
     expect((await api("GET", rulesPath)).rules).toEqual([]);
     expect((await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId: first.id, behavior: "allow", rememberCommand: true })).outcome).toBe("allowed-once");
     expect(await first.reply).toMatchObject({ id: first.id, behavior: "allow" });

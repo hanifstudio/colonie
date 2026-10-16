@@ -29,13 +29,8 @@ async function api(method: string, path: string, body?: unknown, headers: Record
   return { status: response.status, body: await response.json() as Record<string, any>, headers: response.headers };
 }
 
-async function admin(label: string) {
-  const pairing = await api("POST", "/api/auth/pairing", { scopes: ["admin", "client"] });
-  expect(pairing.status).toBe(200);
-  const paired = await api("POST", "/api/auth/pair", { code: pairing.body.code, label });
-  expect(paired.status).toBe(200);
-  return { authorization: `Bearer ${paired.body.token}` };
-}
+/** The owner's own requests carry no session: loopback is the owner. */
+const owner: Record<string, string> = {};
 
 function expectSignedOut(instance: Record<string, any>) {
   expect(instance).toMatchObject({
@@ -95,7 +90,7 @@ describe("ChatGPT plan accounts over isolated HTTP", () => {
     expect(readFileSync(join(home, "config.json"), "utf8")).toBe(saved);
   });
 
-  it("keeps account entries and locally generated sign-in flows separate and owned by their admin sessions", async () => {
+  it("keeps account entries and locally generated sign-in flows separate and owned by the owner", async () => {
     const ids: string[] = [];
     for (const displayName of ["  Personal plan  ", "Work plan"]) {
       const created = await api("POST", "/api/instances/chatgpt-accounts", { displayName });
@@ -111,7 +106,7 @@ describe("ChatGPT plan accounts over isolated HTTP", () => {
       expect(saved.instances[id].config).toEqual({ authMode: "chatgpt-plan", cli: FAKE_CODEX });
       expect(saved.instances[id]).not.toHaveProperty("environment");
     }
-    const owners = [await admin("Personal browser"), await admin("Work browser")];
+    const owners = [owner, owner];
     const starts = [];
     for (const [index, id] of ids.entries()) {
       const started = await api("POST", `/api/instances/${id}/auth/start`, {}, owners[index]);
@@ -132,9 +127,6 @@ describe("ChatGPT plan accounts over isolated HTTP", () => {
     expect(starts[0].authorization.searchParams.get("state")).not.toBe(starts[1].authorization.searchParams.get("state"));
     const first = starts[0];
     const statusPath = `/api/instances/${first.id}/auth/status?flowId=${first.auth.flowId}`;
-    expect((await api("POST", `/api/instances/${first.id}/auth/start`, {}, owners[1])).status).toBe(409);
-    expect((await api("GET", statusPath, undefined, owners[1])).status).toBe(404);
-    expect((await api("POST", `/api/instances/${first.id}/auth/cancel`, { flowId: first.auth.flowId }, owners[1])).status).toBe(404);
     const status = await api("GET", statusPath, undefined, owners[0]);
     expect(status.status).toBe(200);
     expect(status.body.auth).toEqual(first.auth);
@@ -148,8 +140,7 @@ describe("ChatGPT plan accounts over isolated HTTP", () => {
     }
   });
 
-  it("refuses proxied OAuth starts even for an authenticated admin", async () => {
-    const owner = await admin("Proxy browser");
+  it("refuses proxied OAuth starts even for the owner", async () => {
     for (const [header, value] of [
       ["x-forwarded-for", "198.51.100.21"], ["x-forwarded-proto", "https"],
       ["x-forwarded-host", "workspace.example.test"], ["forwarded", "for=198.51.100.21;proto=https"],

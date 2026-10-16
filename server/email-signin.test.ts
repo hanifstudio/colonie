@@ -223,7 +223,7 @@ describe("sign in with your email on a hosted server", () => {
     expect(other.status).toBe(200);
   });
 
-  it("revokes demoted email devices and live streams before the next frame, without changing paired devices", async () => {
+  it("revokes demoted email devices and live streams before the next frame", async () => {
     const owner = await signIn("her@example.test");
     const first = await signIn("anyone@agentada.test");
     const second = await signIn("anyone@agentada.test");
@@ -231,10 +231,6 @@ describe("sign in with your email on a hosted server", () => {
     try {
       const ticket = await call("/api/auth/stream-ticket", { body: {}, headers: { cookie: first } });
       expect(ticket.status).toBe(200);
-      const pairing = await call("/api/auth/pairing", { body: {}, headers: { cookie: owner } });
-      expect(pairing.status).toBe(200);
-      const paired = await call("/api/auth/pair", { body: { code: pairing.body.code, cookie: true, label: "QR device" } });
-      expect(paired.status).toBe(200);
       const changed = await call("/api/config", {
         method: "PUT", headers: { cookie: owner },
         body: {
@@ -248,7 +244,6 @@ describe("sign in with your email on a hosted server", () => {
       expect((await call("/api/bots", { headers: { cookie: first } })).status).toBe(401);
       expect((await call("/api/bots", { headers: { cookie: second } })).status).toBe(401);
       expect((await call(`/api/events?ticket=${ticket.body.ticket}`)).status).toBe(401);
-      expect((await call("/api/auth/sessions", { headers: { cookie: cookieOf(paired) } })).status).toBe(200);
 
       const member = await signIn("anyone@agentada.test");
       expect((await call("/api/auth/session", { headers: { cookie: member } })).body.scopes).toEqual(["client"]);

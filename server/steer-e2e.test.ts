@@ -41,31 +41,9 @@ posixOnly("mid-turn steering e2e", () => {
     return { status: res.status, body: await res.json() };
   };
   const getBot = async (id: string) => (await api("GET", "/api/bots")).body.bots.find((b: any) => b.id === id);
-  /** Pair a second device the way a teammate does, and send as them. A
-   * queue is a delay, never a change of author: their words must still be
-   * theirs when they finally reach the transcript. */
-  // `id` is the opaque person key the server derives from the session.
-  const PAIRED = { name: "Safari on Mac", id: expect.stringMatching(/^p_[\w-]{22}$/) };
-  const asPairedPerson = async () => {
-    const opened = await api("POST", "/api/auth/pairing", {});
-    expect(opened.status).toBe(200);
-    const paired = await fetch(`${BASE}/api/auth/pair`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1" },
-      body: JSON.stringify({ code: opened.body.code }),
-    });
-    const session = await paired.json() as any;
-    expect(paired.status).toBe(200);
-    expect(session.session.label).toBe(PAIRED.name);
-    return async (method: string, path: string, body?: unknown): Promise<{ status: number; body: any }> => {
-      const res = await fetch(`${BASE}${path}`, {
-        method,
-        headers: { authorization: `Bearer ${session.token}`, ...(body ? { "content-type": "application/json" } : {}) },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      return { status: res.status, body: await res.json() };
-    };
-  };
+  /** Send as the machine's owner. Colonie is local-only: there is no second
+   * paired device to speak as, and an owner line stays unstamped. */
+  const asPerson = async () => api;
   const waitFor = async (predicate: () => Promise<boolean>, what: string, ms = 30_000) => {
     const deadline = Date.now() + ms;
     while (!(await predicate())) {
@@ -377,7 +355,7 @@ posixOnly("mid-turn steering e2e", () => {
     // Loopback API sends never merge (each is its own identity), so the
     // burst comes from one paired person; the opener runs on the gated
     // slow instance, so it cannot settle until the test drops the gate.
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const attachments = join(home, ".colonie", "attachments");
     mkdirSync(attachments, { recursive: true });
     const imagePath = join(attachments, "123e4567-e89b-42d3-a456-426614174004.png");
@@ -471,7 +449,7 @@ posixOnly("mid-turn steering e2e", () => {
     await api("PATCH", `/api/bots/${created.id}`, { modelSelection: { instanceId: "acp", model: "fake-model" } });
     expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "first" })).status).toBe(202);
     await waitFor(async () => (await getBot(created.id)).busy === true, "the hung turn to start");
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const queued = await person("POST", `/api/bots/${created.id}/messages`, { text: "second" });
     expect(queued.status).toBe(202);
     expect(queued.body.queued).toBe(true);
@@ -489,12 +467,12 @@ posixOnly("mid-turn steering e2e", () => {
     const drained = (await getBot(created.id)).messages.find((m: any) => m.text === "second");
     expect(drained.queueId).toBe(queued.body.queueId);
     // the drained line is still the paired person's, not the profile name's
-    expect(drained.sender).toEqual(PAIRED);
+    expect(drained.sender).toBeUndefined();
     await api("POST", `/api/bots/${created.id}/interrupt`);
     await waitFor(async () => (await getBot(created.id)).busy === false, "the queued turn to settle");
   }, 30_000);
 
-  it("a message waiting for a free slot still names the paired person once it runs", async () => {
+  it("a message waiting for a free slot keeps its line unstamped once it runs", async () => {
     const created = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${created.id}`, { modelSelection: { instanceId: "acp", model: "fake-model" } });
     const limit = (await api("GET", "/api/config")).body.threads.maxConcurrentPerBot as number;
@@ -512,7 +490,7 @@ posixOnly("mid-turn steering e2e", () => {
       await waitFor(async () => (await busy()).length === limit, "every slot to be taken");
 
       // This thread is idle, so nothing is steered: the words wait for capacity.
-      const person = await asPairedPerson();
+      const person = await asPerson();
       const queued = await person("POST", `/api/bots/${created.id}/messages`, { threadId: waiting, text: "when a slot frees up" });
       expect(queued.status).toBe(202);
       expect(queued.body).toMatchObject({ queued: true, reason: "capacity", threadId: waiting });
@@ -521,7 +499,7 @@ posixOnly("mid-turn steering e2e", () => {
       const line = async () =>
         (await api("GET", `/api/threads/${waiting}/messages?limit=20`)).body.messages.find((m: any) => m.text === "when a slot frees up");
       await waitFor(async () => Boolean(await line()), "the waiting message to start its turn");
-      expect((await line()).sender).toEqual(PAIRED);
+      expect((await line()).sender).toBeUndefined();
     } finally {
       for (const threadId of threads) await api("POST", `/api/bots/${created.id}/interrupt`, { threadId });
       await waitFor(async () => (await busy()).length === 0, "every slot to settle");
@@ -584,7 +562,7 @@ posixOnly("mid-turn steering e2e", () => {
 
     // the gate file makes the live steer lose: the words queue instead
     // ...and they are a paired person's words, which the owner then steers
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const queued = await person("POST", `/api/bots/${created.id}/messages`, { text: "steer these queued words" });
     expect(queued.body).toMatchObject({ ok: true, queued: true });
     expect((await getBot(created.id)).messages.some((m: any) => m.text === "steer these queued words")).toBe(false);
@@ -599,8 +577,8 @@ posixOnly("mid-turn steering e2e", () => {
     const folded = (await getBot(created.id)).messages.find((m: any) => m.text === "steer these queued words");
     expect(folded.steered).toBe(true);
     // pressing Steer moves the words, it does not re-author them
-    expect(folded.sender).toEqual(PAIRED);
-    expect(steered.body.messages[0].sender).toEqual(PAIRED);
+    expect(folded.sender).toBeUndefined();
+    expect(steered.body.messages[0].sender).toBeUndefined();
 
     await api("POST", `/api/bots/${created.id}/interrupt`);
     await waitFor(async () => (await getBot(created.id)).busy === false, "the queue-steered turn to settle");
@@ -651,7 +629,7 @@ posixOnly("mid-turn steering e2e", () => {
     await waitFor(async () => (await getGroup())?.messages.some((m: any) => m.card), "the room question card");
 
     // Enter still queues in rooms: the send lands as a queued chip, not a turn
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const queued = await person("POST", `/api/groups/${room.id}/messages`, { text: "steer these room words" });
     expect(queued.status).toBe(202);
     expect(queued.body).toMatchObject({ ok: true, queued: true });
@@ -667,7 +645,7 @@ posixOnly("mid-turn steering e2e", () => {
     const folded = (await getGroup())?.messages.find((m: any) => m.text === "steer these room words");
     expect(folded?.steered).toBe(true);
     // the room transcript names speakers from this field: keep the person
-    expect(folded?.sender).toEqual(PAIRED);
+    expect(folded?.sender).toBeUndefined();
 
     // the fold reached the app-server as mid-turn input for the SAME turn
     const nativeRows = readFileSync(join(home, ".colonie", "native", `${room.threadId}.ndjson`), "utf8")
@@ -694,7 +672,7 @@ posixOnly("mid-turn steering e2e", () => {
 
     expect((await api("POST", `/api/groups/${room.id}/messages`, { text: "first" })).status).toBe(202);
     await waitFor(async () => (await getGroup())?.busyBotId === created.id, "the hung room turn to start");
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const queued = await person("POST", `/api/groups/${room.id}/messages`, { text: "second" });
     expect(queued.status).toBe(202);
     expect(queued.body).toMatchObject({ ok: true, queued: true });
@@ -714,7 +692,7 @@ posixOnly("mid-turn steering e2e", () => {
       async () => (await getGroup())?.messages.some((m: any) => m.text === "second"),
       "the preserved room queue to drain",
     );
-    expect((await getGroup())?.messages.find((m: any) => m.text === "second")?.sender).toEqual(PAIRED);
+    expect((await getGroup())?.messages.find((m: any) => m.text === "second")?.sender).toBeUndefined();
     await api("POST", `/api/groups/${room.id}/interrupt`, {});
     await waitFor(async () => (await getGroup())?.working === false, "the drained room turn to settle");
   }, 40_000);
@@ -742,7 +720,7 @@ posixOnly("mid-turn steering e2e", () => {
 
     // one person's back-to-back burst: the FIRST line replies to the
     // opener, the second does not — the fold must not smear that boundary
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const replying = await person("POST", `/api/groups/${room.id}/messages`, {
       text: "steer this reply line",
       replyToId: firstTurnId,
@@ -796,7 +774,7 @@ posixOnly("mid-turn steering e2e", () => {
     writeFileSync(imagePath, "clip png");
     const imageText = `look at the clip\n\n<attached-image path="${imagePath}" name="clip.png" />`;
 
-    const person = await asPairedPerson();
+    const person = await asPerson();
     const queued = await person("POST", `/api/groups/${room.id}/messages`, { text: imageText });
     expect(queued.body).toMatchObject({ ok: true, queued: true });
 

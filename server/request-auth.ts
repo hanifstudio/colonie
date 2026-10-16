@@ -423,13 +423,9 @@ function mutatingPublicRoute(method: string, path: string): boolean {
   if (path.startsWith("/api/desktop-viewer/")) return true;
   if (["GET", "HEAD", "OPTIONS"].includes(upper)) return false;
   // Agent integrations have their own high-entropy, per-boot authorization
-  // and narrower route semantics. Pairing-code exchange is intentionally
-  // public; possession of the one-time code is its authorization.
+  // and narrower route semantics.
   return !path.startsWith("/api/internal/") &&
-    path !== "/api/testing/internal-capability" &&
-    path !== "/api/auth/pair" &&
-    // The same exchange under the shape the companion apps send.
-    path !== "/api/pair";
+    path !== "/api/testing/internal-capability";
 }
 
 function secureTokenMatch(actual: string | undefined, expected: string): boolean {
