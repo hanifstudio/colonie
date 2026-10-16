@@ -1,5 +1,104 @@
 # Colonie progress
 
+## 2026-10-17 — phone pairing and the companion app removed (implemented; verified in isolation)
+
+Owner: "semuanya adalah colonie, no openmausebot, omb, devone whatsoever" — the
+phone app links and phone pairing both go, and the app is one local macOS app.
+Commit `5eff19bc`.
+
+Removed with the feature:
+
+- `companion/` (41 files) and its Electron wiring: `managed-companion-*`,
+  `desktop-companion-client`, `companion*.mjs`, the phone-secret identity, the
+  `companion:*`/`desktop-remote:*`/`companion-account:*` IPC bridges, the "Add
+  Server from Copied Pairing Link…" menu item, and the keep-awake/relay
+  lifecycle.
+- The server's phone surface: `phone-secret.ts` and the HPKE transport, the
+  `/api/pair`, `/api/auth/pair` and `/api/auth/pairing` routes, the `/provide`
+  route and its phone-secret guards, `/api/internal/phone/claim` and its
+  `computer:phone` claim, the `phoneMcp` capability and the `phone-harness`
+  bundled skill, `drivers/phone-proxy.ts`, `server/tailscale.ts`, and the
+  CLI-owner token whose only purpose was to mint a pairing code.
+- The renderer's phone surface: the pair page, `PhoneSetupFlow`,
+  `PhoneAppDialog`, `ServerPairingCard`, `CompanionSection`, `SidebarPhoneButton`,
+  `RemoteComputerSection`, `companion-pairing`/`phone-pairing`/`phone-setup`,
+  the sign-in/pair gate in `App.tsx`/`main.tsx`, the phone row in Settings, and
+  the App Store/APK links in `src/lib/app-links.ts`.
+- Support files: the companion build config and `dist-companion` packaging, the
+  phone-relay and server-connection smoke scripts, the phone fixtures and
+  verification assets, the `companion`/`build:companion` scripts, the
+  `@hpke/core` dependency, and the phone/companion attributions in `NOTICE`.
+- `omb_pair_` is `colonie_pair_`: the last old-brand literal in production code.
+
+Kept on purpose, and why: the session registry's pairing API
+(`openPairing`/`exchange`), which no route reaches any more but which the auth
+tests use to mint a scoped session; the Android USB device panel
+(`electron/android-device.mjs`, adb over a locally connected device — not the
+phone app); the hosted-workspace link parser and the cloudflared packaging it
+shares with the browser vendor; `LEGACY_DATA_DIR` and the macOS App Support
+candidates; and `third_party/**` attribution.
+
+### Copy and docs that went with the feature
+
+The catalog kept 188 phone/companion strings (`phone.*`, `phoneApp.*`,
+`remote.*`, `onboarding.phone.*`) that no component reads any more; they are
+gone from `en.json` and from all ten translations, with their
+`source-hashes.json` entries, leaving 2 960 English strings (`pnpm i18n:check`
+passes). Live copy that still described the removed flows was rewritten in
+English and removed from the translated catalogs so those keys fall back to
+English: the People notes, the activity filter's "Sessions and pairing codes",
+the custom-domain hints, the Android panel's "Phone Harness skill" note and the
+welcome subtitle. Docs that described the removed flows went with them:
+`docs/verification/desktop-server-connection.md` (the desktop companion/pairing
+smoke) was deleted, and the trust, governance, onboarding, bot-settings,
+desktop-viewer and backup verification pages had their pairing/companion/Tailscale
+claims removed or corrected.
+
+### Verification (isolated fixtures; one vitest at a time)
+
+| what | how | result |
+|---|---|---|
+| types | `pnpm typecheck` (`tsc -b` + `tsc -p tsconfig.server.json`) | 0 errors |
+| lint | `pnpm lint` (oxlint `--deny-warnings`) | 0 warnings |
+| renderer + server build | `pnpm build` | passes |
+| server bundle | `pnpm build:server` | passes (the tunnel-guardian entry went with its source) |
+| Electron units | `pnpm test:electron` | 273 tests, 0 failures, 1 skipped |
+| touched server suites | `vitest run server/sessions.test.ts server/request-auth.test.ts server/skill-library.test.ts server/proxy-paths.test.ts server/legacy-migration.test.ts server/local-computer.test.ts` | all pass |
+| touched renderer suites | `vitest run src/locales/vocabulary.test.ts src/lib/session.test.ts src/state/store.test.ts src/lib/i18n.test.ts` | all pass |
+
+Honest gaps:
+
+- `server/remote-sessions.test.ts` was deleted, not rewritten: every test in it
+  minted its session through the removed `/api/auth/pairing` + `/api/auth/pair`
+  exchange, so it verified a feature that no longer exists. Its client-scope
+  projection coverage ("chat but not the machine") went with it.
+- The paired-person and phone-viewer blocks in `server/index.test.ts` were
+  removed for the same reason; that file is a known-failing inherited suite.
+  `server/chat-followups-restart.test.ts` and `server/steer-e2e.test.ts` (also
+  inherited failures) still call the deleted routes and were left alone.
+- Not verified here: Windows/Linux packaging, the flat-black placeholder icon
+  (not started), and the Linode instance `172.104.33.55` still needs deleting
+  from the Linode console (no `linode-cli` and no token on this machine).
+- Left as dead reads: `src/**` still reads `window.colonie?.remoteClient?.active`
+  in 11 files. The preload bridge is gone, so every read is falsy and the app
+  behaves as one local workspace, but the branches should be deleted.
+
+### Next slice (recorded, not done)
+
+The session registry still carries a pairing API with no production caller, and
+`src/**` still branches on the removed `remoteClient`. Removing both finishes
+"one local app". Smaller leftovers from the same feature, each inert: the
+`POST /api/live/device-revoked` route and the `x-colonie-companion*` device
+binding in `server/routes/live.ts` (no companion exists to send them), the
+`@hpke`-free phone credential helpers' absence is already handled but
+`server/chat-followups-restart.test.ts` and `server/steer-e2e.test.ts` still
+call the deleted pairing routes, and the Android USB device panel
+(`electron/android-device.mjs`, `src/components/AndroidDevicePanel.tsx`) is
+kept deliberately — it is adb over a locally connected device, not the phone
+app. The hosted/team surfaces (people, the sign-in card, custom
+domain, enterprise) stay gated behind `COLONIE_ADMIN_*`/`COLONIE_CONTROL_PLANE_URL`
+and remain an owner call.
+
 ## 2026-10-16 — concrete target walkthrough W01 (documentation only)
 
 Expanded `docs/COLONIE-BLUEPRINT.md` with a fictional end-to-end product journey:
@@ -43,13 +142,15 @@ the acceptance map; this draft and code read are not workflow proof.
 
 ## 2026-10-16 — one brand, one local app (the clean-slate pass)
 
-The fork reads as Colonie everywhere the product speaks, with one deliberately
-kept wire protocol and two on-disk names (below). `git grep -inE
+The fork reads as Colonie everywhere the product speaks, with two deliberately
+kept on-disk names (below), each inert and each named in the vocabulary guard's
+allow-list. `git grep -inE
 "openmausbot|openmaus|mausbot|opengrokbot|devone|\bOMB\b|OMB_|__omb|__OMB|\bogb\b|OGB_"`
-returns 51 lines in 26 files: the phone-pairing constants, the legacy-directory
-literals, the tests that pin them, this document and the vocabulary guard.
-`git ls-files` has no old-brand path, and the tracked tree keeps no old-brand
-file name.
+returns 28 lines in 7 files: `LEGACY_DATA_DIR`, the macOS App Support candidate
+directories, the two tests that pin them, this document, `docs/HANDOVER.md` and
+the guard itself, which keeps the old name as a *forbidden* pattern for new
+copy. `git ls-files` has no old-brand path, and the
+tracked tree keeps no old-brand file name.
 
 | commit | what it carried |
 |---|---|
@@ -71,8 +172,9 @@ that is not in the repository. Also removed earlier: `release/` (2.8 GB),
 Kept on purpose, each inert without configuration of its own, and why:
 
 - `server/hosted-slack.ts`, `server/routes/hosted-slack.ts`,
-  `server/account-signin.ts` and the renderer sign-in calls: the local pairing
-  flow in `PairPage` shares them, and none of them arms without `COLONIE_ADMIN_*`.
+  `server/account-signin.ts` and the renderer sign-in calls: the sign-in card in
+  Settings shares them, and none of them arms without `COLONIE_ADMIN_*` or an
+  operator-set `COLONIE_CONTROL_PLANE_URL` (this fork sets no default).
 - `third_party/**` attribution with `NOTICE`, `LICENSE` and the Supamaus
   trademark note in `LICENSING.md`.
 - `server/brand.ts`: the white-label `brand.json` read stays the edition hook.
@@ -84,29 +186,23 @@ Kept on purpose, each inert without configuration of its own, and why:
   only for an authorized account; they were already unreachable before the
   rename and stay pinned rather than rewritten.
 
-### The one wire protocol that keeps its old spelling
+### The old wire spellings are gone (2026-10-17)
 
-The first pass renamed these with everything else. Six server tests failed, and
-the rename was wrong, not the tests: a phone build that is already installed
-parses the values, so `colonie_pair_` (13 characters) makes Android's
-`Connection.kt` reject every credential and `colonie://pair` makes
-`PairingInvite.parse` reject every invite. Restored:
+The clean-slate pass kept `omb_pair_` and `openmausbot://pair` because shipped
+phone builds parsed them. The phone and companion removal below took the reason
+with it: the prefix is `colonie_pair_`, and `openmausbot://pair` and the HPKE
+`OpenMausBot phone credential v1` strings left with `shared/pairing-link.ts`
+and `server/phone-secret.ts`. The vocabulary guard no longer allow-lists a
+phone-credential literal; its single allow-list entry is the App Support
+directory name.
 
-| literal | who reads it |
-|---|---|
-| `omb_pair_` + 43 base64url characters (52 total) | `server/sessions.ts` and `companion/src/devices.ts` mint it, `electron/companion.mjs` and `src/lib/phone-setup.ts` validate it, the phone parses its shape |
-| `openmausbot://pair?…` | `shared/pairing-link.ts` builds the scanned invite; the Android and iOS scanners parse it |
-| `OpenMausBot phone credential v1` (HPKE `info`) and `openmausbot-phone-credential-v1` (AAD) | the envelope a phone seals; `server/phone-secret.test.ts` opens one produced by Apple's CryptoKit, so the strings are pinned by a real peer, not by us |
-| `.openmausbot` | `LEGACY_DATA_DIR`: the directory the previous build wrote. `ensureDirs` renames it to `~/.colonie` on first boot so an upgrade keeps bots, transcripts and keys |
-| `OpenMausBot`, `openmausbot` in `server/local-computer.ts` | the macOS App Support directories an older build staged a computer-use descriptor in |
-
-To rebrand the protocol instead: build the phone apps with the new scheme,
-prefix and HPKE strings, regenerate the CryptoKit fixture, then flip these
-literals in one commit. The vocabulary guard allows the two `OpenMausBot`
-literals with that reason. Everything else that a *new* build writes is
-Colonie-branded, which is why the package format did move:
-`shared/package-format.ts` reads and writes `colonie.package`, the sweep changed
-the fixtures with it, and this pass regenerated the stale
+What still carries the old name is on-disk state an upgrade must find:
+`.openmausbot` (`LEGACY_DATA_DIR`, renamed to `~/.colonie` on first boot so bots,
+transcripts and keys survive) and the `OpenMausBot`/`openmausbot` macOS App
+Support candidates in `server/local-computer.ts`. Everything a *new* build
+writes is Colonie-branded, which is why the package format did move:
+`shared/package-format.ts` reads and writes `colonie.package`, and
+`6342e948`/`fb1f0e86` regenerated the stale
 `shared/package-fixtures/manifest.json` digests and the golden canonical hash.
 A package file written by the pre-rename build now fails its `format` literal —
 one-time, and re-export is the fix.

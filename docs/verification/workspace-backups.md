@@ -87,6 +87,6 @@ until that login storage is moved outside the backed-up files.
 
 Both recipes stop only their owned processes and remove only their temporary
 workspaces. Evidence logs remain. These tests do not prove real cloud accounts,
-external providers, phone recovery or OS-specific file-picker appearance. Saved
+external providers or OS-specific file-picker appearance. Saved
 credentials are deliberately not transferred. No live mutation is part of this
 recipe.

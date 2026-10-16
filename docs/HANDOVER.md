@@ -1,31 +1,51 @@
 # Handover — Colonie
 
-## Current state — 2026-10-16: local-only, one brand
+## Current state — 2026-10-17: local-only, one brand, no phone
 
 The fork is a local macOS app with one product identity. There is no hosted
-Colonie, no account service and no second brand: `git grep` finds no
-`openmausbot`, `omb`, `devone`, `openmaus` or `opengrok` in tracked file
-contents or paths, the renderer bridge global is `window.colonie`, and the
-identity (icons, `package.json`, CI targets) comes from Colonie's own artwork
-(`scripts/colonie/icons.ts` → `build/colonie.icns`, `public/colonie.svg`).
+Colonie, no account service, no second brand and no phone companion:
+`git grep -inE "openmausbot|openmaus|mausbot|opengrokbot|devone|\bOMB\b|OMB_|__omb|__OMB|\bogb\b|OGB_"`
+returns 28 lines in 7 files — `LEGACY_DATA_DIR` (`.openmausbot`, renamed to
+`~/.colonie` on first boot), the macOS App Support candidates in
+`server/local-computer.ts`, the two tests that pin them, `PROGRESS.md`,
+`HANDOVER.md` and the vocabulary guard that keeps the old name as a *forbidden*
+pattern for new copy. `git ls-files` has no old-brand
+path, and no tracked file carries an old-brand name. The renderer bridge global
+is `window.colonie`, and the identity (icons, `package.json`, CI targets) comes
+from Colonie's own artwork (`scripts/colonie/icons.ts` → `build/colonie.icns`,
+`public/colonie.svg`).
 
 Work that landed: `a9d0d13e`, `8e1e3d11`, `e316a68f` (identifier, path and env
 rename; upstream docs corpus and scratch trees deleted), `1c53d484` (hosted
 branches, `window.ogb`, upstream identity), `6342e948` (the test fixtures and
-vocabulary guard the rename broke, catalogs refreshed).
+vocabulary guard the rename broke, catalogs refreshed), `fb8bedbc` (Colonie
+artwork in the app, About box and packaging; `maus.ps1` and `.dockerignore`
+deleted), `fb1f0e86` (the over-reaching restore pass, recorded in
+`COLONIE-BLUEPRINT.md`), `5eff19bc` (the phone companion app, phone pairing and
+every phone UI surface removed — the commit message lists exactly what went).
 
-Deliberate retentions, each inert without its own configuration:
-`server/hosted-slack.ts`, `server/routes/hosted-slack.ts`,
-`server/account-signin.ts` and the renderer sign-in paths (the local pairing
-flow in `PairPage` still calls them); `third_party/**` attribution with
-`NOTICE`, `LICENSE` and the Supamaus trademark note in `LICENSING.md`; and two
-upstream asset URLs this fork does not host
-(`server/browser-engine-release.ts`, `server/team-library.ts`).
+Still open, largest first:
 
-Not done, and not claimed: the Windows and Linux packaging paths were not
-built here, so their new icon paths are unverified. `server/colonie/chief/chief.e2e`
-and `src/components/lazy-screens` fail at the pre-rename baseline too. See
-`PROGRESS.md` for the exact commands and results.
+- The flat-black placeholder icon the owner asked for is not started; the app
+  still ships the Colonie artwork from `fb8bedbc`.
+- `src/**` still reads `window.colonie?.remoteClient?.active` in 11 files. The
+  preload bridge is gone, so every read is falsy and the app behaves as one
+  local workspace, but the branches should be deleted.
+- `server/sessions.ts` keeps a pairing API with no production caller; only the
+  auth tests use it, to mint a scoped session.
+- The hosted/team surfaces (people, the Settings sign-in card, custom domain,
+  enterprise) stay gated behind `COLONIE_ADMIN_*` or an operator-set
+  `COLONIE_CONTROL_PLANE_URL`, and this fork sets no default. Removing them is
+  an owner call, not a correctness fix.
+- The Linode instance behind `ssh colonie-vps` (root@172.104.33.55) is emptied —
+  `/opt/colonie` and all three units are gone — but the instance itself still
+  needs deleting in the Linode console: no `linode-cli` and no API token on this
+  machine.
+- Windows and Linux packaging paths were not built here, so their icon paths are
+  unverified.
+
+See `PROGRESS.md` (newest entry first) for the exact commands and results of the
+phone/companion removal, and for what was deliberately not verified.
 
 The sections below are the historical cloud-era record. The Cloud, VPS and
 multi-workspace direction in them no longer applies.

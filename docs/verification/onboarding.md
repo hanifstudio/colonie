@@ -15,8 +15,8 @@ node --experimental-strip-types scripts/verify-onboarding-ui.ts /tmp/colonie-ver
 The recipe resets the workspace onboarding record first, so it can rerun on one
 fixture; it also clears only its browser storage, then enables first-run
 onboarding through the fixture-only `?onboarding=1` entry. It uses the real
-renderer and fake-engine server. No provider login, real phone pairing, native
-permissions or user workspace is involved.
+renderer and fake-engine server. No provider login, native permissions or user
+workspace is involved.
 
 Assertions cover profile-save failure and retry, reduced-motion reel playback,
 the engines beat's provider framing with a refresh failure that keeps its

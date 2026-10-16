@@ -31,7 +31,7 @@ the log is a record.
     everything; members never receive a bot's audience list.
 - **Admin activity log.** `server/admin-activity.ts`. Each successful admin
   change is diffed around its request (config.json, the bot's audited
-  fields, the bot and webhook lists, sessions, pairing codes, engine actions)
+  fields, the bot and webhook lists, sessions, engine actions)
   and written to `<data>/admin-activity/YYYY-MM.ndjson` (0600) with the
   actor and redacted before/after values; `colonie access` writes the
   same row as the command line. Months are pruned by the decision log's
@@ -70,7 +70,7 @@ pnpm exec vitest run server/bot-visibility.test.ts server/bot-visibility.e2e.tes
   limit and settings (as Boss, as the owner on loopback, and with the
   command-line marker), adds an MCP server with a secret, creates, restricts,
   re-permissions and deletes a bot, creates and deletes a webhook, revokes a
-  session and creates a pairing code; then reads `GET /api/admin-activity`
+  session; then reads `GET /api/admin-activity`
   with each filter and the CSV. It checks who is named, that display-only
   and refused changes leave no row, that neither secret reaches the file or
   the CSV, that the file is 0600, and that a member gets 403.
@@ -186,8 +186,8 @@ above; not production qualification.
 - **Calendar calls** refuse mixed audiences on create, update and when their
   room opens.
 - **Recording** is decided on the state before or after the request
-  (revoking the last chat-only phone is kept); an open chat-only pairing
-  code counts as shared.
+  (revoking the last chat-only session is kept); an open chat-only session
+  counts as shared.
 - **Redaction** also covers `-k`, `https://TOKEN@host` and key-like path
   segments, and leaves readable slugs and UUIDs alone.
 

@@ -115,11 +115,9 @@ native permission rejection, cleanup, and post-creation activation warnings.
 Browser fixtures do not prove packaged operating-system grants or real model
 execution; those require the native approval verification separately.
 
-Companion connections retain the single-request Create bot flow: they cannot
-read host defaults or patch host settings. `companion/test/proxy.test.ts` checks
-creation succeeds while those routes remain blocked. The dialog tests also
-check that a caller's synchronous exception or rejected promise after creation
-is reported without leaving a retryable creation dialog open.
+The dialog tests check that a caller's synchronous exception or rejected
+promise after creation is reported without leaving a retryable creation dialog
+open.
 
 In the renderer fixture, open **App settings → General → Defaults for new bots → Edit**.
 The full creation dialog retains upstream's **Who can see it** selection for
@@ -128,7 +126,7 @@ browser admins. `scripts/testing/bot-draft-visibility-ui.e2e.test.ts` selects
 POST carries that audience; it is not widened temporarily during later setup.
 The fixture injects the native select's change event for cross-platform
 headless reliability; it does not verify the operating system's select popup.
-Desktop, companion, and default-template editors do not expose that control.
+The desktop and default-template editors do not expose that control.
 
 In the defaults editor:
 Open **Identity → View full**. Three successive Escape presses must close only

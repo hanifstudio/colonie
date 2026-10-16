@@ -1,10 +1,11 @@
 // Live calls (GPT-Live as the voice, the bot as the brain). The call itself
 // runs in LiveCallController; these routes start it, end it, report it and
 // change its non-secret settings. The OpenAI key is never read or written
-// here. All are admin-scoped by default in server/request-auth.ts; the
-// companion allows the first four for the phone apps (companion/src/routes.ts).
-// The fifth, device-revoked, is the companion's own notice that it unpaired a
-// phone; a phone can never send it (companion/src/routes.ts COMPANION_NOTICES).
+// here. All are admin-scoped by default in server/request-auth.ts. The phone
+// companion that once vouched for a paired phone is gone (2026-10-17), so the
+// `device-revoked` notice below has no legitimate sender left; it and the
+// companion device binding are recorded as remaining dead surface in
+// docs/PROGRESS.md.
 import type { IncomingMessage } from "node:http";
 import { z } from "zod";
 import type { LiveSettings } from "../../shared/wire.ts";
@@ -39,10 +40,9 @@ const settingsBody = z.object({
 
 const DEVICE_ID = /^[\w-]{1,128}$/;
 
-/** The paired phone the companion vouched for, or undefined. The companion
- * sends its own id for the phone that authenticated (never one the phone
- * chose); in the desktop app the harness has already checked the companion's
- * private token before this runs (server/request-auth.ts). */
+/** The paired phone a companion vouched for, read from its headers. No
+ * companion exists to send them any more, so this is always undefined; it
+ * stays until the binding itself is removed. */
 function companionDevice(req: IncomingMessage): string | undefined {
   if (req.headers["x-colonie-companion"] !== "1") return undefined;
   const device = req.headers["x-colonie-companion-device"];
@@ -68,7 +68,7 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
       const target = deps.resolveTarget(parsed.data.botId, parsed.data.threadId);
       if (!target) return json(res, 404, { error: "That bot or chat does not exist." });
       try {
-        // A phone's call is bound to the phone, so unpairing it ends the call.
+        // A phone's call was bound to the phone, so unpairing it ended the call.
         const device = companionDevice(req);
         const { call, sdp } = await deps.calls.start({ auth, ...(device ? { device } : {}), ...target, client: parsed.data.client, sdp: parsed.data.sdp });
         return json(res, 201, { call, transport: { type: "webrtc", sdp } });
@@ -91,7 +91,7 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
 
     if (method === "GET" && path === "/api/live/call") return json(res, 200, { call: deps.calls.current() });
 
-    // The companion unpaired a phone: end the call that phone holds, if any.
+    // The companion's old notice that it unpaired a phone: end that call, if any.
     if (method === "POST" && path === "/api/live/device-revoked") {
       if (req.headers["x-colonie-companion"] !== "1") return json(res, 403, { error: "Only the phone companion can report an unpaired phone." });
       const device = companionDevice(req);

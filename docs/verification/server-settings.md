@@ -39,7 +39,7 @@ not prove a customer's real DNS, certificate, or reverse proxy is configured.
    and confirm its app and webhook ports match the fixture. Submit
    `http://bots.example.com` and confirm HTTPS validation appears without
    changing the current address. The real API must likewise reject localhost,
-   IP addresses, and URLs containing pairing codes.
+   IP addresses, and URLs containing session tokens.
    At a 390px viewport, Settings uses a section dropdown instead of the sidebar.
    Switch sections, copy a DNS value, and confirm the form remains readable.
    Tab and Shift-Tab must stay inside the dialog, skipping the hidden sidebar

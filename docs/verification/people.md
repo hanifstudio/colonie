@@ -16,8 +16,7 @@
   (`COLONIE_ADMIN_MEMBERSHIP=portal`) the card is read-only: who has signed in,
   what they spent, and a **Manage people in Admin** link
   (`<COLONIE_ADMIN_URL>/people?workspace=<slug>`, from `GET /api/config`
-  `membership.peopleUrl`). Remote access there lists signed-in devices and
-  offers no pairing code, since a hosted workspace refuses them.
+  `membership.peopleUrl`). Signed-in sessions are listed there and read-only.
 
 ## Driving it
 

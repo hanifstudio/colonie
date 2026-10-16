@@ -71,8 +71,8 @@ cookies or tokens. Revocation closes connections immediately; expiry and target
 availability are rechecked every five seconds.
 
 These checks use a synthetic RFB server and Chromium. They do not claim a
-real container or VPS/SSH server, Tailscale TLS connection, Safari/iPhone, or native Electron
-viewer acceptance. Local owner requests retain the existing direct viewer
+real container or VPS/SSH server, Safari/iPhone, or native Electron viewer
+acceptance. Local owner requests retain the existing direct viewer
 URL and Electron cookie isolation.
 
 VPS tunnel tests retain multiple viewers, release each once, preserve native

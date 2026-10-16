@@ -179,12 +179,11 @@ posixOnly("admin activity log", () => {
     expect(hook.status).toBe(201);
     expect((await api("DELETE", `/api/webhooks/${hook.body.webhook.id}`, undefined, BOSS)).status).toBe(200);
     expect((await api("DELETE", `/api/auth/sessions/${oldPhone}`, undefined, BOSS)).status).toBe(200);
-    expect((await api("POST", "/api/auth/pairing", { label: "Reception iPad", scopes: ["client"] }, BOSS)).status).toBe(200);
     expect((await api("DELETE", `/api/bots/${botId}`, undefined, BOSS)).status).toBe(200);
 
     const rows = (await activity("?what=all")).filter((entry) => entry.type === "admin");
     const actions = rows.map((entry) => entry.action);
-    for (const action of ["mcp.update", "bot.create", "visibility.update", "bot.update", "webhook.create", "webhook.delete", "session.revoke", "pairing.create", "bot.delete"]) {
+    for (const action of ["mcp.update", "bot.create", "visibility.update", "bot.update", "webhook.create", "webhook.delete", "session.revoke", "bot.delete"]) {
       expect(actions, action).toContain(action);
     }
     expect(actions.filter((action) => action === "bot.update")).toHaveLength(1); // not the pin, not the refused audience
@@ -198,7 +197,6 @@ posixOnly("admin activity log", () => {
     expect(JSON.stringify(mcpRow)).toContain("--api-key");
     expect(JSON.stringify(mcpRow)).toContain("FIXTURE_TOKEN");
     expect(rows.find((entry) => entry.action === "session.revoke")).toMatchObject({ target: { id: oldPhone, name: "Old phone" } });
-    expect(rows.find((entry) => entry.action === "pairing.create")).toMatchObject({ after: { label: "Reception iPad", scopes: ["client"] } });
     expect(rows.find((entry) => entry.action === "bot.delete")).toMatchObject({ target: { id: botId }, before: { visibility: { people: [ADA] } } });
   });
 
@@ -259,30 +257,20 @@ posixOnly("admin activity log", () => {
     // Ada leaves: the change that ends sharing is still recorded…
     expect((await api("PUT", "/api/config", { signIn: { admins: [BOSS], members: [] } }, BOSS)).status).toBe(200);
     expect((await activity("?what=people"))[0]).toMatchObject({ who: BOSS, changed: ["signIn.members"] });
-    // (an unused chat-only pairing code from earlier also counts as sharing)
-    for (const pairing of (await api("GET", "/api/auth/pairing", undefined, BOSS)).body.pairings ?? []) {
-      expect((await api("DELETE", `/api/auth/pairing/${pairing.id}`, undefined, BOSS)).status).toBe(200);
-    }
     // …and after it, a one-person server keeps no admin log.
     expect((await api("PUT", "/api/config", { profile: { name: "Solo desk" } }, BOSS)).status).toBe(200);
     expect((await api("POST", "/api/bots", { name: "Solo Wren" }, BOSS)).status).toBe(201);
-    let rows = await activity("?what=all");
+    const rows = await activity("?what=all");
     expect(JSON.stringify(rows)).not.toContain("Solo desk");
     expect(JSON.stringify(rows)).not.toContain("Solo Wren");
     expect((await api("GET", "/api/admin-activity", undefined, BOSS)).body.recording).toBe(false);
 
-    // A chat-only phone makes it shared again: its pairing code is recorded,
-    // and so is signing it out, though that leaves one person again.
-    const opened = await api("POST", "/api/auth/pairing", { label: "Front desk phone", scopes: ["client"] }, BOSS);
-    expect(opened.status).toBe(200);
-    const paired = await api("POST", "/api/auth/pair", { code: opened.body.code, label: "Front desk phone" });
-    expect(paired.status, JSON.stringify(paired.body)).toBe(200);
-    const phone = paired.body.session.id as string;
+    // Inviting someone makes it shared again, and the change that starts it is
+    // kept; removing them ends it, and that change is kept too.
+    expect((await api("PUT", "/api/config", { signIn: { admins: [BOSS], members: [ADA] } }, BOSS)).status).toBe(200);
     expect((await api("GET", "/api/admin-activity", undefined, BOSS)).body.recording).toBe(true);
-    expect((await api("DELETE", `/api/auth/sessions/${phone}`, undefined, BOSS)).status).toBe(200);
+    expect((await api("PUT", "/api/config", { signIn: { admins: [BOSS], members: [] } }, BOSS)).status).toBe(200);
     expect((await api("GET", "/api/admin-activity", undefined, BOSS)).body.recording).toBe(false);
-    rows = await activity("?what=session");
-    expect(rows.map((entry) => entry.action)).toEqual(expect.arrayContaining(["pairing.create", "session.revoke"]));
-    expect(rows.find((entry) => entry.action === "session.revoke")).toMatchObject({ who: BOSS, target: { id: phone, name: "Front desk phone" } });
+    expect((await activity("?what=people")).map((entry) => entry.changed)).toEqual([["signIn.members"], ["signIn.members"]]);
   });
 });

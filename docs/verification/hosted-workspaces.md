@@ -61,8 +61,8 @@ assumption that arbitrary older or newer versions work.
 An operator may explicitly set `COLONIE_ADMIN_MEMBERSHIP=portal` when the identity
 service is the sole membership authority. This requires the complete valid
 hosted configuration above. Only sessions internally marked after a successful
-portal grant exchange may skip the local allow-list; ordinary email sessions,
-pairing credentials and a `portal:` user ID alone never gain that exemption.
+portal grant exchange may skip the local allow-list; ordinary email sessions
+and a `portal:` user ID alone never gain that exemption.
 All remote grant checks and stream revocation still apply. Unset the mode (or
 set it to `local`) to restore local narrowing, including for saved sessions.
 Other mode values fail closed. This opt-in avoids rewriting tenant allow-lists

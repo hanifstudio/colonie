@@ -70,9 +70,9 @@ describe("CI path scope", () => {
   });
 
   it.each([
-    ["server/index.ts"], ["shared/types.ts"], ["electron/main.mjs"], ["companion/src/index.ts"],
+    ["server/index.ts"], ["shared/types.ts"], ["electron/main.mjs"], ["server/acp/instance.ts"],
     ["package.json"], ["pnpm-lock.yaml"], ["vite.config.ts"], [".github/workflows/release.yml"],
-    ["docs/fixture.json"], ["unknown/file"], ["src/App.tsx", "server/index.ts"], ["scripts/capture-companion-fixtures.mjs"],
+    ["docs/fixture.json"], ["unknown/file"], ["src/App.tsx", "server/index.ts"], ["scripts/colonie/start.ts"],
   ])("runs the runtime suite for %j", (...files) => {
     expect(selectCiScope(files)).toEqual({ runtime: true });
   });

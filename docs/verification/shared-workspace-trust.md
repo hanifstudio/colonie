@@ -21,13 +21,12 @@ checks pin what changes there and what does not.
   exactly the set the cloud Slack worker calls (checked against the cloud
   repository's worker source, every released version), so the deployed
   worker needs no change.
-- **The CLI under service trust.** `colonie serve` hands the server it
-  starts a per-launch secret over the server's stdin; that secret opens
-  `/api/auth/pairing` for that CLI alone, so `serve` still prints the first
-  pairing code, and if a code is refused anyway it says why and keeps the
-  server running. Later `colonie pair` and `colonie sessions` are
-  refused with an explanation. A browser on an SSH tunnel gets the sign-in
-  page, not an app whose every admin call fails.
+- **The CLI under service trust.** There is no CLI pairing bootstrap any more:
+  `colonie serve`, its per-launch stdin secret and the `/api/auth/pairing` route
+  went with the phone pairing feature (2026-10-17). A `service`-trust server
+  therefore has no CLI-owner exemption, a session-less caller is refused
+  everywhere outside the allow-list, and a browser on an SSH tunnel gets the
+  sign-in page rather than an app whose every admin call fails.
 - **Who may answer a card.** With portal membership or an email sign-in list
   that names members, a card that can be traced to a person — who sent its
   request (`sender.id`), who the thread was opened for, and for a thread a
@@ -54,31 +53,22 @@ checks pin what changes there and what does not.
 - **Settings on a portal-membership workspace.** `GET /api/config` reports
   `membership {authority, pairingCodes, peopleUrl}`. Settings → People turns
   read-only (who signed in, their spend, "Manage people in Admin" linking to
-  `<COLONIE_ADMIN_URL>/people?workspace=<slug>`); Remote access offers no pairing
-  code and says people sign in through the organization's portal.
+  `<COLONIE_ADMIN_URL>/people?workspace=<slug>`), and the sign-in card says people
+  sign in through the organization's portal.
 
 ## Driving it
 
 ```sh
 pnpm exec vitest run server/request-auth.test.ts server/decision-log.test.ts \
   server/card-answerers.e2e.test.ts \
-  server/hosted-access.test.ts server/decision-log-wiring.test.ts \
-  src/components/PeopleSection.test.ts src/components/ServerPairingCard.test.ts src/lib/session.test.ts
+  server/decision-log-wiring.test.ts \
+  src/components/PeopleSection.test.ts src/lib/session.test.ts
 ```
 
 - `server/request-auth.test.ts` runs the worker's calls and a list of admin
   calls through the resolver under each trust level, sessions under
-  `service`, the desktop capability overriding `service`, the serving CLI's
-  secret opening the pairing route and nothing else, and the start-up choice.
-- `server/hosted-access.test.ts` ("treats a session-less local caller as a
-  service by default") boots a portal-membership workspace with shared Full
-  access and no override: the start-up log line, the worker's whole path over
-  loopback (health, bot list, a Full-access thread, a guarded send, its
-  request fence), 403 for `PUT /api/config`, `POST /api/webhooks`, session
-  list and revocation, bot creation and loosening, and an unguarded send,
-  with nothing changed afterwards; then an admin portal session saves the
-  retention window and reads `membership`. The other cases in that file keep
-  `COLONIE_LOOPBACK_TRUST=owner` because they set fixtures up over loopback.
+  `service`, the desktop capability overriding `service`, and the start-up
+  choice.
 - `server/card-answerers.e2e.test.ts` boots a server with one admin and two
   members on the sign-in list and the fake ACP engine asking permission every
   turn: another member is refused on both respond routes, the requester
@@ -90,10 +80,6 @@ pnpm exec vitest run server/request-auth.test.ts server/decision-log.test.ts \
   cannot approve (or use the bot-scoped route or always-allow) but can
   decline, while a Slack-shaped guarded request stays answerable by any
   member. Each answer's decision row and card name who answered.
-- `server/cli-service-trust.e2e.test.ts` runs the real `colonie serve`
-  with `COLONIE_LOOPBACK_TRUST=service`: it prints a pairing code and keeps
-  running, the pairing route refuses every other local caller, and later
-  `pair` and `sessions` commands exit with the explanation.
 
 ## Not proven here
 
@@ -117,15 +103,13 @@ and the files above plus `server/index.test.ts`,
 `server/chat-followups-restart.test.ts`, `server/steer-e2e.test.ts`,
 `server/routines-startup.test.ts`, `server/enterprise.test.ts`,
 `server/store.test.ts`, `server/cli-lifecycle.test.ts`,
-`server/cli-pair.test.ts`, `server/cli.test.ts` and
 `scripts/testing/verification-docs.test.ts` passed on macOS. Mutation checks,
 each restored afterwards, turned a named test red: the resolver ignoring
 `service`; a hosted workspace defaulting to `owner`; the server gate not
 passing the trust level; members answering any card; a service approving;
 task creation not recording its opener; a bot-opened thread not traced back
-to the person; a card that names nobody refused to members; the CLI secret
-ignored, or opening more than the pairing route; `sessions` ignoring the
-refusal; an SSH tunnel treated as connected; decision rows without the
+to the person; a card that names nobody refused to members; an SSH tunnel
+treated as connected; decision rows without the
 answerer; month pruning off by one month; the portal People table offering
 edits. Every server, session, engine and identity service was a local
 fixture. This is not production qualification: no hosted tenant, Slack
