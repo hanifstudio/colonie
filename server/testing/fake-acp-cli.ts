@@ -71,6 +71,9 @@
 //                       before stopping or steering mid-turn
 //   FAKE_ACP_DUMP   path to write {argv, env} as JSON, so a test can assert
 //                   argv shape (agent/stdio flags) and env hygiene
+//   FAKE_ACP_PROMPTS_FILE  append one {"prompt","mode","model"} JSON line per
+//                   session/prompt, so a test can read the whole conversation
+//                   the engine was handed across pooled children and restarts
 //   FAKE_ACP_LAUNCH_COUNT_FILE  read-increment-write a process counter at
 //                       startup, so a test can tell a reused pooled session
 //                       (one launch) from a fresh child per turn (many)
@@ -379,13 +382,20 @@ if (argv[0] === "models" || argv.includes("--list-models")) {
 // the session this process established, for FAKE_ACP_REJECT_LIVE_LOAD_FILE
 let liveSession: string | null = null;
 const out = (obj: any) => {
-  // Every session/update must name its session: the ACP SDK parses
-  // params.sessionId as required and rejects the notification when it is
-  // missing, so a fake that omits it looks mute to the harness — no agent
-  // text, no tool chips. Stamp the established session on any session/update
-  // that does not already carry one (real adapters always do).
-  if (obj?.method === "session/update" && obj.params && obj.params.sessionId === undefined && liveSession) {
-    obj.params.sessionId = liveSession;
+  if (obj?.method === "session/update" && obj.params) {
+    // Every session/update must name its session: the ACP SDK parses
+    // params.sessionId as required and rejects the notification when it is
+    // missing, so a fake that omits it looks mute to the harness — no agent
+    // text, no tool chips. Real adapters always name the session.
+    if (obj.params.sessionId === undefined && liveSession) obj.params.sessionId = liveSession;
+    // A chunk's content is a discriminated ContentBlock: { type: "text",
+    // text }. A bare { text } fails the parse with -32602 and is dropped, so
+    // the reply never reaches the transcript either.
+    const content = obj.params.update?.content;
+    if (content && typeof content === "object" && !Array.isArray(content) &&
+        typeof content.text === "string" && content.type === undefined) {
+      content.type = "text";
+    }
   }
   process.stdout.write(JSON.stringify(obj) + "\n");
 };
@@ -884,6 +894,14 @@ function handle(msg: any) {
       if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_DUMP_PROMPT === "1") {
         writeFileSync(`${process.env.FAKE_ACP_DUMP}.prompt.json`, JSON.stringify(msg.params?.prompt ?? null, null, 2));
       }
+      if (process.env.FAKE_ACP_PROMPTS_FILE) {
+        // One JSON line per prompt: the whole conversation the engine was
+        // handed, so a test can assert what it did and did not receive. ACP
+        // carries the system context inside the prompt itself.
+        appendFileSync(process.env.FAKE_ACP_PROMPTS_FILE, JSON.stringify({
+          prompt: msg.params?.prompt ?? null, mode: currentMode, model: currentModel,
+        }) + "\n");
+      }
       if (failRpc(msg)) return;
       if (mode === "hang") {
         // never resolve the prompt on our own — lets tests exercise interrupt
@@ -962,12 +980,11 @@ function handle(msg: any) {
         return;
       }
       if (mode === "unkeyed-tool") {
-        // An agent that violates the ACP spec by omitting toolCallId: the
-        // turn's lifecycle pair must still carry one stable id so consumers
-        // can pair the start with its completion.
+        // An agent that violates the ACP spec by omitting toolCallId. The SDK
+        // rejects that notification before the runtime sees it (toolCallId is
+        // required by the schema), so this mode cannot reach any consumer and
+        // is kept only to document the shape that is refused.
         out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "tool_call", title: "run", rawInput: { command: "echo done" } } } });
-        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "tool_call_update", status: "completed", rawOutput: { output: "done" } } } });
-        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "done" } } } });
         complete();
         return;
       }
@@ -1211,8 +1228,9 @@ function handle(msg: any) {
                 pendingPermissionId = 9100;
                 onPermissionAnswered = resolve;
                 out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
+                  sessionId: String(liveSession),
                   toolCall: { toolCallId: `fixture-${name}`, kind: "other", title: `agents__${name}`, rawInput: {} },
-                  options: [{ optionId: "allow-once", kind: "allow_once" }, { optionId: "reject", kind: "reject_once" }],
+                  options: [{ optionId: "allow-once", kind: "allow_once", name: "Allow once" }, { optionId: "reject", kind: "reject_once", name: "Reject" }],
                 } });
               });
               if (!allowed) { complete(); return; }
@@ -1240,15 +1258,16 @@ function handle(msg: any) {
           id: pendingPermissionId,
           method: "session/request_permission",
           params: {
+            sessionId: String(liveSession),
             toolCall: process.env.FAKE_ACP_PERMISSION_TOOL_CALL
               ? JSON.parse(process.env.FAKE_ACP_PERMISSION_TOOL_CALL)
-              : { kind: "execute", rawInput: { command: "echo hi" }, title: "echo hi" },
+              : { toolCallId: "tc-permission", kind: "execute", rawInput: { command: "echo hi" }, title: "echo hi" },
             options: process.env.FAKE_ACP_PERMISSION_OPTIONS ? JSON.parse(process.env.FAKE_ACP_PERMISSION_OPTIONS) : [
-              { optionId: "allow-once", kind: "allow_once" },
+              { optionId: "allow-once", kind: "allow_once", name: "Allow once" },
               // Grok offers a session-wide allow on some requests and omits
               // it on others; the driver must cope with both.
-              ...(process.env.FAKE_ACP_ALLOW_ALWAYS ? [{ optionId: "allow-always", kind: "allow_always" }] : []),
-              { optionId: "reject", kind: "reject_once" },
+              ...(process.env.FAKE_ACP_ALLOW_ALWAYS ? [{ optionId: "allow-always", kind: "allow_always", name: "Always allow" }] : []),
+              { optionId: "reject", kind: "reject_once", name: "Reject" },
             ],
           },
         });
@@ -1267,6 +1286,7 @@ function handle(msg: any) {
             });
           };
           out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
+            sessionId: String(liveSession),
             toolCall: { toolCallId: "interaction_folder", kind: "other", title: "Which folder should I read?" },
             options: [{ optionId: "docs-id", kind: "allow_once", name: "Docs" }, { optionId: "other-id", kind: "allow_once", name: "Other" }],
           } });
@@ -1284,6 +1304,7 @@ function handle(msg: any) {
           id: pendingPermissionId,
           method: "session/request_permission",
           params: {
+            sessionId: String(liveSession),
             toolCall: { toolCallId: "interaction_color", kind: "other", title: "Which color?" },
             options: process.env.FAKE_ACP_QUESTION_OPTIONS ? JSON.parse(process.env.FAKE_ACP_QUESTION_OPTIONS) : [
               { optionId: "blue-id", kind: "allow_once", name: "Blue" },
