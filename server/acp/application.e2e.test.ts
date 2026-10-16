@@ -19,7 +19,11 @@ it.each(["codex-acp", "claude-acp"])("runs the real HTTP/SSE application over %s
     return value as any;
   };
   try {
-    expect((await api("GET", "/api/instances")).instances.map((entry: any) => entry.driverKind)).toEqual(["codex-acp", "claude-acp"]);
+    // Every registered instance is a maintained ACP adapter: the shared
+    // fixture also configures its own `claude` engine, and nothing else.
+    const kinds = (await api("GET", "/api/instances")).instances.map((entry: any) => entry.driverKind);
+    expect(kinds).toEqual(expect.arrayContaining(["codex-acp", "claude-acp"]));
+    expect(new Set(kinds)).toEqual(new Set(["codex-acp", "claude-acp"]));
     const { bot } = await api("POST", "/api/bots", { name: "ACP fixture", title: "UNWANTED ROLE", description: "UNWANTED PERSONALITY",
       soul: "UNWANTED SOUL", modelSelection: { instanceId: provider, model: "agent-default" }, computer: "off" });
     const defaults = await api("GET", `/api/bots/${bot.id}/acp-context?threadId=${bot.threadId}`);

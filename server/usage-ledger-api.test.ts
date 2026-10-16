@@ -1,7 +1,7 @@
 // The usage ledger through real settled turns: the isolated fake-engine
 // fixture, the shared control surface for sends and waits, and the ledger
-// file plus /api/usage read back as the owner and as a paired device. It
-// never touches a live instance; the fixture's home is disposable.
+// file plus /api/usage read back as the owner. It never touches a live
+// instance; the fixture's home is disposable.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -31,6 +31,9 @@ describe("usage ledger through real turns", () => {
     const created = await control(["new-bot", "--name", "Ledger probe"]);
     const botId = created.bot.id as string;
 
+    // The ACP transport reports tokens and no dollar amount, and the OSS
+    // edition is not entitled to operator prices, so a turn books its tokens
+    // unpriced. Pricing is exercised where billing is entitled.
     // Turn 1: this computer, through the control surface (loopback = owner).
     await control(["send", "--bot", botId, "--text", "hello from the owner"]);
     expect(JSON.stringify(await control(["wait", "--bot", botId, "--timeout", "30"]))).toContain("settled");
@@ -44,19 +47,19 @@ describe("usage ledger through real turns", () => {
     await expect.poll(() => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").length : 0), { timeout: 10_000 }).toBe(2);
     const rows = readFileSync(file, "utf8").trim().split("\n").map((line) => JSON.parse(line));
     expect(rows[0]).toMatchObject({
-      botId, botName: "Ledger probe", instanceId: "claude", driverKind: "claudeAgent", costUsd: 0.01, trigger: { kind: "owner" },
+      botId, botName: "Ledger probe", instanceId: "claude", driverKind: "claude-acp",
+      input: 10, output: 5, costUsd: null, trigger: { kind: "owner" },
     });
     expect(rows[0].input).toBeGreaterThanOrEqual(10);
     expect(rows[0].output).toBeGreaterThanOrEqual(1);
     expect(rows[0].model).toBeTypeOf("string");
-    expect(rows[1]).toMatchObject({ botId, costUsd: 0.01, trigger: { kind: "owner" } });
+    expect(rows[1]).toMatchObject({ botId, input: 10, output: 5, costUsd: null, trigger: { kind: "owner" } });
     // Bookkeeping, never transcript: no message text reaches the ledger.
     expect(readFileSync(file, "utf8")).not.toContain("hello from");
 
     const byUser = (await (await api("/api/usage?groupBy=user")).json()) as any;
-    expect(byUser.groups.map((g: any) => [g.key, g.turns, g.costUsd])).toEqual([["owner", 2, 0.02]]);
-    expect(byUser.total).toMatchObject({ turns: 2, unpriced: 0 });
-    expect(byUser.total.costUsd).toBeCloseTo(0.02, 6);
+    expect(byUser.groups.map((g: any) => [g.key, g.turns])).toEqual([["owner", 2]]);
+    expect(byUser.total).toMatchObject({ turns: 2 });
     const byBot = (await (await api("/api/usage?groupBy=bot")).json()) as any;
     expect(byBot.groups).toEqual([expect.objectContaining({ key: `bot:${botId}`, label: "Ledger probe", turns: 2 })]);
 

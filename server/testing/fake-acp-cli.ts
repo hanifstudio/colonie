@@ -228,6 +228,13 @@ const configOptions = () => {
   ];
   return options.length ? options : null;
 };
+// The maintained adapters answer session/new with both shapes: the newer
+// `configOptions` list and the legacy `modes` block. Colonie's ACP runtime
+// validates set_mode against `modes.availableModes`, so the fake answers both
+// whenever FAKE_ACP_MODES names any (the first one is the current mode).
+const legacyModes = () => (modes.length ? {
+  modes: { currentModeId: currentMode, availableModes: modes.map((value) => ({ id: value, name: value })) },
+} : {});
 // cursor-shaped surface: the session advertises `models.availableModels` with
 // parameterised ids (`default[]`) that differ from the argv `--model` slugs
 // (`auto`). Off unless FAKE_ACP_SESSION_MODELS is set, so every existing mode
@@ -702,6 +709,7 @@ function handle(msg: any) {
       resultAndConfigUpdates(msg.id, {
         sessionId: "fake-acp-session",
         ...(opts ? { configOptions: opts } : {}),
+        ...legacyModes(),
         ...(mdls ? { models: mdls } : {}),
       }, "session/new", "fake-acp-session");
       break;
@@ -736,7 +744,7 @@ function handle(msg: any) {
       const opts = configOptions();
       const mdls = sessionModels();
       liveSession = typeof msg.params?.sessionId === "string" ? msg.params.sessionId : liveSession;
-      resultAndConfigUpdates(msg.id, { ...(opts ? { configOptions: opts } : {}), ...(mdls ? { models: mdls } : {}) }, "session/load", msg.params.sessionId);
+      resultAndConfigUpdates(msg.id, { ...(opts ? { configOptions: opts } : {}), ...legacyModes(), ...(mdls ? { models: mdls } : {}) }, "session/load", msg.params.sessionId);
       break;
     }
     case "session/resume": {
@@ -754,7 +762,7 @@ function handle(msg: any) {
       const opts = configOptions();
       const mdls = sessionModels();
       liveSession = typeof msg.params?.sessionId === "string" ? msg.params.sessionId : liveSession;
-      result(msg.id, { ...(opts ? { configOptions: opts } : {}), ...(mdls ? { models: mdls } : {}) });
+      result(msg.id, { ...(opts ? { configOptions: opts } : {}), ...legacyModes(), ...(mdls ? { models: mdls } : {}) });
       break;
     }
     // per-session settings (droid sets model/autonomy here, not via argv).

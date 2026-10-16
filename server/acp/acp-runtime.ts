@@ -59,6 +59,31 @@ export interface AcpAuthStatus {
 const AUTH_STATUS_UPDATE_METHOD = "_auth/status_update";
 type AuthStatusPush = { kind?: string };
 const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
+/** Tokens the agent reported for one turn. The maintained adapters put them
+ * under `_meta` on the prompt result; some agents report at the root. `input`
+ * is the whole prompt with `cachedInput` naming the cached share — cache
+ * writes stay out of `input`, and an absent cache count emits no key at all
+ * (absent is not zero). */
+function turnUsage(result: unknown): { input: number; output: number; cachedInput?: number } | undefined {
+  const payload = (result ?? {}) as { usage?: Record<string, unknown>; _meta?: Record<string, unknown> };
+  const usage = payload.usage ?? payload._meta ?? {};
+  const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+  const input = count(usage.inputTokens);
+  const output = count(usage.outputTokens);
+  if (input === undefined && output === undefined) return undefined;
+  const cachedRead = count(usage.cachedReadTokens);
+  const total = count(usage.totalTokens);
+  // Agents differ on whether the cached share is inside inputTokens: when
+  // totalTokens says the cached count sits beside it, both are added.
+  const exclusive = cachedRead !== undefined && cachedRead > 0 && (total === undefined || total >= (input ?? 0) + (output ?? 0) + cachedRead);
+  return {
+    input: cachedRead !== undefined && cachedRead > 0 && exclusive ? (input ?? 0) + cachedRead : input ?? 0,
+    output: output ?? 0,
+    ...(cachedRead !== undefined && cachedRead > 0
+      ? { cachedInput: exclusive ? cachedRead : Math.min(cachedRead, input ?? 0) }
+      : {}),
+  };
+}
 type EventPayload<E = RuntimeEvent> = E extends RuntimeEvent
   ? Omit<E, "eventId" | "provider" | "threadId" | "createdAt"> : never;
 
@@ -260,7 +285,7 @@ export class AcpRuntime implements ProviderAdapter {
     this.models.options = [{ id: "agent-default", label: `${this.flavor.name} default` }, ...choices(option).map((entry) => ({ id: entry.value, label: entry.name }))];
   }
 
-  private finish(session: LiveSession, ok: boolean, stopReason: string, error?: string): void {
+  private finish(session: LiveSession, ok: boolean, stopReason: string, error?: string, usage?: { input: number; output: number; cachedInput?: number }): void {
     const turn = session.turn;
     if (!turn || turn.finished) return;
     this.flushText(session);
@@ -278,7 +303,7 @@ export class AcpRuntime implements ProviderAdapter {
       }
     }
     if (error && !turn.cancelled) this.emit(session, { type: "runtime.error", message: error, terminal: true });
-    this.emit(session, { type: "turn.completed", ok, stopReason });
+    this.emit(session, { type: "turn.completed", ok, stopReason, ...(usage ? { usage } : {}) });
     turn.resolveDone();
     if (!session.closed) session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
   }
@@ -577,7 +602,7 @@ export class AcpRuntime implements ProviderAdapter {
       this.emit(session, { type: "session.started", sessionId: session.id!, model: effectiveModel });
       this.emit(session, { type: "turn.started" });
       void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
-        .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason))
+        .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason, undefined, turnUsage(result)))
         .catch((error: Error) => this.finish(session, false, turn.cancelled ? "cancelled" : "error", redactSecretsInText(error.message)));
       return { turnId: turn.id };
     } catch (error) {

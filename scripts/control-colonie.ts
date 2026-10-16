@@ -18,7 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
  * deliberately outside the server/names.ts pool so no suite can plan a bot
  * that collides with the starter (#1257). */
 export const FIXTURE_STARTER_BOT_NAME = "Fixture Starter";
-const FAKE_CLI = join(ROOT, "server", "testing", "fake-claude-cli.ts");
+const FAKE_ACP = join(ROOT, "server", "testing", "fake-acp-cli.ts");
 // `ui` verbs never discover anything: each takes the handle its launch printed.
 const MUTATING = new Set([
   "new-bot", "new-channel", "send", "send-channel", "interrupt", "set-model", "edit",
@@ -356,12 +356,9 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     COLONIE_DATA_DIR: dataDir,
     COLONIE_PORT: String(port),
     COLONIE_WEBHOOK_PORT: String(port + 1),
-    // The fixture's default CLI behaviour; a caller that sets
-    // FAKE_CLAUDE_MODE explicitly overrides it below to drive the CLI's
-    // failure paths (exit-early, dead-session, hang...) through the real
-    // server. Nothing else from the parent shell reaches the fixture.
-    FAKE_CLAUDE_MODE: parentEnv.FAKE_CLAUDE_MODE || "happy",
-    FAKE_CLAUDE_DUMP: join(dataDir, "fake-claude-dump.json"),
+    // The scripted ACP fake writes the launcher's dump path. Nothing else
+    // from the parent shell reaches the fixture.
+    FAKE_ACP_DUMP: join(dataDir, "fake-claude-dump.json"),
     // Keep the environment hermetic while allowing POSIX to resolve the
     // fake CLI's `#!/usr/bin/env node` shebang. Windows resolves that same
     // fixture through spawnCli without a shell.
@@ -372,11 +369,11 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     // an "available" engine that CI never has (#2035).
     COLONIE_TEST_SEALED_PATH: "1",
   });
-  // The fake engine's own knobs (mode, replies, tool calls) are the one thing
-  // a caller may script into the child: FAKE_CLAUDE_* crosses, nothing else.
+  // The fake engine's own knobs (modes, models, tool calls) are the one thing
+  // a caller may script into the child: FAKE_ACP_* crosses, nothing else.
   for (const [key, value] of Object.entries(parentEnv)) {
-    // FAKE_CLAUDE_DUMP stays the launcher's: assertions read fixtureDumpPath.
-    if (key.startsWith("FAKE_CLAUDE_") && key !== "FAKE_CLAUDE_DUMP" && value) childEnv[key] = value;
+    // FAKE_ACP_DUMP stays the launcher's: assertions read fixtureDumpPath.
+    if (key.startsWith("FAKE_ACP_") && key !== "FAKE_ACP_DUMP" && value) childEnv[key] = value;
   }
   // Live calls against server/testing/fake-openai-live.ts only: a loopback
   // URL, and a key that only ever reaches that fake.
@@ -466,17 +463,20 @@ export async function launchVerificationServer(
         environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" }),
       } } : {}),
       ...(extraProviders.includes("codex") ? { codex: {
-        driver: "codex", displayName: "Verification Codex", config: { cli: fileURLToPath(new URL("../server/testing/fake-codex-app-server.ts", import.meta.url)) },
+        driver: "codex-acp", displayName: "Verification Codex",
+        config: { cli: process.execPath, args: [FAKE_ACP] },
+        // The modes the maintained codex adapter advertises.
+        environment: { FAKE_ACP_MODES: "read-only,agent-full-access" },
       } } : {}),
-      // The maintained ACP adapter drives the fake Claude CLI through
-      // CLAUDE_CODE_EXECUTABLE, so fixtures exercise the real ACP boundary
-      // while the engine stays scripted. Colonie is ACP-only; there is no
-      // native driver to configure any more.
+      // Colonie is ACP-only: the fixture engine is the scripted ACP fake,
+      // reached over the same stdio boundary a real adapter speaks. The
+      // modes are the ones the maintained Claude adapter advertises.
       claude: {
         driver: "claude-acp",
         displayName: "Verification fixture",
+        config: { cli: process.execPath, args: [FAKE_ACP] },
         environment: {
-          CLAUDE_CODE_EXECUTABLE: FAKE_CLI,
+          FAKE_ACP_MODES: "default,bypassPermissions",
           ...(room?.scripted ? { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } : {}),
         },
       },
