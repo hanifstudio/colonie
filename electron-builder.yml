@@ -94,7 +94,7 @@ mac:
       arch: [arm64, x64]
     - target: zip
       arch: [arm64, x64]
-  icon: build/icon.icns
+  icon: build/colonie.icns
   category: public.app-category.productivity
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -137,7 +137,7 @@ win:
       arch: x64
     - target: zip
       arch: x64
-  icon: build/icon.ico
+  icon: electron/resources/colonie-icon.png
   extraResources:
     - from: dist-native/cloudflared/win32-x64/cloudflared.exe
       to: cloudflared/cloudflared.exe
@@ -177,7 +177,7 @@ linux:
       arch: x64
   # Keep the vector source in the freedesktop scalable icon hierarchy. A
   # lone 1024px PNG is not indexed by GNOME's hicolor theme on Ubuntu 24.04.
-  icon: build/icon.svg
+  icon: public/colonie.svg
   category: Utility
   executableName: colonie
   synopsis: Your own team of AI bots, in a chat app

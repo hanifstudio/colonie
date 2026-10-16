@@ -1,10 +1,8 @@
-# Maintainer review is required on the edition hook, the cloud seam and
-# the licensing files. Enforced when the ruleset requires code-owner review.
+# Maintainer review is required on the edition hook and the licensing files.
+# Enforced when the ruleset requires code-owner review.
 /server/enterprise.ts           @hanifstudio
 /server/enterprise.test.ts      @hanifstudio
 /server/brand.ts                @hanifstudio
-/server/tunnel.ts               @hanifstudio
-/cloudflare/control-plane/      @hanifstudio
 /LICENSE                        @hanifstudio
 /LICENSING.md                   @hanifstudio
 /.github/                       @hanifstudio

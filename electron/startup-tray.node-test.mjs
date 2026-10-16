@@ -5,7 +5,7 @@ import test from "node:test";
 import { createStartupScreen } from "./startup-screen.mjs";
 import { createSystemTray } from "./system-tray.mjs";
 
-const iconPath = fileURLToPath(new URL("./resources/app-icon.png", import.meta.url));
+const iconPath = fileURLToPath(new URL("./resources/colonie-icon.png", import.meta.url));
 class Window extends EventEmitter {
   constructor(options = {}) {
     super(); this.options = options; this.destroyed = false; this.visible = false;

@@ -72,7 +72,7 @@ packages built from different commits under one version.
 | Path | What lives there |
 |---|---|
 | `server/contracts.ts` | The driver SPI and canonical runtime event types. The whole architecture in one file — read it first. |
-| `server/drivers/` | One file per provider (Claude, Codex, Grok, cloud computer). Adding a provider = one file + one registration line in `builtIn.ts`. |
+| `server/drivers/` | One file per provider (Claude, Codex, Grok). Adding a provider = one file + one registration line in `builtIn.ts`. |
 | `server/harness/` | Registry (configs → live instances, unknown → shadow) and the fan-in event bus. |
 | `server/index.ts` | The HTTP + SSE API the app talks to. |
 | `server/testing/` | Test fakes: an in-memory driver, plus scripted fake `claude` / `codex` CLIs. |
@@ -207,7 +207,7 @@ with everything.
   `linux-wayland-seat-safety-blocked`, and never start Cua until it independently passes the real-seat matrix in
   #345. Xvfb proves the overlay-free arguments, lifecycle, and input routing; it does not waive real-seat evidence.
   An unrelated app must remain clickable/typeable before any approved action. Global opt-in plus per-bot
-  **This computer** remains mandatory; Linux Auto, full-auto/bypass modes, remembered grants, and cloud approvals
+  **This computer** remains mandatory; Linux Auto, full-auto/bypass modes, and remembered grants
   must never authorize the user's desktop.
 - Keep CUA discovery shell-free and pin accepted archive, inner-file, manifest, and driver contracts. Packaged Linux
   builds must prefer their reviewed outside-ASAR runtime and fail closed instead of executing ambient PATH code;
@@ -254,7 +254,7 @@ out of its commits and screenshots.
 - No CLA is required. The source-available `enterprise/` layer that needed one
   was removed on 2026-10-14; everything here is Apache 2.0 (see
   [LICENSING.md](LICENSING.md)).
-- The cloud seam and the licensing files have code owners; a maintainer review
+- The licensing files have code owners; a maintainer review
   is required there.
 
 ## CI, in one glance

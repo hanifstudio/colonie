@@ -93,7 +93,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // resolve to ::1 and paint a black window
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
 let SERVER_PORT = Number(process.env.COLONIE_PORT) || 8799;
-const APP_ICON = path.join(__dirname, process.env.COLONIE_PROFILE === "1" ? "resources/colonie-icon.png" : "resources/app-icon.png");
+const APP_ICON = path.join(__dirname, "resources/colonie-icon.png");
 let desktopViewerWindow = null;
 let desktopViewerOwner = null;
 let desktopViewerContextId = null;

@@ -187,7 +187,7 @@ verification record and was not retried for M8.
 ### Targeted credential follow-up (supersedes the earlier storage blocker)
 
 ```sh
-node --test electron/credential-persistence.test.mjs
+node --test electron/credential-persistence.node-test.mjs
 pnpm exec vitest run electron/secure-credential-state.test.mjs electron/secure-credentials.test.mjs server/colonie/connections/credential-status.test.ts src/components/ApiKeys.test.ts
 node scripts/colonie/credential-ui-check.ts
 node scripts/colonie/credential-desktop-check.ts

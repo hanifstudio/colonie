@@ -1,4 +1,34 @@
-# Handover — Colonie, 2026-10-14
+# Handover — Colonie
+
+## Current state — 2026-10-16: local-only, one brand
+
+The fork is a local macOS app with one product identity. There is no hosted
+Colonie, no account service and no second brand: `git grep` finds no
+`openmausbot`, `omb`, `devone`, `openmaus` or `opengrok` in tracked file
+contents or paths, the renderer bridge global is `window.colonie`, and the
+identity (icons, `package.json`, CI targets) comes from Colonie's own artwork
+(`scripts/colonie/icons.ts` → `build/colonie.icns`, `public/colonie.svg`).
+
+Work that landed: `a9d0d13e`, `8e1e3d11`, `e316a68f` (identifier, path and env
+rename; upstream docs corpus and scratch trees deleted), `1c53d484` (hosted
+branches, `window.ogb`, upstream identity), `6342e948` (the test fixtures and
+vocabulary guard the rename broke, catalogs refreshed).
+
+Deliberate retentions, each inert without its own configuration:
+`server/hosted-slack.ts`, `server/routes/hosted-slack.ts`,
+`server/account-signin.ts` and the renderer sign-in paths (the local pairing
+flow in `PairPage` still calls them); `third_party/**` attribution with
+`NOTICE`, `LICENSE` and the Supamaus trademark note in `LICENSING.md`; and two
+upstream asset URLs this fork does not host
+(`server/browser-engine-release.ts`, `server/team-library.ts`).
+
+Not done, and not claimed: the Windows and Linux packaging paths were not
+built here, so their new icon paths are unverified. `server/colonie/chief/chief.e2e`
+and `src/components/lazy-screens` fail at the pre-rename baseline too. See
+`PROGRESS.md` for the exact commands and results.
+
+The sections below are the historical cloud-era record. The Cloud, VPS and
+multi-workspace direction in them no longer applies.
 
 **Owner reaffirmed complete fidelity (October 15):** Restoring only fragments
 is insufficient. The target is the complete pre-change Colonie UI, including

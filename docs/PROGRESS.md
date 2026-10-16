@@ -502,7 +502,7 @@ gets ──` and `// ── end this app's own page ──`.
 | `pnpm i18n:check` | valid, 10 languages, 3393 English strings |
 | `pnpm colonie:ui-check` | exit 0, `.colonie-dev/evidence/renderer-check.json` |
 
-`electron/credential-persistence.test.mjs` cannot load under vitest: it uses
+`electron/credential-persistence.node-test.mjs` cannot load under vitest: it uses
 `node:test` while being named `*.test.mjs`. It is untouched by this branch,
 so it fails the same way before and after; it is not a regression here.
 
@@ -604,7 +604,7 @@ They are inherited, not caused by this branch. Triaged individually:
 - `shared/place-view.test.ts` wants en.json to still say the old Cloud name while the catalog says "Colonie Cloud" — half-finished rebrand.
 - `CallView.journeys` / `live-call-media` want "Open Colonie at a secure https address" while the app says "Colonie".
 - `lazy-screens` expects `App.tsx` in the launch bundle; `main.tsx` imports it dynamically (already true at `94cc3689`).
-- `electron/credential-persistence.test.mjs` is a `node --test` file caught by the vitest glob.
+- `electron/credential-persistence.node-test.mjs` is a `node --test` file caught by the vitest glob.
 - `server/colonie/chief/chief.e2e.test.ts` fails the same way on `94cc3689`.
 
 One was ours and is fixed in `2982ec22`: `SettingsModal.appearance.test.ts` still asserted the Organization page removed in `ca49a7bd`.
@@ -1641,7 +1641,7 @@ results, not intended success.
   also passed. The earlier assertion that unsigned status itself caused the failure
   was not established and is corrected here. No existing app credential was read.
 - Targeted checks, Node 24.13.1:
-  - `node --test electron/credential-persistence.test.mjs` — **3 passed** for
+  - `node --test electron/credential-persistence.node-test.mjs` — **3 passed** for
     transactional migration, last-document removal/rollback and unreadable/other-key
     protection. An initial command used the Node runner for two existing Vitest
     files; rerunning them with their intended runner passed.

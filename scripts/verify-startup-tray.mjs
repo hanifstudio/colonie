@@ -42,7 +42,7 @@ if (!process.versions.electron) {
   session.defaultSession.webRequest.onBeforeRequest((request, callback) => {
     callback({ cancel: !request.url.startsWith("data:") });
   });
-  const iconPath = fileURLToPath(new URL("../electron/resources/app-icon.png", import.meta.url));
+  const iconPath = fileURLToPath(new URL("../electron/resources/colonie-icon.png", import.meta.url));
   let active, quitting = false, tray, splash, trayMenu;
   const requestQuit = () => { quitting = true; };
   try {
