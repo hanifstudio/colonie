@@ -458,11 +458,11 @@ export async function launchVerificationServer(
     instances: {
       ...(colonieFixtures ? { "codex-acp": {
         driver: "codex-acp", displayName: "Codex · ACP fixture",
-        config: { cli: process.execPath, args: [join(ROOT, "server", "colonie", "testing", "fake-agent.ts")] },
+        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
         environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600" }),
       }, "claude-acp": {
         driver: "claude-acp", displayName: "Claude · ACP fixture",
-        config: { cli: process.execPath, args: [join(ROOT, "server", "colonie", "testing", "fake-agent.ts")] },
+        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
         environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" }),
       } } : {}),
       ...(extraProviders.includes("codex") ? { codex: {
