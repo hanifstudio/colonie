@@ -57,6 +57,12 @@ and the unused cloudflared bundle (no runtime caller; its license copy was the
 root `LICENSE`). Packaging was not run locally; the first package/release run is
 its proof. `package.json` still declares `"license": "Apache-2.0"`.
 
+GitHub CI on `2cf56367`: the static job is green again. Inherited red jobs, not
+from these commits: packaged server smoke (Ubuntu/Windows/macOS), renderer UI
+e2e (all five files), and the Linux package check (missing
+`usr/share/applications/com.colonie.app.desktop` in the DEB). Diagnosing these
+is the next CI task before requiring the `CI` check.
+
 Next action: E02 first slice — inspect `server/config.ts` and
 `server/message-db.ts`, pick one store/connection boundary that reads global
 config, and record its outcome, scope, acceptance, and bounded checks here before
