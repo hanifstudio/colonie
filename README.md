@@ -475,14 +475,6 @@ saved as plaintext, not encrypted, in private `config.json` (`0600` on Unix).
 See the [short setup guide](docs/cli-onboarding.md) for account differences,
 phone choices, credential storage, and cancellation.
 
-For a background service on a VPS or an always-on computer, use
-`npx openmausbot serve` with explicit remote options: `--tunnel` after
-`npx openmausbot login` for a managed public address, `--tailscale` for your
-tailnet, or the Docker stack for your own domain. These are separate from
-AI-provider sign-in. Devices pair once with a short code. The deployment guide is
-[docs/deploy-vps.md](docs/deploy-vps.md); the reference is
-[docs/self-hosting.md](docs/self-hosting.md).
-
 ## License
 
 [Apache License 2.0](LICENSE) © 2026 Milind Soni and OpenMausBot contributors.

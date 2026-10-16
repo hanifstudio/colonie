@@ -2,10 +2,8 @@
 
 Two things an admin of a workspace several people share needs: to keep a bot
 (HR, finance) away from members who should not see it, and to see who changed
-what. The operator-facing description is in
-[self-hosting](../self-hosting.md#who-can-see-a-bot) and
-[admin activity](../self-hosting.md#admin-activity). Neither adds a card,
-prompt or dialog: visibility is access control and the log is a record.
+what. Neither adds a card, prompt or dialog: visibility is access control and
+the log is a record.
 
 ## Sub-features
 

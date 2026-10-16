@@ -64,8 +64,7 @@ use an appropriate event/webhook workflow instead of a fake weekly schedule.
   a sleeping Mac. The desktop app does the one thing it can: while plugged
   in, it keeps the computer from idle-sleeping for the hour before a due
   routine and while one runs (Automations → *Keep this computer awake for
-  routines*, on by default; a closed lid still sleeps). For true 24/7, run
-  OpenMausBot on a VPS — see [deploy-vps.md](deploy-vps.md).
+  routines*, on by default; a closed lid still sleeps).
 - Existing catch-up policy remains: up to 12 hours late, one missed occurrence
   can be dispatched; older work receives a missed-run receipt. The next date
   advances without replaying every missed minute. Queued/running/waiting work

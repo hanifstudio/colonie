@@ -692,9 +692,9 @@ jobs:
             --repo milind-soni/openmausbot-releases --json isDraft --jq .isDraft | grep -q false
           echo "v$VERSION is live on the canonical feed and its legacy updater bridge"
           # Publishing created the tag with this workflow's token, and GitHub
-          # starts no workflow from events that token creates. Start the two
-          # tag-driven publishes by hand, on the tag, so they see refs/tags/v*.
-          for workflow in npm-package.yml docker.yml; do
+          # starts no workflow from events that token creates. Start the
+          # tag-driven publish by hand, on the tag, so it sees refs/tags/v*.
+          for workflow in npm-package.yml; do
             GH_TOKEN="$CANONICAL_TOKEN" gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "v$VERSION"
           done
-          echo "dispatched the npm package and Docker image publishes on v$VERSION"
+          echo "dispatched the npm package publish on v$VERSION"

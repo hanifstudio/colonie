@@ -123,9 +123,6 @@ the fake engine: scope, on-demand token reads, and immediate delegation drain.
 The [cloud preview fixture](cloud-preview.md) mounts the real Computer panel
 against an isolated server for image decoding, loading, and recovery UI checks.
 
-The [VPS recovery fixtures](vps-recovery.md) reproduce preview/startup contention
-and Docker-over-SSH timeout cleanup without contacting a real server.
-
 The [live browser fixture](browser-live.md) mounts the real Browser panel with
 an explicitly selected native engine and Chrome in a disposable home, covering
 watching, takeover, input, and profile switching.
@@ -238,15 +235,8 @@ and worker exports using synthetic data, with isolated backup workflow checks.
 The [Japanese desktop font recipe](japanese-desktop.md) checks real Firefox and
 XFCE glyph rendering in disposable managed desktops, including fresh recreation.
 
-The optional [Podman full-stack acceptance recipe](podman-self-hosting.md)
-checks the Compose deployment with a fresh home, fake engine, and two desktops.
-It includes workspace ownership, persistence, and proxy authentication checks.
-
 The [Podman Firefox sandbox recipe](podman-firefox.md) checks the capability set a
 managed desktop keeps so Firefox can start, with before/after acceptance evidence.
-
-The [Hetzner launch record](hetzner-launch-2026-09-07.md) is a dated self-hosting
-run on a disposable VPS: what passed, what was corrected, and what it does not prove.
 
 Keep the JSON from `wait` and `messages`, the exact command sequence, and the
 fixture's printed log path. Evidence must show both the action and the resulting
