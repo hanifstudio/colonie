@@ -3,7 +3,7 @@
 // Two kinds of card share one component. A PERMISSION card answers
 // allow/deny — it is a decision about an action. A QUESTION answers with the
 // chosen text; the broker accepts nothing else for one, and refuses an
-// allow/deny outright (server/drivers/claude.ts). Getting that wrong is not
+// allow/deny outright. Getting that wrong is not
 // a cosmetic bug: the refused answer resolves `unavailable`, the card closes
 // as unreachable, and the bot then waits out its whole 15-minute timeout.
 //

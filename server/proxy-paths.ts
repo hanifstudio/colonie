@@ -3,8 +3,8 @@
 //
 // This must NOT be resolved relative to the module that happens to need it.
 // esbuild inlines modules into an entry bundle (scripts/bundle-server.mjs), so
-// a `".."` written inside drivers/claude.ts stops climbing from drivers/ and
-// starts climbing from the BUNDLE's directory — one level too high, silently.
+// a `".."` written inside a nested module such as drivers/x.ts stops climbing
+// from drivers/ and starts climbing from the BUNDLE's directory — one level too high, silently.
 //
 // That is not hypothetical: it shipped into the 0.1.24 release candidate.
 // Every proxy resolved outside Resources/server, so permission prompting,

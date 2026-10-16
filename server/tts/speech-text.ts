@@ -3,8 +3,8 @@
 //
 // Agents write for a screen: fenced code, file paths, tables, link soup,
 // bullet scaffolding. Read aloud verbatim that is unbearable — a 40-line
-// diff becomes four minutes of punctuation, and `server/drivers/acp/core.ts`
-// becomes "server slash drivers slash a c p slash core dot t s".
+// diff becomes four minutes of punctuation, and `server/acp/context.ts`
+// becomes "server slash a c p slash context dot t s".
 //
 // So every string is passed through here before it reaches a voice. The
 // rule is: say the prose, name the artifacts, drop the syntax. A code block

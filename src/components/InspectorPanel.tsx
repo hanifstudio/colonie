@@ -10,7 +10,7 @@
 //            tee). Read from disk; refreshed when a turn settles.
 //
 // Nothing here is captured for the panel's sake — both logs already exist
-// under ~/.colonie (server/harness/bus.ts, server/drivers/native.ts).
+// under ~/.colonie (server/harness/bus.ts; the native tee is no longer written).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bug01Icon, ChevronDownIcon, ChevronRightIcon, MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";

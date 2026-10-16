@@ -78,6 +78,24 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — E04.2 retired drivers deleted
+
+Deleted the ten unreachable `server/drivers/` modules (`claude`, `claude-login-auth`,
+`device-auth`, `local-inject`, `native`, `permission-command`, `prompt-split`,
+`session-idle`, `acp/core`, `acp/quiet-status`) with their five test files, and four
+legacy scripts: `verify-claude-auth-settings`, `verify-local-tool-selection`,
+`verify-tool-scope` (already broken: it imported the nonexistent
+`drivers/acp/grok.ts`) and `bench-persistence` (with its `package.json` script).
+20 files, about 11,700 lines. Reasons: no importer from any bundle entry point; the
+only users were each other, their own tests, and those scripts.
+
+- Test edits, reasons recorded: `thread-log-rotation.test.ts` loses the "native tee caps its log" case (its subject `appendNative` is gone; bus-log rotation cases stay); `startup-model-catalog.test.ts` loses the case that built a driver with the deleted ACP core (the retired legacy client; the other cases stay).
+- Checked before deleting: repo-wide grep for each basename including config, Docker and docs; the 16 `bundle-server.mjs` entry points all still exist.
+- `tsc -b` and `tsc -p tsconfig.server.json`: 0 errors; `oxlint --deny-warnings .` clean.
+- `vitest run` thread-log-rotation, startup-model-catalog, `server/drivers`, speech-text, context-budget, claude-accounts, plan-usage, verification-docs, both guards, ci-workflow, ci-scope — 14 files, all pass after the blueprint link was updated.
+- Comments that pointed at deleted files were rewritten (13 files). Left alone: `server/testing/group-local-vm-hooks.mjs` still patches a `/drivers/claude.ts` URL (now a no-op); four room/VM e2e tests use that hook and belong to the rooms decision.
+- Not run: packaging, desktop, real providers, the e2e suites.
+
 ## 2026-10-17 — E04.1 live helpers lifted out of the retired Claude driver
 
 `CLAUDE_ACCOUNT_ENV_KEYS` and `resolveClaudeConfigDir` moved verbatim to

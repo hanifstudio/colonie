@@ -101,7 +101,7 @@ export function toolLabel(tool?: string): string {
     update_profile: "approval.tool.updateProfile",
     // An ACP driver can know the protocol's toolCall kind but not the
     // tool's name, and sends the kind as the card's tool
-    // (server/drivers/acp/core.ts). Kinds are not verb phrases —
+    // (server/acp/acp-runtime.ts). Kinds are not verb phrases —
     // "wants to other" reads as broken — so map every kind it can send
     // to a real phrase. "shell" is its name for execute; "tool" is its
     // fallback when an agent sends no kind at all — an unclassified call,

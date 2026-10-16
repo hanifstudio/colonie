@@ -8,9 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DATA_DIR } from "./config.ts";
 import type { ModelCatalog, ProviderDriver, ProviderInstance, SendTurnInput } from "./contracts.ts";
-import { createAcpDriver, type AcpSupport } from "./drivers/acp/core.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
-import * as procs from "./procs.ts";
 import { openStartupModelCatalog, writeStartupModelCache } from "./startup-model-catalog.ts";
 
 const CACHED: ModelCatalog = {
@@ -84,20 +82,6 @@ function slowDriver(gate: Promise<ModelCatalog>): {
   return { driver, seenByTurn: () => seen };
 }
 
-const acpSupport = (resolveModels: () => Promise<ModelCatalog>): AcpSupport => ({
-  driverKind: "startup-catalog-test",
-  displayName: "Startup catalog",
-  models: { default: "static-model", options: [{ id: "static-model", label: "Static" }] },
-  defaultCli: "startup-catalog-test",
-  nativeSource: "startup-catalog-test.acp",
-  loginNote: "not signed in",
-  spawnArgs: () => [],
-  pickAuthMethod: () => null,
-  authFailure: "continue",
-  isAuthenticated: () => true,
-  resolveModels,
-});
-
 async function settledSoon(promise: Promise<unknown>): Promise<boolean> {
   let settled = false;
   void promise.then(() => { settled = true; }, () => { settled = true; });
@@ -160,33 +144,5 @@ describe("startup model catalogs", () => {
     await turn;
     expect(finished).toBe(true);
     expect(seenByTurn()).toEqual(FRESH);
-  });
-
-  it("an ACP engine serves a saved catalog and lets the turn wait for the refresh", async () => {
-    seedBots();
-    writeStartupModelCache("cursor", CACHED);
-    const gate = deferredCatalog();
-    const spawn = vi.spyOn(procs, "spawnCli").mockImplementation(() => {
-      throw new Error("spawned");
-    });
-    const driver = createAcpDriver(acpSupport(() => gate.promise));
-    const creating = driver.create({
-      instanceId: "cursor",
-      displayName: "Cursor",
-      environment: {},
-      enabled: true,
-      config: driver.defaultConfig(),
-    });
-    expect(await settledSoon(creating)).toBe(true);
-    const instance = await creating;
-    expect(instance.models).toEqual(CACHED);
-    const turn = instance.adapter.sendTurn({ threadId: "thread-1", text: "hello", cwd: DATA_DIR });
-    expect(await settledSoon(turn)).toBe(false);
-    expect(spawn).not.toHaveBeenCalled();
-    gate.release(FRESH);
-    await expect(turn).rejects.toThrow("spawned");
-    expect(instance.models).toEqual(FRESH);
-    expect(spawn).toHaveBeenCalled();
-    await instance.dispose();
   });
 });

@@ -3,7 +3,7 @@
  * historical names and keeps the file-reading half. */
 import type { RuntimeEvent } from "./runtime-events.ts";
 
-/** One line of native/<threadId>.ndjson (server/drivers/native.ts). */
+/** One line of native/<threadId>.ndjson (no writer remains). */
 export interface NativeRecord {
   at: string;
   dir: "in" | "out";

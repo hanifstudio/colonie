@@ -12,11 +12,10 @@
 // is invisible until a packaged build is actually launched.
 //
 // Entry points must keep their exact relative paths under dist-server — the
-// server locates each proxy by path (server/index.ts:108,
-// container-computer.ts:773, drivers/acp/core.ts:43), preferring the .ts in
-// dev and falling back to the sibling .js in the packaged tree. outbase keeps
-// drivers/ nested; import.meta.url still resolves to the same location, so
-// that lookup is unaffected.
+// server locates each proxy by path (server/index.ts, container-computer.ts),
+// preferring the .ts in dev and falling back to the sibling .js in the
+// packaged tree. outbase keeps subdirectories nested; import.meta.url still
+// resolves to the same location, so that lookup is unaffected.
 import { build } from "esbuild";
 import { copyFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";

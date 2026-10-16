@@ -1,7 +1,7 @@
 // A tool chip's display title is not a tool identity. Codex titles a
-// commandExecution chip with the whole command line (drivers/codex.ts) and
-// the ACP core prefers `rawInput.command` over the call's own name
-// (drivers/acp/core.ts), because in a transcript the command IS the useful
+// commandExecution chip with the whole command line and
+// the ACP runtime prefers `rawInput.command` over the call's own name
+// (server/acp/acp-runtime.ts), because in a transcript the command IS the useful
 // label. Anything that counts or groups tool calls needs the identity
 // instead, so both readers share one predicate rather than guessing twice.
 

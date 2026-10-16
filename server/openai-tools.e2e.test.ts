@@ -34,7 +34,7 @@ type ChatRequest = {
 // The chat drivers keep the system message to the stable half of the
 // prompt, so the provider's cached prefix survives a memory write. Memory is
 // volatile: it rides the newest user message, under this label, on every
-// request (server/drivers/prompt-split.ts, openai-chat.ts).
+// request (openai-chat.ts).
 const CONTEXT_NOTE = "Context from Colonie updated since this conversation started; it replaces any earlier copy:";
 const MEMORY = "Your memory (MEMORY.md):\n# Memory\n- Fixture prefers concise replies.";
 // Who on the team is busy changes whenever a teammate starts or finishes

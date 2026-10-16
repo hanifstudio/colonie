@@ -1,8 +1,8 @@
 // Per-thread log rotation — the size cap for the two NDJSON tees each
 // thread grows: events/<threadId>.ndjson (the bus's canonical stream,
 // server/harness/bus.ts) and native/<threadId>.ndjson (the provider-native
-// tee, server/drivers/native.ts). Retention sweeps only reach threads that
-// closed or archived; a thread that stays open grows both files without
+// tee, no longer written). Retention sweeps only reach threads that
+// closed or archived; a thread that stays open grows the live file without
 // bound (#1280), and a busy thread can stay open for weeks.
 //
 // When a capped file outgrows its limit it is rewritten in place, keeping

@@ -110,11 +110,9 @@ Acceptance: moved-function tests pass in their new homes; `claude-accounts`,
 `plan-usage`, `context-budget` tests; typecheck/lint; no importer left of the three
 names in `drivers/claude.ts`. Budget as before.
 
-Done (PROGRESS "E04.1"). Next: E04.2 — delete the unreachable `server/drivers/*`
-files listed there, in two commits: first files with no outside reference, then
-files whose only users are legacy scripts/tests (each is deleted or migrated, with
-the reason recorded). Reachability is measured from the bundle entry points with
-the TypeScript import parser; non-literal references are checked by grep.
+Done (PROGRESS "E04.1", "E04.2"). Next: E04.3 — decide and remove the readers of
+the unwritten `native/` tee (list in the item below), keeping any reader that
+serves files already on a user's disk until that is a conscious choice.
 
 ## M0 trial checkpoint — still open
 
@@ -164,23 +162,15 @@ Asked what to do with the three things that have no ACP counterpart today, the
 owner chose to rebuild all of them, test tooling included. That fixes the queue,
 in this order:
 
-1. **Retired native drivers and their tests.** `server/drivers/claude.ts`,
-   `server/drivers/native.ts` and `server/drivers/acp/core.ts` are not a clean
-   delete: live code still imports them — `server/plan-usage.ts`,
-   `server/claude-accounts.ts`, `server/proxy-paths.ts`, `server/thread-events.ts`,
-   `server/thread-log-rotation.ts`, `server/index.ts`, `src/lib/card-answer.ts`,
-   `src/components/InspectorPanel.tsx`, `src/components/ApprovalCard.tsx`,
-   `shared/inspector.ts`, `shared/tool-name.ts`, `server/tts/speech-text.ts`.
-   Extract the helpers that are still live (version parsing, compact window,
-   Claude config-dir resolution, account env keys, tool vocabulary) into the
-   module that should own them, then delete the driver and everything only it
-   used. Migrate or delete its tests in the same commit. Measuring this first
-   matters twice over: a config that names a retired `driver` makes the whole
-   instance unavailable ("provider instance ... is unavailable — pick another
-   model in settings"), so every message in a test that points at one 409s
-   before reaching the behaviour under test. `thread-aware-bots.e2e`,
-   `notification-routing.e2e` and `live-call.e2e` are red for exactly this
-   reason today, not for anything their names suggest.
+1. **Retired native drivers and their tests — done (E04.1–E04.2, PROGRESS).**
+   The live helpers were lifted and the unreachable legacy drivers deleted. What
+   is left of this item: the `native/<threadId>.ndjson` tee has no writer now, yet
+   `server/thread-events.ts` (merge), `server/index.ts` (route), `server/store.ts`
+   (delete), `server/thread-retention.ts` and the inspector UI still read it;
+   decide per reader whether to keep old-file reading or remove it (E04.3). Also
+   `thread-aware-bots.e2e`, `notification-routing.e2e` and `live-call.e2e` were red
+   because a config naming a retired `driver` makes the instance unavailable;
+   that cause is not re-measured here.
 2. **Rooms and groups** — the staged plan in the milestone above.
 3. **The `maus` token** — the two slices recorded in the clean-slate item above.
 4. **ACP branching** (`branching.test.ts` 3 failing): an edit cannot rewind an

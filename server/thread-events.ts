@@ -5,8 +5,8 @@
 //   events/<threadId>.ndjson  — the normalized RuntimeEvent stream the bus
 //                               publishes (server/harness/bus.ts)
 //   native/<threadId>.ndjson  — the provider's own protocol messages,
-//                               verbatim and secret-redacted
-//                               (server/drivers/native.ts)
+//                               verbatim and secret-redacted (no writer
+//                               remains; existing files still read)
 //
 // Merged by timestamp so a tool call and the raw message behind it sit
 // next to each other. Newest-`limit` only: a long-lived thread has

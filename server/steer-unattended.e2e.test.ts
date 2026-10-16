@@ -47,8 +47,8 @@ const getBot = async (id: string) => (await api("GET", "/api/bots?messages=0")).
 const threadMessages = async (threadId: string): Promise<Array<{ kind: string; card?: { requestId?: string; answered?: string } }>> =>
   (await api("GET", `/api/threads/${threadId}/messages`)).body.messages ?? [];
 
-/** The broker's bind candidates, as server/drivers/claude.ts derives them —
- * duplicated rather than imported because DATA_DIR there is fixed at import
+/** The broker's bind candidates, as the retired Claude driver derived them —
+ * duplicated rather than imported because DATA_DIR there was fixed at import
  * time from this process's HOME, not the fixture's. botId is folded into
  * both the deterministic and fallback paths (#1017/#1102) so this must stay
  * in lockstep with permissionSocketPath/brokerSocketCandidates there. */
