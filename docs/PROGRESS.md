@@ -36,6 +36,31 @@ reconnection and receipts; evidence in `.devone/evidence/`). One desktop run
 failed on a leftover Electron process and passed on a re-run; the same commit
 passes in a clean worktree, so the failure was environmental.
 
+### `0eadac2f` — the Cloud account, plan, move and cloud-home surfaces
+
+| commit | what went |
+|---|---|
+| `0eadac2f` | `CloudAccountSettings`, `ProIntroduction`, `ConnectedWorkspacesSettings`, `CloudMove`, `CloudOwner`, `CloudSetup`, `CloudEngineSignIn` and `src/lib/cloud-setup.ts` with their tests; the `cloudAccount`/`desktopWorkspaces` Settings sections and their store fields (`CLOUD_LINK_SETTINGS`, `appSettingsCloudLink`); the Settings rail's Servers entry; the `openmausbot://cloud` deep link; `cloudSignInDue` and the cloud-home sign-in branch in `App`; the profile menu's "Use your Cloud on your phone" destination (`CloudPhoneDestination`, the `cloud` phone target); `CloudMoveImport` in the backup settings; `useCloudOwner` and the "My Cloud · always on" switcher label (40 files, −3357/+151) |
+
+The Cloud *place* stays: `shared/cloud-computer.ts`, `CloudScreenPreview`,
+`CloudBackendPicker`, `ComputerPanel`, `cloud-plan.ts`, the server's
+`CLOUD_HOME` half and the Electron bridges (`cloud-account.mjs`,
+`cloud-home.mjs`, `cloud-entry.mjs`, `cloud-move.mjs`) are all still wired.
+Locale keys for the deleted components (`cloudAccount.*`, `pro.*`,
+`cloudMove.*`, `cloudSetup.*`, `sidebar.menu.connectPhone.cloud*`, the two
+`settings.section.*`) are still in `en.json` unused; they go with the place.
+
+### Verified after `0eadac2f`
+
+| check | result |
+|---|---|
+| `pnpm exec tsc --noEmit -p tsconfig.json` | clean |
+| `pnpm exec tsc -p tsconfig.server.json --noEmit` | clean |
+| `pnpm check:electron` | Syntax-checked 139 Electron modules |
+| `pnpm i18n:check` | valid, 10 languages, 3580 English strings |
+| `pnpm exec vitest run src/` | 3438 passed / 10 failed — the 4 inherited failures plus 6 assertions on the removed sections, all updated in this commit; the final run after the fixes is green for the touched files |
+| `pnpm colonie:ui-check` | exit 0, evidence `.devone/evidence/renderer-check.json` |
+
 ### Next: the Cloud removal, in order
 
 The owner chose to keep **only** the Local workspace: the Cloud computer (Boat),
@@ -68,19 +93,14 @@ Order, each step its own commit with `pnpm exec tsc --noEmit`,
 `pnpm exec tsc -p tsconfig.server.json --noEmit`, `pnpm i18n:check` and the
 focused vitest green:
 
-1. **Renderer surfaces.** Delete `CloudAccountSettings`, `ProIntroduction`,
-   `ConnectedWorkspacesSettings`, `CloudMove`, `CloudOwner`, `CloudSetup`,
-   `CloudEngineSignIn`, `CloudScreenPreview`, `CloudBackendPicker` and the
-   `cloud-plan`/`cloud-setup`/`cloud-guest` helpers with them; prune
-   `SettingsModal` (the `cloudAccount`/`desktopWorkspaces` sections),
-   `App.tsx`, `Sidebar`, `SidebarProfileMenu`, `ComputerPanel`,
-   `bot-settings/AccessSection`, `WorkspaceBackupSettings`, `ChatView`.
-   The `cloud` place disappears from the picker, the grid and the chip.
-2. **Place model.** Drop `"cloud"` from `Place`, every `cc-*`/`vps` state and
-   the cloud actions from `shared/place-view.ts`, and the matching
-   `place.view.*`/`place.action.*`/`cloud.*`/`computer.chooseCloud*` locale
-   keys; drop `shared/cloud-computer.ts` and the `cloudBackend`/`cloudHome`
-   fields from `shared/wire.ts`.
+1. ~~**The account surfaces.**~~ Done in `0eadac2f`.
+2. **The place itself.** Drop `"cloud"` from `Place`, every `cc-*`/`vps`
+   state and the cloud actions from `shared/place-view.ts` and
+   `src/lib/place-view.ts`; `CloudScreenPreview`, `CloudBackendPicker`, the
+   Cloud card in `ComputerPanel` and `SimpleModelPane`, `cloud-plan.ts`,
+   `cloud-guest.ts`'s guest branch, `shared/cloud-computer.ts`, and the
+   matching `place.view.*`/`place.action.*`/`cloud.*`/`computer.*cloud*`
+   locale keys; then the `cloudBackend`/`cloudHome` fields of the wire.
 3. **Server hosted half.** Delete the `CLOUD_HOME`/`HOSTED_WORKSPACE` block and
    the ~40 modules above with their routes, tests and data files
    (`lending-routines.json`, `lending-memory.json`, boat journals).
