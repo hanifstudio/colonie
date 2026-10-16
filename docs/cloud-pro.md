@@ -210,7 +210,7 @@ box the person ticks:
    the engine sign-in above.
 2. **Bring your bots from your computer**: only in the desktop app, while the
    Copy this computer here card would be offered (an empty Cloud, a computer
-   with work to bring; docs/copy-workspace.md). **Copy to My Cloud** opens that
+   with work to bring). **Copy to My Cloud** opened that
    offer in place (the size, what stays, **Copy** and **Not now**). Done after
    a copy; skipped after **Not now**,
    which the Cloud keeps (`cloud-setup-move-skipped` in its onboarding record)
@@ -997,9 +997,9 @@ malformed session summary or grant is treated as none.
 ## Copy this computer to your Cloud
 
 The Cloud receives this computer's workspace the way every server the person
-adds does: **docs/copy-workspace.md** is the one reference (where it is, what
-moves and what stays, how it copies, Swap back, the restart, security). This
-section is only what the Cloud adds.
+adds did: the Copy this computer feature (since removed from the desktop app)
+was the one reference (where it is, what moves and what stays, how it copies,
+Swap back, the restart, security). This section is only what the Cloud added.
 
 - **The Admin's grant.** Main signs in to the Cloud through the Admin: it
   opens a single-use pairing window for the signed-in owner
@@ -1015,8 +1015,7 @@ section is only what the Cloud adds.
 - **Its own page starts the copy.** Because main verified this Cloud through
   the Admin (`cloudPageSenderAllowed`), not on the Cloud's own word, its card
   and checklist step start the copy at once, only into an empty Cloud. Any
-  other server's page leads to this computer's Settings instead
-  (docs/copy-workspace.md, Security).
+  other server's page led to this computer's Settings instead (Security).
 - **Disk growth.** Every Cloud starts at 10 GB; a plan whose disk grows grows
   it as it fills, up to the plan's maximum. Before anything is exported the app
   measures the copy (`moveFit`, with the Cloud's own `volumeBytes` from

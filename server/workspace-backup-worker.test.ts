@@ -45,10 +45,10 @@ it("keeps the request loop running during the snapshot copy, not just encryption
   }
 }, TIMEOUT_MS);
 
-// A copy's status poll (GET /api/cloud-move counts chats in the live message
-// database) opens its own connection while the restore's backup snapshots that
-// database, and the busy moment of that connection opening or closing used to
-// fail the snapshot outright ("database is locked", or Node's "not an error").
+// A status poll that counts chats in the live message database opens its own
+// connection while the backup snapshots that database, and the busy moment of
+// that connection opening or closing used to fail the snapshot outright
+// ("database is locked", or Node's "not an error").
 it("waits for another connection's moment on the message database instead of failing the snapshot", async () => {
   const directory = mkdtempSync(join(tmpdir(), "omb-backup-worker-busy-"));
   const database = join(directory, "messages.db");

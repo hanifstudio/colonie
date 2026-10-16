@@ -468,8 +468,9 @@ says so. How each
 way of running the server restarts itself: `openmausbot serve` and
 `service install` start it again in the same process, the Docker and Podman
 images run `server-launcher.js`, which does the same inside the container; a
-server started any other way installs the copy at its next start. Details:
-[docs/copy-workspace.md](copy-workspace.md).
+server started any other way installs the copy at its next start. Nothing
+requests that restart any more (its one caller, Copy this computer here, is
+gone); `server/restart.ts` holds the contract the launchers still honour.
 
 Only conversations you start yourself on that server can use what you share;
 other people's bots, routines and webhooks there cannot. Keys and sign-in

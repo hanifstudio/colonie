@@ -1,8 +1,10 @@
 // "Start me again": the one exit code a server uses to ask its launcher for
-// a fresh start. A server exits with it after a copied workspace's restore
-// commits (Copy this computer here, docs/copy-workspace.md), and startup then
-// installs the restore before anything else loads. Every launcher in this
-// repo honours it through one restartPolicy:
+// a fresh start. Nothing asks for one since Copy this computer here went;
+// ponytail: the contract stays because every launcher below still honours it
+// and the desktop supervisor has its own rule. Delete it, the launchers that
+// read it (cli.ts, server-launcher.ts, cloud-home-start.ts) and their tests
+// together when a local-only app has no second server to be started for.
+// Every launcher in this repo honours it through one restartPolicy:
 //
 //   - `openmausbot serve` (cli.ts serveUntilStopped), which systemd, launchd,
 //     fleet and a terminal all run;

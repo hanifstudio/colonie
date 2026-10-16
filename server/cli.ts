@@ -1120,8 +1120,8 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
 }
 
 /** `serve` until the server stops for good. A server that exits with
- * RESTART_EXIT_CODE (a copied workspace committed; docs/copy-workspace.md)
- * is started again in this process, with its tunnel, Tailscale or domain
+ * RESTART_EXIT_CODE (server/restart.ts) is started again in this process,
+ * with its tunnel, Tailscale or domain
  * address unchanged, and without a second pairing code or browser tab; at
  * most MAX_RESTARTS times in a row (server/restart.ts restartPolicy). */
 export async function serveUntilStopped(options: CliOptions, run: (options: CliOptions) => Promise<number> = runServe, now: () => number = Date.now): Promise<number> {

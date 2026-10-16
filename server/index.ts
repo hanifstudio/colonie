@@ -341,8 +341,6 @@ import {
   createCloudPairing, firstCloudTurnPatch, readSignedBody,
 } from "./cloud-home.ts";
 import { CLOUD_PERSONAL_REFUSAL, settleCloudOwnership, type CloudOwnership } from "./cloud-owner.ts";
-import { createCloudMoveRoutes, workspaceShared } from "./cloud-move-http.ts";
-import { RESTART_EXIT_CODE } from "./restart.ts";
 import { holdIncludedServices } from "./included-services.ts";
 import type { ProviderInstance } from "./contracts.ts";
 import { selectDefaultModelSelection, withNewBotEffort } from "./default-model-selection.ts";
@@ -15981,26 +15979,6 @@ const workspaceBackupRoutes = createWorkspaceBackupRoutes({
   restored: workspaceRestore,
   ...workspaceBackupAccess,
 });
-// Copy this computer here (server/cloud-move-http.ts, docs/copy-workspace.md):
-// every server sizes its own workspace for its desktop, and every server the
-// person owns receives one, a Cloud home included. A workspace shared with
-// other people never does (workspaceShared): a hosted organisation
-// workspace, or a server whose email sign-in lets someone besides its owner
-// in. After the restore commits, the server
-// exits with RESTART_EXIT_CODE and its launcher starts it again, so startup
-// installs it (server/restart.ts).
-let restartRequested = false;
-const cloudMoveRoutes = createCloudMoveRoutes({
-  dataDir: DATA_DIR,
-  appVersion: serverVersion(),
-  environmentId: ENVIRONMENT_ID,
-  sharedWorkspace: () => workspaceShared({ hosted: HOSTED_WORKSPACE, cloudHome: Boolean(CLOUD_HOME), signIn: signInAllowList() }),
-  readBody,
-  restored: workspaceRestore,
-  ...workspaceBackupAccess,
-  restart: () => { restartRequested = true; gracefulShutdown(); },
-});
-
 // Route modules (server/routes/README.md). `workspaceAccess` is assigned at
 // boot, after this line, so the dependency reads it per request.
 ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: () => Boolean(workspaceAccess) && entitled("admin") }));
@@ -16467,7 +16445,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 409, { error: "Unassign team computers before restoring a workspace; restored team names must not gain access to existing desktops" });
     }
     if (await workspaceBackupRoutes(req, res, path, auth)) return;
-    if (await cloudMoveRoutes(req, res, path, auth)) return;
     // Count ordinary requests until their asynchronous handler returns, not
     // merely until the browser disconnects. A cancelled upload can still write.
     if (path.startsWith("/api/") && path !== "/api/events" && path !== "/api/health" && !path.startsWith("/api/shared-computers/") && !isWorkspaceBackupSessionControl(method, path)) {
@@ -25786,8 +25763,7 @@ const gracefulShutdown = createGracefulShutdown({
     mcpOAuth.dispose();
     connectedTools.dispose();
     releaseDataDirLeaseAtExit();
-    // Every launcher in this repo starts the server again on this code (server/restart.ts).
-    process.exit(restartRequested && code === 0 ? RESTART_EXIT_CODE : code);
+    process.exit(code);
   },
 });
 

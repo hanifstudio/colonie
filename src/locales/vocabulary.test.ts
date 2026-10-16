@@ -65,7 +65,6 @@ const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = 
   { file: "server/request-auth.ts", snippet: "OMB Cloud home", why: "a request-trust reason and log warning, never shown in the app" },
   { file: "electron/cloud-account.mjs", snippet: "[cloud] OMB Cloud sent plan", why: "a log line" },
   { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
-  { file: "electron/cloud-move.mjs", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
 ];
 
 function* sources(dir: string): Generator<string> {

@@ -322,8 +322,8 @@ export async function createWorkspaceBackupSnapshot(dataDir: string, options: Cr
     // remains held. The native snapshot includes any committed WAL records.
     if (existsSync(sourceDb)) {
       if (lstatSync(sourceDb).isSymbolicLink()) throw new Error("The message database must not be a symbolic link.");
-      // Another connection may still open this database meanwhile: a copy's
-      // status poll counts its chats (cloud-move.ts workspaceContents). Its
+      // Another connection may still open this database meanwhile: a
+      // backup's status poll counts its chats. Its
       // open (WAL recovery) and close (checkpoint) keep a new reader out for a
       // moment, and without a busy timeout the first backup step fails at once
       // ("database is locked", or Node's "not an error"). Wait that moment out.
@@ -960,8 +960,7 @@ export function removeWorkspaceBackupJob(dataDir: string, id: string): void {
 }
 
 /** Whether a snapshot leaves out this workspace-relative path, by the same
- * rules as the export walk (cloud-move.ts sizes a move with it). Symbolic
- * links are the caller's to skip. */
+ * rules as the export walk. Symbolic links are the caller's to skip. */
 export function omittedFromWorkspaceBackup(path: string): boolean {
   return excluded(path.split("/")[0]) || excludedWorkspaceAuthPath(path) || ephemeralWorkspaceTokenPath(path);
 }

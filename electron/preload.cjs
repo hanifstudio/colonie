@@ -35,14 +35,9 @@ ipcRenderer.on("app:open-settings", (_event, section) => {
 // helpers here. Main enforces the same rule on the sensitive channels.
 const localOrigin = process.argv.find((arg) => arg.startsWith("--omb-local-origin="))?.slice("--omb-local-origin=".length) ?? null;
 const isLocalPage = !localOrigin || location.origin === localOrigin;
-// cloudMove: main answers a remote page about that page's own server only,
-// while it is this window's active server (Copy this computer here's card and
-// its Settings → Backups); its Copy opens this computer's Settings on that
-// server's copy, except on the person's own verified Cloud. cloudLending and
-// cloudPlan: only that verified Cloud (its setup checklist, its plan line).
-/** A saved server's id, forwarded only from this computer's own page. */
-const savedServer = id => isLocalPage && typeof id === "string" && /^[\w-]{1,64}$/.test(id) ? [id] : [];
-const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudMove", "cloudPlan"]);
+// cloudLending and cloudPlan: only the person's own verified Cloud (its
+// setup checklist, its plan line).
+const REMOTE_SAFE = new Set(["platform", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "cloudPlan"]);
 // updater: this app's updates, so the person sees "Restart to update" on My
 // Cloud too; a remote page restarts only on a click. Main says, once as the
 // page loads, whether it answers this page: pages built before it answered My
@@ -304,25 +299,6 @@ const bridge = {
       const handler = (_event, state) => cb(state);
       ipcRenderer.on("cloud-account:state-changed", handler);
       return () => ipcRenderer.removeListener("cloud-account:state-changed", handler);
-    },
-  } : undefined,
-  /** Copy this computer here: this computer's workspace to a server the
-   * person added (their Cloud included). Only this computer's own page names
-   * where (a saved server's id, or "cloud"); a server's page names nothing,
-   * main answers it about itself, and its Copy (only from the person's own
-   * click) opens this computer's Settings on that copy, or, on the verified
-   * Cloud, starts it. */
-  cloudMove: process.argv.includes("--omb-desktop-bridges=1") ? {
-    state: id => ipcRenderer.invoke("cloud-move:state", ...savedServer(id)),
-    start: id => isLocalPage ? ipcRenderer.invoke("cloud-move:start", ...savedServer(id))
-      : navigator.userActivation?.isActive === true ? ipcRenderer.invoke("cloud-move:start") : Promise.reject(new Error("Choose Copy to start copying.")),
-    cancel: () => ipcRenderer.invoke("cloud-move:cancel"),
-    restorePrevious: id => ipcRenderer.invoke("cloud-move:restore-previous", ...savedServer(id)),
-    dismiss: id => ipcRenderer.invoke("cloud-move:dismiss", ...savedServer(id)),
-    onState: cb => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("cloud-move:state-changed", handler);
-      return () => ipcRenderer.removeListener("cloud-move:state-changed", handler);
     },
   } : undefined,
   /** The plan, read only, in Settings on the person's own Cloud: its name and

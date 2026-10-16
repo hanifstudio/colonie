@@ -159,3 +159,13 @@ export function cloudHomeConnectUrl(target, now, open = null) {
   return target.grant && target.grant.origin === target.origin && target.grant.expiresAt > now
     ? `${target.origin}/pair${query}#code=${target.grant.code}` : query ? `${target.origin}/${query}` : target.origin;
 }
+
+/** Whether this IPC event is the person's own Cloud page in the main window:
+ * the window's main frame, on the Cloud home's own origin. Everything main
+ * answers a Cloud page with passes through here, so no other page — and no
+ * subframe — can ask for it. */
+export function cloudPageSenderAllowed(event, { contents, homeOrigin, activeOrigin }) {
+  if (!contents || !homeOrigin || activeOrigin !== homeOrigin) return false;
+  if (event?.sender !== contents || !event.senderFrame || event.senderFrame !== contents.mainFrame) return false;
+  try { return new URL(event.senderFrame.url).origin === homeOrigin; } catch { return false; }
+}

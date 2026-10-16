@@ -1,7 +1,7 @@
 // The container image's entry point (Dockerfile, deploy/podman/Containerfile).
 // It runs the server (index.js beside it) and starts it again when the server
-// asks to (RESTART_EXIT_CODE, after a copied workspace commits;
-// docs/copy-workspace.md), so the container never exits for that. A Caddy
+// asks to (RESTART_EXIT_CODE, server/restart.ts), so the container never exits
+// for that. A Caddy
 // sharing its network (compose `network_mode: service:omb`) is cut off when
 // the container restarts, until `docker compose up -d`; this keeps it served.
 // SIGTERM and SIGINT are passed on, and the launcher exits with the server's

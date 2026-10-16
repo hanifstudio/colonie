@@ -26,7 +26,7 @@ test("personal Cloud bridge is desktop-local, contains no capability access, and
   assert.equal(preload({ remote: true }).bridge.cloudAccount, undefined);
 });
 test("production personal Cloud IPC guards exact local main frame and forwards no arguments", async () => {
-  const source = readFileSync(new URL("./main.mjs", import.meta.url), "utf8"), start = source.indexOf("const workspaceOnly ="), end = source.indexOf("// ── Copy this computer here", start);
+  const source = readFileSync(new URL("./main.mjs", import.meta.url), "utf8"), start = source.indexOf("const workspaceOnly ="), end = source.indexOf("// ── The Cloud page's own channels", start);
   assert.ok(start >= 0 && end > start);
   const handlers = new Map(), calls = [], frame = { url: `${origin}/` }, contents = { mainFrame: frame };
   localOrigin.setLocalOrigin(origin);

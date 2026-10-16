@@ -5,7 +5,7 @@ import { join } from "node:path";
 import vm from "node:vm";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { myCloudOrigin, rememberedCloudHome, savedCloudHomeOrigin } from "./cloud-home.mjs";
-import { cloudPageSenderAllowed } from "./cloud-move.mjs";
+import { cloudPageSenderAllowed } from "./cloud-home.mjs";
 import environments from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
 
@@ -35,7 +35,7 @@ function page(origin) {
  * window, the saved servers and the Cloud sign-in it reads. */
 function mainRule() {
   const source = readFileSync(new URL("./main.mjs", import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const start = source.indexOf("// ── Who asks, and where to"), end = source.indexOf("// ── end Copy this computer here ──", start);
+  const start = source.indexOf("// ── The Cloud page's own channels"), end = source.indexOf("// ── end The Cloud page's own channels ──", start);
   expect(start).toBeGreaterThanOrEqual(0);
   expect(end).toBeGreaterThan(start);
   // main registers the updater's channels with exactly this rule.
