@@ -10,6 +10,7 @@ Branch `colonie/local-only`.
 | `359124be` | the Organization package library in the app: `src/lib/org-library.ts`, `TeamLibraryPanelOrg`, `OrgSkillsCard`, `PackageProvenance`, `Bot.installedPackage`, 32 `orgLibrary.*` locale keys, its docs and UI e2e test |
 | `103d792f` | the Electron Organization bridges and company backups: `managed-desktop`, `organization-entry`, `organization-branding`, `org-library.mjs`, `company-backups*`, `company-backup-schedule`, `organization-reopen`, their IPC and preload bridges, the updater relaunch patch. The shared encrypted store moved to `electron/encrypted-record-store.mjs`; the desktop-bridge flag is now `--omb-desktop-bridges=1` |
 | `61d5b904` | the server side of enrollment: `server/managed-desktop.ts`, `server/managed-policy.ts` and their tests, the `openmausbot:managed-desktop-*` messages, the Company provider swap, the policy refusals (models, computers, MCP, pairing), the config frame's `managedPolicy`, and the Company branch in default/thread model selection |
+| `ab62d5ca` | the server half of the Organization library: `server/org-library.ts` (1155 lines) and its two test files, the `OrgLibrary` instance and its Electron relay, the `/api/org-library/*` routes and the test relay, the New bot install-status filter, `redownloadedOrgLibraryPath`, `scripts/verify-organization-settings.mjs` leftovers, and the stale docs. A row an earlier organization install left behind is still read |
 | `b00a2f62` | the renderer's policy surfaces: `managedPolicy`/`policy`/`readOnly`/`managed`/`managedBy` across store, ModelPicker, SimpleModelPane, McpServersPanel, PlaceChip, ComputerPanel, CompanionSection, EnginesSettings, ChatView, EngineSetup, AutomaticRecoverySettings, CloudEngineSignIn, and the 5 `policy.*` locale keys |
 
 `git grep -i organization src/ server/ shared/ electron/ scripts/` now returns
@@ -17,7 +18,7 @@ no runtime reference; what remains is the Cloud account feature's own copy
 (`CloudAccountSettings` reuses some `organization.*` keys) and the dated plan
 docs under `docs/plans/`.
 
-### Verified after `b00a2f62`
+### Verified after `ab62d5ca`
 
 | check | result |
 |---|---|
@@ -25,12 +26,15 @@ docs under `docs/plans/`.
 | `pnpm exec tsc -p tsconfig.server.json --noEmit` | clean |
 | `pnpm check:electron` | Syntax-checked 139 Electron modules |
 | `pnpm i18n:check` | valid, 10 languages, 3580 English strings |
-| `pnpm test:electron` | 390 passed, 0 failed (1 skipped) |
+| `pnpm test:electron` | 390 passed, 0 failed (1 skipped) — run after `b00a2f62` |
 | `pnpm exec vitest run src/` | 3563 passed / 4 failed — the inherited `live-call-media` (2), `CallView.journeys` (1), `lazy-screens` (1), identical to `94cc3689` |
-| focused server vitest | default-model-selection, thread-model, package-import, presets, model-requests: 61 passed |
+| focused server vitest | presets.e2e, package-export, package-import, skills, workspace-backup, workspace-backup-policy, routes/bot-presets, presets = 191 passed; earlier default-model-selection, thread-model, model-requests = 61 passed |
 
-Not yet re-run for these commits: `pnpm colonie:ui-check` / `colonie:desktop-check`
-against a restarted preview (the running preview predates them).
+`pnpm colonie:ui-check` and `pnpm colonie:desktop-check` both exit 0 on
+`ab62d5ca` (renderer and Electron window, fake engines, streaming,
+reconnection and receipts; evidence in `.devone/evidence/`). One desktop run
+failed on a leftover Electron process and passed on a re-run; the same commit
+passes in a clean worktree, so the failure was environmental.
 
 ### Next, in order
 
