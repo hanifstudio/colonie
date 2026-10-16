@@ -1,5 +1,33 @@
 # Colonie progress
 
+## 2026-10-16 — target blueprint and reference research (documentation only)
+
+Created `docs/COLONIE-BLUEPRINT.md` at the owner's request to consolidate the
+intended product while repository cleanup continues. It records provisional
+owner direction, 35 capability areas, Local/Server journeys, sourced Grok Bot
+behavior, intentional differences, proposed architecture/folder/instruction
+boundaries, commercial and resource considerations, acceptance journeys, and
+unresolved decisions. The owner's latest clarification is incorporated:
+Composio keys are user-supplied per workspace; different workspaces can use
+different accounts and their associated service billing.
+
+Research used public product/help pages, official ACP/provider documentation,
+Composio pricing, selected upstream capability references, and hosting
+documentation. Sources and limits are in the blueprint. This was not hands-on
+competitor verification, a current-code gap audit, provider entitlement
+approval, or an implementation milestone. The blueprint does not change the
+current steering hierarchy or declare the proposed architecture accepted.
+
+Verification was limited to Markdown structure: an inline `python3 -c` check
+validated heading anchors, local links, paired code fences, feature/direction
+IDs, and whitespace. No runtime, E2E, Electron, real-provider, deployment, or
+live-data checks were run. No credentials were inspected. Existing application
+changes from the ongoing cleanup were left untouched.
+
+Next: review the target and intentional differences, resolve critical provider
+and access-policy questions, then map retained/adapted/removed code to the
+agreed destination. Implementation remains a separately scoped task.
+
 ## 2026-10-16 — the fork has no cloud left to reach
 
 `e1793036` deleted every path that talked to a hosted Colonie: the account and
