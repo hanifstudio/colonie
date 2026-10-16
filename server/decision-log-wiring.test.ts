@@ -27,7 +27,7 @@ const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
 const ACP = { cli: process.execPath, args: [FAKE_CLI] };
 /** The modes and models the maintained Claude adapter advertises; the runtime
  * validates set_mode and a selected model against the session's own lists. */
-const ACP_SESSION = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
+const ACP_SESSION = { FAKE_ACP_MODES: "default,acceptEdits,auto,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -128,7 +128,9 @@ posixOnly("authorization decisions are logged", () => {
         instances: {
           acp: {
             driver: "claude-acp",
-            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "permission" },
+            // FAKE_ACP_ALLOW_ALWAYS gives the card its "always allow" answer,
+            // which is what makes it an offer the person can remember.
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "permission", FAKE_ACP_ALLOW_ALWAYS: "1" },
             config: ACP,
           },
           acpq: {

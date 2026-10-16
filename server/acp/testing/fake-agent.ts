@@ -52,8 +52,9 @@ const sessionState = (id?: string) => {
   const session = id ? state.sessions[id] : undefined;
   return {
   modes: { currentModeId: session?.mode ?? (claude ? "default" : "read-only"), availableModes: [
-    { id: claude ? "default" : "read-only", name: "Ask" }, { id: claude ? "bypassPermissions" : "agent-full-access", name: "Full" },
-    { id: "plan", name: "Plan" }, { id: "auto", name: "Auto" },
+    { id: claude ? "default" : "read-only", name: "Ask" }, { id: claude ? "acceptEdits" : "workspace-write", name: "Accept edits" },
+    { id: claude ? "bypassPermissions" : "agent-full-access", name: "Full" },
+    { id: "plan", name: "Plan" }, { id: claude ? "auto" : "agent", name: "Auto" },
   ] },
   configOptions: [
     { id: "model", name: "Model", category: "model", type: "select" as const,
@@ -94,7 +95,11 @@ agent({ name: "Colonie deterministic fixture" })
     return sessionState(params.sessionId);
   }))
   .onRequest(methods.agent.session.setMode, async ({ params, client }) => {
-    const mode = params.modeId === "auto" ? (claude ? "default" : "read-only") : params.modeId;
+    // Simulate an adapter whose reviewer is unavailable for the current model:
+    // the client asks for Auto by the id its own flavour uses (Claude `auto`,
+    // Codex `agent`) and the adapter clamps it to the Ask mode and says so.
+    const reviewerIds = ["auto", "agent"];
+    const mode = reviewerIds.includes(params.modeId) ? (claude ? "default" : "read-only") : params.modeId;
     transaction(() => { state.sessions[params.sessionId]!.mode = mode; });
     if (mode !== params.modeId) await client.notify(methods.client.session.update, { sessionId: params.sessionId,
       update: { sessionUpdate: "current_mode_update", currentModeId: mode } });

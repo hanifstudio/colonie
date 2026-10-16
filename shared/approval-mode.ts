@@ -9,10 +9,18 @@ export type ApprovalMode = (typeof APPROVAL_MODES)[number];
 /** Only providers with an implemented permission mapping may expose a level.
  * `edits` (auto-accept edits) exists where the engine has such a mode:
  * Claude and Grok `acceptEdits`, Antigravity `auto_edit`, Qwen `auto-edit`,
- * Gemini `auto_edit`. Codex's Ask already runs `workspace-write`, so an edits
+ * Gemini `auto_edit`; the ACP adapters expose Codex `workspace-write` and
+ * Claude `acceptEdits`. Codex's Ask already runs `workspace-write`, so an edits
  * level would change nothing there. */
 export function supportsApprovalMode(driverKind: string | undefined, mode: ApprovalMode): boolean {
-  if (driverKind === "codex-acp" || driverKind === "claude-acp") return mode === "ask" || mode === "full";
+  // Both ACP adapters carry a provider mode for each level: Ask (Claude
+  // `default`, Codex `read-only`), Accept edits (`acceptEdits`,
+  // `workspace-write`), Auto — the provider's own reviewer (`auto`, `agent`) —
+  // and Full (`bypassPermissions`, `agent-full-access`). Custom is a provider
+  // config of its own and stays off. The ACP runtime keeps Ask when an adapter
+  // does not advertise a level, so offering them never grants more than the
+  // adapter itself will run.
+  if (driverKind === "codex-acp" || driverKind === "claude-acp") return mode !== "custom";
   if (mode === "custom") return driverKind === "codex";
   if (mode === "edits") return ["claudeAgent", "grokAgent", "antigravityAgent", "qwenAgent", "geminiAgent"].includes(driverKind ?? "");
   if (mode !== "full") return true;
@@ -39,8 +47,11 @@ export function modelSwitchNeedsAsk(
 
 export function hasNativeAutoReview(driverKind: string | undefined): boolean {
   // Qwen Code's `--approval-mode auto` is an LLM classifier that approves
-  // safe actions and blocks risky ones — a reviewer, not a rubber stamp.
-  return ["codex", "claudeAgent", "cursorAgent", "grokAgent", "qwenAgent"].includes(driverKind ?? "");
+  // safe actions and blocks risky ones — a reviewer, not a rubber stamp. Both
+  // ACP adapters ship one too: Claude's `auto` "handles permission decisions"
+  // and Codex's `agent` is "Auto review — only ask for actions detected as
+  // potentially unsafe", so Auto is a provider mode there, not a harness guess.
+  return ["codex", "claudeAgent", "cursorAgent", "grokAgent", "qwenAgent", "claude-acp", "codex-acp"].includes(driverKind ?? "");
 }
 
 export function isApprovalMode(value: unknown): value is ApprovalMode {

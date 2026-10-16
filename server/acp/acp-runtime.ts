@@ -48,6 +48,13 @@ export interface AcpProvider {
   loginCommand: string;
   askMode: string;
   fullMode: string;
+  /** The adapter's own accept-edits mode (`acceptEdits`, `workspace-write`).
+   * Optional: an adapter without one keeps Ask for that level. */
+  editsMode?: string;
+  /** The adapter's own reviewer (`auto` — Claude "handles permission
+   * decisions"; `agent` — Codex "Auto review: only ask for actions detected as
+   * potentially unsafe"). Optional, same rule. */
+  autoMode?: string;
 }
 /** Whether this connection is signed in, plus its offered sign-in methods. */
 export interface AcpAuthStatus {
@@ -578,7 +585,7 @@ export class AcpRuntime implements ProviderAdapter {
       session.applicationSelection = selectionKey(input);
       await this.applyStoredOptions(session, preferences);
       const requestedMode = preferences.mode && preferences.approvalBaseline === (input.approvalMode ?? "ask")
-        ? preferences.mode : input.approvalMode === "full" ? this.flavor.fullMode : this.flavor.askMode;
+        ? preferences.mode : this.modeForApproval(session, input.approvalMode);
       await this.setMode(session, requestedMode);
       const mode = session.state!.modes!.currentModeId;
       if (this.stoppedDuringSetup.has(input.threadId)) throw new Error("Turn cancelled during setup");
@@ -668,6 +675,20 @@ export class AcpRuntime implements ProviderAdapter {
   hasSession(threadId: string): boolean { return Boolean(this.sessions.get(threadId)?.id); }
   isConfiguring(threadId: string): boolean { return this.starting.has(threadId); }
 
+  /** The adapter's own session mode for a Colonie approval level. Every level
+   * is a provider mode passed through, never a policy Colonie invents: `auto`
+   * is the adapter's reviewer where it has one, `edits` its accept-edits mode.
+   * Ask and Full keep their exact previous behaviour, including the 409 an
+   * adapter that does not offer Full deserves. Auto and Accept edits are new
+   * levels for ACP, so an adapter that does not advertise one keeps Ask instead
+   * of failing the turn — a level never falls upward into more access. */
+  private modeForApproval(session: LiveSession, approvalMode: SendTurnInput["approvalMode"]): string {
+    if (approvalMode === "full") return this.flavor.fullMode;
+    const wanted = approvalMode === "auto" ? this.flavor.autoMode : approvalMode === "edits" ? this.flavor.editsMode : undefined;
+    if (!wanted) return this.flavor.askMode;
+    return (session.state?.modes?.availableModes ?? []).some((entry) => entry.id === wanted) ? wanted : this.flavor.askMode;
+  }
+
   private async setMode(session: LiveSession, mode: string) {
     if (!session.state?.modes?.availableModes.some((entry) => entry.id === mode)) throw Object.assign(new Error(`Agent does not support mode '${mode}'`), { status: 409 });
     const before = session.modeEpoch;
@@ -739,7 +760,7 @@ export class AcpRuntime implements ProviderAdapter {
       try { await this.selectConfiguredModel(session, input.model); } catch (error) { warnings.push((error as Error).message); }
       try { await this.applyStoredOptions(session, preferences); } catch (error) { warnings.push((error as Error).message); }
       const mode = preferences.mode && preferences.approvalBaseline === (input.approvalMode ?? "ask") ? preferences.mode
-        : input.approvalMode === "full" ? this.flavor.fullMode : this.flavor.askMode;
+        : this.modeForApproval(session, input.approvalMode);
       try { await this.setMode(session, mode); } catch (error) { warnings.push((error as Error).message); }
       session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
       return this.settingsSnapshot(session, warnings);

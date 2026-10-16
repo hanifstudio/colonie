@@ -77,7 +77,9 @@ describe.each([["Codex", CodexAcpDriver], ["Claude", ClaudeAcpDriver]] as const)
     const current = await change(f.adapter, f.input, original, { kind: "option", configId: "effort", value: "high" });
     await expect(change(f.adapter, f.input, original, { kind: "mode", value: "plan" })).rejects.toThrow("Native settings changed");
     await expect(change(f.adapter, f.input, current, { kind: "option", configId: "effort", value: "not-offered" })).rejects.toThrow("no longer offers");
-    const fallback = await change(f.adapter, f.input, current, { kind: "mode", value: "auto" });
+    // The client asks for Auto by the id its own flavour uses; the fixture
+    // adapter clamps it to Ask and the runtime records what the agent kept.
+    const fallback = await change(f.adapter, f.input, current, { kind: "mode", value: driver.driverKind === "claude-acp" ? "auto" : "agent" });
     expect(fallback.modes.currentModeId).toBe(driver.driverKind === "claude-acp" ? "default" : "read-only");
     expect(nativePreferences("settings", driver.driverKind).mode).toBe(fallback.modes.currentModeId);
   });

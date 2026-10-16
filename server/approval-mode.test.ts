@@ -62,6 +62,21 @@ describe("approval modes", () => {
     expect(supportsApprovalMode(driver, "custom")).toBe(false);
     expect(hasNativeAutoReview(driver)).toBe(false);
   });
+  it("offers the ACP adapters every level they carry a mode for", () => {
+    for (const driver of ["claude-acp", "codex-acp"]) {
+      expect(supportsApprovalMode(driver, "ask")).toBe(true);
+      expect(supportsApprovalMode(driver, "edits")).toBe(true);
+      expect(supportsApprovalMode(driver, "auto")).toBe(true);
+      expect(supportsApprovalMode(driver, "full")).toBe(true);
+      // Custom is a provider config of its own; ACP carries settings instead.
+      expect(supportsApprovalMode(driver, "custom")).toBe(false);
+      // Both adapters ship a reviewer of their own (Claude `auto` "handles
+      // permission decisions", Codex `agent` "Auto review"), so Auto is real
+      // and not the Ask fallback the chat-completions family gets.
+      expect(hasNativeAutoReview(driver)).toBe(true);
+    }
+  });
+
   it("recognizes only the five durable values", () => {
     expect(APPROVAL_MODES).toEqual(["ask", "edits", "auto", "full", "custom"]);
     for (const mode of APPROVAL_MODES) expect(isApprovalMode(mode)).toBe(true);
