@@ -14,7 +14,13 @@ import { SessionRegistry } from "./sessions.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes and models the maintained Claude adapter advertises; the runtime
+ * validates set_mode and a selected model against the session's own lists. */
+const ACP_MODES = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 28800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const OWNER = "owner@example.test";
@@ -86,7 +92,7 @@ posixOnly("a routine run's task on the event stream", () => {
     mkdirSync(data, { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({
       signIn: { admins: [OWNER], members: [] },
-      instances: { grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } } },
+      instances: { acp: { driver: "claude-acp", environment: { ...ACP_MODES }, config: ACP } },
     }));
     const registry = new SessionRegistry({ file: join(data, "sessions.json"), emailScopes: () => ["admin", "client"] });
     token = registry.issue({ label: "Owner's laptop", email: OWNER, scopes: ["admin", "client"] }).token;
@@ -122,7 +128,7 @@ posixOnly("a routine run's task on the event stream", () => {
     const created = await api("POST", "/api/bots", { name: "Report Otter" });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const bot = created.body.bot as { id: string; threadId: string };
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "grok", model: "fake-model" } })).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "acp", model: "fake-model" } })).status).toBe(200);
     // Something in the active conversation for the frame to have carried.
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Summarise the week", threadId: bot.threadId })).status).toBe(202);
     const replied = await waitFor(async () => {

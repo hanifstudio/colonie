@@ -20,7 +20,13 @@ import { installLibrarySkill } from "./skill-library.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes the maintained Claude adapter advertises; the runtime validates
+ * set_mode against the session's own list. */
+const ACP_MODES = { FAKE_ACP_MODES: "default,bypassPermissions" };
 
 describe("bot wire privacy against the real server", () => {
   let home = "";
@@ -45,7 +51,7 @@ describe("bot wire privacy against the real server", () => {
     output = "";
     writeFileSync(join(data, "config.json"), JSON.stringify({
       features: { skillsLibrary },
-      instances: { grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } } },
+      instances: { acp: { driver: "claude-acp", environment: { ...ACP_MODES }, config: ACP } },
     }));
     const proc = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], {
       cwd: ROOT,

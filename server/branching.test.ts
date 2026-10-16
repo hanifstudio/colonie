@@ -1,5 +1,5 @@
 // Conversation branching, end to end: boots the real harness server with
-// the grokAgent driver on the fake ACP CLI, runs a real turn, edits the
+// the claude-acp adapter on the fake ACP CLI, runs a real turn, edits the
 // user message, and asserts the conversation forks — the old branch stays
 // in the tree but off the active path, the edited branch gets its own
 // reply, and version switching flips between the two. A second instance
@@ -18,7 +18,13 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes and models the maintained Claude adapter advertises; the runtime
+ * validates set_mode and a selected model against the session's own lists. */
+const ACP_MODES = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -78,14 +84,14 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       join(home, ".colonie", "config.json"),
       JSON.stringify({
         instances: {
-          happy: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: true } },
+          happy: { driver: "claude-acp", environment: { ...ACP_MODES }, config: ACP },
           // a second engine for the mid-thread model switch: same fake, its
           // own instance, so it starts with no session cursor for the thread
-          second: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: true } },
+          second: { driver: "claude-acp", environment: { ...ACP_MODES }, config: ACP },
           hang: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "hang" },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            driver: "claude-acp",
+            environment: { ...ACP_MODES, FAKE_ACP_MODE: "hang" },
+            config: ACP,
           },
         },
       }),

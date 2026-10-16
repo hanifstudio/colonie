@@ -24,7 +24,14 @@ import { SessionRegistry } from "./sessions.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes the maintained Claude adapter advertises; the runtime validates
+ * set_mode against the session's own list. The model the tests select must be
+ * advertised too, or the runtime refuses the selection. */
+const ACP_MODES = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 28800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -131,7 +138,7 @@ const ids = { pub: "", pubThread: "", hr: "", hrThread: "", board: "", roomPub: 
 async function makeBot(name: string, section?: string) {
   const created = await api("POST", "/api/bots", { name, ...(section ? { section } : {}) }, BOSS);
   expect(created.status, JSON.stringify(created.body)).toBe(201);
-  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "grok", model: "fake-model" } }, BOSS);
+  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "acp", model: "fake-model" } }, BOSS);
   expect(patched.status).toBe(200);
   return created.body.bot as { id: string; threadId: string };
 }
@@ -159,9 +166,9 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     writeFileSync(join(data, "config.json"), JSON.stringify({
       signIn: { admins: [BOSS], members: [ADA, BOB] },
       instances: {
-        grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } },
+        acp: { driver: "claude-acp", environment: { ...ACP_MODES }, config: ACP },
         // repeats its whole prompt back, so a test can read what a bot was told
-        grokecho: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "echo-gated" }, config: { cli: FAKE_CLI, fullAuto: false } },
+        acpecho: { driver: "claude-acp", environment: { ...ACP_MODES, FAKE_ACP_MODE: "echo-gated" }, config: ACP },
       },
     }));
     const role = (email: string) => (email === BOSS ? ["admin", "client"] as const : ["client"] as const);
@@ -491,7 +498,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     // Bob asks the helpdesk; its brief of recent work must not name the room
     // it shares with Payroll, nor what was said there. (An engine that
     // repeats its prompt shows exactly what the helpdesk was told.)
-    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "grokecho", model: "fake-model" } }, BOSS)).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "acpecho", model: "fake-model" } }, BOSS)).status).toBe(200);
     const sent = await api("POST", `/api/bots/${ids.pub}/messages`, { text: "What have you been up to?", threadId: ids.pubThread }, BOB);
     expect(sent.status, JSON.stringify(sent.body)).toBe(202);
     const reply = await settledReply(ids.pubThread, "What have you been up to?");
@@ -500,7 +507,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     expect(answer).toContain("echo: ");
     expect(answer).not.toContain("Pay questions");
     expect(answer).not.toContain("SECRET-ROOM-42");
-    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "grok", model: "fake-model" } }, BOSS)).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "acp", model: "fake-model" } }, BOSS)).status).toBe(200);
     // Its session_search does not reach that room either.
     const minted = await fetch(`${BASE}/api/testing/internal-capability`, {
       method: "POST", headers: { "content-type": "application/json", "x-colonie-test-capability": CAPABILITY_KEY },

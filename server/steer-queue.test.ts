@@ -3,7 +3,7 @@
 // Unit: the steer-queue module against a fake store — queue bookkeeping,
 // the drain-once property, and the joined single-prompt shape.
 //
-// e2e: the real harness server with the grokAgent driver on the fake ACP
+// e2e: the real harness server with the claude-acp adapter on the fake ACP
 // CLI in echo-gated mode, whose turns stay open until a gate file exists —
 // a deterministic busy window. The echo reply carries the FULL prompt
 // (system + turn text), which pins both what a drained turn was sent (the
@@ -38,7 +38,13 @@ import {
 import type { BotRecord, Message } from "./store.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes and models the maintained Claude adapter advertises; the runtime
+ * validates set_mode and a selected model against the session's own lists. */
+const ACP_SESSION = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -567,7 +573,6 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
   let earlyGate: string;
   let receiptGate: string;
   let dispatchGate: string;
-  let roomGate: string;
   const evidence: unknown[] = [];
   let evidencePath: string;
 
@@ -594,9 +599,6 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
 
   const botById = async (id: string) =>
     (await api("GET", "/api/bots")).body.bots.find((b: any) => b.id === id);
-
-  const groupById = async (id: string) =>
-    (await api("GET", "/api/bots?messages=0")).body.groups.find((g: any) => g.id === id);
 
   const echoes = (bot: any): any[] =>
     bot.messages.filter((m: any) => m.role === "bot" && m.kind === "text" && m.text?.startsWith("echo: "));
@@ -625,7 +627,6 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
     earlyGate = join(home, "gates", "early-provider.gate");
     receiptGate = join(home, "gates", "receipt-provider.gate");
     dispatchGate = join(home, "gates", "early-dispatch.gate");
-    roomGate = join(home, "gates", "room.gate");
     evidencePath = join(tmpdir(), `colonie-steer-evidence-${Date.now()}-${process.pid}.json`);
     // The CLI and harness remain real. Delay only the adapter's returned
     // acknowledgment, reproducing completion before sendTurn resolves.
@@ -677,38 +678,32 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
       JSON.stringify({
         instances: {
           steer: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: drainGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            driver: "claude-acp",
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: drainGate },
+            config: ACP,
           },
           steerEarly: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: earlyGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            driver: "claude-acp",
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: earlyGate },
+            config: ACP,
           },
           steerReceipt: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: receiptGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            driver: "claude-acp",
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: receiptGate },
+            config: ACP,
           },
           // the RPC dump lets the interrupt test wait for session/prompt to
           // be in flight — interrupting earlier would be a no-op on a turn
           // the driver has not registered yet
           steerStop: {
-            driver: "grokAgent",
+            driver: "claude-acp",
             environment: {
+              ...ACP_SESSION,
               FAKE_ACP_MODE: "echo-gated",
               FAKE_ACP_GATE_FILE: stopGate,
               FAKE_ACP_RPC_DUMP: stopRpcDump,
             },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          // a room turn for the group-turn queue test: one gate holds the
-          // room's turn open while a 1:1 message arrives
-          steerRoom: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: roomGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            config: ACP,
           },
         },
       }),
@@ -907,45 +902,9 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
     60_000,
   );
 
-  it(
-    "queues a person's 1:1 message behind the bot's room turn instead of bouncing it",
-    async () => {
-      const bot = await newBot("steerRoom", "RoomBusy");
-
-      // a one-member room whose message starts the room turn; the turn
-      // stays open until the gate exists, so the room holds the bot
-      const room = (await api("POST", "/api/groups", {
-        name: "Ops Room",
-        memberIds: [bot.id],
-        setup: { bulletin: "", defaultResponder: { kind: "member", botId: bot.id } },
-      })).body.group;
-      expect((await api("POST", `/api/groups/${room.id}/messages`, { text: "room work" })).status).toBe(202);
-      await until(async () => (await groupById(room.id))?.working === true, "the room turn to start");
-
-      // the person's 1:1 words arrive mid-room-turn: queued with the real
-      // bound named, not bounced with 409 thread_busy
-      const direct = await api("POST", `/api/bots/${bot.id}/messages`, { text: "meanwhile, direct words" });
-      expect(direct.status).toBe(202);
-      expect(direct.body).toMatchObject({ ok: true, queued: true, reason: "group-turn" });
-
-      // the queued words stay off the 1:1 transcript while the room runs
-      const during = await botById(bot.id);
-      expect(during.messages.filter((m: any) => m.role === "user").map((m: any) => m.text)).toEqual([]);
-
-      // the room turn ends: the drain runs the queued words as exactly one
-      // attended 1:1 turn
-      writeFileSync(roomGate, "open");
-      await until(async () => {
-        const after = await botById(bot.id);
-        return !after.busy && echoes(after).some((reply) => reply.text.includes("meanwhile, direct words"));
-      }, "the drained 1:1 turn");
-
-      const after = await botById(bot.id);
-      const directEchoes = echoes(after).filter((reply) => reply.text.includes("meanwhile, direct words"));
-      expect(directEchoes).toHaveLength(1);
-      expect((await groupById(room.id))?.working).toBe(false);
-      evidence.push({ groupTurnQueue: { direct, after } });
-    },
-    60_000,
-  );
+  // A room turn that holds a bot while a person's 1:1 words arrive used to
+  // queue them behind it with `reason: "group-turn"`. Room/group orchestration
+  // is not enabled for a transparent ACP connection (server/index.ts answers
+  // the room message with that error), so there is no live behaviour left
+  // here: the group-turn bound itself is covered by the unit tests above.
 });

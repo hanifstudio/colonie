@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlColonie, verificationServerEnvironment } from "../scripts/control-colonie.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
-const primary = { instanceId: "opencodeGo", model: "fixture/recovery" };
+const primary = { instanceId: "primary", model: "fixture/recovery" };
 const backup = { instanceId: "claude", model: "claude-sonnet-5" };
 const transient = { code: -32603, message: "Internal error", data: { details: "Upstream connection timed out" } };
 const jsonLines = (path: string): any[] => existsSync(path)
@@ -23,7 +23,7 @@ async function withRecoveryFixture(
     control: (...args: string[]) => Promise<any>;
     calls: () => Array<{ pid: number; method: string }>;
     backupPrompts: () => any[];
-    backupReceipt: () => { argv: string[]; prompt: unknown; systemPrompt: string };
+    backupReceipt: () => { prompt: unknown; mode: string | null };
     dataDir: string; failureFile: string; gateFile: string; evidence: unknown[];
   }) => Promise<void>,
 ) {
@@ -56,25 +56,32 @@ async function withRecoveryFixture(
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const configPath = join(dataDir, "config.json");
     const config = JSON.parse(readFileSync(configPath, "utf8"));
-    const cli = fileURLToPath(new URL("./testing/fake-acp-cli.ts", import.meta.url));
+    const cli = [fileURLToPath(new URL("./testing/fake-acp-cli.ts", import.meta.url))];
+    // Colonie is ACP-only: every fixture engine runs the scripted ACP fake
+    // through the maintained Claude adapter, over the same stdio boundary a
+    // real adapter speaks.
+    const acpConfig = { cli: process.execPath, args: cli };
+    const acpModes = { FAKE_ACP_MODES: "default,bypassPermissions" };
     config.instances.history = {
-      driver: "opencodeGo", displayName: "History fixture", config: { cli },
-      environment: { FAKE_ACP_MODELS: primary.model },
+      driver: "claude-acp", displayName: "History fixture", config: acpConfig,
+      environment: { ...acpModes, FAKE_ACP_MODELS: primary.model },
     };
-    config.instances.opencodeGo = {
-      driver: "opencodeGo", displayName: "Primary fixture", config: { cli },
+    config.instances.primary = {
+      driver: "claude-acp", displayName: "Primary fixture", config: acpConfig,
       environment: {
+        ...acpModes,
         FAKE_ACP_MODELS: primary.model, FAKE_ACP_RPC_APPEND_FILE: rpcFile,
         FAKE_ACP_RPC_FAILURE_FILE: failureFile, FAKE_ACP_RPC_FAILURE_METHOD: options.method ?? "initialize",
         ...(options.afterOutput ? { FAKE_ACP_RPC_FAILURE_AFTER_OUTPUT: "1" } : {}),
         ...(options.gated ? { FAKE_ACP_RPC_FAILURE_GATE: gateFile } : {}),
       },
     };
-    config.instances.secondary = { ...config.instances.opencodeGo, displayName: "Second startup fixture" };
+    config.instances.secondary = { ...config.instances.primary, displayName: "Second startup fixture" };
     config.instances.claude.environment = {
       ...config.instances.claude.environment,
-      FAKE_CLAUDE_PROMPTS: backupFile, FAKE_CLAUDE_TOOL_CALLS: "[]",
-      FAKE_CLAUDE_MODE: options.backupFails ? "not-logged-in" : "happy",
+      // The backup engine must offer the model the recovered thread selects.
+      FAKE_ACP_MODELS: backup.model,
+      FAKE_ACP_PROMPTS_FILE: backupFile, FAKE_ACP_MODE: options.backupFails ? "auth-required" : "happy",
     };
     config.automaticRecovery = { enabled: options.enabled !== false, backup };
     writeFileSync(configPath, JSON.stringify(config));
@@ -93,8 +100,10 @@ async function withRecoveryFixture(
     await check({
       api, control, calls: () => turnCalls(rpcFile), backupPrompts: () => jsonLines(backupFile),
       backupReceipt: () => {
-        const { argv, prompt, systemPrompt } = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-        return { argv, prompt, systemPrompt };
+        // What the backup engine was handed: the ACP fake records one JSON line
+        // per prompt, so the receipt is its last entry.
+        const entries = jsonLines(backupFile);
+        return entries[entries.length - 1] ?? { prompt: null, mode: null };
       },
       dataDir, failureFile, gateFile, evidence,
     });
@@ -134,13 +143,14 @@ it("recovers once on the same thread with its history and permissions, leaving t
     expect(prompt).toContain("REMEMBER_AUTOMATIC_RECOVERY_7Q");
     expect(prompt).toContain("hello from fake acp");
     expect(prompt.split(text)).toHaveLength(2);
-    expect(receipt.argv[receipt.argv.indexOf("--permission-mode") + 1]).toBe("default");
+    // the recovered turn ran under the mode the person had, not a full-access one
+    expect(receipt.mode).toBe("default");
     const messages = (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
     expect(messages.filter((message) => message.role === "user" && message.text === text)).toHaveLength(1);
     expect(messages.find((message) => message.role === "user" && message.text === text).requestPending).toBe(false);
     expect(messages.filter((message) => message.tool?.name?.startsWith("recovery:"))).toHaveLength(1);
     expect(messages.findLast((message) => message.role === "bot" && message.kind === "text")).toMatchObject({
-      text: "hello from fake claude", turnSucceeded: true,
+      text: "hello from fake acp", turnSucceeded: true,
     });
     const after = await state();
     const task = after.tasks.find((entry: any) => entry.threadId === threadId);

@@ -14,7 +14,13 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { openSse } from "./testing/sse.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes and models the maintained Claude adapter advertises; the runtime
+ * validates set_mode and a selected model against the session's own lists. */
+const ACP_SESSION = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const WEBHOOK_PORT = 39000 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -60,14 +66,14 @@ posixOnly("routine failure notification wiring", () => {
       join(home, ".colonie", "config.json"),
       JSON.stringify({
         instances: {
-          grok: {
-            driver: "grokAgent",
+          acp: {
+            driver: "claude-acp",
             // fail-after-text streams a partial answer before failing: with a
             // NON-empty reply, only the routine-failed/done dedup suppresses
             // the generic done — exit-early would pass on the empty-reply
             // rule alone and leave the dedup guard untested.
-            environment: { FAKE_ACP_MODE: "fail-after-text" },
-            config: { cli: FAKE_CLI, fullAuto: false },
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "fail-after-text" },
+            config: ACP,
           },
         },
       }),

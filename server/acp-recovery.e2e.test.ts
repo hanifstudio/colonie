@@ -39,10 +39,13 @@ it.each([false, true])("recovers the same conversation after an ACP internal err
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const configPath = join(dataDir, "config.json");
     const config = JSON.parse(readFileSync(configPath, "utf8"));
-    config.instances.opencodeGo = {
-      driver: "opencodeGo", displayName: "Recovery fixture",
-      config: { cli: fileURLToPath(new URL("./testing/fake-acp-cli.ts", import.meta.url)) },
+    config.instances.recovery = {
+      // Colonie is ACP-only: the scripted engine runs through the maintained
+      // Claude adapter, over the same stdio boundary a real adapter speaks.
+      driver: "claude-acp", displayName: "Recovery fixture",
+      config: { cli: process.execPath, args: [fileURLToPath(new URL("./testing/fake-acp-cli.ts", import.meta.url))] },
       environment: {
+        FAKE_ACP_MODES: "default,bypassPermissions",
         FAKE_ACP_MODELS: "fixture/recovery", FAKE_ACP_DUMP: dumpFile, FAKE_ACP_DUMP_PROMPT: "1",
         FAKE_ACP_RPC_APPEND_FILE: rpcFile, FAKE_ACP_RPC_FAILURE_FILE: failureFile,
         ...(afterOutput ? { FAKE_ACP_RPC_FAILURE_AFTER_OUTPUT: "1" } : {}),
@@ -61,7 +64,7 @@ it.each([false, true])("recovers the same conversation after an ACP internal err
 
     const { bot } = await control("new-bot", "--name", "Recovery bot");
     const threadId = bot.activeTaskId;
-    await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, { modelSelection: { instanceId: "opencodeGo", model: "fixture/recovery" } });
+    await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, { modelSelection: { instanceId: "recovery", model: "fixture/recovery" } });
     const messages = async () => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
     const task = async () => (await api("GET", "/api/bots")).bots.find((entry: any) => entry.id === bot.id)
       .tasks.find((entry: any) => entry.threadId === threadId);

@@ -21,7 +21,13 @@ import type { DecisionRow } from "./decision-log.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter. Colonie is ACP-only, so a fixture engine is claude-acp. */
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP = { cli: process.execPath, args: [FAKE_CLI] };
+/** The modes and models the maintained Claude adapter advertises; the runtime
+ * validates set_mode and a selected model against the session's own lists. */
+const ACP_SESSION = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "fake-model" };
 const PORT = 18800 + Math.floor(Math.random() * 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -105,7 +111,7 @@ async function makePermissionBot(patch: Record<string, unknown>) {
   const bot = created.body.bot;
   const patched = await api("PATCH", `/api/bots/${bot.id}`, {
     ...patch,
-    modelSelection: { instanceId: "grok", model: "fake-model" },
+    modelSelection: { instanceId: "acp", model: "fake-model" },
   });
   expect(patched.status).toBe(200);
   return patched.body.bot ?? bot;
@@ -120,15 +126,15 @@ posixOnly("authorization decisions are logged", () => {
       join(home, ".colonie", "config.json"),
       JSON.stringify({
         instances: {
-          grok: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "permission" },
-            config: { cli: FAKE_CLI, fullAuto: false },
+          acp: {
+            driver: "claude-acp",
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "permission" },
+            config: ACP,
           },
-          grokq: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "question" },
-            config: { cli: FAKE_CLI, fullAuto: false },
+          acpq: {
+            driver: "claude-acp",
+            environment: { ...ACP_SESSION, FAKE_ACP_MODE: "question" },
+            config: ACP,
           },
         },
       }),
@@ -245,7 +251,7 @@ posixOnly("authorization decisions are logged", () => {
       expect(created.status).toBe(201);
       const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, {
         name: "Queried",
-        modelSelection: { instanceId: "grokq", model: "fake-model" },
+        modelSelection: { instanceId: "acpq", model: "fake-model" },
       });
       expect(patched.status).toBe(200);
       const bot = patched.body.bot ?? created.body.bot;
