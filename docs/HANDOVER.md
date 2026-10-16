@@ -301,8 +301,12 @@ The flat-black placeholder icon is in place (`electron/resources/colonie-icon.pn
 `build/colonie.icns`). Gated account/team/enterprise UI needs scoped cleanup
 decisions.
 Windows/Linux packaging and browser/computer/routine/group/delegation workflows
-still need current evidence. The old VPS instance's billing removal is an owner
-console follow-up; do not reconnect or redeploy it. Preserve unrelated WIP.
+still need current evidence. The old VPS instance (`colonie-vps`,
+172.104.33.55) has been emptied — installer mirror, bundled Caddy, its config
+and TLS data, and the `colonie` user are all deleted, verified by a
+`find -iname "*colonie*"` that returns nothing — but the instance still exists
+and is still billed, so **deleting it from the Linode console remains the
+owner's step**; do not reconnect or redeploy it. Preserve unrelated WIP.
 
 Later foundation proposals are workspace bootstrap ownership and run orchestration,
 after this trial; see blueprint section 6.

@@ -3,6 +3,40 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — the retired Linode workspace host wiped clean
+
+The owner asked for the slept-on Linode from the retired shared-workspace
+feature (`colonie-vps`, 172.104.33.55, ap-south) to be shut down or at least
+emptied. It was still reachable with the Mac's own key, so it was inventoried
+over SSH and everything the product left on it was removed; the host itself
+still needs deleting from the Linode console, which is the only thing that
+stops the billing (a stopped or emptied instance is still billed).
+
+What it actually held, and is now gone:
+
+- `/var/www/colonie/downloads/Colonie-0.2.0-arm64.dmg` — 359,339,798 bytes,
+  uploaded 2026-10-14 20:54 UTC, sha256 `f54448b4…c4f0ee`. The only installer on
+  the host, and the only file it served.
+- `/usr/local/bin/colonie-caddy` (48,521,378 bytes, static Go binary) plus
+  `/etc/colonie/{Caddyfile,Caddyfile.pre-platform,https.env}` and Caddy's
+  `/var/lib/colonie-https` data/config. Its Caddyfile served `/downloads/*` from
+  the directory above and reverse-proxied everything else to `127.0.0.1:19091`
+  under an ACME `shortlived` certificate for the bare IP — no domain, so there is
+  no DNS record to remove.
+- The `colonie` system user (uid 999, home `/opt/colonie`, which was already
+  gone) and root's one-line shell history.
+
+Found nothing else: no database, no Docker, no web server running, no cron,
+no other users, no credential, key or `.env` file anywhere under those paths.
+Remaining on the host is a stock Systemd image: SSH listening on 22, four days of
+uptime, 3.6 G of 157 G used. Verification after the wipe: `find / -xdev -iname
+"*colonie*"` returns nothing, `/var/www` and `/etc/colonie` are gone, `getent
+passwd colonie` is empty, and only the SSH listeners remain.
+
+Consequence to remember: any already-installed old build still pointed at that
+address can no longer update itself. That is the intent of retiring the host, and
+releases ship through the GitHub provider configured in `electron-builder.yml`.
+
 ## 2026-10-17 — E03.1 the person's own questions over ACP elicitation
 
 `AskUserQuestion` reached Colonie over ACP as a plain tool permission, so a
