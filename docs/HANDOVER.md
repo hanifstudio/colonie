@@ -81,11 +81,20 @@ slice. Chosen instead: `server/colonie/connections/`, whose `policy.ts` and
   `config.ts` import from `connections/` (red/green in a disposable copy).
 - Budget: focused vitest only, 120 s per command, one job at a time, two repairs.
 
-Done locally (PROGRESS "E02.1"). Next action: E02.2 — pick the next store that
-reads `DATA_DIR` with few importers (survey in PROGRESS) and repeat the same
-pattern: caller-owned path, a two-root test, a `content-boundaries` case. Do not
-take `message-db.ts`, `store.ts`, or `config.ts` until smaller slices settle the
-pattern. Ask the owner only if a slice changes on-disk layout or stored data.
+Done locally (PROGRESS "E02.1"). E01.3 added `erasableSyntaxOnly` to server typecheck.
+
+## Done engineering task: E02.2 — learned About-me facts owned at bootstrap
+
+`server/profile-learned.ts` reads `DATA_DIR` for `profile-learned.json`. Outcome:
+a `LearnedFacts` class taking the file path, built once in `server/index.ts` and
+passed to the memory route deps; the three `addToAboutMe` call sites use it.
+`aboutMeLine`/`appendAboutMe` stay pure functions. File name and format are
+unchanged. Acceptance: two disposable files stay separate; `memory-upkeep` and
+`routes/bot-memory` tests pass; `content-boundaries.test.ts` rejects a `config.ts`
+import from the module (red/green in a disposable copy); typecheck/lint on changed
+files. Same budget as E02.1. Avoid `server/acp/*` (concurrent ACP work).
+Done locally (PROGRESS "E02.2"). Next: E02.3 from the PROGRESS candidate list (`mcp-gate-config.ts`;
+skip `published-teams.ts`, which belongs to the team-sharing/rooms surface).
 
 ## M0 trial checkpoint — still open
 

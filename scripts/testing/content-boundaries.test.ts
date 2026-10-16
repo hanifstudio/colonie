@@ -40,10 +40,17 @@ describe("shared content boundaries", () => {
     },
   );
 
-  it.each(["policy.ts", "manager.ts", "routes.ts"])(
-    "server/colonie/connections/%s gets its storage from its caller, not global config",
+  // Modules whose storage location is chosen by their caller (E02). Add a module
+  // here when it stops reading `DATA_DIR`; type-only imports of config are fine.
+  it.each([
+    "server/colonie/connections/policy.ts",
+    "server/colonie/connections/manager.ts",
+    "server/colonie/connections/routes.ts",
+    "server/profile-learned.ts",
+  ])(
+    "%s gets its storage from its caller, not global config",
     (module) => {
-      const path = resolve(ROOT, "server/colonie/connections", module);
+      const path = resolve(ROOT, module);
       const config = resolve(ROOT, "server/config.ts");
       const forbidden = valueImports(path).filter((specifier) =>
         specifier.startsWith(".") && resolve(dirname(path), specifier) === config);

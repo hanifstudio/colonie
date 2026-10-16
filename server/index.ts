@@ -136,7 +136,7 @@ import { connectorCardText } from "./connector-card-text.ts";
 import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
 import { buildRecall } from "./recall.ts";
 import { createMemoryUpkeep, upkeepEnabled } from "./memory-upkeep.ts";
-import { appendAboutMe, commitLearned, planLearned } from "./profile-learned.ts";
+import { appendAboutMe, LearnedFacts } from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, coordinatorSupervises, livePeerRoster, livePeerRosterBlock, peerAllowed, peerName, peerRosterSystemPrompt, peerStatus, peerStatusWords, reachablePeers, resolveTeammate, roomPeerRosterSystemPrompt, roomRosterLine, PEER_ACCESS_HELP } from "./peer-roster.ts";
 import {
   containerComputerAction,
@@ -3047,6 +3047,7 @@ const store = new Store(
 );
 const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), ENVIRONMENT_ID);
 const botAppPolicies = new BotAppPolicies(join(DATA_DIR, "connected-apps", "bots"));
+const learnedFacts = new LearnedFacts(join(DATA_DIR, "profile-learned.json"));
 const connectedTools = new ConnectedTools({ origin: `http://127.0.0.1:${PORT}`,
   policies: botAppPolicies, sessions: join(DATA_DIR, "connected-apps", "sessions"),
   credentials: () => cfg.composio?.apiKey ? { key: cfg.composio.apiKey, userId: cfg.composio.userId } : null,
@@ -5706,13 +5707,13 @@ const memoryUpkeep = createMemoryUpkeep({
   busy: (botId) => botHasActiveTurn(botId),
   addToAboutMe: (from, texts) => {
     const current = cfg.profile?.aboutMe ?? "";
-    const facts = planLearned(from, texts, current, memoryDate());
+    const facts = learnedFacts.plan(from, texts, current, memoryDate());
     const next = appendAboutMe(current, facts.map((fact) => fact.line));
     // a full About me takes nothing more; the person trims it first
     if (!facts.length || next === null) return 0;
     saveConfig({ profile: { ...cfg.profile, aboutMe: next } });
     Object.assign(cfg, loadConfig());
-    commitLearned(facts);
+    learnedFacts.commit(facts);
     broadcast({ kind: "config", ...configStatus() });
     return facts.length;
   },
@@ -14204,6 +14205,7 @@ ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
+  learned: learnedFacts,
   bot: (id) => store.bot(id),
   taskByThread: (botId, threadId) => store.taskByThread(botId, threadId),
   upkeep: memoryUpkeep,

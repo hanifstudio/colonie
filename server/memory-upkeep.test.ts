@@ -1,9 +1,10 @@
 // Memory upkeep: capture parsing and dedupe, the tidy plan (the share limit
 // on small notebooks and the identity regressions from #1363's review),
 // About me suggestions, and the upkeep loop against a scripted engine.
-import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { DATA_DIR } from "./config.ts";
 import { CaptureBuffer, capturePrompt, newCandidates, parseCandidates, topicFileName } from "./memory-capture.ts";
@@ -13,7 +14,7 @@ import { flushMemoryJournal, readMemoryJournal } from "./memory-journal.ts";
 import { applyTidy, contradictionBudget, contradictionCandidates, parseContradictions, planTidy } from "./memory-tidy.ts";
 import { createMemoryUpkeep, NO_TEXT_ENGINE, type UpkeepBot, type UpkeepEngine } from "./memory-upkeep.ts";
 import { closeMessageDb } from "./message-db.ts";
-import { aboutMeLine, appendAboutMe, commitLearned, listLearnedFacts, planLearned, removeLearned } from "./profile-learned.ts";
+import { aboutMeLine, appendAboutMe, LearnedFacts } from "./profile-learned.ts";
 import { ensureWorkspace, readMemoryTopic, workspaceDir, writeMemoryFile, writeMemoryTopic, WORKSPACES_DIR } from "./workspace.ts";
 
 const TODAY = "2026-09-25";
@@ -137,20 +138,36 @@ describe("tidy plan", () => {
 });
 
 describe("About me, learned on its own", () => {
-  beforeEach(() => rmSync(DATA_DIR, { recursive: true, force: true }));
+  const learnedDirs: string[] = [];
+  let learned: LearnedFacts;
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), "colonie-learned-"));
+    learnedDirs.push(dir);
+    learned = new LearnedFacts(join(dir, "profile-learned.json"));
+  });
+  afterAll(() => { for (const dir of learnedDirs) rmSync(dir, { recursive: true, force: true }); });
+
+  it("keeps each workspace's learned facts in the file it was given", () => {
+    const from = { botId: "b1", botName: "Scout" };
+    const other = new LearnedFacts(join(learnedDirs.at(-1)!, "nested", "other.json"));
+    learned.commit(learned.plan(from, ["Is vegetarian"], "", TODAY));
+    expect(learned.list()).toHaveLength(1);
+    expect(other.list()).toEqual([]);
+    expect(other.plan(from, ["Is vegetarian"], "", TODAY)).toHaveLength(1);
+  });
 
   it("adds each new fact once, skips what About me says, and never re-adds a removed one", () => {
     const from = { botId: "b1", botName: "Scout" };
-    const planned = planLearned(from, ["Is vegetarian", "Lives in Pune", "Is vegetarian"], "- 2026-09-01 · learned by Scout · Lives in Pune", TODAY);
+    const planned = learned.plan(from, ["Is vegetarian", "Lives in Pune", "Is vegetarian"], "- 2026-09-01 · learned by Scout · Lives in Pune", TODAY);
     expect(planned.map((f) => f.line)).toEqual(["- 2026-09-25 · learned by Scout · Is vegetarian"]);
-    commitLearned(planned);
+    learned.commit(planned);
     const aboutMe = appendAboutMe("I run a studio.", planned.map((f) => f.line))!;
-    expect(planLearned(from, ["Is vegetarian"], aboutMe, TODAY)).toEqual([]);
-    const removed = removeLearned(planned[0]!.id, aboutMe)!;
+    expect(learned.plan(from, ["Is vegetarian"], aboutMe, TODAY)).toEqual([]);
+    const removed = learned.remove(planned[0]!.id, aboutMe)!;
     expect(removed.aboutMe).toBe("I run a studio.");
-    expect(listLearnedFacts()).toEqual([]);
-    expect(planLearned(from, ["Is vegetarian"], removed.aboutMe, TODAY)).toEqual([]);
-    expect(planLearned(from, ["api_key: sk-abcdefghijklmnopqrstuvwxyz123456"], "", TODAY)[0]?.text).not.toContain("sk-abcdefghijklmnop");
+    expect(learned.list()).toEqual([]);
+    expect(learned.plan(from, ["Is vegetarian"], removed.aboutMe, TODAY)).toEqual([]);
+    expect(learned.plan(from, ["api_key: sk-abcdefghijklmnopqrstuvwxyz123456"], "", TODAY)[0]?.text).not.toContain("sk-abcdefghijklmnop");
   });
 
   it("formats and bounds the About me line", () => {

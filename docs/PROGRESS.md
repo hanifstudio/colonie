@@ -78,6 +78,19 @@ the pending asks with it, and no approval mode may ever answer one.
   unavailable" before a question can be asked anywhere. They are native-fixture
   migrations, not elicitation bugs.
 
+## 2026-10-17 — E02.2 learned About-me facts owned at bootstrap
+
+`server/profile-learned.ts` no longer imports `config.ts`. `LearnedFacts` takes
+its JSON file path (`list/plan/commit/remove`); `server/index.ts` builds it from
+the same `<data>/profile-learned.json` and hands it to the `addToAboutMe` seam and
+the memory routes. `aboutMeLine`/`appendAboutMe` stay pure. File name and format
+are unchanged.
+
+- `vitest run server/memory-upkeep.test.ts server/routes/bot-memory.test.ts` — 2 files, 44/44, including a new two-file isolation test; the route tests now use a temp directory instead of the shared test data dir.
+- `content-boundaries.test.ts` now takes one list of caller-owns-storage modules (connections ×3, `profile-learned.ts`). Disposable copy: current passes (8/8); a `DATA_DIR` import in `profile-learned.ts` fails.
+- Guards 9/9 with the route ratchet unchanged; `tsc -p tsconfig.server.json` clean outside `server/acp/` (not filtered by me: errors seen earlier there were concurrent work); `oxlint --deny-warnings` on changed files clean.
+- Not run: a real provider or desktop session; the memory-upkeep path ran only through its unit/route fixtures.
+
 ## 2026-10-17 — E01.3 erasable-syntax rule for server code
 
 The server runs under Node's strip-only TypeScript (`dev:server`, the isolated

@@ -8,12 +8,14 @@
 // stays covered by server/memory-routes.test.ts over the same HTTP surface.
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { json, onJsonBody, readBody } from "../harness/http.ts";
 import { recordMemoryChange } from "../memory-journal.ts";
-import { commitLearned, planLearned } from "../profile-learned.ts";
+import { LearnedFacts } from "../profile-learned.ts";
 import { requiredScope } from "../request-auth.ts";
 import { launchVerificationServer, type VerificationServer } from "../../scripts/control-colonie.ts";
 import { createBotMemoryRoutes, type BotMemoryRouteDeps } from "./bot-memory.ts";
@@ -21,6 +23,10 @@ import { dispatchRoutes } from "./table.ts";
 
 const BOTS: Record<string, { id: string }> = { "bot-123": { id: "bot-123" } };
 const servers: Server[] = [];
+const learnedDir = mkdtempSync(join(tmpdir(), "colonie-learned-"));
+let learned = new LearnedFacts(join(learnedDir, "profile-learned.json"));
+beforeEach(() => { rmSync(learnedDir, { recursive: true, force: true }); learned = new LearnedFacts(join(learnedDir, "profile-learned.json")); });
+afterAll(() => rmSync(learnedDir, { recursive: true, force: true }));
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise((done) => server.close(done))));
 });
@@ -30,6 +36,7 @@ afterEach(async () => {
  * to a stand-in for index.ts's inline routes. */
 async function serve(deps: Partial<BotMemoryRouteDeps> = {}, beforeDispatch?: (res: import("node:http").ServerResponse) => void): Promise<string> {
   const routes = [createBotMemoryRoutes({
+    learned,
     bot: (id) => BOTS[id], taskByThread: () => undefined,
     upkeep: { status: () => ({ modelSteps: false }), tidy: async () => { throw new Error("unexpected tidy"); } },
     aboutMe: () => "", saveAboutMe: () => { throw new Error("unexpected profile save"); },
@@ -125,8 +132,8 @@ describe("the bot-memory module through the route table", () => {
   });
 
   it("removes learned facts through the current About me and save seams", async () => {
-    const facts = planLearned({ botId: "bot-123", botName: "Memo" }, ["Prefers tea"], "", "2026-09-28");
-    commitLearned(facts);
+    const facts = learned.plan({ botId: "bot-123", botName: "Memo" }, ["Prefers tea"], "", "2026-09-28");
+    learned.commit(facts);
     let aboutMe = `Handwritten note\n${facts[0]!.line}`;
     const saved: string[] = [];
     const base = await serve({ aboutMe: () => aboutMe, saveAboutMe: (text) => { aboutMe = text; saved.push(text); } });
@@ -141,8 +148,8 @@ describe("the bot-memory module through the route table", () => {
 
   it("keeps a learned fact retryable when saving About me fails", async () => {
     const from = { botId: "bot-123", botName: "Memo" };
-    const facts = planLearned(from, ["Prefers quiet cafes"], "", "2026-09-28");
-    commitLearned(facts);
+    const facts = learned.plan(from, ["Prefers quiet cafes"], "", "2026-09-28");
+    learned.commit(facts);
     const original = `Handwritten note\n${facts[0]!.line}`;
     let aboutMe = original;
     let failSave = true;
@@ -157,13 +164,13 @@ describe("the bot-memory module through the route table", () => {
     expect((await remove()).status).toBe(500);
     expect(aboutMe).toBe(original);
     expect(await (await fetch(`${base}/api/profile/learned`)).json()).toEqual({ learned: facts });
-    expect(planLearned(from, [facts[0]!.text], "", "2026-09-28")).toHaveLength(1);
+    expect(learned.plan(from, [facts[0]!.text], "", "2026-09-28")).toHaveLength(1);
 
     failSave = false;
     const retried = await remove();
     expect(retried.status).toBe(200);
     expect(await retried.json()).toEqual({ ok: true, aboutMe: "Handwritten note", learned: [] });
-    expect(planLearned(from, [facts[0]!.text], aboutMe, "2026-09-28")).toEqual([]);
+    expect(learned.plan(from, [facts[0]!.text], aboutMe, "2026-09-28")).toEqual([]);
     expect((await remove()).status).toBe(404);
   });
 

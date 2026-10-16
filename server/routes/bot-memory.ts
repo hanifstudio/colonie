@@ -30,10 +30,11 @@ import {
   type MemoryJournalEntry,
 } from "../memory-journal.ts";
 import { upkeepEnabled, type MemoryUpkeep } from "../memory-upkeep.ts";
-import { listLearnedFacts, removeLearned } from "../profile-learned.ts";
+import type { LearnedFacts } from "../profile-learned.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface BotMemoryRouteDeps {
+  learned: LearnedFacts;
   /** The bot record for an id, or nothing when there is none. */
   bot(id: string): { id: string; memoryUpkeep?: boolean } | null | undefined;
   /** The task a thread belongs to; its title names the chat in a journal row. */
@@ -156,13 +157,13 @@ export function createBotMemoryRoutes(deps: BotMemoryRouteDeps): RouteHandler {
     }
     // What upkeep learned about the person is shared through About me.
     if (method === "GET" && path === "/api/profile/learned") {
-      return json(res, 200, { learned: listLearnedFacts() });
+      return json(res, 200, { learned: deps.learned.list() });
     }
     m = path.match(/^\/api\/profile\/learned\/([\w-]+)\/remove$/);
     if (m && method === "POST") {
-      const removed = removeLearned(m[1], deps.aboutMe(), deps.saveAboutMe);
+      const removed = deps.learned.remove(m[1], deps.aboutMe(), deps.saveAboutMe);
       if (!removed) return json(res, 404, { error: "That fact was already removed." });
-      return json(res, 200, { ok: true, aboutMe: deps.aboutMe(), learned: listLearnedFacts() });
+      return json(res, 200, { ok: true, aboutMe: deps.aboutMe(), learned: deps.learned.list() });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/memory\/upkeep$/);
     if (m && method === "GET") {
