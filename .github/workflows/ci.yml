@@ -259,7 +259,7 @@ jobs:
   foss:
     needs: static
     if: needs.static.outputs.runtime == 'true'
-    # The enterprise layer was retired on 2026-10-14 (SPEC.md, M11 step 2).
+    # The enterprise layer was retired on 2026-10-14.
     # server/enterprise.ts stays as the hook point and must keep reporting the
     # open-source edition: typecheck, the edition tests, and a boot that says
     # "oss" even with a key set.

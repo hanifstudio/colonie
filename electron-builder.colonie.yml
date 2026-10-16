@@ -52,7 +52,6 @@ mac:
   # and a downloaded copy reads as "Colonie is damaged" rather than as an
   # app from an unidentified developer. Ad-hoc signing is not notarization:
   # a downloaded copy is still quarantined and the receiver clears it once.
-  # See PLAN.md M11 step 7.
   identity: "-"
   notarize: false
   gatekeeperAssess: false

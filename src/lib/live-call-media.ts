@@ -191,7 +191,7 @@ export function endNotice(reason: LiveEndReason | undefined): { text: string; dr
 /** This window is a web browser, with no desktop app around it: the one
  * rule for who asks for the microphone and which app holds the call. It reads
  * the desktop capability contract (src/lib/desktop.ts: a window the app does
- * not answer for is a browser), never the preload bridge (CONTRIBUTING.md). */
+ * not answer for is a browser), never the preload bridge. */
 function inWebBrowser(capabilities: DesktopCapabilities): boolean {
   return capabilities.dictation.reasonCode === "desktop-app-required";
 }
