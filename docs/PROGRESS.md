@@ -3,6 +3,47 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — E03.1 the person's own questions over ACP elicitation
+
+`AskUserQuestion` reached Colonie over ACP as a plain tool permission, so a
+question card could only be answered Allow/Deny. ACP has its own ask —
+`elicitation/create` in form mode — and the claude adapter bridges
+`AskUserQuestion` to it only for a client that advertises the capability
+(`this.clientCapabilities?.elicitation?.form`), which this app did not. Both
+halves are in now: `clientCapabilities.elicitation.form` at initialize (url mode
+is deliberately not advertised — nothing here presents the agent's own URL flow),
+and a handler for the request. The ask is re-read into the card's questions and
+options, and the person's answer is written back under the form's own
+`question_<n>` keys, preferring the option's `const` when a form titles an option
+differently from its value. An elicitation nobody can answer (no live turn, wrong
+session, a non-form ask) resolves `cancel`; a turn that ends or closes cancels
+the pending asks with it, and no approval mode may ever answer one.
+
+- `vitest run server/acp/elicitation.test.ts` — 13/13: single question from the
+  ask's own message, several questions ordered by field index with their own
+  text/header, an array field as multi-select, a plain string enum, a
+  free-text-only field kept, non-form asks refused; answers as the flat text, as
+  the card's own `Q:`/`A:` blocks, value-over-label, a multi-select list, and
+  nothing for an empty answer.
+- `vitest run server/decision-log-wiring.test.ts` — 7/7 (was 6/7). The question
+  case now sees the tool absent, the choices on the card, the questions on the
+  card, `source: "question"` in the log, and `answered` from the respond route.
+- `vitest run server/acp/*.test.ts` — 15 files, 62/62. A first run of the same
+  files reported 4 failed files / 7 failed tests, every one an `expect.poll`
+  timing out; the re-run was clean. Those e2e files spawn real servers and are
+  load-sensitive, so a lone failing poll is suspect before it is a defect.
+- Fixture: `FAKE_ACP_MODE=question` now asks through `elicitation/create`, with
+  `FAKE_ACP_QUESTION_MESSAGE`, `FAKE_ACP_QUESTION_SCHEMA` and
+  `FAKE_ACP_QUESTION_ANSWER` knobs. The permission-shaped
+  `FAKE_ACP_QUESTION_OPTIONS`/`FAKE_ACP_PAD_QUESTION_OPTION` knobs had no caller
+  left and are gone.
+- Still red for a different cause, recorded so it is not re-diagnosed:
+  `thread-aware-bots.e2e`, `notification-routing.e2e` and `live-call.e2e` point
+  their instances at the retired native drivers (`driver: "claudeAgent"` with
+  `FAKE_CLAUDE`), so messages to them 409 with "provider instance ... is
+  unavailable" before a question can be asked anywhere. They are native-fixture
+  migrations, not elicitation bugs.
+
 ## 2026-10-17 — E02.1 connected-apps storage owned at bootstrap
 
 `server/colonie/connections/` no longer imports `config.ts`. `BotAppPolicies`

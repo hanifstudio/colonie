@@ -145,7 +145,13 @@ in this order:
    Extract the helpers that are still live (version parsing, compact window,
    Claude config-dir resolution, account env keys, tool vocabulary) into the
    module that should own them, then delete the driver and everything only it
-   used. Migrate or delete its tests in the same commit.
+   used. Migrate or delete its tests in the same commit. Measuring this first
+   matters twice over: a config that names a retired `driver` makes the whole
+   instance unavailable ("provider instance ... is unavailable — pick another
+   model in settings"), so every message in a test that points at one 409s
+   before reaching the behaviour under test. `thread-aware-bots.e2e`,
+   `notification-routing.e2e` and `live-call.e2e` are red for exactly this
+   reason today, not for anything their names suggest.
 2. **Rooms and groups** — the staged plan in the milestone above.
 3. **The `maus` token** — the two slices recorded in the clean-slate item above.
 4. **ACP branching** (`branching.test.ts` 3 failing): an edit cannot rewind an
@@ -153,12 +159,14 @@ in this order:
    switch — open a fresh ACP session for the branch and hand it the branch's
    context (`composeContext`/`contextPin` and the `native-history` rules are the
    pieces), then keep the existing refusal only for a live turn.
-5. **ACP structured questions** (`decision-log-wiring` 1 failing): handle the
-   protocol's own `elicitation/create` (the SDK type exists,
-   `CreateElicitationRequest`), advertise the capability at initialize, emit
-   `request.opened` with `questions` and no tool, and answer with
-   `ElicitationAcceptAction`. ACP's elicitation is the only thing that has ever
-   produced `questions` besides the retired native Claude driver.
+5. **ACP structured questions** — **done** (`8d8ab45b`). The client now
+   advertises `clientCapabilities.elicitation.form` (the gate the claude adapter
+   checks before bridging `AskUserQuestion` at all) and handles
+   `elicitation/create`: `server/acp/elicitation.ts` re-reads the form into the
+   card's questions and options and writes the answer back under the form's own
+   `question_<n>` keys, `server/acp/acp-runtime.ts` emits it as a question
+   request and resolves it through `respondToRequest`, and the ACP fixture's
+   question mode asks that way. `decision-log-wiring` 7/7; `server/acp/` 62/62.
 6. **Scripted tool calls in the ACP fixture**, so the ~44 test files that drive
    the retired fake's plan runner can run again. The plan format and the runner
    already exist (`server/testing/room-handoff-agent.ts`, 140 lines, reads
