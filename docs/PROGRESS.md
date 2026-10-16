@@ -1,5 +1,33 @@
 # Colonie progress
 
+## 2026-10-16 — the deploy targets are gone
+
+Branch `colonie/local-only`.
+
+| commit | what went |
+|---|---|
+| `4665d9a5` | the container and self-hosting targets: `deploy/` (13 files — the Fly, Podman and local Compose stacks and their Caddyfiles), the top-level `Dockerfile` and `compose.yaml`, `.github/workflows/docker.yml` and its dispatch from `release.yml`, `scripts/docker-image.test.ts`, the VPS artifacts (`scripts/colonie/provision-vps.sh`, `colonie-https.service`, `colonie.service`, `Caddyfile.ip`), and the deploy docs (`docs/self-hosting.md`, `docs/deploy-vps.md`, `docs/deploy-colonie-vps.md`, `docs/cloud-pro.md`, `docs/verification/podman-self-hosting.md`, `vps-recovery.md`, `hetzner-launch-2026-09-07.md`). 31 files deleted |
+
+The seven docs that pointed at the deleted pages (`README.md`,
+`docs/cli-onboarding.md`, `docs/mcp-server.md`, `docs/routine-schedules.md`,
+`docs/verification/README.md`, `docs/verification/shared-workspace-governance.md`)
+lost those paragraphs rather than a broken link, and `release.yml` no longer
+dispatches a Docker publish.
+
+`server/cloud-home.test.ts` lost its one assertion that read the image
+(`Dockerfile`, `deploy/fly/*`); the other 38 still pass.
+
+`server/checkpoints.ts` and `server/auto-vm-claims.ts` were on the "hosted,
+delete" list at first and are **kept**: the local VM claims a computer through
+the same machinery, and the per-turn snapshot is not cloud-specific.
+
+### Verified after `4665d9a5`
+
+| check | result |
+|---|---|
+| `pnpm typecheck` (`tsc -b && tsc -p tsconfig.server.json`) | clean |
+| `pnpm exec vitest run server/cloud-home.test.ts` | 38 passed (was 39) |
+
 ## 2026-10-16 — local-only pruning: the Organization feature is gone
 
 Branch `colonie/local-only`.
@@ -189,8 +217,9 @@ focused vitest green:
    `ogb.d.ts` entries, `verify-cloud-account.mjs`, `src/lib/cloud-plan.ts` and
    the `openmausbot://cloud` deep link); `cloud-move.mjs` and
    `managed-composio.mjs` in `4bb5abfb` and `92a28c00`.
-5. **Data migration** for `computer: "cloud"` rows, then `deploy/`
-   (container/self-host targets).
+5. ~~**`deploy/`** (container/self-host targets).~~ Done in `4665d9a5`;
+   the **data migration** for `computer: "cloud"` rows and the wire fields
+   still follow with the place (step 2).
 6. Docs and the `openmausbot`/`devone` → `colonie` rename, including the
    half-finished "Colonie Cloud" strings and `docs/cloud-pro.md`, which still
    describes the deleted account and Cloud home.
