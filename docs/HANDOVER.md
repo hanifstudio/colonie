@@ -145,7 +145,9 @@ HTTP routes, agent-facing channel MCP tools and the control CLI's channel comman
 are gone. Stage 3b part 1 done: no room turn can run — the group turn engine and
 its callers are deleted and the room entry points are inert (`RoomHandoffs` refuses
 a room node, the answer route answers 409, the routine goal callbacks are no-ops) —
-and `server/index.ts` compiles again. The tree had been left mid-edit by other
+and `server/index.ts` compiles again. Stage 3b part 2 has begun: the fold's dead
+room-turn guards (goal-coordinator envelope, stall registry) are gone and
+`room-turn-timeout.ts` went with them. The tree had been left mid-edit by other
 sessions in this checkout: the Claude Code session stopped on its weekly limit at
 06:47:58, then separate opencode sessions edited the same file until 07:47 and one
 of them deleted a 550-line region wholesale. That region (live
@@ -158,13 +160,14 @@ renders but can no longer answer.
 Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures
 (it still builds retired drivers; CI's macOS step fails with 409 until then).
 Next: 3b part 2 — the room machinery `server/index.ts` still holds: `groupSpeakers`
-and `groupUsageReader` (wire and fold), group-goal coordinator turns with the
-`groupGoalCompletionTurnId`/`parseGroupGoalDecision` branch, `RoomTurnStallRegistry`
-with the room timeout/end paths, the `PATCH /api/groups/:id` audience-reset plan and
-the router's `group` case, `roomFeedsBot`'s room path. Then the `room-*`/`group-*`
-modules with their unit tests, store tables (check backup/restore compatibility of
-persisted `groups.json` before dropping reads), routines/wire/package flows, then
-stage 4 renderer and stage 5 tests.
+(never set since part 1) with the fold branches it gated, `groupUsageReader` (fold,
+snapshot and the wire's `rooms.turnTimeoutMinutes`), `roomFeedsBot`'s room filters,
+`settleRoomFloor` with the `PATCH /api/groups/:id` audience-reset plan, and the
+router's `group` case. Then the `room-*`/`group-*` modules with their unit tests
+(`group-goal-run`, `room-post-budget`, `room-cwd`, `room-turn-end`, and
+`server/decider/`), store tables (check backup/restore compatibility of persisted
+`groups.json` before dropping reads), routines/wire/package flows, then stage 4
+renderer and stage 5 tests.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 

@@ -119,7 +119,6 @@ import {
   snapshotAvatarGenerationState,
 } from "./avatar-image.ts";
 import { fitsOnOneLine, parseBotProfilePatch } from "./bot-profile.ts";
-import { RoomTurnStallRegistry } from "./room-turn-timeout.ts";
 import { pickComputer } from "./computer-selection.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
 import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireGroup, type WireTask } from "../shared/wire.ts";
@@ -243,8 +242,6 @@ import {
 } from "./mcp-registry.ts";
 import { MCP_OAUTH_CALLBACK_PATH, McpOAuthError, McpSignInError, McpOAuthManager, mcpCallbackOrigin, mcpOAuthRedirectUri, withMcpSignIn, withoutPendingSignIn } from "./mcp-oauth.ts";
 import { probeMcpServer } from "./mcp-probe.ts";
-
-import { groupGoalCompletionTurnId, parseGroupGoalDecision } from "./group-goal-run.ts";
 import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
 import { getOrCreateChannel, mirrorActivity, mirrorExchange, mirrorReply, type CommsBus } from "./comms-visibility.ts";
 import { readMessageText, recallMessages, recentMessages, searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing } from "./message-db.ts";
@@ -3871,68 +3868,6 @@ const publicBot = (bot: NonNullable<ReturnType<typeof store.bot>>) => ({
 });
 const publicBotQueuedMessages = () => queuedSteerSnapshot((botId, threadId) => Boolean(store.taskByThread(botId, threadId)));
 
-
-// busyBotId names only the speaker that currently owns the provider process.
-// A room turn is wider: it also includes async setup and every responder still
-// queued behind that speaker. Keep that operation visible for its whole
-// lifetime so polling clients cannot mistake a handoff for completion.
-
-/** The central runtime fold uses this to hide a coordinator's private
- * decision envelope from both streaming UI and the durable transcript. */
-type GroupGoalCoordinatorTurn = {
-  token: symbol;
-  turnId?: string;
-  assistantItems: string[];
-  /** A timed-out provider may still emit after the goal operation returns.
-   * Keep swallowing that abandoned turn until its real completion arrives. */
-  discard: boolean;
-  cleanupTimer?: ReturnType<typeof setTimeout>;
-};
-const groupGoalCoordinatorTurns = new Map<string, Set<GroupGoalCoordinatorTurn>>();
-
-/** Match private coordinator output to one provider turn, never merely to a
- * reusable room thread. Most adapters emit turn.started before sendTurn
- * resolves, so the first stable event may bind an otherwise pending guard. */
-function groupGoalCoordinatorTurnForEvent(event: RuntimeEvent): GroupGoalCoordinatorTurn | undefined {
-  const turns = groupGoalCoordinatorTurns.get(event.threadId);
-  if (!turns?.size) return undefined;
-  const candidates = [...turns];
-  if (event.turnId) {
-    const exact = candidates.find((turn) => turn.turnId === event.turnId);
-    if (exact) return exact;
-    // Until an interrupted handshake returns its own id, no new id can be
-    // attributed safely. The stall fallback keeps this thread unavailable in
-    // that narrow window; private text is suppressed below until sendTurn's
-    // result binds the old guard or its bounded expiry releases ownership.
-    const unboundDiscarded = candidates.filter((turn) => turn.discard && !turn.turnId);
-    if (unboundDiscarded.length > 0) {
-      // The ownership fallback below keeps a lone abandoned handshake's
-      // thread closed, so its first eventual id can safely bind here. More
-      // than one unbound candidate is genuinely ambiguous and stays gated.
-      if (candidates.length === 1) {
-        unboundDiscarded[0]!.turnId = event.turnId;
-        // This event is the first stable identity for an already-abandoned
-        // provider turn. Tombstone it immediately so this event and every
-        // later completion/request cannot settle a replacement on the same
-        // room thread.
-        retireProviderTurn(event.turnId);
-        return unboundDiscarded[0];
-      }
-      return undefined;
-    }
-    const pending = candidates.findLast((turn) => !turn.turnId && !turn.discard);
-    if (pending && !pending.turnId) {
-      pending.turnId = event.turnId;
-      return pending;
-    }
-    return undefined;
-  }
-  // Turn-scoped events normally carry an id. If an adapter omits it, fail
-  // closed for private text; with multiple overlapping guards there is no
-  // safe way to attribute a completion, so leave cleanup to the bounded timer.
-  return candidates.length === 1 ? candidates[0] : undefined;
-}
-
 // Recovery can synchronously emit room changes. Load coordination state
 // before registering store listeners or recovering interrupted routines.
 function roomHandoffProblem(node: Pick<RoomHandoff, "threadId" | "botId"> & Partial<Pick<RoomHandoff, "kind">>, parent?: Pick<RoomHandoff, "threadId" | "botId">): string | undefined {
@@ -4780,7 +4715,6 @@ const ASK_BOT_TIMEOUT_MS = Math.max(5_000, Number(process.env.COLONIE_ASK_BOT_TI
 const COMPUTER_WAIT_MAX_MS = Math.max(1_000, Number(process.env.COLONIE_COMPUTER_WAIT_MAX_MS) || 30 * 60_000);
 // Reassigning around a busy teammate is bounded too: after this many
 // exhausted waits in one run the team is blocked on availability, not stuck.
-const roomStallCompletions = new RoomTurnStallRegistry();
 const watchdog = new TurnWatchdog({
   stallMs: TURN_STALL_MS,
   checkMs: 60_000,
@@ -4814,7 +4748,6 @@ const watchdog = new TurnWatchdog({
     finalizeDelegationWatch(turn.threadId, false, "", "Delegated turn stalled and was stopped");
     turnUsage.delete(turn.threadId);
     turnContext.delete(turn.threadId);
-    roomStallCompletions.stall(turn.threadId);
     // ACP interruption settles within five seconds; other adapters settle
     // sooner. Keep ownership during that grace period so another turn cannot
     // overlap the process we are stopping. The normal turn.completed fold
@@ -5763,52 +5696,6 @@ bus.subscribe((event: RuntimeEvent) => {
   if (event.type === "turn.completed" && !store.botByThread(event.threadId)) {
     releaseLocalVmThread(event.threadId);
   }
-  const coordinatorTurnsForThread = groupGoalCoordinatorTurns.get(event.threadId);
-  const ambiguousCoordinatorText = !event.turnId && (coordinatorTurnsForThread?.size ?? 0) > 1;
-  const goalCoordinatorTurn = groupGoalCoordinatorTurnForEvent(event);
-  const completedTurnId = event.type === "turn.completed"
-    ? groupGoalCompletionTurnId(event.turnId, goalCoordinatorTurn?.turnId)
-    : event.turnId;
-  if (goalCoordinatorTurn?.discard && retiredProviderTurns.has(event.turnId)) {
-    return;
-  }
-  // Buffer every coordinator text item for the whole provider turn. A model
-  // can split the private envelope across assistant items (or emit multiple
-  // envelopes), so sanitizing item-by-item can leak protocol into the chat.
-  if (
-    event.type === "item.completed" &&
-    event.itemType === "assistant_text" &&
-    (goalCoordinatorTurn || ambiguousCoordinatorText)
-  ) {
-    if (goalCoordinatorTurn && !goalCoordinatorTurn.discard) goalCoordinatorTurn.assistantItems.push(event.text);
-    return;
-  }
-  // Goal coordinators speak a private control envelope. Their incidental
-  // artifacts are private too; never leak one into the public room.
-  if (
-    event.type === "item.completed" &&
-    event.itemType === "assistant_image" &&
-    (goalCoordinatorTurn || ambiguousCoordinatorText)
-  ) return;
-  if (
-    event.type === "content.delta" &&
-    event.streamKind === "assistant_text" &&
-    (goalCoordinatorTurn || ambiguousCoordinatorText)
-  ) return;
-  const coordinatorVisibleText = goalCoordinatorTurn && !goalCoordinatorTurn.discard && event.type === "turn.completed"
-    ? parseGroupGoalDecision(goalCoordinatorTurn.assistantItems.join("\n")).visibleText
-    : "";
-
-  if (coordinatorVisibleText) {
-    const publicAssistantEvent: RuntimeEvent = {
-      ...event,
-      eventId: `${event.eventId}-goal-text`,
-      type: "item.completed",
-      itemType: "assistant_text",
-      text: coordinatorVisibleText,
-    };
-    broadcast({ kind: "runtime", event: publicAssistantEvent });
-  }
   const privateImageEvent = event.type === "item.completed" && event.itemType === "assistant_image";
   // The durable message patch below is the public frame. Sending raw base64
   // through runtime SSE would multiply large bytes across every app window.
@@ -5837,11 +5724,6 @@ bus.subscribe((event: RuntimeEvent) => {
       : proven ? { ...m, requestMessageId: owner.messageId } : m);
     return message;
   };
-
-  if (coordinatorVisibleText) {
-    pushMessage({ role: "bot", kind: "text", text: coordinatorVisibleText, turnId: completedTurnId });
-    lastReply.set(event.threadId, coordinatorVisibleText);
-  }
   if (bot) handoffs.onEvent(event);
 
   if (event.turnId) liveTurnByThread.set(event.threadId, event.turnId);
@@ -6196,7 +6078,7 @@ bus.subscribe((event: RuntimeEvent) => {
           (message) =>
             message.role === "bot" &&
             message.kind === "text" &&
-            message.turnId === completedTurnId,
+            message.turnId === event.turnId,
         );
         // A voice note's text is its transcript: the visible caption search,
         // compaction and notifications read (#1740 decision 3).
@@ -6234,12 +6116,12 @@ bus.subscribe((event: RuntimeEvent) => {
             kind: "text",
             text: transcript,
             attachments: staged,
-            turnId: completedTurnId,
+            turnId: event.turnId,
           });
         }
       }
-      if (completedTurnId) {
-        const terminal = store.markTerminalAssistantMessage(event.threadId, completedTurnId);
+      if (event.turnId) {
+        const terminal = store.markTerminalAssistantMessage(event.threadId, event.turnId);
         if (terminal) store.patchMessage(event.threadId, terminal.id, { turnSucceeded: event.ok });
       }
       const reply = lastReply.get(event.threadId) ?? "";
@@ -6344,11 +6226,11 @@ bus.subscribe((event: RuntimeEvent) => {
               ? { kind: "bot", ...(settledTask?.openedBy?.botId ? { botId: settledTask.openedBy.botId } : {}) }
               : turnTriggers.get(event.threadId) ?? { kind: "owner" },
         });
-        const digestSettled = completedTurnId ? scheduleTurnDigest({
+        const digestSettled = event.turnId ? scheduleTurnDigest({
             botId: bot.id,
             botName: bot.name,
             threadId: event.threadId,
-            turnId: completedTurnId,
+            turnId: event.turnId,
             succeeded: event.ok,
             driverKind: registry.get(selection.instanceId)?.driverKind,
             instanceId: selection.instanceId,
@@ -6433,10 +6315,10 @@ bus.subscribe((event: RuntimeEvent) => {
           const current = store.group(group.id);
           if (current) broadcast({ kind: "group", group: publicGroupState(current) });
         }).catch(() => {});
-        if (completedTurnId) {
+        if (event.turnId) {
           void scheduleTurnDigest({
             botId: speaker.botId, botName: speaker.name,
-            threadId: event.threadId, turnId: completedTurnId,
+            threadId: event.threadId, turnId: event.turnId,
             driverKind: selection && registry.get(selection.instanceId)?.driverKind,
             reply, from: speaker,
             isCurrent: () => store.groupByThread(event.threadId)?.id === group.id,

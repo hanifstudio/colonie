@@ -3,6 +3,29 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — rooms retirement, stage 3b part 2 (first slice: dead fold guards out of `server/index.ts`)
+
+Removed the two room-turn guards in the runtime fold that can no longer fire:
+
+- the goal-coordinator envelope handling — `GroupGoalCoordinatorTurn`,
+  `groupGoalCoordinatorTurns`, `groupGoalCoordinatorTurnForEvent`, the
+  `groupGoalCompletionTurnId`/`parseGroupGoalDecision` import, the private-text
+  buffering branches and the `completedTurnId` fold (now just `event.turnId`);
+- `RoomTurnStallRegistry` — the declaration and the watchdog's
+  `roomStallCompletions.stall(...)`.
+
+Dead by construction: nothing has populated the guard map or registered a stall
+handler since part 1 removed the turn engine (`grep` found only reads and deletes).
+`server/room-turn-timeout.ts` and its unit test are gone with the last importer;
+`server/group-goal-run.ts` stays for now because two test files still import it.
+
+- `npx tsc -p tsconfig.server.json --noEmit` — 0 errors; `npx tsc -b` — 0 errors.
+- `npx oxlint --deny-warnings .` — exit 0; `git diff --check` — clean.
+- `npx vitest run server/respond-replay.e2e.test.ts
+  server/usage-attribution.e2e.test.ts server/notification-wiring.test.ts
+  server/room-handoffs.test.ts server/turn-watchdog.test.ts --maxWorkers=1` — 11 s,
+  5 files, 58 tests, all pass.
+
 ## 2026-10-17 — rooms retirement, stage 3b part 1 (room turn engine out of `server/index.ts`)
 
 Picked up the in-flight stage 3b edit in `server/index.ts` (only file modified; 105
