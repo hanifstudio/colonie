@@ -492,7 +492,7 @@ import {
 } from "./turn-dispatch-guard.ts";
 import { createGracefulShutdown } from "./runtime/graceful-shutdown.ts";
 import { acquireDataDirLeaseForProcess } from "./runtime/data-dir-lease.ts";
-import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, editionForMembers, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
+import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
 import { environmentDescriptor, loadEnvironmentId, serverVersion } from "./runtime/environment.ts";
 import { WorkspaceBackupMaintenance } from "./workspace-backup-maintenance.ts";
 import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./workspace-backup-http.ts";
@@ -560,6 +560,7 @@ import { createVoiceRoutes } from "./routes/voice.ts";
 import { createConnectorRoutes } from "./routes/connectors.ts";
 import { createAdminReadRoutes } from "./routes/admin-reads.ts";
 import { createBotActivityRoutes } from "./routes/bot-activity.ts";
+import { createServerInfoRoutes } from "./routes/server-info.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10708,6 +10709,7 @@ ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
 ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
+ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -16655,15 +16657,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       });
     }
 
-    // identity handshake for the packaged app's port fallback: the forked
-    // child proves it is OURS by echoing its pid (a stray dev server has
-    // the same API shape but a different pid)
-    if (method === "GET" && path === "/api/health") {
-      return json(res, 200, { app: "colonie", pid: process.pid, static: Boolean(STATIC_DIR), capabilities: {
-        guardedMessages: 1, guardedRequests: 1, guardedFullAccess: 1, guardedOnBehalfOf: 1,
-        ...(sharedWorkspaceFullAccessEnabled() ? { sharedWorkspaceFullAccess: 1 } : {}),
-      } });
-    }
     // The bots' browser engine: install it on this machine (agent-browser +
     // a Chrome for Testing, a one-time download), or ask how that is going.
     // One install at a time; the config frame's browserEngine tells the rest.
@@ -16690,17 +16683,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         broadcast({ kind: "config", ...configStatus() });
       }
       return json(res, 202, { installing: true });
-    }
-    // ── the fleet: client workspaces on this server, through the root agent ──
-    // Which edition this server runs and why (see server/enterprise.ts). Read-only.
-    if (method === "GET" && path === "/api/edition") {
-      // A member learns what is entitled; when the key lapses is for admins.
-      const status = editionStatus();
-      return json(res, 200, auth.scopes.includes("admin") ? status : editionForMembers(status));
-    }
-    // The brand for this deployment (server/brand.ts): read per request so edits show on reload.
-    if (method === "GET" && path === "/api/brand") {
-      return json(res, 200, loadBrand());
     }
 
     // ── inspector: a thread's runtime events + native protocol tee ──

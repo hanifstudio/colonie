@@ -25,7 +25,7 @@ export function callRoute(path: string, method = "GET", body: unknown = {}) {
     url,
     path: url.pathname,
     method,
-    auth: {},
+    auth: { scopes: [] },
     json: async (_res: unknown, status: number, payload: unknown) => {
       sent.push({ status, body: payload });
     },

@@ -304,6 +304,15 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   today's count come back, a bot with no threads reports no activity, and a bad `limit` is a 400.
   21/21 pass, typecheck 0, lint 0; the live server answers `{"error":"no such bot"}` for
   `/api/bots/nope/outbound`, which can only come from the new module.
+- **S3.5: identity, edition and brand left `index.ts` (October 18).** `GET /api/health`, `/api/edition`
+  and `/api/brand` became `server/routes/server-info.ts`
+  (`createServerInfoRoutes({ staticDir, sharedWorkspaceFullAccessEnabled })`) — 20 inline lines removed
+  (`index.ts` 17,957 → 17,937). The stateful browser-engine installer next to them stayed put on
+  purpose: it owns install state and broadcasts config changes, so it is not a read-only move. Guard:
+  `server/routes/server-info.test.ts` — the handshake echoes this process's pid, the
+  `sharedWorkspaceFullAccess` capability appears only when the feature is on, `static` follows the static
+  dir, and edition plus brand answer without a provider. 26/26 pass, typecheck 0, lint 0; the live server
+  answers all three through the new module (`pid` matches the process it started).
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
