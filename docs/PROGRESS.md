@@ -331,6 +331,16 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   unknown bot is a 404 first. 36/36 pass, typecheck 0, lint 0. Live: with a throwaway HOME the route
   answers 404; after writing `{"features":{"skillsLibrary":true}}` into that throwaway config it answers
   `{"skills":[]}`, and a bodyless import answers 400.
+- **S3.8: the team sections left `index.ts` (October 18).** `GET/PATCH/DELETE/PUT/POST /api/sidebar-sections`
+  became `server/routes/team-sections.ts`
+  (`createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots })`); the request schema and
+  its 100-bot ceiling moved with them, and the hub's copy of the schema was removed — the ceiling itself
+  stays in `index.ts` and is passed in, so there is still one place that decides it. 55 inline lines
+  removed (`index.ts` 17,804 → 17,745). Guard: `server/routes/team-sections.test.ts` — other paths
+  decline, the list answers the stored teams, a rename or delete without naming a team is a 400, an empty
+  rename is refused before the store is touched, an unknown team is a 404, a team the store cannot build
+  is a 404 rather than a silent success, and a team with neither name nor bots is refused. 43/43 pass,
+  typecheck 0, lint 0; the live server answers `{"sections":[]}`, 400 and 404 through the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
