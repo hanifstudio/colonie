@@ -9,7 +9,7 @@ vi.mock("./DesktopCapabilities", () => ({
   useDesktopCapabilities: () => ({ capabilities: null, ready: false }),
 }));
 
-import { CallButton, CallOverlay, CallTargetButton } from "./CallView";
+import { CallButton, CallOverlay } from "./CallView";
 import { setCallMode } from "@/lib/call-mode";
 import { endCall, startCall } from "@/lib/call";
 import { configureLiveMedia, dismissKeyPrompt, resetLiveMedia, startLiveCall } from "@/lib/live-call-media";
@@ -48,22 +48,10 @@ describe("call modes", () => {
     expect(live).not.toContain("bg-warning");
   });
 
-  it("keeps group calls on the take-turns path", () => {
-    setCallMode("live");
-    const group = render(createElement(CallTargetButton, {
-      targetId: "room", targetName: "Room", voices: [undefined], requireExplicitVoices: true, onStart: vi.fn(),
-    }));
-    expect(group).toContain('aria-label="Checking call availability"');
-  });
-
-  it("puts a call mode chevron next to a one-to-one call button, not a room's", () => {
+  it("puts a call mode chevron next to the call button", () => {
     const one = render(createElement(CallButton, { bot }));
     expect(one).toContain('aria-label="Call mode"');
     expect(one).toContain('aria-haspopup="menu"');
-    const group = render(createElement(CallTargetButton, {
-      targetId: "room", targetName: "Room", voices: [undefined], requireExplicitVoices: true, onStart: vi.fn(),
-    }));
-    expect(group).not.toContain('aria-label="Call mode"');
   });
 
   it("hangs up from the call button while this window is on a Live call", () => {
@@ -86,10 +74,6 @@ describe("call modes", () => {
       const other = render(createElement(CallButton, { bot: { ...bot, id: "juniper", name: "Juniper" } }));
       expect(other).toMatch(/<button[^>]*disabled=""[^>]*aria-label="On a Live call"/);
     }
-    const room = render(createElement(CallTargetButton, {
-      targetId: "room", targetName: "Room", voices: [undefined], requireExplicitVoices: true, onStart: vi.fn(),
-    }));
-    expect(room).toMatch(/<button[^>]*disabled=""[^>]*aria-label="On a Live call"/);
   });
 
   it("asks for the OpenAI key under the call button when the harness has none", async () => {
@@ -113,10 +97,9 @@ describe("call modes", () => {
     });
     setCallMode("live");
     await startLiveCall({ botId: bot.id, threadId: bot.threadId });
-    expect(render(createElement(CallButton, { bot }))).toContain('aria-label="OpenAI API key for Live calls"');
-    const composer = render(createElement(CallButton, { bot, placement: "composer" }));
-    expect(composer).toContain('aria-label="OpenAI API key for Live calls"');
-    expect(composer).toContain("bottom-full");
+    const prompt = render(createElement(CallButton, { bot }));
+    expect(prompt).toContain('aria-label="OpenAI API key for Live calls"');
+    expect(prompt).toContain("bottom-full");
     expect(render(createElement(CallButton, { bot: { ...bot, id: "juniper" } }))).not.toContain("OpenAI API key");
     // Leaving the chat (or closing the prompt) drops it: it does not open
     // again by itself on a later visit. Another chat leaving keeps it.

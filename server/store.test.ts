@@ -1,7 +1,7 @@
 // Store persistence contract: bots.json + messages-<threadId>.json are
 // the durable record — everything here must survive a process restart
 // except `busy`, which never does (no turn survives one either).
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,6 +30,23 @@ import { TeamComputers } from "./team-computers.ts";
 import { allowsTool } from "../shared/tool-scope.ts";
 
 const selection = (): ModelSelection => ({ instanceId: "claude", model: "claude-sonnet-5" });
+
+/** Rooms are retired: the server only reads groups.json. Tests seed it the
+ * way an older build saved it and check the file is never rewritten. */
+const groupsFile = () => join(DATA_DIR, "groups.json");
+function legacyRoom(fields: Record<string, unknown> = {}): Record<string, unknown> & { id: string; threadId: string } {
+  return {
+    id: randomUUID(), threadId: randomUUID(), name: "Launch team", memberIds: [],
+    defaultResponder: { kind: "mentions" }, bulletin: "", unread: false, createdAt: 1_700_000_000_000,
+    ...fields,
+  } as Record<string, unknown> & { id: string; threadId: string };
+}
+function seedRooms(rooms: Record<string, unknown>[]): string {
+  mkdirSync(DATA_DIR, { recursive: true });
+  const raw = `${JSON.stringify(rooms, null, 2)}\n`;
+  writeFileSync(groupsFile(), raw);
+  return raw;
+}
 
 describe("Store", () => {
   beforeEach(() => {
@@ -103,74 +120,58 @@ describe("Store", () => {
     expect(allowsTool((restored as unknown as { toolScope: unknown }).toolScope, { kind: "native", name: "read" })).toBe(false);
   });
 
-  // MOCA-264: a deleted bot stayed in its rooms for good — counted on the
-  // Save button, refused by the roster check on every save, and still the
-  // room's lead.
-  it("takes a deleted bot out of every room it was in and passes its lead role on", () => {
-    const store = new Store(selection);
-    const [ada, ben, cleo] = [store.createBot({}), store.createBot({}), store.createBot({})];
-    const room = store.createGroup("Launch team", [ada.id, ben.id, cleo.id], false);
-    store.patchGroup(room.id, { defaultResponder: { kind: "member", botId: ben.id }, busyBotId: ben.id });
-    const pair = store.createGroup("Ada & Ben", [ada.id, ben.id], true);
-    const changes: unknown[] = [];
-    store.onChange((change) => changes.push(change));
-
-    expect(store.deleteBot(ben.id)).toBe(true);
-    expect(store.group(room.id)).toMatchObject({ memberIds: [ada.id, cleo.id], defaultResponder: { kind: "member", botId: ada.id } });
-    expect(store.group(room.id)?.turnStartedAt).toBeUndefined();
-    expect(store.group(pair.id)?.memberIds).toEqual([ada.id, ben.id]);
-    expect(changes).toContainEqual({ type: "group", groupId: room.id });
-    expect(new Store(selection).group(room.id)?.memberIds).toEqual([ada.id, cleo.id]);
-  });
-
-  it("finishes bot erasure if the room registry cannot persist, then repairs it on restart", () => {
+  it("keeps a deleted bot in stored rooms without rewriting groups.json", () => {
     const store = new Store(selection);
     const [ada, ben] = [store.createBot({}), store.createBot({})];
-    const room = store.createGroup("Launch team", [ada.id, ben.id], false);
-    const internals = store as unknown as { saveGroups: () => void };
-    vi.spyOn(internals, "saveGroups").mockImplementationOnce(() => { throw new Error("fixture write failure"); });
+    const room = legacyRoom({ memberIds: [ada.id, ben.id], defaultResponder: { kind: "member", botId: ben.id } });
+    const raw = seedRooms([room]);
+    const loaded = new Store(selection);
+    const changes: unknown[] = [];
+    loaded.onChange((change) => changes.push(change));
 
-    expect(store.deleteBot(ben.id)).toBe(true);
-    expect(store.bot(ben.id)).toBeNull();
-    expect(store.messagesFor(ben.threadId)).toEqual([]);
-    expect(existsSync(soulFile(ben.id))).toBe(false);
-    expect(JSON.parse(readFileSync(join(DATA_DIR, "groups.json"), "utf8"))[0].memberIds).toContain(ben.id);
-    expect(new Store(selection).group(room.id)?.memberIds).toEqual([ada.id]);
+    expect(loaded.deleteBot(ben.id)).toBe(true);
+    expect(loaded.bot(ben.id)).toBeNull();
+    expect(changes).toEqual(expect.arrayContaining([{ type: "bot.deleted", botId: ben.id }]));
+    expect(changes.some((change) => String((change as { type: string }).type).startsWith("group"))).toBe(false);
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
+    expect(new Store(selection).group(room.id)?.threadId).toBe(room.threadId);
   });
 
-  it("repairs rooms that still list a deleted bot when it starts", () => {
+  it("loads legacy rooms read-only: repaired in memory, groups.json left byte-identical", () => {
     const store = new Store(selection);
-    const [ada, cleo] = [store.createBot({}), store.createBot({})];
-    const room = store.createGroup("Launch team", [ada.id, cleo.id], false);
-    const groupsFile = join(DATA_DIR, "groups.json");
-    const saved = JSON.parse(readFileSync(groupsFile, "utf8"));
+    const ada = store.createBot({});
     const ghost = "8a2acb50-6276-4ce2-926a-9e112b848acc";
-    Object.assign(saved.find((g: { id: string }) => g.id === room.id), {
-      memberIds: [ghost, ada.id, cleo.id],
-      defaultResponder: { kind: "member", botId: ghost },
+    const old = legacyRoom({ memberIds: [ghost, ada.id], busyBotId: ada.id, section: "Engineering" });
+    delete old.defaultResponder;
+    const stalePointer = legacyRoom({
+      memberIds: [ada.id], threadId: randomUUID(),
+      tasks: [{ threadId: "c0ffee00-0000-4000-8000-000000000001", title: "Kept", createdAt: 1 }],
     });
-    writeFileSync(groupsFile, JSON.stringify(saved));
+    const pair = legacyRoom({ name: "Ada ⇄ Ghost", memberIds: [ada.id, ghost], dm: true, tasks: [] });
+    store.appendMessage(old.threadId, { role: "user", kind: "text", text: "Keep the room conversation" });
+    const raw = seedRooms([old, stalePointer, pair]);
 
-    const restarted = new Store(selection);
-    expect(restarted.group(room.id)).toMatchObject({ memberIds: [ada.id, cleo.id], defaultResponder: { kind: "member", botId: ada.id } });
-    const persisted = JSON.parse(readFileSync(groupsFile, "utf8")).find((g: { id: string }) => g.id === room.id);
-    expect(persisted.memberIds).toEqual([ada.id, cleo.id]);
-  });
+    const loaded = new Store(selection);
+    expect(loaded.group(old.id)).toMatchObject({
+      memberIds: [ghost, ada.id], busyBotId: null, section: "Engineering",
+      defaultResponder: { kind: "member", botId: ghost },
+      tasks: [{ threadId: old.threadId, title: "Keep the room conversation" }],
+    });
+    expect(loaded.group(stalePointer.id)?.threadId).toBe("c0ffee00-0000-4000-8000-000000000001");
+    expect(loaded.group(pair.id)?.tasks).toBeUndefined();
+    expect(loaded.groupByThread(old.threadId)?.id).toBe(old.id);
+    expect(loaded.messagesFor(old.threadId).map((message) => message.text)).toContain("Keep the room conversation");
+    // A stored room's team name is not registered as a team.
+    expect(loaded.sections).not.toContain("Engineering");
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
 
-  it("never empties rooms when the bot list cannot be read", () => {
-    const store = new Store(selection);
-    const [ada, cleo] = [store.createBot({}), store.createBot({})];
-    const room = store.createGroup("Launch team", [ada.id, cleo.id], false);
-    const groupsFile = join(DATA_DIR, "groups.json");
-    const before = readFileSync(groupsFile, "utf8");
+    // An unreadable bot list changes nothing on disk either.
     writeFileSync(join(DATA_DIR, "bots.json"), "{ not json");
-
-    expect(new Store(selection).group(room.id)?.memberIds).toEqual([ada.id, cleo.id]);
-    expect(JSON.parse(readFileSync(groupsFile, "utf8")).find((g: { id: string }) => g.id === room.id).memberIds)
-      .toEqual(JSON.parse(before).find((g: { id: string }) => g.id === room.id).memberIds);
+    expect(new Store(selection).group(old.id)?.memberIds).toEqual([ghost, ada.id]);
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
   });
 
-  it("renames populated teams without changing members, conversations, grants or computer identity", () => {
+  it("renames populated teams without changing members, conversations, grants, computer identity or stored rooms", () => {
     const store = new Store(selection);
     const chief = store.createBot({ section: "Delivery" });
     store.setChiefOfStaff(chief.id);
@@ -180,7 +181,8 @@ describe("Store", () => {
     store.setChiefOfStaff(manager.id);
     store.patchBot(manager.id, { managedSections: ["Delivery", " Delivery ", "Other"] });
     expect(canAccessTeam(manager, "Delivery")).toBe(true);
-    const room = store.createGroup("Room", [chief.id], false, "Delivery");
+    const room = legacyRoom({ name: "Room", memberIds: [chief.id], section: "Delivery" });
+    const raw = seedRooms([room]);
     const message = store.appendMessage(chief.threadId, { role: "user", kind: "text", text: "Keep this conversation" });
     writeSectionContext("Delivery", "Shared team instructions");
     const computers = new TeamComputers(join(DATA_DIR, "team-computers.json"), "5c57ceec-f5aa-4d79-a9c7-0e1f93875e70");
@@ -192,16 +194,18 @@ describe("Store", () => {
     expect(archived).toMatchObject({ section: "Launch", hidden: true });
     expect(manager.managedSections).toEqual(["Launch", "Other"]);
     expect(canAccessTeam(manager, "Launch")).toBe(true);
-    expect(room.section).toBe("Launch");
     expect(readSectionContext("Launch")?.text).toBe("Shared team instructions");
     expect(readSectionContext("Delivery")).toBeNull();
     expect(computers.forSection("Launch")?.id).toBe(computer.id);
+    // The stored room keeps its saved team name; it does not revive the team.
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
     const restored = new Store(selection);
     expect(restored.bot(chief.id)?.section).toBe("Launch");
     expect(canAccessTeam(restored.bot(manager.id)!, "Launch")).toBe(true);
-    expect(restored.group(room.id)?.section).toBe("Launch");
+    expect(restored.group(room.id)?.section).toBe("Delivery");
     expect(restored.messagesFor(chief.threadId)).toContainEqual(message);
     expect(restored.sections).not.toContain("Delivery");
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
     store.setBotsSection([], "Delivery");
     expect(canAccessTeam(manager, "Delivery")).toBe(false);
   });
@@ -218,22 +222,34 @@ describe("Store", () => {
     expect(store.sections).not.toContain("Launch");
   });
 
-  it("restores membership files when a rename cannot save the group registry", () => {
+  it("empties and renames a team that only a stored room still names", () => {
     const store = new Store(selection);
-    const bot = store.createBot({ section: "Delivery" });
-    const room = store.createGroup("Room", [bot.id], false, "Delivery");
-    store.patchBot(bot.id, { title: "General assistant" });
-    const disk = () => ["bots.json", "groups.json", "section-contexts.json"].map(name => readFileSync(join(DATA_DIR, name), "utf8"));
-    const before = disk();
-    const internals = store as unknown as { saveGroups: (...args: unknown[]) => void };
-    vi.spyOn(internals, "saveGroups").mockImplementationOnce(() => { throw new Error("disk unavailable"); });
-    expect(() => store.renameSection("Delivery", "Launch")).toThrow("disk unavailable");
-    expect(disk()).toEqual(before);
-    expect(bot.section).toBe("Delivery");
-    expect(room.section).toBe("Delivery");
+    store.setBotsSection([], "Studio");
+    const raw = seedRooms([legacyRoom({ section: "Studio" })]);
+    const loaded = new Store(selection);
+    expect(loaded.renameSection("Studio", "Gallery")).toBeUndefined();
+    expect(loaded.sections).toContain("Gallery");
+    expect(loaded.changeEmptySection("Gallery", null)).toBeUndefined();
+    expect(loaded.sections).not.toContain("Gallery");
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
   });
 
-  it("deletes a populated team while preserving bots, archived members and room history across restart", () => {
+  it("restores membership files when a rename cannot finish", () => {
+    const store = new Store(selection);
+    const bot = store.createBot({ section: "Delivery" });
+    seedRooms([legacyRoom({ name: "Room", memberIds: [bot.id], section: "Delivery" })]);
+    store.patchBot(bot.id, { title: "General assistant" });
+    const computers = new TeamComputers(join(DATA_DIR, "team-computers.json"), "5c57ceec-f5aa-4d79-a9c7-0e1f93875e70");
+    computers.assign(computers.create("Shared desktop").id, "Delivery");
+    const disk = () => ["bots.json", "groups.json", "section-contexts.json"].map(name => readFileSync(join(DATA_DIR, name), "utf8"));
+    const before = disk();
+    vi.spyOn(computers, "renameSection").mockImplementationOnce(() => { throw new Error("disk unavailable"); });
+    expect(() => store.renameSection("Delivery", "Launch", computers)).toThrow("disk unavailable");
+    expect(disk()).toEqual(before);
+    expect(bot.section).toBe("Delivery");
+  });
+
+  it("deletes a populated team while preserving bots, archived members and stored room history across restart", () => {
     const store = new Store(selection);
     const bot = store.createBot({ section: "Studio" });
     const archived = store.createBot({ section: "Studio" });
@@ -241,7 +257,8 @@ describe("Store", () => {
     const chief = store.createBot({ section: "Office" });
     store.setChiefOfStaff(chief.id);
     store.patchBot(chief.id, { managedSections: ["Studio", "Other"] });
-    const room = store.createGroup("Discussion", [bot.id], false, "Studio");
+    const room = legacyRoom({ name: "Discussion", memberIds: [bot.id], section: "Studio" });
+    const raw = seedRooms([room]);
     store.appendMessage(bot.threadId, { role: "user", kind: "text", text: "Keep private history" });
     store.appendMessage(room.threadId, { role: "user", kind: "text", text: "Keep shared history" });
     writeSectionContext("Studio", "Old brief");
@@ -254,9 +271,9 @@ describe("Store", () => {
     expect(restored.bot(bot.id)?.section).toBeUndefined();
     expect(restored.bot(archived.id)?.hidden).toBe(true);
     expect(restored.bot(archived.id)?.section).toBeUndefined();
-    expect(restored.group(room.id)).toMatchObject({ memberIds: [bot.id], threadId: room.threadId });
-    expect(restored.group(room.id)?.section).toBeUndefined();
+    expect(restored.group(room.id)).toMatchObject({ memberIds: [bot.id], threadId: room.threadId, section: "Studio" });
     expect([restored.messagesFor(bot.threadId), restored.messagesFor(room.threadId)]).toEqual(before);
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
     expect(restored.bot(chief.id)?.managedSections).toEqual(["Other"]);
     expect(readSectionContext("Studio")).toBeNull();
     expect(readSectionContext("")?.text).toBe("General brief");
@@ -282,13 +299,11 @@ describe("Store", () => {
   it("restores persisted membership if deleting the team cannot finish", () => {
     const store = new Store(selection);
     const bot = store.createBot({ section: "Studio" });
-    const room = store.createGroup("Discussion", [bot.id], false, "Studio");
-    const write = vi.spyOn(store as any, "saveGroups").mockImplementationOnce(() => { throw new Error("disk unavailable"); });
+    const write = vi.spyOn(store as any, "saveBots").mockImplementationOnce(() => { throw new Error("disk unavailable"); });
     expect(() => store.deleteSection("Studio")).toThrow("disk unavailable");
     write.mockRestore();
     const restored = new Store(selection);
     expect(restored.bot(bot.id)?.section).toBe("Studio");
-    expect(restored.group(room.id)?.section).toBe("Studio");
     expect(store.bot(bot.id)?.section).toBe("Studio");
     expect(restored.sections).toContain("Studio");
   });
@@ -424,25 +439,23 @@ describe("Store", () => {
     expect(JSON.parse(readFileSync(file, "utf8"))[0].name).toBe("Original");
   });
 
-  it.skipIf(process.platform === "win32")("writes the bot and group registries owner-only and tightens loose ones on load", () => {
+  it.skipIf(process.platform === "win32")("writes the bot registry owner-only and tightens loose registries on load without rewriting rooms", () => {
     const mode = (name: string) => statSync(join(DATA_DIR, name)).mode & 0o777;
     const store = new Store(selection);
     const bot = store.createBot({}, { seedMessages: false });
-    store.createGroup("Team", [bot.id]);
     expect(mode("bots.json")).toBe(0o600);
-    expect(mode("groups.json")).toBe(0o600);
+    const raw = seedRooms([legacyRoom({ memberIds: [bot.id] })]);
     // A registry left behind by an older release (or loosened by hand) is
     // tightened before anything else happens, not only on the next save.
     for (const name of ["bots.json", "groups.json"]) chmodSync(join(DATA_DIR, name), 0o644);
     const reloaded = new Store(selection);
     expect(mode("bots.json")).toBe(0o600);
     expect(mode("groups.json")).toBe(0o600);
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
     expect(reloaded.bots.map((record) => record.id)).toContain(bot.id);
-    // ...and a save after that keeps them owner-only.
-    reloaded.createGroup("Second team", [bot.id]);
+    // ...and a save after that keeps the bot registry owner-only.
     reloaded.createBot({}, { seedMessages: false });
     expect(mode("bots.json")).toBe(0o600);
-    expect(mode("groups.json")).toBe(0o600);
   });
 
   it("commits receipt-backed transcript changes before publishing and replays without duplicates", () => {
@@ -555,19 +568,18 @@ describe("Store", () => {
     expect(reloaded.bot(second.id)?.voice).toBeUndefined();
   });
 
-  it("restarts with legacy bot and group migrations despite an unreadable team registry, without permitting later team writes", () => {
+  it("restarts with legacy bot migrations and read-only rooms despite an unreadable team registry, without permitting later team writes", () => {
     const original = new Store(selection);
     const bot = original.createBot({ name: "Legacy bot", section: "Research" });
-    const group = original.createGroup("Legacy group", [bot.id], false, "Engineering");
+    const group = legacyRoom({ name: "Legacy group", memberIds: [bot.id], section: "Engineering" });
+    delete group.defaultResponder;
     original.appendMessage(group.threadId, { role: "user", kind: "text", text: "Keep the group conversation" });
     const botMessages = original.messagesFor(bot.threadId);
     const groupMessages = original.messagesFor(group.threadId);
     const bots = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
-    const groups = JSON.parse(readFileSync(join(DATA_DIR, "groups.json"), "utf8"));
     delete bots[0].tasks; delete bots[0].soulHash;
-    delete groups[0].tasks; delete groups[0].defaultResponder;
     writeFileSync(join(DATA_DIR, "bots.json"), JSON.stringify(bots));
-    writeFileSync(join(DATA_DIR, "groups.json"), JSON.stringify(groups));
+    const groupsRaw = seedRooms([group]);
     const malformed = '{"version":1,"contexts":';
     writeFileSync(SECTION_CONTEXTS_FILE, malformed);
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -579,20 +591,15 @@ describe("Store", () => {
       expect(restored.messagesFor(bot.threadId)).toEqual(botMessages);
       expect(restored.messagesFor(group.threadId)).toEqual(groupMessages);
       expect(JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"))[0].tasks).toHaveLength(1);
-      expect(JSON.parse(readFileSync(join(DATA_DIR, "groups.json"), "utf8"))[0].tasks).toHaveLength(1);
+      expect(readFileSync(groupsFile(), "utf8")).toBe(groupsRaw);
       expect(warning.mock.calls.some(([message]) => String(message).includes("[teams] Startup could not register"))).toBe(true);
       const beforeBots = structuredClone(restored.bots);
-      const beforeGroups = structuredClone(restored.groups);
       const beforeBotsFile = readFileSync(join(DATA_DIR, "bots.json"), "utf8");
-      const beforeGroupsFile = readFileSync(join(DATA_DIR, "groups.json"), "utf8");
       expect(() => restored.setBotsSection([bot.id], "Do not create")).toThrow(/left unchanged/);
       expect(() => restored.createBot({ name: "Must not appear", section: "Do not create" })).toThrow(/left unchanged/);
-      expect(() => restored.createGroup("Must not appear", [bot.id], false, "Do not create")).toThrow(/left unchanged/);
-      expect(() => restored.patchGroup(group.id, { name: "Must not rename", section: "Do not create" })).toThrow(/left unchanged/);
       expect(restored.bots).toEqual(beforeBots);
-      expect(restored.groups).toEqual(beforeGroups);
       expect(readFileSync(join(DATA_DIR, "bots.json"), "utf8")).toBe(beforeBotsFile);
-      expect(readFileSync(join(DATA_DIR, "groups.json"), "utf8")).toBe(beforeGroupsFile);
+      expect(readFileSync(groupsFile(), "utf8")).toBe(groupsRaw);
       expect(new Store(selection).messagesFor(group.threadId)).toEqual(groupMessages);
       expect(readFileSync(SECTION_CONTEXTS_FILE, "utf8")).toBe(malformed);
     } finally { warning.mockRestore(); }
@@ -923,63 +930,17 @@ describe("Store", () => {
     expect(first.color).not.toBe(second.color);
   });
 
-  it("defaults a room to its first member and repairs the lead when membership changes", () => {
+  it("reads an old room's lead from its first member without rewriting it", () => {
     const store = new Store(selection);
     const first = store.createBot();
     const second = store.createBot();
-    const group = store.createGroup("Team", [first.id, second.id]);
-
-    expect(group.defaultResponder).toEqual({ kind: "member", botId: first.id });
-    store.patchGroup(group.id, { memberIds: [second.id] });
-    expect(group.defaultResponder).toEqual({ kind: "member", botId: second.id });
+    const room = legacyRoom({ name: "Legacy team", memberIds: [first.id, second.id] });
+    delete room.defaultResponder;
+    const raw = seedRooms([room, legacyRoom({ memberIds: [first.id], section: "Work", bulletin: "Ship carefully.", setupCompletedAt: 5 })]);
 
     const reloaded = new Store(selection);
-    expect(reloaded.group(group.id)?.defaultResponder).toEqual({ kind: "member", botId: second.id });
-  });
-
-  it("persists a channel's context when it is created", () => {
-    const store = new Store(selection);
-    const bot = store.createBot();
-    const channel = store.createGroup("Website launch", [bot.id], false, "Work");
-
-    expect(channel.section).toBe("Work");
-    expect(new Store(selection).group(channel.id)?.section).toBe("Work");
-  });
-
-  it("persists a channel's completed setup in the same create write", () => {
-    const store = new Store(selection);
-    const bot = store.createBot();
-    const channel = store.createGroup("Launch", [bot.id], false, "Work", {
-      bulletin: "Ship carefully.",
-      defaultResponder: { kind: "mentions" },
-      completed: true,
-    });
-
-    expect(channel).toMatchObject({
-      bulletin: "Ship carefully.",
-      defaultResponder: { kind: "mentions" },
-      setupSkippedAt: null,
-    });
-    expect(channel.setupCompletedAt).toEqual(expect.any(Number));
-    expect(new Store(selection).group(channel.id)).toMatchObject({
-      bulletin: "Ship carefully.",
-      defaultResponder: { kind: "mentions" },
-      setupCompletedAt: channel.setupCompletedAt,
-    });
-  });
-
-  it("migrates old rooms without routing to their first member", () => {
-    const store = new Store(selection);
-    const first = store.createBot();
-    const second = store.createBot();
-    const group = store.createGroup("Legacy team", [first.id, second.id]);
-    const groupsFile = join(DATA_DIR, "groups.json");
-    const saved = JSON.parse(readFileSync(groupsFile, "utf8"));
-    delete saved[0].defaultResponder;
-    writeFileSync(groupsFile, JSON.stringify(saved));
-
-    const reloaded = new Store(selection);
-    expect(reloaded.group(group.id)?.defaultResponder).toEqual({ kind: "member", botId: first.id });
+    expect(reloaded.group(room.id)?.defaultResponder).toEqual({ kind: "member", botId: first.id });
+    expect(readFileSync(groupsFile(), "utf8")).toBe(raw);
   });
 
   it("persists bots and messages across a restart, resetting busy", () => {
@@ -1779,27 +1740,6 @@ describe("Store change stream", () => {
     expect(store.retitleTask(recipient.id, row.threadId, `@Scout ${brief}`, "Late title")).toBeNull();
   });
 
-  it("channel first-message titling reports the row it named, and a late retitle cannot undo a rename", () => {
-    const store = new Store(selection);
-    const bot = store.createBot({ name: "Scout" });
-    const group = store.createGroup("Ops", [bot.id])!;
-    const task = store.activeGroupTask(group.id)!;
-    const titled = store.titleGroupTaskFromFirstMessage(group.id, "Audit the payroll", task.threadId);
-    expect(titled?.threadId).toBe(task.threadId);
-    expect(titled?.title).toBe("Audit the payroll");
-    // a person's rename wins over anything generated later
-    store.renameGroupTask(group.id, task.threadId, "Payroll audit");
-    expect(store.retitleGroupTask(group.id, task.threadId, "Audit the payroll", "Payroll checks")).toBeNull();
-    expect(store.activeGroupTask(group.id)!.title).toBe("Payroll audit");
-    // and where nothing intervened, the generated title lands once — a
-    // second answer aimed at the same snippet finds nothing to replace
-    const fresh = store.createGroupTask(group.id)!.threadId;
-    const freshSnippet = store.titleGroupTaskFromFirstMessage(group.id, "Draft the announcement", fresh)!.title;
-    expect(store.retitleGroupTask(group.id, fresh, freshSnippet, "Draft announcement")).toMatchObject({ threadId: fresh });
-    expect(store.retitleGroupTask(group.id, fresh, freshSnippet, "A second opinion")).toBeNull();
-    expect(store.groupTaskByThread(group.id, fresh)!.title).toBe("Draft announcement");
-  });
-
   it("loading collapses the duplicate live pair rows an older server minted, and a second load changes nothing", () => {
     const store = new Store(selection);
     const recipient = store.createBot({ name: "Scout" });
@@ -1864,21 +1804,16 @@ describe("Store change stream", () => {
     expect(events.at(-1)).toEqual({ type: "bot.deleted", botId: bot.id });
   });
 
-  it("group writes emit group events; a listener that throws never breaks the write", () => {
+  it("stored rooms emit nothing; a listener that throws never breaks a write", () => {
     const store = new Store(selection);
-    const a = store.createBot();
-    const b = store.createBot();
     const events = record(store);
     store.onChange(() => {
       throw new Error("bad listener");
     });
-    const g = store.createGroup("ops", [a.id, b.id]);
-    store.patchGroup(g.id, { unread: true });
-    expect(events.map((e) => e.type)).toEqual(["group", "group"]);
-    expect(store.group(g.id)?.unread).toBe(true);
-    store.deleteGroup(g.id);
-    expect(events).toContainEqual({ type: "thread.deleted", threadId: g.threadId });
-    expect(events.at(-1)).toEqual({ type: "group.deleted", groupId: g.id });
+    const bot = store.createBot();
+    expect(events.map((e) => e.type)).toContain("bot");
+    expect(store.bot(bot.id)).toBeTruthy();
+    expect(events.some((e) => String(e.type).startsWith("group"))).toBe(false);
   });
 
   it("delivers each change to the listener snapshot captured before emission", () => {
@@ -2243,41 +2178,6 @@ describe("Store task working folder", () => {
     store.setResumeCursor(bot.id, "claude", "sess-1", bot.threadId);
     store.patchBot(bot.id, { cwd: "/tmp/project-a" });
     expect(store.pinTaskCwd(bot.id, bot.threadId)).toBeNull();
-  });
-});
-
-describe("Store room working folder", () => {
-  beforeEach(() => {
-    rmSync(DATA_DIR, { recursive: true, force: true });
-  });
-
-  it("pins the room's folder on its first turn, and never again", () => {
-    const store = new Store(selection);
-    const bot = store.createBot();
-    const group = store.createGroup("Team", [bot.id]);
-    store.patchGroup(group.id, { cwd: "/tmp/project-a" });
-
-    // first turn: nothing pinned yet → takes the room's folder
-    expect(store.pinGroupCwd(group.id)).toBe("/tmp/project-a");
-    expect(store.group(group.id)?.pinnedCwd).toBe("/tmp/project-a");
-
-    // the room's folder moves on; the thread stays where it started working
-    store.patchGroup(group.id, { cwd: "/tmp/project-b" });
-    expect(store.pinGroupCwd(group.id)).toBe("/tmp/project-a");
-
-    // the pin is durable — a restart must not re-pin from the new folder
-    const reloaded = new Store(selection);
-    expect(reloaded.pinGroupCwd(group.id)).toBe("/tmp/project-a");
-  });
-
-  it("pins the default (null) when the room has no folder, so a later folder can't move a running room", () => {
-    const store = new Store(selection);
-    const bot = store.createBot();
-    const group = store.createGroup("Team", [bot.id]);
-    expect(store.pinGroupCwd(group.id)).toBeNull();
-    store.patchGroup(group.id, { cwd: "/tmp/project-a" });
-    expect(store.pinGroupCwd(group.id)).toBeNull();
-    expect(store.group(group.id)?.pinnedCwd).toBeNull();
   });
 });
 

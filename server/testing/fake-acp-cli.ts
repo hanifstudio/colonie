@@ -63,8 +63,11 @@
 //                     injected agents MCP, ask a question card, call it again
 //                     once the card is answered, and reply
 //                     "before: <first> | after: <second>" — the lent-Mac e2e)
+//                   | fail-turn (answer every prompt with a JSON-RPC error and no
+//                     output; see FAKE_ACP_FAIL_WHEN for one turn only)
 //   FAKE_ACP_MCP_TRANSPORTS  comma list of remote MCP transports the agent
-//                       advertises in initialize (mcpCapabilities), e.g. "http,sse"
+//                       advertises in initialize (mcpCapabilities), e.g. "http,sse";
+//                       defaults to "http" like the maintained adapters, "" for none
 //   FAKE_ACP_PERMISSION_OPTIONS JSON options override in permission mode
 //   FAKE_ACP_QUESTION_MESSAGE  question mode's message (the lone question's own
 //                       text; several questions read their text per field)
@@ -127,25 +130,85 @@
 //                        replay?}, emitted after the named RPC response.
 //   FAKE_ACP_USAGE_ROOT  put the prompt result's usage at the root instead of
 //                        under _meta (what opencode 1.18.18 actually does)
+//   FAKE_ACP_USAGE      the prompt result's token usage per turn: "missing"
+//                        (no token keys), "zero", a JSON object of ACP usage
+//                        keys copied verbatim (the runtime reads inputTokens,
+//                        outputTokens, cachedReadTokens, totalTokens), or a JSON
+//                        array of those — the first entry whose `when` string
+//                        occurs in the prompt, else the entries without `when`
+//                        by this process's turn number, the last repeating.
+//                        Unset: { inputTokens: 10, outputTokens: 5 }.
+//   FAKE_ACP_USAGE_FILE  the same spec in a file, re-read on every prompt
 //   FAKE_ACP_USAGE_UPDATES_FILE  JSON array of numbers, re-read on every
 //                        session/prompt; each is sent as a usage_update
-//                        { used: n, size: 200000 } before the result
+//                        { used: n, size: 200000 } before the result (the
+//                        ACP runtime currently ignores usage_update)
+//   FAKE_ACP_FAIL_WHEN  in any mode, fail a prompt whose text contains this,
+//                        with no output: a JSON-RPC error -32000 carrying
+//                        FAKE_ACP_FAIL_MESSAGE (default "fake acp: turn
+//                        failed"), or with FAKE_ACP_FAIL_STOP_REASON set, a
+//                        result with that non-end_turn stopReason and usage
+//   FAKE_ACP_GATE_DIR   hold every prompt until <dir>/<key>.release or
+//                        <dir>/all.release exists. key = first capture of
+//                        FAKE_ACP_GATE_MARKER (regex, default
+//                        "\[gate:([\w.-]+)\]") in the prompt text, else
+//                        "<pid>-<turn>". While held, <dir>/<key>.waiting.json
+//                        holds {key,pid,sessionId,cwd,turn,at,text}; every
+//                        waiting/released/cancelled step appends to
+//                        <dir>/events.jsonl. Helpers: fake-acp-gates.ts.
+//
+//   session/cancel answers stopReason "cancelled" at once for a turn held at
+//   a FAKE_ACP_GATE_DIR gate, an echo-gated FAKE_ACP_GATE_FILE wait, or a
+//   running tool plan (its MCP sessions close and later output is dropped),
+//   as it always has for hang mode.
 //   FAKE_ACP_MODE_ACK_FILE  path of a file read on every mode switch: while it
 //                        exists, "empty" answers without configOptions (the
 //                        switch cannot be confirmed) and "error" refuses it,
 //                        leaving the session in its previous mode either way
 //
+//   FAKE_ACP_TOOL_PLAN  scripted tool plan (format in tool-plan.ts). On each
+//                        session/prompt whose bot the plan names, connect the
+//                        servers session/new mounted (stdio or http), call
+//                        the plan's tools, stream them as ACP tool_call /
+//                        tool_call_update, answer the plan's reply, and append
+//                        evidence to <plan>.evidence.jsonl. A turn the plan
+//                        does not name runs FAKE_ACP_MODE as usual.
+//                        FAKE_CLAUDE_ROOM_PLAN is read when this is unset.
+//   FAKE_ACP_PLAN_BOT    the plan key this process plays, when the prompt
+//                        alone cannot name the bot
+//   FAKE_ACP_UNIQUE_SESSION_IDS=1  session/new issues a distinct
+//                        "fake-acp-session-<pid>-<n>" per call instead of the
+//                        fixed "fake-acp-session", so an assertion that turns
+//                        continued one session can fail when a new one opened
+//
 // With FAKE_ACP_DUMP and FAKE_ACP_MODES or FAKE_ACP_MODELS, every
 // session/prompt appends {"pid","sessionId","mode","model"} to
-// <FAKE_ACP_DUMP>.prompts.jsonl: what the prompt actually ran under, across a
-// pooled child and its replacement. The .config.json log is per process, so
-// on a pooled child it also holds earlier turns' switches.
+// <FAKE_ACP_DUMP>.prompts.jsonl: what the prompt actually ran under (the mode
+// last set by session/set_mode or set_config_option), across a pooled child
+// and its replacement. The .config.json log is per process and rewritten by
+// each, so on a pooled child it also holds earlier turns' switches and any
+// other process of the same instance overwrites it. Every accepted
+// session/set_mode, set_model and set_config_option also appends
+// {"pid","sessionId","method","params","at"} to <FAKE_ACP_DUMP>.config.jsonl,
+// never rewritten: filter it by pid or sessionId for one conversation's calls.
+//
+// Lines of both .jsonl logs and FAKE_ACP_PROMPTS_FILE carry "internal" when
+// the session's cwd shows it is the app's own work rather than a conversation:
+// "memory-analysis" for a cwd under colonie-memory/analysis/job-* (the
+// runtime's analyzeMemory), "model-discovery" for a cwd equal to
+// CLAUDE_CONFIG_DIR or CODEX_HOME (discoverModels; it sends no prompt). Without
+// those env values discovery opens in the server's cwd and cannot be told apart.
 //
 // Keep this file dependency-free — it runs as a bare `node` subprocess.
 import { spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 
 const mode = process.env.FAKE_ACP_MODE ?? "happy";
+// Loaded only while a plan is set: some tests copy this file out of the repo,
+// where a relative import has nothing to resolve to.
+const toolPlanPath = process.env.FAKE_ACP_TOOL_PLAN || process.env.FAKE_CLAUDE_ROOM_PLAN || "";
+const toolPlan = toolPlanPath ? await import("./tool-plan.ts") : null;
 
 // Follow the spawning server down, including on Windows where ppid does
 // not change after parent exit. Inline: fakes must stay self-contained.
@@ -446,6 +509,39 @@ const recordMethod = (method: string) => {
 // session/set_mode + session/set_model calls seen this run
 const configCalls: Array<{ method: string; params: unknown }> = [];
 
+// the cwd each session was opened (or reloaded) in, for internalPurpose
+const sessionCwds = new Map<string, string>();
+let sessionSerial = 0;
+const newSessionId = () => process.env.FAKE_ACP_UNIQUE_SESSION_IDS === "1"
+  ? `fake-acp-session-${process.pid}-${++sessionSerial}`
+  : "fake-acp-session";
+
+/** The app-internal job a session serves, read from the cwd the runtime opens
+ * it in (see the header); undefined for a conversation or when unknowable. */
+function internalPurpose(sessionId: unknown): "memory-analysis" | "model-discovery" | undefined {
+  const cwd = sessionCwds.get(String(sessionId)) ?? sessionCwd;
+  if (/[\\/]colonie-memory[\\/]analysis[\\/]job-[^\\/]+[\\/]?$/.test(cwd)) return "memory-analysis";
+  const homes = [process.env.CLAUDE_CONFIG_DIR, process.env.CODEX_HOME].filter((home): home is string => Boolean(home));
+  if (homes.some((home) => resolvePath(home) === resolvePath(cwd))) return "model-discovery";
+  return undefined;
+}
+
+/** Record an accepted config call: the per-process .config.json (rewritten,
+ * last process wins) and the append-only .config.jsonl. */
+function recordConfigCall(msg: any): void {
+  configCalls.push({ method: msg.method, params: msg.params });
+  const dump = process.env.FAKE_ACP_DUMP;
+  if (!dump) return;
+  writeFileSync(`${dump}.config.json`, JSON.stringify(configCalls, null, 2));
+  const internal = internalPurpose(msg.params?.sessionId);
+  try {
+    appendFileSync(`${dump}.config.jsonl`, JSON.stringify({
+      pid: process.pid, sessionId: msg.params?.sessionId, method: msg.method, params: msg.params, at: Date.now(),
+      ...(internal ? { internal } : {}),
+    }) + "\n");
+  } catch {}
+}
+
 // pending server→client permission request id → resolver
 let pendingPermissionId: number | null = null;
 let onPermissionAnswered: ((allowed: boolean) => void) | null = null;
@@ -532,6 +628,95 @@ function emitUsageUpdates(): void {
     } catch {}
   }
 }
+
+// prompts this process has been handed, 1-based: the per-process turn index
+// for FAKE_ACP_USAGE arrays and the fallback gate key
+let promptCount = 0;
+// the cwd the client opened (or reloaded) the session with
+let sessionCwd = process.cwd();
+// ends the in-flight waiting turn on session/cancel (see playPrompt)
+let cancelTurn: (() => void) | null = null;
+
+/** Every text block of an ACP prompt, joined: what the app's context and the
+ * user's message look like to the agent. */
+function promptTextOf(prompt: unknown): string {
+  return Array.isArray(prompt)
+    ? prompt.flatMap((block: any) => (block?.type === "text" && typeof block.text === "string" ? [block.text] : [])).join("\n")
+    : "";
+}
+
+/** The usage spec for this turn (FAKE_ACP_USAGE_FILE, re-read per prompt, else
+ * FAKE_ACP_USAGE): "missing" | "zero" | an object of ACP usage keys | an
+ * array of those. In an array, the first entry whose `when` occurs in the
+ * prompt wins; otherwise the entries without `when` are taken by this
+ * process's turn number, the last repeating. Unset keeps the 10 in / 5 out. */
+function turnUsageSpec(turnNumber: number, prompt: unknown): unknown {
+  const file = process.env.FAKE_ACP_USAGE_FILE;
+  const raw = file && existsSync(file) ? readFileSync(file, "utf8") : process.env.FAKE_ACP_USAGE;
+  if (!raw?.trim()) return { inputTokens: 10, outputTokens: 5 };
+  const spec = /^\s*[[{"]/.test(raw) ? JSON.parse(raw) : raw.trim();
+  if (!Array.isArray(spec)) return spec;
+  const text = promptTextOf(prompt);
+  const keyed = spec.find((entry) => typeof entry?.when === "string" && text.includes(entry.when));
+  if (keyed) return keyed;
+  const ordered = spec.filter((entry) => typeof entry?.when !== "string");
+  return ordered.length ? ordered[Math.min(turnNumber, ordered.length) - 1] : { inputTokens: 10, outputTokens: 5 };
+}
+
+/** session/prompt's result. Usage sits under _meta, as the maintained
+ * adapters report it, or at the root with FAKE_ACP_USAGE_ROOT (opencode
+ * 1.18.18's shape, with an empty _meta). "missing" reports no token keys;
+ * "zero" reports zero. Keys are copied verbatim; the runtime reads only
+ * inputTokens, outputTokens, cachedReadTokens and totalTokens. */
+function promptResult(stopReason: string, turnNumber: number, prompt: unknown): Record<string, unknown> {
+  const spec = turnUsageSpec(turnNumber, prompt);
+  if (spec === "missing" || (spec !== "zero" && (!spec || typeof spec !== "object"))) return { stopReason, _meta: {} };
+  const usage: Record<string, unknown> = spec === "zero" ? { inputTokens: 0, outputTokens: 0 } : { ...spec as Record<string, unknown> };
+  delete usage.when;
+  return process.env.FAKE_ACP_USAGE_ROOT ? { stopReason, usage, _meta: {} } : { stopReason, _meta: usage };
+}
+
+/** FAKE_ACP_GATE_DIR: hold the prompt until `<dir>/<key>.release` (or
+ * `<dir>/all.release`) exists. The key is the first capture of
+ * FAKE_ACP_GATE_MARKER in the prompt text (default `\[gate:([\w.-]+)\]`), else
+ * `<pid>-<turn>`. While held, `<dir>/<key>.waiting.json` names the turn; every
+ * waiting / released / cancelled transition is appended to
+ * `<dir>/events.jsonl`. session/cancel answers stopReason cancelled at once.
+ * Returns false when no gate applies. */
+function holdAtGate(msg: any, play: () => void): boolean {
+  const dir = process.env.FAKE_ACP_GATE_DIR;
+  if (!dir) return false;
+  const text = promptTextOf(msg.params?.prompt);
+  const key = new RegExp(process.env.FAKE_ACP_GATE_MARKER ?? "\\[gate:([\\w.-]+)\\]").exec(text)?.[1] ?? `${process.pid}-${promptCount}`;
+  const waiting = `${dir}/${key}.waiting.json`;
+  const released = () => existsSync(`${dir}/${key}.release`) || existsSync(`${dir}/all.release`);
+  const note = (event: string) => {
+    try { appendFileSync(`${dir}/events.jsonl`, JSON.stringify({ event, key, pid: process.pid, at: Date.now() }) + "\n"); } catch {}
+  };
+  const leave = (event: string) => {
+    clearInterval(poll);
+    cancelTurn = null;
+    try { rmSync(waiting, { force: true }); } catch {}
+    note(event);
+  };
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(waiting, JSON.stringify({
+    key, pid: process.pid, sessionId: msg.params?.sessionId ?? liveSession, cwd: sessionCwd, turn: promptCount, at: Date.now(), text,
+  }));
+  note("waiting");
+  const poll = setInterval(() => {
+    if (!released()) return;
+    leave("released");
+    play();
+  }, 20);
+  cancelTurn = () => {
+    leave("cancelled");
+    recordMethod("session/prompt.cancelled");
+    result(msg.id, { stopReason: "cancelled", _meta: {} });
+  };
+  return true;
+}
+
 function failRpc(msg: { method: string; id: unknown }): boolean {
   if (msg.method !== (process.env.FAKE_ACP_RPC_FAILURE_METHOD ?? "session/prompt")) return false;
   const failureFile = process.env.FAKE_ACP_RPC_FAILURE_FILE;
@@ -698,7 +883,7 @@ function handle(msg: any) {
       const agentName = process.env.FAKE_ACP_AGENT_NAME;
       const acceptsImages = process.env.FAKE_ACP_IMAGE_CAPABILITY === "1";
       // which remote MCP transports this agent advertises, e.g. "http,sse"
-      const mcpTransports = (process.env.FAKE_ACP_MCP_TRANSPORTS ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+      const mcpTransports = (process.env.FAKE_ACP_MCP_TRANSPORTS ?? "http").split(",").map((entry) => entry.trim()).filter(Boolean);
       result(msg.id, {
         protocolVersion: 1,
         authMethods,
@@ -748,13 +933,16 @@ function handle(msg: any) {
       }
       const opts = configOptions();
       const mdls = sessionModels();
-      liveSession = "fake-acp-session";
+      const sessionId = newSessionId();
+      liveSession = sessionId;
+      if (typeof msg.params?.cwd === "string") sessionCwd = msg.params.cwd;
+      sessionCwds.set(sessionId, sessionCwd);
       resultAndConfigUpdates(msg.id, {
-        sessionId: "fake-acp-session",
+        sessionId,
         ...(opts ? { configOptions: opts } : {}),
         ...legacyModes(),
         ...(mdls ? { models: mdls } : {}),
-      }, "session/new", "fake-acp-session");
+      }, "session/new", sessionId);
       break;
     }
     case "session/load": {
@@ -787,6 +975,8 @@ function handle(msg: any) {
       const opts = configOptions();
       const mdls = sessionModels();
       liveSession = typeof msg.params?.sessionId === "string" ? msg.params.sessionId : liveSession;
+      if (typeof msg.params?.cwd === "string") sessionCwd = msg.params.cwd;
+      if (liveSession) sessionCwds.set(liveSession, sessionCwd);
       resultAndConfigUpdates(msg.id, { ...(opts ? { configOptions: opts } : {}), ...legacyModes(), ...(mdls ? { models: mdls } : {}) }, "session/load", msg.params.sessionId);
       break;
     }
@@ -805,13 +995,15 @@ function handle(msg: any) {
       const opts = configOptions();
       const mdls = sessionModels();
       liveSession = typeof msg.params?.sessionId === "string" ? msg.params.sessionId : liveSession;
+      if (typeof msg.params?.cwd === "string") sessionCwd = msg.params.cwd;
+      if (liveSession) sessionCwds.set(liveSession, sessionCwd);
       result(msg.id, { ...(opts ? { configOptions: opts } : {}), ...legacyModes(), ...(mdls ? { models: mdls } : {}) });
       break;
     }
     // per-session settings (droid sets model/autonomy here, not via argv).
     // Recorded next to FAKE_ACP_DUMP so a test can assert what was applied.
-    // NOTE: last writer wins — each turn spawns a fresh child, so a two-turn
-    // test would only ever see the final turn's calls.
+    // NOTE: .config.json is last writer wins across processes; read
+    // .config.jsonl (append-only, one line per call) for several processes.
     case "session/set_mode":
     case "session/set_model": {
       if (mode === "no-session-config") {
@@ -832,10 +1024,9 @@ function handle(msg: any) {
         });
         break;
       }
-      configCalls.push({ method: msg.method, params: msg.params });
-      if (process.env.FAKE_ACP_DUMP) {
-        writeFileSync(`${process.env.FAKE_ACP_DUMP}.config.json`, JSON.stringify(configCalls, null, 2));
-      }
+      // the mode later prompts run under, as the real adapters apply it
+      if (msg.method === "session/set_mode") currentMode = msg.params.modeId;
+      recordConfigCall(msg);
       result(msg.id, {});
       break;
     }
@@ -844,10 +1035,7 @@ function handle(msg: any) {
       const variant = variantConfigs[currentModel ?? ""];
       if (variant && configId === (variant.id ?? "effort") && variantValues(variant.options).includes(value)) {
         if (!process.env.FAKE_ACP_VARIANT_STICKS) currentVariant = value;
-        configCalls.push({ method: msg.method, params: msg.params });
-        if (process.env.FAKE_ACP_DUMP) {
-          writeFileSync(`${process.env.FAKE_ACP_DUMP}.config.json`, JSON.stringify(configCalls, null, 2));
-        }
+        recordConfigCall(msg);
         resultAndConfigUpdates(msg.id, process.env.FAKE_ACP_EMPTY_VARIANT_ACK ? {} : { configOptions: configOptions() }, "effort", msg.params.sessionId);
         break;
       }
@@ -863,10 +1051,7 @@ function handle(msg: any) {
           break;
         }
         currentMode = value;
-        configCalls.push({ method: msg.method, params: msg.params });
-        if (process.env.FAKE_ACP_DUMP) {
-          writeFileSync(`${process.env.FAKE_ACP_DUMP}.config.json`, JSON.stringify(configCalls, null, 2));
-        }
+        recordConfigCall(msg);
         result(msg.id, process.env.FAKE_ACP_EMPTY_MODE_ACK ? {} : { configOptions: configOptions() });
         break;
       }
@@ -885,487 +1070,13 @@ function handle(msg: any) {
         currentModel = value;
         currentVariant = variantConfigs[value]?.currentValue;
       }
-      configCalls.push({ method: msg.method, params: msg.params });
-      if (process.env.FAKE_ACP_DUMP) {
-        writeFileSync(`${process.env.FAKE_ACP_DUMP}.config.json`, JSON.stringify(configCalls, null, 2));
-      }
+      recordConfigCall(msg);
       resultAndConfigUpdates(msg.id, { configOptions: configOptions() }, "model", msg.params.sessionId);
       break;
     }
-    case "session/prompt": {
-      if (typeof msg.params?.sessionId === "string") liveSession = msg.params.sessionId;
-      if (process.env.FAKE_ACP_DUMP && (modes.length || models.length)) {
-        appendFileSync(`${process.env.FAKE_ACP_DUMP}.prompts.jsonl`, JSON.stringify({
-          pid: process.pid, sessionId: msg.params?.sessionId, mode: currentMode, model: currentModel,
-        }) + "\n");
-      }
-      emitConfigUpdates("session/prompt", msg.params.sessionId);
-      // The prompt is in hand. FAKE_ACP_STARTED_FILE tells a test it can act
-      // "during the turn" without racing the busy flag, which flips at claim;
-      // written for every mode, not only echo-gated.
-      if (process.env.FAKE_ACP_STARTED_FILE) {
-        try { writeFileSync(process.env.FAKE_ACP_STARTED_FILE, String(Date.now())); } catch {}
-      }
-      if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_VARIANTS) {
-        writeFileSync(`${process.env.FAKE_ACP_DUMP}.selection.json`, JSON.stringify({
-          sessionId: msg.params.sessionId, model: currentModel, variant: currentVariant,
-        }));
-      }
-      if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_DUMP_PROMPT === "1") {
-        writeFileSync(`${process.env.FAKE_ACP_DUMP}.prompt.json`, JSON.stringify(msg.params?.prompt ?? null, null, 2));
-      }
-      if (process.env.FAKE_ACP_PROMPTS_FILE) {
-        // One JSON line per prompt: the whole conversation the engine was
-        // handed, so a test can assert what it did and did not receive. ACP
-        // carries the system context inside the prompt itself.
-        appendFileSync(process.env.FAKE_ACP_PROMPTS_FILE, JSON.stringify({
-          prompt: msg.params?.prompt ?? null, mode: currentMode, model: currentModel,
-        }) + "\n");
-      }
-      if (failRpc(msg)) return;
-      if (mode === "hang") {
-        // never resolve the prompt on our own — lets tests exercise interrupt
-        hangingPromptId = msg.id;
-        hangKeepAlive = setInterval(() => {}, 1_000);
-        return;
-      }
-      if (mode === "stall-after-text") {
-        // Stream a chunk, then go fully silent forever: no updates, no result,
-        // no exit. This is the shape of a wedged OpenCode agent that stopped
-        // mid-answer — the driver's prompt idle guard must fail the turn on
-        // its own, because nothing else will ever arrive.
-        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "half an answer, then silence" } } } });
-        hangingPromptId = msg.id;
-        hangKeepAlive = setInterval(() => {}, 1_000);
-        return;
-      }
-      if (mode === "fail-after-text") {
-        // Stream real text, THEN fail the turn — the shape of a crash
-        // mid-answer. This is the one case where the routine-failed/done
-        // notification dedup is load-bearing: the reply is non-empty, so
-        // nothing else suppresses the generic done.
-        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "half a report, then a crash" } } } });
-        recordMethod("session/prompt.error");
-        out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: "fake acp: turn failed after streaming" } });
-        return;
-      }
-      const complete = () => {
-        emitUsageUpdates();
-        recordMethod("session/prompt.result");
-        result(
-          msg.id,
-          // FAKE_ACP_USAGE_ROOT reproduces opencode 1.18.18's shape: usage at
-          // the result root with an empty _meta, instead of usage under _meta.
-          process.env.FAKE_ACP_USAGE_ROOT
-            ? { stopReason: "end_turn", usage: { inputTokens: 10, outputTokens: 5 }, _meta: {} }
-            : { stopReason: "end_turn", _meta: { inputTokens: 10, outputTokens: 5 } },
-        );
-      };
-      if (mode === "quiet-then-answer") {
-        const lines: string[] = process.env.FAKE_ACP_QWEN_LOG ? JSON.parse(process.env.FAKE_ACP_QWEN_LOG) : [];
-        let logTimer: ReturnType<typeof setInterval> | null = null;
-        if (lines.length && process.env.QWEN_HOME && liveSession) {
-          const dir = `${process.env.QWEN_HOME}/debug`;
-          mkdirSync(dir, { recursive: true });
-          let i = 0;
-          logTimer = setInterval(() => {
-            appendFileSync(`${dir}/${liveSession}.txt`, `${new Date().toISOString()} ${lines[Math.min(i++, lines.length - 1)]}\n`);
-          }, Number(process.env.FAKE_ACP_LOG_EVERY_MS ?? 100));
-        }
-        setTimeout(() => {
-          if (logTimer) clearInterval(logTimer);
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "done" } } } });
-          complete();
-        }, Number(process.env.FAKE_ACP_QUIET_MS ?? 600));
-        return;
-      }
-      if (mode === "slow-tool" || mode === "stall-after-tool") {
-        const tool = (update: Record<string, unknown>) =>
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { toolCallId: "tc-slow", ...update } } });
-        // ACP's default status is pending: this tool_call carries none.
-        tool({ sessionUpdate: "tool_call", title: "sleep", rawInput: { command: "sleep 45 && echo done" } });
-        tool({ sessionUpdate: "tool_call_update", status: "in_progress" });
-        const finish = () => tool({ sessionUpdate: "tool_call_update", status: "completed", rawOutput: { output: "done" } });
-        if (mode === "stall-after-tool") {
-          finish();
-          hangingPromptId = msg.id;
-          hangKeepAlive = setInterval(() => {}, 1_000);
-          return;
-        }
-        setTimeout(() => {
-          finish();
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "done" } } } });
-          complete();
-        }, Number(process.env.FAKE_ACP_TOOL_MS ?? 600));
-        return;
-      }
-      if (mode === "unkeyed-tool") {
-        // An agent that violates the ACP spec by omitting toolCallId. The SDK
-        // rejects that notification before the runtime sees it (toolCallId is
-        // required by the schema), so this mode cannot reach any consumer and
-        // is kept only to document the shape that is refused.
-        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "tool_call", title: "run", rawInput: { command: "echo done" } } } });
-        complete();
-        return;
-      }
-      const promptText = String(msg.params?.prompt?.[0]?.text ?? "");
-      // A delegated reply woke this bot (control-plane continuation): the
-      // harness revived it to fold the result in. Synthesize instead of
-      // driving the mode's usual delegate/ask flow, which would loop or
-      // re-ask for approval on a turn the user did not initiate.
-      const wokeFromDelegation = promptText.includes("[A delegated task just completed]")
-        || promptText.includes("[A delegated task failed]");
-      if (wokeFromDelegation) {
-        fakeLog("branch: wokeFromDelegation");
-        const failed = promptText.includes("[A delegated task failed]");
-        const sawResult = promptText.includes("replied to the delegated task");
-        out({
-          jsonrpc: "2.0",
-          method: "session/update",
-          params: {
-            update: {
-              sessionUpdate: "agent_message_chunk",
-              content: {
-                text: failed
-                  ? "woke after delegation failure: will tell the user"
-                  : sawResult
-                    ? "woke after delegation: saw the result"
-                    : "woke after delegation: no result",
-              },
-            },
-          },
-        });
-        complete();
-        return;
-      }
-      if (mode === "chief-delegate" && agentsMcp && promptText.includes("CHECK_STATUS")) {
-        fakeLog(`branch: CHECK_STATUS savedTaskId=${JSON.stringify(savedDelegatedTaskId())}`);
-        const savedTaskId = savedDelegatedTaskId();
-        if (!savedTaskId) {
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "status check skipped: no delegated task id" } } } });
-          complete();
-          return;
-        }
-        void driveMcp(agentsMcp, [
-          {
-            name: "check_delegation",
-            args: () => ({ task_id: savedTaskId }),
-          },
-        ])
-          .then((reply) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `status: ${reply}` } } } });
-            complete();
-          })
-          .catch((e) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `status error: ${(e as Error).message}` } } } });
-            complete();
-          });
-        return;
-      }
-      if (mode === "chief-delegate" && promptText.includes("CHIEF_RESULT_CONTEXT")) {
-        const sawDelegatedResult =
-          promptText.includes("@LongWorker replied to the delegated task")
-          && promptText.includes("long delegated task");
-        out({
-          jsonrpc: "2.0",
-          method: "session/update",
-          params: {
-            update: {
-              sessionUpdate: "agent_message_chunk",
-              content: {
-                text: sawDelegatedResult
-                  ? "chief saw delegated result: long delegated task"
-                  : "chief did not see delegated result",
-              },
-            },
-          },
-        });
-        complete();
-        return;
-      }
-      if (
-        mode === "chief-delegate"
-        && agentsMcp
-        && promptText.includes("ASSIGN_TO_PEER")
-        && !promptText.includes("CHIEF_FOLLOW_UP")
-      ) {
-        void driveMcp(agentsMcp, [
-          { name: "list_bots", args: () => ({}) },
-          {
-            name: "delegate_bot",
-            args: (list) => ({
-              bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "",
-              message: "long delegated task",
-              reason: "background assignment",
-            }),
-          },
-        ])
-          .then((reply) => {
-            rememberDelegatedTaskId(/Task id: ([\w-]+)/.exec(reply)?.[1] ?? "");
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `assigned: ${reply}` } } } });
-            complete();
-          })
-          .catch((e) => {
-            const message = e instanceof Error ? e.message : String(e);
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegate error: ${message}` } } } });
-            complete();
-          });
-        return;
-      }
-      if (mode === "mcp-tools") {
-        const handshake = process.env.FAKE_ACP_MCP_HANDSHAKE ? JSON.parse(process.env.FAKE_ACP_MCP_HANDSHAKE) : GROK_MCP_HANDSHAKE;
-        void Promise.all(sessionMcp.map((entry) => listMcpTools(entry, handshake).then(
-          (tools) => `${entry.name}: ${tools.join(",")}`,
-          (error: Error) => `${entry.name} failed: ${error.message}`,
-        ))).then((lines) => {
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: lines.join("\n") } } } });
-          complete();
-        });
-        return;
-      }
-      if (mode === "ask-peer" && agentsMcp) {
-        // the comms e2e: reach a peer bot through the injected agents proxy
-        // and reply with whatever it said (the peer's fake runs plain happy
-        // — its depth-1 turn gets no agents server, so no recursion)
-        void driveMcp(agentsMcp, [
-          { name: "list_bots", args: () => ({}) },
-          {
-            name: "ask_bot",
-            args: (list) => ({ bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "", message: "ping from fake" }),
-          },
-        ])
-          .then((reply) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `peer says: ${reply}` } } } });
-            complete();
-          })
-          .catch((e) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `peer error: ${(e as Error).message}` } } } });
-            complete();
-          });
-        return;
-      }
-      if (mode === "create-peer" && agentsMcp) {
-        void driveMcp(agentsMcp, [
-          {
-            name: "create_bot",
-            args: () => ({
-              name: "Pixel",
-              role: "Product designer",
-              instructions: "Design and review the user experience.",
-            }),
-          },
-          {
-            name: "delegate_bot",
-            args: (created) => ({
-              bot_id: /id: ([\w-]+)/.exec(created)?.[1] ?? "",
-              message: "Review the new onboarding flow.",
-              reason: "design review",
-            }),
-          },
-        ])
-          .then((reply) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `team created: ${reply}` } } } });
-            complete();
-          })
-          .catch((e) => {
-            const message = e instanceof Error ? e.message : String(e);
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `create error: ${message}` } } } });
-            complete();
-          });
-        return;
-      }
-      if (mode === "echo-gated") {
-        // echoing the WHOLE prompt (system + turn text) lets a test assert
-        // both what a drained turn was sent and what it was NOT sent (e.g.
-        // the webhook untrusted-data paragraph a steered turn must not get)
-        const finish = () => {
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `echo: ${promptText}` } } } });
-          complete();
-        };
-        const gate = process.env.FAKE_ACP_GATE_FILE;
-        const started = process.env.FAKE_ACP_STARTED_FILE;
-        if (started) writeFileSync(started, String(Date.now()));
-        if (gate && !existsSync(gate)) {
-          const poll = setInterval(() => {
-            if (!existsSync(gate)) return;
-            clearInterval(poll);
-            finish();
-          }, 50);
-          return;
-        }
-        finish();
-        return;
-      }
-      if (mode === "delegate-peer" && agentsMcp) {
-        // async peer-handoff e2e: queue the delegation and return
-        // immediately; the harness fires the peer's depth-1 turn after our
-        // turn settles. We don't need the peer's reply in our text — the
-        // comms e2e verifies the channel mirroring on its own.
-        void driveMcp(agentsMcp, [
-          { name: "list_bots", args: () => ({}) },
-          {
-            name: "delegate_bot",
-            args: (list) => ({
-              bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "",
-              message: "delegated task",
-              reason: "followup",
-            }),
-          },
-        ])
-          .then((reply) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegated: ${reply}` } } } });
-            complete();
-          })
-          .catch((e) => {
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegate error: ${(e as Error).message}` } } } });
-            complete();
-          });
-        return;
-      }
-      if (mode === "image") {
-        out({
-          jsonrpc: "2.0",
-          method: "session/update",
-          params: {
-            update: {
-              sessionUpdate: "agent_message_chunk",
-              content: { type: "image", data: ONE_PIXEL_PNG, mimeType: "image/png" },
-            },
-          },
-        });
-      } else if (mode === "interleave") playInterleaveTurn();
-      else if (mode === "reasoning-only") playReasoningTurn();
-      else if (mode !== "empty-reply") playTurn();
-      if (mode === "safe-agent-reads" && agentsMcp) {
-        const entry = agentsMcp;
-        // Deliberately independent of the app's policy catalog. These are the
-        // two exact calls in the reported regression, repeated in one turn.
-        void (async () => {
-          for (const name of ["list_bots", "session_search", "list_bots"]) {
-            const nativeAuto = ["--permission-mode", "--approval-mode"].some((flag) => argv.includes(flag) && argv[argv.indexOf(flag) + 1] === "auto");
-            if (!nativeAuto) {
-              const allowed = await new Promise<boolean>((resolve) => {
-                pendingPermissionId = 9100;
-                onPermissionAnswered = resolve;
-                out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
-                  sessionId: String(liveSession),
-                  toolCall: { toolCallId: `fixture-${name}`, kind: "other", title: `agents__${name}`, rawInput: {} },
-                  options: [{ optionId: "allow-once", kind: "allow_once", name: "Allow once" }, { optionId: "reject", kind: "reject_once", name: "Reject" }],
-                } });
-              });
-              if (!allowed) { complete(); return; }
-            }
-            const text = await driveMcp(entry, [{ name, args: () => name === "session_search" ? { query: "approval fixture" } : {} }], true);
-            out({ jsonrpc: "2.0", method: "session/update", params: { update: {
-              sessionUpdate: "agent_message_chunk", content: { text: `${name}: ${text}\n` },
-            } } });
-          }
-          complete();
-        })().catch((error) => out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: String(error) } }));
-        return;
-      }
-      if (mode === "permission") {
-        // ask the client to approve a tool, then — like a real agent once its
-        // card is answered — close the turn with a visible reply instead of
-        // ending bare (a bare end_turn is the lost-turn failure, not a success)
-        pendingPermissionId = 9001;
-        onPermissionAnswered = () => {
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "handled the permission decision" } } } });
-          complete();
-        };
-        out({
-          jsonrpc: "2.0",
-          id: pendingPermissionId,
-          method: "session/request_permission",
-          params: {
-            sessionId: String(liveSession),
-            toolCall: process.env.FAKE_ACP_PERMISSION_TOOL_CALL
-              ? JSON.parse(process.env.FAKE_ACP_PERMISSION_TOOL_CALL)
-              : { toolCallId: "tc-permission", kind: "execute", rawInput: { command: "echo hi" }, title: "echo hi" },
-            options: process.env.FAKE_ACP_PERMISSION_OPTIONS ? JSON.parse(process.env.FAKE_ACP_PERMISSION_OPTIONS) : [
-              { optionId: "allow-once", kind: "allow_once", name: "Allow once" },
-              // Grok offers a session-wide allow on some requests and omits
-              // it on others; the driver must cope with both.
-              ...(process.env.FAKE_ACP_ALLOW_ALWAYS ? [{ optionId: "allow-always", kind: "allow_always", name: "Always allow" }] : []),
-              { optionId: "reject", kind: "reject_once", name: "Reject" },
-            ],
-          },
-        });
-        return;
-      }
-      if (mode === "lend-question" && agentsMcp) {
-        const entry = agentsMcp;
-        const list = () => driveMcp(entry, [{ name: "list_shared_computers", args: () => ({}) }]).catch((e) => `error ${(e as Error).message}`);
-        void (async () => {
-          const before = await list();
-          pendingPermissionId = 9003;
-          onPermissionAnswered = () => {
-            void list().then((after) => {
-              out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `before: ${before} | after: ${after}` } } } });
-              complete();
-            });
-          };
-          out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
-            sessionId: String(liveSession),
-            toolCall: { toolCallId: "interaction_folder", kind: "other", title: "Which folder should I read?" },
-            options: [{ optionId: "docs-id", kind: "allow_once", name: "Docs" }, { optionId: "other-id", kind: "allow_once", name: "Other" }],
-          } });
-        })();
-        return;
-      }
-      if (mode === "question") {
-        // A question takes the protocol's own form elicitation — the shape the
-        // claude adapter bridges AskUserQuestion to (and the shape an MCP
-        // server asks through), with one `question_<n>` field per question and
-        // its per-question "Other" companion beside it.
-        pendingElicitationId = 9002;
-        onElicitationAnswered = () => {
-          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "answered the question" } } } });
-          complete();
-        };
-        out({
-          jsonrpc: "2.0",
-          id: pendingElicitationId,
-          method: "elicitation/create",
-          params: {
-            mode: "form",
-            sessionId: String(liveSession),
-            message: process.env.FAKE_ACP_QUESTION_MESSAGE ?? "Which color?",
-            requestedSchema: process.env.FAKE_ACP_QUESTION_SCHEMA ? JSON.parse(process.env.FAKE_ACP_QUESTION_SCHEMA) : {
-              type: "object",
-              properties: {
-                question_0: {
-                  type: "string",
-                  oneOf: [
-                    { const: "Blue", title: "Blue" },
-                    { const: "Green", title: "Green" },
-                  ],
-                },
-                question_0_custom: { type: "string", title: "Other" },
-              },
-            },
-          },
-        });
-        return;
-      }
-      if (mode === "ask-question-unsupported") {
-        // cursor/ask_question is deliberately unwired in the driver: its wire
-        // shape is unverified, so it must be rejected method-not-found rather
-        // than answered with a guessed shape. Complete only after the
-        // rejection arrives, so a test can await turn.completed.
-        pendingAskQuestionId = 9300;
-        onAskQuestionAnswered = complete;
-        out({
-          jsonrpc: "2.0",
-          id: pendingAskQuestionId,
-          method: "cursor/ask_question",
-          params: { questions: [{ question: "Which color?", options: ["Blue", "Green"] }] },
-        });
-        return;
-      }
-      complete();
+    case "session/prompt":
+      promptArrived(msg);
       break;
-    }
     case "session/cancel":
       // the interrupted prompt resolves as cancelled
       if (hangingPromptId !== null) {
@@ -1373,9 +1084,561 @@ function handle(msg: any) {
         if (hangKeepAlive) clearInterval(hangKeepAlive);
         hangingPromptId = null;
         hangKeepAlive = null;
-      }
+      } else cancelTurn?.();
+      cancelTurn = null;
       break;
     default:
       if (msg.id !== undefined) out({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: "method not found" } });
   }
+}
+
+/** Every prompt is logged on arrival, then held at its FAKE_ACP_GATE_DIR gate
+ * (when set) before the mode plays it. */
+function promptArrived(msg: any) {
+  promptCount += 1;
+  if (typeof msg.params?.sessionId === "string") liveSession = msg.params.sessionId;
+  const internal = internalPurpose(msg.params?.sessionId);
+  if (process.env.FAKE_ACP_DUMP && (modes.length || models.length)) {
+    appendFileSync(`${process.env.FAKE_ACP_DUMP}.prompts.jsonl`, JSON.stringify({
+      pid: process.pid, sessionId: msg.params?.sessionId, mode: currentMode, model: currentModel,
+      ...(internal ? { internal } : {}),
+    }) + "\n");
+  }
+  emitConfigUpdates("session/prompt", msg.params.sessionId);
+  // The prompt is in hand. FAKE_ACP_STARTED_FILE tells a test it can act
+  // "during the turn" without racing the busy flag, which flips at claim;
+  // written for every mode, not only echo-gated.
+  if (process.env.FAKE_ACP_STARTED_FILE) {
+    try { writeFileSync(process.env.FAKE_ACP_STARTED_FILE, String(Date.now())); } catch {}
+  }
+  if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_VARIANTS) {
+    writeFileSync(`${process.env.FAKE_ACP_DUMP}.selection.json`, JSON.stringify({
+      sessionId: msg.params.sessionId, model: currentModel, variant: currentVariant,
+    }));
+  }
+  if (process.env.FAKE_ACP_DUMP && process.env.FAKE_ACP_DUMP_PROMPT === "1") {
+    writeFileSync(`${process.env.FAKE_ACP_DUMP}.prompt.json`, JSON.stringify(msg.params?.prompt ?? null, null, 2));
+  }
+  if (process.env.FAKE_ACP_PROMPTS_FILE) {
+    // One JSON line per prompt: the whole conversation the engine was
+    // handed, so a test can assert what it did and did not receive. ACP
+    // carries the system context inside the prompt itself.
+    appendFileSync(process.env.FAKE_ACP_PROMPTS_FILE, JSON.stringify({
+      prompt: msg.params?.prompt ?? null, mode: currentMode, model: currentModel,
+      ...(internal ? { internal } : {}),
+    }) + "\n");
+  }
+  if (!holdAtGate(msg, () => playPrompt(msg))) playPrompt(msg);
+}
+
+function playPrompt(msg: any) {
+  const turnNumber = promptCount;
+  // One answer per prompt: a session/cancel that ended the turn first
+  // silences whatever the mode would still have sent.
+  const turn = { settled: false };
+  const settle = () => {
+    if (turn.settled) return false;
+    turn.settled = true;
+    cancelTurn = null;
+    return true;
+  };
+  // A turn that waits on something (a gate file, a tool plan) ends at once
+  // on session/cancel with stopReason cancelled, as the ACP spec asks.
+  const cancellable = (cleanup: () => void = () => {}) => {
+    cancelTurn = () => {
+      if (!settle()) return;
+      cleanup();
+      recordMethod("session/prompt.cancelled");
+      result(msg.id, { stopReason: "cancelled", _meta: {} });
+    };
+  };
+  if (failRpc(msg)) return;
+  const failText = process.env.FAKE_ACP_FAIL_WHEN;
+  if (mode === "fail-turn" || (failText && promptTextOf(msg.params?.prompt).includes(failText))) {
+    // A routine failure: no output at all, then either a JSON-RPC error or,
+    // with FAKE_ACP_FAIL_STOP_REASON, a non-end_turn stop (still not ok).
+    emitUsageUpdates();
+    const stopReason = process.env.FAKE_ACP_FAIL_STOP_REASON;
+    if (stopReason) {
+      recordMethod("session/prompt.result");
+      result(msg.id, promptResult(stopReason, turnNumber, msg.params?.prompt));
+      return;
+    }
+    recordMethod("session/prompt.error");
+    out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: process.env.FAKE_ACP_FAIL_MESSAGE ?? "fake acp: turn failed" } });
+    return;
+  }
+  if (mode === "hang") {
+    // never resolve the prompt on our own — lets tests exercise interrupt
+    hangingPromptId = msg.id;
+    hangKeepAlive = setInterval(() => {}, 1_000);
+    return;
+  }
+  if (mode === "stall-after-text") {
+    // Stream a chunk, then go fully silent forever: no updates, no result,
+    // no exit. This is the shape of a wedged OpenCode agent that stopped
+    // mid-answer — the driver's prompt idle guard must fail the turn on
+    // its own, because nothing else will ever arrive.
+    out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "half an answer, then silence" } } } });
+    hangingPromptId = msg.id;
+    hangKeepAlive = setInterval(() => {}, 1_000);
+    return;
+  }
+  if (mode === "fail-after-text") {
+    // Stream real text, THEN fail the turn — the shape of a crash
+    // mid-answer. This is the one case where the routine-failed/done
+    // notification dedup is load-bearing: the reply is non-empty, so
+    // nothing else suppresses the generic done.
+    out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "half a report, then a crash" } } } });
+    recordMethod("session/prompt.error");
+    out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: "fake acp: turn failed after streaming" } });
+    return;
+  }
+  const complete = () => {
+    if (!settle()) return;
+    emitUsageUpdates();
+    recordMethod("session/prompt.result");
+    result(msg.id, promptResult("end_turn", turnNumber, msg.params?.prompt));
+  };
+  if (toolPlan) {
+    const sessionId = msg.params?.sessionId;
+    const fail = (error: unknown) => {
+      if (!settle()) return;
+      recordMethod("session/prompt.error");
+      out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: `fake acp tool plan: ${error instanceof Error ? error.message : String(error)}` } });
+    };
+    let planBot: string | null = null;
+    try {
+      planBot = toolPlan.acpPlanBot(toolPlanPath, sessionMcp, msg.params?.prompt, process.env.FAKE_ACP_PLAN_BOT);
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    if (planBot) {
+      const abort = new AbortController();
+      cancellable(() => abort.abort());
+      void toolPlan.runAcpToolPlan({
+        planPath: toolPlanPath, botId: planBot, servers: sessionMcp, prompt: msg.params?.prompt, sessionId,
+        signal: abort.signal,
+        update: (update) => {
+          if (!turn.settled) out({ jsonrpc: "2.0", method: "session/update", params: { sessionId, update } });
+        },
+      }).then((reply) => {
+        if (turn.settled) return;
+        if (typeof reply === "string" && reply) {
+          out({ jsonrpc: "2.0", method: "session/update", params: { sessionId, update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: reply } } } });
+        }
+        complete();
+      }, fail);
+      return;
+    }
+  }
+  if (mode === "quiet-then-answer") {
+    const lines: string[] = process.env.FAKE_ACP_QWEN_LOG ? JSON.parse(process.env.FAKE_ACP_QWEN_LOG) : [];
+    let logTimer: ReturnType<typeof setInterval> | null = null;
+    if (lines.length && process.env.QWEN_HOME && liveSession) {
+      const dir = `${process.env.QWEN_HOME}/debug`;
+      mkdirSync(dir, { recursive: true });
+      let i = 0;
+      logTimer = setInterval(() => {
+        appendFileSync(`${dir}/${liveSession}.txt`, `${new Date().toISOString()} ${lines[Math.min(i++, lines.length - 1)]}\n`);
+      }, Number(process.env.FAKE_ACP_LOG_EVERY_MS ?? 100));
+    }
+    setTimeout(() => {
+      if (logTimer) clearInterval(logTimer);
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "done" } } } });
+      complete();
+    }, Number(process.env.FAKE_ACP_QUIET_MS ?? 600));
+    return;
+  }
+  if (mode === "slow-tool" || mode === "stall-after-tool") {
+    const tool = (update: Record<string, unknown>) =>
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { toolCallId: "tc-slow", ...update } } });
+    // ACP's default status is pending: this tool_call carries none.
+    tool({ sessionUpdate: "tool_call", title: "sleep", rawInput: { command: "sleep 45 && echo done" } });
+    tool({ sessionUpdate: "tool_call_update", status: "in_progress" });
+    const finish = () => tool({ sessionUpdate: "tool_call_update", status: "completed", rawOutput: { output: "done" } });
+    if (mode === "stall-after-tool") {
+      finish();
+      hangingPromptId = msg.id;
+      hangKeepAlive = setInterval(() => {}, 1_000);
+      return;
+    }
+    setTimeout(() => {
+      finish();
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "done" } } } });
+      complete();
+    }, Number(process.env.FAKE_ACP_TOOL_MS ?? 600));
+    return;
+  }
+  if (mode === "unkeyed-tool") {
+    // An agent that violates the ACP spec by omitting toolCallId. The SDK
+    // rejects that notification before the runtime sees it (toolCallId is
+    // required by the schema), so this mode cannot reach any consumer and
+    // is kept only to document the shape that is refused.
+    out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "tool_call", title: "run", rawInput: { command: "echo done" } } } });
+    complete();
+    return;
+  }
+  const promptText = String(msg.params?.prompt?.[0]?.text ?? "");
+  // A delegated reply woke this bot (control-plane continuation): the
+  // harness revived it to fold the result in. Synthesize instead of
+  // driving the mode's usual delegate/ask flow, which would loop or
+  // re-ask for approval on a turn the user did not initiate.
+  const wokeFromDelegation = promptText.includes("[A delegated task just completed]")
+    || promptText.includes("[A delegated task failed]");
+  if (wokeFromDelegation) {
+    fakeLog("branch: wokeFromDelegation");
+    const failed = promptText.includes("[A delegated task failed]");
+    const sawResult = promptText.includes("replied to the delegated task");
+    out({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            text: failed
+              ? "woke after delegation failure: will tell the user"
+              : sawResult
+                ? "woke after delegation: saw the result"
+                : "woke after delegation: no result",
+          },
+        },
+      },
+    });
+    complete();
+    return;
+  }
+  if (mode === "chief-delegate" && agentsMcp && promptText.includes("CHECK_STATUS")) {
+    fakeLog(`branch: CHECK_STATUS savedTaskId=${JSON.stringify(savedDelegatedTaskId())}`);
+    const savedTaskId = savedDelegatedTaskId();
+    if (!savedTaskId) {
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "status check skipped: no delegated task id" } } } });
+      complete();
+      return;
+    }
+    void driveMcp(agentsMcp, [
+      {
+        name: "check_delegation",
+        args: () => ({ task_id: savedTaskId }),
+      },
+    ])
+      .then((reply) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `status: ${reply}` } } } });
+        complete();
+      })
+      .catch((e) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `status error: ${(e as Error).message}` } } } });
+        complete();
+      });
+    return;
+  }
+  if (mode === "chief-delegate" && promptText.includes("CHIEF_RESULT_CONTEXT")) {
+    const sawDelegatedResult =
+      promptText.includes("@LongWorker replied to the delegated task")
+      && promptText.includes("long delegated task");
+    out({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: {
+            text: sawDelegatedResult
+              ? "chief saw delegated result: long delegated task"
+              : "chief did not see delegated result",
+          },
+        },
+      },
+    });
+    complete();
+    return;
+  }
+  if (
+    mode === "chief-delegate"
+    && agentsMcp
+    && promptText.includes("ASSIGN_TO_PEER")
+    && !promptText.includes("CHIEF_FOLLOW_UP")
+  ) {
+    void driveMcp(agentsMcp, [
+      { name: "list_bots", args: () => ({}) },
+      {
+        name: "delegate_bot",
+        args: (list) => ({
+          bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "",
+          message: "long delegated task",
+          reason: "background assignment",
+        }),
+      },
+    ])
+      .then((reply) => {
+        rememberDelegatedTaskId(/Task id: ([\w-]+)/.exec(reply)?.[1] ?? "");
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `assigned: ${reply}` } } } });
+        complete();
+      })
+      .catch((e) => {
+        const message = e instanceof Error ? e.message : String(e);
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegate error: ${message}` } } } });
+        complete();
+      });
+    return;
+  }
+  if (mode === "mcp-tools") {
+    const handshake = process.env.FAKE_ACP_MCP_HANDSHAKE ? JSON.parse(process.env.FAKE_ACP_MCP_HANDSHAKE) : GROK_MCP_HANDSHAKE;
+    void Promise.all(sessionMcp.map((entry) => listMcpTools(entry, handshake).then(
+      (tools) => `${entry.name}: ${tools.join(",")}`,
+      (error: Error) => `${entry.name} failed: ${error.message}`,
+    ))).then((lines) => {
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: lines.join("\n") } } } });
+      complete();
+    });
+    return;
+  }
+  if (mode === "ask-peer" && agentsMcp) {
+    // the comms e2e: reach a peer bot through the injected agents proxy
+    // and reply with whatever it said (the peer's fake runs plain happy
+    // — its depth-1 turn gets no agents server, so no recursion)
+    void driveMcp(agentsMcp, [
+      { name: "list_bots", args: () => ({}) },
+      {
+        name: "ask_bot",
+        args: (list) => ({ bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "", message: "ping from fake" }),
+      },
+    ])
+      .then((reply) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `peer says: ${reply}` } } } });
+        complete();
+      })
+      .catch((e) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `peer error: ${(e as Error).message}` } } } });
+        complete();
+      });
+    return;
+  }
+  if (mode === "create-peer" && agentsMcp) {
+    void driveMcp(agentsMcp, [
+      {
+        name: "create_bot",
+        args: () => ({
+          name: "Pixel",
+          role: "Product designer",
+          instructions: "Design and review the user experience.",
+        }),
+      },
+      {
+        name: "delegate_bot",
+        args: (created) => ({
+          bot_id: /id: ([\w-]+)/.exec(created)?.[1] ?? "",
+          message: "Review the new onboarding flow.",
+          reason: "design review",
+        }),
+      },
+    ])
+      .then((reply) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `team created: ${reply}` } } } });
+        complete();
+      })
+      .catch((e) => {
+        const message = e instanceof Error ? e.message : String(e);
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `create error: ${message}` } } } });
+        complete();
+      });
+    return;
+  }
+  if (mode === "echo-gated") {
+    // echoing the WHOLE prompt (system + turn text) lets a test assert
+    // both what a drained turn was sent and what it was NOT sent (e.g.
+    // the webhook untrusted-data paragraph a steered turn must not get)
+    // The ACP runtime sends app context and the person's words as separate
+    // text blocks, so echo every block, not only the first.
+    const wholePrompt = ((msg.params?.prompt ?? []) as Array<{ text?: unknown }>)
+      .map((block) => typeof block?.text === "string" ? block.text : "").filter(Boolean).join("\n\n");
+    const finish = () => {
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `echo: ${wholePrompt}` } } } });
+      complete();
+    };
+    const gate = process.env.FAKE_ACP_GATE_FILE;
+    const started = process.env.FAKE_ACP_STARTED_FILE;
+    if (started) writeFileSync(started, String(Date.now()));
+    if (gate && !existsSync(gate)) {
+      const poll = setInterval(() => {
+        if (!existsSync(gate)) return;
+        clearInterval(poll);
+        finish();
+      }, 50);
+      cancellable(() => clearInterval(poll));
+      return;
+    }
+    finish();
+    return;
+  }
+  if (mode === "delegate-peer" && agentsMcp) {
+    // async peer-handoff e2e: queue the delegation and return
+    // immediately; the harness fires the peer's depth-1 turn after our
+    // turn settles. We don't need the peer's reply in our text — the
+    // comms e2e verifies the channel mirroring on its own.
+    void driveMcp(agentsMcp, [
+      { name: "list_bots", args: () => ({}) },
+      {
+        name: "delegate_bot",
+        args: (list) => ({
+          bot_id: /id: ([\w-]+)/.exec(list)?.[1] ?? "",
+          message: "delegated task",
+          reason: "followup",
+        }),
+      },
+    ])
+      .then((reply) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegated: ${reply}` } } } });
+        complete();
+      })
+      .catch((e) => {
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `delegate error: ${(e as Error).message}` } } } });
+        complete();
+      });
+    return;
+  }
+  if (mode === "image") {
+    out({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "image", data: ONE_PIXEL_PNG, mimeType: "image/png" },
+        },
+      },
+    });
+  } else if (mode === "interleave") playInterleaveTurn();
+  else if (mode === "reasoning-only") playReasoningTurn();
+  else if (mode !== "empty-reply") playTurn();
+  if (mode === "safe-agent-reads" && agentsMcp) {
+    const entry = agentsMcp;
+    // Deliberately independent of the app's policy catalog. These are the
+    // two exact calls in the reported regression, repeated in one turn.
+    void (async () => {
+      for (const name of ["list_bots", "session_search", "list_bots"]) {
+        const nativeAuto = ["--permission-mode", "--approval-mode"].some((flag) => argv.includes(flag) && argv[argv.indexOf(flag) + 1] === "auto");
+        if (!nativeAuto) {
+          const allowed = await new Promise<boolean>((resolve) => {
+            pendingPermissionId = 9100;
+            onPermissionAnswered = resolve;
+            out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
+              sessionId: String(liveSession),
+              toolCall: { toolCallId: `fixture-${name}`, kind: "other", title: `agents__${name}`, rawInput: {} },
+              options: [{ optionId: "allow-once", kind: "allow_once", name: "Allow once" }, { optionId: "reject", kind: "reject_once", name: "Reject" }],
+            } });
+          });
+          if (!allowed) { complete(); return; }
+        }
+        const text = await driveMcp(entry, [{ name, args: () => name === "session_search" ? { query: "approval fixture" } : {} }], true);
+        out({ jsonrpc: "2.0", method: "session/update", params: { update: {
+          sessionUpdate: "agent_message_chunk", content: { text: `${name}: ${text}\n` },
+        } } });
+      }
+      complete();
+    })().catch((error) => out({ jsonrpc: "2.0", id: msg.id, error: { code: -32000, message: String(error) } }));
+    return;
+  }
+  if (mode === "permission") {
+    // ask the client to approve a tool, then — like a real agent once its
+    // card is answered — close the turn with a visible reply instead of
+    // ending bare (a bare end_turn is the lost-turn failure, not a success)
+    pendingPermissionId = 9001;
+    onPermissionAnswered = () => {
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "handled the permission decision" } } } });
+      complete();
+    };
+    out({
+      jsonrpc: "2.0",
+      id: pendingPermissionId,
+      method: "session/request_permission",
+      params: {
+        sessionId: String(liveSession),
+        toolCall: process.env.FAKE_ACP_PERMISSION_TOOL_CALL
+          ? JSON.parse(process.env.FAKE_ACP_PERMISSION_TOOL_CALL)
+          : { toolCallId: "tc-permission", kind: "execute", rawInput: { command: "echo hi" }, title: "echo hi" },
+        options: process.env.FAKE_ACP_PERMISSION_OPTIONS ? JSON.parse(process.env.FAKE_ACP_PERMISSION_OPTIONS) : [
+          { optionId: "allow-once", kind: "allow_once", name: "Allow once" },
+          // Grok offers a session-wide allow on some requests and omits
+          // it on others; the driver must cope with both.
+          ...(process.env.FAKE_ACP_ALLOW_ALWAYS ? [{ optionId: "allow-always", kind: "allow_always", name: "Always allow" }] : []),
+          { optionId: "reject", kind: "reject_once", name: "Reject" },
+        ],
+      },
+    });
+    return;
+  }
+  if (mode === "lend-question" && agentsMcp) {
+    const entry = agentsMcp;
+    const list = () => driveMcp(entry, [{ name: "list_shared_computers", args: () => ({}) }]).catch((e) => `error ${(e as Error).message}`);
+    void (async () => {
+      const before = await list();
+      pendingPermissionId = 9003;
+      onPermissionAnswered = () => {
+        void list().then((after) => {
+          out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: `before: ${before} | after: ${after}` } } } });
+          complete();
+        });
+      };
+      out({ jsonrpc: "2.0", id: pendingPermissionId, method: "session/request_permission", params: {
+        sessionId: String(liveSession),
+        toolCall: { toolCallId: "interaction_folder", kind: "other", title: "Which folder should I read?" },
+        options: [{ optionId: "docs-id", kind: "allow_once", name: "Docs" }, { optionId: "other-id", kind: "allow_once", name: "Other" }],
+      } });
+    })();
+    return;
+  }
+  if (mode === "question") {
+    // A question takes the protocol's own form elicitation — the shape the
+    // claude adapter bridges AskUserQuestion to (and the shape an MCP
+    // server asks through), with one `question_<n>` field per question and
+    // its per-question "Other" companion beside it.
+    pendingElicitationId = 9002;
+    onElicitationAnswered = () => {
+      out({ jsonrpc: "2.0", method: "session/update", params: { update: { sessionUpdate: "agent_message_chunk", content: { text: "answered the question" } } } });
+      complete();
+    };
+    out({
+      jsonrpc: "2.0",
+      id: pendingElicitationId,
+      method: "elicitation/create",
+      params: {
+        mode: "form",
+        sessionId: String(liveSession),
+        message: process.env.FAKE_ACP_QUESTION_MESSAGE ?? "Which color?",
+        requestedSchema: process.env.FAKE_ACP_QUESTION_SCHEMA ? JSON.parse(process.env.FAKE_ACP_QUESTION_SCHEMA) : {
+          type: "object",
+          properties: {
+            question_0: {
+              type: "string",
+              oneOf: [
+                { const: "Blue", title: "Blue" },
+                { const: "Green", title: "Green" },
+              ],
+            },
+            question_0_custom: { type: "string", title: "Other" },
+          },
+        },
+      },
+    });
+    return;
+  }
+  if (mode === "ask-question-unsupported") {
+    // cursor/ask_question is deliberately unwired in the driver: its wire
+    // shape is unverified, so it must be rejected method-not-found rather
+    // than answered with a guessed shape. Complete only after the
+    // rejection arrives, so a test can await turn.completed.
+    pendingAskQuestionId = 9300;
+    onAskQuestionAnswered = complete;
+    out({
+      jsonrpc: "2.0",
+      id: pendingAskQuestionId,
+      method: "cursor/ask_question",
+      params: { questions: [{ question: "Which color?", options: ["Blue", "Green"] }] },
+    });
+    return;
+  }
+  complete();
 }

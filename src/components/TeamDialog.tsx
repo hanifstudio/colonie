@@ -41,7 +41,7 @@ export function TeamDialog({ section, rename = false, onClose, onRenamed }: {
   const unchanged = managing ? !addBotIds.length && !removeBotIds.length : moving && !picked.size;
   const save = async () => {
     if (saving || (!moving && !name.trim()) || unchanged) return;
-    if (section === undefined && [...(state.sections ?? []), ...state.bots.map((bot) => bot.section), ...state.groups.map((group) => group.section)].includes(name.trim())) {
+    if (section === undefined && [...(state.sections ?? []), ...state.bots.map((bot) => bot.section)].includes(name.trim())) {
       setError(t("team.duplicate"));
       return;
     }

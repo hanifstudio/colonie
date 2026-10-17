@@ -18,8 +18,6 @@ import { cacheUntilConfigChanges,
   parseConfigPatch,
   parseStoredConfig,
   persistableInstanceConfigs,
-  roomHandoffLimits,
-  roomTurnTimeoutMinutes,
   mcpCallTimeoutMinutes,
   maxConcurrentBotThreads,
   threadEventLogMaxBytes,
@@ -229,18 +227,18 @@ describe("configuration boundaries", () => {
     expect(() => parseConfigPatch({ defaultModelSelection })).toThrow("defaultModelSelection");
   });
 
-  it("exposes room handoff lifetime limits from config with the current defaults", () => {
-    const configured = parseStoredConfig({
-      rooms: { turnTimeoutMinutes: 20, handoffLifetimeMinutes: 60, handoffMinRunwayMinutes: 15, handoffHardCapMinutes: 360 },
-    });
-    expect(roomHandoffLimits(configured)).toEqual({
-      lifetimeMs: 60 * 60_000, minRunwayMs: 15 * 60_000, hardCapMs: 360 * 60_000,
-    });
-    expect(roomHandoffLimits(parseStoredConfig({}))).toEqual({
-      lifetimeMs: 30 * 60_000, minRunwayMs: 10 * 60_000, hardCapMs: 240 * 60_000,
-    });
-    expect(() => parseStoredConfig({ rooms: { turnTimeoutMinutes: 20, handoffMinRunwayMinutes: 10, handoffLifetimeMinutes: 5 } }))
-      .toThrow("rooms handoff bounds must satisfy handoffMinRunwayMinutes <= handoffLifetimeMinutes <= handoffHardCapMinutes");
+  it("keeps loading a config that still holds the retired rooms section", () => {
+    // Rooms are retired: whatever an old file stored under `rooms` (even
+    // values the old schema refused) must not fail the load or reach readers.
+    for (const rooms of [
+      { turnTimeoutMinutes: 20, handoffLifetimeMinutes: 60, handoffMinRunwayMinutes: 15, handoffHardCapMinutes: 360 },
+      { turnTimeoutMinutes: 20, handoffMinRunwayMinutes: 10, handoffLifetimeMinutes: 5 },
+      { turnTimeoutMinutes: 0 },
+      "20",
+    ]) {
+      expect(parseStoredConfig({ profile: { name: "Ada" }, rooms } as Parameters<typeof parseStoredConfig>[0])).toEqual({ profile: { name: "Ada" } });
+    }
+    expect(parseConfigPatch({ rooms: { turnTimeoutMinutes: 20 } })).toEqual({});
   });
 
   it("canonicalizes legacy browser profile ids without dropping other stored settings", () => {
@@ -255,7 +253,6 @@ describe("configuration boundaries", () => {
       instances: { claude: { driver: "claudeAgent", config: { cli: "/opt/claude" } } },
     })).toEqual({
       profile: { name: "Ada", email: "ada@example.com" },
-      rooms: { turnTimeoutMinutes: 20 },
       features: { browser: true },
       browserProfiles: [
         { id: "work", name: "Work", partitionId: "Work" },
@@ -476,23 +473,6 @@ describe("configuration boundaries", () => {
     expect(browserEngineAttachCdpUrl({ browserEngine: { attachCdpUrl: "" } })).toBeNull();
   });
 
-  it("accepts a persisted global room turn timeout and supplies the legacy default", () => {
-    expect(parseStoredConfig({ rooms: { turnTimeoutMinutes: 20 } })).toEqual({
-      rooms: { turnTimeoutMinutes: 20 },
-    });
-    expect(roomTurnTimeoutMinutes({ rooms: { turnTimeoutMinutes: 20 } })).toBe(20);
-    expect(roomTurnTimeoutMinutes({})).toBe(5);
-  });
-
-  it.each([0, 1.5, 1441, "20", null])(
-    "rejects an invalid room turn timeout: %j",
-    (turnTimeoutMinutes) => {
-      expect(() => parseConfigPatch({ rooms: { turnTimeoutMinutes } })).toThrow(
-        "rooms.turnTimeoutMinutes",
-      );
-    },
-  );
-
   it("accepts a persisted MCP call timeout and supplies the legacy default", () => {
     expect(parseStoredConfig({ mcp: { callTimeoutMinutes: 30 } })).toEqual({
       mcp: { callTimeoutMinutes: 30 },
@@ -664,6 +644,8 @@ describe("a config.json saved with a byte order mark", () => {
     writeFileSync(path, bom + JSON.stringify({
       xai: { key: "xai-fixture" },
       mcpServers: { notes: { command: "npx", args: ["notes-mcp"] } },
+      // Retired, but never rewritten away from an existing file.
+      rooms: { turnTimeoutMinutes: 20, handoffLifetimeMinutes: 60 },
     }, null, 2));
     try {
       saveConfig({ budgets: { monthlyUsd: 25, warnAtPercent: 70 } });
@@ -671,6 +653,7 @@ describe("a config.json saved with a byte order mark", () => {
       expect(disk).toMatchObject({
         xai: { key: "xai-fixture" },
         mcpServers: { notes: { command: "npx", args: ["notes-mcp"] } },
+        rooms: { turnTimeoutMinutes: 20, handoffLifetimeMinutes: 60 },
         budgets: { monthlyUsd: 25, warnAtPercent: 70 },
       });
     } finally {

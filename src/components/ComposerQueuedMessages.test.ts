@@ -30,8 +30,8 @@ describe("double-Enter steer gesture", () => {
     // nothing new queued: not a second-Enter moment
     expect(doubleEnterSteerWindowExpiresAt(1, 1, true, true, now)).toBeNull();
     expect(doubleEnterSteerWindowExpiresAt(2, 1, true, true, now)).toBeNull();
-    // idle threads and engines without live steering never open it; rooms
-    // share the gesture, so capability alone decides
+    // idle threads and engines without live steering never open it:
+    // capability alone decides
     expect(doubleEnterSteerWindowExpiresAt(0, 1, false, true, now)).toBeNull();
     expect(doubleEnterSteerWindowExpiresAt(0, 1, true, false, now)).toBeNull();
   });
@@ -117,37 +117,35 @@ describe("QueuedComposerMessages", () => {
     expect(interruptMarkup).not.toContain("aria-label=\"Steer queued message now\"");
   });
 
-  it("capable room chips offer the live head steer, one message at a time", () => {
+  it("capable engines offer the live head steer for every queued message", () => {
     const markup = renderToStaticMarkup(
       createElement(QueuedComposerMessages, {
         items: [
-          { queueId: "q1", text: "first queued in the room" },
-          { queueId: "q2", text: "second queued in the room" },
+          { queueId: "q1", text: "first queued" },
+          { queueId: "q2", text: "second queued" },
         ],
         onSteer: () => undefined,
-        steerMode: "next",
         onCancel: () => undefined,
       }),
     );
-    expect(markup).toContain("aria-label=\"Steer the next queued message now\"");
+    expect(markup).toContain("aria-label=\"Steer all 2 queued messages now\"");
     expect(markup).not.toContain("Stop the running turn");
   });
 
-  it("room chips whose engine cannot steer live say the interrupt truth", () => {
+  it("engines that cannot steer live say the interrupt truth", () => {
     const markup = renderToStaticMarkup(
       createElement(QueuedComposerMessages, {
         items: [
-          { queueId: "q1", text: "first queued in the room" },
-          { queueId: "q2", text: "second queued in the room" },
+          { queueId: "q1", text: "first queued" },
+          { queueId: "q2", text: "second queued" },
         ],
         onSteer: () => undefined,
-        steerMode: "next",
         steerInterrupts: true,
         onCancel: () => undefined,
       }),
     );
-    expect(markup).toContain("aria-label=\"Stop the running turn and send the next queued message now\"");
-    expect(markup).not.toContain("aria-label=\"Steer the next queued message now\"");
+    expect(markup).toContain("aria-label=\"Stop the running turn and send all 2 queued messages now\"");
+    expect(markup).not.toContain("aria-label=\"Steer all 2 queued messages now\"");
   });
 
   it("puts the queue-level Steer action on the head only and keeps every delete distinct", () => {
@@ -158,7 +156,6 @@ describe("QueuedComposerMessages", () => {
           { queueId: "q2", text: "second" },
         ],
         onSteer: () => undefined,
-        steerMode: "all",
         onCancel: () => undefined,
       }),
     );
@@ -167,23 +164,6 @@ describe("QueuedComposerMessages", () => {
     expect(markup.match(/>Steer all</g)).toHaveLength(1);
     expect(markup).toContain('aria-label="Delete queued message 1 of 2"');
     expect(markup).toContain('aria-label="Delete queued message 2 of 2"');
-  });
-
-  it("describes room steering as advancing the next queued message", () => {
-    const markup = renderToStaticMarkup(
-      createElement(QueuedComposerMessages, {
-        items: [
-          { queueId: "q1", text: "first" },
-          { queueId: "q2", text: "second" },
-        ],
-        onSteer: () => undefined,
-        steerMode: "next",
-        onCancel: () => undefined,
-      }),
-    );
-
-    expect(markup).toContain('aria-label="Steer the next queued message now"');
-    expect(markup).toContain("Steer next");
   });
 
   it("omits Steer when this conversation cannot be interrupted", () => {

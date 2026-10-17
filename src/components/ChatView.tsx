@@ -52,7 +52,6 @@ import {
 import { EngineSetup } from "./EngineSetup";
 import { CHATGPT_USAGE_URL } from "./ChatGptPlanStatus";
 import { openExternalLink } from "@/lib/app-links";
-import { ClaudeUpdatePrompt } from "./ClaudeUpdatePrompt";
 import { MacCuaRecoveryActions } from "./MacCuaRecoveryActions";
 import { macCuaPermissionMessage, missingMacCuaPermissions } from "@/lib/mac-cua-permissions";
 import { failedTurnCause, signedOutEngine } from "@/lib/failed-turn";
@@ -201,8 +200,7 @@ function DaySeparator({ at, today }: { at: number; today: number }) {
   );
 }
 
-/** Hover/focus-revealed copy control shared by user + bot bubbles. Rooms use
- * the same button beside a message. */
+/** Hover/focus-revealed copy control shared by user + bot bubbles. */
 export function CopyButton({ text, className }: { text: string; className?: string }) {
   const { state, copy } = useCopyFeedback(text);
   const label = t(state === "copied" ? "chat.copyMessageDone" : state === "failed" ? "chat.copyMessageFailed" : "chat.copyMessage");
@@ -237,7 +235,6 @@ export function ErrorRow({
   onRetry,
   action,
   setupInstance,
-  claudeUpdateInstance,
 }: {
   message: string;
   /** A plain sentence to open with instead of `message` (FailedTurnRow's
@@ -248,9 +245,6 @@ export function ErrorRow({
    * place of Retry; null for a place with nothing to do here. */
   action?: { label: string; onClick: () => void } | null;
   setupInstance?: InstanceInfo;
-  /** The Claude engine to update when this turn failed because its Claude
-   * Code is too old for the model. */
-  claudeUpdateInstance?: InstanceInfo;
 }) {
   const { capabilities, ready } = useDesktopCapabilities();
   const failedPermissions = missingMacCuaPermissions(message);
@@ -276,8 +270,6 @@ export function ErrorRow({
           <a href={CHATGPT_USAGE_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex rounded-lg bg-ink px-3 py-1.5 text-[12.5px] font-medium text-app" onClick={(event) => {
             if (window.colonie?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
           }}>{t("engineSetup.chatgpt.manageUsage")}</a>
-        ) : claudeUpdateInstance ? (
-          <ClaudeUpdatePrompt instance={claudeUpdateInstance} onRetry={onRetry} />
         ) : isProviderSafetyBlock(message) ? (
           <p className="mt-2 text-[12.5px] leading-relaxed text-ink-secondary">
             {PROVIDER_SAFETY_GUIDANCE}{" "}
@@ -333,14 +325,8 @@ function PlaceFailedRow({ place, botId, threadId, onRetry }: {
   return <ErrorRow message={view.line} action={view.action && onClick ? { label: view.action.label, onClick } : null} />;
 }
 
-/** Only a local, editable Claude Code engine can be updated from chat. */
-export function claudeUpdateTarget(engine: InstanceInfo | undefined): InstanceInfo | undefined {
-  return engine?.driverKind === "claudeAgent" ? engine : undefined;
-}
-
-/** A failed turn's stored row ("error: …", src/lib/failed-turn.ts), shown
- * the same in a 1:1 chat and a room: the server writes the same row for both,
- * so both read it here. `engine` is the one the turn ran on — what its
+/** A failed turn's stored row ("error: …", src/lib/failed-turn.ts), as the
+ * server writes it. `engine` is the one the turn ran on — what its
  * sign-in or update card acts on. A place that could not be used is worded
  * again from its stored state, in this reader's language and role. */
 export function FailedTurnRow({ tool, engine, onRetry, botId, threadId }: {
@@ -359,13 +345,12 @@ export function FailedTurnRow({ tool, engine, onRetry, botId, threadId }: {
       headline={signedOut && t("chat.error.signedOut", { name: signedOut.displayName })}
       onRetry={onRetry}
       setupInstance={tool.setup ? engine : undefined}
-      claudeUpdateInstance={tool.claudeUpdate ? claudeUpdateTarget(engine) : undefined}
     />
   );
 }
 
 /** One bad markdown node must not white-screen the app — the transcript
- * degrades to a plain-text bubble instead. Rooms use the same boundary. */
+ * degrades to a plain-text bubble instead. */
 export class MessageBoundary extends Component<{ children: ReactNode; fallbackText: string }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
@@ -744,10 +729,10 @@ const Bubble = memo(function Bubble({
   );
 });
 
-/** Who wrote a relayed line and how it arrived, above the bubble — the
- * same shape as a room's cluster label. Looked up by id, then by name for
- * rows that predate Message.peerAsk; a peer since renamed or deleted still
- * shows the name the line carries. Renders with its bubble. */
+/** Who wrote a relayed line and how it arrived, above the bubble. Looked up
+ * by id, then by name for rows that predate Message.peerAsk; a peer since
+ * renamed or deleted still shows the name the line carries. Renders with its
+ * bubble. */
 function PeerLabel({ peer }: { peer: PeerLine }) {
   const { bots } = useChatRows();
   const author =
@@ -780,14 +765,14 @@ const ActivityChip = memo(function ActivityChip({ message, place = "auto" }: { m
   const tool = message.tool;
   if (!tool) return null;
   if (message.threadRef) return <ThreadChip message={message} />;
-  // bot⇄bot comm chip: opens the channel where the exchange lives
+  // Legacy bot⇄bot comm chip: opens the other bot
   const comm = message.comm;
   if (comm) {
     const withBot = bots.find((b) => b.id === comm.withBotId);
     return (
       <div className="flex justify-start">
         <button
-          onClick={() => dispatch({ type: "select", id: comm.groupId })}
+          onClick={() => dispatch({ type: "select", id: comm.withBotId })}
           title={t("chat.openConversationWith", { name: comm.withName })}
           className="flex items-center gap-2 rounded-full border border-hairline/40 bg-panel px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
         >
@@ -1319,7 +1304,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
 
   const routineExecution = state.routineRuns.find((run) => run.target === "bot" && run.botId === bot.id && run.threadId === bot.threadId);
   const resultsThreadId = routineExecution?.resultsThreadId ?? routineExecution?.sourceThreadId;
-  const canOpenResults = resultsThreadId && [...state.bots, ...state.groups].some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId));
+  const canOpenResults = resultsThreadId && state.bots.some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId));
 
   return (
     <main className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
@@ -1329,8 +1314,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           hang from it), which is liquid glass tinted with the chat's own
           background, and under the composer, which already floats. */}
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
-      {/* Above anything raised inside the transcript (the room set-up card
-          is z-20 so its menus clear the composer), below the CallOverlay (z-30). */}
+      {/* Above anything raised inside the transcript, below the CallOverlay (z-30). */}
       <GlassBar edge="top" className="z-[25]">
       {/* Header */}
       <div
@@ -1421,7 +1405,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               {bot.busy && <WorkingDots className="text-ink-secondary" />}
             </button>
           ))}
-          {!bot.busy && bot.waitingForTeammates && <span className="truncate text-[12px] text-ink-secondary" role="status">Teammates working</span>}
         </div>
         <div
           data-chathead-controls
@@ -1431,7 +1414,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           // buttons clear the 26px overlay while the rest of the layout stays.
           style={controlsShiftStyle}
         >
-          {(bot.busy || bot.waitingForTeammates) && (
+          {bot.busy && (
             <button
               onClick={() => dispatch({ type: "interrupt", botId: bot.id, threadId: bot.threadId })}
               className={cn(

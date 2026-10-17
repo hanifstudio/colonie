@@ -1,7 +1,7 @@
 import { Children, createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppState, Bot, Group } from "@/state/store";
+import type { AppState, Bot } from "@/state/store";
 import type { Routine, RoutineRun } from "@/lib/routines";
 
 const fixture = vi.hoisted(() => {
@@ -33,14 +33,6 @@ const bot: Bot = {
     { threadId: "execution", title: "Run details", createdAt: 1, routineRunId: "run", busy: false },
     { threadId: "new-results", title: "New destination", createdAt: 2 },
     { threadId: "original-source", title: "Original conversation", createdAt: 0 },
-  ],
-};
-const group: Group = {
-  id: "room", threadId: "current-room-thread", name: "Team", memberIds: [bot.id],
-  createdAt: 0, messages: [], unread: false, defaultResponder: { kind: "mentions" }, bulletin: "",
-  tasks: [
-    { threadId: "current-room-thread", title: "Current", createdAt: 2 },
-    { threadId: "original-room-source", title: "Original request", createdAt: 0 },
   ],
 };
 const routine: Routine = {
@@ -81,14 +73,14 @@ function details(receipt: RoutineRun | null = run, definition: Routine | null = 
   const onClose = vi.fn();
   const buttons = buttonsFrom(() => EventDetails({
     item: { kind: "routine", id: receipt?.id ?? definition!.id, at: 100, durationMinutes: 30, routine: definition, run: receipt },
-    bots: [bot], onClose, onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenRoom: vi.fn(),
+    bots: [bot], onClose, onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenChat: vi.fn(),
   }));
   return { buttons, onClose };
 }
 
 beforeEach(() => {
   fixture.dispatch.mockClear();
-  fixture.state = { ...initialState, bots: [bot], groups: [group], routines: [routine], routineRuns: [run] };
+  fixture.state = { ...initialState, bots: [bot], routines: [routine], routineRuns: [run] };
 });
 afterAll(() => vi.unstubAllGlobals());
 
@@ -114,23 +106,13 @@ describe("routine results navigation", () => {
     expect(details({ ...run, sourceThreadId: undefined }).buttons.has("Open results thread")).toBe(false);
   });
 
-  it("opens the original group task from a historical run even when the definition has changed", () => {
-    details({ ...run, sourceThreadId: "original-room-source" }).buttons.get("Open results thread")!.onClick!();
-    expect(fixture.dispatch.mock.calls).toEqual([
-      [{ type: "select", id: group.id }],
-      [{ type: "switchGroupTask", groupId: group.id, threadId: "original-room-source" }],
-    ]);
+  it("does not offer a retired group thread as a run's results", () => {
+    expect(details({ ...run, sourceThreadId: "original-room-source" }).buttons.has("Open results thread")).toBe(false);
   });
 
-  it("returns from an execution chat to its group-owned source task", () => {
+  it("omits Back to results when the source was a retired group thread", () => {
     fixture.state!.routineRuns = [{ ...run, sourceThreadId: "original-room-source" }];
-    const buttons = buttonsFrom(() => ChatView({ bot }));
-    expect(buttons.has("Back to results")).toBe(true);
-    buttons.get("Back to results")!.onClick!();
-    expect(fixture.dispatch.mock.calls).toEqual([
-      [{ type: "select", id: group.id }],
-      [{ type: "switchGroupTask", groupId: group.id, threadId: "original-room-source" }],
-    ]);
+    expect(buttonsFrom(() => ChatView({ bot })).has("Back to results")).toBe(false);
   });
 
   it("omits Back to results when the execution's recorded destination was deleted", () => {

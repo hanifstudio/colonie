@@ -9,7 +9,6 @@ import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { initAnalytics } from "@/lib/analytics";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatView } from "@/components/ChatView";
-import { GroupView } from "@/components/GroupView";
 import { SIDEBAR_AND_PANEL_FIT, TWO_SIDE_PANELS_FIT, useMediaQuery } from "@/lib/use-media-query";
 import { PluginsPanel, preloadConnectedApps } from "@/components/PluginsPanel";
 import {
@@ -33,9 +32,7 @@ import { botShowsUnread } from "@/lib/bot-unread";
 export function Shell() {
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
-  const unreadCount =
-    state.bots.filter((bot) => !bot.hidden && botShowsUnread(bot)).length +
-    state.groups.filter((group) => group.unread).length;
+  const unreadCount = state.bots.filter((bot) => !bot.hidden && botShowsUnread(bot)).length;
   const remoteClient = window.colonie?.remoteClient?.active === true;
   const twoSidePanelsFit = useMediaQuery(TWO_SIDE_PANELS_FIT, true);
   const sidebarAndPanelFit = useMediaQuery(SIDEBAR_AND_PANEL_FIT, true);
@@ -61,8 +58,7 @@ export function Shell() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const previousViewRef = useRef(state.activeView);
   const calendarOriginRef = useRef<"chat" | "team-map">("chat");
-  const group = state.groups.find((g) => g.id === state.selectedId);
-  const bot = group ? undefined : (state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0]);
+  const bot = state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0];
   // A side panel beside the full sidebar leaves the default 1100px window a
   // ~330px chat. Fold the sidebar to its avatar rail for as long as a panel
   // is open and the window is not wide enough for all three.
@@ -115,7 +111,7 @@ export function Shell() {
   // drawer whenever an action opens something over the chat.
   useEffect(() => {
     setDrawerOpen(false);
-  }, [state.selectedId, bot?.threadId, group?.threadId, state.activeView, state.pluginsOpen, state.settingsOpen]);
+  }, [state.selectedId, bot?.threadId, state.activeView, state.pluginsOpen, state.settingsOpen]);
 
   useEffect(() => {
     if (state.activeView === "routines" && previousViewRef.current !== "routines") {
@@ -151,7 +147,7 @@ export function Shell() {
     }
     dispatch({ type: "select", id: state.selectedId });
   }, [dispatch, state.selectedId]);
-  const openCalendarRoom = useCallback((id: string) => {
+  const openCalendarChat = useCallback((id: string) => {
     dispatch({ type: "select", id });
   }, [dispatch]);
 
@@ -234,7 +230,7 @@ export function Shell() {
       {state.activeView === "team-map" ? (
         <TeamMapPage />
       ) : state.activeView === "routines" ? (
-        <RoutinesPage onBack={closeCalendar} onOpenRoom={openCalendarRoom} />
+        <RoutinesPage onBack={closeCalendar} onOpenChat={openCalendarChat} />
       ) : !remoteClient && localVmWorkspaceBotId ? (
         <LocalVmWorkspace
           primaryBotId={localVmWorkspaceBotId}
@@ -244,8 +240,6 @@ export function Shell() {
         />
       ) : noEngines ? (
         <NoEngines />
-      ) : group ? (
-        <GroupView key={group.id} group={group} />
       ) : bot ? (
         <ChatView bot={bot} />
       ) : (

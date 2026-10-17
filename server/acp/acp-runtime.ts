@@ -592,7 +592,7 @@ export class AcpRuntime implements ProviderAdapter {
         // Codex performs filesystem/shell work itself; do not advertise unimplemented host tools.
         clientCapabilities: CLIENT_CAPABILITIES,
       }));
-      const mcpServers = input.acpTools?.servers ?? [];
+      const mcpServers = session.mounts.flatMap((mount) => mount.servers);
       for (const server of mcpServers) {
         if ("type" in server && (server.type === "http" || server.type === "sse") && !session.initialization.agentCapabilities?.mcpCapabilities?.[server.type]) {
           throw new Error(`This ${this.flavor.name} connection does not support ${server.type.toUpperCase()} MCP. Choose a supported connection in app settings.`);
@@ -805,7 +805,7 @@ export class AcpRuntime implements ProviderAdapter {
   }
 
   prepareSettings(input: SendTurnInput): Promise<NativeSettings> {
-    const key = JSON.stringify([input.cwd, input.model, input.resumeCursor, input.approvalMode, input.acpTools?.revision]);
+    const key = JSON.stringify([input.cwd, input.model, input.resumeCursor, input.approvalMode, this.mountRevision(this.mountsOf(input))]);
     const pending = this.discoveries.get(input.threadId);
     if (pending?.key === key) return pending.promise;
     if (pending) return Promise.reject(Object.assign(new Error("Another native-settings discovery is active for this thread"), { status: 409 }));

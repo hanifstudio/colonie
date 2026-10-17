@@ -7,7 +7,7 @@ import { launchVerificationServer, runControlColonie } from "./control-colonie.t
 import { mountPreview, parkUntilSignal, type MountedPreview } from "./testing/preview-fixture.ts";
 
 // Opt in to an actual fake-engine reply containing peer mentions. A shared
-// counter makes subsequent replies plain, so channel handoffs stay bounded; it
+// counter makes subsequent replies plain, so the fixture's replies stay bounded; it
 // lives in this launcher's own scratch directory because the fixture home does
 // not exist until the server is up. The launcher forwards FAKE_CLAUDE_*.
 const reply = "@Juniper please review. @調査担当 確認してください。 @Atlas final check.\n\nReverse: @調査担当 then @Juniper.\n\nPlain prefixes: @調査担当者 @everyone調査. Neutral: @everyone.";
@@ -24,8 +24,6 @@ try {
   for (const name of ["Atlas", "Juniper", "調査担当"]) {
     await runControlColonie(["new-bot", "--name", name, "--url", fixture.info.url]);
   }
-  const { bots } = await fetch(`${fixture.info.url}/api/bots`).then((r) => r.json()) as { bots: Array<{ id: string; name: string }> };
-  await runControlColonie(["new-channel", "--name", "Design review", "--members", bots.map((b) => b.id).join(","), "--url", fixture.info.url]);
   ui = await mountPreview(fixture, {
     entry: "/src/testing/mentions.tsx", route: "/__mentions.html", title: "Isolated mention verification",
   });

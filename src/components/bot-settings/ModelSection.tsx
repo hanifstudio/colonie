@@ -27,7 +27,7 @@ export function ModelSection({ bot }: { bot: Bot }) {
             <div>
               <div className="text-[15px] font-medium text-ink">Default model</div>
               <div className="mt-0.5 text-[13px] text-ink-secondary">
-                {draft ? "Starting model for the new bot and its threads." : "For groups and every thread that uses the bot's model. A thread keeps its own model only when you pick one in it."}
+                {draft ? "Starting model for the new bot and its threads." : "For every thread that uses the bot's model. A thread keeps its own model only when you pick one in it."}
               </div>
               <ProposalStatus bot={bot} kind="chief" />
             </div>
@@ -50,7 +50,7 @@ export function ModelSection({ bot }: { bot: Bot }) {
                 we could not keep for a thread that had already been sent
                 one. Sending nothing is true on every engine. */}
             <div className="mt-0.5 text-[13px] text-ink-secondary">
-              {modelVariants ? (draft ? "Starting reasoning variant for the new bot." : "For groups and every thread that uses the bot's model.") : `How hard this bot thinks in groups and every thread that uses its model${bot.modelSelection.effort ? "" : " (Default: no level is sent)"}`}
+              {modelVariants ? (draft ? "Starting reasoning variant for the new bot." : "For every thread that uses the bot's model.") : `How hard this bot thinks in every thread that uses its model${bot.modelSelection.effort ? "" : " (Default: no level is sent)"}`}
             </div>
             <ProposalStatus bot={bot} kind="chief" />
           </div>

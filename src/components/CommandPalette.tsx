@@ -1,10 +1,10 @@
-// ⌘K switcher: bots and rooms from local state, transcript hits from
+// ⌘K switcher: bots from local state, transcript hits from
 // /api/search. Self-contained — owns its open state and its global chord,
 // so App.tsx only mounts it.
 import { useEffect, useRef, useState } from "react";
-import { BotIcon, MessageSquareIcon, Search01Icon, UsersIcon } from "@hugeicons/core-free-icons";
+import { BotIcon, MessageSquareIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { useStore, type Bot, type Group } from "@/state/store";
+import { useStore, type Bot } from "@/state/store";
 import { rankByName } from "@/lib/palette-rank";
 import { cn } from "@/lib/cn";
 import type { SearchHit } from "@/lib/search-hit";
@@ -12,7 +12,6 @@ import { useTranscriptSearch } from "@/lib/colonie-search";
 
 type PaletteEntry =
   | { kind: "bot"; bot: Bot }
-  | { kind: "room"; group: Group }
   | { kind: "message"; hit: SearchHit };
 
 export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
@@ -84,10 +83,8 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
   if (!open) return null;
 
   const bots = rankByName(state.bots.filter((b) => !b.hidden), q);
-  const rooms = rankByName(state.groups, q);
   const entries: PaletteEntry[] = [
     ...bots.map((bot): PaletteEntry => ({ kind: "bot", bot })),
-    ...rooms.map((group): PaletteEntry => ({ kind: "room", group })),
     // message hits only make sense for a typed query; empty = switcher mode
     ...(q ? messageHits.map((hit): PaletteEntry => ({ kind: "message", hit })) : []),
   ];
@@ -103,7 +100,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
         dispatch({ type: "error", message: error instanceof Error ? error.message : String(error) });
       }
     } else {
-      dispatch({ type: "select", id: entry.kind === "bot" ? entry.bot.id : entry.group.id });
+      dispatch({ type: "select", id: entry.bot.id });
     }
     setOpen(false);
   };
@@ -128,8 +125,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
   };
 
   // flat cursor across sections; each row needs its absolute index
-  const roomOffset = bots.length;
-  const messageOffset = bots.length + rooms.length;
+  const messageOffset = bots.length;
 
   const row = (key: string, index: number, onPick: () => void, children: React.ReactNode, twoLine = false) => (
     <button
@@ -167,7 +163,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search bots, channels, messages…"
+            placeholder="Search bots and messages…"
             className="w-full bg-transparent text-[14px] text-ink placeholder:text-ink-secondary focus:outline-none"
           />
           <kbd className="shrink-0 rounded-md border border-hairline/40 px-1.5 py-0.5 text-[11px] text-ink-secondary">
@@ -196,22 +192,6 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
                 {bot.title && (
                   <span className="min-w-0 truncate text-[12.5px] text-ink-secondary">{bot.title}</span>
                 )}
-              </>,
-            ),
-          )}
-          {rooms.length > 0 && (
-            <div className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
-              Groups
-            </div>
-          )}
-          {rooms.map((group, i) =>
-            row(
-              `room:${group.id}`,
-              roomOffset + i,
-              () => void activate({ kind: "room", group }),
-              <>
-                <HIcon icon={UsersIcon} size={16} className="shrink-0 text-ink-secondary" />
-                <span className="truncate text-[14px] text-ink">{group.name}</span>
               </>,
             ),
           )}

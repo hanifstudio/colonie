@@ -1,5 +1,5 @@
-/** A calendar call opens a shared bot room and posts its seed prompt at the
- * scheduled time. Joining the room never starts audio automatically. */
+/** A calendar call opens a conversation with its bots and posts its seed
+ * prompt at the scheduled time. Joining never starts audio automatically. */
 export type CalendarCallSchedule =
   | { type: "once"; at: number }
   | { type: "daily"; time: string; weekdays: number[] };
@@ -23,7 +23,6 @@ export interface CalendarCall {
   schedule: CalendarCallSchedule;
   durationMinutes: number;
   attachments: CalendarCallAttachment[];
-  roomId?: string;
   nextRunAt: number | null;
   createdAt: number;
   updatedAt: number;

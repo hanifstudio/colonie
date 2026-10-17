@@ -97,13 +97,14 @@ describe("visibility values", () => {
     expect(narrowestAudience([undefined, { people: ["ada@example.test", "bob@example.test"] }, { people: ["ada@example.test"] }])).toEqual({ people: ["ada@example.test"] });
   });
 
-  it("keeps a room at its floor after the bot that set it is gone", () => {
+  it("keeps a stored room from a restricted viewer even when its floor admits them", () => {
     const open = bots.map(({ visibility: _v, ...bot }) => bot);
     const floored = [{ id: "room-old", threadId: "t-room-old", memberIds: ["pub"], audienceFloor: { people: ["ada@example.test"] } }];
     const bob = new VisibleSet(open, floored, BOB);
     expect(bob.everything).toBe(false);
     expect([bob.group("room-old"), bob.thread("t-room-old"), bob.bot("pub")]).toEqual([false, false, true]);
-    expect(new VisibleSet(open, floored, ADA).group("room-old")).toBe(true);
+    expect(new VisibleSet(open, floored, ADA).group("room-old")).toBe(false);
+    expect(new VisibleSet(open, floored, SEES_EVERYTHING).group("room-old")).toBe(true);
     expect(roomFeeds([undefined, floored[0]!.audienceFloor], undefined)).toBe(false);
   });
 
@@ -130,13 +131,13 @@ describe("VisibleSet", () => {
     const bob = new VisibleSet(bots, groups, BOB);
     expect(bob.everything).toBe(false);
     expect([bob.bot("pub"), bob.bot("hr"), bob.bot("adm"), bob.bot("corp"), bob.bot("unknown")]).toEqual([true, false, false, true, false]);
-    // a room needs every one of its bots visible
-    expect([bob.group("room-pub"), bob.group("room-mixed"), bob.group("room-empty")]).toEqual([true, false, false]);
+    // stored rooms are retired history, shown only to a viewer who sees everything
+    expect([bob.group("room-pub"), bob.group("room-mixed"), bob.group("room-empty")]).toEqual([false, false, false]);
     expect([bob.thread("t-pub-2"), bob.thread("t-hr"), bob.thread("t-room-mixed-2"), bob.thread("t-unknown")]).toEqual([true, false, false, false]);
     expect(bob.sections(["Ops", "People", "Empty"])).toEqual(["Ops"]);
 
     const ada = new VisibleSet(bots, groups, ADA);
-    expect([ada.bot("hr"), ada.bot("adm"), ada.group("room-mixed"), ada.thread("t-room-mixed-2")]).toEqual([true, false, true, true]);
+    expect([ada.bot("hr"), ada.bot("adm"), ada.group("room-mixed"), ada.thread("t-room-mixed-2")]).toEqual([true, false, false, false]);
     expect(ada.sections(["Ops", "People"])).toEqual(["Ops", "People"]);
   });
 

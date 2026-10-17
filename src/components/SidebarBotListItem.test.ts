@@ -228,20 +228,6 @@ describe("BotListItem", () => {
     expect(icons).toContain('aria-label="Atlas · On a Live call"');
   });
 
-  it("marks an idle bot waiting on a teammate with a quiet dot, never the work signals", () => {
-    const markup = renderRow(bot({ waitingForTeammates: true, busy: false, activity: "idle" }));
-    expect(markup).toContain('data-testid="teammate-wait-dot"');
-    expect(markup).not.toContain('data-testid="working-dot"');
-    expect(markup).not.toContain("animate-status-pulse");
-    expect(markup).toContain("Waiting on a teammate…");
-  });
-
-  it("keeps real sibling work visible while another thread waits for a teammate", () => {
-    const markup = renderRow(bot({ waitingForTeammates: true, busy: true, activity: "working" }));
-    expect(markup).toContain('data-testid="working-dot"');
-    expect(markup).not.toContain('data-testid="teammate-wait-dot"');
-  });
-
   it("keeps Archive in the Actions menu and reveals quiet row controls on focus as well as hover", () => {
     const markup = renderRow(bot());
     expect(markup).not.toContain('aria-label="Archive Atlas"');
@@ -342,7 +328,6 @@ describe("bot deletion feedback", () => {
     it("keeps the status line while something is happening", () => {
       expect(renderRow(bot({ busy: true }), true)).toContain('class="sr-only">Working…');
       expect(renderRow(bot({ activity: "waiting-on-you" }), true)).toContain("Waiting for you…");
-      expect(renderRow(bot({ waitingForTeammates: true, busy: false }), true)).toContain("Waiting on a teammate…");
     });
 
     it("keeps the unread dot in the name line when the preview line is gone", () => {

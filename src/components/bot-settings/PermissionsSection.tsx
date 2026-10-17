@@ -105,7 +105,7 @@ export function PermissionsSection({
         {bot.chiefOfStaff && <ManagedTeamsSettings
           key={bot.id + JSON.stringify(bot.managedSections ?? [])}
           name={bot.name} ownTeam={bot.section?.trim() || ""}
-          teams={["", ...(state.sections ?? []), ...[...state.bots, ...state.groups].map(member => member.section?.trim() || "")]}
+          teams={["", ...(state.sections ?? []), ...state.bots.map(member => member.section?.trim() || "")]}
           allowed={bot.managedSections ?? []}
           onSave={managedSections => patch({ managedSections, acknowledgePeerScope: true })}
         />}

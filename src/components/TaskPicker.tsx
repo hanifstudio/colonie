@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Activity01Icon, ChevronDownIcon, FolderInputIcon, PencilIcon, PinIcon, PinOffIcon, PlusSignIcon, Search01Icon, Delete02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { useStore, type Bot, type BotProject, type Group, type Task } from "@/state/store";
+import { useStore, type Bot, type BotProject, type Task } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
@@ -79,7 +79,7 @@ function TaskUsage({ usage }: { usage: Task["usage"] }) {
   );
 }
 
-type PickerTask = Pick<Task, "threadId" | "title" | "preview" | "createdAt" | "updatedAt" | "pinned" | "busy" | "activity" | "unread" | "projectId" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil" | "waitingForTeammates"> & { usage?: Task["usage"] };
+type PickerTask = Pick<Task, "threadId" | "title" | "preview" | "createdAt" | "updatedAt" | "pinned" | "busy" | "activity" | "unread" | "projectId" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil"> & { usage?: Task["usage"] };
 
 /** The full picker searches both thread titles and their project names.
  * Legacy/orphaned project IDs remain visible under Ungrouped. */
@@ -368,7 +368,7 @@ function ConversationTaskPicker({
                       <div dir="auto" className="truncate text-[13px] text-ink">{conversations ? conversationTitle(task.title) : task.title}</div>
                       {conversations && task.preview && <div dir="auto" className="truncate text-[11px] text-ink-secondary">{task.preview}</div>}
                       <div className="text-[11px] text-ink-secondary">
-                        {task.activity === "waiting-on-you" ? `${conversations ? "Needs approval" : t("task.waiting")} · ` : task.waitingForTeammates ? `${t("task.waitingOnTeammate")} · ` : task.busy ? `${t("chat.activity.working")} · ` : task.unread ? `${t("task.unread")} · ` : ""}
+                        {task.activity === "waiting-on-you" ? `${conversations ? "Needs approval" : t("task.waiting")} · ` : task.busy ? `${t("chat.activity.working")} · ` : task.unread ? `${t("task.unread")} · ` : ""}
                         <TaskUpdatedTime task={task} now={now} />
                         {!conversations && <TaskUsage usage={task.usage} />}
                         {opener && ` · ${opener}`}
@@ -459,7 +459,7 @@ export function BotActivityPicker({ bot }: { bot: Bot }) {
       >
         <option value="" disabled>{t("task.otherActivity", { count: activity.length })}</option>
         {activity.map((task) => <option dir="auto" key={task.threadId} value={task.threadId}>
-          {task.title} · {task.activity === "waiting-on-you" ? t("task.waiting") : task.waitingForTeammates ? t("task.waitingOnTeammate") : task.busy || task.activity === "working" ? t("chat.activity.working") : task.queued ? t("task.queued") : t("task.unread")}
+          {task.title} · {task.activity === "waiting-on-you" ? t("task.waiting") : task.busy || task.activity === "working" ? t("chat.activity.working") : task.queued ? t("task.queued") : t("task.unread")}
         </option>)}
       </select>
       <span dir="auto" className="truncate text-[12px] text-ink-secondary">{bot.tasks?.find((task) => task.threadId === bot.threadId)?.title}</span>
@@ -479,7 +479,7 @@ export function TaskPicker({ bot, conversations = false }: { bot: Bot; conversat
       busy={false}
       bot={bot}
       conversations={conversations}
-      attention={crossBotAttentionThreads(state.bots, state.pendingQueued, bot.id, state.groups)}
+      attention={crossBotAttentionThreads(state.bots, state.pendingQueued, bot.id)}
       onNew={() => dispatch({ type: "newTask", botId: bot.id })}
       onSwitch={(threadId) => dispatch({ type: "switchTask", botId: bot.id, threadId })}
       onRename={(threadId, title) => dispatch({ type: "renameTask", botId: bot.id, threadId, title })}
@@ -487,27 +487,6 @@ export function TaskPicker({ bot, conversations = false }: { bot: Bot; conversat
       onMove={advanced ? (threadId, projectId) => dispatch({ type: "updateTask", botId: bot.id, threadId, patch: { projectId } }) : undefined}
       onPin={(threadId, pinned) => dispatch({ type: "updateTask", botId: bot.id, threadId, patch: { pinned } })}
       onAttentionJump={(entry) => dispatch(attentionJumpAction(entry))}
-    />
-  );
-}
-
-/** The same task affordance in a channel. DMs never render it because their
- * transcript is the private bot-to-bot exchange rather than user work. */
-export function GroupTaskPicker({ group }: { group: Group }) {
-  const { dispatch } = useStore();
-  return (
-    <ConversationTaskPicker
-      threadId={group.threadId}
-      tasks={orderedThreadList(group.tasks ?? [])}
-      busy={Boolean(group.working || group.busyBotId)}
-      onNew={() => dispatch({ type: "newGroupTask", groupId: group.id })}
-      onSwitch={(threadId) => dispatch({ type: "switchGroupTask", groupId: group.id, threadId })}
-      onRename={(threadId, title) => dispatch({ type: "renameGroupTask", groupId: group.id, threadId, title })}
-      onDelete={(threadId) => dispatch({ type: "deleteGroupTask", groupId: group.id, threadId })}
-      onPin={(threadId, pinned) => {
-        const title = group.tasks?.find((task) => task.threadId === threadId)?.title ?? "";
-        dispatch({ type: "pinGroupTask", groupId: group.id, threadId, pinned, title });
-      }}
     />
   );
 }

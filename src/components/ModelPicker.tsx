@@ -1027,7 +1027,7 @@ export function ModelPicker({
                   ))}
                 </div>
                 <p className="mt-1 text-[11px] text-ink-secondary">
-                  {scope === "bot" ? "The bot's model: this thread, groups, and every thread that uses the bot's model." : "This thread only. It keeps this model when the bot's model changes."}
+                  {scope === "bot" ? "The bot's model: this thread and every thread that uses the bot's model." : "This thread only. It keeps this model when the bot's model changes."}
                 </p>
               </div>
             )}

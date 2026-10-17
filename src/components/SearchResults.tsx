@@ -1,6 +1,6 @@
 // Message hits under the sidebar's search box. The box already filters bots
 // by name; from two characters on it also asks the server for messages
-// across every bot task and room, and a click lands on the message — right
+// across every bot task, and a click lands on the message — right
 // bot, right task, right branch — rather than just opening the chat.
 import { useEffect, useState } from "react";
 import { GitBranchIcon, WrenchIcon } from "@hugeicons/core-free-icons";

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,14 +12,12 @@ import { appendMemoryLog, readMemoryFile, readMemoryLog, readMemoryTopic, search
 
 const selection = () => ({ instanceId: "fixture", model: "fixture-model" });
 
-function fixture() {
-  const store = new Store(selection);
-  const routines = new RoutineManager({
-    botState: (id) => store.bot(id) ? "ready" : "missing",
-    goalState: (id, botId) => store.group(id)?.memberIds.includes(botId) ? "ready" : "missing",
-    createTask: (id, title) => store.createTask(id, title),
-    startTurn: async () => { throw new Error("Import must never run a bot"); },
-  });
+type FixtureBots = { chief: { id: string }; scout: { id: string } };
+
+/** Rooms are retired and the store cannot create them: the fixture seeds
+ * groups.json the way an older build saved it, then reloads. */
+function fixture(options: { secondRoomTask?: Record<string, unknown>; legacyRooms?: (bots: FixtureBots) => Record<string, unknown>[] } = {}) {
+  let store = new Store(selection);
   const chief = store.createBot({ name: "Mira", section: "Engineering", description: "Full instructions\n".repeat(400) }, { seedMessages: false });
   store.setSoul(chief.id, "  Cite sources.\nRespect the user's current request. 🐭\n");
   const scout = store.createBot({ name: "Scout", section: "Engineering", mascotBody: "circle" }, { seedMessages: false });
@@ -45,14 +44,35 @@ function fixture() {
     title: "Permission request", subtitle: "Old approval", options: ["Allow"], requestId: "do-not-resume", allowKey: "Bash",
   } });
   store.appendMessage(active.threadId, { role: "user", kind: "text", text: "An image", attachments: [{ kind: "image", path: "/private/image.png", mime: "image/png" }] });
-  const group = store.createGroup("Project room", [chief.id, scout.id], false, "Engineering", {
-    bulletin: "Build carefully", defaultResponder: { kind: "member", botId: chief.id }, completed: true,
+  const roomId = randomUUID();
+  const roomThreadId = randomUUID();
+  writeFileSync(join(DATA_DIR, "groups.json"), JSON.stringify([{
+    id: roomId, threadId: roomThreadId, name: "Project room", memberIds: [chief.id, scout.id],
+    defaultResponder: { kind: "member", botId: chief.id }, bulletin: "Build carefully", unread: false,
+    createdAt: 1, section: "Engineering", setupCompletedAt: 1, setupSkippedAt: null,
+    tasks: [
+      { threadId: randomUUID(), title: "Second room task", createdAt: 2, updatedAt: 2, ...options.secondRoomTask },
+      { threadId: roomThreadId, title: UNTITLED_TASK, createdAt: 1, updatedAt: 1 },
+    ],
+  }, ...(options.legacyRooms?.({ chief, scout }) ?? [])], null, 2), { mode: 0o600 });
+  store.appendMessage(roomThreadId, { role: "bot", kind: "text", text: "Room answer", from: { botId: scout.id, name: scout.name, color: scout.color }, peerPost: { unattended: true } });
+  store = new Store(selection);
+  const group = store.group(roomId)!;
+  // Room goals can no longer be created; a stored one still loads, paused.
+  const routinesFile = join(DATA_DIR, "routines.json");
+  writeFileSync(routinesFile, JSON.stringify({ routines: [{
+    id: "stored-room-goal", name: "Standup", prompt: "Discuss progress", target: "room-goal", groupId: group.id, botId: chief.id,
+    runOn: "maus", enabled: true, schedule: { type: "interval", everyMinutes: 30, anchorAt: 0 }, durationMinutes: 30,
+    nextRunAt: null, createdAt: 1, updatedAt: 1,
+  }], runs: [] }));
+  const routines = new RoutineManager({
+    file: routinesFile,
+    botState: (id) => store.bot(id) ? "ready" : "missing",
+    createTask: (id, title) => store.createTask(id, title),
+    startTurn: async () => { throw new Error("Import must never run a bot"); },
   });
-  store.appendMessage(group.threadId, { role: "bot", kind: "text", text: "Room answer", from: { botId: scout.id, name: scout.name, color: scout.color }, peerPost: { unattended: true } });
-  store.createGroupTask(group.id, "Second room task", false);
   routines.create({ name: "Daily", prompt: "Report progress", botId: chief.id, enabled: true, schedule: { type: "daily", time: "09:00", weekdays: [1, 2, 3, 4, 5] } });
-  routines.create({ name: "Standup", prompt: "Discuss progress", target: "room-goal", groupId: group.id, botId: chief.id, enabled: true, schedule: { type: "interval", everyMinutes: 30, anchorAt: 0 } });
-  return { store, routines, chief, scout, otherChief, archived, group };
+  return { store, routines, chief: store.bot(chief.id)!, scout: store.bot(scout.id)!, otherChief: store.bot(otherChief.id)!, archived: store.bot(archived.id)!, group };
 }
 
 describe("additive portable team backups", () => {
@@ -116,15 +136,25 @@ describe("additive portable team backups", () => {
     expect(readMemoryFile(noMemory.id).text).toBe("");
   });
 
-  it("round-trips all bots, sections, Chiefs, rooms, tasks and branches without changing originals", () => {
-    const { store, routines, chief, scout, otherChief, archived, group } = fixture();
+  it("round-trips all bots, sections, Chiefs, tasks and branches without changing originals", () => {
+    const { store, routines, chief, scout, otherChief, archived } = fixture();
     const backup = createTeamBackup(store, routines.listRoutines(), "My team");
     const originalBots = structuredClone(store.bots);
     const originalGroups = structuredClone(store.groups);
+    const groupsFile = readFileSync(join(DATA_DIR, "groups.json"), "utf8");
     const originalRoutines = routines.listRoutines();
     const result = importTeamBackup(store, routines, JSON.parse(JSON.stringify(backup)), selection());
+    // Export and import read groups.json and never rewrite it.
+    expect(readFileSync(join(DATA_DIR, "groups.json"), "utf8")).toBe(groupsFile);
     expect(result.bots).toHaveLength(4);
-    expect(result.groups).toHaveLength(1);
+    // Rooms are retired: the room and its room routine stay in the file,
+    // are not recreated, and each is named in a warning.
+    expect(result).not.toHaveProperty("groups");
+    expect(store.groups).toEqual(originalGroups);
+    expect(result.warnings).toEqual([
+      "Room “Project room” was not imported. Rooms are no longer supported; its conversation stays in the backup file.",
+      "Routine “Standup” was not imported because it runs in a room.",
+    ]);
     for (const bot of originalBots) expect(store.bot(bot.id)).toEqual(bot);
     for (const room of originalGroups) expect(store.group(room.id)).toEqual(room);
     for (const routine of originalRoutines) expect(routines.listRoutines().find((r) => r.id === routine.id)).toEqual(routine);
@@ -145,12 +175,9 @@ describe("additive portable team backups", () => {
     expect(store.bot(otherChief.id)?.chiefOfStaff).toBe(true);
     expect(store.bot(archived.id)?.hidden).toBe(true);
     expect(importedScout.mascotBody).toBe(scout.mascotBody);
-    expect(result.groups[0]).toMatchObject({ name: "Project room 2", section: "Engineering 2", memberIds: [importedChief.id, importedScout.id], defaultResponder: { kind: "member", botId: importedChief.id } });
-    expect(result.groups[0].tasks?.map((task) => [task.title, task.createdAt])).toEqual(group.tasks?.map((task) => [task.title, task.createdAt]));
-    const roomMessage = store.messagesFor(result.groups[0].threadId)[0];
-    expect(roomMessage).toMatchObject({ text: "Room answer", from: { botId: importedScout.id }, peerPost: { unattended: true } });
-    expect(result.routines.every((routine) => !routine.enabled && routine.nextRunAt === null)).toBe(true);
-    expect(result.routines.find((routine) => routine.target === "room-goal")).toMatchObject({ botId: importedChief.id, groupId: result.groups[0].id });
+    expect(backup.groups[0]).toMatchObject({ name: "Project room", memberIds: [chief.id, scout.id] });
+    expect(result.routines.map((routine) => routine.name)).toEqual(["Daily"]);
+    expect(result.routines.every((routine) => !routine.enabled && routine.nextRunAt === null && routine.botId === importedChief.id && routine.groupId === undefined)).toBe(true);
     // who opened a thread travels with it, remapped like a message's `from`;
     // the handoff id stays behind with the ledger it belongs to
     expect(importedChief.tasks!.find((task) => task.title === "Second conversation")!.openedBy)
@@ -199,12 +226,11 @@ describe("additive portable team backups", () => {
   });
 
   it("keeps first-message title markers armed-once through backup and restore", () => {
-    const { store, routines, chief, group } = fixture();
     // rows whose first message already named them, one per record kind
+    const { store, routines, chief, group } = fixture({ secondRoomTask: { title: "Plan the launch review", titleFromFirstMessage: true } });
     const titled = store.createTask(chief.id, undefined, false)!.threadId;
     store.titleTaskFromFirstMessage(chief.id, "Audit the payroll export", titled);
-    const channelTask = store.createGroupTask(group.id, undefined, false)!.threadId;
-    store.titleGroupTaskFromFirstMessage(group.id, "Plan the launch review", channelTask);
+    const channelTask = group.tasks!.find((task) => task.title === "Plan the launch review")!.threadId;
     const backup = createTeamBackup(store, routines.listRoutines(), "Markers");
     expect(backup.bots.find((bot) => bot.name === "Mira")!.tasks.find((task) => task.key === titled)!.titleFromFirstMessage).toBe(true);
     expect(backup.groups[0].tasks.find((task) => task.key === channelTask)!.titleFromFirstMessage).toBe(true);
@@ -217,22 +243,24 @@ describe("additive portable team backups", () => {
     // the sentinel cannot re-arm generated titling for a later message
     store.renameTask(restoredBot.id, restored.threadId, UNTITLED_TASK);
     expect(store.titleTaskFromFirstMessage(restoredBot.id, "A later message", restored.threadId)).toBeNull();
-    const restoredGroup = result.groups[0];
-    const restoredChannel = restoredGroup.tasks!.find((task) => task.title === "Plan the launch review")!;
-    expect(restoredChannel.titleFromFirstMessage).toBe(true);
-    store.renameGroupTask(restoredGroup.id, restoredChannel.threadId, UNTITLED_TASK);
-    expect(store.titleGroupTaskFromFirstMessage(restoredGroup.id, "A later message", restoredChannel.threadId)).toBeNull();
+    // the room's marker stays in the file; the room itself is skipped
+    expect(store.groups).toHaveLength(1);
     // rows the marker never armed — a backup from before the feature —
     // restore exactly as they left, with no marker invented for them
     expect(restoredBot.tasks!.find((task) => task.title === "First conversation")).not.toHaveProperty("titleFromFirstMessage");
   });
 
-  it("keeps a conversation's longer turn limit through backup and restore", () => {
-    const { store, routines, chief, scout, group } = fixture();
+  it("exports a room's longer turn limit and skips the room on restore", () => {
+    const dmId = randomUUID();
+    const { store, routines, group } = fixture({
+      secondRoomTask: { turnTimeoutMinutes: 30 },
+      legacyRooms: ({ chief, scout }) => [{
+        id: dmId, threadId: randomUUID(), name: "Direct", memberIds: [chief.id, scout.id], dm: true,
+        defaultResponder: { kind: "mentions" }, bulletin: "", unread: false, createdAt: 3, turnTimeoutMinutes: 45,
+      }],
+    });
+    const dm = store.group(dmId)!;
     const threadId = group.tasks!.find((task) => task.title === "Second room task")!.threadId;
-    store.setGroupTaskTurnTimeout(group.id, threadId, 30);
-    const dm = store.createGroup("Direct", [chief.id, scout.id], true);
-    store.patchGroup(dm.id, { turnTimeoutMinutes: 45 });
 
     const backup = createTeamBackup(store, routines.listRoutines(), "Limits");
     const roomTask = backup.groups.find((candidate) => candidate.key === group.id)!.tasks.find((task) => task.key === threadId)!;
@@ -240,12 +268,11 @@ describe("additive portable team backups", () => {
     expect(backup.groups.find((candidate) => candidate.key === dm.id)!.tasks[0].turnTimeoutMinutes).toBe(45);
     expect(backup.bots.every((bot) => bot.tasks.every((task) => task.turnTimeoutMinutes === undefined))).toBe(true);
 
+    const groupsBefore = structuredClone(store.groups);
     const result = importTeamBackup(store, routines, JSON.parse(JSON.stringify(backup)), selection());
-    const restored = result.groups.find((candidate) => candidate.name.startsWith("Project room"))!;
-    expect(restored.tasks!.find((task) => task.title === "Second room task")!.turnTimeoutMinutes).toBe(30);
-    const restoredDm = result.groups.find((candidate) => candidate.name.startsWith("Direct"))!;
-    expect(restoredDm.turnTimeoutMinutes).toBe(45);
-    expect(restoredDm.dm).toBe(true);
+    expect(store.groups).toEqual(groupsBefore);
+    expect(result.warnings.filter((warning) => warning.startsWith("Room "))).toHaveLength(2);
+    expect(result.warnings.some((warning) => warning.includes("“Direct”"))).toBe(true);
   });
 
   it.each(["unknown-version", "duplicate-bot", "cycle", "dangling-room", "dangling-task", "duplicate-chief", "oversized-soul"])("rejects %s before any writes", (corruption) => {
@@ -290,7 +317,7 @@ describe("additive portable team backups", () => {
     expect(JSON.stringify(parseTeamBackup(backup))).not.toMatch(/live-approval|secret-session|\/etc\/passwd|approvalMode/);
   });
 
-  it("rolls back fresh bots, rooms and transcripts after a late failure", () => {
+  it("rolls back fresh bots and transcripts after a late failure", () => {
     const { store, routines } = fixture();
     const beforeSections = [...store.sections];
     const backup = createTeamBackup(store, routines.listRoutines(), "My team");
@@ -342,21 +369,28 @@ describe("additive portable team backups", () => {
     expect(reloaded.bot(other.id)?.chiefOfStaff).toBe(true);
   });
 
-  it("backs up room history even when old deletions left dangling memberships and routines", () => {
-    const { store, routines, chief, scout, group } = fixture();
-    const dm = store.createGroup("Old direct message", [chief.id, scout.id], true);
+  it("backs up room history even when old deletions left dangling memberships and routines, and skips it on restore", () => {
+    const dmId = randomUUID();
+    const { store, routines, chief, scout, group } = fixture({
+      legacyRooms: ({ chief, scout }) => [{
+        id: dmId, threadId: randomUUID(), name: "Old direct message", memberIds: [chief.id, scout.id], dm: true,
+        defaultResponder: { kind: "mentions" }, bulletin: "", unread: false, createdAt: 3,
+      }],
+    });
+    const dm = store.group(dmId)!;
     store.appendMessage(dm.threadId, { role: "bot", kind: "text", text: "Keep this old reply", from: { botId: chief.id, name: chief.name, color: chief.color } });
+    // Deleting a bot leaves stored rooms exactly as saved.
     store.deleteBot(chief.id);
-    // Recreate the pre-repair records this legacy-export regression covers.
-    Object.assign(group, { memberIds: [chief.id, scout.id], defaultResponder: { kind: "member", botId: chief.id } });
     const backup = createTeamBackup(store, routines.listRoutines(), "My team");
     expect(backup.warnings).toHaveLength(4);
     expect(backup.routines).toEqual([]);
     expect(backup.groups.find((room) => room.key === group.id)).toMatchObject({ memberIds: [scout.id], defaultResponder: { kind: "mentions" } });
     expect(backup.groups.find((room) => room.key === dm.id)?.dm).toBe(false);
+    expect(backup.groups.find((room) => room.key === dm.id)?.tasks[0].messages[0]).toMatchObject({ text: "Keep this old reply" });
+    const groupCount = store.groups.length;
     const restored = importTeamBackup(store, routines, backup, selection());
-    const restoredDm = restored.groups.find((room) => room.name === "Old direct message 2")!;
-    expect(store.messagesFor(restoredDm.threadId)[0]).toMatchObject({ text: "Mira:\nKeep this old reply" });
+    expect(store.groups).toHaveLength(groupCount);
+    expect(restored.warnings).toContain("Room “Old direct message” was not imported. Rooms are no longer supported; its conversation stays in the backup file.");
     // Exporting never repairs or removes the original records in place.
     expect(store.group(group.id)?.memberIds).toEqual([chief.id, scout.id]);
   });

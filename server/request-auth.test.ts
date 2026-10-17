@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearSessionCookie,
   clientBotPatchViolation,
-  clientGroupPatchViolation,
   ipcPeer,
   isAllowedOrigin,
   isLoopbackHost,
@@ -94,12 +93,11 @@ describe("scopes", () => {
       for (const method of ["GET", "POST", "DELETE"]) expect(requiredScope(method, `/api/workspace-backup/${path}`)).toBe("admin");
     }
   });
-  it("is default deny: chat, approvals, rooms, attachments, routines and own session are client; everything else admin", () => {
+  it("is default deny: chat, approvals, attachments, routines and own session are client; everything else admin", () => {
     for (const [method, path] of [
       ["POST", "/api/bots/x/messages"], ["POST", "/api/bots/x/respond"], ["POST", "/api/threads/t/respond"],
       ["POST", "/api/threads/t/undo"], ["POST", "/api/bots/x/compact"], ["POST", "/api/bots/x/tasks/t/title"],
-      ["PATCH", "/api/bots/x/cards/m"], ["POST", "/api/groups/g/messages"], ["PATCH", "/api/groups/g"],
-      ["PATCH", "/api/bots/x"], ["PATCH", "/api/bots/x/profile"], ["POST", "/api/attachments"],
+      ["PATCH", "/api/bots/x/cards/m"], ["PATCH", "/api/bots/x"], ["PATCH", "/api/bots/x/profile"], ["POST", "/api/attachments"],
       ["GET", "/api/attachments/a.png"], ["POST", "/api/routines"], ["POST", "/api/routines/r/run"],
       ["POST", "/api/routine-runs/seen-all"],
       ["GET", "/api/bots"], ["GET", "/api/threads/t/messages"], ["GET", "/api/search"], ["GET", "/api/events"],
@@ -113,7 +111,10 @@ describe("scopes", () => {
       ["POST", "/api/bots/x/local-computer/join"], ["POST", "/api/bots/x/local-computer/screenshot"],
       ["GET", "/api/computers/boxes"], ["POST", "/api/computers/boxes/bx_23456789/delete"],
       ["POST", "/api/webhooks"], ["POST", "/api/webhooks/w/rotate"], ["POST", "/api/bots/x/skills"], ["PATCH", "/api/bots/x/skills/s"],
-      ["PATCH", "/api/bots/x/model"], ["PATCH", "/api/groups/g/setup"], ["POST", "/api/teams/import"], ["GET", "/api/teams/scout"],
+      ["PATCH", "/api/bots/x/model"], ["PATCH", "/api/groups/g/setup"],
+      // rooms are retired: their old client paths are no longer listed
+      ["POST", "/api/groups/g/messages"], ["PATCH", "/api/groups/g"], ["POST", "/api/groups/g/tasks"],
+      ["POST", "/api/teams/import"], ["GET", "/api/teams/scout"],
       ["GET", "/api/bots/x/memory"], ["PUT", "/api/bots/x/memory"], ["PUT", "/api/section-context"], ["GET", "/api/threads/t/events"],
       ["GET", "/api/mcp/servers"], ["POST", "/api/mcp/servers"], ["POST", "/api/connectors/slack/authorize"],
       ["POST", "/api/bots/x/slack-management"], ["GET", "/api/bots/x/slack-management/extra"],
@@ -126,15 +127,12 @@ describe("scopes", () => {
     ] as const) expect(requiredScope(method, path), `${method} ${path}`).toBe("admin");
   });
 
-  it("limits a client's bot and room edits to display fields, naming the field it refused", () => {
+  it("limits a client's bot edits to display fields, naming the field it refused", () => {
     expect(clientBotPatchViolation({ unread: true })).toBeNull();
     expect(clientBotPatchViolation({ pinned: true, color: "green" })).toBeNull();
     expect(clientBotPatchViolation({ unread: true, autoApprove: true })).toBe("autoApprove");
     expect(clientBotPatchViolation({ cwd: "/" })).toBe("cwd");
     expect(clientBotPatchViolation([])).toBe("body");
-    expect(clientGroupPatchViolation({ name: "Ops", unread: false, turnTimeoutMinutes: 30 })).toBeNull();
-    expect(clientGroupPatchViolation({ cwd: "/tmp" })).toBe("cwd");
-    expect(clientGroupPatchViolation({ memberIds: [] })).toBe("memberIds");
   });
 });
 

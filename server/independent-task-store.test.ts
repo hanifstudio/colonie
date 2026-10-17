@@ -5,12 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { approvalModeFor } from "../shared/approval-mode.ts";
 import { DATA_DIR } from "./config.ts";
 import type { ModelSelection } from "./contracts.ts";
-import { isProjectEmoji, Store, type BotRecord, type GroupRecord, type TaskPatch } from "./store.ts";
+import { isProjectEmoji, Store, type BotRecord, type TaskPatch } from "./store.ts";
 import { ensureTaskWorkspace } from "./workspace.ts";
 
 const selection = (): ModelSelection => ({ instanceId: "claude", model: "default" });
 const savedBots = (): BotRecord[] => JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
-const savedGroups = (): GroupRecord[] => JSON.parse(readFileSync(join(DATA_DIR, "groups.json"), "utf8"));
 
 describe("independent bot task state", () => {
   // The shared Vitest setup gives this file its own disposable home.
@@ -334,40 +333,6 @@ describe("independent bot task state", () => {
     expect(bot).toMatchObject({ activity: "idle", busy: false });
   });
 
-  it("stamps a group's busy member turn without persisting it", async () => {
-    const store = new Store(selection);
-    const lead = store.createBot({}, { seedMessages: false });
-    const other = store.createBot({}, { seedMessages: false });
-    const group = store.createGroup("Timer group", [lead.id, other.id], false);
-    expect(group.busyBotId).toBeNull();
-    expect(group.turnStartedAt).toBeUndefined();
-    // Patches that never touch the speaker leave the stamp alone.
-    store.patchGroup(group.id, { unread: true });
-    expect(group.turnStartedAt).toBeUndefined();
-    store.patchGroup(group.id, { busyBotId: lead.id });
-    const started = group.turnStartedAt!;
-    expect(started).toBeGreaterThan(0);
-    // An unrelated patch mid-turn, or re-claiming the same member, is the
-    // same turn: the stamp must not move.
-    store.patchGroup(group.id, { bulletin: "changed" });
-    store.patchGroup(group.id, { busyBotId: lead.id });
-    expect(group.turnStartedAt).toBe(started);
-    // A different speaker is a new turn: the count restarts.
-    await new Promise((done) => setTimeout(done, 3));
-    store.patchGroup(group.id, { busyBotId: other.id });
-    expect(group.turnStartedAt!).toBeGreaterThan(started);
-    store.patchGroup(group.id, { busyBotId: null });
-    expect(group.turnStartedAt).toBeUndefined();
-    // Neither the speaker nor the stamp survives persistence or a reload.
-    const saved = savedGroups().find((row) => row.id === group.id)!;
-    expect(saved).not.toHaveProperty("busyBotId");
-    expect(saved).not.toHaveProperty("turnStartedAt");
-    const reloaded = new Store(selection);
-    const restored = reloaded.group(group.id)!;
-    expect(restored.busyBotId).toBeNull();
-    expect(restored.turnStartedAt).toBeUndefined();
-  });
-
   it("keeps background unread after reading the selected task, including across restart", () => {
     const store = new Store(selection);
     const bot = store.createBot();
@@ -568,12 +533,6 @@ describe("independent bot task state", () => {
     expect(savedBots().find((entry) => entry.id === bot.id)!.tasks!.find((entry) => entry.threadId === task.threadId)!.pinned).toBe(true);
     expect(store.patchTask(bot.id, task.threadId, { pinned: false })?.pinned).toBeUndefined();
     expect("pinned" in savedBots().find((entry) => entry.id === bot.id)!.tasks!.find((entry) => entry.threadId === task.threadId)!).toBe(false);
-    const group = store.createGroup("Channel", [bot.id], false);
-    const channel = store.createGroupTask(group.id, "Side")!;
-    expect(store.setGroupTaskPinned(group.id, channel.threadId, true)?.pinned).toBe(true);
-    expect(savedGroups().find((entry) => entry.id === group.id)!.tasks!.find((entry) => entry.threadId === channel.threadId)!.pinned).toBe(true);
-    store.setGroupTaskPinned(group.id, channel.threadId, false);
-    expect("pinned" in savedGroups().find((entry) => entry.id === group.id)!.tasks!.find((entry) => entry.threadId === channel.threadId)!).toBe(false);
     const restarted = new Store(selection);
     expect(restarted.taskByThread(bot.id, task.threadId)?.updatedAt).toBe(message.at);
   });

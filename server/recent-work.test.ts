@@ -11,33 +11,31 @@ import {
   RECENT_WORK_MAX_CHARS,
   turnOutcomeLine,
   whenLabel,
-  type RecentWorkStore,
 } from "./recent-work.ts";
-import type { GroupRecord, TaskRecord } from "./store.ts";
+import type { TaskRecord } from "./store.ts";
 
 const task = (threadId: string, title: string): TaskRecord => ({ threadId, title, createdAt: 1, resumeCursors: {} } as TaskRecord);
-const group = (partial: Partial<GroupRecord> & Pick<GroupRecord, "id" | "threadId" | "name" | "memberIds">): GroupRecord =>
-  ({ defaultResponder: { kind: "user" }, bulletin: "", unread: false, createdAt: 1, ...partial } as GroupRecord);
 
-const store: RecentWorkStore = {
-  groups: [
-    group({ id: "g1", threadId: "room-ops", name: "Ops", memberIds: ["me", "them"], tasks: [{ threadId: "room-ops-t1", title: "Deploy day", createdAt: 1 }] }),
-    group({ id: "g2", threadId: "room-other", name: "Not mine", memberIds: ["them"] }),
-    group({ id: "g3", threadId: "dm-them", name: "DM", memberIds: ["me", "them"], dm: true }),
-  ],
-  taskByThread: (botId, threadId) => (botId === "me" && threadId === "main" ? task("main", "Getting started") : undefined),
+// Direct conversations only: no shared conversations are stored. A plain
+// object, so it fits RecentWorkStore whether or not it still lists groups.
+const store = {
+  groups: [] as never[],
+  taskByThread: (botId: string, threadId: string) => (botId === "me" && threadId === "main" ? task("main", "Getting started") : undefined),
 };
-const me = { id: "me", threadId: "main", tasks: [task("t-inv", "Invoice reconciliation"), task("t-inv", "duplicate id")] };
+const me = { id: "me", threadId: "main", tasks: [task("t-inv", "Invoice reconciliation"), task("t-inv", "duplicate id"), task("t-dep", "Deploy day")] };
 
 describe("botThreads", () => {
-  it("lists the main chat, tasks, and the rooms the bot belongs to, each named for the bot", () => {
+  it("lists the main chat and each task once, each named for the bot and private", () => {
     expect(botThreads(store, me, "Milind")).toEqual([
       { threadId: "main", where: "1:1 with Milind", title: "Getting started", private: true },
       { threadId: "t-inv", where: "1:1 with Milind", title: "Invoice reconciliation", private: true },
-      { threadId: "room-ops", where: 'room "Ops"', title: null, private: false },
-      { threadId: "room-ops-t1", where: 'room "Ops"', title: "Deploy day", private: false },
-      // a DM room is private the way a 1:1 is
-      { threadId: "dm-them", where: 'room "DM"', title: null, private: true },
+      { threadId: "t-dep", where: "1:1 with Milind", title: "Deploy day", private: true },
+    ]);
+  });
+
+  it("lists only the main chat for a bot with no tasks", () => {
+    expect(botThreads(store, { id: "other", threadId: "other-main" }, "Milind")).toEqual([
+      { threadId: "other-main", where: "1:1 with Milind", title: null, private: true },
     ]);
   });
 });
@@ -49,16 +47,16 @@ describe("recentWorkLines + recentWorkPrompt", () => {
   it("joins what was said to where, newest first, and words the brief for a standup", () => {
     const lines = recentWorkLines(threads, [
       { threadId: "t-inv", messageId: "m2", at: new Date(2026, 8, 16, 9, 5).getTime(), head: "Sent the three flagged invoices to finance; two are still missing a PO." },
-      { threadId: "room-ops", messageId: "m1", at: new Date(2026, 8, 15, 17, 40).getTime(), head: "I'll take the deploy tomorrow morning." },
+      { threadId: "t-dep", messageId: "m1", at: new Date(2026, 8, 15, 17, 40).getTime(), head: "I'll take the deploy tomorrow morning." },
       { threadId: "unknown", messageId: "m0", at: now, head: "not one of mine" },
       { threadId: "main", messageId: "m9", at: new Date(2026, 8, 10, 8, 0).getTime(), head: "" },
     ]);
-    expect(lines.map((line) => line.threadId)).toEqual(["t-inv", "room-ops"]);
+    expect(lines.map((line) => line.threadId)).toEqual(["t-inv", "t-dep"]);
     expect(lines[0]).toMatchObject({ where: "1:1 with Milind", title: "Invoice reconciliation", private: true });
     const text = recentWorkPrompt(lines, now);
     expect(text).toContain("Your recent work");
     expect(text).toContain('- today 09:05 · 1:1 with Milind · "Invoice reconciliation" · you said: "Sent the three flagged invoices to finance; two are still missing a PO."');
-    expect(text).toContain('- yesterday 17:40 · room "Ops" · you said: "I\'ll take the deploy tomorrow morning."');
+    expect(text).toContain('- yesterday 17:40 · 1:1 with Milind · "Deploy day" · you said: "I\'ll take the deploy tomorrow morning."');
     expect(text).toContain("session_search with since");
     expect(recentWorkPrompt([], now)).toBe("");
   });

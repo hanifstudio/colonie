@@ -107,19 +107,12 @@ export interface TaskUsage {
   context?: { tokens: number; window?: number };
 }
 
-/** Accounting for the currently displayed room thread, across all speakers. */
-export interface GroupThreadUsage extends TaskUsage {
-  lastSpeaker?: { botId: string; name: string };
-}
-
 /** One task = one conversation with its own context, thread and provider
  * session. Wire form: no resumeCursors or lastInstanceId — the harness's
  * own bookkeeping that no client has ever used. */
 export interface WireTask {
   /** Bounded display snippet, derived from recent visible text; never instructions. */
   preview?: string;
-  /** Outstanding handoffs, not an active provider turn. */
-  waitingForTeammates?: boolean;
   threadId: string;
   title: string;
   createdAt: number;
@@ -243,7 +236,6 @@ export const CONNECTOR_TOOL_NAME_PATTERN = /^[A-Z][A-Z0-9_]{0,127}$/;
  * projected tasks are WireTask[] and avatarUrl is always present
  * (null when the bot has none). */
 export interface WireBot {
-  waitingForTeammates?: boolean;
   id: string;
   /** The task selected in the UI; running turns keep their own thread id. */
   threadId: string;
@@ -632,9 +624,9 @@ export interface SecretRequestCardData {
   error?: string;
 }
 
-/** Who answers a room message nobody was @mentioned in. `auto` asks the
- * decision model (server/decider/room-routing.ts) and falls back to
- * `fallbackBotId` (else the first member) whenever it is off or unsure.
+/** Who answers a room message nobody was @mentioned in. Rooms are being
+ * retired and no room turn runs, so nothing routes by this any more; stored
+ * rooms keep it, `auto` included, and must keep parsing.
  * Readers must treat any kind they do not know as the default lead. */
 export type GroupDefaultResponder =
   | { kind: "member"; botId: string }
@@ -642,7 +634,7 @@ export type GroupDefaultResponder =
   | { kind: "mentions" }
   | { kind: "auto"; fallbackBotId?: string };
 
-/** One independent conversation inside a user-created channel. */
+/** One independent conversation inside a stored (retired, read-only) room. */
 export interface GroupTask {
   threadId: string;
   title: string;
@@ -661,62 +653,15 @@ export interface GroupTask {
   titleFromFirstMessage?: true;
 }
 
-/** A room as a client may see it: the record plus the computed working
- * flag (publicGroupState). */
-export interface WireGroup {
-  /** Computed from the usage ledger, not stored in groups.json. */
-  usage?: GroupThreadUsage | null;
-  id: string;
-  /** The active task's thread. Direct-message channels stay single-threaded. */
-  threadId: string;
-  /** User-created channels have independent tasks, newest first. */
-  tasks?: GroupTask[];
-  name: string;
-  memberIds: string[];
-  defaultResponder: GroupDefaultResponder;
-  /** The room's shared instructions. */
-  bulletin: string;
-  unread: boolean;
-  createdAt: number;
-  /** true for auto-created bot-bot channels. */
-  dm?: boolean;
-  /** transient: the member currently running a turn. */
-  busyBotId?: string | null;
-  /** transient: when the busy member's turn started, for the elapsed
-   * readout — the group-side twin of a task's turnStartedAt, stamped on
-   * every transition into a busy speaker (never persisted) */
-  turnStartedAt?: number;
-  /** the room's shared desk; absent = each member's own default. */
-  cwd?: string;
-  /** Compatibility mirror of the active task's pinned folder. */
-  pinnedCwd?: string | null;
-  /** Compatibility mirror of the active task's pinned message. */
-  pinnedMessageId?: string;
-  /** sidebar section heading this room is filed under. */
-  section?: string;
-  /** New user-created rooms start with setup pending. */
-  setupCompletedAt?: number | null;
-  setupSkippedAt?: number | null;
-  /** The narrowest audience this room has ever had (see
-   * server/bot-visibility.ts): a bot leaving never widens who may see the
-   * transcript. Sent to admins only. */
-  audienceFloor?: BotVisibility;
-  /** True while any member (or hand-off) is mid-turn. Computed at
-   * projection time, never persisted. */
-  working: boolean;
-  /** A direct-message channel's turn ceiling. Null on the wire means the
-   * global group limit. Channel conversations store theirs on each task. */
-  turnTimeoutMinutes?: number | null;
-}
-
 // ── live wire frames ───────────────────────────────────────────────────
 // Derived from the client's frame switch (src/state/store.tsx handleFrame)
 // cross-checked against every server broadcast site: one member per kind
 // the app consumes, payload typed by the shape that actually goes over the
 // wire. Transport-owned frames (hello, ping) stay in src/lib/live-events.
 
-/** Why a steer-queue entry waits: a shared thread slot, or the bot's room
- * turn (which runs one at a time per bot). */
+/** Why a steer-queue entry waits: a shared thread slot. "group-turn" was a
+ * room turn; no room turn runs now, but queue rows saved by older builds and
+ * server/admission.ts still carry it, so it stays readable. */
 export type SteerQueueReason = "capacity" | "group-turn";
 
 /** Pending steer-queue chips, as `queuedSteerSnapshot` emits them and the
@@ -754,9 +699,7 @@ export type ServerFrame =
   | { kind: "message.patch"; threadId: string; message: WireMessage }
   | { kind: "thread"; threadId: string; activeLeafId: string }
   | { kind: "bot"; bot: WireBot }
-  | { kind: "group"; group: WireGroup }
   | { kind: "notify"; notification: Notification }
-  | { kind: "group.deleted"; groupId: string }
   | { kind: "routine"; routine: Routine }
   | { kind: "routine.deleted"; routineId: string }
   | { kind: "routine.run"; run: RoutineRun }

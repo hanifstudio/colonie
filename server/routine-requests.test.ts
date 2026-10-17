@@ -72,7 +72,6 @@ function harness(
     file: join(dir, "routines.json"),
     now: () => clock.now,
     botState: (botId) => (botId === "missing" ? "missing" : "busy"),
-    goalState: () => "busy",
     createTask: () => null,
     startTurn: async () => {},
   });
@@ -145,7 +144,7 @@ describe("RoutineRequestService", () => {
     });
 
     it.each<Partial<RoutineInput>>([
-      { enabled: false }, { botId: "bot-b" }, { target: "room-goal", groupId: "room-a" },
+      { enabled: false }, { botId: "bot-b" },
       { runOn: "cloud" }, { continuity: true }, { timeoutMinutes: 10 }, { durationMinutes: 60 }, { overlap: "queue" },
       { schedule: { type: "daily", time: "10:00", weekdays: [1, 3] } },
       { attachments: [{ id: "context", name: "Context", path: "/fixture/context.txt", kind: "file", size: 20 }] },
@@ -2028,16 +2027,6 @@ describe("a bot's own routine changes", () => {
     expect(undo(service, second.requestId)).toMatchObject({ state: "undone" });
     expect(routines.listRoutines().some((routine) => routine.id === second.result!.resultId)).toBe(false);
     expect(store.messagesFor("ask-thread").find((message) => message.card?.requestId === second.requestId)?.card).toMatchObject({ undone: true });
-  });
-
-  it("counts a room goal the bot leads as its own", async () => {
-    const { service, routines } = own();
-    const goal = routines.create({ botId: "bot-a", target: "room-goal", groupId: "room-a", name: "Room goal", prompt: "Plan the week.", schedule: { type: "daily", time: "09:00", weekdays: [1] } });
-    const paused = await service.submit({ botId: "bot-a", threadId: "ask-thread", proposal: { action: "pause", routineId: goal.id } });
-    expect(paused).toMatchObject({ state: "applied", appliedBy: "self" });
-    const deleted = await service.submit({ botId: "bot-a", threadId: "ask-thread", proposal: { action: "delete", routineId: goal.id } });
-    expect(undo(service, deleted.requestId)).toMatchObject({ state: "undone" });
-    expect(routines.listRoutines()).toEqual([expect.objectContaining({ target: "room-goal", groupId: "room-a", enabled: false, name: "Room goal" })]);
   });
 
   it("does not undo a change a person confirmed, or from another conversation", async () => {

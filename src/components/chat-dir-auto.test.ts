@@ -20,15 +20,12 @@ describe("chat text follows the writer's direction", () => {
     expectDirAuto("CitationUI.tsx", "value={comment}");
     expectDirAuto("ChatFindBar.tsx", "value={query}");
     expectDirAuto("RawMarkdownToggle.tsx", 'data-testid="raw-markdown-view"');
-    expectDirAuto("GroupView.tsx", "value={bulletinDraft}");
-    expectDirAuto("GroupView.tsx", "group.bulletin.split");
     expectDirAuto("TaskPicker.tsx", "{task.title}");
     expectDirAuto("TaskPicker.tsx", "task.threadId === bot.threadId");
     expectDirAuto("SearchResults.tsx", "line-clamp-2");
 
     const quotes = source("CitationUI.tsx").match(/<pre dir="auto"[^>]*>\{citation\.quote\}/g) ?? [];
     expect(quotes).toHaveLength(2);
-    const pins = [source("ChatView.tsx"), source("GroupView.tsx")].map((text) => text.includes('dir="auto" className="truncate text-[12.5px] text-ink-secondary"'));
-    expect(pins).toEqual([true, true]);
+    expect(source("ChatView.tsx")).toContain('dir="auto" className="truncate text-[12.5px] text-ink-secondary"');
   });
 });

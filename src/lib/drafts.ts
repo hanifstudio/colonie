@@ -8,7 +8,6 @@ import { isAttachment, type Attachment } from "./composer-attachments.js";
 const KEY = "colonie-drafts";
 const ATTACHMENTS_KEY = "colonie-draft-attachments";
 const SEND_IDS_KEY = "colonie-draft-send-ids";
-const CHANNEL_MODES_KEY = "colonie-draft-channel-modes";
 // A task can be unmounted and mounted again while its POST is still in
 // flight. Keep the edit generation outside React so a late failure from the
 // old component cannot overwrite a newer draft created by the new one.
@@ -17,8 +16,7 @@ const draftRevisions = new Map<string, number>();
 // so task navigation and a rejected send can resolve the original message
 // without duplicating message contents in storage.
 const replyDrafts = new Map<string, string>();
-type ChannelMode = "chat" | "goal";
-type DraftRestore = { text: string; attachments: Attachment[]; channelMode?: ChannelMode };
+type DraftRestore = { text: string; attachments: Attachment[] };
 type DraftRestoreListener = (draft: DraftRestore) => void;
 const restoreListeners = new Map<string, Set<DraftRestoreListener>>();
 const attachmentPendingCounts = new Map<string, number>();
@@ -30,8 +28,6 @@ export interface FailedComposerSend {
   requestText: string;
   replyToId?: string;
   threadId: string;
-  /** Channel delivery mode; absent for 1:1 messages and legacy retries. */
-  channelMode?: "chat" | "goal";
 }
 type FailedComposerSendInput = Omit<FailedComposerSend, "id">;
 export interface ComposerSendSnapshot extends FailedComposerSendInput {
@@ -56,8 +52,6 @@ const fallbackTextDrafts = new Map<string, string>();
 const fallbackAttachmentDrafts = new Map<string, Attachment[]>();
 const textDraftsByStore = new WeakMap<object, Map<string, string>>();
 const attachmentDraftsByStore = new WeakMap<object, Map<string, Attachment[]>>();
-const fallbackChannelModes = new Map<string, ChannelMode>();
-const channelModesByStore = new WeakMap<object, Map<string, ChannelMode>>();
 
 function memoryFor<T>(
   store: Store,
@@ -138,28 +132,6 @@ function saveDrafts(): void {
     } catch {
       /* quota / private mode — still unsaved; the next save tries again */
     }
-  }
-}
-
-export function getDraftChannelMode(store: Store, id: string): ChannelMode {
-  const memory = memoryFor(store, channelModesByStore, fallbackChannelModes);
-  if (memory.has(id)) return memory.get(id)!;
-  // Existing drafts predate delivery-mode persistence and remain ordinary
-  // chat; a literal /goal is still interpreted by the composer as before.
-  const mode = read(store, CHANNEL_MODES_KEY)[id] === "goal" ? "goal" : "chat";
-  memory.set(id, mode);
-  return mode;
-}
-
-export function setDraftChannelMode(store: Store, id: string, mode: ChannelMode): void {
-  memoryFor(store, channelModesByStore, fallbackChannelModes).set(id, mode);
-  const modes = read(store, CHANNEL_MODES_KEY);
-  if (mode === "goal") modes[id] = mode;
-  else delete modes[id];
-  try {
-    store?.setItem(CHANNEL_MODES_KEY, JSON.stringify(modes));
-  } catch {
-    /* best-effort persistence; navigation still uses the in-memory mode */
   }
 }
 
@@ -318,13 +290,12 @@ export function restoreComposerDraft(id: string, draft: DraftRestore): void {
   const store = getStore();
   setDraft(store, id, draft.text);
   setDraftAttachments(store, id, draft.attachments);
-  setDraftChannelMode(store, id, draft.channelMode ?? "chat");
   for (const listener of restoreListeners.get(id) ?? []) listener(draft);
 }
 
 /** Puts prepared text into a thread's composer without sending it: after a
  * blank line when the person has already typed something, never in its
- * place. Attachments and channel mode stay. It writes through the restore
+ * place. Attachments stay. It writes through the restore
  * path, so a mounted Composer updates live and an unmounted one finds the
  * text on return; the edit mark keeps a late failed send from replacing it. */
 export function appendComposerDraft(id: string, text: string): void {
@@ -334,7 +305,6 @@ export function appendComposerDraft(id: string, text: string): void {
   restoreComposerDraft(id, {
     text: current ? `${current}\n\n${text}` : text,
     attachments: getDraftAttachments(store, id),
-    channelMode: getDraftChannelMode(store, id),
   });
 }
 
@@ -349,7 +319,6 @@ export function prependComposerDraft(id: string, text: string): void {
   restoreComposerDraft(id, {
     text: current.trim() ? `${text}\n\n${current}` : text,
     attachments: getDraftAttachments(store, id),
-    channelMode: getDraftChannelMode(store, id),
   });
 }
 
@@ -459,7 +428,6 @@ export function recoverFailedComposerSend(sent: ComposerSendSnapshot): "restored
       requestText: sent.requestText,
       replyToId: sent.replyToId,
       threadId: sent.threadId,
-      channelMode: sent.channelMode,
     });
     return "outbox";
   }
@@ -467,7 +435,6 @@ export function recoverFailedComposerSend(sent: ComposerSendSnapshot): "restored
   restoreComposerDraft(sent.draftId, {
     text: sent.text,
     attachments: sent.attachments,
-    channelMode: sent.channelMode,
   });
   // If the response vanished after server acceptance, the next Send must
   // reuse this identity instead of starting a duplicate turn.
@@ -508,24 +475,7 @@ function getStore(): Store {
   }
 }
 
-/** Goal intent belongs to the same task and failed-send recovery as its text. */
-export function useComposerChannelMode(id: string): [ChannelMode, (next: SetStateAction<ChannelMode>) => void] {
-  const store = getStore();
-  const [mode, setMode] = useState(() => getDraftChannelMode(store, id));
-  useEffect(() => {
-    const unsubscribe = subscribeToDraftRestores(id, () => setMode(getDraftChannelMode(store, id)));
-    setMode(getDraftChannelMode(store, id));
-    return unsubscribe;
-  }, [id, store]);
-  const set = useCallback((next: SetStateAction<ChannelMode>) => {
-    const value = typeof next === "function" ? next(getDraftChannelMode(store, id)) : next;
-    setDraftChannelMode(store, id, value);
-    setMode(value);
-  }, [id, store]);
-  return [mode, set];
-}
-
-/** useState for the composer text, persisted under `id` (a bot or room). */
+/** useState for the composer text, persisted under `id`. */
 export function useDraft(id: string, legacyId?: string): [string, (next: string) => void] {
   const store = getStore();
   const [text, setText] = useState(() => {

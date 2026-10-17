@@ -22,7 +22,6 @@ import {
   type Bot,
   type BotAnnouncement,
   type ConfigStatusFrame,
-  type Group,
   type Message,
   type Action,
 } from "./store";
@@ -710,19 +709,11 @@ describe("replacement snapshot boundary", () => {
 
 describe("notification routing", () => {
   const bots = [{ id: "bot-1", threadId: "main-thread", tasks: [{ threadId: "detached-thread" }] }];
-  const groups = [{
-    id: "room-1",
-    threadId: "room-thread",
-    tasks: [
-      { threadId: "room-thread", title: "Current", createdAt: 1 },
-      { threadId: "older-room-thread", title: "Older", createdAt: 0 },
-    ],
-  }];
 
   it("selects the bot and switches to the notification's exact task", () => {
     const dispatch = vi.fn();
 
-    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "detached-thread" }, { bots, groups });
+    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "detached-thread" }, { bots });
 
     expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
       { type: "select", id: "bot-1" },
@@ -730,20 +721,10 @@ describe("notification routing", () => {
     ]);
   });
 
-  it("opens the room when the thread is a group's — never a bot task switch that would 404", () => {
-    // room approval/question notifications carry the asker bot with the
-    // GROUP's thread id; the exact destination is the room itself
-    const dispatch = vi.fn();
-
-    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "room-thread" }, { bots, groups });
-
-    expect(dispatch.mock.calls.map(([action]) => action)).toEqual([{ type: "select", id: "room-1" }]);
-  });
-
   it("opens the requesting conversation when a teammate's routine reports there", () => {
     const dispatch = vi.fn();
     openNotificationTarget(dispatch, { botId: "runner", threadId: "detached-thread" }, {
-      bots: [...bots, { id: "runner", threadId: "runner-thread", tasks: [] }], groups,
+      bots: [...bots, { id: "runner", threadId: "runner-thread", tasks: [] }],
     });
     expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
       { type: "select", id: "bot-1" },
@@ -751,21 +732,10 @@ describe("notification routing", () => {
     ]);
   });
 
-  it("opens the room and restores the exact inactive channel task", () => {
-    const dispatch = vi.fn();
-
-    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "older-room-thread" }, { bots, groups });
-
-    expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
-      { type: "select", id: "room-1" },
-      { type: "switchGroupTask", groupId: "room-1", threadId: "older-room-thread" },
-    ]);
-  });
-
   it("lands on a plain bot select for a thread it cannot place, not an error", () => {
     const dispatch = vi.fn();
 
-    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "deleted-task-thread" }, { bots, groups });
+    openNotificationTarget(dispatch, { botId: "bot-1", threadId: "deleted-task-thread" }, { bots });
 
     expect(dispatch.mock.calls.map(([action]) => action)).toEqual([{ type: "select", id: "bot-1" }]);
   });
@@ -775,7 +745,7 @@ describe("notification routing", () => {
 
     it("selects the bot, switches the view to the thread and reveals its row", () => {
       const dispatch = vi.fn();
-      expect(openThread(dispatch, { botId: "bot-1", threadId: "detached-thread" }, { bots: named, groups })).toBe(true);
+      expect(openThread(dispatch, { botId: "bot-1", threadId: "detached-thread" }, { bots: named })).toBe(true);
       expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
         { type: "select", id: "bot-1" },
         { type: "switchTask", botId: "bot-1", threadId: "detached-thread" },
@@ -783,19 +753,9 @@ describe("notification routing", () => {
       ]);
     });
 
-    it("opens a room thread through the room, not a bot switch", () => {
-      const dispatch = vi.fn();
-      openThread(dispatch, { botId: "bot-1", threadId: "older-room-thread" }, { bots: named, groups });
-      expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
-        { type: "select", id: "room-1" },
-        { type: "switchGroupTask", groupId: "room-1", threadId: "older-room-thread" },
-        { type: "revealThread", threadId: "older-room-thread" },
-      ]);
-    });
-
     it("falls back to the bot with a quiet notice when the thread is gone, never a switch that would 404", () => {
       const dispatch = vi.fn();
-      expect(openThread(dispatch, { botId: "bot-1", threadId: "deleted-thread" }, { bots: named, groups })).toBe(false);
+      expect(openThread(dispatch, { botId: "bot-1", threadId: "deleted-thread" }, { bots: named })).toBe(false);
       expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
         { type: "select", id: "bot-1" },
         { type: "notice", notice: { kind: "thread-gone", botName: "Scout" } },
@@ -804,7 +764,7 @@ describe("notification routing", () => {
 
     it("only notices when even the bot is gone", () => {
       const dispatch = vi.fn();
-      expect(openThread(dispatch, { botId: "deleted-bot", threadId: "deleted-thread" }, { bots: named, groups })).toBe(false);
+      expect(openThread(dispatch, { botId: "deleted-bot", threadId: "deleted-thread" }, { bots: named })).toBe(false);
       expect(dispatch.mock.calls.map(([action]) => action)).toEqual([
         { type: "notice", notice: { kind: "thread-gone", botName: null } },
       ]);
@@ -826,19 +786,11 @@ describe("notification routing", () => {
       activeView: "chat",
       selectedId: "bot-1",
       bots,
-      groups,
     })).toBe("main-thread");
-    expect(visibleNotificationThread({
-      activeView: "chat",
-      selectedId: "room-1",
-      bots,
-      groups,
-    })).toBe("room-thread");
     expect(visibleNotificationThread({
       activeView: "routines",
       selectedId: "bot-1",
       bots,
-      groups,
     })).toBeNull();
   });
 });
@@ -855,12 +807,11 @@ describe("config status frames", () => {
     expect(status.anthropic).toEqual({ configured: true, everyClaudeBot: false });
   });
 
-  it("keeps thread capacity and room timeout with the existing config fields", () => {
+  it("keeps thread capacity with the existing config fields", () => {
     expect(
       configStatusFromFrame({
         xai: { configured: true },
         composio: { configured: true, mode: "managed" },
-        rooms: { turnTimeoutMinutes: 20 },
         mcp: { callTimeoutMinutes: 30 },
         threads: { maxConcurrentPerBot: 10 },
         localVm: { mode: "per-bot", maxInstances: 3 },
@@ -872,7 +823,6 @@ describe("config status frames", () => {
     ).toEqual({
       xai: { configured: true },
       composio: { configured: true, mode: "managed" },
-      rooms: { turnTimeoutMinutes: 20 },
       mcp: { callTimeoutMinutes: 30 },
       threads: { maxConcurrentPerBot: 10 },
       localVm: { mode: "per-bot", maxInstances: 3 },
@@ -909,36 +859,11 @@ describe("task rename", () => {
     expect(next.bots[0]?.tasks?.find((task) => task.threadId === "t1")?.title).toBe("Renamed");
     expect(next.bots[0]?.tasks?.find((task) => task.threadId === "t2")?.title).toBe("Other");
   });
-
-  it("updates a channel task title in local state immediately", () => {
-    const group = {
-      id: "room",
-      threadId: "room-task-1",
-      name: "Launch",
-      memberIds: [],
-      defaultResponder: { kind: "everyone" },
-      bulletin: "",
-      unread: false,
-      createdAt: 1,
-      messages: [],
-      tasks: [
-        { threadId: "room-task-1", title: "New task", createdAt: 1 },
-        { threadId: "room-task-2", title: "Other", createdAt: 2 },
-      ],
-    } satisfies Group;
-    const next = reducer(
-      { ...initialState, groups: [group] },
-      { type: "renameGroupTask", groupId: group.id, threadId: "room-task-1", title: "Renamed" },
-    );
-    expect(next.groups[0]?.tasks?.find((task) => task.threadId === "room-task-1")?.title).toBe("Renamed");
-    expect(next.groups[0]?.tasks?.find((task) => task.threadId === "room-task-2")?.title).toBe("Other");
-  });
 });
 
 describe("config status", () => {
   const config = configStatusFromFrame({
     composio: { configured: false },
-    rooms: { turnTimeoutMinutes: 5 },
     mcp: { callTimeoutMinutes: 10 },
     localVm: { mode: "shared", maxInstances: 2 },
     features: { skillAuthoring: true },
@@ -1133,49 +1058,6 @@ describe("optimistic sent messages", () => {
       expect(restored.bots[0]?.messages).toEqual([root, question, answer]);
     });
   });
-
-  it("uses the same immediate reconciliation for a channel", () => {
-    const group: Group = {
-      id: "preview-room",
-      threadId: "preview-room-thread",
-      name: "Preview room",
-      memberIds: [bot.id],
-      defaultResponder: { kind: "member", botId: bot.id },
-      bulletin: "",
-      unread: false,
-      createdAt: 1,
-      messages: [],
-    };
-    const sent = reducer(
-      { ...initialState, groups: [group] },
-      {
-        type: "sendGroup",
-        groupId: group.id,
-        threadId: group.threadId,
-        sendId: "room-preview",
-        text: "show this",
-        mode: "chat",
-      },
-    );
-    expect(sent.groups[0]?.messages).toEqual([
-      expect.objectContaining({ id: "optimistic-room-preview", sendId: "room-preview" }),
-    ]);
-
-    const canonical: Message = {
-      id: "server-room-message",
-      role: "user",
-      kind: "text",
-      text: "show this",
-      at: 2,
-      sendId: "room-preview",
-    };
-    const reconciled = reducer(sent, {
-      type: "messageAdded",
-      threadId: group.threadId,
-      message: canonical,
-    });
-    expect(reconciled.groups[0]?.messages).toEqual([canonical]);
-  });
 });
 
 describe("cross-client bot creation", () => {
@@ -1365,39 +1247,6 @@ describe("tool selection announcements", () => {
   });
 });
 
-describe("teammate wait announcements", () => {
-  const waiting: Bot = {
-    id: "wait-bot", threadId: "wait-thread", name: "Scooter", title: "", description: "",
-    notifications: true, color: "green", unread: false,
-    modelSelection: { instanceId: "codex", model: "default" }, busy: true, activity: "working", waitingForTeammates: true,
-    messages: [{ id: "message", role: "user", kind: "text", at: 1, text: "Keep this conversation" }],
-  };
-  // The existing wire explicitly clears the coordination wait on settlement.
-  it.each(["botPatched", "taskSwitched", "botPatchedSwitch"] as const)("clears the wait when a working frame reports settlement via %s", (kind) => {
-    const announcement = { ...waiting, waitingForTeammates: false };
-    const next = reducer({ ...initialState, bots: [waiting] }, {
-      type: kind === "taskSwitched" ? "taskSwitched" : "botPatched",
-      bot: { ...announcement, threadId: kind === "botPatchedSwitch" ? "replacement-thread" : waiting.threadId },
-    });
-    expect(next.bots[0]?.waitingForTeammates).toBe(false);
-    expect(next.bots[0]?.messages).toEqual(waiting.messages);
-  });
-
-  it("clears the wait on an idle frame too, not only a working one", () => {
-    const announcement = { ...waiting, waitingForTeammates: false };
-    const next = reducer({ ...initialState, bots: [waiting] }, { type: "botPatched", bot: { ...announcement, busy: false, activity: "idle" } });
-    expect(next.bots[0]?.waitingForTeammates).toBe(false);
-    expect(next.bots[0]?.busy).toBe(false);
-  });
-
-  it("keeps the wait painted while the frame still carries it", () => {
-    const { messages, ...rest } = waiting;
-    const next = reducer({ ...initialState, bots: [waiting] }, { type: "botPatched", bot: rest });
-    expect(next.bots[0]?.waitingForTeammates).toBe(true);
-    expect(next.bots[0]?.messages).toBe(messages);
-  });
-});
-
 describe("browser profile announcements", () => {
   it.each([undefined, null, "guest", "another-profile"])("replaces an old shared profile with %s without losing chat", (profile) => {
     const bot: Bot = {
@@ -1433,12 +1282,10 @@ describe("section Chiefs", () => {
   it("atomically removes a deleted team and its assignments before SSE arrives", () => {
     const member = { ...bot("member", "Delivery"), messages: [] };
     const other = { ...bot("other", "Personal"), messages: [] };
-    const group = { id: "group", threadId: "thread", section: "Delivery", name: "Review", memberIds: [], defaultResponder: { kind: "mentions" }, createdAt: 1, bulletin: "", messages: [], unread: false } satisfies Group;
-    const next = reducer({ ...initialState, bots: [member, other], groups: [group], sections: ["Delivery", "Personal"] },
+    const next = reducer({ ...initialState, bots: [member, other], sections: ["Delivery", "Personal"] },
       { type: "sectionDeleted", section: "Delivery", sections: ["Personal"] });
     expect(next.sections).toEqual(["Personal"]);
     expect(next.bots[0].section).toBeUndefined();
-    expect(next.groups[0].section).toBeUndefined();
     expect(next.bots[0].messages).toBe(member.messages);
     expect(next.bots[1]).toBe(other);
   });
@@ -1449,14 +1296,6 @@ describe("section Chiefs", () => {
     const next = reducer({ ...initialState, bots: [current], sections: ["Delivery"] }, { type: "botPatched", bot: announcement });
     expect(next.bots[0].section).toBeUndefined();
     expect(next.sections).toEqual(["Delivery"]);
-  });
-
-  it("clears full group membership without treating a partial patch as a move", () => {
-    const group = { id: "group", threadId: "thread", section: "Delivery", name: "Review", memberIds: [], defaultResponder: { kind: "mentions" }, createdAt: 1, bulletin: "", messages: [], unread: false } satisfies Group;
-    const state = { ...initialState, groups: [group] };
-    expect(reducer(state, { type: "groupPatched", group: { id: group.id, unread: true } }).groups[0].section).toBe("Delivery");
-    const { section: _oldSection, ...announcement } = group;
-    expect(reducer(state, { type: "groupPatched", group: announcement }).groups[0].section).toBeUndefined();
   });
 
   it("hands off only within the patched bot's section", () => {
@@ -1672,7 +1511,6 @@ describe("pending queued chip", () => {
     const hydrated = reducer(queued, {
       type: "hydrate",
       bots: [{ ...bot, messages: [canonical] }],
-      groups: [],
       computerControl: {},
     });
 
@@ -1688,17 +1526,14 @@ describe("pending queued chip", () => {
     expect(late.consumedQueueIds["q-snapshot"]).toBeUndefined();
   });
 
-  it("restores a queued sibling on reload and preserves group-local queues", () => {
-    const group: Group = { id: "team", name: "Team", threadId: "team-thread", memberIds: [], createdAt: 1,
-      defaultResponder: { kind: "everyone" }, bulletin: "", unread: false, messages: [] };
-    const state = { ...initialState, groups: [group], pendingQueued: { "team-thread": [{ queueId: "team-q", text: "team work" }] } };
+  it("restores a queued sibling on reload and keeps a cancelled one from reviving", () => {
     const queues = { sibling: [{ queueId: "sibling-q", text: "waiting after refresh", reason: "capacity" as const }] };
-    const hydrated = reducer(state, { type: "hydrate", bots: [{ ...bot, messages: [] }], groups: [group], computerControl: {}, botQueuedMessages: queues });
-    expect(hydrated.pendingQueued).toEqual({ ...queues, "team-thread": state.pendingQueued["team-thread"] });
+    const hydrated = reducer(initialState, { type: "hydrate", bots: [{ ...bot, messages: [] }], computerControl: {}, botQueuedMessages: queues });
+    expect(hydrated.pendingQueued).toEqual(queues);
     const cancelled = reducer(hydrated, { type: "botQueues", queues: {} });
-    expect(cancelled.pendingQueued).toEqual(state.pendingQueued);
+    expect(cancelled.pendingQueued).toEqual({});
     const late = reducer(cancelled, { type: "pendingQueued", threadId: "sibling", queueId: "sibling-q", text: "waiting after refresh" });
-    expect(late.pendingQueued).toEqual(state.pendingQueued);
+    expect(late.pendingQueued).toEqual({});
   });
 
   it("folds queue snapshots without duplicating a later send response or reviving drained work", () => {
@@ -1772,22 +1607,6 @@ describe("pending queued chip", () => {
       type: "cancelQueued",
       botId: "b1",
       queueId: "q-drop",
-    });
-    expect(cancelled.pendingQueued).toEqual({});
-  });
-
-  it("drops a cancelled channel follow-up from its original task", () => {
-    const queued = reducer(initialState, {
-      type: "pendingQueued",
-      threadId: "room-task-1",
-      queueId: "q-room-drop",
-      text: "never mind",
-    });
-    const cancelled = reducer(queued, {
-      type: "cancelGroupQueued",
-      groupId: "room-1",
-      threadId: "room-task-1",
-      queueId: "q-room-drop",
     });
     expect(cancelled.pendingQueued).toEqual({});
   });
@@ -1879,31 +1698,6 @@ describe("scrollback pages", () => {
     const replied = reducer(loaded, { type: "botPatched", bot: { ...open, messages: [message("m4", 4)], hasMore: true } as never });
     expect(replied.bots[0].messages.map((m) => m.id)).toEqual(["m3", "m4"]);
     expect(replied.bots[0].hasMore).toBe(false);
-  });
-
-  it("answers the scrollback question from a payload that carries a transcript", () => {
-    const group = {
-      id: "room",
-      threadId: "room-thread",
-      name: "Room",
-      memberIds: [],
-      defaultResponder: { kind: "mentions" },
-      createdAt: 1,
-      bulletin: "",
-      unread: false,
-      messages: [message("m9", 9)],
-      hasMore: true,
-    } as never as Group;
-    const withRoom = { ...initialState, groups: [group] };
-    // a frame that carries the whole thread and no page marker IS the thread
-    const complete = reducer(withRoom, {
-      type: "groupPatched",
-      group: { id: "room", threadId: "room-thread", messages: [message("m8", 8), message("m9", 9)] } as never as Group,
-    });
-    expect(complete.groups[0].hasMore).toBe(false);
-    // a patch with no transcript leaves the answer alone
-    const renamed = reducer(withRoom, { type: "groupPatched", group: { id: "room", name: "Renamed" } });
-    expect(renamed.groups[0].hasMore).toBe(true);
   });
 });
 
@@ -2006,7 +1800,6 @@ describe("bot settings section", () => {
       activeView: "team-map" as const,
       selectedId: "room",
       bots: [{ ...bot, unread: true }],
-      groups: [{ id: "room", unread: true } as Group],
     };
     const next = reducer(state, { type: "toggleSettings", botId: bot.id, section });
     expect(next.selectedId).toBe(bot.id);
@@ -2015,7 +1808,6 @@ describe("bot settings section", () => {
     expect(next.botSettingsSection).toBe(section);
     expect(next.botSettingsExpandAccordion).toBe(true);
     expect(next.bots).toBe(state.bots);
-    expect(next.groups).toBe(state.groups);
   });
 
   it("switches an open settings panel to another bot without toggling it closed", () => {
@@ -2051,7 +1843,6 @@ describe("bot settings section", () => {
       activeView: "team-map" as const,
       selectedId: bot.id,
       bots: [bot, { ...bot, id: "hidden-bot", hidden: true }],
-      groups: [{ id: "room" } as Group],
       settingsOpen: true,
     };
     expect(reducer(state, { type: "toggleSettings", botId, section: "identity" })).toBe(state);
@@ -2194,7 +1985,6 @@ describe("file preview panel", () => {
 describe("live config frames", () => {
   const baseFrame: ConfigStatusFrame = {
     composio: { configured: false },
-    rooms: { turnTimeoutMinutes: 10 },
     mcp: { callTimeoutMinutes: 10 },
     localVm: { mode: "shared", maxInstances: 1 },
   };
@@ -2355,7 +2145,7 @@ describe("conversation model variant discoveries", () => {
   it("clears runtime capabilities on reload while preserving the saved variant", () => {
     let state = run(start(), { ...base(), type: "turn.started" });
     state = run(state, discovery());
-    state = reducer(state, { type: "hydrate", bots: [owner], groups: [], computerControl: {} });
+    state = reducer(state, { type: "hydrate", bots: [owner], computerControl: {} });
     expect(state.modelVariantSessions).toEqual({});
     expect(state.bots[0].tasks![0].modelSelection?.variant).toBe("minimal");
   });

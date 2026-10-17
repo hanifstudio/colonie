@@ -29,7 +29,6 @@ async function installation(options: { refuse?: (name: string) => string | undef
   const routines = new RoutineManager({
     file: join(home, "routines.json"),
     botState: (id) => (store.bot(id) && !store.bot(id)!.hidden ? "ready" : "missing"),
-    goalState: (groupId, botId) => (store.group(groupId)?.memberIds.includes(botId) ? "ready" : "missing"),
     createTask: () => null,
     startTurn: async () => {},
   });
@@ -62,9 +61,10 @@ afterEach(async () => {
 });
 
 describe("importing a whole team", () => {
-  it("adds every part from a file: persona, picture, brief, Chief, rooms, paused routines, skills off, valueless connections, notes", async () => {
+  it("adds every part from a file: persona, picture, brief, Chief, paused routines, skills off, valueless connections, notes; skips rooms", async () => {
     const app = await installation({ servers: { crm: { type: "http", url: "https://existing.example.com", headers: { Authorization: "Bearer mine" }, enabled: true } } });
     const document: PackageDocument = app.parsePackageDocument(fixture("full-team.v2.json"));
+    const groupsBefore = app.store.groups.length;
     const result = app.importer.importPackageDocument(document, { trust: "file", mode: "add" }, app.deps);
     if (result.alreadyAdded) throw new Error("unexpected");
     const byKey = new Map(result.bots.map((bot) => [bot.installedPackage!.agentKey, app.store.bot(bot.id)!]));
@@ -86,15 +86,14 @@ describe("importing a whole team", () => {
     expect(lead.installedPackage?.installId).toMatch(/^[0-9a-f-]{36}$/);
     expect(new Set(result.bots.map((bot) => bot.installedPackage?.installId)).size).toBe(1);
     expect(app.sections.readSectionContext("Sales desk")?.text).toContain("49 per seat");
-    expect(result.groups).toEqual([expect.objectContaining({
-      name: "Deal desk", section: "Sales desk", bulletin: expect.stringContaining("Cite sources"),
-      defaultResponder: { kind: "member", botId: lead.id }, setupCompletedAt: expect.any(Number),
-    })]);
-    expect(result.groups[0]!.memberIds.sort()).toEqual(result.bots.map((bot) => bot.id).sort());
+    // Rooms are retired: the package's room and its room routine are
+    // listed as skipped and never created.
+    expect(result.groups).toEqual([]);
+    expect(app.store.groups).toHaveLength(groupsBefore);
     expect(result.routines).toEqual([
       expect.objectContaining({ name: "Daily digest", botId: scout.id, enabled: false, nextRunAt: null, continuity: true, timeoutMinutes: 20 }),
-      expect.objectContaining({ name: "Weekly pipeline review", target: "room-goal", groupId: result.groups[0]!.id, botId: lead.id, enabled: false }),
     ]);
+    expect(app.routines.listRoutines().some((routine) => routine.target === "room-goal")).toBe(false);
     expect(app.skills.listSkills(scout.id)).toEqual([
       expect.objectContaining({ name: "pricing-policy", enabled: false, source: "package:sales-desk" }),
       expect.objectContaining({ name: "research-brief", enabled: false }),
@@ -110,8 +109,12 @@ describe("importing a whole team", () => {
     expect(app.workspace.readMemoryTopic(lead.id, "pricing.md")).toContain("49 per seat");
     expect(result.notes).toBe(2);
     expect(result.brief).toBe(true);
-    expect(result.skipped).toEqual([{ part: "presets[support]", reason: "presets_not_supported_yet" }]);
-    expect(app.events.filter((kind) => kind === "bot")).toHaveLength(3);
+    expect(result.skipped).toEqual([
+      { part: "rooms[desk]", reason: "rooms_not_supported" },
+      { part: "routines[weekly-review]", reason: "rooms_not_supported" },
+      { part: "presets[support]", reason: "presets_not_supported_yet" },
+    ]);
+    expect(app.events).toEqual(["bot", "bot", "bot"]);
   });
 
   it("imports the same file twice as two independent copies", async () => {
@@ -152,6 +155,21 @@ describe("importing a whole team", () => {
     if (result.alreadyAdded) throw new Error("unexpected");
     expect(result.routines[0]!.timeoutMinutes).toBe(240);
     expect(result.skipped).toContainEqual({ part: "routines[daily-digest].timeoutMinutes", reason: "run_limit_adjusted" });
+  });
+
+  it("adds a legacy team file's people in project mode and skips the project room", async () => {
+    const app = await installation();
+    const { parseTeamManifest, TEAM_MANIFEST_FORMAT, TEAM_MANIFEST_VERSION } = await import("./team-manifest.ts");
+    const manifest = parseTeamManifest({ format: TEAM_MANIFEST_FORMAT, version: TEAM_MANIFEST_VERSION, team: { name: "Docs crew", members: [
+      { key: "ada", name: "Ada", title: "", description: "", appearance: { color: "blue" } },
+    ] } });
+    const groupsBefore = app.store.groups.length;
+    const result = app.importer.importTeamManifest(manifest, { mode: "project", cwd: home, room: "Docs room" }, app.deps);
+    expect(result.bots.map((bot) => bot.name)).toEqual(["Ada"]);
+    expect(result.groups).toEqual([]);
+    expect(result).not.toHaveProperty("group");
+    expect(app.store.groups).toHaveLength(groupsBefore);
+    expect(result.skipped).toEqual([{ part: "room", reason: "rooms_not_supported" }]);
   });
 
   it("switches skills on and stamps provenance only for the organization channel, once", async () => {

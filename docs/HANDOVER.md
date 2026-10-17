@@ -127,6 +127,168 @@ these limits while scoped foundation work proceeds; do not claim M0 complete.
 
 ## Active task: rooms retirement (picked up October 17, second session)
 
+Status (iteration 3): rooms are read-only legacy storage (`groups.json` never
+written, stored rooms admin-only, no pair DM channels); room screens and
+navigation are gone from `src/`; `coordinate_bots` is retired and live Chief
+delegation is `ask_bot`. Renderer lane verified (tsc, i18n, oxlint). Server,
+fixtures and approval lanes verified earlier; server tsc now clean after the
+`rooms` config-key fix. Open: tests lane (`tool-scope.e2e` 6/7), src test
+failures listed in PROGRESS "iteration 3" (companion section tests inherited;
+`node:sqlite` bundling suites unbaselined), `workspace-backup-workflow` paired
+client export 200 vs 403, `steer-queue` 4 cases (queue item 7), `index.test.ts`
+10 strict cases. Product gap found: tool selection is not forwarded to ACP
+connected-tool mounts (see PROGRESS); needs an owner/product decision before fix.
+Git index: `server/group-tasks.test.ts` shows a staged deletion from a coordinator
+mistake; the deletion is intended; the owner decides whether to unstage.
+Do not release yet: P1 and the room-retirement milestone remain unproven.
+
+Latest owner workflow (October 17): use one Claude coordinator and five isolated
+Claude workers to accelerate the authorized foundation work. This supersedes the
+single-worker/no-delegation prompt. One outcome per worker, not one declaration
+per session. The coordinator alone integrates into this checkout, updates these
+docs/roadmap, and runs heavy checks through the shared bounded check queue.
+Workers own disjoint paths in worktrees seeded with the current tracked WIP;
+they return patches and suggested checks without running builds/tests or editing
+the shared docs. Initial lanes: server/persistence room retirement, renderer room
+retirement, ACP scripted-tool fixtures, mixed-test migration, approval smoke tooling.
+The P1 foundation milestone remains active; future Server/invitation/companion
+work stays deferred; the owner decisions themselves are settled (see P0 below).
+Never erase persisted room
+files or live app data, weaken coverage to get green, or sweep WIP into commits.
+The single-worker iteration 11 was interrupted during team-backup work: preserve
+its unfinished edits and verify them as part of the server lane. No completion
+claim follows from that interrupted run. Bounded integration acceptance: the room
+UI is removed while direct conversations remain, stored backups still parse with
+explicit skipped-room behavior, maintained ACP fixtures/smokes migrate without
+retired drivers, relevant contract/type/lint checks pass or inherited failures are
+demonstrated. One heavy local check at a time, 120 seconds per command, two repairs
+per outcome. Worker-ready is not integrated/verified; show that distinction in
+the owner roadmap. No commits, pushes, publishing, deployment or external messages.
+
+Owner monitor correction (October 17): progress means roadmap outcomes and gaps,
+not a tool/process log. The local monitor must derive product P0–P7, engineering
+E01–E06 and the active cleanup queue from the blueprint/HANDOVER/PROGRESS. Show
+done, in progress, not started, blocked/deferred and unverified outcomes, with
+plain-language completed work and remaining acceptance. No logs, model/token/cost
+cards or run counts in the main view. Refresh the derived roadmap snapshot after
+each checkpoint; it is a view of these docs, not a second planning authority.
+The first autonomous verification run was interrupted to replace the monitor;
+source WIP is preserved and no final verification checkpoint was returned. Resume
+the same source verification after this tooling correction; do not mark it done.
+The replacement uses `.colonie-dev/claude-roadmap.json` as a derived snapshot.
+Each autonomous checkpoint must return updates for its stable roadmap IDs with
+completed outcomes, remaining acceptance and source references; the launcher
+merges them and regenerates the HTML. A finished slice cannot mark an entire
+P/E stage done. The Done view includes completed parts of open milestones;
+Remaining includes deferred future work, which remains outside the active scope.
+
+Owner workflow update (October 17, superseding the parent-review trial): Claude
+runs the authorized work itself through `claude -p` (task selection, checks,
+self-review, checkpoints) without waiting for a Codex review. The launcher, team
+helper and HTML monitor live under ignored `.colonie-dev/`; they are development
+tools, not application features.
+
+Completed room-retirement slices (static/unit evidence each; details in PROGRESS
+under the quoted headings): stage 1 (ten room e2e files deleted); stage 3a (group
+HTTP routes, channel MCP tools and control-CLI channel commands gone); stage 3b
+part 1 (room turn engine deleted, room entry points inert, "rooms retirement,
+stage 3b part 1"); and from stage 3b part 2: `roomPosts`/`personAskAt`,
+`groupUsageReader` (module deleted), `roomFeedsBot` (rooms stop feeding recall;
+ratchet 135/69), the dead `room.audience-reset` audit plan, the dead `busyBotId`
+reads, the handoff router's `group` case for `run`/`busy`, the dead `/api/groups`
+client-scope rules (a client session now gets 403 on old room paths),
+`server/group-goal-run.ts`, and `server/decider/room-routing.ts` with its eval.
+
+Decisions and findings still in force:
+- `rooms.turnTimeoutMinutes` is room-only (enforced only by the deleted engine);
+  UI/wire go with the renderer stage, config/backup parsing keeps accepting it.
+- `settleRoomFloor` stays until room storage/visibility go: `bot-visibility.ts`
+  still hides stored rooms by `audienceFloor`.
+- `server/room-handoffs.ts` is the live direct-delegation engine
+  (`coordinate_bots`); only its room parts go. Node schema keeps optional `groupId`.
+- `coordinate_bots`/direct-handoffs dispatch is retired (unreachable on ACP);
+  stored `room-handoffs.json` trees load as settled history. The native agents
+  MCP tools (`ask-bot`/`delegate-bot` routes, pair-DM mirror, prompts) are also
+  unreachable on ACP but stay until the owner decides (see questions below).
+- Storage (reversible, no deletion): `groups.json` and room transcripts stay on
+  disk and in workspace backups; the app stops creating rooms, then stops reading
+  them. `package-import.ts` and `team-backup.ts` no longer create rooms; the
+  remaining creator is the ask_bot DM channel (`comms-visibility.ts`
+  `getOrCreateChannel` via `store.createGroup`); read-only: `delegations.ts`,
+  `peer-approval.ts`.
+- Do not release before the renderer stage lands: the renderer still calls the
+  removed routes; a room renders but can no longer answer.
+- Owner answered the room questions on October 17 (details in the blueprint's
+  [decision log](COLONIE-BLUEPRINT.md#decision-and-research-log)): drop the
+  Settings "Decision model" section from the interface while the `server/decider/`
+  core stays for a future real job; a read-only view or export of old room
+  conversations may come later at low priority; retire rather than rebuild the
+  native agents MCP delegation tools (`delegate_bot`, native `ask_bot`, pair DM
+  channels), which no ACP adapter mounts today.
+- P0 is closed and its answers are not open questions again: the owner answered
+  Q01–Q11 on October 17, recorded in the blueprint's
+  [open decisions table](COLONIE-BLUEPRINT.md#10-open-decisions-and-next-work).
+  What remains there is machine research (provider entitlement, reference
+  behavior, hosting benchmark), not owner decisions. Owner instruction: finish
+  the P1 foundation/rooms milestone first; those research items stay queued
+  after it unless the owner reprioritizes.
+
+Current team plan (iteration 2):
+
+| Lane | State | Next |
+|---|---|---|
+| server | verified | drop `roomResponders`/`normalizeGroupDefaultResponder` and `decider.jobs.roomRouting` once tests go |
+| renderer | verified (static/i18n only) | Decision model "Who answers in rooms" toggle waits for the owner question |
+| fixtures | verified | idle |
+| tests | integrated, partly verified | `tool-scope` ACP mount scope (product gap); remaining mixed tests |
+| approval | verified | idle |
+
+Coordinator-owned follow-ups:
+`steer-queue` item 7 (gate the `dispatching` receipt, not the turn);
+UI e2e files still reading removed `groups` (`team-lifecycle-ui`,
+`thinking-timer-ui`); ACP reports no adapter cost (`acp-runtime.ts`
+`turnUsage`/`finish`), so spend-cap cost assertions need a runtime decision.
+Iteration 3 checkpoint: renderer wave 9 and tests wave 8 are integrated, not
+verified (no check has run on them). The `post-to-room.test.ts` rename is done:
+the owner's session deleted the old duplicate file and
+`scripts/testing/vitest-shard-weights.json` already lists
+`server/peer-comms-limits.test.ts`, which passes 2/2 on its own. The October 17
+23:03 stop was not a guard bug: the coordinator bundled deletion with its check
+(`rm server/post-to-room.test.ts && python3 .colonie-dev/claude-team.py check ...`),
+which the permission mode refuses as irreversible destruction. Issue destructive
+and read-only commands as separate calls; a refusal of that kind is not a reason
+to end the batch while independent authorized work remains.
+Worker task files: `.colonie-dev/team/tasks/`.
+
+Checks have a 120-second
+owned-process limit, one heavy job at a time, two repair attempts. A worker report
+alone is not check evidence; self-review is not independent review. Stop and
+checkpoint on exhausted repair budget, provider quota/auth failure, an unresolved
+owner decision or completion of all ready authorized work. No publishing,
+deployment, remote ruleset changes or sweeping existing WIP into commits.
+Local controls: `python3 .colonie-dev/claude-autopilot.py start`, `status`, or
+`stop`. The local artifact is `.colonie-dev/claude-progress.html` (reloads every
+10 seconds). Team defaults: estimated US$300 total including reserved worker
+allowances, US$25 per Claude call, five workers at most, 30 minutes per worker,
+180 minutes per coordinator session (raised from 60 on October 17: the one-hour
+limit killed sessions mid-work and stopped the batch every hour). Model: the
+coordinator and its workers run the `sonnet` alias (resolves to
+`claude-sonnet-5-5`) since October 17, an owner-directed cost decision; revert to
+`claude-opus-5-5` if output quality drops. The coordinator's model comes from the
+launcher's `--model`, the workers' from `COLONIE_WORKER_MODEL` (default in
+`claude-team.py`). The owner delegated the "move heavy checks to CI" choice to the
+coordinator; it stays parked while this batch forbids commits and pushes. A
+checkpoint that names a roadmap item or focus that does not exist is ignored with
+a visible Warning event instead of ending the batch (fixed October 17 after
+`ROOMS-ROUTES`, an ID that does not exist, killed a session); valid IDs still
+apply. The
+coordinator may continue across bounded sessions.
+`python3 .colonie-dev/claude-team.py status` inspects lane outcomes;
+`check --seconds 120 -- COMMAND` is the serialized heavy-check queue. Only passing
+post-integration check IDs can mark a lane checked. Stop on the main launcher
+also stops its owned workers while preserving patches/worktrees. Account balance
+is not observable. These local ignored tools do not change application ACP.
+
 CI evidence that justifies doing this now: after the static job went green,
 the remaining red vitest shards are dominated by `server/index.test.ts` (68
 failures locally and on CI; about 35 through the retired `claudeAgent` fixture
@@ -139,35 +301,6 @@ live importer; `room-*` modules and `group-goal-run`/`group-thread-usage` are st
 imported by `server/index.ts`, so they wait for stage 3 together with their unit
 tests. Acceptance per stage as written below. Budget: one vitest run at a time,
 `--maxWorkers=1`, background for the e2e files, two repairs per stage.
-
-Progress: stage 1 done (ten e2e files deleted, PROGRESS). Stage 3a done: group
-HTTP routes, agent-facing channel MCP tools and the control CLI's channel commands
-are gone. Stage 3b part 1 done: no room turn can run — the group turn engine and
-its callers are deleted and the room entry points are inert (`RoomHandoffs` refuses
-a room node, the answer route answers 409, the routine goal callbacks are no-ops) —
-and `server/index.ts` compiles again. Stage 3b part 2 has begun: the fold's dead
-room-turn state is going — the goal-coordinator envelope and the stall registry are
-gone (`room-turn-timeout.ts` with them), and so are `groupSpeakers` and every branch
-only it gated. The tree had been left mid-edit by other
-sessions in this checkout: the Claude Code session stopped on its weekly limit at
-06:47:58, then separate opencode sessions edited the same file until 07:47 and one
-of them deleted a 550-line region wholesale. That region (live
-connector/skill/approval/computer-resume helpers) was restored and only the
-room-only declarations it carried were dropped; the other sessions' sound removals
-were kept. Both inherited red files were re-verified at the parent commit, so keep
-one writer per file. Evidence is in PROGRESS "rooms retirement, stage 3b part 1".
-Do not release before stage 4: the renderer still calls the removed routes; a room
-renders but can no longer answer.
-Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures
-(it still builds retired drivers; CI's macOS step fails with 409 until then).
-Next: 3b part 2 — the room machinery `server/index.ts` still holds: `groupUsageReader`
-(fold refresh, snapshot and the wire's `rooms.turnTimeoutMinutes`), `roomFeedsBot`'s
-room filters, `settleRoomFloor` with the `PATCH /api/groups/:id` audience-reset plan,
-the room answer route's `busyBotId`/`from` owner fallback, and the router's `group`
-case. Then the `room-*`/`group-*` modules with their unit tests (`group-goal-run`,
-`room-post-budget`, `room-cwd`, `room-turn-end`, and `server/decider/`), store tables
-(check backup/restore compatibility of persisted `groups.json` before dropping
-reads), routines/wire/package flows, then stage 4 renderer and stage 5 tests.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 

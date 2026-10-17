@@ -21,7 +21,7 @@ export {
 // is a link: "#123" issue numbers, "# Heading" markers (the parser never
 // hands those here) and unknown titles all stay plain text.
 
-/** A thread the person can see: any bot's task, or a room's. `activeAt`
+/** A thread the person can see: any bot's main thread or task. `activeAt`
  * orders threads that share a title (newest wins) after the current bot. */
 export interface ThreadRefCandidate {
   botId: string;

@@ -14,7 +14,7 @@ afterEach(() => vi.unstubAllGlobals());
 function config(features: string[], extra: Partial<ConfigStatus> = {}): ConfigStatus {
   return {
     composio: { configured: false },
-    rooms: { turnTimeoutMinutes: 30 }, localVm: { mode: "shared", maxInstances: 1 },
+    localVm: { mode: "shared", maxInstances: 1 },
     edition: { edition: features.length ? "enterprise" : "oss", features },
     ...extra,
   } as ConfigStatus;

@@ -1,4 +1,4 @@
-import { AlertCircleIcon, ArrowLeft01Icon, AttachmentIcon, CancelCircleIcon, CheckmarkCircle02Icon, ChevronLeftIcon, ChevronRightIcon, Clock03Icon, Delete02Icon, FileTextIcon, LaptopIcon, Loading02Icon, MultiplicationSignIcon, PauseIcon, PlayIcon, PlusSignIcon, RepeatIcon, Search01Icon, SquareArrowUpRightIcon, Target03Icon, TickDouble01Icon, UserAdd01Icon, UsersIcon, Video01Icon, WebhookIcon } from "@hugeicons/core-free-icons";
+import { AlertCircleIcon, ArrowLeft01Icon, AttachmentIcon, CancelCircleIcon, CheckmarkCircle02Icon, ChevronLeftIcon, ChevronRightIcon, Clock03Icon, Delete02Icon, FileTextIcon, LaptopIcon, Loading02Icon, MultiplicationSignIcon, PauseIcon, PlayIcon, PlusSignIcon, RepeatIcon, Search01Icon, SquareArrowUpRightIcon, TickDouble01Icon, UserAdd01Icon, UsersIcon, Video01Icon, WebhookIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import {
   useCallback,
@@ -68,9 +68,8 @@ import {
   type RoutineRunStatusFilter,
   type RoutineSchedule,
   type RoutineScheduleInput,
-  type RoutineTarget,
 } from "@/lib/routines";
-import { api, openNotificationTarget, useStore, type Bot, type Group } from "@/state/store";
+import { api, openNotificationTarget, useStore, type Bot } from "@/state/store";
 
 const HOUR_HEIGHT = 64;
 const DAY_CHIP_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -112,34 +111,6 @@ type EventSeed = {
   routine?: Routine;
   call?: CalendarCall;
 };
-
-function activeRoomMembers(group: Group | undefined, bots: Bot[]): Bot[] {
-  if (!group) return [];
-  return group.memberIds.flatMap((id) => {
-    const bot = bots.find((candidate) => candidate.id === id);
-    return bot && !bot.hidden ? [bot] : [];
-  });
-}
-
-function roomCanRunGoal(group: Group): boolean {
-  if (group.dm) return false;
-  const hasSetupMarker =
-    Object.prototype.hasOwnProperty.call(group, "setupCompletedAt") ||
-    Object.prototype.hasOwnProperty.call(group, "setupSkippedAt");
-  return !hasSetupMarker ||
-    group.setupCompletedAt != null ||
-    group.setupSkippedAt != null ||
-    (group.messages?.length ?? 0) > 0;
-}
-
-function preferredRoomLead(group: Group | undefined, bots: Bot[], preferredId?: string): Bot | undefined {
-  const members = activeRoomMembers(group, bots);
-  const explicitLeadId = group?.defaultResponder.kind === "member" ? group.defaultResponder.botId : undefined;
-  return members.find((bot) => bot.id === preferredId)
-    ?? members.find((bot) => bot.id === explicitLeadId)
-    ?? members.find((bot) => bot.chiefOfStaff)
-    ?? members[0];
-}
 
 function nextHour(): number {
   const date = new Date(Date.now() + 60 * 60_000);
@@ -321,7 +292,7 @@ export function EventEditor({
   onClose: () => void;
   onSavedCall: (call: CalendarCall) => void;
 }) {
-  const { state, dispatch } = useStore();
+  const { dispatch } = useStore();
   const existingRoutine = seed.routine;
   const { request: editorRequest } = useBotEditor();
   const existingCall = seed.call;
@@ -372,11 +343,12 @@ export function EventEditor({
     if (ids[0] !== botIds[0]) setResultsThreadId(null);
     setBotIds(ids);
   };
-  const [routineTarget, setRoutineTarget] = useState<RoutineTarget>(existingRoutine?.target ?? "bot");
-  const [groupId, setGroupId] = useState(existingRoutine?.groupId ?? "");
+  // Every routine is a bot routine. A stored team goal (from retired rooms) can
+  // still be opened, but only to read its paused notice; it cannot be saved.
+  const legacyTeamGoal = kind === "routine" && existingRoutine?.target === "room-goal";
   // ponytail: a routine stored before the cloud computer place was removed can
   // still say `runOn: "cloud"`; it now runs on the bot's own computer.
-  const [runOn, setRunOn] = useState<RoutineRunOn>(existingRoutine?.runOn === "cloud" ? "maus" : existingRoutine?.runOn ?? defaultRunOn ?? "maus");
+  const runOn: RoutineRunOn = existingRoutine?.runOn === "cloud" ? "maus" : existingRoutine?.runOn ?? defaultRunOn ?? "maus";
   const [attachments, setAttachments] = useState<Array<RoutineContextAttachment | CalendarCallAttachment>>(
     existingRoutine?.target === "room-goal" ? [] : existingRoutine?.attachments ?? existingCall?.attachments ?? [],
   );
@@ -386,10 +358,6 @@ export function EventEditor({
   const [attachmentPendingCount, setAttachmentPendingCount] = useState(0);
   const attachmentPending = attachmentPendingCount > 0;
   const fileInput = useRef<HTMLInputElement>(null);
-  const rooms = state.groups.filter(roomCanRunGoal);
-  const selectedRoom = rooms.find((group) => group.id === groupId);
-  const roomMembers = activeRoomMembers(selectedRoom, state.bots);
-  const isRoomGoal = kind === "routine" && routineTarget === "room-goal";
   const at = fromLocalDateAndTime(date, startTime, existingRoutine || existingCall ? initialAt : undefined);
   const endAt = at + durationMinutes * 60_000;
   const selectedBots = botIds.flatMap((id) => bots.find((bot) => bot.id === id) ?? []);
@@ -449,30 +417,8 @@ export function EventEditor({
     setIntervalDays(choice);
   };
 
-  const selectRoutineTarget = (target: RoutineTarget) => {
-    setRoutineTarget(target);
-    if (target === "bot") {
-      setGroupId("");
-      return;
-    }
-    setRunOn("maus");
-    setAttachments([]);
-    setAttachmentNotice("");
-    const room = selectedRoom ?? rooms[0];
-    setGroupId(room?.id ?? "");
-    const lead = preferredRoomLead(room, state.bots, botIds[0]);
-    selectBots(lead ? [lead.id] : []);
-  };
-
-  const selectRoom = (nextGroupId: string) => {
-    const room = rooms.find((candidate) => candidate.id === nextGroupId);
-    setGroupId(nextGroupId);
-    const lead = preferredRoomLead(room, state.bots, botIds[0]);
-    selectBots(lead ? [lead.id] : []);
-  };
-
   const pickFiles = async (files: FileList | null) => {
-    if (!files?.length || isRoomGoal) return;
+    if (!files?.length || legacyTeamGoal) return;
     setAttachmentPendingCount((count) => count + 1);
     try {
       const result = await intakeFiles(Array.from(files), {
@@ -511,19 +457,18 @@ export function EventEditor({
         const input: RoutineInput = {
           name,
           prompt: description,
-          target: routineTarget,
+          target: "bot",
           botId: lockedBotId ?? botIds[0] ?? "",
-          groupId: routineTarget === "room-goal" ? groupId : null,
-          runOn: routineTarget === "room-goal" ? "maus" : runOn,
+          runOn,
           enabled: existingRoutine ? undefined : true,
           schedule: nextSchedule,
           durationMinutes,
           timeoutMinutes,
           overlap,
-          // Room goals can't carry a report yet, and a one-time run has no next run.
-          continuity: routineTarget === "bot" && recurrence !== "none" && continuity,
-          attachments: routineTarget === "room-goal" ? [] : attachments as RoutineContextAttachment[],
-          ...(routineTarget === "bot" ? { resultsThreadId } : {}),
+          // A one-time run has no next run to carry a report into.
+          continuity: recurrence !== "none" && continuity,
+          attachments: attachments as RoutineContextAttachment[],
+          resultsThreadId,
         };
         const response = await editorRequest(existingRoutine ? `/api/routines/${existingRoutine.id}` : "/api/routines", {
           method: existingRoutine ? "PATCH" : "POST",
@@ -561,9 +506,8 @@ export function EventEditor({
     && (!lockedBotId || botIds[0] === lockedBotId)
     && (kind === "call"
       ? botIds.length > 0
-      : routineTarget === "room-goal"
-        ? groupId && botIds[0] && roomMembers.some((bot) => bot.id === botIds[0])
-        : botIds.length > 0)
+      // Team goals were retired with rooms; a stored one stays inert.
+      : !legacyTeamGoal && botIds.length > 0)
     && !intervalInvalid
     && !intervalDaysInvalid
     && !intervalWindowInvalid
@@ -575,7 +519,7 @@ export function EventEditor({
   // Simple mode keeps the basics up front. A schedule or setting the basics
   // cannot show opens More options straight away, so nothing saved is hidden.
   const [moreOpen, setMoreOpen] = useState(() => !(["none", "daily", "weekdays", "weekly"] as RecurrenceChoice[]).includes(recurrence)
-    || routineTarget === "room-goal"
+    || legacyTeamGoal
     || attachments.length > 0
     || timeoutMinutes != null
     || overlap === "queue");
@@ -588,27 +532,9 @@ export function EventEditor({
               <button type="button" onClick={() => { setKind("call"); if (recurrence === "interval" || isCronChoice(recurrence)) setRecurrence("none"); }} className={cn("rounded-md px-4 py-1.5 text-[12.5px] font-medium", kind === "call" ? "bg-raised text-ink shadow" : "text-ink-secondary")}>Call</button>
             </div>
           );
-  const routineTypeControl = kind === "routine" && !lockedBotId && (
-            <div className={cn(advanced && "ml-10")}>
-              <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-ink-secondary">Routine type</div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => selectRoutineTarget("bot")}
-                  className={cn("flex items-start gap-3 rounded-xl border p-3 text-left transition", routineTarget === "bot" ? "border-accent/60 bg-accent/10" : "border-hairline/50 bg-inset hover:bg-raised")}
-                >
-                  <HIcon icon={UserAdd01Icon} size={17} className={cn("mt-0.5 shrink-0", routineTarget === "bot" ? "text-accent" : "text-ink-secondary")} />
-                  <span><span className="block text-[12.5px] font-medium text-ink">Bot task</span><span className="mt-1 block text-[11px] leading-relaxed text-ink-secondary">One bot owns and completes each run.</span></span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => selectRoutineTarget("room-goal")}
-                  className={cn("flex items-start gap-3 rounded-xl border p-3 text-left transition", routineTarget === "room-goal" ? "border-accent/60 bg-accent/10" : "border-hairline/50 bg-inset hover:bg-raised")}
-                >
-                  <HIcon icon={Target03Icon} size={17} className={cn("mt-0.5 shrink-0", routineTarget === "room-goal" ? "text-accent" : "text-ink-secondary")} />
-                  <span><span className="block text-[12.5px] font-medium text-ink">Team goal</span><span className="mt-1 block text-[11px] leading-relaxed text-ink-secondary">A lead coordinates the group until the goal settles.</span></span>
-                </button>
-              </div>
+  const routineTypeControl = legacyTeamGoal && (
+            <div className={cn(advanced && "ml-10", "rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-3 text-[11.5px] leading-relaxed text-warning")}>
+              Team goals are no longer available. This routine stays paused; recreate it as a bot routine to run it again.
             </div>
           );
   const whenControls = recurrence !== "interval" && !isCronChoice(recurrence) && (
@@ -820,7 +746,7 @@ export function EventEditor({
                   </div>
                 </details>
               );
-  const continuityControl = kind === "routine" && !isRoomGoal && recurrence !== "none" && (
+  const continuityControl = kind === "routine" && !legacyTeamGoal && recurrence !== "none" && (
           <label className={cn("flex items-start gap-3 rounded-xl border border-hairline/40 bg-inset/40 px-3.5 py-3", advanced && "ml-8")}>
             <input type="checkbox" aria-label={t("routines.continuityLabel")} checked={continuity} onChange={(event) => setContinuity(event.target.checked)} className="mt-0.5 accent-accent" />
             <span>
@@ -829,18 +755,13 @@ export function EventEditor({
             </span>
           </label>
         );
-  const resultsControl = kind === "routine" && !isRoomGoal && <div className={cn(advanced && "ml-8")}>
+  const resultsControl = kind === "routine" && !legacyTeamGoal && <div className={cn(advanced && "ml-8")}>
             <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} allowCurrent={Boolean(existingRoutine)} onChange={setResultsThreadId} />
           </div>;
-  const attachmentsRow = (
+  const attachmentsRow = !legacyTeamGoal && (
           <div className="flex items-start gap-4">
             <HIcon icon={AttachmentIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
-            {isRoomGoal ? (
-              <div className="min-w-0 flex-1 rounded-xl border border-hairline/50 bg-inset px-3.5 py-3">
-                <div className="text-[12.5px] font-medium text-ink">Use the group’s shared context</div>
-                <div className="mt-1 text-[11px] leading-relaxed text-ink-secondary">Team goals cannot carry routine attachments. Put shared context in the goal instructions or the group instructions.</div>
-              </div>
-            ) : <div className="min-w-0 flex-1 space-y-2">
+            <div className="min-w-0 flex-1 space-y-2">
               <input ref={fileInput} type="file" multiple className="hidden" onChange={(event) => { void pickFiles(event.target.files); event.target.value = ""; }} />
               <button type="button" onClick={() => fileInput.current?.click()} className="rounded-lg border border-hairline/50 px-3 py-2 text-[12.5px] font-medium text-ink hover:bg-raised">Add attachment</button>
               <AttachmentChips attachments={attachments} onRemove={(id) => setAttachments((current) => current.filter((attachment) => attachment.id !== id))} />
@@ -848,26 +769,21 @@ export function EventEditor({
                 {kind === "routine"
                   ? "Attachments are passed to each local routine run and excluded from shared team files."
                   : selectedBots.length > 1
-                    ? "References will be shared in the group when the event starts."
-                    : "References stay with the event and are available when you join the group."}
+                    ? "References will be shared in the call when it starts."
+                    : "References stay with the event and are available when you join the call."}
               </div>
               {attachmentNotice && <div className="text-[11.5px] text-warning">{attachmentNotice}</div>}
-            </div>}
+            </div>
           </div>
   );
-  const runOnRow = kind === "routine" && (
+  const runOnRow = kind === "routine" && !legacyTeamGoal && (
             <div className="flex items-start gap-4">
-              {isRoomGoal ? <HIcon icon={Target03Icon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" /> : <HIcon icon={LaptopIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />}
+              <HIcon icon={LaptopIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
               <div className="min-w-0 flex-1">
-                {isRoomGoal ? (
-                  <div className="rounded-xl border border-accent/35 bg-accent/[0.07] p-3">
-                    <div className="text-[12.5px] font-medium text-ink">Runs on this computer</div>
-                    <div className="mt-1 text-[11px] leading-relaxed text-ink-secondary">Colonie keeps the group and its member hand-offs together for the full goal.</div>
-                  </div>
-                ) : <div className="rounded-xl border border-hairline/50 bg-inset p-3">
+                <div className="rounded-xl border border-hairline/50 bg-inset p-3">
                   <div className="text-[12.5px] font-medium text-ink">Bot’s current setup</div>
                   <div className="mt-1 text-[11px] text-ink-secondary">Keeps its model and configured computer.</div>
-                </div>}
+                </div>
               </div>
             </div>
           );
@@ -935,36 +851,9 @@ export function EventEditor({
           )}
 
           <div className="flex items-start gap-4">
-            {isRoomGoal ? <HIcon icon={UsersIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" /> : <HIcon icon={UserAdd01Icon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />}
+            <HIcon icon={UserAdd01Icon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
             <div className="min-w-0 flex-1">
-              {isRoomGoal ? (
-                <div className="space-y-3">
-                  <div>
-                    <label htmlFor="routine-goal-room" className="mb-2 block text-[12.5px] font-medium text-ink">Choose a group</label>
-                    {rooms.length > 0 ? (
-                      <select id="routine-goal-room" value={groupId} onChange={(event) => selectRoom(event.target.value)} className="w-full rounded-lg border border-hairline/50 bg-inset px-3 py-2.5 text-[12.5px] text-ink outline-none focus:border-accent">
-                        <option value="">Select a group</option>
-                        {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
-                      </select>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-hairline/60 bg-inset px-3.5 py-3 text-[11.5px] leading-relaxed text-ink-secondary">Create a group from the sidebar first, then come back to schedule its goal.</div>
-                    )}
-                  </div>
-                  {selectedRoom && (
-                    <div>
-                      <div className="mb-2 text-[12.5px] font-medium text-ink">Choose the lead</div>
-                      {roomMembers.length > 0 ? (
-                        <>
-                          <BotPicker bots={roomMembers} selected={botIds} multiple={false} onChange={selectBots} />
-                          <div className="mt-2 text-[11.5px] text-ink-secondary">The lead coordinates {selectedRoom.name} and assigns work to its active members.</div>
-                        </>
-                      ) : (
-                        <div className="rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-3 text-[11.5px] text-warning">This group has no active members. Add or restore a bot before scheduling the goal.</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {legacyTeamGoal ? null : (
                 <>
                   <div className="mb-2 text-[12.5px] font-medium text-ink">{kind === "routine" ? (advanced ? "Assign a bot" : t("routines.editor.who")) : "Add guests"}</div>
                   {bots.length > 0 ? (
@@ -986,7 +875,7 @@ export function EventEditor({
           {advanced && resultsControl}
           <div className="flex items-start gap-4">
             <HIcon icon={FileTextIcon} size={18} className="mt-2.5 shrink-0 text-ink-secondary" />
-            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder={isRoomGoal ? "What should the team accomplish?" : kind === "routine" ? (advanced ? "Add instructions for the bot" : t("routines.editor.instructionsPlaceholder")) : "Add description or agenda"} className="min-w-0 flex-1 resize-y rounded-xl border border-hairline/50 bg-inset px-3.5 py-3 text-[13px] leading-relaxed text-ink outline-none placeholder:text-ink-tertiary focus:border-accent" />
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder={kind === "routine" ? (advanced ? "Add instructions for the bot" : t("routines.editor.instructionsPlaceholder")) : "Add description or agenda"} className="min-w-0 flex-1 resize-y rounded-xl border border-hairline/50 bg-inset px-3.5 py-3 text-[13px] leading-relaxed text-ink outline-none placeholder:text-ink-tertiary focus:border-accent" />
           </div>
           {continuityControl}
 
@@ -1030,7 +919,7 @@ export function EventEditor({
 
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-hairline/40 bg-panel/95 px-5 py-3.5 backdrop-blur">
           <button onClick={onClose} className="rounded-lg px-4 py-2 text-[12.5px] text-ink-secondary hover:bg-raised hover:text-ink">Cancel</button>
-          <button onClick={save} disabled={saving || attachmentPending || !valid} className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-40">{(saving || attachmentPending) && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}{attachmentPending ? "Attaching…" : existingRoutine || existingCall ? "Save" : kind === "call" ? "Schedule call" : isRoomGoal ? "Schedule team goal" : "Schedule routine"}</button>
+          <button onClick={save} disabled={saving || attachmentPending || !valid} className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-[12.5px] font-semibold text-white hover:brightness-110 disabled:opacity-40">{(saving || attachmentPending) && <HIcon icon={Loading02Icon} size={14} className="animate-spin" />}{attachmentPending ? "Attaching…" : existingRoutine || existingCall ? "Save" : kind === "call" ? "Schedule call" : "Schedule routine"}</button>
         </div>
       </div>
     </div>
@@ -1188,7 +1077,6 @@ function QuickComposer({
 function CalendarEventCard({
   item,
   bots,
-  groups,
   compact,
   layout,
   selected = false,
@@ -1197,7 +1085,6 @@ function CalendarEventCard({
 }: {
   item: CalendarEventItem;
   bots: Bot[];
-  groups: Group[];
   compact: boolean;
   layout: { column: number; columns: number };
   selected?: boolean;
@@ -1207,10 +1094,9 @@ function CalendarEventCard({
   const isCall = item.kind === "call";
   const routine = item.kind === "routine" ? item.routine : null;
   const run = item.kind === "routine" ? item.run : null;
+  // Legacy display only: the server still lists team goals stored before rooms
+  // were retired. They are shown as unavailable and never run.
   const isRoomGoal = !isCall && (run?.target ?? routine?.target) === "room-goal";
-  const room = isRoomGoal
-    ? groups.find((candidate) => candidate.id === (run?.groupId ?? routine?.groupId))
-    : undefined;
   const ownerIds = isCall ? item.call.botIds : [run?.botId ?? routine?.botId ?? ""];
   const ownerBots = ownerIds.flatMap((id) => bots.find((bot) => bot.id === id) ?? []);
   const primary = ownerBots[0];
@@ -1289,7 +1175,7 @@ function CalendarEventCard({
         {previewDuration >= 30 && (isCall ? <HIcon icon={Video01Icon} size={compact ? 11 : 13} className="mt-0.5 shrink-0" /> : primary ? <BotAvatar bot={primary} state={status ? statusState(status) : paused ? "sleeping" : "idle"} size={compact ? 18 : 22} animated={status === "running" || status === "waiting"} /> : null)}
         <div className="min-w-0 flex-1">
           <div className={cn("truncate text-[11px] font-semibold", previewDuration < 30 ? "leading-none" : "leading-tight")}>{name}</div>
-          {previewDuration >= 30 && <div className="mt-0.5 truncate text-[9.5px] opacity-80">{niceTime(item.at)} · {paused ? t("routines.pausedSchedule") : intervalCadence ?? (isCall ? `${ownerBots.length} bot${ownerBots.length === 1 ? "" : "s"}` : isRoomGoal ? `Team goal · ${room?.name ?? "Group"}${statusLabel ? ` · ${statusLabel}` : ""}` : statusLabel ?? primary?.name)}</div>}
+          {previewDuration >= 30 && <div className="mt-0.5 truncate text-[9.5px] opacity-80">{niceTime(item.at)} · {paused ? t("routines.pausedSchedule") : intervalCadence ?? (isCall ? `${ownerBots.length} bot${ownerBots.length === 1 ? "" : "s"}` : isRoomGoal ? `Team goal · unavailable${statusLabel ? ` · ${statusLabel}` : ""}` : statusLabel ?? primary?.name)}</div>}
         </div>
         {previewDuration >= 30 && ownerBots.length > 1 && <span className="rounded bg-inset/60 px-1 py-0.5 text-[8px]">+{ownerBots.length - 1}</span>}
       </div>
@@ -1303,7 +1189,6 @@ function CalendarGrid({
   days,
   items,
   bots,
-  groups,
   selectedId,
   onOpen,
   onCreate,
@@ -1314,7 +1199,6 @@ function CalendarGrid({
   days: number;
   items: CalendarEventItem[];
   bots: Bot[];
-  groups: Group[];
   selectedId?: string;
   onOpen: (item: CalendarEventItem) => void;
   onCreate: (seed: EventSeed) => void;
@@ -1412,7 +1296,7 @@ function CalendarGrid({
               {start === today && <div className="pointer-events-none absolute inset-x-0 z-20 flex items-center" style={{ top: nowTop }}><span className="-ml-1 size-2 rounded-full bg-danger" /><span className="h-px flex-1 bg-danger/80" /></div>}
               {selected && <div className="pointer-events-none absolute inset-x-1 z-10 rounded-md border border-accent/70 bg-accent/20" style={{ top: ((new Date(selected.start).getHours() * 60 + new Date(selected.start).getMinutes()) / 60) * HOUR_HEIGHT, height: Math.max(16, ((selected.end - selected.start) / 3_600_000) * HOUR_HEIGHT) }} />}
               {preview && <div className="pointer-events-none absolute inset-x-1 z-20 rounded-md border border-accent/80 bg-accent/25 shadow-sm" style={{ top: ((new Date(preview.at).getHours() * 60 + new Date(preview.at).getMinutes()) / 60) * HOUR_HEIGHT, height: HOUR_HEIGHT / 2 }}><div className="px-2 py-1 text-[9.5px] font-medium text-accent">{niceTime(preview.at)}</div></div>}
-              {dayItems.map((item) => <CalendarEventCard key={item.id} item={item} bots={bots} groups={groups} compact={days === 7} layout={collisionLayouts.get(item.id) ?? { column: 0, columns: 1 }} selected={item.id === selectedId} onOpen={() => onOpen(item)} onResize={(minutes) => onResize(item, minutes)} />)}
+              {dayItems.map((item) => <CalendarEventCard key={item.id} item={item} bots={bots} compact={days === 7} layout={collisionLayouts.get(item.id) ?? { column: 0, columns: 1 }} selected={item.id === selectedId} onOpen={() => onOpen(item)} onResize={(minutes) => onResize(item, minutes)} />)}
             </div>
           );
         })}
@@ -1427,7 +1311,7 @@ export function EventDetails({
   onClose,
   onEdit,
   onCallChanged,
-  onOpenRoom,
+  onOpenChat,
   onOpenRun,
 }: {
   item: CalendarEventItem;
@@ -1435,7 +1319,7 @@ export function EventDetails({
   onClose: () => void;
   onEdit: () => void;
   onCallChanged: (id: string | null) => void;
-  onOpenRoom: (id: string) => void;
+  onOpenChat: (id: string) => void;
   /** Opens one of the routine's recent runs in this drawer. */
   onOpenRun?: (run: RoutineRun) => void;
 }) {
@@ -1453,31 +1337,29 @@ export function EventDetails({
     ? item.kind === "routine" ? item.run : null
     : submittedRun && (state.routineRuns.find((candidate) => candidate.id === submittedRun.id) ?? submittedRun);
   const call = item.kind === "call" ? item.call : null;
+  // Legacy display only: the server still lists team goals stored before rooms
+  // were retired. They are shown as unavailable and never run.
   const isRoomGoal = !isCall && (run?.target ?? routine?.target) === "room-goal";
-  const goalGroupId = isRoomGoal ? run?.groupId ?? routine?.groupId : undefined;
-  const goalGroup = state.groups.find((group) => group.id === goalGroupId);
   const executionThreadId = run?.executionThreadId ?? run?.threadId;
   const botIds = call?.botIds ?? [run?.botId ?? routine?.botId ?? ""];
   const invited = botIds.flatMap((id) => bots.find((bot) => bot.id === id) ?? []);
   const primary = invited[0];
-  const executionOwner = isRoomGoal ? goalGroup : primary;
+  // A stored team goal's thread belonged to a retired room, so it cannot be opened.
+  const executionOwner = isRoomGoal ? undefined : primary;
   const canOpenExecution = Boolean(executionThreadId && (executionOwner?.threadId === executionThreadId || executionOwner?.tasks?.some((task) => task.threadId === executionThreadId)));
   // A run snapshots where it reported (older runs: the chat that made the
   // routine). A routine without a chosen thread reports to the main thread.
   const resultsThreadId = run ? run.resultsThreadId ?? run.sourceThreadId : routine?.resultsThreadId;
-  const canOpenResults = resultsThreadId && [...state.bots, ...state.groups].some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId));
+  const canOpenResults = resultsThreadId && state.bots.some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId));
   const title = call?.name ?? run?.routineName ?? routine?.name ?? "Routine";
   const description = call?.description ?? run?.prompt ?? routine?.prompt ?? "";
   const attachments = call?.attachments ?? run?.attachments ?? routine?.attachments ?? [];
-  const roomId = call?.botIds.length === 1 ? primary?.id : undefined;
+  const chatBotId = call?.botIds.length === 1 ? primary?.id : undefined;
   const safetyLimit = run ? run.timeoutMinutes : routine?.timeoutMinutes;
 
   const openRunTask = () => {
     if (!executionThreadId) return;
-    if (isRoomGoal && goalGroupId) {
-      dispatch({ type: "switchGroupTask", groupId: goalGroupId, threadId: executionThreadId });
-      onOpenRoom(goalGroupId);
-    } else if (primary) {
+    if (primary) {
       dispatch({ type: "select", id: primary.id });
       dispatch({ type: "switchTask", botId: primary.id, threadId: executionThreadId });
     }
@@ -1522,21 +1404,6 @@ export function EventDetails({
     });
   };
 
-  const joinRoom = async () => {
-    if (!call) return;
-    setWorking(true);
-    setError("");
-    try {
-      const { group: created } = await api(`/api/calendar-calls/${call.id}/room`, { method: "POST" });
-      dispatch({ type: "groupPatched", group: created });
-      onOpenRoom(created.id);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setWorking(false);
-    }
-  };
-
   const deleteEvent = async () => {
     if (!window.confirm(`Delete “${title}”?`)) return;
     if (call) {
@@ -1555,9 +1422,9 @@ export function EventDetails({
       .slice(0, 3)
     : [];
   const runOn = run?.runOn ?? routine?.runOn;
-  const runsOn = routineRunsOn({ roomGoal: isRoomGoal, runOn, computer: primary?.computer });
+  const runsOn = routineRunsOn({ runOn, computer: primary?.computer });
   const resultsOwner = resultsThreadId
-    ? [...state.bots, ...state.groups].find((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId))
+    ? state.bots.find((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId))
     : undefined;
   const resultsTitle = !resultsThreadId
     ? t("routines.results.main")
@@ -1586,13 +1453,12 @@ export function EventDetails({
         {run?.attention && <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-warning"><HIcon icon={AlertCircleIcon} size={15} className="mt-0.5 shrink-0" /><div className="min-w-0 whitespace-pre-wrap text-[11.5px] leading-relaxed">{run.attention}</div></div>}
         {run?.status === "waiting" && !run.attention && <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-[11.5px] text-warning">This run is waiting. Open its execution thread for more context.</div>}
 
-        <DrawerField label={isCall ? t("routines.drawer.guests") : isRoomGoal ? t("routines.drawer.lead") : t("routines.drawer.bot")}>
+        <DrawerField label={isCall ? t("routines.drawer.guests") : t("routines.drawer.bot")}>
           <div className="flex flex-wrap gap-1.5">
             {invited.map((bot) => <div key={bot.id} className="flex items-center gap-1.5 rounded-full border border-hairline/50 bg-inset py-0.5 pl-0.5 pr-2.5"><BotAvatar bot={bot} state="idle" size={22} animated={false} /><span className="text-[12px] text-ink">{bot.name}</span></div>)}
             {invited.length === 0 && <span className="text-[12.5px] text-ink-secondary">{t("routines.unavailableBot")}</span>}
           </div>
         </DrawerField>
-        {isRoomGoal && <DrawerField label={t("routines.drawer.group")}><div className="text-[12.5px] text-ink">{goalGroup?.name ?? "Group unavailable"}</div></DrawerField>}
         {(routine || call) && (
           <DrawerField label={t("routines.drawer.schedule")}>
             <div className="text-[12.5px] text-ink">{scheduleLabel((routine ?? call)!.schedule)}</div>
@@ -1600,14 +1466,14 @@ export function EventDetails({
           </DrawerField>
         )}
         {description && <DrawerField label={isCall ? t("routines.drawer.agenda") : t("routines.drawer.what")}><div className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-ink">{description}</div></DrawerField>}
-        {!isCall && (
+        {!isCall && !isRoomGoal && (
           <DrawerField label={t("routines.drawer.runsOn")}>
             <div className="flex items-start gap-2 text-[12.5px] text-ink"><HIcon icon={LaptopIcon} size={14} className="mt-0.5 shrink-0 text-ink-secondary" /><span>{runsOn.label}</span></div>
             <div className="mt-0.5 text-[11px] leading-relaxed text-ink-secondary">{runsOn.hint}</div>
           </DrawerField>
         )}
         {!isCall && !isRoomGoal && <DrawerField label={t("routines.results.label")}><div className="text-[12.5px] text-ink">{resultsTitle}</div></DrawerField>}
-        {attachments.length > 0 && <DrawerField label="Attachments"><AttachmentChips attachments={attachments} />{call && <div className="mt-1.5 text-[11px] leading-relaxed text-ink-secondary">{call.botIds.length > 1 ? "These references will be shared in the group when the event starts." : "These references stay with the event and are available when you join the group."}</div>}</DrawerField>}
+        {attachments.length > 0 && <DrawerField label="Attachments"><AttachmentChips attachments={attachments} />{call && <div className="mt-1.5 text-[11px] leading-relaxed text-ink-secondary">{call.botIds.length > 1 ? "These references will be shared in the call when it starts." : "These references stay with the event and are available when you join the call."}</div>}</DrawerField>}
         {advanced && !isCall && <DrawerField label={t("routines.drawer.runLimit")}><div className="text-[12.5px] text-ink">{safetyLimit == null ? "No time limit" : `Stops if still running after ${durationLabel(safetyLimit)}`}</div></DrawerField>}
         {!isCall && (
           <DrawerField label={t("routines.logs")} action={routine && <button type="button" onClick={() => { dispatch({ type: "showRoutines", section: "logs", routineId: routine.id, botId: routine.botId }); onClose(); }} className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-accent-text hover:bg-raised"><HIcon icon={FileTextIcon} size={11} />{t("routines.drawer.allRuns")}</button>}>
@@ -1627,10 +1493,8 @@ export function EventDetails({
           </div>
         )}
         <div className="flex flex-wrap items-center gap-1">
-          {roomId && <button onClick={() => onOpenRoom(roomId)} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-semibold text-accent-ink hover:brightness-110"><HIcon icon={SquareArrowUpRightIcon} size={13} />Join group</button>}
-          {call && call.botIds.length > 1 && <button onClick={joinRoom} disabled={working} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-semibold text-accent-ink hover:brightness-110 disabled:opacity-50"><HIcon icon={SquareArrowUpRightIcon} size={13} />Join group</button>}
-          {isRoomGoal && goalGroup && !executionThreadId && <button onClick={() => { onOpenRoom(goalGroup.id); onClose(); }} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />Open group</button>}
-          {canOpenExecution && <button onClick={openRunTask} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />{isRoomGoal ? "Open group thread" : "Open thread"}</button>}
+          {chatBotId && <button onClick={() => onOpenChat(chatBotId)} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-semibold text-accent-ink hover:brightness-110"><HIcon icon={SquareArrowUpRightIcon} size={13} />Open chat</button>}
+          {canOpenExecution && <button onClick={openRunTask} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />Open thread</button>}
           {canOpenResults && resultsThreadId && <button type="button" onClick={() => { openNotificationTarget(dispatch, { botId: botIds[0], threadId: resultsThreadId }, state); onClose(); }} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />{t("routines.results.open")}</button>}
           {run && ["queued", "running", "waiting"].includes(run.status) && <button onClick={() => void invoke(`/api/routine-runs/${run.id}/cancel`)} disabled={working} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40"><HIcon icon={MultiplicationSignIcon} size={13} />Cancel run</button>}
           <div className="ml-auto flex items-center gap-1">
@@ -1692,17 +1556,13 @@ function RecentRunRow({ run, current, onOpen }: { run: RoutineRun; current: bool
 export function PausedList({
   routines,
   bots,
-  groups,
   onClose,
   onEdit,
-  onOpenRoom,
 }: {
   routines: Routine[];
   bots: Bot[];
-  groups: Group[];
   onClose: () => void;
   onEdit: (routine: Routine) => void;
-  onOpenRoom: (id: string) => void;
 }) {
   const { dispatch } = useStore();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -1714,18 +1574,16 @@ export function PausedList({
         <div className="max-h-[55vh] space-y-1 overflow-y-auto p-3">
           {routines.map((routine) => {
             const bot = bots.find((candidate) => candidate.id === routine.botId);
-            const room = routine.target === "room-goal"
-              ? groups.find((candidate) => candidate.id === routine.groupId)
-              : undefined;
+            // Team goals were retired with rooms: shown, never resumed.
+            const roomGoal = routine.target === "room-goal";
             return (
               <div key={routine.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-raised/60">
-                {room ? <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent"><HIcon icon={UsersIcon} size={17} /></span> : bot && <BotAvatar bot={bot} state="sleeping" size={36} animated={false} />}
+                {roomGoal ? <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent"><HIcon icon={UsersIcon} size={17} /></span> : bot && <BotAvatar bot={bot} state="sleeping" size={36} animated={false} />}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12.5px] font-medium text-ink">{routine.name}</div>
-                  <div className="mt-0.5 truncate text-[10.5px] text-ink-secondary">{room ? `Team goal · ${room.name} · ` : ""}{scheduleLabel(routine.schedule)}</div>
+                  <div className="mt-0.5 truncate text-[10.5px] text-ink-secondary">{roomGoal ? "Team goal · unavailable · " : ""}{scheduleLabel(routine.schedule)}</div>
                 </div>
-                {room && <button onClick={() => { onOpenRoom(room.id); onClose(); }} className="rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary hover:bg-inset">Group</button>}
-                <button onClick={() => dispatch({ type: "updateRoutine", routineId: routine.id, patch: { enabled: true } })} className="rounded-lg bg-accent/15 px-2.5 py-1.5 text-[11px] font-medium text-accent">Resume</button>
+                {!roomGoal && <button onClick={() => dispatch({ type: "updateRoutine", routineId: routine.id, patch: { enabled: true } })} className="rounded-lg bg-accent/15 px-2.5 py-1.5 text-[11px] font-medium text-accent">Resume</button>}
                 <button onClick={() => onEdit(routine)} className="rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary hover:bg-inset">Edit</button>
               </div>
             );
@@ -1761,7 +1619,7 @@ export function RoutineEditor({
   return <EventEditor seed={{ kind: "routine", at, durationMinutes: routine?.durationMinutes ?? 30, botIds: lockedBotId ? [lockedBotId] : routine ? [routine.botId] : [], routine }} bots={bots} lockedBotId={lockedBotId} defaultRunOn={defaultRunOn} onClose={onClose} onSavedCall={() => {}} />;
 }
 
-export function RoutinesPage({ onBack, onOpenRoom }: { onBack: () => void; onOpenRoom: (id: string) => void }) {
+export function RoutinesPage({ onBack, onOpenChat }: { onBack: () => void; onOpenChat: (id: string) => void }) {
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const advanced = useAdvancedMode();
@@ -2020,21 +1878,21 @@ export function RoutinesPage({ onBack, onOpenRoom }: { onBack: () => void; onOpe
           ) : (
             <div className="flex min-h-0 flex-1">
               {!drawerOpen && <div className="hidden shrink-0 @min-[1040px]/routines:block"><CalendarSidebar bots={visibleBots} anchor={anchor} onSelectDate={(at) => setAnchor(startOfDay(at))} /></div>}
-              <CalendarGrid anchor={rangeStart} days={viewDays} items={items} bots={state.bots} groups={state.groups} selectedId={liveSelected?.id} onOpen={openItem} onCreate={openCreate} onMove={(item, at) => void moveEvent(item, at)} onResize={(item, duration) => void resizeEvent(item, duration)} />
+              <CalendarGrid anchor={rangeStart} days={viewDays} items={items} bots={state.bots} selectedId={liveSelected?.id} onOpen={openItem} onCreate={openCreate} onMove={(item, at) => void moveEvent(item, at)} onResize={(item, duration) => void resizeEvent(item, duration)} />
             </div>
           )}
         </div>
         {/* Beside the grid when there is room; over it on a narrow window. */}
         {drawerOpen && liveSelected && (
           <div className="absolute inset-y-0 right-0 z-30 flex shadow-2xl @min-[760px]/routines:static @min-[760px]/routines:shadow-none">
-            <EventDetails key={`${liveSelected.kind}:${liveSelected.id}`} item={liveSelected} bots={state.bots} onClose={() => setSelected(null)} onEdit={editSelected} onOpenRun={openRun} onCallChanged={(id) => { if (id) setCalls((current) => current.filter((call) => call.id !== id)); else void loadCalls(); }} onOpenRoom={onOpenRoom} />
+            <EventDetails key={`${liveSelected.kind}:${liveSelected.id}`} item={liveSelected} bots={state.bots} onClose={() => setSelected(null)} onEdit={editSelected} onOpenRun={openRun} onCallChanged={(id) => { if (id) setCalls((current) => current.filter((call) => call.id !== id)); else void loadCalls(); }} onOpenChat={onOpenChat} />
           </div>
         )}
       </div>
 
       {quick && <><div className="fixed inset-0 z-40 bg-black/25" onMouseDown={() => setQuick(null)} /><QuickComposer seed={quick} bots={visibleBots} routinesOnly={routinesOnly} onClose={() => setQuick(null)} onMore={(seed) => { setQuick(null); setEditor(seed); }} onSavedRoutine={(routine) => dispatch({ type: "routinePatched", routine })} onSavedCall={upsertCall} /></>}
       {editor && <EventEditor seed={editor} bots={visibleBots} routinesOnly={routinesOnly} onClose={() => setEditor(null)} onSavedCall={upsertCall} />}
-      {pausedOpen && <PausedList routines={paused} bots={state.bots} groups={state.groups} onClose={() => setPausedOpen(false)} onEdit={(routine) => { setPausedOpen(false); setEditor({ kind: "routine", at: routineAt(routine), durationMinutes: routine.durationMinutes, botIds: [routine.botId], routine }); }} onOpenRoom={onOpenRoom} />}
+      {pausedOpen && <PausedList routines={paused} bots={state.bots} onClose={() => setPausedOpen(false)} onEdit={(routine) => { setPausedOpen(false); setEditor({ kind: "routine", at: routineAt(routine), durationMinutes: routine.durationMinutes, botIds: [routine.botId], routine }); }} />}
     </main>
   );
 }

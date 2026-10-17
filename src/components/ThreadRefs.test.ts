@@ -1,7 +1,7 @@
 import { Children, createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Bot, Group } from "@/state/store";
+import type { Bot } from "@/state/store";
 
 const fixture = vi.hoisted(() => ({ dispatch: vi.fn(), selectedId: "scout" }));
 const bot = (id: string, name: string, tasks: Bot["tasks"]): Bot => ({
@@ -13,16 +13,10 @@ const scout = bot("scout", "Scout", [
   { threadId: "qa-245", title: "QA PR 245", createdAt: 2 },
 ]);
 const ada = bot("ada", "Ada", [{ threadId: "ada-qa", title: "QA PR 245", createdAt: 3 }]);
-const room: Group = {
-  id: "standup", threadId: "standup-1", name: "Standup", memberIds: ["scout"], defaultResponder: { kind: "everyone" },
-  bulletin: "", unread: false, createdAt: 1, messages: [], tasks: [{ threadId: "standup-1", title: "Monday plan", createdAt: 4 }],
-};
-const dm: Group = { ...room, id: "dm", threadId: "dm-1", name: "Scout ⇄ Ada", dm: true, tasks: [{ threadId: "dm-1", title: "Private", createdAt: 5 }] };
-
 vi.mock("@/state/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/state/store")>();
   return { ...original, useStore: () => ({
-    state: { ...original.initialState, bots: [scout, ada], groups: [room, dm], selectedId: fixture.selectedId },
+    state: { ...original.initialState, bots: [scout, ada], selectedId: fixture.selectedId },
     dispatch: fixture.dispatch,
   }) };
 });
@@ -42,9 +36,9 @@ const inProvider = (child: ReactNode) => renderToStaticMarkup(createElement(Thre
 beforeEach(() => { fixture.dispatch.mockClear(); fixture.selectedId = "scout"; });
 
 describe("collectThreadRefs", () => {
-  it("lists every bot thread in store order, then room threads, never a bot-to-bot channel", () => {
-    expect(collectThreadRefs([scout, ada], [room, dm]).map((ref) => `${ref.botName}:${ref.title}`)).toEqual([
-      "Scout:Main", "Scout:QA PR 245", "Ada:QA PR 245", "Standup:Monday plan",
+  it("lists every bot thread in store order", () => {
+    expect(collectThreadRefs([scout, ada]).map((ref) => `${ref.botName}:${ref.title}`)).toEqual([
+      "Scout:Main", "Scout:QA PR 245", "Ada:QA PR 245",
     ]);
   });
 });
@@ -73,8 +67,8 @@ describe("ThreadRefText", () => {
     expect(inProvider(createElement(ThreadRefText, { text: "see #123 and #Unknown" }))).toBe("see #123 and #Unknown");
   });
 
-  it("links a room thread too", () => {
-    expect(inProvider(createElement(ThreadRefText, { text: "on #Monday plan" }))).toContain('data-thread-link="standup-1"');
+  it("leaves a retired room thread title as plain text", () => {
+    expect(inProvider(createElement(ThreadRefText, { text: "on #Monday plan" }))).toBe("on #Monday plan");
   });
 
   it("renders a sent canonical link as a chip labeled with the title", () => {
@@ -128,7 +122,7 @@ describe("ThreadRefsProvider", () => {
       const { threads, currentBotId } = useThreadRefs();
       return createElement("i", null, `${currentBotId}:${threads.map((ref) => ref.threadId).join(",")}`);
     }
-    expect(inProvider(createElement(Probe))).toBe("<i>scout:scout-main,qa-245,ada-qa,standup-1</i>");
+    expect(inProvider(createElement(Probe))).toBe("<i>scout:scout-main,qa-245,ada-qa</i>");
   });
 });
 

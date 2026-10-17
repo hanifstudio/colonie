@@ -329,7 +329,7 @@ Maya can steer Nova while it works. A follow-up such as “Use a more casual ton
 | B06 | Keep runtime/task history and service confirmation sufficiently distinct to recover uncertain side effects. | Supported provider reconciliation and retry guarantees. |
 | B07 | Keep server jobs independent of client availability; keep Local availability explicit. | Missed-run/catch-up policy, notification delivery, and supported companion operations. |
 
-These proposals address Q02, Q03, Q06, and Q09; they do not mark those decisions resolved. Owner subscription support (Q01), hosting selection (Q04), and account architecture (Q05) remain independent feasibility/design work.
+On October 17, 2026 the owner settled the product direction behind these proposals: directed requests name the bot and human chat stays useful on its own; Stop scopes to the selected task and its descendants; conflicting screen/browser work queues; each workspace owns and backs up its own data. What remains on Q02, Q03, Q06 and Q09 is the machine's reference research and measurement, not an owner decision. See the status column in [section 10](#10-open-decisions-and-next-work).
 
 #### Evidence to collect before implementation claims
 
@@ -777,21 +777,22 @@ and result; do not infer capability from a UI, catalog entry, or model claim.
 
 ### Questions that materially affect the plan
 
-These are specific gaps, not a request to repeat the product interview. Research or a small isolated experiment should answer technical questions first; bring the owner a concrete tradeoff where a product choice remains.
+These are specific gaps, not a request to repeat the product interview. Research or a small isolated experiment answers technical questions first; bring the owner a concrete tradeoff where a product choice remains. On October 17, 2026 the owner reviewed all eleven in plain language and settled the product choices; the entries below record what is decided and which parts remain machine research.
 
-| ID | Open item | Next evidence or decision |
+| ID | Item | Status after the October 17, 2026 owner review |
 |---|---|---|
-| Q01 | Supported owner-subscription use by multiple invited people | Confirm current provider terms/support and adapter authentication behavior for the exact deployment. Preserve the intended journey; identify a viable provider-supported option if necessary. |
-| Q02 | Conversation privacy and workspace roles | Decide audiences, owner administrative powers, who can approve actions, and which tools each membership may use. Explain the server-operator boundary plainly. |
-| Q03 | Bot response/delegation/Stop policy | Observe reference behavior hands-on where docs are silent, then choose bounded Colonie behavior for multi-human groups. |
-| Q04 | First hosting provider and runtime environment | Benchmark a browser/computer + agent workload; select a supported recipe and tested minimum. No invented bot-count sizing. |
-| Q05 | Server account, invite, and recovery architecture | Compare workspace-managed identity with a minimal central service. Keep Local account-free. Include expired invites, lost-owner access, and service outages. |
-| Q06 | Shared interactive environment isolation | Choose how screens, browser profiles, files, and per-bot resources share or isolate. Verify this before promising parallel work. |
-| Q07 | Commercial terms | Price, purchase identity/transfer, support/updates, refunds, and which upgrades create no new Colonie charge. Distinguish activation from inherited source notices. |
-| Q08 | Optional service funding | Choose speech, email, mobile push, update hosting, and any control-plane services. Composio is already user-supplied per workspace, not an unresolved Colonie-funded service. |
-| Q09 | Data lifecycle | Backup ownership, retention, export, deletion, migration between modes, and handling pre-cleanup data. |
-| Q10 | Full feature rollout | Mark each Core/Catalog item include/defer/drop with a reason; decide mobile platforms and voice scope. Avoid advertising total Grok parity before hands-on verification. |
-| Q11 | Profile UX | Decide name/email requirements and whether a display profile is app-wide or workspace-specific. No local email verification is implied. |
+| Q01 | Supported owner-subscription use by multiple invited people | Owner direction confirmed, already recorded as D09/D10: the owner connects Claude and Codex while creating the Server workspace and invited members use that connection without supplying their own provider account. Machine research remains: confirm provider terms and adapter authentication behavior for the exact deployment before advertising shared subscription use. Not an owner decision. |
+| Q02 | Conversation privacy and workspace roles | Decided: members are humans and bots, as in a team chat. A group is visible to its own members only; a direct conversation is visible to its two participants only; nobody reads another person's direct conversations. The owner governs membership, workspace credentials and high-risk approvals. |
+| Q03 | Bot response/delegation/Stop policy | Decided in principle: copy the reference (Grok Bot) behavior instead of designing it in advance. Machine research: observe that behavior where documentation is silent, then apply it to multi-human groups. |
+| Q04 | First hosting provider and runtime environment | Decided direction: guided deployment for nontechnical owners, ideally one action in their own provider account, with a marketplace image or provisioning API as the building block. Machine research: benchmark a browser/computer + agent workload and return one recommended supported recipe and tested minimum with its cost; the owner approves it. No invented bot-count sizing. |
+| Q05 | Server account, invite, and recovery architecture | Decided: accounts, invitations, purchase records and update hosting are central Colonie services, while bots, files, memory, credentials and agent runs stay on the owner's server. Local stays account-free. Remaining details: expired invites, lost-owner access, service outages, and the recurring cost this adds to the price. |
+| Q06 | Shared interactive environment isolation | Decided: copy the reference behavior. Machine research: establish how screens, browser profiles, files and per-bot resources share or isolate, and verify it before parallel work is promised. |
+| Q07 | Commercial terms | Decided: the price follows the chosen server cost (one-time purchase per Server workspace, D15) and is settled after Q04. Purchase identity/transfer, support/updates, and refunds remain to be written once the price exists. |
+| Q08 | Optional service funding | Decided: the bring-your-own-key pattern already used for Composio applies to optional services, and the first version ships no Colonie-funded service. Speech, agent email, mobile push and update hosting are deferred. |
+| Q09 | Data lifecycle | Closed, not open: each workspace's data lives on its own computer or server, owned and backed up by its owner; the app already prunes its own logs by a retention window (default 180 days, configurable); export stays available; deletion is real deletion after confirmation. A workspace is created as Local or Server, so there is no Local-to-Server data migration. |
+| Q10 | Full feature rollout | Decided: the mobile companion, voice conversation and agent email are deferred beyond the first version; the remaining Core/Catalog items are marked include/defer/drop as feature work reaches them. Do not advertise total Grok parity before hands-on verification. |
+| Q11 | Profile UX | Decided: name required and email optional for a Local workspace; both required for a Server workspace because it has signup. Email is not verified and is not an authentication factor. Proposal, easily revised: the profile is app-wide rather than per workspace. |
+
 
 ### Recommended next actions
 
@@ -808,6 +809,9 @@ inspection, external writes, or a repository-wide rewrite.
 
 | Date | Entry | Status |
 |---|---|---|
+| 2026-10-17 | Owner answered the Q01–Q11 product questions after a plain-language review (section 10). | Recorded as decided or as machine research; P0's remaining open item is closed. |
+| 2026-10-17 | Owner settled the three non-blocking room questions: remove the Settings "Decision model" section while `server/decider/` stays for a future real job; a read-only view or export of old room conversations may come later at low priority; retire the native agents delegation tools (`delegate_bot`, native `ask_bot`, pair DM channels) instead of rebuilding them for ACP until a demonstrated need appears. | Renderer may drop the section; HANDOVER no longer lists these as open. |
+| 2026-10-17 | Owner settled the proposals in the W01 walkthrough (B01–B07): directed requests name the bot, Stop scopes to the selected task and its descendants, conflicting screen work queues, and each workspace owns its data. | Product direction recorded; remaining work is reference research and measurement. |
 | 2026-10-17 | Owner asked to turn the architecture audit into deliberate improvement of architecture, folders/files, and code/design consistency. | Engineering stages E01–E06 and implementation acceptance are now defined; remaining stages and enforcement are not certified by this planning work. |
 | 2026-10-17 | Owner agreed to trial consistent agent development, then challenged duplicated guidance and context load. | Rules consolidated into AGENTS; active M0 remains in HANDOVER. Other docs are references read on demand. Framework adoption and autonomous execution remain unproven. |
 | 2026-10-17 | Owner requested a physically clean documentation tree, retaining only needed current documents and removing in-repository history/duplicate entry points. | Documentation scope; product proposals remain provisional. |

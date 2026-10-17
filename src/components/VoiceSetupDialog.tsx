@@ -28,17 +28,13 @@ const FIRST_FIELD = "input:not([disabled]), select:not([disabled])";
 
 export function VoiceSetupDialog({
   bot,
-  callName,
   ready,
   onClose,
   onStartCall,
   returnFocusRef,
 }: {
-  /** Whose voice this sets: the bot being called, or in a room the first
-   * member still without one. */
+  /** The bot being called, whose voice this sets. */
   bot: Bot;
-  /** Who the call goes to (a room's name for a group call). */
-  callName: string;
   /** The call button's own test, live: a call can start now. */
   ready: boolean;
   onClose: () => void;
@@ -109,8 +105,7 @@ export function VoiceSetupDialog({
   }, [returnFocusRef]);
 
   // Everything the pop-up leaves out (notifications, the rest of the bot's
-  // profile) is in the full settings, opened at Voice. In a room the bot is a
-  // member, so open its chat first, as the call help always did.
+  // profile) is in the full settings, opened at Voice, in the bot's own chat.
   const openAllSettings = () => {
     close();
     if (state.selectedId !== bot.id) dispatch({ type: "select", id: bot.id });
@@ -176,7 +171,7 @@ export function VoiceSetupDialog({
             <div className="mx-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-success/30 bg-success/10 px-4 py-3 sm:mx-7">
               <HIcon icon={CheckmarkCircle02Icon} size={17} className="shrink-0 text-success" aria-hidden="true" />
               <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">
-                {t("call.voiceSetup.ready", { name: callName })}
+                {t("call.voiceSetup.ready", { name: bot.name })}
               </span>
               <button
                 type="button"

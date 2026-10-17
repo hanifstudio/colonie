@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Bot, Group } from "@/state/store";
+import type { Bot } from "@/state/store";
 
 const fixture = vi.hoisted(() => ({ showThreads: true, queued: {} as Record<string, unknown[]>, bots: [] as Bot[], dispatch: vi.fn() }));
 vi.mock("@/lib/thread-preferences", () => ({ useShowThreads: () => fixture.showThreads }));
@@ -10,7 +10,7 @@ vi.mock("@/state/store", async (importOriginal) => ({
   useStore: () => ({ state: { bots: fixture.bots, pendingQueued: fixture.queued }, dispatch: fixture.dispatch }),
 }));
 
-const { TaskPicker, BotActivityPicker, GroupTaskPicker } = await import("./TaskPicker");
+const { TaskPicker, BotActivityPicker } = await import("./TaskPicker");
 const bot: Bot = {
   id: "pepper", name: "Pepper", color: "green", threadId: "current", title: "", description: "",
   notifications: true, unread: false, busy: true, messages: [], modelSelection: { instanceId: "fake", model: "fake" },
@@ -62,12 +62,5 @@ describe("optional bot thread picker", () => {
     fixture.showThreads = false;
     expect(renderToStaticMarkup(createElement(BotActivityPicker, { bot: { ...bot, tasks: bot.tasks!.slice(0, 2) } }))).toBe("");
     expect(fixture.dispatch).not.toHaveBeenCalled();
-  });
-
-  it("does not remove channel history controls", () => {
-    fixture.showThreads = false;
-    const group: Group = { id: "team", name: "Team", threadId: "team-current", memberIds: [], defaultResponder: { kind: "everyone" }, bulletin: "", createdAt: 1, unread: false, messages: [],
-      tasks: [{ threadId: "team-current", title: "Channel discussion", createdAt: 1 }] };
-    expect(renderToStaticMarkup(createElement(GroupTaskPicker, { group }))).toContain('aria-label="All threads"');
   });
 });

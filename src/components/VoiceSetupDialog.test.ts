@@ -58,7 +58,7 @@ function nodes(value: ReactNode): Node[] {
   });
 }
 function render(overrides: Partial<Props> = {}) {
-  const props: Props = { bot: pepper, callName: "Pepper", ready: false, onClose: vi.fn(), onStartCall: vi.fn(), ...overrides };
+  const props: Props = { bot: pepper, ready: false, onClose: vi.fn(), onStartCall: vi.fn(), ...overrides };
   let tree: ReactNode = null;
   function Capture() {
     tree = VoiceSetupDialog(props);
@@ -138,8 +138,8 @@ describe("voice set-up pop-up", () => {
     expect(fixture.dispatch.mock.calls).toEqual([[{ type: "toggleSettings", open: true, section: "voice" }]]);
   });
 
-  it("opens a room member's chat first, as the call help always did", () => {
-    fixture.selectedId = "room-1";
+  it("opens the bot's chat first when another chat is selected", () => {
+    fixture.selectedId = "juniper";
     click(byAttribute(render(), "data-voice-setup-all-settings"));
     expect(fixture.dispatch.mock.calls).toEqual([
       [{ type: "select", id: "pepper" }],
@@ -278,9 +278,9 @@ describe("voice set-up pop-up", () => {
   });
 
   it("says the voice is ready and starts the call from there", () => {
-    const view = render({ ready: true, callName: "Standup" });
+    const view = render({ ready: true });
     expect(view.html).toContain('role="status"');
-    expect(view.html).toContain("Voice is ready — you can call Standup now.");
+    expect(view.html).toContain("Voice is ready — you can call Pepper now.");
     expect(view.html).toContain('data-state="happy"');
     click(byAttribute(view, "data-voice-setup-start"));
     expect(view.props.onStartCall).toHaveBeenCalledOnce();

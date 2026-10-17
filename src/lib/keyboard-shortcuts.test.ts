@@ -59,6 +59,13 @@ describe("keyboard-shortcuts", () => {
     expect(items.find((item) => item.id === "live-call-hang-up")).toMatchObject({ macKeys: ["⌘", "⇧", "H"], winKeys: ["Ctrl", "Shift", "H"] });
   });
 
+  it("lists no shortcut for retired group instructions", () => {
+    const items = SHORTCUT_GROUPS.flatMap((group) => group.items);
+    expect(items.some((item) => item.id === "save-bulletin")).toBe(false);
+    expect(SHORTCUT_GROUPS.some((group) => /group/i.test(group.category))).toBe(false);
+    expect(items.find((item) => item.id === "reorder-section")).toBeDefined();
+  });
+
   it("lists previous/next in handler order and excludes pointer gestures", () => {
     const items = SHORTCUT_GROUPS.flatMap((group) => group.items);
     const switchBot = items.find((item) => item.id === "switch-bot")!;

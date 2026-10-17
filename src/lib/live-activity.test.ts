@@ -29,15 +29,13 @@ describe("liveActivityLabel", () => {
     expect(liveActivityLabel(activity("web_search"))).toBe("Searching the web");
     expect(liveActivityLabel(activity("delegate_bot"))).toBe("Handing off a task");
     expect(liveActivityLabel(activity("ask_bot"))).toBe("Asking a teammate");
-    expect(liveActivityLabel(activity("list_rooms"))).toBe("Checking the groups");
-    expect(liveActivityLabel(activity("post_to_room"))).toBe("Posting in a group");
   });
 
   it("does not present bot-to-bot communication chips as the active action", () => {
     expect(
       liveActivityLabel({
         ...activity("ask_bot"),
-        comm: { groupId: "room", withBotId: "bot", withName: "Peer", withColor: "blue" },
+        comm: { withBotId: "bot", withName: "Peer", withColor: "blue" },
       }),
     ).toBe("Thinking");
   });

@@ -58,11 +58,11 @@ function buttonsFrom(render: () => ReactNode): Map<string, Button> {
 }
 
 function page() {
-  return buttonsFrom(() => RoutinesPage({ onBack: vi.fn(), onOpenRoom: vi.fn() }));
+  return buttonsFrom(() => RoutinesPage({ onBack: vi.fn(), onOpenChat: vi.fn() }));
 }
 
 function markupOf() {
-  function Capture() { return RoutinesPage({ onBack: vi.fn(), onOpenRoom: vi.fn() }); }
+  function Capture() { return RoutinesPage({ onBack: vi.fn(), onOpenChat: vi.fn() }); }
   return renderToStaticMarkup(createElement(Capture));
 }
 

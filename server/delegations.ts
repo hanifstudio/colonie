@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { writeFileAtomic } from "./atomic.ts";
-import { getOrCreateChannel, mirrorExchange, type CommsBus } from "./comms-visibility.ts";
+import { mirrorExchange, type CommsBus } from "./comms-visibility.ts";
 import { DATA_DIR } from "./config.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
 import { newId } from "./contracts.ts";
@@ -835,13 +835,9 @@ async function processOne(
     sender = currentSender;
     target = current;
   }
-  // Use the originating group as the channel when both bots are still
-  // members; otherwise the exchange falls back to the pair DM.
-  const originatingGroup =
-    (item.originatingGroupId ? bus.store.group(item.originatingGroupId) : undefined) ??
-    (sourceThreadId ? bus.store.groupByThread(sourceThreadId) : undefined);
-  const channel = item.oneWay ? undefined : getOrCreateChannel(bus.store, sender, target, originatingGroup);
-  if (channel) mirrorExchange(bus, sender, target, item.message, channel, sourceThreadId);
+  // Rooms and pair channels are retired: a two-way exchange is recorded as
+  // chips in both bots' threads, never mirrored into a channel.
+  if (!item.oneWay) mirrorExchange(bus, sender, target, sourceThreadId);
   const reasonLine = item.reason ? `\n\n[Reason: ${item.reason}]` : "";
   // A fresh thread's first line gets the shared peer-provenance note from
   // the harness (which knows whether the opener was unattended); the
@@ -849,7 +845,7 @@ async function processOne(
   const prefixed = item.targetThreadId
     ? item.message
     : `[Delegated by @${sender.name}, another bot in this Colonie workspace. Do the work and reply directly.]\n\n${item.message}${reasonLine}`;
-  await runTarget(item.toBotId, prefixed, item.oneWay ? 0 : item.depth + 1, sourceThreadId, channel, item.id, sender.id, item.targetThreadId, item.oneWay === true, item.completionOwner);
+  await runTarget(item.toBotId, prefixed, item.oneWay ? 0 : item.depth + 1, sourceThreadId, undefined, item.id, sender.id, item.targetThreadId, item.oneWay === true, item.completionOwner);
   return "dispatched";
 }
 

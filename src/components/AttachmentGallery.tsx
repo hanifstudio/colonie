@@ -97,7 +97,7 @@ export function splitMessageAttachments(attachments: readonly MessageAttachmentE
   return { images, files };
 }
 
-/** Group/room rows can share the gallery without parsing every old message
+/** Transcript rows can share the gallery without parsing every old message
  * on unrelated state updates. Preserve the message's original attachment array. */
 export function MessageAttachmentGallery({ text, attachments = NO_GENERATED_ATTACHMENTS, message, eager, className }: {
   text: string;

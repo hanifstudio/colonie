@@ -147,14 +147,11 @@ export function createTeamBackup(store: Store, routines: Routine[], name: string
 export function importTeamBackup(store: Store, routines: RoutineManager, input: unknown, selection: ModelSelection, options: { visibility?: BotVisibility } = {}) {
   const backup = parseTeamBackup(input);
   const bots: BotRecord[] = [];
-  const groups: GroupRecord[] = [];
   const createdRoutines: Routine[] = [];
+  const warnings: string[] = [];
   const existingBotIds = new Set(store.bots.map((bot) => bot.id));
-  const existingGroupIds = new Set(store.groups.map((group) => group.id));
   const botIds = new Map<string, string>();
-  const groupIds = new Map<string, string>();
   const takenNames = new Set(store.bots.map((bot) => bot.name.trim().toLowerCase()));
-  const takenGroups = new Set(store.groups.map((group) => group.name.trim().toLowerCase()));
   const takenSections = new Set([
     ...store.sections.map((section) => section.toLowerCase()),
     ...[...store.bots, ...store.groups].map((record) => record.section?.trim().toLowerCase() ?? ""),
@@ -226,52 +223,22 @@ export function importTeamBackup(store: Store, routines: RoutineManager, input: 
       store.patchBot(bot.id, { tasks, threadId: tasks[source.tasks.findIndex((task) => task.key === source.activeTask)].threadId });
       source.tasks.forEach((task, i) => restore(task, tasks[i].threadId));
     }
-    for (const source of backup.groups) {
-      const group = store.createGroup(takeImportName(source.name, takenGroups), source.memberIds.map((id) => botIds.get(id)!), source.dm, sectionFor(source.section));
-      groups.push(group);
-      groupIds.set(source.key, group.id);
-      const responder = source.defaultResponder;
-      store.patchGroup(group.id, {
-        bulletin: source.bulletin,
-        setupCompletedAt: Date.now(),
-        ...(source.dm && source.tasks[0]?.turnTimeoutMinutes != null
-          ? { turnTimeoutMinutes: source.tasks[0].turnTimeoutMinutes }
-          : {}),
-        defaultResponder:
-        responder.kind === "member" ? { kind: "member", botId: botIds.get(responder.botId)! }
-          : responder.kind === "auto" ? { kind: "auto", ...(responder.fallbackBotId ? { fallbackBotId: botIds.get(responder.fallbackBotId)! } : {}) }
-            : responder });
-      // Use the existing task APIs for rooms; direct-message rooms have one.
-      const threads = source.tasks.map((task, i) => {
-        if (i === 0) {
-          if (!source.dm) store.renameGroupTask(group.id, group.threadId, task.title);
-          return group.threadId;
-        }
-        return store.createGroupTask(group.id, task.title, false)!.threadId;
-      });
-      source.tasks.forEach((task, i) => restore(task, threads[i]));
-      if (!source.dm) {
-        group.tasks = source.tasks.map((task, i) => ({
-          threadId: threads[i], title: task.title, createdAt: task.createdAt,
-          updatedAt: task.messages.reduce((max, message) => Math.max(max, message.at), task.createdAt),
-          ...(task.pinned === true ? { pinned: true as const } : {}),
-          ...(task.titleFromFirstMessage ? { titleFromFirstMessage: true } : {}),
-          ...(task.turnTimeoutMinutes != null ? { turnTimeoutMinutes: task.turnTimeoutMinutes } : {}),
-        }));
-        store.switchGroupTask(group.id, threads[source.tasks.findIndex((task) => task.key === source.activeTask)]);
-      }
-    }
+    // Rooms are retired: a backup's rooms and room routines stay in the file
+    // but are not recreated; the person is told which were skipped.
+    for (const source of backup.groups) warnings.push(`Room “${source.name}” was not imported. Rooms are no longer supported; its conversation stays in the backup file.`);
     for (const source of backup.routines) {
-      createdRoutines.push(routines.create({ ...source, botId: botIds.get(source.botId)!,
-        groupId: source.target === "room-goal" ? groupIds.get(source.groupId!) : undefined, enabled: false }));
+      if (source.target === "room-goal") {
+        warnings.push(`Routine “${source.name}” was not imported because it runs in a room.`);
+        continue;
+      }
+      createdRoutines.push(routines.create({ ...source, botId: botIds.get(source.botId)!, groupId: undefined, enabled: false }));
     }
-    return { name: backup.name, bots, groups, routines: createdRoutines };
+    return { name: backup.name, bots, routines: createdRoutines, warnings };
   } catch (error) {
     for (const routine of createdRoutines) routines.remove(routine.id);
-    // createBot/createGroup can throw during persistence before returning.
-    // This synchronous import cannot interleave another writer, so include
-    // every fresh ID, even a record that never reached the result arrays.
-    for (const group of store.groups) if (!existingGroupIds.has(group.id)) store.deleteGroup(group.id);
+    // createBot can throw during persistence before returning. This
+    // synchronous import cannot interleave another writer, so include every
+    // fresh ID, even a record that never reached the result arrays.
     for (const bot of store.bots) if (!existingBotIds.has(bot.id)) store.deleteBot(bot.id);
     for (const section of sections.values()) {
       if (store.sections.includes(section)) store.changeEmptySection(section, null);

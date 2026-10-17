@@ -5,8 +5,8 @@ import { api, type Action, type AppState } from "@/state/store";
 import { landOnSearchHit } from "@/lib/focus-message";
 import type { SearchHit } from "@/lib/search-hit";
 
-/** What opening a hit needs: the store's bots and groups. */
-export type SearchNavigationState = Pick<AppState, "bots" | "groups">;
+/** What opening a hit needs: the store's bots. */
+export type SearchNavigationState = Pick<AppState, "bots">;
 
 export function useTranscriptSearch() {
   return useMemo(() => ({

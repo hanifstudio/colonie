@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import type { BotVisibility, CardAnswerer, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, GroupThreadUsage, SteerQueueReason } from "../../shared/wire";
+import type { BotVisibility, CardAnswerer, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, SteerQueueReason } from "../../shared/wire";
 import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
@@ -27,7 +27,6 @@ import type { ProfileRequestCardData } from "../../shared/profile-request";
 import type { ModelRequestCardData } from "../../shared/model-request";
 import type { RoutineRequestCardData } from "../../shared/routine-request";
 import type { RoutineRunCardData } from "../../shared/routine-run";
-import type { GroupGoalRunCardData } from "../../shared/group-goal-run";
 import type { PlaceRow } from "../../shared/place-view";
 import {
   reviewedSkillSha256,
@@ -181,10 +180,6 @@ export interface Message {
   secret?: SecretRequestCardData;
   /** Lifecycle mirror for a routine whose real work lives in a fresh task. */
   routineRun?: RoutineRunCardData;
-  /** Durable lifecycle receipt for a goal-driven channel run. */
-  goalRun?: GroupGoalRunCardData;
-  /** How a channel user message should be handled. Absent means ordinary chat. */
-  channelMode?: "chat" | "goal";
   /** activity messages: tool name + outcome. `spoken` is the server's
    * narration of the same chip ("reading a file"), used by call mode. */
   /** `setup` marks an error fixed by installing something, not by retrying.
@@ -214,7 +209,7 @@ export interface Message {
   replyToId?: string;
   /** Stable client identity for at-most-once chat POST retries. */
   sendId?: string;
-  /** rooms: which member said this (sender attribution). */
+  /** Sender attribution, kept for older multi-bot transcripts and exports. */
   from?: { botId: string; name: string; color: MausColor };
   /** a user-role line another bot delivered into this conversation
    * (ask_bot, delegate_bot, start_thread): the words are that bot's, not
@@ -222,8 +217,9 @@ export interface Message {
   peerAsk?: { botId: string; name: string; unattended?: boolean };
   /** emoji reactions; by = "user" or a member botId. */
   reactions?: Array<{ emoji: string; by: string }>;
-  /** comm chips: "Messaged @X" linking to the bot⇄bot channel. */
-  comm?: { groupId: string; threadId?: string; withBotId: string; withName: string; withColor: MausColor };
+  /** Legacy comm chips ("Messaged @X") stored before rooms were retired; they
+   * open the other bot. Older payloads also carry a room id, which is ignored. */
+  comm?: { threadId?: string; withBotId: string; withName: string; withColor: MausColor };
   /** thread chips: "Opened thread #Title on Bot" linking to that thread */
   threadRef?: { botId: string; threadId: string; title: string };
   /** sent while the bot was mid-turn; auto-sends when the turn settles.
@@ -233,71 +229,6 @@ export interface Message {
   /** steer-queue entry this drained user line came from. Pending chips
    * match on this id, not on equal text. Absent on ordinary sends. */
   queueId?: string;
-  /** Auto rooms: the decision model picked this reply's speaker. */
-  routedBy?: import("../../shared/wire").WireMessage["routedBy"];
-}
-
-export type GroupDefaultResponder = import("../../shared/wire").GroupDefaultResponder;
-
-/** A room: several bots + you in one shared thread. */
-export interface Group {
-  usage?: GroupThreadUsage | null;
-  id: string;
-  threadId: string;
-  name: string;
-  memberIds: string[];
-  defaultResponder: GroupDefaultResponder;
-  bulletin: string;
-  unread: boolean;
-  createdAt: number;
-  /** auto-created bot⇄bot channel (ask_bot exchanges mirror here) */
-  dm?: boolean;
-  busyBotId?: string | null;
-  /** when the busy member's turn started — the group-side twin of a task's
-   * turnStartedAt; stamped by the server when the speaker claims the turn */
-  turnStartedAt?: number | null;
-  /** True for the whole orchestrated run, including hand-offs between members. */
-  working?: boolean;
-  /** the room's shared desk — where member turns run their shell tools,
-   * overriding each member's own folder; absent = each member's own */
-  cwd?: string;
-  /** folder the room's turns actually run in, pinned on the first turn;
-   * null = each member's own default; absent = not pinned yet */
-  pinnedCwd?: string | null;
-  /** the one message pinned to the top of this room's transcript */
-  pinnedMessageId?: string;
-  /** sidebar section heading this room is filed under (shared with bots) */
-  section?: string;
-  /** New user-created rooms remain in setup until Save or Skip. */
-  setupCompletedAt?: number | null;
-  setupSkippedAt?: number | null;
-  /** A direct-message conversation's turn ceiling. Null or absent uses the
-   * global group limit. Channel conversations store theirs on each task. */
-  turnTimeoutMinutes?: number | null;
-  /** Separate conversations in this channel. DMs deliberately stay on one
-   * thread and omit this collection. */
-  tasks?: GroupTask[];
-  messages: Message[];
-  /** The server answered a bounded page and older messages remain in storage.
-   * Absent on an unpaged response, which always carries the whole thread. */
-  hasMore?: boolean;
-}
-
-/** One of a channel's independent conversations. The channel's threadId
- * points at the active one; folder and pin state belong to the task. */
-export interface GroupTask {
-  threadId: string;
-  title: string;
-  createdAt: number;
-  pinnedCwd?: string | null;
-  pinnedMessageId?: string;
-  /** The person pinned this channel thread. Only true is a pin. */
-  pinned?: boolean;
-  /** Newest message time, or createdAt. Server-derived. */
-  updatedAt?: number;
-  /** This conversation's turn ceiling, in whole minutes. Absent uses the
-   * global group limit. */
-  turnTimeoutMinutes?: number;
 }
 
 export interface ModelSelection {
@@ -311,7 +242,6 @@ export interface ModelSelection {
  * provider session. The bot's threadId points at the active one. */
 export interface Task {
   preview?: string;
-  waitingForTeammates?: boolean;
   threadId: string;
   /** Internal routine execution; reachable through its run receipt, not history menus. */
   routineRunId?: string;
@@ -403,7 +333,6 @@ export interface TaskUsage {
 export interface Bot {
   /** Owner selection, independent of engine approval mode. */
   toolScope?: ToolScope;
-  waitingForTeammates?: boolean;
   id: string;
   threadId: string;
   /** every context this bot has, newest first */
@@ -535,7 +464,6 @@ export function currentTaskBot(bot: Bot, threadId = bot.threadId): Bot {
     unread: task.unread ?? bot.unread,
     pinnedMessageId: task.pinnedMessageId,
     turnStartedAt: task.turnStartedAt ?? null,
-    waitingForTeammates: task.waitingForTeammates ?? false,
   };
 }
 
@@ -590,10 +518,6 @@ function bumpThreadUpdatedAt(state: AppState, threadId: string, at: number): App
       const tasks = advance(bot.tasks);
       return tasks === bot.tasks ? bot : { ...bot, tasks };
     }),
-    groups: state.groups.map((group) => {
-      const tasks = advance(group.tasks);
-      return tasks === group.tasks ? group : { ...group, tasks };
-    }),
   };
 }
 
@@ -604,7 +528,6 @@ function rewindThreadUpdatedAt(state: AppState, threadId: string, messages: { at
   return {
     ...state,
     bots: state.bots.map((bot) => bot.tasks?.some((task) => task.threadId === threadId) ? { ...bot, tasks: apply(bot.tasks) } : bot),
-    groups: state.groups.map((group) => group.tasks?.some((task) => task.threadId === threadId) ? { ...group, tasks: apply(group.tasks) } : group),
   };
 }
 
@@ -645,7 +568,6 @@ export interface ConfigStatus {
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   composio: { configured: boolean; projectKeyConfigured?: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
-  rooms: { turnTimeoutMinutes: number };
   /** Per-call ceiling (minutes) for a bot's MCP tools. Absent from servers
    * older than the setting; read it with mcpCallTimeoutMinutes(). */
   mcp?: { callTimeoutMinutes: number };
@@ -736,7 +658,7 @@ export interface BrowserProfile {
 // Settings shows (a saved key's Test button used to vanish that way).
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing"
+  "xai" | "mistral" | "cerebras" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "composio" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "imageGen" | "live" | "profile" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -749,7 +671,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     openrouter: frame.openrouter,
     openaiCompat: frame.openaiCompat,
     composio: frame.composio,
-    rooms: frame.rooms,
     mcp: frame.mcp,
     threads: frame.threads,
     automaticRecovery: frame.automaticRecovery,
@@ -895,7 +816,6 @@ export interface ModelVariantSession {
 
 export interface AppState {
   bots: Bot[];
-  groups: Group[];
   /** Persisted named teams; older servers omit this, so clients also derive labels. */
   sections?: string[];
   instances: InstanceInfo[];
@@ -912,7 +832,7 @@ export interface AppState {
   /** The request order of the newest lookup answer applied: an earlier
    * lookup that comes back after it is older news too. */
   liveCallLookupSeq: number;
-  /** selected chat — a bot id OR a group id */
+  /** selected chat — a bot id */
   selectedId: string;
   activeView: "chat" | "team-map" | "routines";
   routines: Routine[];
@@ -1050,17 +970,15 @@ function reconcileSnapshotQueues(
   return { ...state, pendingQueued, consumedQueueIds };
 }
 
-/** Direct-bot queues are server-owned. Restore them on reload, keeping the
- * separate group queue untouched. Remember removals so a late send response
- * cannot resurrect a message another window already cancelled or drained. */
+/** Direct-bot queues are server-owned. Restore them on reload. Remember
+ * removals so a late send response cannot resurrect a message another
+ * window already cancelled or drained. */
 function replaceBotQueues(state: AppState, queues: AppState["pendingQueued"]): AppState {
-  const groupThreads = new Set(state.groups.flatMap((group) => [group.threadId, ...(group.tasks ?? []).map((task) => task.threadId)]));
   const liveIds = new Set(Object.values(queues).flatMap((entries) => entries.map((entry) => entry.queueId)));
   const pendingQueued = { ...queues };
   let consumedQueueIds = state.consumedQueueIds;
-  for (const [threadId, entries] of Object.entries(state.pendingQueued)) {
-    if (groupThreads.has(threadId)) pendingQueued[threadId] = entries;
-    else for (const entry of entries) {
+  for (const entries of Object.values(state.pendingQueued)) {
+    for (const entry of entries) {
       if (!liveIds.has(entry.queueId)) consumedQueueIds = rememberConsumedQueueId(consumedQueueIds, entry.queueId);
     }
   }
@@ -1073,7 +991,6 @@ export type Action =
   | {
       type: "hydrate";
       bots: Bot[];
-      groups: Group[];
       sections?: string[];
       computerControl: Record<string, { held: boolean; helpReason: string | null }>;
       botQueuedMessages?: AppState["pendingQueued"];
@@ -1100,32 +1017,6 @@ export type Action =
   | { type: "cancelRoutineRun"; runId: string }
   | { type: "markRoutineRunSeen"; runId: string }
   | { type: "markAllRoutineRunsSeen" }
-  | { type: "groupPatched"; group: Partial<Group> & { id: string } }
-  | { type: "groupDeleted"; groupId: string }
-  | { type: "createGroup"; memberIds: string[]; name?: string; section?: string }
-  | {
-      type: "sendGroup";
-      groupId: string;
-      text: string;
-      sendId?: string;
-      replyToId?: string;
-      threadId?: string;
-      mode?: "chat" | "goal";
-      onError?: () => void;
-    }
-  | {
-      type: "patchGroup";
-      groupId: string;
-      patch: Partial<Pick<Group, "name" | "bulletin" | "memberIds" | "defaultResponder" | "pinnedMessageId" | "section">>;
-    }
-  | { type: "deleteGroup"; groupId: string }
-  | { type: "newGroupTask"; groupId: string }
-  | { type: "switchGroupTask"; groupId: string; threadId: string }
-  | { type: "renameGroupTask"; groupId: string; threadId: string; title: string }
-  | { type: "pinGroupTask"; groupId: string; threadId: string; pinned: boolean; title: string }
-  | { type: "setConversationTurnLimit"; groupId: string; threadId: string; minutes: number | null; dm: boolean }
-  | { type: "deleteGroupTask"; groupId: string; threadId: string }
-  | { type: "interruptGroup"; groupId: string; threadId?: string; onError?: () => void }
   | { type: "instances"; instances: InstanceInfo[] }
   | { type: "configStatus"; config: ConfigStatus }
   | { type: "liveCall"; call: LiveCallState | null }
@@ -1148,21 +1039,16 @@ export type Action =
   | { type: "consumePendingQueued"; threadId: string; queueId: string }
   | { type: "cancelQueued"; botId: string; queueId: string; threadId?: string; onCancelled?: () => void }
   | { type: "steerQueued"; botId: string; queueId: string; threadId?: string; onError?: () => void; onSettled?: () => void }
-  | { type: "cancelGroupQueued"; groupId: string; threadId: string; queueId: string; onCancelled?: () => void }
-  | { type: "steerGroupQueued"; groupId: string; queueId: string; threadId?: string; onError?: () => void; onSettled?: () => void }
   | { type: "editMessage"; botId: string; messageId: string; text: string; threadId?: string; sendId?: string }
   | { type: "switchBranch"; botId: string; messageId: string; threadId?: string }
   | { type: "threadActive"; threadId: string; activeLeafId: string }
   // scrollback: ask the server for the page before the oldest message held
   | { type: "loadOlderMessages"; threadId: string }
   | { type: "olderMessages"; threadId: string; generation: number; messages: Message[]; hasMore: boolean }
-  // `threadId` is the thread the card was shown in; `groupId` when the card
-  // is in a room: the message lives on the room's list, and the answer goes
-  // to the room's thread
-  | { type: "answerCard"; botId: string; messageId: string; answer: string; threadId?: string; groupId?: string }
-  | { type: "dismissCard"; botId: string; messageId: string; threadId?: string; groupId?: string }
-  // permission cards answer by THREAD, so a request raised inside a room
-  // can be answered the same way as one in a 1:1 chat
+  // `threadId` is the thread the card was shown in
+  | { type: "answerCard"; botId: string; messageId: string; answer: string; threadId?: string }
+  | { type: "dismissCard"; botId: string; messageId: string; threadId?: string }
+  // permission cards answer by THREAD, the conversation that raised them
   | {
       type: "decideRequest";
       threadId: string;
@@ -1266,7 +1152,6 @@ interface NotificationThreadOwner {
 
 interface NotificationRoutingState {
   bots: NotificationThreadOwner[];
-  groups: NotificationThreadOwner[];
 }
 
 /** The exact conversation currently on screen. A focused window is not
@@ -1277,7 +1162,6 @@ export function visibleNotificationThread(
   if (state.activeView !== "chat") return null;
   return (
     state.bots.find((candidate) => candidate.id === state.selectedId)?.threadId ??
-    state.groups.find((candidate) => candidate.id === state.selectedId)?.threadId ??
     null
   );
 }
@@ -1287,23 +1171,9 @@ export function openNotificationTarget(
   target: NotificationTarget,
   state: NotificationRoutingState,
 ) {
-  // A room's approval/question notification carries the asker bot with the
-  // GROUP's thread id; asking the bot to switch to that thread would 404.
-  // Open the room itself. Cross-bot routine receipts carry the executing
-  // bot but report into the requesting bot's thread: resolve its actual
-  // owner before selecting. An unknown/deleted thread falls back to the bot.
-  const group = state.groups.find(
-    (candidate) =>
-      candidate.threadId === target.threadId ||
-      (candidate.tasks ?? []).some((task) => task.threadId === target.threadId),
-  );
-  if (group) {
-    dispatch({ type: "select", id: group.id });
-    if (group.threadId !== target.threadId) {
-      dispatch({ type: "switchGroupTask", groupId: group.id, threadId: target.threadId });
-    }
-    return;
-  }
+  // Cross-bot routine receipts carry the executing bot but report into the
+  // requesting bot's thread: resolve its actual owner before selecting. An
+  // unknown/deleted thread falls back to the bot.
   const bot = state.bots.find((candidate) =>
     candidate.threadId === target.threadId || candidate.tasks?.some((task) => task.threadId === target.threadId)
   ) ?? state.bots.find((candidate) => candidate.id === target.botId);
@@ -1325,7 +1195,7 @@ interface ThreadOpeningState extends NotificationRoutingState {
   bots: Array<NotificationThreadOwner & { name: string }>;
 }
 
-/** Open a thread the person clicked: select its bot (or room) and switch
+/** Open a thread the person clicked: select its bot and switch
  * the VIEW to that thread — never the work; a turn running elsewhere keeps
  * running (the #981 rule). The sidebar then reveals the row. A thread this
  * client no longer knows (deleted, or not yet announced) falls back to the
@@ -1338,7 +1208,7 @@ export function openThread(
 ): boolean {
   const owns = (owner: NotificationThreadOwner) =>
     owner.threadId === target.threadId || (owner.tasks ?? []).some((task) => task.threadId === target.threadId);
-  if (state.groups.some(owns) || state.bots.some(owns)) {
+  if (state.bots.some(owns)) {
     openNotificationTarget(dispatch, target, state);
     dispatch({ type: "revealThread", threadId: target.threadId });
     return true;
@@ -1389,15 +1259,6 @@ function patchCard(state: AppState, botId: string, messageId: string, patch: Par
   return updateBot(state, botId, (b) => ({ ...b, messages: withPatchedCard(b.messages, messageId, patch) }));
 }
 
-function patchGroupCard(state: AppState, groupId: string, messageId: string, patch: Partial<OptionCardData>): AppState {
-  return {
-    ...state,
-    groups: state.groups.map((g) =>
-      g.id === groupId ? { ...g, messages: withPatchedCard(g.messages, messageId, patch) } : g,
-    ),
-  };
-}
-
 /** First-run quiz still sitting on this bot's thread. */
 function openOnboardingCard(bot: Bot): Message | undefined {
   return bot.messages.find(
@@ -1418,7 +1279,6 @@ function optimisticUserMessage(
   sendId: string,
   replyToId?: string,
   parentId?: string | null,
-  channelMode?: "chat" | "goal",
 ): Message {
   return {
     id: optimisticMessageId(sendId),
@@ -1429,7 +1289,6 @@ function optimisticUserMessage(
     parentId: parentId ?? null,
     replyToId,
     sendId,
-    channelMode,
   };
 }
 
@@ -1448,7 +1307,7 @@ export function reducer(state: AppState, action: Action): AppState {
   }
   switch (action.type) {
     case "hydrate": {
-      const known = (id: string) => action.bots.some((b) => b.id === id) || action.groups.some((g) => g.id === id);
+      const known = (id: string) => action.bots.some((b) => b.id === id);
       const selectedId =
         state.selectedId && known(state.selectedId) ? state.selectedId : (action.bots[0]?.id ?? "");
       const hydrated = {
@@ -1456,10 +1315,6 @@ export function reducer(state: AppState, action: Action): AppState {
         bots: action.bots.map((bot) => {
           const previous = state.bots.find((candidate) => candidate.id === bot.id);
           return previous ? { ...bot, tasks: mergeTaskStamps(previous.tasks, bot.tasks) } : bot;
-        }),
-        groups: action.groups.map((group) => {
-          const previous = state.groups.find((candidate) => candidate.id === group.id);
-          return previous ? { ...group, tasks: mergeTaskStamps(previous.tasks, group.tasks) } : group;
         }),
         sections: action.sections ?? [],
         computerControl: action.computerControl,
@@ -1471,7 +1326,7 @@ export function reducer(state: AppState, action: Action): AppState {
       };
       return reconcileSnapshotQueues(
         action.botQueuedMessages ? replaceBotQueues(hydrated, action.botQueuedMessages) : hydrated,
-        [...action.bots, ...action.groups],
+        action.bots,
       );
     }
     case "loadOlderMessages":
@@ -1501,19 +1356,17 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         loadingOlder,
         bots: state.bots.map((bot) => (bot.threadId === action.threadId ? prepend(bot) : bot)),
-        groups: state.groups.map((group) => (group.threadId === action.threadId ? prepend(group) : group)),
       };
     }
     case "sectionDeleted":
       return {
         ...state, sections: action.sections,
         bots: state.bots.map(bot => bot.section === action.section ? { ...bot, section: undefined } : bot),
-        groups: state.groups.map(group => group.section === action.section ? { ...group, section: undefined } : group),
       };
     case "sections":
       return { ...state, sections: action.sections };
     case "botQueues":
-      return reconcileSnapshotQueues(replaceBotQueues(state, action.queues), [...state.bots, ...state.groups]);
+      return reconcileSnapshotQueues(replaceBotQueues(state, action.queues), state.bots);
     case "showRoutines":
       return {
         ...state,
@@ -1591,33 +1444,6 @@ export function reducer(state: AppState, action: Action): AppState {
         : [...state.webhookAttempts, action.attempt];
       return { ...state, webhookAttempts: attempts.slice(-2_000) };
     }
-    case "groupPatched": {
-      // A payload carrying a transcript replaces what this client holds, so
-      // pages asked for under the old one no longer describe it.
-      const fenced = action.group.messages ? bumpTranscriptGeneration(state, action.group.threadId) : state;
-      const exists = fenced.groups.some((g) => g.id === action.group.id);
-      const groups = exists
-        ? fenced.groups.map((g) => (g.id === action.group.id ? {
-            ...g, ...action.group,
-            section: typeof action.group.threadId === "string" || Object.hasOwn(action.group, "section") ? action.group.section : g.section,
-            tasks: action.group.tasks ? mergeTaskStamps(g.tasks, action.group.tasks) : g.tasks,
-            turnTimeoutMinutes: Object.hasOwn(action.group, "turnTimeoutMinutes")
-              ? (action.group.turnTimeoutMinutes ?? undefined)
-              : g.turnTimeoutMinutes,
-            messages: action.group.messages ?? g.messages,
-            // A payload that carries a transcript answers the scrollback
-            // question with it: a bounded page says so, and a frame sent
-            // without that marker is the whole thread.
-            hasMore: action.group.messages ? Boolean(action.group.hasMore) : g.hasMore,
-          } : g))
-        : [{ ...(action.group as Group), messages: action.group.messages ?? [] }, ...fenced.groups];
-      return { ...fenced, groups };
-    }
-    case "groupDeleted": {
-      const groups = state.groups.filter((g) => g.id !== action.groupId);
-      const selectedId = state.selectedId === action.groupId ? (state.bots[0]?.id ?? "") : state.selectedId;
-      return { ...state, groups, selectedId };
-    }
     case "instances":
       return { ...state, instances: action.instances };
     case "configStatus":
@@ -1634,16 +1460,6 @@ export function reducer(state: AppState, action: Action): AppState {
         config: { ...state.config, profile: { name: "", email: "", ...state.config.profile, ...action.profile } },
       } : state;
     case "select": {
-      if (state.groups.some((g) => g.id === action.id)) {
-        return {
-          ...state,
-          activeView: "chat",
-          selectedId: action.id,
-          filePreview: null,
-          botSettingsSection: action.id !== state.selectedId ? "overview" : state.botSettingsSection,
-          groups: state.groups.map((g) => (g.id === action.id ? { ...g, unread: false } : g)),
-        };
-      }
       return updateBot(
         withMascotMotion(
           {
@@ -1662,7 +1478,6 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     // optimistic card settle; the server's message.patch confirms it later
     case "answerCard": {
-      if (action.groupId) return patchGroupCard(state, action.groupId, action.messageId, { answered: action.answer });
       const bot = state.bots.find((candidate) => candidate.id === action.botId);
       const card = bot?.messages.find((message) => message.id === action.messageId)?.card;
       return withMascotMotion(
@@ -1676,7 +1491,6 @@ export function reducer(state: AppState, action: Action): AppState {
       );
     }
     case "dismissCard":
-      if (action.groupId) return patchGroupCard(state, action.groupId, action.messageId, { dismissed: true });
       return patchCard(state, action.botId, action.messageId, { dismissed: true });
     case "decideRequest":
       return state; // the server's request.resolved patch settles the card
@@ -1790,36 +1604,7 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case "messageAdded": {
       const bot = state.bots.find((b) => b.threadId === action.threadId);
-      if (!bot) {
-        // room thread — plain linear append, no branching/mascot machinery.
-        // A message for a channel task that is not the one on screen still
-        // moves that row; it must not be appended to the visible transcript.
-        const group = state.groups.find((g) => g.threadId === action.threadId || g.tasks?.some((task) => task.threadId === action.threadId));
-        if (!group) return state;
-        if (group.threadId === action.threadId && group.messages.some((m) => m.id === action.message.id)) return state;
-        const stamped = bumpThreadUpdatedAt(state, action.threadId, action.message.at);
-        if (group.threadId !== action.threadId) return stamped;
-        const optimisticIndex = action.message.sendId
-          ? group.messages.findIndex(
-              (message) => message.id === optimisticMessageId(action.message.sendId!),
-            )
-          : -1;
-        return {
-          ...stamped,
-          groups: stamped.groups.map((g) =>
-            g.id === group.id
-              ? {
-                  ...g,
-                  messages: optimisticIndex >= 0
-                    ? g.messages.map((message, index) =>
-                        index === optimisticIndex ? action.message : message
-                      )
-                    : [...g.messages, action.message],
-                }
-              : g,
-          ),
-        };
-      }
+      if (!bot) return state;
       // The POST response and the canonical SSE frame may arrive in either
       // order. A repeated message is already folded; moving the active leaf
       // back to it can hide a newer assistant reply that won the race.
@@ -1885,32 +1670,11 @@ export function reducer(state: AppState, action: Action): AppState {
         const kept = cleared.bots.find((candidate) => candidate.id === bot.id)?.messages ?? [];
         return rewindThreadUpdatedAt(cleared, action.threadId, kept, task?.createdAt ?? 0);
       }
-      const group = state.groups.find((candidate) => candidate.threadId === action.threadId);
-      if (!group || !group.messages.some((message) => message.id === id)) return state;
-      const cleared = {
-        ...state,
-        groups: state.groups.map((candidate) => candidate.id === group.id
-          ? { ...candidate, messages: candidate.messages.filter((message) => message.id !== id) }
-          : candidate),
-      };
-      const task = group.tasks?.find((candidate) => candidate.threadId === action.threadId);
-      const kept = cleared.groups.find((candidate) => candidate.id === group.id)?.messages ?? [];
-      return rewindThreadUpdatedAt(cleared, action.threadId, kept, task?.createdAt ?? group.createdAt);
+      return state;
     }
     case "messagePatched": {
       const bot = state.bots.find((b) => b.threadId === action.threadId);
-      if (!bot) {
-        const group = state.groups.find((g) => g.threadId === action.threadId);
-        if (!group) return state;
-        return {
-          ...state,
-          groups: state.groups.map((g) =>
-            g.id === group.id
-              ? { ...g, messages: g.messages.map((m) => (m.id === action.message.id ? action.message : m)) }
-              : g,
-          ),
-        };
-      }
+      if (!bot) return state;
       const motion =
         action.message.kind === "activity"
           ? action.message.tool?.ok === false
@@ -2203,12 +1967,6 @@ export function reducer(state: AppState, action: Action): AppState {
       }
       return updateBot(bumpTranscriptGeneration(state, bot.threadId), action.botId, (b) => ({ ...b, activeLeafId: cur }));
     }
-    // optimistic room edits; the server's group frame confirms them later
-    case "patchGroup":
-      return {
-        ...state,
-        groups: state.groups.map((g) => (g.id === action.groupId ? { ...g, ...action.patch } : g)),
-      };
     // handled entirely by the async wrapper
     case "pendingQueued": {
       if (state.consumedQueueIds[action.queueId]) {
@@ -2256,15 +2014,6 @@ export function reducer(state: AppState, action: Action): AppState {
       // API-only: the effect folds in messageAdded/consumePendingQueued on
       // success, so the chips clear exactly when the words truly landed.
       return state;
-    case "cancelGroupQueued": {
-      const prev = state.pendingQueued[action.threadId] ?? [];
-      const rest = prev.filter((entry) => entry.queueId !== action.queueId);
-      if (rest.length === prev.length) return state;
-      const pendingQueued = { ...state.pendingQueued };
-      if (rest.length) pendingQueued[action.threadId] = rest;
-      else delete pendingQueued[action.threadId];
-      return { ...state, pendingQueued };
-    }
     case "send": {
       const animated = withMascotMotion(
         dismissOnboardingCard(state, action.botId),
@@ -2314,9 +2063,6 @@ export function reducer(state: AppState, action: Action): AppState {
       }));
     }
     case "deleteTask":
-    case "newGroupTask":
-    case "switchGroupTask":
-    case "deleteGroupTask":
     case "regenerateTaskTitle":
       return state;
     case "newTask":
@@ -2334,50 +2080,6 @@ export function reducer(state: AppState, action: Action): AppState {
           task.threadId === action.threadId ? { ...task, title: action.title } : task,
         ),
       }));
-    case "renameGroupTask":
-      return {
-        ...state,
-        groups: state.groups.map((group) =>
-          group.id === action.groupId
-            ? {
-                ...group,
-                tasks: (group.tasks ?? []).map((task) =>
-                  task.threadId === action.threadId ? { ...task, title: action.title } : task,
-                ),
-              }
-            : group,
-        ),
-      };
-    case "pinGroupTask":
-      return {
-        ...state,
-        groups: state.groups.map((group) =>
-          group.id === action.groupId
-            ? {
-                ...group,
-                tasks: (group.tasks ?? []).map((task) =>
-                  task.threadId === action.threadId ? { ...task, pinned: action.pinned ? true : undefined } : task,
-                ),
-              }
-            : group,
-        ),
-      };
-    case "setConversationTurnLimit":
-      return {
-        ...state,
-        groups: state.groups.map((group) => {
-          if (group.id !== action.groupId) return group;
-          if (action.dm) return { ...group, turnTimeoutMinutes: action.minutes ?? undefined };
-          return {
-            ...group,
-            tasks: (group.tasks ?? []).map((task) =>
-              task.threadId === action.threadId
-                ? { ...task, turnTimeoutMinutes: action.minutes ?? undefined }
-                : task,
-            ),
-          };
-        }),
-      };
     case "taskSwitched": {
       let switched = updateBot(bumpTranscriptGeneration(state, action.bot.threadId), action.bot.id, (bot) => ({
         ...bot,
@@ -2402,10 +2104,6 @@ export function reducer(state: AppState, action: Action): AppState {
     case "deleteProject":
     case "reorderProjects":
     case "interrupt":
-    case "createGroup":
-    case "deleteGroup":
-    case "interruptGroup":
-    case "steerGroupQueued":
     case "createRoutine":
     case "updateRoutine":
     case "deleteRoutine":
@@ -2416,26 +2114,6 @@ export function reducer(state: AppState, action: Action): AppState {
     case "refreshTaskPermissions":
     case "followBotModel":
       return state;
-    case "sendGroup": {
-      if (!action.sendId) return state;
-      const group = state.groups.find((candidate) => candidate.id === action.groupId);
-      const threadId = action.threadId ?? group?.threadId;
-      if (!group || threadId !== group.threadId) return state;
-      if (group.messages.some((message) => message.sendId === action.sendId)) return state;
-      const message = optimisticUserMessage(
-        action.text,
-        action.sendId,
-        action.replyToId,
-        null,
-        action.mode ?? "chat",
-      );
-      return bumpThreadUpdatedAt({
-        ...state,
-        groups: state.groups.map((candidate) => candidate.id === group.id
-          ? { ...candidate, messages: [...candidate.messages, message] }
-          : candidate),
-      }, threadId, message.at);
-    }
   }
 }
 
@@ -2445,7 +2123,6 @@ export const initialState: AppState = {
   loadingOlder: {},
   transcriptGeneration: {},
   bots: [],
-  groups: [],
   sections: [],
   instances: [],
   config: null,
@@ -2553,7 +2230,7 @@ export async function createBotWithRole(role?: BotRole, request: typeof api = ap
 /** Messages per thread in a snapshot, and per scrollback page.
  *
  * An unbounded `/api/bots` serialises every message of every thread: a
- * long-running room reaches tens of megabytes, which a remote companion
+ * long-running conversation reaches tens of megabytes, which a remote companion
  * cannot buffer and a phone should never be sent. The server has answered
  * bounded pages since the `?messages=` parameter was added; this client now
  * asks for one and pages back through `/api/threads/:id/messages?before=`.
@@ -2827,13 +2504,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const showError = (e: unknown) => {
       rawDispatch({ type: "error", message: e instanceof Error ? e.message : String(e) });
     };
-    /** Where a card action's message lives, and the card on it. A card asked
-     * inside a room belongs to the room's list, never to one member's. */
-    const cardTarget = (action: { botId: string; messageId: string; groupId?: string }) => {
-      const host = action.groupId
-        ? stateRef.current.groups.find((g) => g.id === action.groupId)
-        : stateRef.current.bots.find((b) => b.id === action.botId);
-      return { host, card: host?.messages.find((m) => m.id === action.messageId)?.card, inRoom: !!action.groupId };
+    /** Where a card action's message lives, and the card on it. */
+    const cardTarget = (action: { botId: string; messageId: string }) => {
+      const host = stateRef.current.bots.find((b) => b.id === action.botId);
+      return { host, card: host?.messages.find((m) => m.id === action.messageId)?.card };
     };
     // fire-and-forget card persistence; the route is optional server-side
     const persistCard = (botId: string, messageId: string, patch: Partial<OptionCardData>) => {
@@ -2871,7 +2545,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const persistTaskPatch = (botId: string, threadId: string, patch: TaskUpdatePatch) => {
       const previous = taskWrites.get(threadId);
       // A quick tab switch may queue two default changes on different threads.
-      // Keep their order, and don't let a group send race either pending save.
+      // Keep their order, and don't let a send race either pending save.
       const defaults = patch.updateBotDefault || patch.approvalMode !== undefined
         ? [...taskWrites.values()].filter((write) => write.botId === botId) : [];
       const promise = Promise.all([previous?.promise, ...defaults.map((write) => write.promise)].map((save) => save?.catch(() => {})))
@@ -2917,8 +2591,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     /** Resolve every bot whose execution context belongs to this thread. A
-     * direct chat may name an inactive task, while a channel request belongs
-     * to every member that could be selected to run it. Capture the result
+     * direct chat may name an inactive task. Capture the result
      * before the optimistic reducer runs so approval/model writes cannot race
      * a response that resumes (or starts) work. */
     const executionBotsForThread = (threadId: string): Bot[] => {
@@ -2927,11 +2600,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const bot of snapshot.bots) {
         if (bot.threadId === threadId || bot.tasks?.some((task) => task.threadId === threadId)) {
           botIds.add(bot.id);
-        }
-      }
-      for (const group of snapshot.groups) {
-        if (group.threadId === threadId || group.tasks?.some((task) => task.threadId === threadId)) {
-          for (const memberId of group.memberIds) botIds.add(memberId);
         }
       }
       return snapshot.bots.filter((bot) => botIds.has(bot.id));
@@ -2945,7 +2613,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (action.type === "botPatched") action = { ...action, bot: withTaskWrites(action.bot) };
       // One identity drives the optimistic row, HTTP retry protection, and
       // canonical SSE reconciliation. Callers may omit it; the store may not.
-      if ((action.type === "send" || action.type === "sendGroup" || action.type === "editMessage") && !action.sendId) {
+      if ((action.type === "send" || action.type === "editMessage") && !action.sendId) {
         action = { ...action, sendId: crypto.randomUUID() };
       }
       const botBeforeUpdate =
@@ -2974,19 +2642,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const grantBot = stateRef.current.bots.find((bot) => bot.id === action.alwaysAllow?.botId);
           return grantBot ? [...bots, grantBot] : bots;
         }
-        if (action.type === "sendGroup") {
-          const memberIds = stateRef.current.groups.find((group) => group.id === action.groupId)?.memberIds ?? [];
-          return stateRef.current.bots.filter((candidate) => memberIds.includes(candidate.id));
-        }
         if (action.type === "runRoutine") {
           const routine = stateRef.current.routines.find((candidate) => candidate.id === action.routineId);
           if (!routine) return [];
-          const ids = new Set([routine.botId]);
-          if (routine.target === "room-goal" && routine.groupId) {
-            const group = stateRef.current.groups.find((candidate) => candidate.id === routine.groupId);
-            for (const memberId of group?.memberIds ?? []) ids.add(memberId);
-          }
-          return stateRef.current.bots.filter((candidate) => ids.has(candidate.id));
+          return stateRef.current.bots.filter((candidate) => candidate.id === routine.botId);
         }
         return [];
       })();
@@ -3000,7 +2659,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // remove. All other actions keep their existing optimistic behavior.
       if (
         action.type !== "cancelQueued" &&
-        action.type !== "cancelGroupQueued" &&
         action.type !== "deleteBot"
       ) rawDispatch(action);
       switch (action.type) {
@@ -3010,7 +2668,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (olderPagesInFlight.has(action.threadId)) break;
           olderPagesInFlight.add(action.threadId);
           const current = stateRef.current;
-          const owner = [...current.bots, ...current.groups].find((candidate) => candidate.threadId === action.threadId);
+          const owner = current.bots.find((candidate) => candidate.threadId === action.threadId);
           const before = owner?.messages[0]?.id;
           // The transcript this page is being asked about. `loadOlderMessages`
           // does not move it, so the value here is the one the reducer will
@@ -3102,35 +2760,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               action.onError?.();
             });
           break;
-        case "cancelGroupQueued":
-          void api(`/api/groups/${action.groupId}/queue/${action.queueId}`, { method: "DELETE" })
-            .then(() => {
-              rawDispatch(action);
-              action.onCancelled?.();
-            })
-            .catch(showError);
-          break;
-        case "steerGroupQueued":
-          void api(`/api/groups/${action.groupId}/queue/${action.queueId}/steer`, {
-            method: "POST",
-            body: JSON.stringify({ threadId: action.threadId }),
-          })
-            .then((body) => {
-              if (body?.steered === true && Array.isArray(body.messages) && typeof body.threadId === "string") {
-                for (const message of body.messages) {
-                  rawDispatch({ type: "messageAdded", threadId: body.threadId, message });
-                }
-                for (const queueId of body.queueIds ?? []) {
-                  rawDispatch({ type: "consumePendingQueued", threadId: body.threadId, queueId });
-                }
-              }
-              action.onSettled?.();
-            })
-            .catch((error) => {
-              showError(error);
-              action.onError?.();
-            });
-          break;
         case "send": {
           // persist through the existing card route so an older server that
           // does not auto-dismiss still hides the quiz on this client
@@ -3162,7 +2791,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   threadId: body.threadId,
                   queueId: body.queueId,
                   text: action.text,
-                  reason: body.reason === "capacity" || body.reason === "group-turn" ? body.reason : undefined,
+                  reason: body.reason === "capacity" ? body.reason : undefined,
                 });
               }
             })
@@ -3249,14 +2878,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "answerCard": {
-          const { host, card, inRoom } = cardTarget(action);
+          const { host, card } = cardTarget(action);
           void waitForExecutionSettings(executionBotsBeforeAction, action.threadId)
             .then(() => {
               if (card?.requestId && host) {
                 // allow/deny for a permission, the chosen text for a question
                 // — decided from the card, never from the label (see
-                // card-answer.ts). By THREAD, so a card raised inside a room
-                // answers the same way a 1:1 one does.
+                // card-answer.ts).
                 const response = card.skillRequest
                   ? { behavior: skillRequestBehavior(action.answer) }
                   : answerResponse(card, action.answer);
@@ -3271,7 +2899,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   }),
                 });
               }
-              if (inRoom) return;
               persistCard(action.botId, action.messageId, { answered: action.answer, dismissed: true });
               return api(`/api/bots/${action.botId}/messages`, {
                 method: "POST",
@@ -3282,7 +2909,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "dismissCard": {
-          const { host, card, inRoom } = cardTarget(action);
+          const { host, card } = cardTarget(action);
           if (card?.requestId && host) {
             // a question is DECLINED rather than denied — the broker refuses
             // a deny on one (see card-answer.ts)
@@ -3290,7 +2917,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               method: "POST",
               body: JSON.stringify({ requestId: card.requestId, ...dismissResponse(card) }),
             }).catch(() => {});
-          } else if (!inRoom) {
+          } else {
             persistCard(action.botId, action.messageId, { dismissed: true });
           }
           break;
@@ -3383,87 +3010,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         case "select": {
           const bot = stateRef.current.bots.find((b) => b.id === action.id);
-          const group = stateRef.current.groups.find((g) => g.id === action.id);
           if (bot?.unread) {
             api(`/api/bots/${action.id}/read`, { method: "POST", body: JSON.stringify({ threadId: bot.threadId }) }).catch(() => {});
-          } else if (group?.unread) {
-            api(`/api/groups/${action.id}/read`, { method: "POST" }).catch(() => {});
           }
           break;
         }
-        case "createGroup":
-          api(`/api/groups`, {
-            method: "POST",
-            body: JSON.stringify({
-              memberIds: action.memberIds,
-              name: action.name,
-              section: action.section,
-              ...(window.colonie?.remoteClient?.active
-                ? { setup: { bulletin: "", defaultResponder: { kind: "mentions" } } }
-                : {}),
-            }),
-          })
-            .then(({ group }) => {
-              rawDispatch({ type: "groupPatched", group });
-              rawDispatch({ type: "select", id: group.id });
-            })
-            .catch(showError);
-          break;
-        case "sendGroup": {
-          const threadId =
-            action.threadId ?? stateRef.current.groups.find((group) => group.id === action.groupId)?.threadId;
-          const sendId = action.sendId ?? crypto.randomUUID();
-          void waitForExecutionSettings(executionBotsBeforeAction)
-            .then(() => api(`/api/groups/${action.groupId}/messages`, {
-              method: "POST",
-              body: JSON.stringify({
-                text: action.text,
-                replyToId: action.replyToId,
-                threadId,
-                sendId,
-                mode: action.mode ?? "chat",
-              }),
-            }))
-            .then((body) => {
-              if (body?.message && typeof body.threadId === "string") {
-                rawDispatch({ type: "messageAdded", threadId: body.threadId, message: body.message });
-              }
-              if (
-                body?.queued &&
-                typeof body.threadId === "string" &&
-                typeof body.queueId === "string"
-              ) {
-                rawDispatch({
-                  type: "optimisticMessageRemoved",
-                  threadId: body.threadId,
-                  sendId,
-                });
-                rawDispatch({
-                  type: "pendingQueued",
-                  threadId: body.threadId,
-                  queueId: body.queueId,
-                  text: action.text,
-                });
-              }
-            })
-            .catch((error) => {
-              if (threadId) {
-                rawDispatch({ type: "optimisticMessageRemoved", threadId, sendId });
-              }
-              showError(error);
-              action.onError?.();
-            });
-          break;
-        }
-        case "patchGroup":
-          api(`/api/groups/${action.groupId}`, {
-            method: "PATCH",
-            body: JSON.stringify(action.patch),
-          }).catch(showError);
-          break;
-        case "deleteGroup":
-          api(`/api/groups/${action.groupId}`, { method: "DELETE" }).catch(showError);
-          break;
         case "setModel":
           if (action.threadId) {
             persistTaskPatch(action.botId, action.threadId, {
@@ -3583,52 +3134,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           api<{ bot?: BotAnnouncement }>(`/api/bots/${action.botId}/tasks/${action.threadId}`, { method: "DELETE" })
             .then((r) => r?.bot && dispatch({ type: "botPatched", bot: r.bot }))
             .catch(showError);
-          break;
-        // Channel tasks mirror bot tasks, but hydrate the whole channel so
-        // switching atomically replaces its transcript, folder and pin.
-        case "newGroupTask":
-          api<{ group?: Partial<Group> & { id: string } }>(`/api/groups/${action.groupId}/tasks`, { method: "POST", body: "{}" })
-            .then((r) => r?.group && dispatch({ type: "groupPatched", group: r.group }))
-            .catch(showError);
-          break;
-        case "switchGroupTask":
-          api<{ group?: Partial<Group> & { id: string } }>(`/api/groups/${action.groupId}/tasks/${action.threadId}?messages=${MESSAGE_PAGE_SIZE}`, { method: "POST" })
-            .then((r) => r?.group && dispatch({ type: "groupPatched", group: r.group }))
-            .catch(showError);
-          break;
-        case "renameGroupTask":
-          api(`/api/groups/${action.groupId}/tasks/${action.threadId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ title: action.title }),
-          }).catch(showError);
-          break;
-        case "pinGroupTask":
-          // title is echoed so an older server rewrites the same title
-          // instead of blanking a pin-only body into "Untitled".
-          api(`/api/groups/${action.groupId}/tasks/${action.threadId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ pinned: action.pinned, title: action.title }),
-          }).catch(showError);
-          break;
-        case "setConversationTurnLimit":
-          api(action.dm ? `/api/groups/${action.groupId}` : `/api/groups/${action.groupId}/tasks/${action.threadId}`, {
-            method: "PATCH",
-            body: JSON.stringify({ turnTimeoutMinutes: action.minutes }),
-          }).catch(showError);
-          break;
-        case "deleteGroupTask":
-          api<{ group?: Partial<Group> & { id: string } }>(`/api/groups/${action.groupId}/tasks/${action.threadId}`, { method: "DELETE" })
-            .then((r) => r?.group && dispatch({ type: "groupPatched", group: r.group }))
-            .catch(showError);
-          break;
-        case "interruptGroup":
-          api(`/api/groups/${action.groupId}/interrupt`, {
-            method: "POST",
-            body: action.threadId ? JSON.stringify({ threadId: action.threadId }) : undefined,
-          }).catch((error) => {
-            showError(error);
-            action.onError?.();
-          });
           break;
         case "updateBot": {
           if (botBeforeUpdate) {
@@ -3761,12 +3266,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {});
       const chat = () =>
-        api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}`).then(({ bots, groups, sections, computerControl, botQueuedMessages }) => {
+        api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}`).then(({ bots, sections, computerControl, botQueuedMessages }) => {
           if (!alive) return;
           rawDispatch({
             type: "hydrate",
             bots,
-            groups: groups ?? [],
             sections: sections ?? [],
             computerControl: computerControl ?? {},
             botQueuedMessages,
@@ -3895,16 +3399,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           });
           break;
         }
-        case "group": {
-          const group = frame.group as Partial<Group> & { id: string };
-          // reading the selected room clears its badge immediately
-          if (group.unread && group.id === stateRef.current.selectedId) {
-            group.unread = false;
-            fetch(`/api/groups/${group.id}/read`, { method: "POST" }).catch(() => {});
-          }
-          rawDispatch({ type: "groupPatched", group });
-          break;
-        }
         // the harness decided this was worth interrupting for; the toggle
         // in each bot's settings is what gates it, server-side
         case "notify":
@@ -3919,9 +3413,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             stateRef.current.bots.find((bot) => bot.id === frame.notification.botId)?.avatarUrl,
             visibleNotificationThread(stateRef.current),
           );
-          break;
-        case "group.deleted":
-          rawDispatch({ type: "groupDeleted", groupId: frame.groupId });
           break;
         case "routine":
           rawDispatch({ type: "routinePatched", routine: frame.routine });

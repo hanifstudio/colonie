@@ -79,23 +79,11 @@ describe("sidebar thread visibility", () => {
   });
 });
 
-describe("threads waiting on a teammate", () => {
+describe("thread row live activity", () => {
   const render = (task: ThreadRowProps["task"], props: Partial<ThreadRowProps> = {}) =>
     renderToStaticMarkup(createElement(SidebarThreadRow, {
       task, ownerId: "scout", current: false, onSelect: vi.fn(), onRename: vi.fn(), onDelete: vi.fn(), locale: "en", ...props,
     }));
-  // #1223: the parent thread dispatched a teammate and its own turn is done.
-  it("shows the wait as a quiet label over the busy paint, never the work spinner", () => {
-    const markup = render({ threadId: "dispatch", title: "Dispatch", waitingForTeammates: true, busy: true, activity: "working" });
-    expect(markup).toContain('title="Dispatch · Waiting on teammate"');
-    expect(markup).toContain('aria-label="Waiting on teammate"');
-    expect(markup).not.toContain("animate-spin");
-  });
-  it("keeps an older waiting thread visible past the six recent rows", () => {
-    const rows = Array.from({ length: 9 }, (_, index) => ({ threadId: String(index), title: `Thread ${index}` }));
-    const waiting = [...rows, { threadId: "dispatch", title: "Dispatch", waitingForTeammates: true as const, busy: false }];
-    expect(visibleSidebarThreads(waiting, "0").map((task) => task.threadId)).toEqual(["0", "1", "2", "3", "4", "5", "dispatch"]);
-  });
   it("surfaces the live activity label the chat pane derives while the row works", () => {
     const markup = render({ threadId: "live", title: "Live work", busy: true, activity: "working" }, { activityLabel: "Reading a file" });
     expect(markup).toContain('title="Live work · Reading a file"');
@@ -413,15 +401,6 @@ describe("orderedSidebarThreads", () => {
     expect(ordered.map((t) => t.threadId)).toEqual(["waiting", "working", "queued", "unread"]);
   });
 
-  it("keeps a teammate wait between working and queued even over the busy paint", () => {
-    const ordered = orderedSidebarThreads([
-      task("queued", { queued: true }),
-      task("wait", { busy: true, activity: "working", waitingForTeammates: true }),
-      task("work", { busy: true, activity: "working" }),
-    ], "none");
-    expect(ordered.map((t) => t.threadId)).toEqual(["work", "wait", "queued"]);
-  });
-
   it("keeps the thread being looked at above idle threads but below attention tiers", () => {
     const ordered = orderedSidebarThreads([
       task("idle"),
@@ -543,7 +522,7 @@ describe("Copy link", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     vi.stubGlobal("window", { innerWidth: 1024, innerHeight: 768 });
     vi.stubGlobal("document", { body: { nodeType: 1 } });
-    // a bot-owned row and a room-owned row: the owner id, not anything else,
+    // rows of two different owners: the owner id, not anything else,
     // is what the copied link must carry as ?bot=
     const rows = [
       { task: { threadId: "qa-245", title: "QA PR 245" }, ownerId: "scout", link: "colonie://thread/qa-245?bot=scout" },

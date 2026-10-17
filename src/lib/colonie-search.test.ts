@@ -28,7 +28,7 @@ function renderPort() {
   return captured;
 }
 
-const state = { bots: [], groups: [] };
+const state = { bots: [] };
 const dispatch = (() => {}) as never;
 
 beforeEach(() => vi.clearAllMocks());

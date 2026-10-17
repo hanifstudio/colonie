@@ -18,7 +18,7 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
   await waitForExit(fixture.child, { signal: "SIGTERM" });
   const dataDir = fixture.info.dataDir;
   const config = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8"));
-  assert.equal(resolve(config.instances.claude.config.cli), join(ROOT, "server", "testing", "fake-claude-cli.ts"));
+  assert.deepEqual(config.instances.claude.config.args.map((arg: string) => resolve(arg)), [join(ROOT, "server", "testing", "fake-acp-cli.ts")]);
   const env: NodeJS.ProcessEnv = {};
   for (const key of ["SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "LANG", "LC_ALL", "TZ"]) {
     if (process.env[key]) env[key] = process.env[key];
@@ -34,7 +34,6 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
     TEMP: temp, TMP: temp, TMPDIR: temp, HERMES_HOME: join(home, ".hermes"),
     COLONIE_DATA_DIR: dataDir, COLONIE_PORT: new URL(fixture.info.url).port,
     COLONIE_WEBHOOK_PORT: String(Number(new URL(fixture.info.url).port) + 1),
-    FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: fixture.fixtureDumpPath,
     PATH: dirname(process.execPath),
   });
   const log = openSync(fixture.info.logPath, "a", 0o600);
@@ -147,7 +146,7 @@ export async function verifyWorkspaceBackup(report: (event: unknown) => void = (
     await control(source, "messages", "--bot", bot.id, "--limit", "20");
     const before = (await api(source, "GET", "/api/bots?messages=200")).body;
     const original = before.bots.find((candidate: { id: string }) => candidate.id === bot.id);
-    assert.ok(original.messages.some((message: { text?: string }) => message.text?.includes("hello from fake claude")));
+    assert.ok(original.messages.some((message: { text?: string }) => message.text?.includes("hello from fake acp")));
     const oldBytes = readFileSync(join(destination.info.dataDir, "bots.json"));
     const clientState = { "colonie-skin": "default", "colonie-drafts": JSON.stringify({ [bot.threadId]: "Keep draft" }), "colonie-webhook-credentials": "private-source-webhook-url", "unrelated-auth-token": "must-not-transfer" };
     const exported = await api(source, "POST", "/api/workspace-backup/export", { password: PASSWORD, clientState });

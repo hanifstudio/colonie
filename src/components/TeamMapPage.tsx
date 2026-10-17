@@ -3,7 +3,7 @@ import { ArrowRight01Icon, BookOpen01Icon, Loading02Icon, MonitorIcon, Multiplic
 import { HIcon } from "./HIcon";
 import { createPortal } from "react-dom";
 
-import { api, formatTime, useStore, type Bot } from "@/state/store";
+import { api, useStore, type Bot } from "@/state/store";
 import {
   EMPTY_TEAM_MAP_SNAPSHOT,
   buildTeamMapEdges,
@@ -24,29 +24,24 @@ function EdgeRow({ edge, bots }: { edge: TeamMapEdge; bots: Bot[] }) {
   const source = bots.find((bot) => bot.id === edge.sourceBotId);
   const target = bots.find((bot) => bot.id === edge.targetBotId);
   if (!source || !target) return null;
-  const live = edge.state !== "connected";
   return (
     <button
-      onClick={() => dispatch({ type: "select", id: edge.groupId ?? target.id })}
+      onClick={() => dispatch({ type: "select", id: target.id })}
       className="flex w-full items-center gap-3 rounded-xl border border-hairline/40 bg-card px-3 py-2.5 text-left transition hover:bg-raised/50"
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-[13px] font-medium text-ink">{source.name}</span>
-        <HIcon icon={ArrowRight01Icon} size={13} className={cn("shrink-0", live ? "text-accent" : "text-ink-secondary")} />
+        <HIcon icon={ArrowRight01Icon} size={13} className="shrink-0 text-accent" />
         <span className="truncate text-[13px] font-medium text-ink">{target.name}</span>
       </div>
       {edge.reason && <span className="max-w-[220px] truncate text-[11.5px] text-ink-secondary">{edge.reason}</span>}
       <span
         className={cn(
           "rounded-full px-2 py-0.5 text-[10.5px] font-medium",
-          edge.state === "running"
-            ? "bg-success/15 text-success"
-            : edge.state === "queued"
-              ? "bg-warning/15 text-warning"
-              : "bg-control text-ink-secondary",
+          edge.state === "running" ? "bg-success/15 text-success" : "bg-warning/15 text-warning",
         )}
       >
-        {edge.state === "running" ? "Running" : edge.state === "queued" ? "Queued" : edge.lastAt ? formatTime(edge.lastAt) : "Connected"}
+        {edge.state === "running" ? "Running" : "Queued"}
       </span>
     </button>
   );
@@ -265,10 +260,10 @@ export function TeamMapPage() {
   useEffect(() => () => pendingMoveRef.current?.resolve(false), []);
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
   const sections = useMemo(() => {
-    const names = [...new Set([...(state.sections ?? []), ...state.groups.flatMap((group) => group.section ? [group.section] : [])])];
+    const names = [...new Set(state.sections ?? [])];
     const order = (key: string) => key === "" ? -1 : names.includes(key) ? names.indexOf(key) : names.length;
     return buildTeamMapSections(bots, names).sort((a, b) => order(a.key) - order(b.key));
-  }, [bots, state.sections, state.groups]);
+  }, [bots, state.sections]);
   const edges = useMemo(() => buildTeamMapEdges(bots, snapshot), [bots, snapshot]);
 
   const refresh = useCallback(async () => {
@@ -348,7 +343,7 @@ export function TeamMapPage() {
         onMemory={(section, label) => setMemoryEditor({ section, label })}
         onEditTeam={(section, rename) => setTeamEditor({ section, rename })}
         onDeleteTeam={setDeletingTeam}
-        isEmpty={(key) => ![...state.bots, ...state.groups].some((record) => record.section?.trim() === key)} />
+        isEmpty={(key) => !state.bots.some((record) => record.section?.trim() === key)} />
       </div>
       {edges.length > 0 && <details className="shrink-0 border-t border-hairline/40 bg-panel px-6 py-3">
         <summary className="cursor-pointer text-[12px] text-ink-secondary">{t("canvas.handoffs")} · {edges.length}</summary>

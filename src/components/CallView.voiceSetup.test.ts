@@ -65,7 +65,7 @@ vi.mock("./VoiceSetupDialog", () => ({
   },
 }));
 
-const { CallButton, CallTargetButton } = await import("./CallView");
+const { CallButton } = await import("./CallView");
 const { configureLiveMedia, liveMedia, resetLiveMedia } = await import("@/lib/live-call-media");
 
 const pepper: Bot = {
@@ -75,7 +75,6 @@ const pepper: Bot = {
 };
 const basil: Bot = { ...pepper, id: "basil", threadId: "t2", name: "Basil", voice: "voice-1" };
 
-type Props = Parameters<typeof CallTargetButton>[0];
 type Node = ReactElement<Record<string, unknown> & { children?: ReactNode }>;
 function nodes(value: ReactNode): Node[] {
   return Children.toArray(value).flatMap((child) => {
@@ -85,15 +84,14 @@ function nodes(value: ReactNode): Node[] {
   });
 }
 
-/** The composer's call button for Pepper, unless a room's props are given. */
-function render(props?: Props) {
+/** The composer's call button for Pepper. */
+function render() {
   fixture.values.length = Math.min(fixture.values.length, fixture.own);
   fixture.dialog = null;
   let tree: ReactNode = null;
   function Capture() {
     fixture.index = 0;
-    const element = CallButton({ bot: pepper, placement: "composer" }) as ReactElement<Props>;
-    tree = CallTargetButton(props ?? element.props);
+    tree = CallButton({ bot: pepper });
     fixture.own = fixture.index;
     return tree;
   }
@@ -105,12 +103,12 @@ const find = (rendered: { nodes: Node[] }, attribute: string) =>
 const click = (node: Node) => (node.props.onClick as () => void)();
 
 /** Click the call button, then the help's "Set up voice". */
-function openVoiceSetup(props?: Props) {
-  click(find(render(props), "data-call-button"));
-  const help = render(props);
+function openVoiceSetup() {
+  click(find(render(), "data-call-button"));
+  const help = render();
   expect(help.html).toContain("Call unavailable");
   click(find(help, "data-voice-setup-open"));
-  return render(props);
+  return render();
 }
 
 beforeEach(() => {
@@ -151,7 +149,7 @@ describe("setting up a voice from the call button", () => {
     const opened = render();
     expect(opened.html).not.toContain("Call unavailable");
     expect(opened.html).toContain('data-voice-setup-stub="pepper"');
-    expect(fixture.dialog).toMatchObject({ bot: pepper, callName: "Pepper", ready: false });
+    expect(fixture.dialog).toMatchObject({ bot: pepper, ready: false });
     // Focus goes back to the call button, not to the help that has gone.
     expect(fixture.dialog!.returnFocusRef).toBe(find(opened, "data-call-button").props.ref);
     expect(fixture.startCall).not.toHaveBeenCalled();
@@ -182,38 +180,6 @@ describe("setting up a voice from the call button", () => {
     expect(render().html).not.toContain("data-voice-setup-stub");
   });
 
-  it("does the same from a room's header button, member by member", () => {
-    // GroupCallButton's props: the first member without a voice, else the first.
-    const room: Props = {
-      targetId: "room-1",
-      targetName: "Standup",
-      voices: [undefined, undefined],
-      setupBotId: "pepper",
-      requireExplicitVoices: true,
-      onStart: () => fixture.track("group_call_started", { memberCount: 2 }),
-    };
-    fixture.config = { tts: { configured: true, ready: true } };
-    const opened = openVoiceSetup(room);
-    expect(String(find(opened, "data-call-button").props.className).split(" ")).toContain("size-9");
-    expect(fixture.dialog).toMatchObject({ bot: pepper, callName: "Standup", ready: false });
-
-    // Pepper gets a voice; the pop-up moves on to Basil.
-    room.voices = ["voice-2", undefined];
-    room.setupBotId = "basil";
-    render(room);
-    expect(fixture.dialog).toMatchObject({ bot: basil, ready: false });
-
-    // Basil too: the room can be called, and the pop-up stays on Basil
-    // rather than jumping back to the room's fallback member.
-    room.voices = ["voice-2", "voice-3"];
-    room.setupBotId = "pepper";
-    render(room);
-    expect(fixture.dialog).toMatchObject({ bot: basil, ready: true });
-    (fixture.dialog!.onStartCall as () => void)();
-    expect(fixture.track).toHaveBeenCalledWith("group_call_started", { memberCount: 2 });
-    expect(fixture.startCall).toHaveBeenCalledWith("room-1");
-  });
-
   it("opens the remote agent settings instead on a desktop paired to another computer", () => {
     // This Mac speaks with the host's voices; the host has a key but no
     // default voice, and Pepper has none of its own.
@@ -235,26 +201,6 @@ describe("setting up a voice from the call button", () => {
     expect(after.html).not.toContain("Call unavailable");
     expect(fixture.dialog).toBeNull();
     expect(fixture.startCall).not.toHaveBeenCalled();
-  });
-
-  it("opens the member's chat first from a room on a paired desktop", () => {
-    vi.stubGlobal("window", { colonie: { speechStart: () => {}, remoteClient: { active: true } } });
-    fixture.config = { tts: { configured: true, ready: true } };
-    const room: Props = {
-      targetId: "room-1",
-      targetName: "Standup",
-      voices: ["voice-1", undefined],
-      setupBotId: "pepper",
-      requireExplicitVoices: true,
-      onStart: () => {},
-    };
-    click(find(render(room), "data-call-button"));
-    click(find(render(room), "data-voice-setup-open"));
-    expect(fixture.dispatch.mock.calls).toEqual([
-      [{ type: "select", id: "pepper" }],
-      [{ type: "toggleSettings", open: true, section: "voice" }],
-    ]);
-    expect(render(room).html).not.toContain("data-voice-setup-stub");
   });
 
   // A server's page can't take turns, so a missing voice is no reason to

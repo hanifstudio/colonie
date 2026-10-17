@@ -2,7 +2,9 @@
 // raised but never settled keeps matching the client's "unanswered" filter,
 // and the composer stays disabled behind it — so a gate that works
 // perfectly can still make a thread unusable. These tests pin the settle.
-import { rmSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DATA_DIR } from "./config.ts";
@@ -33,6 +35,16 @@ describe("peer approval card lifecycle", () => {
   let bus: ApprovalBus;
   let from: BotRecord;
   let target: BotRecord;
+  /** Rooms are retired and the server only reads groups.json: seed it the way
+   * an older build saved it and reload the store. */
+  const seedStoredRoom = (fields: Record<string, unknown>) => {
+    const room = { id: randomUUID(), threadId: randomUUID(), memberIds: [from.id, target.id], bulletin: "",
+      defaultResponder: { kind: "mentions" }, unread: false, createdAt: 1, ...fields };
+    writeFileSync(join(DATA_DIR, "groups.json"), JSON.stringify([room]));
+    store = new Store(selection);
+    bus = { ...bus, store };
+    return room;
+  };
 
   beforeEach(() => {
     store = new Store(selection);
@@ -110,26 +122,6 @@ describe("peer approval card lifecycle", () => {
     expect(await verdict).toBe("allow");
     expect(store.bot(from.id)?.activity).toBe("working");
     expect(frames).toHaveLength(1);
-  });
-
-  it("aims the notification and legacy activity at the room when the card is raised there", () => {
-    const frames: Array<Notification | null> = [];
-    bus = { store, broadcast: () => {}, notify: (frame) => frames.push(frame) };
-    const room = store.createGroup("Standup", [from.id, target.id], false);
-    store.setActivity(from.id, "working");
-
-    void requestPeerApproval(bus, from, target, "ping", "post_to_room", room.threadId);
-
-    expect(frames[0]).toMatchObject({
-      kind: "approval",
-      threadId: room.threadId,
-      groupId: room.id,
-      title: "Asker in Standup needs approval",
-    });
-    expect(store.bot(from.id)?.activity).toBe("waiting-on-you");
-    expect(store.taskByThread(from.id, from.threadId)?.activity).toBe("idle");
-    cancelPeerApprovalsForThread(room.threadId);
-    expect(store.bot(from.id)?.activity).toBe("working");
   });
 
   it("answers task A's approval after switching to B without unblocking B", async () => {
@@ -275,10 +267,9 @@ describe("peer approval card lifecycle", () => {
   });
 
   it("dismisses a stale card left in a room's thread, not just a bot's", () => {
-    // post_to_room and ask_bot both run from a room turn, and the card goes
-    // into the thread the caller is speaking from — the room's. Quitting the
-    // app with one open used to leave that room's composer blocked forever.
-    const room = store.createGroup("Standup", [from.id, target.id]);
+    // A card raised by an older build's room turn can still sit unanswered
+    // in a stored room's thread; boot settles it like any other.
+    const room = seedStoredRoom({ name: "Standup" });
     const orphan = store.appendMessage(room.threadId, {
       role: "bot",
       kind: "options",
@@ -299,8 +290,8 @@ describe("peer approval card lifecycle", () => {
   });
 
   it("dismisses a stale card left in a room's background task thread", () => {
-    const room = store.createGroup("Release", [from.id, target.id]);
-    const task = store.createGroupTask(room.id, "Cut 1.2", false)!;
+    const task = { threadId: randomUUID(), title: "Cut 1.2", createdAt: 1 };
+    seedStoredRoom({ name: "Release", tasks: [task] });
     store.appendMessage(task.threadId, {
       role: "bot",
       kind: "options",

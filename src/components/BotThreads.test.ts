@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { initialState, StoreProvider, type Bot, type Group } from "@/state/store";
-import { BotThreadList, botRowProps, GroupThreadList } from "./Sidebar";
+import { initialState, StoreProvider, type Bot } from "@/state/store";
+import { BotThreadList, botRowProps } from "./Sidebar";
 import { formatUpdatedAt } from "./SidebarThreadRow";
-import { GroupTaskPicker, TaskPicker } from "./TaskPicker";
+import { TaskPicker } from "./TaskPicker";
 
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({}) }));
 // Threads are an Advanced-mode surface: Simple mode keeps one conversation
@@ -106,21 +106,5 @@ describe("sidebar bot threads", () => {
       expect(markup).not.toContain("routine-execution");
       expect(markup).not.toContain("Internal daily digest execution");
     }
-  });
-
-  it("exposes group history through the same nested thread rows and All threads picker", () => {
-    const group: Group = { id: "team", threadId: "group-current", name: "Launch team", memberIds: [], defaultResponder: { kind: "everyone" }, bulletin: "", unread: false, createdAt: 1, messages: [],
-      tasks: [{ threadId: "group-current", title: "Launch plan", createdAt: 3 }, { threadId: "group-old", title: "Previous review", createdAt: 2 }] };
-    const markup = renderToStaticMarkup(createElement(StoreProvider, null, createElement(GroupThreadList, { group, selected: true })));
-    expect(markup).toContain('aria-label="Launch team threads"');
-    expect(markup).toContain('data-sidebar-thread-row="group-current" aria-current="page"');
-    expect(markup).toContain("Previous review");
-    // New thread lives on the room row now, not at the end of the list
-    expect(markup).not.toContain("New thread");
-    const picker = renderToStaticMarkup(createElement(StoreProvider, null, createElement(GroupTaskPicker, { group })));
-    expect(picker).toContain('aria-label="All threads"');
-    expect(picker).not.toContain("Tasks");
-    const working = renderToStaticMarkup(createElement(StoreProvider, null, createElement(GroupThreadList, { group: { ...group, working: true }, selected: true })));
-    expect(working).toContain(`title="Launch plan · ${formatUpdatedAt(3)} · Working"`);
   });
 });

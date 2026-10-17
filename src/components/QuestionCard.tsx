@@ -50,8 +50,7 @@ export function QuestionCard({
   bot,
   message,
 }: {
-  /** answered by THREAD, so a question raised inside a room settles the
-   * same way as one in a 1:1 chat */
+  /** answered by THREAD, the conversation that raised the question */
   threadId: string;
   /** who is asking, for the "Name has a question" line */
   bot?: Pick<Bot, "name">;

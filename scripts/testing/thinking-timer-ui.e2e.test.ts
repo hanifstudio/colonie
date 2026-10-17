@@ -7,12 +7,6 @@
 // away and back — the pre-fix behaviour restarted it at 0s on every
 // re-selection, hiding how long the turn had really been running.
 //
-// A group gets the same treatment with its own stamp: groups never showed
-// the readout at all, so a one-member group is created through the same
-// POST the sidebar's group creation dispatches, its speaker's claim is
-// stamped on the group, and the readout must appear counting from that
-// claim and resume after switching to a 1:1 thread and back.
-//
 // Needs the pinned agent-browser binary. It runs when one resolves (the tools
 // directory, COLONIE_AGENT_BROWSER_PATH or PATH) or when COLONIE_UI_E2E=1 asks for the
 // verified download; otherwise it is skipped with a printed reason.
@@ -225,85 +219,6 @@ describe("the thinking timer stays anchored across a thread switch", () => {
 
     mkdirSync(evidenceDir, { recursive: true });
     await ui("screenshot", info.ui, "--out", join(evidenceDir, "thinking-timer-anchored.png"));
-    const logs = await ui("console", info.ui);
-    expect((logs.messages as Array<{ type: string; text: string }>).filter((message) => message.type === "error")).toEqual([]);
-
-    // Ctrl-C: browser, preview and fixture close; only the fixture's data goes.
-    await waitForExit(launched.child, { signal: "SIGINT", graceMs: 30_000 });
-    expect(launched.child.exitCode).toBe(0);
-    expect(existsSync(info.dataDir)).toBe(false);
-  }, LAUNCH_TIMEOUT_MS + 120_000);
-
-  run("counts a group's turn from the speaking member's claim, resuming after a switch away", async () => {
-    launched = await launch(["--mode", "hang"]); // the group's turn never settles either
-    const { info } = launched;
-    const api = fixtureApi(info.url);
-    const evaluate = async (js: string) => (await ui("eval", info.ui, "--js", js)).result;
-    const timerText = () => evaluate(`document.querySelector('.turn-presence .tabular-nums')?.textContent ?? null`);
-    const botsState = () => api("GET", "/api/bots");
-    const groupState = async () => (await botsState()).groups.find((row: any) => row.id === groupId);
-
-    // Pepper's own 1:1 thread is the away destination. With a single thread
-    // there is no thread list: the bot row itself is that conversation, and
-    // the same holds for a one-thread room.
-    const selectRow = (selector: string) => evaluate(`document.querySelector('${selector}')?.click(); true`);
-    const isCurrentRow = (selector: string) => evaluate(`Boolean(document.querySelector('${selector}[aria-current="page"]'))`);
-    const soloRow = `[data-sidebar-bot-row="${info.botId}"]`;
-    // A one-member group with setup completed at creation, so the composer is
-    // live at once and plain messages route to Pepper, the default responder,
-    // whose engine is the same hang-mode fake.
-    const group = (await api("POST", "/api/groups", {
-      memberIds: [info.botId],
-      name: "Timer group",
-      setup: { bulletin: "", defaultResponder: { kind: "member", botId: info.botId } },
-    })).group;
-    const groupId = group.id;
-
-    const groupRow = `[data-sidebar-group-row="${groupId}"]`;
-    await waitUntil(() => evaluate(`Boolean(document.querySelector('${groupRow}'))`), 10_000, "the group's sidebar row to appear");
-    await selectRow(groupRow);
-    await waitUntil(() => isCurrentRow(groupRow), 10_000, "the group to become current");
-
-    // The group's composer sends; the hang-mode engine holds the member's turn.
-    await ui("type", info.ui, "--name", "Message Timer group", "--text", "hello group");
-    await ui("press", info.ui, "--keys", "Enter");
-    const sentAt = Date.now();
-
-    // The group claims its speaker and stamps the turn's real start.
-    const busy = await waitUntil(async () => {
-      const claimed = await groupState();
-      return claimed && claimed.busyBotId === info.botId && typeof claimed.turnStartedAt === "number" ? claimed : null;
-    }, 60_000, "the group to claim Pepper with a turnStartedAt stamp");
-    const stamp = busy.turnStartedAt as number;
-    expect(stamp).toBeGreaterThanOrEqual(sentAt - 2_000);
-    expect(stamp).toBeLessThanOrEqual(Date.now() + 2_000);
-
-    // The group's readout appears and counts from the claim.
-    const first = await waitUntil(timerText, 15_000, "the group's thinking readout to appear");
-    expect(elapsedSeconds(first)).toBeGreaterThanOrEqual(0);
-    await new Promise((done) => setTimeout(done, Math.max(0, stamp + 10_000 - Date.now())));
-    const beforeSwitch = await timerText();
-    expect(elapsedSeconds(beforeSwitch)).toBeGreaterThanOrEqual(Math.floor((Date.now() - stamp) / 1000) - 2);
-
-    // Switch to Pepper's 1:1 thread, dwell, and come back to the group.
-    await selectRow(soloRow);
-    await waitUntil(() => isCurrentRow(soloRow), 10_000, "the 1:1 thread to become current");
-    await new Promise((done) => setTimeout(done, 3_000));
-    await selectRow(groupRow);
-    await waitUntil(() => isCurrentRow(groupRow), 10_000, "the group to become current again");
-
-    // The readout resumes from the claim — a restart would show single
-    // digits after a 13+ second turn.
-    const resumed = await waitUntil(timerText, 10_000, "the group's thinking readout to appear again");
-    const away = (Date.now() - stamp) / 1000;
-    expect(elapsedSeconds(resumed)).toBeGreaterThanOrEqual(Math.floor(away) - 3);
-    expect(elapsedSeconds(resumed)).toBeGreaterThanOrEqual(10);
-
-    // The claim and the stamp never moved.
-    expect(await groupState()).toMatchObject({ busyBotId: info.botId, turnStartedAt: stamp });
-
-    mkdirSync(evidenceDir, { recursive: true });
-    await ui("screenshot", info.ui, "--out", join(evidenceDir, "thinking-timer-group.png"));
     const logs = await ui("console", info.ui);
     expect((logs.messages as Array<{ type: string; text: string }>).filter((message) => message.type === "error")).toEqual([]);
 

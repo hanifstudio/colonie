@@ -1,8 +1,7 @@
-// The two routes that launch an executable chosen in Settings with a copy of
-// the server's own environment: the pre-save CLI probe (POST /api/cli-test)
-// and the Claude Code update (POST /api/instances/:id/claude-update). Over
-// the real HTTP boundary, with every credential the shared lists name
-// (config.ts) in that environment, neither hands one on; PATH, HOME and
+// The route that launches an executable chosen in Settings with a copy of
+// the server's own environment: the pre-save CLI probe (POST /api/cli-test).
+// Over the real HTTP boundary, with every credential the shared lists name
+// (config.ts) in that environment, it hands none on; PATH, HOME and
 // proxy settings still arrive. Disposable home; no network; a stub
 // executable that records the environment it was given.
 import { randomBytes } from "node:crypto";
@@ -62,12 +61,12 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "colonie-cli-probe-env-"));
   const dataDir = join(home, ".colonie");
   mkdirSync(dataDir, { recursive: true });
-  // Answers like a signed-in Claude Code; `probe` (the CLI test) and
-  // `update` (the Claude update) record the environment they ran with.
+  // Answers like a signed-in Claude Code; `probe` (the CLI test) records
+  // the environment it ran with.
   writeFileSync(join(home, "stub-cli.mjs"), `import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 const args = process.argv.slice(2);
-if (args[0] === "probe" || args[0] === "update") writeFileSync(join(${JSON.stringify(home)}, args[0] + "-env.json"), JSON.stringify(process.env));
+if (args[0] === "probe") writeFileSync(join(${JSON.stringify(home)}, args[0] + "-env.json"), JSON.stringify(process.env));
 if (args[0] === "auth") console.log(JSON.stringify({ loggedIn: true, authMethod: "claude.ai", apiProvider: "firstParty" }));
 else if (args.at(-1) === "--version") console.log("9.9.9 (Claude Code)");
 `);
@@ -116,10 +115,4 @@ it("probes a CLI chosen in Settings without handing it any credential the server
   const probe = await post("/api/cli-test", { cli: stubCli("probe") });
   expect(probe.body, JSON.stringify(probe.body)).toMatchObject({ ok: true, version: "9.9.9 (Claude Code)" });
   expectNoCredentials(join(home, "probe-env.json"));
-});
-
-it("updates Claude Code without handing the updater any credential the server holds", async () => {
-  const updated = await post("/api/instances/claude/claude-update", {});
-  expect(updated.body, JSON.stringify(updated.body)).toEqual({ ok: true, version: "9.9.9 (Claude Code)" });
-  expectNoCredentials(join(home, "update-env.json"));
 });

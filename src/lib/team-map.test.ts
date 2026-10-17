@@ -35,22 +35,23 @@ describe("team map projection", () => {
 
   it("keeps one edge per pair and gives live work priority", () => {
     const snapshot: TeamMapSnapshot = {
-      collaborations: [{ groupId: "channel", botIds: ["chief", "maker"], lastAt: 10 }],
       queued: [{ sourceBotId: "chief", targetBotId: "maker", reason: "design" }],
       running: [{ sourceBotId: "chief", targetBotId: "maker", threadId: "task" }],
     };
     expect(buildTeamMapEdges(bots, snapshot)).toEqual([
-      { sourceBotId: "chief", targetBotId: "maker", state: "running", groupId: undefined },
+      { sourceBotId: "chief", targetBotId: "maker", state: "running" },
     ]);
   });
 
   it("filters archived endpoints and explains live states", () => {
     const snapshot: TeamMapSnapshot = {
-      collaborations: [{ groupId: "old", botIds: ["chief", "archived"], lastAt: 10 }],
-      queued: [],
-      running: [],
+      queued: [{ sourceBotId: "chief", targetBotId: "archived" }],
+      running: [{ sourceBotId: "archived", targetBotId: "maker", threadId: "old" }],
     };
     expect(buildTeamMapEdges(bots, snapshot)).toEqual([]);
+    // Older servers still send stored DM rooms as `collaborations`; they draw no edge.
+    const legacy = { ...snapshot, collaborations: [{ groupId: "old", botIds: ["chief", "maker"], lastAt: 10 }] };
+    expect(buildTeamMapEdges(bots, legacy)).toEqual([]);
     expect(teamMapStatus(bots[0])).toEqual({ label: "Working", tone: "success" });
     expect(teamMapStatus({ id: "x", name: "X", activity: "waiting-on-you" })).toEqual({
       label: "Waiting for you",

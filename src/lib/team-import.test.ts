@@ -27,7 +27,7 @@ describe("team import preview", () => {
           activeLeafId: "message", messages: [{ id: "message", parentId: null, role: "user", text: "Hello", at: 0 }] }] }],
       groups: [], routines: [],
     };
-    expect(teamImportPreview(backup)).toMatchObject({ kind: "backup", name: "Saved team", rooms: 0, conversations: 1, archivedBots: 1, members: [{ name: "Scout", title: "Research" }] });
+    expect(teamImportPreview(backup)).toMatchObject({ kind: "backup", name: "Saved team", skippedRooms: 0, conversations: 1, archivedBots: 1, members: [{ name: "Scout", title: "Research" }] });
     expect(() => teamImportPreview({ ...backup, version: 999 })).toThrow("Invalid backup");
     backup.bots[0].activeTask = "unknown";
     expect(() => teamImportPreview(backup)).toThrow("unknown active task");
@@ -90,7 +90,7 @@ describe("team import preview", () => {
       kind: "package",
       name: "Lead Desk",
       chiefOfStaff: "Scout",
-      rooms: 1,
+      skippedRooms: 1,
       playbooks: 2,
       routines: 1,
       skills: ["source-check", "review-draft"],
@@ -143,7 +143,7 @@ Create the team.`);
       chiefOfStaff: "Morgan",
       brief: expect.stringContaining("49 per seat"),
       members: [{ name: "Morgan", title: "Sales lead" }, { name: "Scout", title: "Prospect researcher" }, { name: "Quill", title: "Outreach writer" }],
-      rooms: 1,
+      skippedRooms: 1,
       playbooks: 1,
       routines: 2,
       skills: ["pricing-policy", "research-brief"],
@@ -159,7 +159,7 @@ Create the team.`);
 
   it("previews a preset file (skills and presets, no team) as preset bots for New bot", () => {
     expect(teamImportPreview(fixture("library-only.v2.json"))).toMatchObject({
-      kind: "package", version: 2, library: true, name: "Sales skills", members: [], rooms: 0, routines: 0, skills: [],
+      kind: "package", version: 2, library: true, name: "Sales skills", members: [], skippedRooms: 0, routines: 0, skills: [],
       presets: ["Support agent"], offeredSkills: ["follow-up"],
     });
   });

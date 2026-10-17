@@ -456,7 +456,7 @@ describe("coordinate_bots on a teammate", () => {
       }, { timeout: 15_000 }).toBe(true);
       // The review turn quotes the requests, gate markers included, so the
       // gated engine files its prompt under the first request's gate.
-      expect(promptsOf(gate(1)).at(-1)?.message.content).toContain("Your downstream room requests have settled");
+      expect(promptsOf(gate(1)).at(-1)?.message.content).toContain("Your delegated requests have settled");
       expect(stream.frames.filter((frame) => frame.kind === "notify" && frame.notification?.botId === qa.id)).toEqual([]);
       expect((await botState(qa.id)).tasks.filter((task: any) => task.unread)).toEqual([]);
       expect((await botState(qa.id)).threadId).toBe(qa.threadId);

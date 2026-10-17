@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   composerSlashTrigger,
-  goalTextFromComposer,
   replaceComposerSlashTrigger,
   type ComposerSlashCommandId,
 } from "./composer-commands";
@@ -21,15 +20,6 @@ describe("composer slash commands", () => {
     expect(
       replaceComposerSlashTrigger("/le", { query: "le", start: 0, end: 3 }, "/learn "),
     ).toEqual({ text: "/learn ", caret: 7 });
-  });
-
-  it("turns a manually typed goal command into a goal request", () => {
-    expect(goalTextFromComposer("/goal ship the release")).toBe("ship the release");
-    expect(goalTextFromComposer("/GOAL\n  investigate the failure")).toBe(
-      "investigate the failure",
-    );
-    expect(goalTextFromComposer("/goalie says hello")).toBeNull();
-    expect(goalTextFromComposer("discuss /goal later")).toBeNull();
   });
 
   it("offers setup as a slash command id and keeps the typed token", () => {

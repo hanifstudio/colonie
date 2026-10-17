@@ -24,7 +24,6 @@ import {
   ChevronDownIcon,
   Loading02Icon,
   MultiplicationSignIcon,
-  PhoneIcon,
   Tick01Icon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
@@ -54,65 +53,20 @@ import { VoiceSetupDialog } from "./VoiceSetupDialog";
 type Phase = "listening" | "sending" | "working" | "speaking";
 const CALL_ENDPOINT_MS = 850;
 
-/** Where a call button sits: the header's icon row (rooms), or the composer's
- * action row (a bot's chat), where it is a filled circle the size of Send and
- * its help opens upward, away from the bottom edge of the window. */
-export type CallButtonPlacement = "header" | "composer";
-
-export function CallButton({ bot, placement = "header" }: { bot: Bot; placement?: CallButtonPlacement }) {
-  return (
-    <CallTargetButton
-      placement={placement}
-      targetId={bot.id}
-      targetName={bot.name}
-      threadId={bot.threadId}
-      voices={[bot.voice]}
-      setupBotId={bot.id}
-      requireExplicitVoices={false}
-      liveCapable
-      onStart={(mode) => track("call_started", { driver: bot.modelSelection?.instanceId, mode })}
-    />
-  );
-}
-
-export function CallTargetButton({
-  targetId,
-  targetName,
-  threadId,
-  voices,
-  setupBotId,
-  requireExplicitVoices,
-  liveCapable = false,
-  onStart,
-  placement = "header",
-}: {
-  placement?: CallButtonPlacement;
-  targetId: string;
-  targetName: string;
-  /** The thread a Live call joins (the chat on screen). Live needs it. */
-  threadId?: string;
-  voices: Array<string | undefined>;
-  /** The agent whose voice the set-up pop-up edits when voice is missing
-   * (rooms choose a member). */
-  setupBotId?: string;
-  /** Rooms cannot rely on one workspace fallback for multiple speakers. */
-  requireExplicitVoices: boolean;
-  /** One-to-one calls can also run as a Live (GPT-Live) call, which needs
-   * neither on-device dictation nor a configured voice. */
-  liveCapable?: boolean;
-  /** A call started, in this mode (analytics). The call itself is started
-   * here: Take turns opens the overlay, Live goes to the call bar. */
-  onStart: (mode: CallMode) => void;
-}) {
+/** The call button in a bot's chat: a filled circle the size of Send in the
+ * composer's action row, whose popovers open upward, away from the bottom
+ * edge of the window. A call can also run as a Live (GPT-Live) call, which
+ * needs neither on-device dictation nor a configured voice. */
+export function CallButton({ bot }: { bot: Bot }) {
+  const { id: targetId, name: targetName, threadId } = bot;
+  const onStart = (mode: CallMode) => track("call_started", { driver: bot.modelSelection?.instanceId, mode });
   const { state, dispatch } = useStore();
   const { capabilities, ready: capabilitiesReady } = useDesktopCapabilities();
   const media = useLiveMedia();
-  const liveThreadId = liveCapable ? threadId : undefined;
-  const canLive = liveThreadId !== undefined;
   // This window's Live call with this target. The media module also marks
   // the target as on a call (startCall), so check Live first.
   const liveRunning = isLiveCallRunning(media.phase);
-  const onLiveCall = canLive && liveRunning && media.botId === targetId;
+  const onLiveCall = liveRunning && media.botId === targetId;
   // One call at a time: a Live call with someone else blocks this button
   // (a second Live call cannot start, and Take turns would talk over it).
   const liveElsewhere = liveRunning && media.botId !== targetId;
@@ -129,36 +83,26 @@ export function CallTargetButton({
   const supported = capabilitiesReady && !capabilityHelp;
   const localVoice = localSystemVoiceActive();
   const configured = localVoice || Boolean(state.config?.tts?.configured);
-  const everyTargetHasVoice = voices.length > 0 && voices.every((voice) => Boolean(voice));
-  const voiceReady =
-    localVoice ||
-    (configured && (requireExplicitVoices ? everyTargetHasVoice : Boolean(state.config?.tts?.ready || everyTargetHasVoice)));
+  const voiceReady = localVoice || (configured && Boolean(state.config?.tts?.ready || bot.voice));
   // Taking turns listens on this device, which only the Mac app's own page
   // can do. Elsewhere (a browser, the Windows or Linux app, My Cloud) the
   // one-to-one call is Live, and Take turns says where it works instead.
   // Until the device is known, the picked mode holds.
   const turnsHere = !capabilitiesReady || capabilities.dictation.available;
-  const mode = effectiveCallMode(useCallMode(), { turnsHere, canLive });
-  const liveMode = canLive && mode === "live";
+  const mode = effectiveCallMode(useCallMode(), { turnsHere, canLive: true });
+  const liveMode = mode === "live";
   const turnsReady = capabilitiesReady && supported && voiceReady;
   const unavailable = !active && !liveElsewhere && !liveMode && !turnsReady;
   const voiceSetupRequired = capabilitiesReady && supported && !voiceReady;
   const [helpOpen, setHelpOpen] = useState(false);
   // Voice set-up opens over the chat instead of the bot's full settings.
   const [voiceSetupOpen, setVoiceSetupOpen] = useState(false);
-  // In a room the pop-up moves on to the next member without a voice; once
-  // every member has one it stays on the last, instead of jumping back to
-  // the first member (the room's fallback).
-  const [voiceSetupBotId, setVoiceSetupBotId] = useState(setupBotId);
-  if (voiceSetupRequired && setupBotId !== voiceSetupBotId) setVoiceSetupBotId(setupBotId);
-  const shownSetupBotId = voiceSetupRequired ? setupBotId : voiceSetupBotId;
-  const setupBot = shownSetupBotId ? state.bots.find((candidate) => candidate.id === shownSetupBotId) : undefined;
   const helpMotion = useMenuMotion(Boolean(unavailable && helpOpen));
   const [menuOpen, setMenuOpen] = useState(false);
   // The harness answered "no key" to this window's call attempt: ask for it
   // here. A Live call always asks for the microphone first, so a page that
   // can't have one says so before anyone pastes a key it can't use.
-  const keyPopover = canLive && !active && media.needsKey && media.botId === targetId;
+  const keyPopover = !active && media.needsKey && media.botId === targetId;
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const chevronRef = useRef<HTMLButtonElement>(null);
@@ -167,7 +111,6 @@ export function CallTargetButton({
   const menuId = useId();
   const keyId = useId();
   const elsewhereName = liveElsewhere ? state.bots.find((candidate) => candidate.id === media.botId)?.name : undefined;
-  const composer = placement === "composer";
   const label = active
     ? t("call.hangUpOn", { name: targetName })
     : liveElsewhere
@@ -191,9 +134,7 @@ export function CallTargetButton({
         : !configured
           ? "Set up ElevenLabs, Fish Audio, Chatterbox, or a built-in Mac voice so the bot can speak during calls."
           : !voiceReady
-            ? voices.length > 1
-              ? "Give every group member a voice before starting a group call."
-              : "Choose a voice before starting a call."
+            ? "Choose a voice before starting a call."
             : "";
 
   const closePopovers = useCallback(() => {
@@ -212,9 +153,9 @@ export function CallTargetButton({
   const start = (next: CallMode) => {
     setHelpOpen(false);
     setMenuOpen(false);
-    if (next === "live" && liveThreadId !== undefined) {
+    if (next === "live") {
       onStart("live");
-      void startLiveCall({ botId: targetId, threadId: liveThreadId });
+      void startLiveCall({ botId: targetId, threadId });
       return;
     }
     if (!turnsReady) {
@@ -285,56 +226,48 @@ export function CallTargetButton({
         aria-controls={unavailable ? helpId : keyPopover ? keyId : undefined}
         aria-label={label}
         title={label}
-        data-call-button={placement}
+        data-call-button="composer"
         className={cn(
-          "relative flex shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-60",
-          composer ? "size-8" : "size-9",
+          "relative flex size-8 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-60",
           active
             ? "bg-danger text-white hover:brightness-110"
-            : composer
-              ? unavailable
-                ? "bg-control text-ink-tertiary hover:text-ink-secondary"
-                : "bg-control text-ink hover:bg-raised"
-              : unavailable
-                ? "text-ink-tertiary hover:bg-raised hover:text-ink-secondary"
-                : "text-ink-secondary hover:bg-raised hover:text-ink",
+            : unavailable
+              ? "bg-control text-ink-tertiary hover:text-ink-secondary"
+              : "bg-control text-ink hover:bg-raised",
         )}
       >
         {active
-          ? <HIcon icon={CallEnd01Icon} size={composer ? 15 : 17} />
-          : composer ? <HIcon icon={AudioLinesIcon} size={16} aria-hidden="true" /> : <HIcon icon={PhoneIcon} size={17} />}
+          ? <HIcon icon={CallEnd01Icon} size={15} />
+          : <HIcon icon={AudioLinesIcon} size={16} aria-hidden="true" />}
         {unavailable && (
           <span className="absolute right-1 top-1 size-1.5 rounded-full bg-warning ring-2 ring-app" aria-hidden="true" />
         )}
       </button>
-      {canLive && (
-        <button
-          ref={chevronRef}
-          type="button"
-          // a mode is picked before a call, not during one
-          disabled={active || liveElsewhere}
-          onClick={() => {
-            const opening = !menuOpen;
-            closePopovers();
-            setMenuOpen(opening);
-          }}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-controls={menuOpen ? menuId : undefined}
-          aria-label={t("call.mode.menu")}
-          title={t("call.mode.menu")}
-          className={cn("-ml-1 flex w-4 items-center justify-center rounded-full text-ink-secondary transition-colors hover:text-ink disabled:opacity-40", composer ? "h-8" : "h-9")}
-        >
-          <HIcon icon={ChevronDownIcon} size={13} className={cn("transition-transform", menuOpen && "rotate-180")} />
-        </button>
-      )}
+      <button
+        ref={chevronRef}
+        type="button"
+        // a mode is picked before a call, not during one
+        disabled={active || liveElsewhere}
+        onClick={() => {
+          const opening = !menuOpen;
+          closePopovers();
+          setMenuOpen(opening);
+        }}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-controls={menuOpen ? menuId : undefined}
+        aria-label={t("call.mode.menu")}
+        title={t("call.mode.menu")}
+        className="-ml-1 flex h-8 w-4 items-center justify-center rounded-full text-ink-secondary transition-colors hover:text-ink disabled:opacity-40"
+      >
+        <HIcon icon={ChevronDownIcon} size={13} className={cn("transition-transform", menuOpen && "rotate-180")} />
+      </button>
 
       {menuOpen && (
         <CallModeMenu
           id={menuId}
           mode={mode}
           turnsUnavailable={turnsHere ? null : capabilityHelp}
-          placement={placement}
           onClose={closePopovers}
           onChoose={(next) => {
             // picking a mode remembers it and starts a call in it
@@ -344,17 +277,17 @@ export function CallTargetButton({
         />
       )}
 
-      {keyPopover && liveThreadId !== undefined && (
+      {keyPopover && (
         <div
           ref={keyRef}
           id={keyId}
-          className={cn("animate-pop-in absolute right-0 z-30 w-[340px] max-w-[90vw] rounded-xl shadow-2xl", composer ? "bottom-full mb-1.5" : "top-full mt-1.5")}
+          className="animate-pop-in absolute bottom-full right-0 z-30 mb-1.5 w-[340px] max-w-[90vw] rounded-xl shadow-2xl"
         >
           <LiveKeySetup
-            key={`${targetId}:${liveThreadId}`}
+            key={`${targetId}:${threadId}`}
             compact
             // the press that asked for the key already counted as a call
-            onSaved={() => void startLiveCall({ botId: targetId, threadId: liveThreadId })}
+            onSaved={() => void startLiveCall({ botId: targetId, threadId })}
           />
         </div>
       )}
@@ -364,24 +297,22 @@ export function CallTargetButton({
           id={helpId}
           role="group"
           aria-label="Call unavailable"
-          className={cn("absolute right-0 z-30 w-[280px]", composer ? "bottom-full mb-1.5" : "mt-1.5", "rounded-xl border border-hairline bg-panel p-3 text-left shadow-2xl", helpMotion.className)} {...helpMotion.exitProps}
+          className={cn("absolute bottom-full right-0 z-30 mb-1.5 w-[280px] rounded-xl border border-hairline bg-panel p-3 text-left shadow-2xl", helpMotion.className)} {...helpMotion.exitProps}
         >
           <div className="text-[13px] font-medium text-ink">Call unavailable</div>
           <div className="mt-1 text-[12px] leading-[1.45] text-ink-secondary">{reason}</div>
-          {canLive && (
-            <button
-              type="button"
-              onClick={() => {
-                setCallMode("live");
-                start("live");
-              }}
-              className="mt-2.5 mr-2 rounded-lg border border-hairline px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-raised"
-              title={callModeHint("live")}
-            >
-              {t("call.live.startInstead")}
-            </button>
-          )}
-          {voiceSetupRequired && setupBot && (
+          <button
+            type="button"
+            onClick={() => {
+              setCallMode("live");
+              start("live");
+            }}
+            className="mt-2.5 mr-2 rounded-lg border border-hairline px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-raised"
+            title={callModeHint("live")}
+          >
+            {t("call.live.startInstead")}
+          </button>
+          {voiceSetupRequired && (
             <button
               type="button"
               aria-haspopup={remoteClient ? undefined : "dialog"}
@@ -389,8 +320,6 @@ export function CallTargetButton({
               onClick={() => {
                 setHelpOpen(false);
                 if (remoteClient) {
-                  // In a room the agent is a member: open its chat first.
-                  if (setupBot.id !== targetId) dispatch({ type: "select", id: setupBot.id });
                   dispatch({ type: "toggleSettings", open: true, section: "voice" });
                   return;
                 }
@@ -404,10 +333,9 @@ export function CallTargetButton({
         </div>
       )}
 
-      {voiceSetupOpen && setupBot && (
+      {voiceSetupOpen && (
         <VoiceSetupDialog
-          bot={setupBot}
-          callName={targetName}
+          bot={bot}
           ready={supported && voiceReady}
           returnFocusRef={buttonRef}
           onClose={() => setVoiceSetupOpen(false)}
@@ -424,12 +352,11 @@ export function CallTargetButton({
 /** The menu under the call button's chevron: Take turns or Live. Where this
  * page can't take turns, Take turns stays in the menu, can't be picked, and
  * says why. */
-export function CallModeMenu({ id, mode, onChoose, onClose, placement = "header", turnsUnavailable = null }: {
+export function CallModeMenu({ id, mode, onChoose, onClose, turnsUnavailable = null }: {
   id: string;
   mode: CallMode;
   /** Why this page can't take turns; null where it can. */
   turnsUnavailable?: CallCapabilityHelp | null;
-  placement?: CallButtonPlacement;
   onChoose: (mode: CallMode) => void;
   onClose: () => void;
 }) {
@@ -448,7 +375,7 @@ export function CallModeMenu({ id, mode, onChoose, onClose, placement = "header"
         if (event.key === "Tab") onClose();
         else navigateThreadMenu(event);
       }}
-      className={cn("animate-pop-in absolute right-0 z-30 w-[280px] rounded-xl border border-hairline bg-panel p-1.5 text-left shadow-2xl", placement === "composer" ? "bottom-full mb-1.5" : "top-full mt-1.5")}
+      className="animate-pop-in absolute bottom-full right-0 z-30 mb-1.5 w-[280px] rounded-xl border border-hairline bg-panel p-1.5 text-left shadow-2xl"
     >
       {CALL_MODES.map((entry) => {
         const unavailable = entry.id === "turns" ? turnsUnavailable : null;

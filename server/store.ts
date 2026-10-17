@@ -28,13 +28,12 @@ import { approvalModeFor, isApprovalMode, modelSwitchNeedsAsk } from "../shared/
 import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "./computer-engine-removal.ts";
 import type { ProfileRequestChanges } from "../shared/profile-request.ts";
 import type { TeamSetupRequest, TeamSetupResult } from "../shared/team-setup.ts";
-import type { GroupGoalRunCardData } from "../shared/group-goal-run.ts";
 import { isMentionBoundary, isMentionNameContinuation } from "../shared/mention-boundary.ts";
 import type { HandedState } from "./delta-context.ts";
 import type { AgentPart, PartPair, RoomPart } from "./package-parts.ts";
 import type {
   BotActivity, GroupDefaultResponder, GroupTask as GroupTaskRecord, MausColor,
-  ConnectorToolGrant, OptionCardData, TaskClosedBy, TaskOpenedBy, TaskUsage, WireBot, WireGroup,
+  BotVisibility, ConnectorToolGrant, OptionCardData, TaskClosedBy, TaskOpenedBy, TaskUsage, WireBot,
   WireMessage, WireTask, BotProject as BotProjectRecord,
 } from "../shared/wire.ts";
 import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN } from "../shared/wire.ts";
@@ -60,14 +59,44 @@ export interface GroupPackageStamp {
   parts: Record<RoomPart, PartPair>;
 }
 
-/** A room record excludes working state and ledger usage, both computed by
- * publicGroupState at projection time. */
-export type GroupRecord = Omit<WireGroup, "working" | "usage"> & { installedPackage?: GroupPackageStamp };
-/** The one private field is stripped; projection adds computed display fields. */
-export type GroupWirePrivateKeys = "installedPackage";
-export type GroupWireProjection = Omit<GroupRecord, GroupWirePrivateKeys> & Pick<WireGroup, "usage"> & { working: boolean };
-export type GroupWireProjectionIsExact = AssertExact<WireGroup, GroupWireProjection> & AssertSameKeys<WireGroup, GroupWireProjection>;
-export const groupWireProjectionIsExact: GroupWireProjectionIsExact = true;
+/** A stored room from groups.json. Rooms are retired: the server loads them
+ * read-only so their transcripts stay owned, searchable and in backups, and
+ * never creates, edits or rewrites them. No client projection remains. */
+export interface GroupRecord {
+  id: string;
+  /** The active task's thread. Direct-message channels stay single-threaded. */
+  threadId: string;
+  /** User-created channels have independent tasks, newest first. */
+  tasks?: GroupTaskRecord[];
+  name: string;
+  memberIds: string[];
+  defaultResponder: GroupDefaultResponder;
+  /** The room's shared instructions. */
+  bulletin: string;
+  unread: boolean;
+  createdAt: number;
+  /** true for auto-created bot-bot channels. */
+  dm?: boolean;
+  /** Legacy transient fields; a stored copy is ignored. */
+  busyBotId?: string | null;
+  turnStartedAt?: number;
+  /** the room's shared desk; absent = each member's own default. */
+  cwd?: string;
+  /** Compatibility mirror of the active task's pinned folder. */
+  pinnedCwd?: string | null;
+  /** Compatibility mirror of the active task's pinned message. */
+  pinnedMessageId?: string;
+  /** The team this room was filed under when it was saved. Never rewritten,
+   * so it may name a team that was renamed or deleted since; nothing reads
+   * it to list or authorize teams. */
+  section?: string;
+  setupCompletedAt?: number | null;
+  setupSkippedAt?: number | null;
+  /** The narrowest audience this room has ever had (server/bot-visibility.ts). */
+  audienceFloor?: BotVisibility;
+  turnTimeoutMinutes?: number | null;
+  installedPackage?: GroupPackageStamp;
+}
 
 // Unicode's complete emoji sequences include flags, skin tones and ZWJ
 // combinations. Also allow unqualified single symbols (e.g. ♥), but not
@@ -316,9 +345,9 @@ function redactBotAuthored<T extends Omit<Message, "id" | "at"> & { at?: number 
  * server maps these onto its SSE frames in ONE place, so no mutation path
  * can persist without the app hearing about it — the two-write-paths bug
  * (persist without emit → UI drifts; emit without persist → a restart
- * loses what the user just watched) is closed by construction. Bot and
- * group changes carry only the id: the wire shape (cursor stripping) is
- * the caller's business. */
+ * loses what the user just watched) is closed by construction. Bot
+ * changes carry only the id: the wire shape (cursor stripping) is the
+ * caller's business. Stored rooms are read-only and emit nothing. */
 /** The states in which the bot cannot take a new message. */
 export const ACTIVITY_BUSY: ReadonlySet<BotActivity> = new Set(["working", "waiting-on-you", "no-signal"]);
 
@@ -329,9 +358,7 @@ export type StoreChange =
   | { type: "thread"; threadId: string; activeLeafId: string }
   | { type: "thread.deleted"; threadId: string }
   | { type: "bot"; botId: string }
-  | { type: "bot.deleted"; botId: string }
-  | { type: "group"; groupId: string }
-  | { type: "group.deleted"; groupId: string };
+  | { type: "bot.deleted"; botId: string };
 
 /** What a task is called before its first message names it. */
 export const UNTITLED_TASK = "New task";
@@ -649,9 +676,8 @@ export class Store {
     this.driverKindOf = driverKindOf;
     mkdirSync(DATA_DIR, { recursive: true });
     for (const file of [BOTS_FILE, GROUPS_FILE]) tightenRegistryFile(file);
-    // Whether the bot list is the real one. Room repair below trusts it to
-    // say which members no longer exist; an unreadable file must never read
-    // as "every member was deleted".
+    // Whether the bot list is the real one; an unreadable file must never
+    // read as "every bot was deleted".
     let botsLoaded = false;
     try {
       this.bots = JSON.parse(readFileSync(BOTS_FILE, "utf8"));
@@ -659,18 +685,20 @@ export class Store {
     } catch {
       this.bots = [];
     }
+    // Rooms are retired history: groups.json is read, never written, so an
+    // older build or a backup still finds it byte-for-byte as it was saved.
+    // A room's stored team name is not a team; only bots register sections.
     try {
-      this.groups = JSON.parse(readFileSync(GROUPS_FILE, "utf8"));
+      const groups: unknown = JSON.parse(readFileSync(GROUPS_FILE, "utf8"));
+      this.groups = Array.isArray(groups) ? groups : [];
     } catch {
       this.groups = [];
     }
-    this.rememberSections([...this.bots, ...this.groups].map((record) => record.section));
-    // busy never survives a restart — no turn does either. Rooms saved
-    // before default responders existed adopt their first member as lead.
+    this.rememberSections(this.bots.map((record) => record.section));
+    // busy never survives a restart — no turn does either.
     let botsMigrated = false;
     const browserProfileAliases = loadBrowserProfileIdAliases();
     const chiefSectionsSeen = new Set<string>();
-    let groupsMigrated = false;
     for (const b of this.bots) {
       // transient state never survives a restart — and if a previous
       // process died mid-turn, bots.json still says busy/working; persist
@@ -800,26 +828,16 @@ export class Store {
         botsMigrated = true;
       }
     }
-    const botIds = new Set(this.bots.map((b) => b.id));
+    // Readers see a stored room in its current shape, repaired in memory
+    // only: a missing task list adopts the room thread, and a stale active
+    // pointer selects the newest known task. Every task transcript stays owned.
     for (const g of this.groups) {
       g.busyBotId = null;
       delete g.turnStartedAt;
-      // A deleted bot used to stay a member for good: counted on the room's
-      // Save button and refused by the roster check on every save (MOCA-264).
-      // Bot-to-bot channels keep their pair; they are not edited as rooms.
-      if (botsLoaded && !g.dm && g.memberIds.some((id) => !botIds.has(id))) {
-        g.memberIds = g.memberIds.filter((id) => botIds.has(id));
-        groupsMigrated = true;
-      }
-      const normalized = normalizeGroupDefaultResponder(g.defaultResponder, g.memberIds, Boolean(g.dm));
-      if (JSON.stringify(normalized) !== JSON.stringify(g.defaultResponder)) groupsMigrated = true;
-      g.defaultResponder = normalized;
-      // Bot-to-bot channels intentionally remain one canonical thread.
+      if (!Array.isArray(g.memberIds)) g.memberIds = [];
+      g.defaultResponder = normalizeGroupDefaultResponder(g.defaultResponder, g.memberIds, Boolean(g.dm));
       if (g.dm) {
-        if (g.tasks !== undefined) {
-          delete g.tasks;
-          groupsMigrated = true;
-        }
+        delete g.tasks;
         continue;
       }
       if (!g.tasks?.length) {
@@ -832,20 +850,15 @@ export class Store {
         if (g.pinnedCwd !== undefined) initialTask.pinnedCwd = g.pinnedCwd;
         if (g.pinnedMessageId) initialTask.pinnedMessageId = g.pinnedMessageId;
         g.tasks = [initialTask];
-        groupsMigrated = true;
       }
-      // Repair a malformed/stale active pointer conservatively. Every task
-      // transcript is retained; the newest known task becomes active.
       let active = g.tasks.find((task) => task.threadId === g.threadId);
       if (!active) {
         active = g.tasks[0]!;
         g.threadId = active.threadId;
-        groupsMigrated = true;
       }
       g.pinnedCwd = active.pinnedCwd;
       g.pinnedMessageId = active.pinnedMessageId;
     }
-    if (groupsMigrated) this.saveGroups();
     // Older builds copied a bot's model onto every thread it made, so a
     // thread on exactly its bot's model is a copy, not a person's pick: once
     // per data directory it is cleared and the thread follows its bot. A
@@ -976,7 +989,6 @@ export class Store {
     const groupTasks = this.groups.flatMap((group) => group.tasks ?? []);
     const latest = mdb.latestMessageAts([...botTasks, ...groupTasks].map((task) => task.threadId));
     let botsDirty = false;
-    let groupsDirty = false;
     const repair = (task: { threadId: string; createdAt: number; updatedAt?: number }) => {
       const fromMessages = latest.get(task.threadId);
       const next = fromMessages !== undefined && (task.updatedAt === undefined || fromMessages > task.updatedAt)
@@ -987,9 +999,9 @@ export class Store {
       return true;
     };
     for (const task of botTasks) if (repair(task)) botsDirty = true;
-    for (const task of groupTasks) if (repair(task)) groupsDirty = true;
+    // Room stamps are repaired in memory only; groups.json is never written.
+    for (const task of groupTasks) repair(task);
     if (botsDirty) this.saveBots();
-    if (groupsDirty) this.saveGroups();
   }
 
   /** Resolve the identity of a historical pair row, including a sender
@@ -1051,14 +1063,6 @@ export class Store {
     })), null, 2), { mode: 0o600 });
   }
 
-  private saveGroups(groups: GroupRecord[] = this.groups, registerSections = true) {
-    if (registerSections) this.rememberSections(groups.map((group) => group.section));
-    writeFileAtomicIfChanged(GROUPS_FILE, JSON.stringify(groups.map(({ busyBotId: _busyBotId, turnStartedAt: _turnStartedAt, ...g }) => ({
-      ...g,
-      ...(g.tasks ? { tasks: g.tasks.map((task) => persistedPin(task)) } : {}),
-    })), null, 2), { mode: 0o600 });
-  }
-
   get sections(): string[] { return readSections(); }
 
   private rememberSections(names: (string | undefined)[]) {
@@ -1077,39 +1081,35 @@ export class Store {
     if (!nextName || nextName.length > 60 || [...nextName].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return "Team name must be 1 to 60 characters without control characters";
     if (name === nextName) return undefined;
     if (this.sections.includes(nextName) || computers?.forSection(nextName)) return "A team with that name already exists";
+    // Stored rooms keep the team name they were saved with: groups.json is
+    // read-only history and a room's name is never listed as a team.
     const members = this.bots.filter(bot => sectionKey(bot.section) === name);
-    const rooms = this.groups.filter(group => sectionKey(group.section) === name);
     const affected = this.bots.filter(bot => members.includes(bot) || bot.managedSections?.some(section => sectionKey(section) === name));
-    if (affected.some(bot => bot.busy || bot.tasks?.some(task => task.busy)) || rooms.some(group => group.busyBotId)) {
+    if (affected.some(bot => bot.busy || bot.tasks?.some(task => task.busy))) {
       return "Stop this team's active work before renaming the team";
     }
     // Keep the established empty-team lifecycle: old grants are revoked when
     // an empty identity is removed, so recreating it cannot restore access.
-    if (!members.length && !rooms.length && !computers?.forSection(name)) return this.changeEmptySection(name, nextName);
+    if (!members.length && !computers?.forSection(name)) return this.changeEmptySection(name, nextName);
     const nextBots = this.bots.map(bot => ({ ...bot,
       ...(members.includes(bot) ? { section: nextName } : {}),
       ...(bot.managedSections ? { managedSections: [...new Set(bot.managedSections.map(section => sectionKey(section) === name ? nextName : section))] } : {}),
     }));
-    const nextGroups = this.groups.map(group => rooms.includes(group) ? { ...group, section: nextName } : group);
     let computerChanged = false;
     try {
       // Register the new name only after saving the records; otherwise the
       // registry's duplicate-name check would reject this same rename.
       this.saveBots(nextBots, false);
-      this.saveGroups(nextGroups, false);
       computerChanged = computers?.renameSection(name, nextName) ?? false;
       changeEmptySection(name, nextName);
     } catch (error) {
       this.saveBots(this.bots, false);
-      this.saveGroups(this.groups, false);
       if (computerChanged) computers!.renameSection(nextName, name);
       throw error;
     }
     // Preserve identities held by the schedulers and other store consumers.
     for (let i = 0; i < nextBots.length; i++) Object.assign(this.bots[i], nextBots[i]);
-    for (let i = 0; i < nextGroups.length; i++) Object.assign(this.groups[i], nextGroups[i]);
     for (const bot of affected) this.emit({ type: "bot", botId: bot.id });
-    for (const room of rooms) this.emit({ type: "group", groupId: room.id });
     this.emit({ type: "sections" });
     return undefined;
   }
@@ -1117,8 +1117,8 @@ export class Store {
   /** Empty-only changes cannot merge teams or silently change anybody's access. */
   changeEmptySection(name: string, nextName: string | null): string | undefined {
     if (!this.sections.includes(name)) return "No such team";
-    if ([...this.bots, ...this.groups].some((record) => sectionKey(record.section) === name)) {
-      return "Move all bots (including archived bots) and group chats out of this team first";
+    if (this.bots.some((record) => sectionKey(record.section) === name)) {
+      return "Move all bots (including archived bots) out of this team first";
     }
     if (nextName !== null && nextName !== name && this.sections.includes(nextName)) {
       return "A team with that name already exists";
@@ -1139,12 +1139,12 @@ export class Store {
     return undefined;
   }
 
-  /** Remove the team, keeping its bots, rooms and conversations in General. */
+  /** Remove the team, keeping its bots and conversations in General. Stored
+   * rooms keep their saved team name (see renameSection). */
   deleteSection(name: string): string | undefined {
     if (!name || !this.sections.includes(name)) return "No such team";
     const members = this.bots.filter(bot => sectionKey(bot.section) === name);
-    const rooms = this.groups.filter(group => sectionKey(group.section) === name);
-    if (members.some(bot => bot.busy || bot.tasks?.some(task => task.busy)) || rooms.some(group => group.busyBotId)) {
+    if (members.some(bot => bot.busy || bot.tasks?.some(task => task.busy))) {
       return "Stop this team's active work before deleting the team";
     }
     if (this.bots.filter(bot => bot.chiefOfStaff && (!sectionKey(bot.section) || sectionKey(bot.section) === name)).length > 1) {
@@ -1154,25 +1154,19 @@ export class Store {
       ...(sectionKey(bot.section) === name ? { section: undefined } : {}),
       ...(bot.managedSections ? { managedSections: bot.managedSections.filter(section => sectionKey(section) !== name) } : {}),
     }));
-    const nextGroups = this.groups.map(group => sectionKey(group.section) === name ? { ...group, section: undefined } : group);
     try {
       this.saveBots(nextBots);
-      this.saveGroups(nextGroups);
       changeEmptySection(name, null);
     } catch (error) {
       this.saveBots();
-      this.saveGroups();
       throw error;
     }
     for (let i = 0; i < nextBots.length; i++) Object.assign(this.bots[i], nextBots[i]);
-    for (let i = 0; i < nextGroups.length; i++) Object.assign(this.groups[i], nextGroups[i]);
     for (const bot of this.bots) this.emit({ type: "bot", botId: bot.id });
-    for (const group of rooms) this.emit({ type: "group", groupId: group.id });
     this.emit({ type: "sections" });
     return undefined;
   }
 
-  // ── groups ────────────────────────────────────────────────────────────
   /** Subscribe to every write. Listeners run after the write and after
    * save; a throwing listener never breaks the write. */
   onChange(listener: (change: StoreChange) => void): () => void {
@@ -1200,90 +1194,9 @@ export class Store {
     );
   }
 
-  createGroup(
-    name: string,
-    memberIds: string[],
-    dm = false,
-    section?: string,
-    setup?: {
-      bulletin?: string;
-      defaultResponder?: GroupDefaultResponder;
-      completed?: boolean;
-    },
-  ): GroupRecord {
-    this.rememberSections([section]);
-    const threadId = newId();
-    const createdAt = Date.now();
-    const group: GroupRecord = {
-      id: newId(),
-      threadId,
-      name,
-      memberIds,
-      defaultResponder: dm
-        ? { kind: "mentions" }
-        : normalizeGroupDefaultResponder(setup?.defaultResponder, memberIds, false),
-      bulletin: setup?.bulletin ?? "",
-      unread: false,
-      createdAt,
-      dm: dm || undefined,
-      busyBotId: null,
-      section,
-    };
-    if (!dm) {
-      group.tasks = [{ threadId, title: UNTITLED_TASK, createdAt, updatedAt: createdAt }];
-      group.setupCompletedAt = setup?.completed ? createdAt : null;
-      group.setupSkippedAt = null;
-    }
-    this.groups.unshift(group);
-    this.saveGroups();
-    this.emit({ type: "group", groupId: group.id });
-    return group;
-  }
-
-  /** The bot⇄bot channel for a pair, if it exists (order-insensitive). */
-  dmGroup(a: string, b: string): GroupRecord | undefined {
-    return this.groups.find(
-      (g) => g.dm && g.memberIds.length === 2 && g.memberIds.includes(a) && g.memberIds.includes(b),
-    );
-  }
-
-  patchGroup(id: string, patch: Partial<Pick<GroupRecord, "name" | "memberIds" | "defaultResponder" | "bulletin" | "unread" | "busyBotId" | "cwd" | "pinnedMessageId" | "section" | "setupCompletedAt" | "setupSkippedAt" | "audienceFloor" | "installedPackage" | "turnTimeoutMinutes">>): GroupRecord | null {
-    const group = this.group(id);
-    if (!group) return null;
-    if (Object.prototype.hasOwnProperty.call(patch, "section")) {
-      this.rememberSections([patch.section]);
-    }
-    const previousBusyBotId = group.busyBotId;
-    Object.assign(group, patch);
-    // The group's elapsed readout counts the busy member's turn from the
-    // claim time — the group-side twin of a task's turnStartedAt. Derived,
-    // never patched directly: stamp it on every transition into a busy
-    // speaker and clear it when the group goes idle, so each member's turn
-    // counts from its own start.
-    if (Object.prototype.hasOwnProperty.call(patch, "busyBotId")) {
-      if (patch.busyBotId && patch.busyBotId !== previousBusyBotId) group.turnStartedAt = Date.now();
-      else if (!patch.busyBotId) delete group.turnStartedAt;
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, "turnTimeoutMinutes") && patch.turnTimeoutMinutes == null) {
-      delete group.turnTimeoutMinutes;
-    }
-    if (!group.dm && Object.prototype.hasOwnProperty.call(patch, "pinnedMessageId")) {
-      const active = this.activeGroupTask(group.id);
-      if (active) active.pinnedMessageId = patch.pinnedMessageId;
-    }
-    group.defaultResponder = normalizeGroupDefaultResponder(
-      group.defaultResponder,
-      group.memberIds,
-      Boolean(group.dm),
-    );
-    this.saveGroups();
-    this.emit({ type: "group", groupId: group.id });
-    return group;
-  }
-
   /** A thread's durable record: DB rows, legacy JSON leftovers, and the
-   * per-thread event logs. Every delete path funnels here — task, group,
-   * and bot deletion — so the logs cannot outlive the thread anywhere. */
+   * per-thread event logs. Every delete path funnels here — task and bot
+   * deletion — so the logs cannot outlive the thread anywhere. */
   private deleteThreadRecord(threadId: string) {
     this.threads.delete(threadId);
     mdb.deleteThread(threadId);
@@ -1300,185 +1213,11 @@ export class Store {
     this.emit({ type: "thread.deleted", threadId });
   }
 
-  deleteGroup(id: string): boolean {
-    const group = this.group(id);
-    if (!group) return false;
-    this.groups = this.groups.filter((g) => g.id !== id);
-    this.saveGroups();
-    for (const threadId of new Set([group.threadId, ...(group.tasks ?? []).map((task) => task.threadId)])) {
-      this.deleteThreadRecord(threadId);
-    }
-    this.emit({ type: "group.deleted", groupId: id });
-    return true;
-  }
-
-  /** A process restart cannot preserve an in-flight room orchestrator. Close
-   * every durable working receipt before clients load it, including manual
-   * goals that do not have a RoutineRun record to reconcile separately. */
-  reconcileInterruptedGroupGoals(
-    resolve?: (
-      runId: string,
-      threadId: string,
-    ) => {
-      status: Exclude<GroupGoalRunCardData["status"], "working">;
-      detail: string;
-      finishedAt: number;
-    } | null,
-    fallbackDetail = "Colonie restarted before this goal finished.",
-    fallbackFinishedAt = Date.now(),
-  ): number {
-    const ownedThreadIds = new Set<string>();
-    for (const group of this.groups) {
-      ownedThreadIds.add(group.threadId);
-      for (const task of group.tasks ?? []) ownedThreadIds.add(task.threadId);
-    }
-    // load() already migrated every legacy transcript file into SQLite, so
-    // this recovery query is proportional to unfinished goals, not history.
-    let recovered = 0;
-    for (const hit of mdb.workingGoalRunMessages()) {
-      if (!ownedThreadIds.has(hit.threadId) || !hit.message.goalRun) continue;
-      const resolution = resolve?.(hit.message.goalRun.runId, hit.threadId) ?? {
-        status: "failed" as const,
-        detail: fallbackDetail,
-        finishedAt: fallbackFinishedAt,
-      };
-      const state = resolution.status === "needs-input"
-        ? "needs your input"
-        : resolution.status === "limit-reached"
-          ? "reached its turn limit"
-          : resolution.status;
-      this.patchMessage(hit.threadId, hit.message.id, {
-        text: `Goal ${state}: ${resolution.detail}`,
-        goalRun: {
-          ...hit.message.goalRun,
-          status: resolution.status,
-          detail: resolution.detail,
-          finishedAt: resolution.finishedAt,
-        },
-      });
-      recovered += 1;
-    }
-    return recovered;
-  }
-
-  // ── channel tasks ────────────────────────────────────────────────────
-  groupTasks(groupId: string): GroupTaskRecord[] {
-    const group = this.group(groupId);
-    return group?.dm ? [] : (group?.tasks ?? []);
-  }
-
-  activeGroupTask(groupId: string): GroupTaskRecord | undefined {
-    const group = this.group(groupId);
-    return group?.tasks?.find((task) => task.threadId === group.threadId);
-  }
-
+  // ── stored room tasks (read-only: search and transcript titles) ──────
   groupTaskByThread(groupId: string, threadId: string): GroupTaskRecord | undefined {
     const group = this.group(groupId);
     if (!group || group.dm) return undefined;
     return group.tasks?.find((task) => task.threadId === threadId);
-  }
-
-  createGroupTask(groupId: string, title?: string, activate = true): GroupTaskRecord | null {
-    const group = this.group(groupId);
-    if (!group || group.dm) return null;
-    const createdAt = Date.now();
-    const task: GroupTaskRecord = {
-      threadId: newId(),
-      title: title?.trim().slice(0, 80) || UNTITLED_TASK,
-      createdAt,
-      updatedAt: createdAt,
-    };
-    group.tasks = [task, ...(group.tasks ?? [])];
-    if (activate) {
-      group.threadId = task.threadId;
-      group.pinnedCwd = undefined;
-      group.pinnedMessageId = undefined;
-    }
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return task;
-  }
-
-  switchGroupTask(groupId: string, threadId: string): GroupRecord | null {
-    const group = this.group(groupId);
-    const task = group?.tasks?.find((candidate) => candidate.threadId === threadId);
-    if (!group || group.dm || !task) return null;
-    group.threadId = task.threadId;
-    group.pinnedCwd = task.pinnedCwd;
-    group.pinnedMessageId = task.pinnedMessageId;
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return group;
-  }
-
-  setGroupTaskPinned(groupId: string, threadId: string, pinned: boolean): GroupTaskRecord | null {
-    const task = this.groupTaskByThread(groupId, threadId);
-    if (!task) return null;
-    if (pinned) task.pinned = true;
-    else delete task.pinned;
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return task;
-  }
-
-  /** Null removes the conversation's own ceiling so the next turn uses the
-   * global group limit. A sibling conversation is left alone. */
-  setGroupTaskTurnTimeout(groupId: string, threadId: string, minutes: number | null): GroupTaskRecord | null {
-    const task = this.groupTaskByThread(groupId, threadId);
-    if (!task) return null;
-    if (minutes == null) delete task.turnTimeoutMinutes;
-    else task.turnTimeoutMinutes = minutes;
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return task;
-  }
-
-  renameGroupTask(groupId: string, threadId: string, title: string): GroupTaskRecord | null {
-    const task = this.groupTaskByThread(groupId, threadId);
-    if (!task) return null;
-    task.title = title.trim().slice(0, 80) || UNTITLED_TASK;
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return task;
-  }
-
-  /** Name a channel task after its first message, once. Returns the task
-   * it named so a caller can later replace exactly that machine-made
-   * title. */
-  titleGroupTaskFromFirstMessage(groupId: string, text: string, threadId?: string): GroupTaskRecord | null {
-    const task = threadId ? this.groupTaskByThread(groupId, threadId) : this.activeGroupTask(groupId);
-    if (!task || task.titleFromFirstMessage || task.title !== UNTITLED_TASK) return null;
-    task.title = titleFromMessage(text);
-    task.titleFromFirstMessage = true;
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return task;
-  }
-
-  /** Swap a machine-made first-message channel title for a generated one,
-   * once, on the same snippet-equality contract as bot tasks: any rename
-   * by the person breaks that equality first and always wins. */
-  retitleGroupTask(groupId: string, threadId: string, machineTitle: string, title: string): GroupTaskRecord | null {
-    const task = this.groupTaskByThread(groupId, threadId);
-    if (!task || task.title !== machineTitle) return null;
-    return this.renameGroupTask(groupId, threadId, threadTitleFrom(title));
-  }
-
-  deleteGroupTask(groupId: string, threadId: string): GroupRecord | null {
-    const group = this.group(groupId);
-    if (!group || group.dm || !group.tasks || group.tasks.length < 2) return null;
-    if (!group.tasks.some((task) => task.threadId === threadId)) return null;
-    group.tasks = group.tasks.filter((task) => task.threadId !== threadId);
-    this.deleteThreadRecord(threadId);
-    if (group.threadId === threadId) {
-      const next = group.tasks[0]!;
-      group.threadId = next.threadId;
-      group.pinnedCwd = next.pinnedCwd;
-      group.pinnedMessageId = next.pinnedMessageId;
-    }
-    this.saveGroups();
-    this.emit({ type: "group", groupId });
-    return group;
   }
 
   /** Toggle an emoji reaction on a message ("user" or a member botId). */
@@ -1964,19 +1703,8 @@ export class Store {
     this.saveBots(nextBots);
     this.bots = nextBots;
     this.legacyActivities.delete(id);
-    // A deleted bot leaves every room it was in, and a room it led falls back
-    // to its next member. Bot-to-bot channels keep their pair.
-    const rooms = this.groups.filter((g) => !g.dm && g.memberIds.includes(id));
-    for (const g of rooms) {
-      g.memberIds = g.memberIds.filter((member) => member !== id);
-      if (g.busyBotId === id) { g.busyBotId = null; delete g.turnStartedAt; }
-      g.defaultResponder = normalizeGroupDefaultResponder(g.defaultResponder, g.memberIds, false);
-    }
-    if (rooms.length) {
-      // Bot removal is already durable. Finish erasing its data even if this
-      // write fails; startup repair removes these stale memberships later.
-      try { this.saveGroups(); } catch (error) { console.warn("store: room cleanup will retry on restart", error); }
-    }
+    // Stored rooms keep the deleted bot in their saved roster: groups.json is
+    // read-only history, and readers skip member ids with no bot.
     // every task's transcript goes with the bot, not just the open one
     for (const threadId of new Set([bot.threadId, ...(bot.tasks ?? []).map((t) => t.threadId)])) {
       this.deleteThreadRecord(threadId);
@@ -2005,7 +1733,6 @@ export class Store {
     // The bot folder (SOUL.md mirror) is the bot's too.
     removeBotFolder(id);
     this.emit({ type: "bot.deleted", botId: id });
-    for (const g of rooms) this.emit({ type: "group", groupId: g.id });
     return true;
   }
 
@@ -2496,36 +2223,6 @@ export class Store {
     return task.cwd;
   }
 
-  /** The folder a room's member turns run in. Pins on the first turn that
-   * dispatches, from the room's `cwd` at that moment. Pinned, not read
-   * live, for the same reason tasks pin (see pinTaskCwd): engines key
-   * their sessions and files to the folder a thread starts in, and a room
-   * lives on ONE thread forever — so changing the room's folder applies to
-   * future rooms, never under a room that already started working
-   * somewhere. Returns the pinned value: a path, or null = each member's
-   * own default. */
-  pinGroupCwd(groupId: string, threadId?: string): string | null {
-    const group = this.group(groupId);
-    if (!group) return null;
-    const task = threadId ? this.groupTaskByThread(groupId, threadId) : this.activeGroupTask(groupId);
-    // Direct-message channels retain the original single-thread contract.
-    if (!task) {
-      if (!group.dm) return null;
-      if (group.pinnedCwd === undefined) {
-        group.pinnedCwd = group.cwd ?? null;
-        this.saveGroups();
-        this.emit({ type: "group", groupId: group.id });
-      }
-      return group.pinnedCwd;
-    }
-    if (task.pinnedCwd === undefined) {
-      task.pinnedCwd = group.cwd ?? null;
-      if (group.threadId === task.threadId) group.pinnedCwd = task.pinnedCwd;
-      this.saveGroups();
-      this.emit({ type: "group", groupId: group.id });
-    }
-    return task.pinnedCwd;
-  }
 
   // ── tasks ─────────────────────────────────────────────────────────────
   project(botId: string, projectId: string): BotProjectRecord | undefined {
@@ -2599,15 +2296,6 @@ export class Store {
 
   taskByThread(botId: string, threadId: string): TaskRecord | undefined {
     return this.bot(botId)?.tasks?.find((t) => t.threadId === threadId);
-  }
-
-  /** The thread `fromBotId` opened on this bot from its conversation
-   * `fromThreadId` with coordinate_bots: one per conversation and teammate,
-   * so whatever that conversation sends later continues it. A thread the
-   * person archived is left alone. */
-  workThread(botId: string, fromBotId: string, fromThreadId: string): TaskRecord | undefined {
-    return this.tasks(botId).find((t) => t.openedBy?.kind === "work" && t.openedBy.botId === fromBotId &&
-      t.openedBy.threadId === fromThreadId && t.archivedAt === undefined);
   }
 
   /** A turn gets an independent snapshot without changing the selected task

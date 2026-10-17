@@ -2,8 +2,8 @@
 // server with the grokAgent driver pointed at the fake ACP CLI, then has
 // bot A's "agent" reach bot B through the injected agents proxy (list_bots →
 // ask_bot → B runs a real depth-1 turn → reply folds back into A's answer).
-// Routines/webhooks retain this one-hop lifecycle; ordinary chat teamwork is
-// covered separately in direct-coordination.e2e.test.ts. Each legacy case
+// Routines/webhooks retain this one-hop lifecycle; ACP Chief delegation is
+// covered in server/colonie/chief/chief.e2e.test.ts. Each legacy case
 // enters through an actual routine, not a private bypass of the new routing.
 // This exercises the whole chain the packaged app uses: routine → startTurn →
 // session/new mcpServers → agents-proxy → /api/internal/ask-bot →

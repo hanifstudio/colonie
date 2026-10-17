@@ -40,14 +40,13 @@ export function routineNextLabel(routine: Routine): string {
 
 /** Where a routine runs, in the Computer panel's words. A desktop starts
  * routines while Colonie is open there. */
-export function routineRunsOn({ roomGoal, computer }: {
-  roomGoal: boolean; runOn?: string; computer?: string | null;
+export function routineRunsOn({ computer }: {
+  runOn?: string; computer?: string | null;
 }): { label: string; hint: string } {
   // ponytail: a routine stored before the cloud computer place was removed can
   // still say `runOn: "cloud"`; it now runs on the bot's own computer, so the
   // value is ignored rather than rejected.
   const hint = t("routines.runsOn.localHint");
-  if (roomGoal) return { label: t("routines.runsOn.team"), hint };
   if (computer === "vm") return { label: t("routines.runsOn.botVm"), hint };
   return { label: t("routines.runsOn.local"), hint };
 }

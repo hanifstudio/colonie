@@ -3,6 +3,643 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
+
+Static/unit plus simulated provider (fake ACP) only; helper queue, `--maxWorkers=1`.
+
+- Renderer waves 9-11 integrated. Passed: `tsc -p tsconfig.json` (0), `i18n:check`
+  (0), `oxlint --deny-warnings .` (0). Renderer lane marked verified on those.
+- `vitest run src` does not fit 120 s; ran as four shards. Shard 1 passed. Shards
+  2-4 had failures: (a) companion Settings section expected by
+  `SettingsModal.groups/simple/i18n/appearance` and `WelcomeGate` tests, but HEAD's
+  `SettingsModal.tsx` already has no `companion` entry (inherited; deferred
+  product, not re-added); (b) ~13 suites fail to load with "Cannot bundle built-in
+  module node:sqlite from server/message-db.ts" (unchanged files; not baselined
+  against clean HEAD, so "inherited" is unproven); (c) room-related stale copy
+  assertions fixed by the renderer worker (`SettingsModal.appearance/i18n`,
+  `AutomaticRecoverySettings`) and by coordinator (pt-br "turn length" line).
+- Server: `tsc -p tsconfig.server.json` found `rooms` still in
+  `workspace-backup-policy.ts` and a typed test in `config.test.ts`; fixed both,
+  tsc then 0. Focused tests (config, workspace-backup, package-import,
+  team-backup, routines) pass except `workspace-backup-workflow.test.ts`.
+- `scripts/verify-workspace-backup.ts` migrated to the fake ACP assertions (args
+  path, "hello from fake acp"). It now fails later at the paired-client export
+  check (expects 403, gets 200); not diagnosed, not shown inherited.
+- Tests lane: `recent-work.test.ts`, `peer-comms-limits.test.ts` pass;
+  `team-share.e2e.test.ts` passes after the route-no-longer-returns-`groups`
+  assertion fix. `tool-scope.e2e.test.ts` 6/7: the remaining case needs a product
+  fix. `COLONIE_GATE_TOOL_SCOPE` is never applied to ACP connected-tool mounts
+  (`gateServer` has no caller; `ConnectedTools.mount()` and `acp-runtime.ts` ignore
+  `toolScope`). Reported, not fixed or weakened.
+- Not run: UI e2e, desktop, real provider.
+
+## 2026-10-17 — five-worker batch, iteration 2 (rooms retirement)
+
+Static/unit plus simulated provider (fake ACP) evidence only; checks ran through
+the helper queue (120 s, `--maxWorkers=1`).
+
+- server wave 4 verified: traced that `coordinate_bots` could never run on ACP
+  (no adapter mounts the native agents MCP, so `/api/internal/coordinate-bots`
+  always answered 403, and its turns used the refused `coordination` option).
+  `direct-handoffs.ts` is now a stored-history reader (unfinished stored nodes
+  settle as "Interrupted by server restart; not replayed."; settled files are not
+  rewritten; unreadable files stay on disk). Removed the route, the `coordination`
+  turn option and its prompts, `Store.workThread`, `directHandoffLimits` (old
+  `rooms.handoff*` config still parses); ratchet 135 -> 133. Live ACP Chief
+  delegation is `ask_bot` on the `colonie_workspace` mount -> `runColonieAssignment`
+  (unchanged). Checks: 6 unit files 455/455 (`1792245606820593000`); oxlint 0
+  (`1792245807766000000`); server tsc exit 2 only in `index.test.ts` (tests lane:
+  5 TS2367 + TS6133 `claudePrompts`).
+- `server/colonie/chief/chief.e2e.test.ts` 2/2 fail with 409 "Wait for the Chief's
+  current work to finish" on PUT `/api/colonie/chief`; identical on the pre-wave-4
+  worktree (`1792245795958876000`), so inherited, not caused by this wave. Other
+  chief/mcp-server files 53/53.
+- renderer wave 6 verified: group-turn queue copy, steer "next" mode, the unused
+  Composer `locked`/channel mention branches and `list_rooms`/`post_to_room` labels
+  removed; 8 locale keys deleted. Renderer tsc 0 (`1792245571768475000`); 12 files
+  222/222 (`1792245817262674000`); locale check valid, 2823 English strings
+  (`1792245823872746000`).
+- `thread-capacity-api.test.ts` timed out at 120 s inside a combined run (tests
+  lane is migrating it to the gate launcher); not counted.
+
+Second batch of iteration 2:
+- Coordinator fixes (real defects): `botHasActiveTurn` compared a boolean with
+  `null`, so every bot always looked busy and the Chief role could never be
+  transferred (409); and `acp-runtime.ts` sent only `acpTools` servers in
+  `session/new`/`session/load`, so the Chief's `colonie_workspace` mount never
+  reached the agent although the receipt listed it ("Fixture MCP server is not
+  mounted"). After both: `chief.e2e` 2/2 on codex-acp and claude-acp (`ask_bot`
+  completes, result "PONG", idempotent replay). The fake ACP CLI now advertises
+  HTTP MCP by default, as both maintained adapters do (checked in
+  `node_modules/@agentclientprotocol/*`); otherwise a Chief turn failed setup.
+- server wave 5 verified: `groups.json` loads read-only (never written; tests prove
+  byte-identical across load, restart, bot deletion, team rename/delete); room
+  writers, `group` frames, `WireGroup`, `groups` in `/api/state`/`/api/bots` and
+  the room floor removed. Coordinator integration edits: `comms-visibility.ts`
+  chips only (no pair channel), `delegations.ts` no channel, stored rooms visible
+  only to a viewer who sees everything (`bot-visibility.ts`; the floor no longer
+  narrows), test fallout rewritten on seeded `groups.json` (`peer-approval`,
+  `auto-room-compat`) or trimmed to non-room cases (`delegations`,
+  `independent-task-store`, `wire`, `comms-visibility`); `server/group-tasks.test.ts`
+  deleted (room-task mutators removed); `scripts/verify-team-backup.ts` checks no
+  `groups.json` is written. 25 files 752/752 (`1792247372044287000`); chief +
+  mcp-server + retention + admission 69/69 (`1792247765730631000`); both tsc 0
+  (`1792247732695546000`, `1792247742263224000`); oxlint src/server/shared/scripts 0
+  (`1792247756362832000`).
+- renderer wave 7 verified: `waitingForTeammates` UI, goal channel-mode drafts,
+  orphaned `GoalRunCard`, room help sentence removed; coordinator restored the
+  failed-send "restored" case on a direct draft. 132 files 1465/1465
+  (`1792247469649017000`); locale valid, 2821 strings (`1792247757071373000`).
+- `steer-queue.test.ts` 4 failures identical on the pre-iteration worktree
+  (`1792247508429121000`; owner queue item 7, inherited).
+- `index.test.ts` (tests wave 5 integrated, unverified): 30 failed / 168 passed
+  (`1792247651583229000`); 3 new failures read the removed `groups` field.
+- Deleted `server/direct-coordination.e2e.test.ts` and
+  `scripts/testing/direct-coordination-ui.e2e.test.ts`: their subject is the
+  removed `coordinate_bots` route; the run timed out at 120 s
+  (`1792247872530034000`). Git index note: a coordinator mistake staged the
+  deletion of `server/group-tasks.test.ts` (`D ` in status); restoring that index
+  entry was refused by the permission guard, so it is left for the owner.
+
+Third batch of iteration 2:
+- server wave 6 verified: the local-computer emergency stop cancels a routine run
+  before awaiting the thread interrupt (run now ends `cancelled`); dead room
+  branches removed from `index.ts` (`connectorThread` returns `{ bot }`, room
+  recall disclosure, team-map `collaborations` now `[]`); `waitingForTeammates`
+  removed from the wire. Coordinator: fixed two leftover `group` references in the
+  incident notifier; deleted `server/recall-disclosure.ts` and its test (no
+  production caller); trimmed the room cases from `thinking-timer-ui.e2e` and
+  `team-lifecycle-ui.e2e` (create/delete group chat; not run: UI e2e needs the
+  agent-browser binary). Both tsc 0 (`1792248264963145000`, `1792248273961548000`),
+  oxlint 0 (`1792248287704546000`), 24 server files 779/779 (`1792248288405954000`).
+- renderer wave 8 verified: the call button is 1:1 only (room header placement,
+  multi-speaker voices removed after checking no scheduled multi-bot call uses
+  it), palette copy, room comments. Both tsc 0 (`1792248497288276000`,
+  `1792248506064885000`), oxlint 0 (`1792248520023305000`), 136 files 1516/1516
+  (`1792248528669478000`), locale valid (`1792248564888288000`).
+- tests waves 6-7 integrated, not verified: `index.test.ts` 30 -> 24 -> 10 failed
+  (195 cases, 185 passed; `1792248565696887000`), no new failures at any step;
+  prompt-pipeline cases now assert the recorded ACP context sections. The 10 left
+  are strict: one-shot title generation (ACP has no `generateText`; product gap),
+  native agents/browser MCP on ACP (owner question), Claude reviewer card,
+  effort/paired-model selection, question restart, credential continuation,
+  chat-created routine, SOUL drift (rechecking).
+
+## 2026-10-17 — five-worker batch, iteration 1 (rooms retirement, ACP fixtures)
+
+Provider access returned; `claude-team.py resume` + `dispatch` restarted all five
+lanes on their retained worktrees (server continued its partial edits). The
+coordinator integrated each patch with `integrate` (`git apply --check` passed for
+all) and ran checks through the serialized queue (120 s, `--maxWorkers=1`).
+Evidence is static/unit plus simulated provider (fake ACP engine); no real
+provider, renderer browser or packaged desktop run.
+
+Verified lanes (passing post-integration check IDs recorded by the helper):
+- server wave 1: team-backup import skips rooms and `room-goal` routines with
+  plain warnings, export/parsing keep `groups`; package import lists rooms as
+  `rooms_not_supported`. Coordinator edits: `auto-room-compat.test.ts` (skip +
+  warning), `presets.test.ts` (expected skips), `scripts/verify-team-backup.ts`
+  (removed `/api/groups` call; fixture reply is "hello from fake acp"). Server
+  tsc 0; 10 files 390/390; oxlint 0.
+- server wave 2: `room-handoffs.ts` direct-only (stored room nodes load as inert
+  history), `routines.ts` keeps stored room-goal routines paused with
+  `ROOM_GOAL_UNAVAILABLE`. Coordinator edits: `routine-requests.test.ts` (dropped
+  the room-goal duplicate variant and "counts a room goal the bot leads"),
+  `goalState` lines in presets/auto-room-compat. 6 files 326/326; 3 files 101/101;
+  tsc 0; oxlint 0. `independent-threads-api.test.ts` still times out at 120 s
+  (inherited, retired `claude` fake; see the earlier entry).
+- fixtures waves 1-2: `server/testing/tool-plan.ts` (scripted MCP tool plans over
+  stdio/http mounts from `session/new`, `FAKE_ACP_TOOL_PLAN`/`FAKE_CLAUDE_ROOM_PLAN`),
+  `fake-acp-gates.ts` per-turn gates, cancel, `FAKE_ACP_USAGE`, `fail-turn`.
+  `server/testing` + `control-colonie.test.ts` 37/37; tsc 0; oxlint 0.
+- approval: `pnpm exec electron scripts/smoke-approval-modes.cjs` passed (all four
+  levels on claude-acp/codex-acp, clamped adapters keep Ask, Custom refused,
+  permission cards/answers, peer requests). First two runs failed at Edits:
+  diagnosed (instrumented run) as the background memory-analysis adapter process
+  overwriting the shared `FAKE_ACP_DUMP.config.json`; the smoke now turns off
+  automatic memory capture for its fixture. Not a product defect.
+
+Integrated, not verified:
+- renderer wave 1 (20 room files deleted; Sidebar/App/TaskPicker/Settings/
+  Visibility/team-import room UI removed; Decision model untouched). Renderer
+  tsc 0; 16 files 269 passed, 8 failed — the same 8 SettingsModal remote/companion
+  cases fail on the unmodified seed worktree (inherited). Composer/store
+  `/api/groups` paths and `AppState.groups` remain (wave 2 running).
+- tests waves 1-2: `index.test.ts` on claude-acp; seed baseline 109 failed/140
+  passed (249) -> 59 failed/153 passed (212), no new failures vs wave 1. Deleted
+  `recent-work.e2e.test.ts`, `room-recovery.e2e.test.ts` (room-only subjects).
+  `spend-cap-api` 5 and `thread-capacity-api` 2 remaining failures are identical
+  on the seed (inherited).
+
+Renderer wave 2 integrated after this: `rg /api/groups src` empty; renderer tsc
+exit 2 with 49 errors in two test files and `RoutineCalendarPage.tsx` (unused
+`setRunOn`); repair round 1 fixed them (below).
+
+Later in the same iteration:
+- server wave 3 verified: `room-handoffs.ts` -> `direct-handoffs.ts` (stored file
+  name unchanged), delegation strings reworded ("Your delegated requests have
+  settled."), `/api/instances/:id/claude-update` removed. Coordinator edits:
+  resume text in `server/testing/tool-plan.ts`, `direct-coordination.e2e`,
+  `thread-aware-bots.e2e`; dropped the updater case from `cli-probe-env.test.ts`;
+  deleted `server/claude-update.ts` and its test (only importer was the test);
+  `scripts/verify-mentions.ts` no longer runs the retired `new-channel`. Both tsc
+  0; 19 files 657/657; oxlint 0. `direct-coordination.e2e -t "sends each teammate
+  result once"` fails identically on the seed (inherited, no lead evidence row).
+- fixtures waves 3-4 verified: `${dump}.config.jsonl` append-only log with
+  `internal` tags, `set_mode` updates the logged mode, opt-in unique session ids;
+  `launchVerificationServer` 11th options parameter (per-instance FAKE_ACP_* env,
+  gate dirs). `scripts/control-colonie.test.ts` + `server/testing` 48/48; tsc 0;
+  oxlint 0.
+- approval wave 3 verified: the smoke reads per-session evidence, enables unique
+  session ids and runs with automatic memory capture on; Electron smoke passed.
+- renderer waves 2-3 integrated: `AppState.groups`, Composer/store room paths and
+  room strings removed; renderer tsc 0; 27 files 349 passed, 1 failed
+  (`RoutineCalendarPage.simple` expects the removed "Routine type" selector);
+  oxlint 2 `no-useless-spread` warnings in `SidebarBotActivity.tsx`. Repair
+  dispatched; not verified.
+- tests wave 3 integrated: `index.test.ts` 41 failed / 165 passed (206); the only
+  new failures are the two removed `claude-update` route cases. Not verified.
+
+- renderer wave 4 verified (with waves 1-3): "Routine type" expectation updated,
+  spread warnings fixed, `ClaudeUpdatePrompt.tsx` and the Engines "Update Claude"
+  path removed. Renderer tsc 0; `oxlint --deny-warnings src` 0; 32 files 439/439;
+  `node scripts/generate-locale.mjs --check` valid (2908 English strings, seed
+  2960). The 8 SettingsModal remote/companion failures (inherited) were not rerun.
+- renderer wave 5 verified: 77 locale keys no source reads (66 `room.*`, 8
+  `chat.claudeUpdate.*`, 3 `engines.*`) deleted from every catalog and
+  `source-hashes.json`, kept values byte-identical. Locale check valid (2831
+  English strings); renderer tsc 0; i18n tests 38/38; 32 files 439/439.
+- tests wave 4 integrated: room halves rewritten as direct conversations, the two
+  updater cases replaced by one 404 case, 4 managed team-computer cases deleted
+  (no `/api/team-computers` route exists since `e1793036`; confirmed by grep).
+  `index.test.ts` 29 failed / 170 passed (199); new vs wave 3: the rewritten
+  emergency-stop case (`failed` vs `cancelled`). Server tsc exit 2 (4 TS2367 in
+  `index.test.ts`). Repair round 1 dispatched; not verified.
+- docs: `verification-docs.test.ts` 5/5; `git diff --check docs/` clean.
+
+Next: integrate the tests repair, server wave 4 (ACP delegation trace) and
+renderer wave 6; rerun the same checks; see HANDOVER team plan. Worker cost so
+far: US$27.41 reported (US$102.41 accounted incl. unknown-cost reservations).
+
+## 2026-10-17 — six-process startup blocked by provider usage limit
+
+Initialized five isolated worktrees; the actual primary staged-diff SHA-256 stayed
+unchanged. Started the coordinator and observed five distinct worker CLI processes
+with real assistant tool activity, so parallel dispatch/authentication did work.
+Then the coordinator and two workers returned API HTTP 400: "You have reached your
+specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."
+This is an external provider usage-cap failure, not a completed development batch
+or evidence of actual account balance. No additional API retry, credential
+inspection, auth/billing switch or limit change was attempted.
+
+The launcher automatically stopped all owned workers. Final team metadata has no
+remaining runner/worker PIDs. All worktrees/task briefs remain. The server worker
+partially edited `server/index.ts` and `server/team-backup.test.ts` in its worktree;
+the other worker diffs are empty. Nothing from the parallel workers was integrated
+into the primary checkout. Local inventory: `.colonie-dev/team/interrupted-work.json`.
+The roadmap page now shows the usage-cap pause in plain language. Its prior
+roadmap acceptance states remain unchanged.
+
+Interrupted calls without a final CLI result retain unknown actual cost; separate
+conservative budget accounting reserves their allowance without presenting it as
+reported spend. A resume operation retains existing worktrees. Next: owner checks
+the provider's configured usage limit; after access returns, start the launcher
+and resume retained lanes. No source/provider/desktop completion is claimed.
+Follow-up local checks: the isolated team fixture suite passed, including
+unknown-cost accounting and same-worktree resume; verification-docs 5/5 passed
+on actual Node 24 under a 120-second process-group limit. Scoped whitespace check
+passed. These checks validate recovery tooling/docs only, not resumed API access.
+
+## 2026-10-17 — owner-authorized six-process Claude team
+
+Owner requested five/six workers for faster outcomes. Replaced the sequential
+microtask loop with one Claude coordinator plus five disjoint implementation
+lanes: server/persistence, renderer rooms, ACP scripted fixtures, mixed tests,
+approval smoke tooling. The old run was stopped during iteration 11; its unfinished
+team-backup edits and all prior source/staged WIP are preserved, not declared done.
+
+Local `.colonie-dev/claude-team.py` prepares isolated Git worktrees from HEAD plus
+the primary checkout's staged/unstaged diff, seeded into each worktree's own index
+(no commit or primary-index mutation). Known new files from earlier integrated
+worker patches travel to later snapshots too. Worker patches are checked against
+fixed owned paths and the baseline; commits/index changes/out-of-scope edits are
+rejected, and `git apply --check` precedes integration. Worktrees/reports remain
+recoverable. Workers do no heavy checks; coordinator checks are serialized with a
+global lock and 120-second owned-process limit. Checked lane status requires
+actual passing post-integration check records. Only coordinator writes shared
+HANDOVER/PROGRESS/roadmap. Monitor lane cards show outcomes awaiting integration/
+checks, without treating worker exit as milestone completion.
+
+Validation (isolated temporary repositories and fake Claude only):
+`python3 /tmp/colonie-team-check.py` passed WIP/staged-index preservation, delta-only
+patch integration, new-file propagation, passing-check status, scope rejection,
+cross-generation cost accounting, conflict preservation, targeted worker cleanup
+and bounded-check timeout cases. Launcher and roadmap fixture checks also passed
+(`/tmp/colonie-autopilot-check.py`, `/tmp/colonie-roadmap-check.py`). This validates
+the local orchestration mechanisms, not the app or the new parallel outcomes.
+Team estimated allowance defaults to US$300 including active reservations; all
+calls explicitly use `claude-opus-5-5`. Balance remains unobservable. Next: initialize
+the team, start coordinator, dispatch all five independent outcomes, then let
+Claude integrate/check/checkpoint without a Codex review gate. No commits, live
+app/provider fixture checks, deployments or remote changes were made by bootstrap.
+Bootstrap document checks: focused verification-docs test 5/5 passed (exit 0,
+120-second process-group limit); scoped `git diff --check` passed. The team's
+heavy-check helper selects the actual nvm Node v24.13.1 installation when present,
+instead of assuming the Homebrew path named node@24 contains Node 24.
+
+## 2026-10-17 — room storage measured (rooms ROOMS-STORE, measurement only)
+
+No source change. `server/room-handoffs.ts` is the live direct-delegation
+engine, not room-only, so it stays; its room parts go in a later rename slice.
+Room storage writers outside the store: `package-import.ts` (creates rooms),
+`team-backup.ts` (exports/re-creates rooms and `room-goal` routines); readers:
+`delegations.ts`, `peer-approval.ts`, ~51 `server/index.ts` sites. Plan and the
+keep-files-on-disk decision are in HANDOVER (iteration 10).
+
+Checks via `perl -e 'alarm 120; setpgrp; exec @ARGV'`, one at a time (unit evidence):
+- `pnpm exec vitest run --maxWorkers=1 server/workspace-backup.test.ts
+  server/team-backup.test.ts` — 2 files, 48/48, exit 0, on Node v24.13.1 (nvm).
+  Note: `/opt/homebrew/opt/node@24/bin/node` reports v25.8.1 in this checkout, so any
+  earlier run through that path used Node 25; the same run there also passed
+  48/48. `scripts/testing/verification-docs.test.ts` 5/5 and `git diff --check`
+  clean after the doc edits.
+
+## 2026-10-17 — decision-model room routing deleted (rooms ROOMS-MODULES)
+
+Slice: `server/decider/room-routing.ts` (126 lines), its unit test (11 cases), its
+opt-in live-eval test (skipped without `COLONIE_JEV_LIVE_EVAL`) and
+`fixtures/room-routing.json` (the eval's only input) deleted (unstaged `rm`). Its
+one production caller was the deleted room turn engine. `shared/wire.ts`'s
+`GroupDefaultResponder` comment now says nothing routes by it and stored rooms
+must keep parsing. Kept: the decider core and Settings "Decision model" wiring
+(config key, key test route, wire status, `decider-log` backup exclusion) and the
+`roomRouting` job key; whether that section goes is an owner question (HANDOVER).
+Self-review only; not committed.
+
+Checks, each via `perl -e 'alarm 120; setpgrp; exec @ARGV'`, Node 24, one at a
+time (static/unit evidence):
+- Baseline `pnpm exec vitest run --maxWorkers=1 server/decider/` — 4 files passed,
+  1 skipped; 67 passed, 1 skipped. After — 3 files, 56/56, exit 0 (67 − 11).
+- `pnpm exec tsc -p tsconfig.server.json --noEmit` — exit 0;
+  `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings shared/wire.ts` — exit 0; `git diff --check` —
+  clean; `grep` for `room-routing`/`decideRoomResponder`/`roomRoutingRequest`/
+  `ROOM_ROUTING` in server/src/shared/scripts/electron/.github — no match.
+
+## 2026-10-17 — room goal-run module deleted (rooms ROOMS-MODULES)
+
+Slice: `server/group-goal-run.ts` (168 lines) and its unit test deleted (unstaged
+`rm`). `server/index.ts` no longer imported it; the only other importer was one
+case in `server/decider/auto-room-compat.test.ts` (the Auto room's goal
+coordinator), removed with it. The file's stored-room/package/team-backup
+compatibility cases stay as ROOMS-STORE evidence. Kept: `shared/group-goal-run.ts`
+(card types on store/wire/renderer), `routines.ts`'s `GroupGoalRunStatus`,
+`server/decider/`. Stale renderer comment left for stage 4:
+`src/lib/group-routing.ts:94` still names `selectGroupGoalCoordinator`.
+Self-review only; not committed.
+
+Checks, each in its own process group with a 120 s kill limit (Python
+`start_new_session` runner), Node 24, one at a time (static/unit evidence):
+- Baseline `pnpm exec vitest run --maxWorkers=1 server/decider/auto-room-compat.test.ts
+  server/group-goal-run.test.ts` — 2 files, 20/20 (auto-room-compat 10); after the
+  edit `auto-room-compat.test.ts` — 9/9, exit 0.
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `-p tsconfig.server.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/decider/auto-room-compat.test.ts` — exit 0;
+  `git diff --check` — clean; `grep` for `group-goal-run.ts"`/`selectGroupGoalCoordinator`
+  in server/src/shared/scripts/electron — only the shared types import and the
+  renderer comment above.
+
+## 2026-10-17 — dead room client-scope rules removed (rooms stage 3b part 2)
+
+Decision first: `rooms.turnTimeoutMinutes` bounds no person 1:1 turn. Only the
+deleted room turn engine enforced it (`RoomTurnDeadline`, read at the parent of
+`6cd01420`); its `dm` override is a bot-to-bot channel (`GroupRecord.dm`), and
+`ConversationTurnLimit` renders only in `GroupView`. It retires with the room UI
+(stage 4) and room config/backup parsing (ROOMS-STORE/FLOWS).
+
+Slice: `server/request-auth.ts` granted client scope to eight `/api/groups` paths
+that no route serves since stage 3a, and exported `clientGroupPatchViolation`
+with no production caller. Both removed; those paths now fall back to admin
+(default deny). The thread reactions rule stays. Tests: room paths moved to the
+admin list, the room patch-field assertions removed. Self-review only; not committed.
+
+Checks, each in its own process group with a 120 s kill limit (Python
+`start_new_session` runner), Node 24, one at a time (static/unit evidence):
+- Baseline `pnpm exec vitest run --maxWorkers=1 server/request-auth.test.ts` —
+  44/44; after the edit — 44/44, exit 0.
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `-p tsconfig.server.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/request-auth.ts server/request-auth.test.ts` — exit 0;
+  `git diff --check` — clean; `grep -rn clientGroupPatchViolation server src shared
+  scripts electron` — no match.
+- Docs: `pnpm exec vitest run --maxWorkers=1 scripts/testing/verification-docs.test.ts` — 5/5.
+
+## 2026-10-17 — handoff router room case removed (rooms stage 3b part 2)
+
+`RoomHandoffs` calls `run`/`busy` only for non-terminal nodes; a restart fails every
+stored non-terminal node and `coordinate_bots` enqueues from a direct address only,
+so no room node can reach them. `server/index.ts`: `run` now refuses a room node up
+front with the existing message (before it posted a request line and marked the
+thread internal, then threw) and the direct path lost its `!group` wrapping; `busy`
+lost its room clause. `report`/`changed` room handling stays until ROOMS-STORE (a
+stored room tree's restart result is still posted once). Self-review only; not
+committed.
+
+Checks, each in its own process group with a 120 s kill limit, Node 24, one at a
+time (static/unit evidence; no runtime test reaches `run` today):
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `-p tsconfig.server.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/index.ts` — exit 0; `git diff --check` — clean.
+- `pnpm exec vitest run scripts/testing/index-route-ratchet.test.ts scripts/testing/content-boundaries.test.ts server/room-handoffs.test.ts --maxWorkers=1` — 3 files, 54/54 passed.
+- Baseline then post-edit, identical (inherited red): `chief-level-delegation.e2e` 1/1
+  failed (`expect.poll` teammate provider turn never seen, line 38);
+  `direct-coordination.e2e -t "announces a settled delegation"` 1 failed / 35 skipped
+  ("no matching frame within 10000ms"). The full `direct-coordination.e2e` file plus
+  chief together hit the 120 s limit before the edit and was not rerun whole.
+
+Finding (not fixed): `run` passes `coordination` to `startTurn`, and the ACP path
+refuses any `coordination` turn, so direct `coordinate_bots` delegation cannot run a
+teammate turn on ACP. Needs its own task before Chief delegation is claimed working.
+
+## 2026-10-17 — dead room busyBotId reads removed (rooms stage 3b part 2)
+
+Nothing in `server/` sets a room's `busyBotId` any more (the store loads and
+creates it as `null`; no `patchGroup` caller passes it). `server/index.ts` drops
+its two reads: `shouldIgnoreProviderEvent`'s room clause, and the answer route's
+room owner fallback, which now uses the card's `from` bot only, so a stored room
+card can still be answered or closed. Behavior is unchanged because both reads were
+always empty. The field stays on store/wire/notify/renderer until ROOMS-STORE and
+stage 4. Self-review only; not committed.
+
+Checks, each in its own process group with a 120 s kill limit, Node 24, one at a
+time (static/unit evidence; no runtime test reaches the room answer path today —
+`index.test.ts` room cases are inherited red):
+- `grep -n busyBotId server/index.ts` — none.
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `pnpm exec tsc --noEmit -p tsconfig.server.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/index.ts` — exit 0; `git diff --check` — clean.
+- `pnpm exec vitest run server/notify.test.ts scripts/testing/index-route-ratchet.test.ts scripts/testing/content-boundaries.test.ts --maxWorkers=1` — 3 files, 21/21 passed.
+
+Next: the router's `group` case.
+
+## 2026-10-17 — dead room audience-reset audit removed (rooms stage 3b part 2)
+
+Stage 3a removed `PATCH /api/groups/:id`, so `adminAuditPlan`'s `roomId`, the
+`roomFloor` snapshot and the `room.audience-reset` row in `server/index.ts` could
+never record (the request fails; failed requests write no row). They are removed
+and `settleRoomFloor`'s comment no longer names the reset route. Decision:
+`settleRoomFloor`/`roomMemberAudiences` stay until room storage and visibility go
+(ROOMS-STORE), because `bot-visibility.ts` still hides a room by `audienceFloor`
+and stored room transcripts stay readable; removing the narrowing now could widen
+who sees them after a restricted bot changes or is deleted. Not touched: the
+already-red `bot-visibility.e2e` reset cases (stage 5) and the renderer reset
+button in `VisibilitySection.tsx` (stage 4; it now gets a failed request).
+Self-review only; not committed.
+
+Checks, each in its own process group with a 120 s kill limit, Node 24, one at a
+time (static/unit evidence; no runtime or desktop proof):
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `pnpm exec tsc --noEmit -p tsconfig.server.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/index.ts` — exit 0; `git diff --check` — clean.
+- `pnpm exec vitest run server/bot-visibility.test.ts --maxWorkers=1` — 17/17 passed.
+- `pnpm exec vitest run scripts/testing/index-route-ratchet.test.ts --maxWorkers=1` —
+  failed as intended (`.exec(path)` now 17, written 18); lowered to 17, then with
+  `content-boundaries.test.ts` 2 files, 9/9 passed.
+- `grep` — no `roomFloor`, `audience-reset` or `resetAudience` left in non-test `server/`/`shared/` source.
+
+## 2026-10-17 — roomFeedsBot retired (rooms stage 3b part 2)
+
+Rooms no longer feed a bot's recall: `server/index.ts` drops room threads from
+`autoRecallPrompt` and `session_search` (hits lose the optional `room` name),
+`recentWorkSources()` hands `recent-work.ts` an empty `groups` list (that field
+goes with stage 5's `recent-work` trim), and `roomFeedsBot` with its `roomFeeds`
+import is gone. The turn-outcome log guard and the internal memory-write guard for
+room threads are removed (no room turn can run, so neither can fire); the
+memory-disabled 403 is kept. Team-memory publication from a room conversation is
+now refused outright instead of filtered (safe direction). `roomFeeds` stays
+exported from `bot-visibility.ts` for its own test until stage 5. Kept:
+`roomMemberAudiences`/`settleRoomFloor`, memory source labels, recall disclosure.
+Self-review only; not committed.
+
+Inherited ratchet repair: `index-route-ratchet.test.ts` was already red at HEAD
+(`path === "/` 135 vs written 142, `path.match(` 69 vs 70, from earlier route
+removals); this slice changes neither count. Numbers lowered to 135/69 as the
+ratchet's rule requires.
+
+Checks, each in its own process group with a 120 s kill limit, Node 24, one at a
+time (static/unit evidence; no runtime or desktop proof):
+- `pnpm exec vitest run server/independent-threads-api.test.ts --maxWorkers=1`
+  (whole file) — killed at 120 s, exit 143, inconclusive. With `-t "rejects blank
+  memory|keeps A and B independent"` before the edit: 2 failed, exit 1, both on
+  `beforeEach` hook timeout (30 s) configuring the retired `claude` fake-CLI
+  instance. Inherited stage-5 migration failure; not usable as runtime evidence,
+  so the planned runtime check is missing. `bot-visibility.e2e` (the only ACP-fixture
+  file reaching these routes) builds rooms through the removed `/api/groups` routes.
+- `grep roomFeedsBot server/index.ts` — 0.
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0; `pnpm exec tsc --noEmit -p
+  tsconfig.server.json` — exit 0 (the server project; covers the earlier
+  uncommitted index.ts slices too).
+- `pnpm exec oxlint --deny-warnings server/index.ts` — exit 0; `git diff --check` clean.
+- `pnpm exec vitest run scripts/testing/index-route-ratchet.test.ts --maxWorkers=1`
+  — 1 failed before the count repair (inherited), 1/1 passed after, exit 0.
+
+Next: `settleRoomFloor` with the `PATCH /api/groups/:id` audience-reset plan.
+
+## 2026-10-17 — groupUsageReader removal (rooms stage 3b part 2)
+
+Removed `GroupUsageReader` from `server/index.ts` (import, startup construction and
+refresh, `GET /api/bots` refresh, `publicGroupState`'s `usage`) and deleted
+`server/group-thread-usage.ts` with its unit test (unstaged `rm`). Only the room
+renderer `GroupView` showed that usage; the optional `WireGroup.usage` field stays
+until stage 4. The per-bot usage ledger (`usage-ledger.ts`, `/api/usage`) is
+untouched. `store.ts` comment updated. Self-review only; not committed.
+
+Checks, each in its own process group with a 120 s kill limit, Node 24, one at a
+time (static/unit evidence; no runtime or desktop proof):
+- `grep -rn "group-thread-usage|GroupUsageReader|groupUsageReader"` over
+  `server src shared scripts electron` — only the generated
+  `vitest-shard-weights.json` names the long-deleted e2e file (it lists nine other
+  deleted files too; left as is).
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0.
+- `pnpm exec oxlint --deny-warnings server/index.ts server/store.ts` — exit 0;
+  `git diff --check` clean.
+- `pnpm exec vitest run --maxWorkers=1 server/store.test.ts` — 138/138, exit 0.
+
+Next: `roomFeedsBot`'s room filters. `rooms.turnTimeoutMinutes` is still read by
+`ConversationTurnLimit` for 1:1 threads, yet no server code enforces it; decide
+in its own slice.
+
+## 2026-10-17 — roomPosts/personAskAt verification (rooms stage 3b part 2)
+
+Scope: the unstaged `server/index.ts` slice from the first autonomous run (drop
+`InternalCapability.roomPosts` and the `personAskAt` map/writes). Self-review:
+the `routineRunId` clear in `startTurn` keeps its exact condition (not a card
+continuation, depth 0, no automation source, not unattended, not a peer ask); only
+the `personAskAt` set/delete went. No remaining reference to either name. All
+commands ran in their own process group with a 120 s kill limit, one at a time,
+Node 24. Evidence category: static/unit plus simulated-provider test baselines.
+
+- `pnpm exec tsc --noEmit -p tsconfig.json` — exit 0 (14 s). This tree also lacks
+  the six staged `room-cwd`/`room-post-budget`/`room-turn-end` files; `grep` finds
+  no importer of them in `server src shared scripts electron`.
+- `pnpm exec oxlint --deny-warnings server/index.ts` — exit 0; `git diff --check
+  server/index.ts` clean.
+- `pnpm exec vitest run --maxWorkers=1 server/steer-queue.test.ts
+  server/turn-watchdog.test.ts` — turn-watchdog passes; steer-queue 4 failed / 29
+  passed. Same four names at HEAD `50b56bcb` in a detached worktree (node_modules
+  symlinked): the dispatch-acknowledgment, replacement-receipt, busy-drain and
+  stop-then-steer cases (HANDOVER item 7). Inherited.
+- `server/routine-results.e2e.test.ts` (the only test that sends a human message
+  into a routine-run thread) — 2/2 failed, identically at HEAD: line 41 reads the
+  retired fake-engine dump, line 180 an auto-applied card. Both fail before the
+  `routineRunId` assertion, so the clearing has no runtime proof today.
+
+Worktree removed after each baseline. Not committed. Next: stage 3b part 2,
+`groupUsageReader`.
+
+## 2026-10-17 — replace the activity page with an owner roadmap monitor
+
+Owner rejected process logs as progress. Stopped the autonomous runner with its
+targeted stop command to avoid concurrent writers, preserving existing source and
+staged WIP. The interrupted source verification had no final checkpoint; it is
+still unverified and remains the next development task.
+
+`python3 /tmp/colonie-roadmap-monitor.py` ran a bounded, explicit
+`claude-opus-5-5` task and exited 0. Claude wrote a derived roadmap snapshot and
+replacement HTML template: product P0–P7, engineering E01–E06, 11 rooms-retirement
+checkpoints and 13 other authorized items. The page shows done/in-progress/not
+started/blocked/deferred/unverified outcomes and expandable completed/remaining
+acceptance. It contains no process log, model, token, cost or run-count cards.
+Future Server/collaboration/companion work stays deferred. Docs remain authoritative.
+
+Launcher checkpoints now carry stable-ID roadmap updates, focus and a project
+summary/headline. The launcher merges these atomically into the snapshot and
+regenerates the standalone HTML; a local slice cannot finish its whole stage.
+Done includes completed parts of open milestones; Remaining includes later work;
+Blocked includes blockers inside an otherwise active milestone. The worker dot
+uses the real runner status and heartbeat, not a task-completion claim.
+
+Verification: `/tmp/colonie-roadmap-check.py` passed checkpoint merge, invalid-ID/
+status rejection without snapshot overwrite, and script-safe two-snapshot HTML
+embedding fixtures. `/tmp/colonie-autopilot-check.py` passed launcher lifecycle/
+failure fixtures. Isolated Playwright with installed Chrome loaded the local page
+without errors, exercised filters and reload, retained completed slices and deferred
+work in the right views, and found no horizontal overflow at 390 px. Desktop
+screenshot visually inspected. These establish monitor behavior, not app/source
+workflow acceptance. Next: resume the autonomous batch on source verification.
+Document checkpoint: `pnpm exec vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` passed (1 file, 5 tests,
+exit 0) under a 120-second owned-process limit; scoped `git diff --check` passed.
+
+## 2026-10-17 — owner-directed autonomous Claude launcher
+
+Owner superseded Codex supervision: Claude should choose the remaining authorized
+tasks, implement, run bounded checks, self-review and checkpoint without a parent
+review gate. Bootstrapped a local background launcher and progress HTML under
+ignored `.colonie-dev/`; the application ACP integration is unchanged.
+
+Initial real Claude task (`python3 /tmp/colonie-claude-development.py`, explicit
+`claude-opus-5-5`) exited 0 and reported US$0.238713. Claude created the HTML
+template and removed unused `roomPosts`/`personAskAt` bookkeeping in `index.ts`.
+No source checks were assigned in that initial call. The autonomous batch must
+verify this inherited change first; do not label it verified from the report.
+
+Launcher checks: `python3 /tmp/colonie-autopilot-check.py` passed isolated fake-CLI
+cases for structured completion, sequential continuation/cost accounting, invalid
+checkpoint and provider-error stops, timeout/owned-child cleanup, background start,
+duplicate-run exclusion and targeted stop. These are launcher fixture evidence,
+not application or real-provider implementation evidence. Browser check of the
+local HTML via Playwright with installed Chrome found no page errors and no
+horizontal overflow at 390 px; screenshot visually inspected. Playwright's bundled
+Chromium was unavailable, so installed Chrome was used without downloads.
+
+The launcher uses explicit model/time/cost limits, one Claude process per task,
+JSON-schema checkpoints, real event heartbeats, escaped standalone HTML and a
+single-run lock. It stops on failures/uncertain checkpoints. Cost is a CLI estimate,
+not account balance. Defaults and start/status/stop controls are in HANDOVER.
+Self-review remains self-review; no independent review or all-work-done claim.
+Bootstrap document check: `pnpm exec vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` passed (1 file, 5 tests,
+exit 0) under a 120-second process-group limit. Documentation evidence only.
+Next: launch the autonomous batch and let Claude own subsequent source/doc edits.
+
+## 2026-10-17 — Claude CLI read-only review trial
+
+Owner authorized a `claude -p` review of the six already staged `room-cwd`,
+`room-post-budget` and `room-turn-end` source/test deletions, then relaxed the
+initial US$1 cap. The wrapper used explicit `--model claude-opus-5-5`, a US$10
+ceiling, only Read/Glob/Grep/Bash tools, narrow read-only Bash allow rules,
+`--permission-mode dontAsk` and `--strict-mcp-config`. No code changes, tests,
+builds, app launches, credential inspection, delegation or commits were assigned.
+
+- `python3 /tmp/colonie-claude-review.py`: stopped its owned process group at
+  300 seconds (CLI exit 143). Its exact session log showed compound/`git -C`
+  commands denied by the narrow rules, followed by API `ECONNRESET`. No final
+  report; this attempt was incomplete, not a successful review.
+- `python3 /tmp/colonie-claude-review-retry.py`: resumed the same session with
+  authoritative `git diff --cached` evidence and a four-call follow-up limit.
+  Streaming output captured Grep/Read use and a successful final result (exit 0,
+  `is_error: false`, no permission denials). CLI reported cumulative session
+  estimate US$0.4633938 and model `claude-opus-5-5`; this is not billing proof.
+- Both wrappers compared Git status and SHA-256 hashes of the staged and
+  unstaged diffs before/after: identical, preserving all six staged deletions.
+  Review artifacts are temporary files under `/tmp/colonie-claude-room-review*`.
+
+No deletion regression was identified. Parent source checks confirmed no remaining
+references to these modules or exports, and that the deleted tests cover the
+retired room contracts. The report's claim that room tools are still offered to
+models was too broad: definitions/callers remain in `drivers/agents-*`, but
+`AcpRuntime.capabilities` has no `agentsMcp`, and `index.ts` gates that integration
+on `agentsMcp === true`. `roomPosts` has only its declaration; `personAskAt` still
+has set/delete calls but no value reader. These are existing cleanup candidates,
+not regressions from the six deletions. No compile/runtime proof was obtained.
+
+Next: continue rooms retirement stage 3b part 2; keep code checks scoped to that
+change. This trial establishes CLI context pickup and a reviewed static report,
+not unattended implementation or complete M0 acceptance.
+
+Parent checkpoint verification: `pnpm exec vitest run
+scripts/testing/verification-docs.test.ts --maxWorkers=1` under the Node 24 PATH
+and a 120-second owned-process limit passed (1 file, 5 tests, 348 ms, exit 0).
+`git diff --check -- docs/HANDOVER.md docs/PROGRESS.md` passed. These checks cover
+the documentation checkpoint only; application source and the index were not edited.
+
 ## 2026-10-17 — rooms retirement, stage 3b part 2 (dead room turn state out of `server/index.ts`)
 
 Removed the two room-turn guards in the runtime fold that can no longer fire:
@@ -93,7 +730,7 @@ callbacks are inert, and the group turn engine plus its callers
   The 07:44–07:47 writes came from concurrent opencode sessions on other models
   (`glm-5.3-flash-free`, `beam-free`, `muse-spark-1.3-contributor`), which is why the
   file changed during the repair. Their sound removals are kept.
-- Method: the working tree was being written by other sessions in this checkout, so
+- Method: the working tree was being written by other sessions in this checkout, so any
   the file was hash-sampled until stable (last write 07:47:42) before editing, and
   the pre-edit copy is kept under the session scratch dir. Not run: the full suite,
   the remaining native-fixture e2e migrations, the renderer, packaging.
@@ -805,3 +1442,12 @@ concurrent root/source edits were not made or reverted by this task.
 
 Perform the read-only architecture audit: one responsibility diagram, a current-code
 retain/adapt/remove map, and one bounded first-change proposal. Preserve the native UI.
+
+## 2026-10-17 — rooms retirement, iteration 3 (server wave 7)
+
+Resumed server/renderer/tests lanes after the stop. Server worker found its
+paths already retired and made no edits. Coordinator checks after integration:
+`pnpm exec tsc --noEmit -p tsconfig.json` passed; vitest (store, package-import,
+direct-handoffs, routines, routine-requests, delegations, bot-visibility, config,
+index-route-ratchet) 9 files / 622 tests passed. Renderer wave 10 and tests wave 9
+still running at this checkpoint, not integrated.

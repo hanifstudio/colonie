@@ -1,5 +1,7 @@
 // One owned fake-engine fixture. This command accepts no live server URL.
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { launchVerificationServer, runControlColonie } from "./control-colonie.ts";
 import { request } from "./mcp-server.ts";
@@ -20,7 +22,6 @@ export async function verifyTeamBackup(report: (event: unknown) => void = () => 
     assert.equal(doctor.ok, true);
     const { bot } = await command("new-bot", "--name", "Backup probe", "--section", "Original team") as { bot: { id: string } };
     await request(`/api/bots/${bot.id}`, { method: "PATCH", body: JSON.stringify({ chiefOfStaff: true }) }, url);
-    await post("/api/groups", { name: "Existing room", memberIds: [bot.id], section: "Original team" });
     const soul = "Keep the fixture's standing instructions. 🐭\n";
     await request(`/api/bots/${bot.id}/profile`, { method: "PATCH", body: JSON.stringify({ soul }) }, url);
     report({ command: "save standing instructions", botId: bot.id, soul });
@@ -39,10 +40,11 @@ export async function verifyTeamBackup(report: (event: unknown) => void = () => 
     assert.equal(added.soul, soul);
     const after = await request("/api/bots", {}, url);
     for (const existing of before.bots) assert.deepEqual(after.bots.find((candidate: { id: string }) => candidate.id === existing.id), existing);
-    for (const existing of before.groups) assert.deepEqual(after.groups.find((candidate: { id: string }) => candidate.id === existing.id), existing);
+    // Rooms are retired: the server never writes a room registry.
+    assert.equal(existsSync(join(fixture.info.dataDir, "groups.json")), false);
     assert.deepEqual(await command("messages", "--bot", bot.id, "--limit", "10"), transcript);
     const old = before.bots.find((candidate: { id: string }) => candidate.id === bot.id);
-    assert.ok(old.messages.some((message: { role: string; kind: string; text?: string }) => message.role === "bot" && message.kind === "text" && message.text?.includes("hello from fake claude")));
+    assert.ok(old.messages.some((message: { role: string; kind: string; text?: string }) => message.role === "bot" && message.kind === "text" && message.text?.includes("hello from fake acp")));
     for (const message of old.messages.filter((message: { kind: string }) => message.kind === "text")) {
       assert.ok(added.messages.some((copy: { text: string; id: string }) => copy.text === message.text && copy.id !== message.id));
     }
@@ -72,19 +74,18 @@ export async function verifyTeamBackup(report: (event: unknown) => void = () => 
       const section = `Fixture manifest ${index + 2}`;
       assert.ok(result.bots.length > 0);
       assert.ok(result.bots.every((candidate: { section?: string; messages: unknown[] }) => candidate.section === section && candidate.messages.length === 0));
-      assert.ok(result.groups.every((candidate: { section?: string }) => candidate.section === section));
-      if (example.format.includes("project")) assert.equal(result.group.section, section);
+      // Rooms are retired: imports keep their bots and skip their rooms.
+      if (example.format.includes("project")) assert.ok(result.skipped.some((item: { reason: string }) => item.reason === "rooms_not_supported"));
       const current = await request("/api/bots", {}, url);
       assert.equal(current.bots.length, existing.bots.length + result.bots.length);
-      assert.equal(current.groups.length, existing.groups.length + result.groups.length);
       for (const value of existing.bots) assert.deepEqual(current.bots.find((candidate: { id: string }) => candidate.id === value.id), value);
-      for (const value of existing.groups) assert.deepEqual(current.groups.find((candidate: { id: string }) => candidate.id === value.id), value);
+      assert.equal(existsSync(join(fixture.info.dataDir, "groups.json")), false);
       assert.deepEqual(await command("messages", "--bot", bot.id, "--limit", "10"), transcript);
-      report({ command: "import template", format: example.format, section, existingBotsKept: existing.bots.length, existingRoomsKept: existing.groups.length });
+      report({ command: "import template", format: example.format, section, existingBotsKept: existing.bots.length });
     }
     await command("send", "--bot", fromManifest.bots[0].id, "--text", "Confirm the imported template is ready. Reply once.");
     assert.equal((await command("wait", "--bot", fromManifest.bots[0].id, "--timeout", "30") as { status: string }).status, "settled");
-    assert.ok(JSON.stringify(await command("messages", "--bot", fromManifest.bots[0].id, "--limit", "10")).includes("hello from fake claude"));
+    assert.ok(JSON.stringify(await command("messages", "--bot", fromManifest.bots[0].id, "--limit", "10")).includes("hello from fake acp"));
     // The copied history is usable for a fresh turn without resuming the
     // original provider session or altering the original bot's transcript.
     await command("send", "--bot", added.id, "--text", "Continue the imported conversation. Reply once.");

@@ -54,7 +54,7 @@ vi.mock("./MenuMotion", async (importOriginal) => ({
   useMenuMotion: (open: boolean) => ({ shown: open || fixture.helpShown, closing: false, className: "", exitProps: {} }),
 }));
 
-const { CallButton, CallTargetButton } = await import("./CallView");
+const { CallButton } = await import("./CallView");
 const { configureLiveMedia, liveMedia, resetLiveMedia } = await import("@/lib/live-call-media");
 
 const bot: Bot = {
@@ -73,11 +73,10 @@ function findButton(tree: ReactNode): ReactElement<Props> | undefined {
   }
 }
 
-function render(placement: "composer" | "header" = "composer") {
+function render() {
   let tree: ReactNode = null;
   function Capture() {
-    const element = CallButton({ bot, placement }) as ReactElement<Parameters<typeof CallTargetButton>[0]>;
-    tree = CallTargetButton(element.props);
+    tree = CallButton({ bot });
     return tree;
   }
   const html = renderToStaticMarkup(createElement(Capture));
@@ -112,7 +111,7 @@ describe("composer call button", () => {
     expect(html).not.toContain("M4.90404 10.5413");
   });
 
-  it("starts the call with the same telemetry as the header button did", () => {
+  it("starts the call with its telemetry", () => {
     render().button.props.onClick!();
     expect(fixture.track).toHaveBeenCalledWith("call_started", { driver: "codex", mode: "turns" });
     expect(fixture.startCall).toHaveBeenCalledWith("pepper");
@@ -175,14 +174,5 @@ describe("composer call button", () => {
       expect(html, host).not.toContain("Call unavailable");
       expect(html, host).not.toContain("Choose This computer");
     }
-  });
-
-  it("leaves the header placement (rooms) as it was", () => {
-    fixture.helpShown = true;
-    fixture.config = { tts: { configured: false } };
-    const { html, button } = render("header");
-    expect(String(button.props.className).split(" ")).toContain("size-9");
-    expect(html).toContain("M4.90404 10.5413");
-    expect(html).not.toMatch(/role="group" aria-label="Call unavailable" class="[^"]*\bbottom-full\b/);
   });
 });

@@ -11,24 +11,19 @@ const FLASH_CLASSES = ["ring-2", "ring-accent/70", "rounded-2xl", "transition-sh
 /** Select and prepare the exact conversation represented by a search hit. */
 export async function landOnSearchHit(
   hit: SearchHit,
-  state: Pick<AppState, "bots" | "groups">,
+  state: Pick<AppState, "bots">,
   dispatch: React.Dispatch<Action>,
 ): Promise<void> {
-  const ownerId = hit.botId ?? hit.groupId;
+  // Room hits have no view to land on since rooms were retired.
   const bot = hit.botId ? state.bots.find((candidate) => candidate.id === hit.botId) : undefined;
-  const group = hit.groupId ? state.groups.find((candidate) => candidate.id === hit.groupId) : undefined;
-  if (!ownerId || (!bot && !group)) throw new Error("That conversation is no longer available.");
+  if (!bot) throw new Error("That conversation is no longer available.");
 
-  dispatch({ type: "select", id: ownerId });
-  if (bot && bot.threadId !== hit.threadId) {
+  dispatch({ type: "select", id: bot.id });
+  if (bot.threadId !== hit.threadId) {
     const result = await api(`/api/bots/${bot.id}/tasks/${hit.threadId}`, { method: "POST" });
     if (result?.bot) dispatch({ type: "taskSwitched", bot: result.bot });
   }
-  if (group && group.threadId !== hit.threadId) {
-    const result = await api(`/api/groups/${group.id}/tasks/${hit.threadId}`, { method: "POST" });
-    if (result?.group) dispatch({ type: "groupPatched", group: result.group });
-  }
-  if (bot && !hit.onActivePath) {
+  if (!hit.onActivePath) {
     const branch = await api(`/api/bots/${bot.id}/active-branch`, {
       method: "POST",
       body: JSON.stringify({ messageId: hit.messageId }),

@@ -8,19 +8,19 @@ describe("collapsed sidebar attention", () => {
       [
         { unread: true, activity: "waiting-on-you" },
         { busy: true, activity: "working" },
+        { unread: true },
       ],
-      [{ unread: true }, { busyBotId: "writer" }],
     );
 
-    expect(attention).toEqual({ unread: 2, waiting: 1, working: 2 });
+    expect(attention).toEqual({ unread: 2, waiting: 1, working: 1 });
     expect(sidebarAttentionLabel(attention)).toBe(
-      "1 waiting for you, 2 unread, 2 working",
+      "1 waiting for you, 2 unread, 1 working",
     );
   });
 
   it("does not count a waiting bot twice as working", () => {
     expect(
-      sidebarSectionAttention([{ busy: true, activity: "waiting-on-you" }], []),
+      sidebarSectionAttention([{ busy: true, activity: "waiting-on-you" }]),
     ).toEqual({ unread: 0, waiting: 1, working: 0 });
   });
 });

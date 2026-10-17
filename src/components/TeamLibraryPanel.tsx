@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { teamImportPreview, type PendingTeamImport } from "@/lib/team-import";
 import type { Routine } from "@/lib/routines";
-import { api, useStore, type Bot, type Group } from "@/state/store";
+import { api, useStore, type Bot } from "@/state/store";
 import {
   ArrowLeft01Icon,
   BookOpen01Icon,
@@ -71,7 +71,6 @@ type TeamTab = "explore" | "import" | "scout" | "share";
 interface ScoutResult {
   profile: { name: string; summary: string; stacks: string[] };
   suggestion: {
-    roomName: string;
     manifest: {
       team: { members: Array<{ key: string; name: string; title: string; description: string; appearance: { color: string } }> };
     };
@@ -153,7 +152,7 @@ export function TeamImportDetails({ pending, importedNames }: {
       {(pending.kind === "package" || pending.kind === "backup") && (
         <div className="mt-5 flex flex-wrap gap-2 text-[11.5px] text-ink-secondary">
           {pending.chiefOfStaff && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={CrownIcon} size={13} />{pending.chiefOfStaff} leads</span>}
-          {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={MessageSquareIcon} size={13} />{pending.rooms} {pending.rooms === 1 ? "group chat" : "group chats"}</span>}
+          {!pending.library && pending.skippedRooms > 0 && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={MessageSquareIcon} size={13} />{pending.skippedRooms} {pending.skippedRooms === 1 ? "group chat" : "group chats"} skipped</span>}
           {!(pending.library && !pending.playbooks) && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={BookOpen01Icon} size={13} />{pending.playbooks} playbooks</span>}
           {!pending.library && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={CalendarClockIcon} size={13} />{pending.version === 2 ? t("teamImport.routinesPaused", { count: pending.routines }) : `${pending.routines} paused routines`}</span>}
           {pending.kind === "package" && pending.version !== 2 && <span className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5"><HIcon icon={PlugIcon} size={13} />{pending.apps.length} connections</span>}
@@ -220,7 +219,7 @@ export function TeamImportDetails({ pending, importedNames }: {
             : pending.version === 2
             ? t("teamImport.sharedTeamSafety")
             : pending.kind === "package"
-            ? "Bots, Chief of Staff, group chats, and reviewed playbooks are loaded. Suggested routines arrive paused, and connected apps stay off until you approve them. Conversations, credentials, permissions, and computer access stay private."
+            ? "Bots, Chief of Staff, and reviewed playbooks are loaded. Suggested routines arrive paused, and connected apps stay off until you approve them. Conversations, credentials, permissions, and computer access stay private."
             : "Only roles and appearance are loaded. Your conversations, account connections, permissions, and computer access stay private."}
         </p>
       </div>
@@ -259,12 +258,11 @@ export function TeamLibraryPanel({
   const [scouting, setScouting] = useState(false);
   const [scouted, setScouted] = useState<ScoutResult | null>(null);
   // the folder the current `scouted` result was actually read from — the
-  // import must pin the room to THIS, not to whatever the input says now
+  // import must pin the bots to THIS, not to whatever the input says now
   const [scoutedFolder, setScoutedFolder] = useState("");
   // null = not asked yet or still loading; [] = asked, nothing (or offline)
   const [directory, setDirectory] = useState<DirectoryCandidate[] | null>(null);
   const [pickedDirectory, setPickedDirectory] = useState<Set<string>>(new Set());
-  const [roomName, setRoomName] = useState("");
   const [creating, setCreating] = useState(false);
   // The team being shared; its dialog sits above this panel.
   const [sharing, setSharing] = useState<string | null>(null);
@@ -411,13 +409,11 @@ export function TeamLibraryPanel({
         body: JSON.stringify(pending.manifest),
       })) as {
         bots: Bot[];
-        groups?: Group[];
         routines?: Routine[];
         connections?: unknown[];
         presets?: unknown[];
       };
       for (const bot of response.bots) dispatch({ type: "botAdded", bot });
-      for (const group of response.groups ?? []) dispatch({ type: "groupPatched", group });
       for (const routine of response.routines ?? []) dispatch({ type: "routinePatched", routine });
       const first = response.bots.find((bot) => !bot.hidden);
       if (first) dispatch({ type: "select", id: first.id });
@@ -450,7 +446,6 @@ export function TeamLibraryPanel({
       if (request !== scoutRequest.current) return;
       setScouted(result);
       setScoutedFolder(folder);
-      setRoomName(result.suggestion.roomName);
       track("team_scouted", { signals: result.suggestion.manifest.team.members.length - 1 });
       // community candidates arrive lazily; an unreachable directory just
       // leaves this section empty
@@ -501,21 +496,17 @@ export function TeamLibraryPanel({
           members: [...scouted.suggestion.manifest.team.members, ...extras],
         },
       };
-      const room = roomName.trim() || scouted.suggestion.roomName;
       // SAFETY: this endpoint is owned by the app and returns imported bots.
       const response = (await api(
-        `/api/teams/import?mode=project&cwd=${encodeURIComponent(scoutedFolder)}&room=${encodeURIComponent(room)}`,
+        `/api/teams/import?mode=project&cwd=${encodeURIComponent(scoutedFolder)}`,
         { method: "POST", body: JSON.stringify(manifest) },
-      )) as { bots: Bot[]; group?: Group };
+      )) as { bots: Bot[] };
       for (const bot of response.bots) dispatch({ type: "botAdded", bot });
-      if (response.group) {
-        // upsert now instead of waiting for the SSE frame, then land in the room
-        dispatch({ type: "groupPatched", group: { ...response.group, messages: [] } });
-        dispatch({ type: "select", id: response.group.id });
-      }
+      const first = response.bots.find((bot) => !bot.hidden);
+      if (first) dispatch({ type: "select", id: first.id });
       track("team_imported", { members: response.bots.length, source: "scout", mode: "project" });
       onImported({
-        name: room,
+        name: scouted.profile.name,
         members: response.bots.length,
       });
     } catch (cause) {
@@ -979,23 +970,17 @@ export function TeamLibraryPanel({
                       )}
 
                       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <input
-                          value={roomName}
-                          onChange={(event) => setRoomName(event.target.value)}
-                          aria-label="Group chat name"
-                          className="min-w-0 flex-1 rounded-xl bg-raised/80 px-3 py-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none"
-                        />
                         <button
                           onClick={() => void createProject()}
                           disabled={creating}
                           className="flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent/90 disabled:opacity-60"
                         >
                           {creating && <HIcon icon={Loading02Icon} size={15} className="animate-spin" />}
-                          {creating ? "Creating…" : "Create group chat"}
+                          {creating ? "Adding…" : "Add these bots"}
                         </button>
                       </div>
                       <p className="mt-2 text-[12px] text-ink-secondary">
-                        Creates the team as new bots, opens a group chat for them, and points its working folder here.
+                        Adds the team as new bots.
                       </p>
                     </div>
                   )}

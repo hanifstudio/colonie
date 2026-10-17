@@ -28,9 +28,6 @@ const BROWSER_PROFILE_ID = /^[a-z0-9_-]{1,40}$/;
 export const FISH_TTS_MODELS = ["s2.1-pro", "s2.1-pro-free"] as const;
 export type FishTtsModel = (typeof FISH_TTS_MODELS)[number];
 
-export const DEFAULT_ROOM_TURN_TIMEOUT_MINUTES = 5;
-export const MIN_ROOM_TURN_TIMEOUT_MINUTES = 1;
-export const MAX_ROOM_TURN_TIMEOUT_MINUTES = 1_440;
 /** Per-call ceiling for a bot's MCP tools (tools/call on the chat MCP
  * transport). 10 minutes matches the historic constant in
  * chat-mcp-tools.ts; a single tool call that runs longer is cut at this
@@ -38,9 +35,6 @@ export const MAX_ROOM_TURN_TIMEOUT_MINUTES = 1_440;
 export const DEFAULT_MCP_CALL_TIMEOUT_MINUTES = 10;
 export const MIN_MCP_CALL_TIMEOUT_MINUTES = 1;
 export const MAX_MCP_CALL_TIMEOUT_MINUTES = 60;
-export const DEFAULT_ROOM_HANDOFF_LIFETIME_MINUTES = 30;
-export const DEFAULT_ROOM_HANDOFF_MIN_RUNWAY_MINUTES = 10;
-export const DEFAULT_ROOM_HANDOFF_HARD_CAP_MINUTES = 240;
 export const DEFAULT_MAX_CONCURRENT_BOT_THREADS = 3;
 export const MAX_CONCURRENT_BOT_THREADS = 10;
 /** Bounds for threads.eventLogMaxBytes: the floor keeps the kept tail large
@@ -82,26 +76,6 @@ const browserEngineConfigSchema = z.object({
     message: "browserEngine.attachCdpUrl must be a CDP port (1-65535) or an http(s)/ws(s) URL",
   }).optional(),
 });
-const roomConfigSchema = z.object({
-  turnTimeoutMinutes: z
-    .number()
-    .int()
-    .min(MIN_ROOM_TURN_TIMEOUT_MINUTES)
-    .max(MAX_ROOM_TURN_TIMEOUT_MINUTES),
-  /** Room handoff tree lifetime. Active execution pauses this clock; the
-   * hard cap is the maximum stall window, measured wall-clock from the
-   * tree's last durable progress. */
-  handoffLifetimeMinutes: z.number().int().min(1).max(MAX_ROOM_TURN_TIMEOUT_MINUTES).optional(),
-  handoffMinRunwayMinutes: z.number().int().min(1).max(MAX_ROOM_TURN_TIMEOUT_MINUTES).optional(),
-  handoffHardCapMinutes: z.number().int().min(1).max(7 * MAX_ROOM_TURN_TIMEOUT_MINUTES).optional(),
-}).refine(
-  (rooms) =>
-    (rooms.handoffMinRunwayMinutes ?? DEFAULT_ROOM_HANDOFF_MIN_RUNWAY_MINUTES) <=
-      (rooms.handoffLifetimeMinutes ?? DEFAULT_ROOM_HANDOFF_LIFETIME_MINUTES) &&
-    (rooms.handoffLifetimeMinutes ?? DEFAULT_ROOM_HANDOFF_LIFETIME_MINUTES) <=
-      (rooms.handoffHardCapMinutes ?? DEFAULT_ROOM_HANDOFF_HARD_CAP_MINUTES),
-  { message: "rooms handoff bounds must satisfy handoffMinRunwayMinutes <= handoffLifetimeMinutes <= handoffHardCapMinutes" },
-);
 const mcpConfigSchema = z.object({
   /** Ceiling (minutes) for one bot MCP tool call. Missing values resolve to
    * 10, preserving the historic chat-mcp-tools constant. */
@@ -528,7 +502,9 @@ const appConfigSchema = z.object({
   /** UI language override (BCP-47, lowercase). Empty/absent = follow the
    * system language. Unknown tags degrade to English in the renderer. */
   language: optionalText,
-  rooms: roomConfigSchema.optional(),
+  // `rooms` (turnTimeoutMinutes, handoff budgets) is retired. The top-level
+  // schema strips it, so an old config.json still loads whatever it holds,
+  // and saveConfig keeps the raw key on disk untouched.
   mcp: mcpConfigSchema.optional(),
   context: z.object({
     rebuildBytes: z.number().int().min(1_024).max(1_000_000).optional(),
@@ -616,7 +592,6 @@ export interface AppConfig {
   imageGen?: ImageGenerationConfig;
   live?: { key?: string; voice?: string; readTypedReplies?: boolean; idleMinutes?: number };
   profile?: { name?: string; email?: string; aboutMe?: string };
-  rooms?: { turnTimeoutMinutes: number; handoffLifetimeMinutes?: number; handoffMinRunwayMinutes?: number; handoffHardCapMinutes?: number };
   mcp?: { callTimeoutMinutes?: number };
   threads?: { maxConcurrentPerBot: number; eventLogMaxBytes?: number; eventLogRetentionDays?: number };
   context?: { rebuildBytes?: number; compactAt?: number; autoCompact?: boolean };
@@ -750,10 +725,6 @@ export function browserEngineAttachCdpUrl(cfg: AppConfig): string | null {
   return isValidCdpTarget(cfg.browserEngine?.attachCdpUrl) ? cfg.browserEngine.attachCdpUrl : null;
 }
 
-export function roomTurnTimeoutMinutes(cfg: AppConfig): number {
-  return cfg.rooms?.turnTimeoutMinutes ?? DEFAULT_ROOM_TURN_TIMEOUT_MINUTES;
-}
-
 export function mcpCallTimeoutMinutes(cfg: AppConfig): number {
   return cfg.mcp?.callTimeoutMinutes ?? DEFAULT_MCP_CALL_TIMEOUT_MINUTES;
 }
@@ -768,24 +739,6 @@ export function liveSettingsFor(cfg: AppConfig): LiveSettings {
     voice: cfg.live?.voice ?? "",
     readTypedReplies: cfg.live?.readTypedReplies ?? true,
     idleMinutes: Number.isInteger(minutes) && minutes! >= 1 && minutes! <= 60 ? minutes! : LIVE_IDLE_MINUTES_DEFAULT,
-  };
-}
-
-export interface RoomHandoffLimitsMs {
-  lifetimeMs: number;
-  minRunwayMs: number;
-  hardCapMs: number;
-}
-
-/** Room handoff tree budgets in milliseconds. The tree lifetime pauses
- * while a node is actively executing; the hard cap is the maximum stall
- * window, measured wall-clock from the tree's last durable progress. Read
- * when the server starts. */
-export function roomHandoffLimits(cfg: AppConfig): RoomHandoffLimitsMs {
-  return {
-    lifetimeMs: (cfg.rooms?.handoffLifetimeMinutes ?? DEFAULT_ROOM_HANDOFF_LIFETIME_MINUTES) * 60_000,
-    minRunwayMs: (cfg.rooms?.handoffMinRunwayMinutes ?? DEFAULT_ROOM_HANDOFF_MIN_RUNWAY_MINUTES) * 60_000,
-    hardCapMs: (cfg.rooms?.handoffHardCapMinutes ?? DEFAULT_ROOM_HANDOFF_HARD_CAP_MINUTES) * 60_000,
   };
 }
 
@@ -913,7 +866,6 @@ export const FLEET_NEUTRAL_KEYS: ReadonlySet<string> = new Set([
   "decider",
   "imageGen",
   "live",
-  "rooms",
   "threads",
   "automaticRecovery",
   "context",
@@ -1341,7 +1293,7 @@ export function saveConfig(
   // back after we have successfully recognized the legacy list.
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "onboarding", "browserEngine", "newBots"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "onboarding", "browserEngine", "newBots"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

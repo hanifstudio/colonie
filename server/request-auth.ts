@@ -332,15 +332,7 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET"], path: /^\/api\/bots\/[\w-]+\/connector-cards\/[\w-]+\/status$/ },
   { methods: ["POST"], path: /^\/api\/bots\/[\w-]+\/connector-cards\/[\w-]+\/(?:resume|dismiss)$/ },
   { methods: ["POST"], path: /^\/api\/bots\/[\w-]+\/always-allow$/ }, // must match a pending card
-  // rooms
-  { methods: ["POST"], path: /^\/api\/groups$/ },
-  { methods: ["POST"], path: /^\/api\/groups\/[\w-]+\/messages$/ },
-  { methods: ["POST"], path: /^\/api\/groups\/[\w-]+\/interrupt$/ },
-  { methods: ["POST"], path: /^\/api\/groups\/[\w-]+\/read$/ },
-  { methods: ["DELETE"], path: /^\/api\/groups\/[\w-]+\/queue\/[\w-]+$/ },
-  { methods: ["POST"], path: /^\/api\/groups\/[\w-]+\/tasks$/ },
-  { methods: ["POST", "PATCH", "DELETE"], path: /^\/api\/groups\/[\w-]+\/tasks\/[\w-]+$/ },
-  { methods: ["PATCH"], path: /^\/api\/groups\/[\w-]+$/ }, // display fields only: see clientGroupPatchViolation
+  // reactions
   { methods: ["POST"], path: /^\/api\/threads\/[\w-]+\/messages\/[\w-]+\/reactions$/ },
   // attachments
   { methods: ["POST"], path: /^\/api\/attachments$/ },
@@ -378,14 +370,6 @@ const CLIENT_BOT_PATCH_FIELDS = new Set(["unread", "pinned", "pinnedMessageId", 
 export function clientBotPatchViolation(body: unknown): string | null {
   if (!body || typeof body !== "object" || Array.isArray(body)) return "body";
   for (const key of Object.keys(body)) if (!CLIENT_BOT_PATCH_FIELDS.has(key)) return key;
-  return null;
-}
-
-/** Same for a room: name and reading state, never its folder or who answers. */
-const CLIENT_GROUP_PATCH_FIELDS = new Set(["name", "bulletin", "unread", "pinnedMessageId", "section", "turnTimeoutMinutes"]);
-export function clientGroupPatchViolation(body: unknown): string | null {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return "body";
-  for (const key of Object.keys(body)) if (!CLIENT_GROUP_PATCH_FIELDS.has(key)) return key;
   return null;
 }
 

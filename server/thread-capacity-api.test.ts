@@ -1,28 +1,52 @@
-// Real provider processes with independent per-thread gates, under the same
-// disposable-home launcher used by the independent-threads API fixture.
-import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+// Per-bot thread capacity through the scripted ACP fixture: every turn is held
+// at a FAKE_ACP_GATE_DIR gate (server/testing/fake-acp-gates.ts) until the
+// test releases it, under the same disposable-home launcher used by the
+// independent-threads API fixture. Each thread's turns run from its own task
+// folder, so a gate's cwd names the thread it belongs to.
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { createInterface } from "node:readline";
-import { pathToFileURL } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { launchVerificationServer, type VerificationServer } from "../scripts/control-colonie.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { gateEvents, releaseAllGates, releaseGate, waitingGates, type FakeAcpGate } from "./testing/fake-acp-gates.ts";
 import { openSse } from "./testing/sse.ts";
 
 describe("per-bot thread capacity through an isolated HTTP fixture", () => {
-  let fixture: VerificationServer;
-  let model: string;
+  let fixture: VerificationServer | undefined;
+  let gates: string;
   let evidence: unknown[];
-  const sockets: Socket[] = [];
+  let poller: ReturnType<typeof setInterval> | undefined;
+  // Every gate the test has seen, and the folders whose turns are "finished":
+  // like the old per-thread gate file, a finished folder lets its current
+  // and every later turn through.
+  let seen: FakeAcpGate[];
+  let finished: Set<string>;
   const projectDirs: string[] = [];
 
+  const folderOf = (gate: FakeAcpGate) => basename(gate.cwd);
+  const record = () => {
+    for (const gate of waitingGates(gates)) {
+      if (!seen.some((known) => known.key === gate.key)) seen.push(gate);
+      if (finished.has(folderOf(gate))) releaseGate(gates, gate.key);
+    }
+  };
+  const start = async (env: Record<string, string> = {}) => {
+    evidence = [];
+    seen = [];
+    finished = new Set();
+    fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, undefined, [], undefined, undefined, false, {
+      fakeAcp: { env: { claude: { FAKE_ACP_UNIQUE_SESSION_IDS: "1", ...env } }, gates: true },
+    });
+    gates = fixture.info.gateDirs!.claude!;
+    poller = setInterval(record, 20);
+  };
+
   const api = async (method: string, path: string, body?: unknown) => {
-    const response = await fetch(`${fixture.info.url}${path}`, {
+    const response = await fetch(`${fixture!.info.url}${path}`, {
       method,
-      headers: { "content-type": "application/json", origin: fixture.info.url },
+      headers: { "content-type": "application/json", origin: fixture!.info.url },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     const result = { status: response.status, body: await response.json() as any };
@@ -31,23 +55,30 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
   };
   const botState = async (botId: string) => (await api("GET", "/api/bots?messages=0")).body.bots.find((bot: any) => bot.id === botId);
   const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=50`)).body.messages as any[];
-  const threadFile = (threadId: string, extension: string) => join(fixture.info.dataDir, `${threadId}.${extension}`);
-  const dump = async (threadId: string) => {
-    let snapshot: any;
+  /** The newest turn held for this thread folder, once the engine has it. */
+  const held = async (folder: string, timeout = 15_000) => {
+    let gate: FakeAcpGate | undefined;
     await expect.poll(() => {
-      try {
-        // The CLI writes in another process: existence alone can observe an
-        // empty or partial file between open() and its completed write.
-        snapshot = JSON.parse(readFileSync(threadFile(threadId, "json"), "utf8"));
-        return true;
-      } catch (error) {
-        if (error instanceof SyntaxError || (error as NodeJS.ErrnoException).code === "ENOENT") return false;
-        throw error;
-      }
-    }, { timeout: 15_000 }).toBe(true);
-    return snapshot;
+      record();
+      gate = seen.filter((candidate) => folderOf(candidate) === folder).at(-1);
+      return Boolean(gate);
+    }, { timeout }).toBe(true);
+    return gate!;
   };
-  const finish = (threadId: string) => writeFileSync(threadFile(threadId, "gate"), "finish this isolated turn");
+  /** Whether any turn for this folder ever reached the engine. */
+  const launched = (folder: string) => {
+    record();
+    return seen.some((gate) => folderOf(gate) === folder);
+  };
+  const finish = (folder: string) => {
+    finished.add(folder);
+    record();
+  };
+  /** The turn is still held at its gate, in a live engine process. */
+  const stillWorking = (gate: FakeAcpGate) => {
+    expect(() => process.kill(gate.pid, 0)).not.toThrow();
+    expect(gateEvents(gates).filter((event) => event.key === gate.key).map((event) => event.event)).toEqual(["waiting"]);
+  };
   const busyThreads = async (botId: string) => (await botState(botId)).tasks.filter((task: any) => task.busy).map((task: any) => task.threadId) as string[];
   const send = (botId: string, threadId: string, text: string, sendId?: string) => api("POST", `/api/bots/${botId}/messages`, { threadId, text, sendId });
   const limit = async (maxConcurrentPerBot: number) => {
@@ -57,7 +88,7 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     return result;
   };
   const botWithThreads = async (count: number) => {
-    const created = await api("POST", "/api/bots", { name: "Capacity fixture", modelSelection: { instanceId: "claude", model } });
+    const created = await api("POST", "/api/bots", { name: "Capacity fixture" });
     expect(created.status).toBe(201);
     const bot = created.body.bot;
     const threads = [bot.threadId as string];
@@ -68,60 +99,24 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     }
     return { botId: bot.id as string, threads };
   };
-  const capabilityStatus = async (launched: any) => {
-    const response = await fetch(`${fixture.info.url}/api/internal/agents`, {
-      headers: { authorization: `Bearer ${launched.mcpConfig.mcpServers.agents.env.COLONIE_COMMS_TOKEN}` },
-    });
-    await response.arrayBuffer();
-    // The evidence records the authorization result, never the bearer token.
-    evidence.push({ authority: "existing provider capability", path: "/api/internal/agents", status: response.status, pid: launched.pid });
-    return response.status;
-  };
-  const permission = async (threadId: string, requestId: string) => {
-    const launched = await dump(threadId);
-    const socket = connect(launched.mcpConfig.mcpServers.colonie.args.at(-1));
-    sockets.push(socket);
-    await new Promise<void>((resolve, reject) => {
-      socket.once("connect", resolve);
-      socket.once("error", reject);
-    });
-    const answers: any[] = [];
-    createInterface({ input: socket }).on("line", (line) => answers.push(JSON.parse(line)));
-    socket.write(`${JSON.stringify({ t: "ask", id: requestId, kind: "permission", tool: "Bash", input: { command: "ls -la ./dist" } })}\n`);
-    return answers;
-  };
-
-  beforeEach(async () => {
-    evidence = [];
-    fixture = await launchVerificationServer();
-    const wrapper = join(fixture.info.dataDir, "capacity-claude.mjs");
-    writeFileSync(wrapper, [
-      "#!/usr/bin/env node",
-      'import { basename, join } from "node:path";',
-      'const thread = basename(process.cwd());',
-      'process.env.FAKE_CLAUDE_MODE = "slow";',
-      'process.env.COLONIE_FIXTURE_CWD = process.cwd();',
-      'process.env.COLONIE_FIXTURE_LAUNCHED_AT = String(Date.now());',
-      `process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".gate");`,
-      `process.env.FAKE_CLAUDE_DUMP = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".json");`,
-      `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href)});`,
-    ].join("\n"), { mode: 0o700 });
-    expect((await api("PATCH", "/api/instances/claude", { cli: wrapper })).status).toBe(200);
-    const instance = (await api("GET", "/api/instances")).body.instances.find((candidate: any) => candidate.instanceId === "claude");
-    model = instance.models.options[0].id;
-  }, 30_000);
+  const pendingCard = async (threadId: string) =>
+    (await messages(threadId)).find((message) => message.card?.requestId && !message.card.answered && !message.card.dismissed)?.card;
 
   afterEach(async () => {
-    for (const socket of sockets.splice(0)) socket.destroy();
+    if (poller) clearInterval(poller);
+    poller = undefined;
     if (!fixture) return;
+    releaseAllGates(gates);
     const evidencePath = `${fixture.info.logPath}.capacity.json`;
-    writeFileSync(evidencePath, JSON.stringify({ fixture: fixture.info, requests: evidence }, null, 2));
+    writeFileSync(evidencePath, JSON.stringify({ fixture: fixture.info, gates: seen, requests: evidence }, null, 2));
     console.info(JSON.stringify({ ...fixture.info, evidencePath }));
     await fixture.close();
+    fixture = undefined;
     for (const project of projectDirs.splice(0)) await removeTempDir(project);
   });
 
-  it("defaults to three, runs ten real turns after raising the limit, and safely queues and cancels overflow", async () => {
+  it("defaults to three, runs ten turns after raising the limit, and safely queues and cancels overflow", async () => {
+    await start();
     expect((await api("GET", "/api/config")).body.threads).toEqual({ maxConcurrentPerBot: 3 });
     for (const maxConcurrentPerBot of [0, 11, 1.5, "2", null]) {
       expect((await api("PATCH", "/api/config", { threads: { maxConcurrentPerBot } })).status).toBe(400);
@@ -131,26 +126,27 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     const firstThree = await Promise.all(threads.slice(0, 3).map((threadId, i) => send(botId, threadId, `ACTIVE_${i}`)));
     expect(firstThree.map((result) => result.status)).toEqual([202, 202, 202]);
     expect(firstThree.every((result) => !result.body.queued)).toBe(true);
-    const initialProcesses = await Promise.all(threads.slice(0, 3).map(dump));
+    const initialTurns = await Promise.all(threads.slice(0, 3).map((threadId) => held(threadId)));
     expect(await busyThreads(botId)).toHaveLength(3);
     const fourth = await send(botId, threads[3], "FOURTH_AFTER_RAISE", "capacity_default_fourth");
     expect(fourth.status).toBe(202);
     expect(fourth.body).toMatchObject({ queued: true, reason: "capacity", threadId: threads[3] });
     expect((await messages(threads[3])).filter((message) => message.role === "user")).toEqual([]);
-    expect(existsSync(threadFile(threads[3], "json"))).toBe(false);
+    expect(launched(threads[3])).toBe(false);
 
     await limit(10);
-    await dump(threads[3]);
+    await held(threads[3]);
     const rest = await Promise.all(threads.slice(4, 10).map((threadId, i) => send(botId, threadId, `ACTIVE_${i + 4}`)));
     expect(rest.every((result) => result.status === 202 && !result.body.queued)).toBe(true);
-    const launched = await Promise.all(threads.slice(0, 10).map(dump));
-    expect(new Set(launched.map((entry) => entry.pid)).size).toBe(10);
-    expect(new Set(launched.map((entry) => entry.env.COLONIE_FIXTURE_CWD)).size).toBe(10);
-    expect(launched.every((entry) => entry.argv[entry.argv.indexOf("--model") + 1] === model)).toBe(true);
+    const running = await Promise.all(threads.slice(0, 10).map((threadId) => held(threadId)));
+    // Ten separate engine processes and sessions, one per thread folder.
+    expect(new Set(running.map((gate) => gate.pid)).size).toBe(10);
+    expect(new Set(running.map((gate) => gate.sessionId)).size).toBe(10);
+    expect(new Set(running.map((gate) => gate.cwd)).size).toBe(10);
     expect(await busyThreads(botId)).toHaveLength(10);
-    for (const process of initialProcesses) expect(await capabilityStatus(process)).toBe(200);
-    expect(JSON.parse(readFileSync(join(fixture.info.dataDir, "config.json"), "utf8")).threads).toEqual({ maxConcurrentPerBot: 10 });
-    evidence.push({ simultaneousProviderProcesses: launched.map((entry) => ({ pid: entry.pid, cwd: entry.env.COLONIE_FIXTURE_CWD })), model });
+    for (const turn of initialTurns) stillWorking(turn);
+    expect(JSON.parse(readFileSync(join(fixture!.info.dataDir, "config.json"), "utf8")).threads).toEqual({ maxConcurrentPerBot: 10 });
+    evidence.push({ simultaneousProviderProcesses: running.map((gate) => ({ pid: gate.pid, sessionId: gate.sessionId, cwd: gate.cwd })) });
 
     const overflow = await send(botId, threads[10], "ELEVENTH_WAITING", "capacity_eleventh_retry");
     expect(overflow.status).toBe(202);
@@ -158,7 +154,7 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     expect((await send(botId, threads[10], "ELEVENTH_WAITING", "capacity_eleventh_retry")).body).toEqual(overflow.body);
     expect((await send(botId, threads[10], "CONFLICTING_RETRY", "capacity_eleventh_retry")).status).toBe(409);
     expect((await messages(threads[10])).filter((message) => message.role === "user")).toEqual([]);
-    expect(existsSync(threadFile(threads[10], "json"))).toBe(false);
+    expect(launched(threads[10])).toBe(false);
     const cancelled = await send(botId, threads[11], "TWELFTH_CANCELLED", "capacity_twelfth_cancel");
     expect(cancelled.body).toMatchObject({ queued: true, reason: "capacity" });
     expect((await api("DELETE", `/api/bots/${botId}/queue/${cancelled.body.queueId}`, { threadId: threads[10] })).status).toBe(404);
@@ -166,29 +162,30 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
 
     const other = await botWithThreads(1);
     expect((await send(other.botId, other.threads[0], "OTHER_BOT_INDEPENDENT")).body.queued).toBeUndefined();
-    await dump(other.threads[0]);
+    await held(other.threads[0]);
     expect(await busyThreads(other.botId)).toEqual(other.threads);
     expect(await busyThreads(botId)).toHaveLength(10);
 
     finish(threads[0]);
-    await dump(threads[10]);
+    expect((await held(threads[10])).text).toContain("ELEVENTH_WAITING");
     await expect.poll(() => busyThreads(botId)).toHaveLength(10);
     const drained = (await messages(threads[10])).filter((message) => message.role === "user");
     expect(drained).toHaveLength(1);
     expect(drained[0]).toMatchObject({ text: "ELEVENTH_WAITING", sendId: "capacity_eleventh_retry", queueId: overflow.body.queueId });
     expect((await messages(threads[11])).filter((message) => message.role === "user")).toEqual([]);
-    expect(existsSync(threadFile(threads[11], "json"))).toBe(false);
+    expect(launched(threads[11])).toBe(false);
     for (const threadId of [...threads.slice(1, 11), ...other.threads]) finish(threadId);
     await expect.poll(() => busyThreads(botId), { timeout: 10_000 }).toEqual([]);
     await expect.poll(() => busyThreads(other.botId), { timeout: 10_000 }).toEqual([]);
-    expect(existsSync(threadFile(threads[11], "json"))).toBe(false);
+    expect(launched(threads[11])).toBe(false);
   }, 60_000);
 
   it("dispatches routines into a free slot without waiting for whole-bot idle", async () => {
+    await start();
     await limit(2);
     const { botId, threads } = await botWithThreads(2);
     expect((await send(botId, threads[0], "HOLD_ONE_SLOT")).body.queued).toBeUndefined();
-    await dump(threads[0]);
+    await held(threads[0]);
     expect(await busyThreads(botId)).toEqual([threads[0]]);
     const created = await api("POST", "/api/routines", {
       name: "Slot dispatch probe",
@@ -203,107 +200,51 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     const routineId = created.body.routine.id;
     const runState = async (id: string) =>
       (await api("GET", "/api/routines")).body.runs.find((run: any) => run.id === id);
-    try {
-      // One busy thread, one free slot: the run must start now instead of
-      // waiting for the bot to become fully idle.
-      const first = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
-      await expect.poll(async () => (await runState(first.id))?.status, { timeout: 15_000 }).toBe("running");
-      const firstRun = await runState(first.id);
-      expect(firstRun.threadId).toBeTruthy();
-      expect(firstRun.threadId).not.toBe(threads[0]);
-      await dump(firstRun.threadId);
-      expect(await busyThreads(botId)).toHaveLength(2);
-      // Whole-bot idleness is no longer the gate: the bot flag stays busy
-      // while the scheduled run occupies the second slot.
-      expect((await botState(botId)).busy).toBe(true);
-      // At capacity the next run defers until a slot frees.
-      const second = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
-      await new Promise((resolve) => setTimeout(resolve, 1_500));
-      expect((await runState(second.id))?.status).toBe("queued");
-      finish(threads[0]);
-      await expect.poll(async () => (await runState(second.id))?.status, { timeout: 15_000 }).toBe("running");
-      const secondRun = await runState(second.id);
-      expect(secondRun.threadId).not.toBe(firstRun.threadId);
-      await dump(secondRun.threadId);
-    } finally {
-      for (const threadId of await busyThreads(botId)) finish(threadId);
-      await expect.poll(async () => (await busyThreads(botId)).length, { timeout: 15_000 }).toBe(0);
-      await api("DELETE", `/api/routines/${routineId}`).catch(() => undefined);
-      await api("DELETE", `/api/bots/${botId}`).catch(() => undefined);
-    }
-  }, 90_000);
+    // One busy thread, one free slot: the run must start now instead of
+    // waiting for the bot to become fully idle.
+    const first = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
+    await expect.poll(async () => (await runState(first.id))?.status, { timeout: 15_000 }).toBe("running");
+    const firstRun = await runState(first.id);
+    expect(firstRun.threadId).toBeTruthy();
+    expect(firstRun.threadId).not.toBe(threads[0]);
+    expect((await held(firstRun.threadId)).text).toContain("scheduled digest");
+    expect(await busyThreads(botId)).toHaveLength(2);
+    // Whole-bot idleness is no longer the gate: the bot flag stays busy
+    // while the scheduled run occupies the second slot.
+    expect((await botState(botId)).busy).toBe(true);
+    // At capacity the next run defers until a slot frees.
+    const second = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    expect((await runState(second.id))?.status).toBe("queued");
+    finish(threads[0]);
+    await expect.poll(async () => (await runState(second.id))?.status, { timeout: 15_000 }).toBe("running");
+    const secondRun = await runState(second.id);
+    expect(secondRun.threadId).not.toBe(firstRun.threadId);
+    await held(secondRun.threadId);
+    for (const threadId of await busyThreads(botId)) finish(threadId);
+    await expect.poll(async () => (await busyThreads(botId)).length, { timeout: 15_000 }).toBe(0);
+  }, 60_000);
 
   it("starts a routine in the bot's project folder while another thread works there", async () => {
+    await start();
     await limit(2);
     const project = mkdtempSync(join(tmpdir(), "colonie-collide-"));
     projectDirs.push(project);
     // Both threads below pin to this one folder (startTurn's cwd resolution
-    // for a bot with an explicit project folder), so the fake CLI's gate/dump
-    // naming (basename of its cwd) collapses to one shared key: the dump is
-    // whichever engine started last, and one gate write finishes both.
+    // for a bot with an explicit project folder), so their gates share one
+    // folder: the newest held turn is whichever started last, and finishing
+    // the folder lets both through.
     const key = basename(project);
-    let botId: string | undefined;
-    let routineId: string | undefined;
-    try {
-      ({ botId } = await botWithThreads(1));
-      const threadId = (await botState(botId)).threadId as string;
-      expect((await api("PATCH", `/api/bots/${botId}`, { cwd: project })).status).toBe(200);
-      expect((await send(botId, threadId, "HOLD_THE_FOLDER")).body.queued).toBeUndefined();
-      await expect.poll(() => busyThreads(botId!)).toEqual([threadId]);
-      await expect.poll(async () => JSON.stringify((await dump(key)).prompt), { timeout: 15_000 }).toContain("HOLD_THE_FOLDER");
-
-      const created = await api("POST", "/api/routines", {
-        name: "Workspace collision probe",
-        prompt: "Write the scheduled digest.",
-        target: "bot",
-        botId,
-        runOn: "maus",
-        enabled: true,
-        schedule: { type: "daily", time: "23:00" },
-      });
-      expect(created.status).toBe(201);
-      routineId = created.body.routine.id;
-      const runState = async (id: string) =>
-        (await api("GET", "/api/routines")).body.runs.find((run: any) => run.id === id);
-
-      // A free thread slot is all the run needs. The folder another thread
-      // works in is no reason to hold it: a bot's threads work there side by
-      // side, like several agent sessions open in one repo.
-      const run = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
-      await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("running");
-      const dispatched = await runState(run.id);
-      expect(dispatched.deferredAt).toBeUndefined();
-      expect(dispatched.error).toBeUndefined();
-      expect(dispatched.threadId).not.toBe(threadId);
-      // …in that same folder, while the first thread is still working there.
-      await expect.poll(async () => JSON.stringify((await dump(key)).prompt), { timeout: 15_000 }).toContain("scheduled digest");
-      expect((await dump(key)).cwd).toBe(realpathSync(project));
-      expect((await busyThreads(botId)).sort()).toEqual([threadId, dispatched.threadId].sort());
-
-      finish(key);
-      await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("completed");
-    } finally {
-      if (botId) {
-        finish(key);
-        await expect.poll(async () => (await busyThreads(botId!)).length, { timeout: 15_000 }).toBe(0);
-      }
-      if (routineId) await api("DELETE", `/api/routines/${routineId}`).catch(() => undefined);
-      if (botId) await api("DELETE", `/api/bots/${botId}`).catch(() => undefined);
-    }
-  }, 90_000);
-
-  it("holds routine runs behind an active group turn and starts them once it ends", async () => {
     const { botId } = await botWithThreads(1);
-    const createdRoom = await api("POST", "/api/groups", {
-      name: "Routine gate room",
-      memberIds: [botId],
-      setup: { bulletin: "Answer briefly.", defaultResponder: { kind: "member", botId } },
-    });
-    expect(createdRoom.status).toBe(201);
-    const room = createdRoom.body.group;
+    const threadId = (await botState(botId)).threadId as string;
+    expect((await api("PATCH", `/api/bots/${botId}`, { cwd: project })).status).toBe(200);
+    expect((await send(botId, threadId, "HOLD_THE_FOLDER")).body.queued).toBeUndefined();
+    await expect.poll(() => busyThreads(botId)).toEqual([threadId]);
+    expect((await held(key)).text).toContain("HOLD_THE_FOLDER");
+
     const created = await api("POST", "/api/routines", {
-      name: "Group gate probe",
-      prompt: "Write the deferred digest.",
+      name: "Workspace collision probe",
+      prompt: "Write the scheduled digest.",
       target: "bot",
       botId,
       runOn: "maus",
@@ -314,43 +255,29 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     const routineId = created.body.routine.id;
     const runState = async (id: string) =>
       (await api("GET", "/api/routines")).body.runs.find((run: any) => run.id === id);
-    const roomWorking = async () =>
-      (await api("GET", "/api/bots?messages=0")).body.groups.find((group: any) => group.id === room.id)?.working;
-    try {
-      const sent = await api("POST", `/api/groups/${room.id}/messages`, { text: "Hold the room turn open." });
-      expect(sent.status).toBe(202);
-      expect(sent.body.queued).toBeUndefined();
-      // Room turns run in the member's shared workspace, so the gated fake
-      // provider dumps and holds under the bot id, not the room thread id.
-      await dump(botId);
-      await expect.poll(roomWorking, { timeout: 15_000 }).toBe(true);
-      const run = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
-      // An active group turn blocks scheduled starts the same way it blocks
-      // every other turn kind, even with every capacity slot free: across
-      // scheduler ticks the run stays queued — deferred, not failed.
-      await new Promise((resolve) => setTimeout(resolve, 12_000));
-      const held = await runState(run.id);
-      expect(held?.status).toBe("queued");
-      expect(held?.deferredAt).toEqual(expect.any(Number));
-      // Ending the room turn releases the run into a thread of its own.
-      finish(botId);
-      await expect.poll(roomWorking, { timeout: 15_000 }).toBe(false);
-      await expect.poll(async () => (await runState(run.id))?.status, { timeout: 20_000 }).toBe("running");
-      const started = await runState(run.id);
-      expect(started.threadId).toBeTruthy();
-      expect(started.threadId).not.toBe(room.threadId);
-      await dump(started.threadId);
-    } finally {
-      finish(room.threadId);
-      for (const threadId of await busyThreads(botId)) finish(threadId);
-      await expect.poll(async () => (await busyThreads(botId)).length, { timeout: 15_000 }).toBe(0);
-      await api("DELETE", `/api/groups/${room.id}`).catch(() => undefined);
-      await api("DELETE", `/api/routines/${routineId}`).catch(() => undefined);
-      await api("DELETE", `/api/bots/${botId}`).catch(() => undefined);
-    }
-  }, 120_000);
+
+    // A free thread slot is all the run needs. The folder another thread
+    // works in is no reason to hold it: a bot's threads work there side by
+    // side, like several agent sessions open in one repo.
+    const run = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
+    await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("running");
+    const dispatched = await runState(run.id);
+    expect(dispatched.deferredAt).toBeUndefined();
+    expect(dispatched.error).toBeUndefined();
+    expect(dispatched.threadId).not.toBe(threadId);
+    // …in that same folder, while the first thread is still working there.
+    await expect.poll(async () => (await held(key)).text, { timeout: 15_000 }).toContain("scheduled digest");
+    expect(realpathSync((await held(key)).cwd)).toBe(realpathSync(project));
+    expect((await busyThreads(botId)).sort()).toEqual([threadId, dispatched.threadId].sort());
+
+    finish(key);
+    await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("completed");
+    await expect.poll(async () => (await busyThreads(botId)).length, { timeout: 15_000 }).toBe(0);
+  }, 60_000);
 
   it("dispatches delegated handoffs into the standing thread without waiting for whole-bot idle", async () => {
+    // The woken delegator's reply echoes the whole prompt its engine received.
+    await start({ FAKE_ACP_MODE: "echo-gated" });
     await limit(2);
     const target = await botWithThreads(2);
     const source = await botWithThreads(1);
@@ -366,6 +293,25 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
     expect(created.status).toBe(201);
     const routineId = created.body.routine.id;
     const runState = async (id: string) => (await api("GET", "/api/routines")).body.runs.find((run: any) => run.id === id);
+    // The internal comms capability a held turn's engine was given: the
+    // "agents" MCP entry of the session/new that opened in its folder.
+    const sessionToken = async (threadId: string) => {
+      let token: string | undefined;
+      await expect.poll(() => {
+        try {
+          const params = JSON.parse(readFileSync(`${fixture!.fixtureDumpPath}.session.json`, "utf8"));
+          if (basename(params.cwd) !== threadId) return false;
+          const agents = (params.mcpServers ?? []).find((server: any) => server.name === "agents");
+          token = agents?.env?.find((entry: any) => entry.name === "COLONIE_COMMS_TOKEN")?.value
+            ?? agents?.headers?.find((entry: any) => entry.name.toLowerCase() === "authorization")?.value?.replace(/^Bearer /, "");
+          return Boolean(token);
+        } catch (error) {
+          if (error instanceof SyntaxError || (error as NodeJS.ErrnoException).code === "ENOENT") return false;
+          throw error;
+        }
+      }, { timeout: 15_000 }).toBe(true);
+      return token!;
+    };
     // A routine turn is today's classic delegate_bot caller — a plain chat
     // turn is steered to coordinate_bots — and its held turn supplies the
     // internal comms capability that caller holds.
@@ -373,11 +319,11 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
       const run = (await api("POST", `/api/routines/${routineId}/run`)).body.run;
       await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("running");
       const started = await runState(run.id);
-      const launched = await dump(started.threadId);
-      return { runId: run.id as string, threadId: started.threadId as string, token: launched.mcpConfig.mcpServers.agents.env.COLONIE_COMMS_TOKEN as string };
+      await held(started.threadId);
+      return { runId: run.id as string, threadId: started.threadId as string, token: await sessionToken(started.threadId) };
     };
     const delegate = async (turn: { threadId: string; token: string }) => {
-      const response = await fetch(`${fixture.info.url}/api/internal/delegate-bot`, {
+      const response = await fetch(`${fixture!.info.url}/api/internal/delegate-bot`, {
         method: "POST",
         headers: {
           authorization: `Bearer ${turn.token}`,
@@ -390,12 +336,10 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
       evidence.push({ authority: "existing provider capability", path: "/api/internal/delegate-bot", threadId: turn.threadId, result });
       return result;
     };
-    // The woken delegator's reply echoes the prompt its provider received.
-    // Read it from the conversation, not the run record: a run keeps only
-    // the first 2,000 characters of its output, and the replayed history
-    // ahead of the notice (the teammate's echoed reply now includes its
-    // in-turn context note) runs past that. The notice must be the latest
-    // thing the delegator was told, after the teammate's reply.
+    // Read the woken reply from the conversation, not the run record: a run
+    // keeps only the first 2,000 characters of its output, and the replayed
+    // history ahead of the notice runs past that. The notice must be the
+    // latest thing the delegator was told, after the teammate's reply.
     const expectWokenByCompletion = async (turn: { runId: string; threadId: string }) => {
       const replies = (await messages(turn.threadId)).filter((message) => message.role === "bot" && message.kind === "text");
       const reply = String(replies.at(-1)?.text ?? "");
@@ -407,65 +351,55 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
       expect(notice).toBeGreaterThan(peerReply);
       expect(reply.slice(notice)).toMatch(/^\[A delegated task just completed\]\n\nThe task you delegated to @Capacity fixture has finished, and their reply is now in this conversation\.\n\n[^]*Do not re-delegate the same task\.$/);
     };
-    try {
-      // One busy thread, one free slot: when the delegator's turn settles
-      // and the handoff drains, it must land in the target's standing
-      // thread — its newest task thread — instead of waiting for the whole
-      // bot to go idle. Every turn here, including the agentless delegated
-      // one, runs from its thread's task folder, so the fixture's shared
-      // cwd-keyed gates cover them all.
-      expect((await send(target.botId, target.threads[0], "HOLD_ONE_SLOT")).body.queued).toBeUndefined();
-      await dump(target.threads[0]);
-      expect(await busyThreads(target.botId)).toEqual([target.threads[0]]);
-      expect((await botState(target.botId)).busy).toBe(true);
+    // One busy thread, one free slot: when the delegator's turn settles and
+    // the handoff drains, it must land in the target's standing thread — its
+    // newest task thread — instead of waiting for the whole bot to go idle.
+    expect((await send(target.botId, target.threads[0], "HOLD_ONE_SLOT")).body.queued).toBeUndefined();
+    await held(target.threads[0]);
+    expect(await busyThreads(target.botId)).toEqual([target.threads[0]]);
+    expect((await botState(target.botId)).busy).toBe(true);
 
-      const first = await delegatorTurn();
-      const queued = await delegate(first);
-      expect(queued.status).toBe(200);
-      expect(queued.body).toMatchObject({ queued: true, taskId: expect.any(String) });
-      finish(first.threadId);
-      await dump(target.threads[1]);
-      // The busy list orders by recent activity, not thread creation.
-      expect((await busyThreads(target.botId)).sort()).toEqual([...target.threads].sort());
-      expect((await botState(target.botId)).busy).toBe(true);
+    const first = await delegatorTurn();
+    const queued = await delegate(first);
+    expect(queued.status).toBe(200);
+    expect(queued.body).toMatchObject({ queued: true, taskId: expect.any(String) });
+    finish(first.threadId);
+    await held(target.threads[1]);
+    // The busy list orders by recent activity, not thread creation.
+    expect((await busyThreads(target.botId)).sort()).toEqual([...target.threads].sort());
+    expect((await botState(target.botId)).busy).toBe(true);
 
-      // Standing thread busy and capacity full: the next handoff holds with
-      // a visible wait instead of dispatching.
-      const second = await delegatorTurn();
-      const held = await delegate(second);
-      expect(held.body).toMatchObject({ queued: true, taskId: expect.any(String) });
-      finish(second.threadId);
-      await expect.poll(async () => (await runState(second.runId))?.status, { timeout: 15_000 }).toBe("waiting");
-      expect((await messages(second.threadId)).some((message) => message.kind === "activity" && message.tool?.name?.includes("waiting — they're busy"))).toBe(true);
-      expect((await busyThreads(target.botId)).sort()).toEqual([...target.threads].sort());
+    // Standing thread busy and capacity full: the next handoff holds with a
+    // visible wait instead of dispatching.
+    const second = await delegatorTurn();
+    const waiting = await delegate(second);
+    expect(waiting.body).toMatchObject({ queued: true, taskId: expect.any(String) });
+    finish(second.threadId);
+    await expect.poll(async () => (await runState(second.runId))?.status, { timeout: 15_000 }).toBe("waiting");
+    expect((await messages(second.threadId)).some((message) => message.kind === "activity" && message.tool?.name?.includes("waiting — they're busy"))).toBe(true);
+    expect((await busyThreads(target.botId)).sort()).toEqual([...target.threads].sort());
 
-      // The standing thread frees while the other stays busy: the held
-      // handoff re-tests its own admission and moves — the whole-bot busy
-      // flag is never the gate. Its turn lands in the just-freed thread,
-      // whose gate is already down, so it settles and wakes the delegator.
-      finish(target.threads[1]);
-      await expect.poll(async () => (await runState(second.runId))?.status, { timeout: 20_000 }).toBe("completed");
-      expect(await busyThreads(target.botId)).toEqual([target.threads[0]]);
-      await expectWokenByCompletion(second);
-      await expect.poll(async () => (await runState(first.runId))?.status, { timeout: 15_000 }).toBe("completed");
-      await expectWokenByCompletion(first);
-    } finally {
-      for (const bot of [target, source]) {
-        for (const threadId of await busyThreads(bot.botId)) finish(threadId);
-      }
-      await expect.poll(async () => (await busyThreads(target.botId)).length + (await busyThreads(source.botId)).length, { timeout: 15_000 }).toBe(0);
-      await api("DELETE", `/api/routines/${routineId}`).catch(() => undefined);
-      await api("DELETE", `/api/bots/${target.botId}`).catch(() => undefined);
-      await api("DELETE", `/api/bots/${source.botId}`).catch(() => undefined);
-    }
-  }, 150_000);
+    // The standing thread frees while the other stays busy: the held handoff
+    // re-tests its own admission and moves — the whole-bot busy flag is never
+    // the gate. Its turn lands in the just-freed thread, whose folder is
+    // already finished, so it settles and wakes the delegator.
+    finish(target.threads[1]);
+    await expect.poll(async () => (await runState(second.runId))?.status, { timeout: 20_000 }).toBe("completed");
+    expect(await busyThreads(target.botId)).toEqual([target.threads[0]]);
+    await expectWokenByCompletion(second);
+    await expect.poll(async () => (await runState(first.runId))?.status, { timeout: 15_000 }).toBe("completed");
+    await expectWokenByCompletion(first);
+    finish(target.threads[0]);
+    await expect.poll(async () => (await busyThreads(target.botId)).length + (await busyThreads(source.botId)).length, { timeout: 15_000 }).toBe(0);
+  }, 90_000);
 
   it("restores cancellable queued receipts from a fresh snapshot and broadcasts complete queue changes", async () => {
+    await start();
     await limit(1);
     const { botId, threads: [active, waiting, cancelled, deleted] } = await botWithThreads(4);
     expect((await send(botId, active, "ACTIVE_DURING_RELOAD")).body.queued).toBeUndefined();
-    await dump(active);
-    const events = await openSse(`${fixture.info.url}/api/events`);
+    await held(active);
+    const events = await openSse(`${fixture!.info.url}/api/events`);
     try {
       const queued = await send(botId, waiting, "RESTORE_AFTER_RELOAD", "reload_queue_receipt");
       expect(queued.body).toMatchObject({ queued: true, reason: "capacity", threadId: waiting });
@@ -489,15 +423,15 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
       expect((await api("GET", "/api/bots")).body.botQueuedMessages).toEqual({ [waiting]: [receipt] });
 
       finish(active);
-      await dump(waiting);
+      expect((await held(waiting)).text).toContain(receipt.text);
       expect((await events.until((frame) => frame.kind === "bot.queued" && frame.seq > beforeDelete.seq && Object.keys(frame.queues).length === 0)).queues).toEqual({});
       expect((await api("GET", "/api/bots")).body.botQueuedMessages).toEqual({});
       expect((await messages(waiting)).filter((message) => message.role === "user")).toEqual([
         expect.objectContaining({ text: receipt.text, queueId: receipt.queueId }),
       ]);
       expect((await messages(cancelled)).filter((message) => message.role === "user")).toEqual([]);
-      expect(existsSync(threadFile(cancelled, "json"))).toBe(false);
-      expect(existsSync(threadFile(deleted, "json"))).toBe(false);
+      expect(launched(cancelled)).toBe(false);
+      expect(launched(deleted)).toBe(false);
       finish(waiting);
       await expect.poll(() => busyThreads(botId)).toEqual([]);
       evidence.push({ queueEvents: events.frames.filter((frame) => frame.kind === "bot.queued") });
@@ -505,12 +439,20 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
   }, 30_000);
 
   it("counts approval waits, drains FIFO when raised or a turn finishes, and preserves active work when lowered", async () => {
+    // Every turn asks for a tool approval once its gate opens. Only the first
+    // thread asks the person; the others run with full access.
+    await start({ FAKE_ACP_MODE: "permission" });
     await limit(1);
     const { botId, threads: [first, second, third, fourth] } = await botWithThreads(4);
     expect((await api("PATCH", `/api/bots/${botId}/tasks/${first}`, { approvalMode: "ask" })).status).toBe(200);
+    for (const threadId of [second, third, fourth]) {
+      expect((await api("PATCH", `/api/bots/${botId}/tasks/${threadId}`, { approvalMode: "full" })).status).toBe(200);
+    }
+    finish(first);
     expect((await send(botId, first, "APPROVAL_HOLDS_SLOT")).body.queued).toBeUndefined();
-    const launchedFirst = await dump(first);
-    const answers = await permission(first, "capacity-approval");
+    const launchedFirst = await held(first);
+    await expect.poll(() => pendingCard(first), { timeout: 15_000 }).toBeTruthy();
+    const card = await pendingCard(first);
     await expect.poll(async () => (await botState(botId)).tasks.find((task: any) => task.threadId === first).activity).toBe("waiting-on-you");
     expect(await busyThreads(botId)).toEqual([first]);
     const queued = [];
@@ -519,44 +461,39 @@ describe("per-bot thread capacity through an isolated HTTP fixture", () => {
       expect(result.body).toMatchObject({ queued: true, reason: "capacity" });
       queued.push(result.body.queueId);
       expect((await messages(threadId)).filter((message) => message.role === "user")).toEqual([]);
-      expect(existsSync(threadFile(threadId, "json"))).toBe(false);
+      expect(launched(threadId)).toBe(false);
     }
-    expect(answers).toEqual([]);
 
     await limit(2);
-    const launchedSecond = await dump(second);
+    const launchedSecond = await held(second);
     await expect.poll(() => busyThreads(botId)).toHaveLength(2);
-    expect(await capabilityStatus(launchedFirst)).toBe(200);
+    expect(() => process.kill(launchedFirst.pid, 0)).not.toThrow();
     expect((await botState(botId)).tasks.find((task: any) => task.threadId === first).activity).toBe("waiting-on-you");
-    expect(existsSync(threadFile(third, "json"))).toBe(false);
-    expect(existsSync(threadFile(fourth, "json"))).toBe(false);
+    expect(launched(third)).toBe(false);
+    expect(launched(fourth)).toBe(false);
 
+    // Lowering the limit stops nothing that is already running.
     await limit(1);
     expect(await busyThreads(botId)).toHaveLength(2);
-    expect(await capabilityStatus(launchedFirst)).toBe(200);
-    expect(await capabilityStatus(launchedSecond)).toBe(200);
     expect(() => process.kill(launchedFirst.pid, 0)).not.toThrow();
-    expect(() => process.kill(launchedSecond.pid, 0)).not.toThrow();
+    stillWorking(launchedSecond);
+    expect(await pendingCard(first)).toMatchObject({ requestId: card.requestId });
     finish(second);
     await expect.poll(() => busyThreads(botId)).toEqual([first]);
-    expect(existsSync(threadFile(third, "json"))).toBe(false);
+    expect(launched(third)).toBe(false);
     expect((await messages(third)).filter((message) => message.role === "user")).toEqual([]);
-    expect(answers).toEqual([]);
-    const response = await api("POST", `/api/bots/${botId}/respond`, { threadId: first, requestId: "capacity-approval", behavior: "allow" });
-    expect(response.status).toBe(200);
-    await expect.poll(() => answers.some((answer) => answer.id === "capacity-approval")).toBe(true);
-    expect(await busyThreads(botId)).toEqual([first]);
-    expect(existsSync(threadFile(third, "json"))).toBe(false);
 
-    finish(first);
-    const launchedThird = await dump(third);
+    // Answering the card lets the first turn finish, which frees the slot.
+    const response = await api("POST", `/api/bots/${botId}/respond`, { threadId: first, requestId: card.requestId, behavior: "allow" });
+    expect(response.status).toBe(200);
+    const launchedThird = await held(third);
     await expect.poll(() => busyThreads(botId)).toEqual([third]);
-    expect(existsSync(threadFile(fourth, "json"))).toBe(false);
+    expect(launched(fourth)).toBe(false);
     finish(third);
-    const launchedFourth = await dump(fourth);
+    const launchedFourth = await held(fourth);
     await expect.poll(() => busyThreads(botId)).toEqual([fourth]);
-    expect(Number(launchedSecond.env.COLONIE_FIXTURE_LAUNCHED_AT)).toBeLessThan(Number(launchedThird.env.COLONIE_FIXTURE_LAUNCHED_AT));
-    expect(Number(launchedThird.env.COLONIE_FIXTURE_LAUNCHED_AT)).toBeLessThan(Number(launchedFourth.env.COLONIE_FIXTURE_LAUNCHED_AT));
+    expect(launchedSecond.at).toBeLessThan(launchedThird.at);
+    expect(launchedThird.at).toBeLessThan(launchedFourth.at);
     finish(fourth);
     await expect.poll(() => busyThreads(botId)).toEqual([]);
     for (const [index, threadId] of [second, third, fourth].entries()) {

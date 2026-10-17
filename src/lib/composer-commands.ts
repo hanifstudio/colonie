@@ -1,4 +1,4 @@
-export type ComposerSlashCommandId = "goal" | "learn" | "setup";
+export type ComposerSlashCommandId = "learn" | "setup";
 
 export interface ComposerSlashCommand {
   id: ComposerSlashCommandId;
@@ -20,14 +20,6 @@ export function composerSlashTrigger(text: string, caretInput: number): Composer
   const match = /^\/([a-z-]*)$/i.exec(prefix);
   if (!match) return null;
   return { query: match[1] ?? "", start: 0, end: caret };
-}
-
-/** A typed `/goal …` is equivalent to selecting Goal mode from the menu.
- * null means this is an ordinary chat message; an empty string means the
- * command is present but still needs a goal description or attachment. */
-export function goalTextFromComposer(text: string): string | null {
-  const match = /^\/goal(?:\s+([\s\S]*))?$/i.exec(text);
-  return match ? (match[1] ?? "").trimStart() : null;
 }
 
 /** Replace the active slash token and return the caret position immediately

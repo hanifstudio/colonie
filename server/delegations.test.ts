@@ -34,7 +34,7 @@ import {
   _pendingCount,
 } from "./delegations.ts";
 import { cancelPeerApprovalsForThread, peerAllowKey, resolvePeerComms } from "./peer-approval.ts";
-import { Store, type BotRecord, type GroupRecord } from "./store.ts";
+import { Store, type BotRecord } from "./store.ts";
 
 const selection = (): ModelSelection => ({ instanceId: "claude", model: "fake-model" });
 
@@ -603,14 +603,10 @@ describe("drainDelegations", () => {
     expect(store.messagesFor(from.threadId).filter((message) => message.card?.requestId)).toHaveLength(1);
   });
 
-  it.each(["source task deletion", "source group removal"] as const)(
-    "drops an approved busy retry after %s",
-    async (change) => {
+  it("drops an approved busy retry after source task deletion",
+    async () => {
       store.patchBot(from.id, { approvePeerComms: true });
-      const group = change === "source group removal"
-        ? store.createGroup("Planning", [from.id, target.id], false, "Agents")
-        : undefined;
-      const sourceThreadId = group?.threadId ?? store.createTask(from.id, "Source task", false)!.threadId;
+      const sourceThreadId = store.createTask(from.id, "Source task", false)!.threadId;
       const queued = queueDelegation(commsBus, from, { toBotId: target.id, message: "do this", depth: 0 }, 1, sourceThreadId);
       const runTarget = vi.fn();
       drainDelegations(commsBus, approvalBus, sourceThreadId, runTarget);
@@ -619,8 +615,7 @@ describe("drainDelegations", () => {
       resolvePeerComms(approvalBus, card.card!.requestId!, "allow");
       await waitFor(() => pendingDelegationInfo(queued.id!)?.waiting === true);
 
-      if (group) store.patchGroup(group.id, { memberIds: [target.id] });
-      else expect(store.deleteTask(from.id, sourceThreadId)).not.toBeNull();
+      expect(store.deleteTask(from.id, sourceThreadId)).not.toBeNull();
       const messageIdsBeforeRetry = store.messagesFor(sourceThreadId).map((message) => message.id);
       store.patchBot(target.id, { busy: false });
       releaseDelegationsWaitingOn(target.id);
@@ -630,7 +625,7 @@ describe("drainDelegations", () => {
       expect(runTarget).not.toHaveBeenCalled();
       expect(findDelegationReceipt(queued.id!)).toMatchObject({ status: "dropped" });
       expect(store.messagesFor(sourceThreadId).map((message) => message.id)).toEqual(messageIdsBeforeRetry);
-      expect(store.dmGroup(from.id, target.id)).toBeUndefined();
+      expect(store.groups).toHaveLength(0);
     },
   );
 
@@ -1448,11 +1443,10 @@ describe("busy waits and expiry", () => {
   });
 });
 
-describe("originating group routing", () => {
+describe("retired pair channels", () => {
   let store: Store;
   let from: BotRecord;
   let target: BotRecord;
-  let group: GroupRecord;
   let commsBus: CommsBus;
   let approvalBus: { store: Store; broadcast: (payload: unknown) => void };
 
@@ -1463,115 +1457,24 @@ describe("originating group routing", () => {
     from = store.createBot();
     target = store.createBot();
     store.patchBot(target.id, { name: "Helper" });
-    group = store.createGroup("Planning", [from.id, target.id], false, "Agents");
     const buses = setupBuses(store);
     commsBus = buses.commsBus;
     approvalBus = buses.approvalBus;
   });
   afterEach(() => _resetPending());
 
-  it("routes a group-thread delegation through the shared channel, not a pair DM", async () => {
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "plan the sprint", depth: 0 }, 1, group.threadId);
-    const runTargetCalls: { channel: GroupRecord | undefined }[] = [];
-    drainDelegations(commsBus, approvalBus, group.threadId, (...args: unknown[]) => {
-      runTargetCalls.push({ channel: args[4] as GroupRecord | undefined });
-    });
-
-    await waitFor(() => runTargetCalls.length === 1);
-    expect(runTargetCalls[0]!.channel?.id).toBe(group.id);
-    expect(runTargetCalls[0]!.channel?.dm).toBeFalsy();
-    expect(store.dmGroup(from.id, target.id)).toBeUndefined();
-    expect(store.messagesFor(group.threadId).some((m) => m.kind === "text" && m.text?.includes("plan the sprint"))).toBe(true);
-    expect(store.messagesFor(group.threadId).some((m) => m.kind === "activity" && m.tool?.name === "Messaged @Helper")).toBe(true);
-  });
-
-  it("still uses a pair DM when the source is the bot's 1:1 thread", async () => {
+  it("records a 1:1 delegation as chips in both threads without creating a channel", async () => {
     queueDelegation(commsBus, from, { toBotId: target.id, message: "do this", depth: 0 }, 1, from.threadId);
-    const runTargetCalls: { channel: GroupRecord | undefined }[] = [];
+    const runTargetCalls: { channel: unknown }[] = [];
     drainDelegations(commsBus, approvalBus, from.threadId, (...args: unknown[]) => {
-      runTargetCalls.push({ channel: args[4] as GroupRecord | undefined });
+      runTargetCalls.push({ channel: args[4] });
     });
 
     await waitFor(() => runTargetCalls.length === 1);
-    expect(runTargetCalls[0]!.channel?.dm).toBe(true);
-    expect(runTargetCalls[0]!.channel?.memberIds).toEqual(expect.arrayContaining([from.id, target.id]));
-  });
-
-  it("does not create a pair DM when a valid shared channel exists", async () => {
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "in the room", depth: 0 }, 1, group.threadId);
-    const before = store.groups.filter((g) => g.dm).length;
-    drainDelegations(commsBus, approvalBus, group.threadId, () => {});
-    await waitFor(() => _pendingCount(group.threadId) === 0);
-    const after = store.groups.filter((g) => g.dm).length;
-    expect(after).toBe(before);
-  });
-
-  it("survives persistence: a loaded delegation keeps its originating group", async () => {
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "left over", depth: 0 }, 1, group.threadId);
-    _resetPending();
-    _loadPending();
-    expect(pendingThreads()).toEqual([group.threadId]);
-
-    const runTargetCalls: { channel: GroupRecord | undefined }[] = [];
-    drainDelegations(commsBus, approvalBus, group.threadId, (...args: unknown[]) => {
-      runTargetCalls.push({ channel: args[4] as GroupRecord | undefined });
-    });
-    await waitFor(() => runTargetCalls.length === 1 && _pendingCount(group.threadId) === 0);
-    expect(runTargetCalls[0]!.channel?.id).toBe(group.id);
-  });
-
-  it("drains each shared-group item under the bot that queued it", async () => {
-    const other = store.createBot();
-    store.patchBot(other.id, { name: "Other" });
-    store.patchGroup(group.id, { memberIds: [from.id, target.id, other.id] });
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "from A", depth: 0 }, 1, group.threadId);
-    queueDelegation(commsBus, other, { toBotId: target.id, message: "from B", depth: 0 }, 1, group.threadId);
-
-    const seen: { message: string }[] = [];
-    drainDelegations(commsBus, approvalBus, group.threadId, (_to, message) => {
-      seen.push({ message });
-    });
-    await waitFor(() => seen.length === 2);
-
-    expect(seen[0]!.message).toContain(`[Delegated by @${from.name},`);
-    expect(seen[1]!.message).toContain("[Delegated by @Other,");
-    expect(store.dmGroup(from.id, target.id)).toBeUndefined();
-  });
-
-  it("tags the queue activity with the source bot in a shared group", () => {
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "plan", depth: 0 }, 1, group.threadId);
-    const chip = store
-      .messagesFor(group.threadId)
-      .find((m) => m.kind === "activity" && m.tool?.name?.startsWith("Delegated to @"));
-    expect(chip?.from?.botId).toBe(from.id);
-  });
-
-  it("preserves each source bot's identity for two bots delegating to the same target", async () => {
-    const other = store.createBot();
-    store.patchBot(other.id, { name: "Other" });
-    store.patchGroup(group.id, { memberIds: [from.id, target.id, other.id] });
-
-    queueDelegation(commsBus, from, { toBotId: target.id, message: "from A", depth: 0 }, 1, group.threadId);
-    queueDelegation(commsBus, other, { toBotId: target.id, message: "from B", depth: 0 }, 1, group.threadId);
-
-    const snapshot = pendingDelegationSnapshot().filter((item) => item.sourceThreadId === group.threadId);
-    expect(snapshot.map((item) => item.sourceBotId).sort()).toEqual([from.id, other.id].sort());
-
-    const calls: Array<{ sourceBotId: string; sourceThreadId: string; channel?: GroupRecord }> = [];
-    drainDelegations(commsBus, approvalBus, group.threadId, (...args: unknown[]) => {
-      calls.push({
-        sourceBotId: args[6] as string,
-        sourceThreadId: args[3] as string,
-        channel: args[4] as GroupRecord | undefined,
-      });
-    });
-    await waitFor(() => calls.length === 2);
-
-    const sourceBotIds = calls.map((c) => c.sourceBotId).sort();
-    expect(sourceBotIds).toEqual([from.id, other.id].sort());
-    expect(calls.every((c) => c.sourceThreadId === group.threadId)).toBe(true);
-    expect(calls.every((c) => c.channel?.id === group.id && !c.channel?.dm)).toBe(true);
-    expect(store.dmGroup(from.id, target.id)).toBeUndefined();
+    expect(runTargetCalls[0]!.channel).toBeUndefined();
+    expect(store.groups).toHaveLength(0);
+    expect(store.messagesFor(from.threadId).some((m) => m.kind === "activity" && m.tool?.name === "Messaged @Helper")).toBe(true);
+    expect(store.messagesFor(target.threadId).some((m) => m.kind === "activity" && m.tool?.name?.startsWith("Message from @"))).toBe(true);
   });
 });
 

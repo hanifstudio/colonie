@@ -60,7 +60,7 @@ module.exports = async function verifyApprovalUi({ root, url, api, until, grant 
     window.webContents.insertText("Run the safe fixture");
     window.webContents.sendInputEvent({ type: "keyDown", keyCode: "Return" });
     window.webContents.sendInputEvent({ type: "keyUp", keyCode: "Return" });
-    await until(async () => (await text()).includes("hello from fake claude"));
+    await until(async () => (await text()).includes("hello from fake acp"));
     window.setSize(1100, 800);
     writeFileSync(join(evidence, "applied.png"), (await window.webContents.capturePage()).toPNG());
     allThreads = true;

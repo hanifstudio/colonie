@@ -5,7 +5,7 @@
 // asks before registering — the classic miss is a path the terminal sees
 // but this GUI app can't.
 import { useEffect, useRef, useState } from "react";
-import { Alert02Icon, ChevronDownIcon, Loading02Icon, RefreshCwIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, ChevronDownIcon, Loading02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
 import { api, useStore, type InstanceInfo } from "@/state/store";
@@ -206,8 +206,6 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
   const [open, setOpen] = useState(false);
   const cliMotion = useMenuMotion(open);
   const [switching, setSwitching] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [updatedVersion, setUpdatedVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const wasOpenFor = useRef<string | null>(null);
 
@@ -223,7 +221,7 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
   }, [instance.cli]);
 
   const reset = () => {
-    if (switching || updating) return;
+    if (switching) return;
     setSwitching(true);
     setError(null);
     api(`/api/instances/${encodeURIComponent(instance.instanceId)}`, {
@@ -235,23 +233,6 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
       .then(() => Promise.resolve(refreshInstances()).catch(() => {}))
       .catch((e) => setError(e.message))
       .finally(() => setSwitching(false));
-  };
-
-  const updateClaude = () => {
-    if (switching || updating) return;
-    setUpdating(true);
-    setUpdatedVersion(null);
-    setError(null);
-    api(`/api/instances/${encodeURIComponent(instance.instanceId)}/claude-update`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    })
-      .then(async ({ version }: { version: string }) => {
-        setUpdatedVersion(version);
-        await Promise.resolve(refreshInstances()).catch(() => {});
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setUpdating(false));
   };
 
   return (
@@ -296,20 +277,10 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
             </span>
           )}
           <span className="flex-1" />
-          {instance.driverKind === "claudeAgent" && (
-            <button
-              onClick={updateClaude}
-              disabled={switching || updating}
-              className="flex shrink-0 items-center gap-1 text-[11.5px] text-ink-secondary hover:text-ink disabled:opacity-50"
-            >
-              {updating ? <HIcon icon={Loading02Icon} size={12} className="animate-spin" /> : <HIcon icon={RefreshCwIcon} size={12} />}
-              {updating ? t("engines.updating") : t("engines.updateClaude")}
-            </button>
-          )}
           {instance.cli && (
             <button
               onClick={reset}
-              disabled={switching || updating}
+              disabled={switching}
               className="shrink-0 text-[11.5px] text-ink-secondary hover:text-ink disabled:opacity-50"
             >
               {switching ? t("engines.resetting") : t("engines.reset")}
@@ -317,20 +288,15 @@ function EngineRow({ instance }: { instance: InstanceInfo }) {
           )}
           <button
             onClick={() => setOpen((v) => !v)}
-            disabled={updating}
             aria-expanded={open}
             className={cn(
               "shrink-0 rounded-lg border border-hairline/40 px-3 py-1 text-[12px]",
               open ? "bg-accent/15 text-accent" : "text-ink-secondary hover:bg-raised/50 hover:text-ink",
-              "disabled:opacity-50",
             )}
           >
             {t("engines.setCli")}
           </button>
         </div>
-        {updatedVersion && (
-          <div role="status" className="mt-1 text-[12px] text-success">{t("engines.claudeUpdated", { version: updatedVersion })}</div>
-        )}
         {error && <div role="alert" className="mt-1 text-[12px] text-danger">{error}</div>}
         {cliMotion.shown && (
           <div className={cliMotion.className} {...cliMotion.exitProps}>

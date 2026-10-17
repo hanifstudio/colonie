@@ -104,6 +104,8 @@ export interface Routine {
   lastSkippedAt?: number;
   /** Derived from retained terminal receipts, not another persisted authority. */
   failureStreak?: number;
+  /** Derived, never persisted: why a kept record can no longer run. */
+  unavailableReason?: string;
   /** Conversation that created this routine in chat. Calendar/import-created
    * routines intentionally have no source, and older files migrate in place. */
   sourceThreadId?: string;
@@ -281,13 +283,11 @@ export interface RoutineManagerOptions {
    * is what lets the server number and replay them. */
   emit?: (payload: Record<string, unknown>) => void;
   botState: (botId: string) => "ready" | "busy" | "missing";
-  goalState?: (groupId: string, coordinatorBotId: string) => "ready" | "busy" | "missing";
   /** A task for one run (it may name who the run is for). */
   createTask: (botId: string, title: string, activate?: boolean, run?: RoutineRun) => { threadId: string } | null;
   /** When set, run this bot's routine in that existing conversation instead of
-   * a new hidden task. Room goals never use it. */
+   * a new hidden task. */
   joinConversation?: (run: RoutineRun) => string | null;
-  createGoalTask?: (groupId: string, title: string) => { threadId: string } | null;
   isResultsThread?: (botId: string, threadId: string) => boolean;
   /** Reuse a chosen routine.resultsThreadId, else the bot's main thread (a
    * Cloud guest's routine may allocate its own). `forceNew` ignores the choice. */
@@ -302,20 +302,7 @@ export interface RoutineManagerOptions {
     triggerSource: RoutineRunTrigger,
     onDispatchError: (message: string) => void,
   ) => Promise<void>;
-  startGoal?: (
-    groupId: string,
-    threadId: string,
-    prompt: string,
-    coordinatorBotId: string,
-    runId: string,
-    onDispatchError: (message: string) => void,
-  ) => Promise<void>;
   interruptTurn?: (botId: string, threadId: string) => Promise<void>;
-  interruptGoal?: (
-    groupId: string,
-    threadId: string,
-    outcome?: { status: "stopped" | "limit-reached"; detail: string },
-  ) => Promise<void>;
   /** Projects every durable transition into the source conversation. */
   onRunChanged?: (run: RoutineRun) => void;
   onRunFailed?: (run: RoutineRun) => void;
@@ -325,6 +312,9 @@ export interface RoutineManagerOptions {
    * queued continuation still belongs to this detached execution. */
   hasPendingDelegations?: (threadId: string) => boolean;
 }
+
+/** Rooms are retired. A stored room-goal routine is kept, paused, and never run. */
+export const ROOM_GOAL_UNAVAILABLE = "Room goals are no longer available; this routine is paused and kept for your records.";
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const CATCH_UP_MS = 12 * 60 * 60_000;
@@ -732,7 +722,9 @@ function mergeScheduleUpdate(
   return merged;
 }
 
-function sanitizeInput(input: RoutineInput, after: number): Omit<Routine, "id" | "createdAt" | "updatedAt" | "nextRunAt"> {
+/** `keptRoomGoal` is the stored room-goal record being edited; no other path
+ * may produce a room target now that rooms are retired. */
+function sanitizeInput(input: RoutineInput, after: number, keptRoomGoal?: Pick<Routine, "groupId">): Omit<Routine, "id" | "createdAt" | "updatedAt" | "nextRunAt"> {
   const name = String(input.name ?? "").trim().slice(0, 80);
   const prompt = String(input.prompt ?? "").trim().slice(0, 20_000);
   const botId = String(input.botId ?? "").trim();
@@ -742,7 +734,7 @@ function sanitizeInput(input: RoutineInput, after: number): Omit<Routine, "id" |
   const target = input.target ?? "bot";
   if (target !== "bot" && target !== "room-goal") throw new Error("Choose a valid routine target");
   const groupId = typeof input.groupId === "string" ? input.groupId.trim() : "";
-  if (target === "room-goal" && !groupId) throw new Error("Choose a room for this goal");
+  if (target === "room-goal" && !keptRoomGoal) throw new Error(ROOM_GOAL_UNAVAILABLE);
   const runOn = input.runOn ?? "maus";
   if (runOn !== "maus" && runOn !== "cloud") throw new Error("Choose where this routine runs");
   const attachments = cleanAttachments(input.attachments);
@@ -762,6 +754,9 @@ function sanitizeInput(input: RoutineInput, after: number): Omit<Routine, "id" |
   }
   if (continuity && target === "room-goal") {
     throw new Error("Room goals do not carry continuity yet");
+  }
+  if (target === "room-goal" && (input.enabled !== false || groupId !== (keptRoomGoal?.groupId ?? ""))) {
+    throw new Error(ROOM_GOAL_UNAVAILABLE);
   }
   return {
     name,
@@ -877,6 +872,8 @@ export class RoutineManager {
     }
     // A local process cannot still own these turns after a full restart.
     const recovered: RoutineRun[] = [];
+    const retired: RoutineRun[] = [];
+    let pausedRoomGoal = false;
     for (const run of this.runs) {
       if (run.status === "running" || run.status === "waiting") {
         run.status = "failed";
@@ -885,14 +882,27 @@ export class RoutineManager {
         run.attention = undefined;
         run.finishedAt = this.now();
         recovered.push(cloneRun(run));
+      } else if (run.status === "queued" && run.target === "room-goal") {
+        // Rooms are retired: a waiting room goal can never start.
+        run.status = "missed";
+        run.goalStatus = "stopped";
+        run.error = ROOM_GOAL_UNAVAILABLE;
+        run.finishedAt = this.now();
+        retired.push(cloneRun(run));
       }
     }
-    if (recovered.length > 0) {
-      this.save();
-      for (const run of recovered) {
-        this.notifyRunChanged(run);
-        this.options.onRunFailed?.(run);
-      }
+    // A stored room goal stays on disk as a paused record; it never runs.
+    for (const routine of this.routines) {
+      if (routine.target !== "room-goal" || (!routine.enabled && routine.nextRunAt === null)) continue;
+      routine.enabled = false;
+      routine.nextRunAt = null;
+      pausedRoomGoal = true;
+    }
+    if (pausedRoomGoal || retired.length > 0 || recovered.length > 0) this.save();
+    for (const run of retired) this.notifyRunChanged(run);
+    for (const run of recovered) {
+      this.notifyRunChanged(run);
+      this.options.onRunFailed?.(run);
     }
   }
 
@@ -907,8 +917,12 @@ export class RoutineManager {
       .sort((a, b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt) || b.createdAt - a.createdAt);
     const success = outcomes.findIndex(run => run.status === "completed");
     const failures = success < 0 ? outcomes.length : success;
-    const { installedPackage: _installedPackage, ...visible } = cloneRoutine(routine);
-    return { ...visible, ...(failures ? { failureStreak: failures } : {}) };
+    const { installedPackage: _installedPackage, unavailableReason: _unavailableReason, ...visible } = cloneRoutine(routine);
+    return {
+      ...visible,
+      ...(failures ? { failureStreak: failures } : {}),
+      ...(routine.target === "room-goal" ? { unavailableReason: ROOM_GOAL_UNAVAILABLE } : {}),
+    };
   }
 
   /** Routines added from the organization's library, with their stamps. */
@@ -1099,8 +1113,10 @@ export class RoutineManager {
       attachments: patch.attachments ?? routine.attachments,
       continuity: patch.continuity ?? routine.continuity,
       overlap: Object.hasOwn(patch, "overlap") ? patch.overlap : routine.overlap,
-    }, now);
-    if (this.targetState(clean) === "missing") throw new Error(this.missingTargetMessage(clean.target));
+    }, now, routine.target === "room-goal" ? routine : undefined);
+    // A paused room goal is a kept record: it may still be edited, but never
+    // pointed at a missing bot or turned back on (sanitizeInput refuses that).
+    if (clean.target !== "room-goal" && this.targetState(clean) === "missing") throw new Error(this.missingTargetMessage(clean.target));
     const scheduleChanged = JSON.stringify(clean.schedule) !== JSON.stringify(routine.schedule);
     const enabledChanged = clean.enabled !== routine.enabled;
     // Definition-only edits retain due work and offline catch-up.
@@ -1190,43 +1206,7 @@ export class RoutineManager {
       run.finishedAt = this.now();
       run.error = "The assigned bot was deleted";
       this.emitRun(run);
-      if (run.threadId) {
-        if (run.target === "room-goal" && run.groupId) {
-          void this.options.interruptGoal?.(run.groupId, run.threadId).catch(() => {});
-        } else {
-          void this.options.interruptTurn?.(run.botId, run.threadId).catch(() => {});
-        }
-      }
-      changed = true;
-    }
-    if (changed) this.save();
-  }
-
-  disableForGroup(groupId: string) {
-    let changed = false;
-    for (const routine of this.routines) {
-      if (routine.target !== "room-goal" || routine.groupId !== groupId || !routine.enabled) continue;
-      routine.enabled = false;
-      routine.nextRunAt = null;
-      routine.updatedAt = Math.max(this.now(), routine.updatedAt + 1);
-      this.emitRoutine(routine);
-      changed = true;
-    }
-    for (const run of this.runs) {
-      if (
-        run.target !== "room-goal" ||
-        run.groupId !== groupId ||
-        !["queued", "running", "waiting"].includes(run.status)
-      ) continue;
-      run.status = "cancelled";
-      run.goalStatus = "stopped";
-      run.attention = undefined;
-      run.finishedAt = this.now();
-      run.error = "The assigned room was deleted";
-      this.emitRun(run);
-      if (run.threadId) {
-        void this.options.interruptGoal?.(groupId, run.threadId).catch(() => {});
-      }
+      if (run.threadId) void this.options.interruptTurn?.(run.botId, run.threadId).catch(() => {});
       changed = true;
     }
     if (changed) this.save();
@@ -1385,13 +1365,7 @@ export class RoutineManager {
     run.finishedAt = this.now();
     this.save();
     this.emitRun(run);
-    if (run.threadId) {
-      if (run.target === "room-goal" && run.groupId) {
-        await this.options.interruptGoal?.(run.groupId, run.threadId).catch(() => {});
-      } else {
-        await this.options.interruptTurn?.(run.botId, run.threadId).catch(() => {});
-      }
-    }
+    if (run.threadId) await this.options.interruptTurn?.(run.botId, run.threadId).catch(() => {});
     queueMicrotask(() => void this.tick());
     return cloneRun(run);
   }
@@ -1454,17 +1428,9 @@ export class RoutineManager {
         ) continue;
         const threadId = run.threadId;
         const detail = `Stopped after reaching the ${run.timeoutMinutes}-minute run limit`;
-        if (run.target === "room-goal") run.goalStatus = "limit-reached";
         this.failRun(run, detail);
         if (!threadId) continue;
-        if (run.target === "room-goal" && run.groupId) {
-          await this.options.interruptGoal?.(run.groupId, threadId, {
-            status: "limit-reached",
-            detail,
-          }).catch(() => {});
-        } else {
-          await this.options.interruptTurn?.(run.botId, threadId).catch(() => {});
-        }
+        await this.options.interruptTurn?.(run.botId, threadId).catch(() => {});
       }
       const dueRoutines = this.routines.filter(
         (routine) => routine.enabled && routine.nextRunAt != null && routine.nextRunAt <= now,
@@ -1589,18 +1555,12 @@ export class RoutineManager {
         const startedAt = this.now();
         const suffix = ` · ${new Date(startedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
         const title = `${run.routineName.slice(0, 80 - suffix.length).trimEnd()}${suffix}`;
-        const joined = run.target === "room-goal" ? null : this.options.joinConversation?.(run) || null;
+        const joined = this.options.joinConversation?.(run) || null;
         const task = joined
           ? { threadId: joined }
-          : run.target === "room-goal"
-          ? run.groupId
-            ? this.options.createGoalTask?.(run.groupId, title) ?? null
-            : null
           : this.options.createTask(run.botId, title, run.triggerSource === "webhook", run);
         if (!task) {
-          this.failRun(run, run.target === "room-goal"
-            ? "Could not create a room task for this goal"
-            : "Could not create a task for this run");
+          this.failRun(run, "Could not create a task for this run");
           continue;
         }
         run.threadId = task.threadId;
@@ -1615,29 +1575,14 @@ export class RoutineManager {
             continue;
           }
           const triggerSource = run.triggerSource ?? (run.manual ? "manual" : "schedule");
-          if (run.target === "room-goal") {
-            if (!run.groupId || !this.options.startGoal) {
-              this.failThread(task.threadId, "Room goal routines are unavailable");
-              continue;
-            }
-            await this.options.startGoal(
-              run.groupId,
-              task.threadId,
-              prompt,
-              run.botId,
-              run.id,
-              (message) => this.failThread(task.threadId, message),
-            );
-          } else {
-            await this.options.startTurn(
-              run.botId,
-              task.threadId,
-              composeExecutionPrompt(prompt, run.attachments, this.continuityCarry(run)),
-              run.runOn ?? "maus",
-              triggerSource,
-              (message) => this.failThread(task.threadId, message),
-            );
-          }
+          await this.options.startTurn(
+            run.botId,
+            task.threadId,
+            composeExecutionPrompt(prompt, run.attachments, this.continuityCarry(run)),
+            run.runOn ?? "maus",
+            triggerSource,
+            (message) => this.failThread(task.threadId, message),
+          );
         } catch (error) {
           this.failThread(task.threadId, error instanceof Error ? error.message : String(error));
         }
@@ -1650,21 +1595,6 @@ export class RoutineManager {
   handleRuntimeEvent(event: RuntimeEvent): RoutineRun | null {
     const run = this.runs.find((r) => r.threadId === event.threadId && ["running", "waiting"].includes(r.status));
     if (!run) return null;
-    // A room goal contains several provider turns. Its orchestrator owns the
-    // terminal decision and reports it through finishGoalRun; one member's
-    // completion and private coordinator envelope are only intermediate
-    // protocol, never the routine receipt's result.
-    if (
-      run.target === "room-goal" &&
-      (
-        // These outcomes ended the goal operation. Later room traffic is
-        // not a resume of that run; only the goal lifecycle can change its
-        // receipt. In-flight provider approvals have no goalStatus and
-        // continue to resolve normally below.
-        run.goalStatus === "needs-input" || run.goalStatus === "paused" ||
-        event.type === "turn.completed" || (event.type === "item.completed" && event.itemType === "assistant_text")
-      )
-    ) return null;
     if (event.type === "turn.started") {
       run.status = "running";
       run.attention = undefined;
@@ -1718,44 +1648,6 @@ export class RoutineManager {
     queueMicrotask(() => void this.tick());
   }
 
-  finishGoalRun(runId: string, status: GroupGoalRunStatus, detail: string): RoutineRun | null {
-    const run = this.runs.find(
-      (candidate) => candidate.id === runId &&
-        candidate.target === "room-goal" &&
-        ["running", "waiting"].includes(candidate.status),
-    );
-    if (!run || status === "working") return null;
-    const safeDetail = redactSecretsInText(detail).trim();
-    run.goalStatus = status;
-    // Only a completed goal is a completed run. A team asking the human a
-    // question is still waiting on them, and a blocked or turn-capped goal
-    // did not finish — reporting either as "completed" would silence the
-    // one outcome that most needs a person's attention.
-    if (status === "failed" || status === "blocked" || status === "limit-reached") {
-      this.failRun(
-        run,
-        safeDetail ||
-          (status === "limit-reached" ? "The room goal reached its turn limit" : "The room goal is blocked"),
-      );
-    } else if (status === "needs-input" || status === "paused") {
-      run.status = "waiting";
-      run.attention = safeDetail.slice(0, 500) || (status === "paused" ? "The room goal is paused" : "The team needs your input");
-      run.error = undefined;
-      this.save();
-      this.emitRun(run);
-    } else {
-      run.status = status === "stopped" ? "cancelled" : "completed";
-      run.attention = undefined;
-      run.finishedAt = this.now();
-      run.error = undefined;
-      if (status !== "stopped") run.output = safeDetail.slice(0, 2_000) || undefined;
-      this.save();
-      this.emitRun(run);
-    }
-    queueMicrotask(() => void this.tick());
-    return cloneRun(run);
-  }
-
   private failRun(run: RoutineRun, message: string) {
     run.status = "failed";
     run.attention = undefined;
@@ -1776,18 +1668,13 @@ export class RoutineManager {
     this.options.onRunFailed?.(cloneRun(run));
   }
 
-  private targetState(target: Pick<RoutineRun, "target" | "groupId" | "botId">): "ready" | "busy" | "missing" {
-    if (target.target === "room-goal") {
-      if (!target.groupId || !this.options.goalState) return "missing";
-      return this.options.goalState(target.groupId, target.botId);
-    }
+  private targetState(target: Pick<RoutineRun, "target" | "botId">): "ready" | "busy" | "missing" {
+    if (target.target === "room-goal") return "missing";
     return this.options.botState(target.botId);
   }
 
   private missingTargetMessage(target: RoutineTarget): string {
-    return target === "room-goal"
-      ? "The assigned room or coordinator no longer exists"
-      : "The assigned bot no longer exists";
+    return target === "room-goal" ? ROOM_GOAL_UNAVAILABLE : "The assigned bot no longer exists";
   }
 
   private initialOccurrence(schedule: RoutineSchedule, now: number): number | null {

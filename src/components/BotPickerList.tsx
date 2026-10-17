@@ -1,6 +1,5 @@
-// The checkbox roster shared by "New Room" and "Manage Members": one row per
-// bot, a tick on the ones picked. Both callers own their own selection state —
-// this only draws it, so the two lists can never drift apart visually.
+// The team dialog's checkbox roster: one row per bot, a tick on the ones
+// picked. The caller owns the selection state; this only draws it.
 import { Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import type { Bot } from "@/state/store";

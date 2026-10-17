@@ -215,8 +215,8 @@ export function SimpleBotPanel({
 
             {/* The bot's model, in the same plain-words picker as the chat
                 header, shown in place (a floating popover would be clipped by
-                this scrolling panel). A pick is the bot's model: groups and
-                every thread without its own model move with it, like the full
+                this scrolling panel). A pick is the bot's model:
+                every thread without its own model moves with it, like the full
                 Model section, and the line below counts the threads that don't. */}
             {!workspace && <><div data-simple-default-model>
               <ModelPicker

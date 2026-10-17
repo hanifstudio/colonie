@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppState, Bot } from "@/state/store";
 
-const fixture = vi.hoisted(() => ({ liveConfigured: true, liveCall: null as AppState["liveCall"] }));
+const fixture = vi.hoisted(() => ({ liveConfigured: true, liveCall: null as AppState["liveCall"], track: vi.fn() }));
+vi.mock("@/lib/analytics", () => ({ track: fixture.track }));
 vi.mock("@/state/store", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/state/store")>();
   return {
@@ -29,8 +30,8 @@ vi.mock("./DesktopCapabilities", () => ({
   useDesktopCapabilities: () => ({ capabilities: { dictation: { available: true, engine: "apple-speech", onDevice: true } }, ready: true }),
 }));
 
-import { CallModeMenu, CallTargetButton } from "./CallView";
-import { setCallMode, type CallMode } from "@/lib/call-mode";
+import { CallButton, CallModeMenu } from "./CallView";
+import { setCallMode } from "@/lib/call-mode";
 import { currentCall, endCall, startCall } from "@/lib/call";
 import { configureLiveMedia, liveMedia, resetLiveMedia, startLiveCall } from "@/lib/live-call-media";
 
@@ -44,7 +45,7 @@ function findElement(tree: ReactNode, match: (props: ElementProps) => boolean): 
   }
 }
 
-const bot: Pick<Bot, "id" | "threadId" | "name"> = { id: "atlas", threadId: "thread-atlas", name: "Atlas" };
+const bot = { id: "atlas", threadId: "thread-atlas", name: "Atlas", voice: "v" } as Bot;
 /** A phone's Live call with another bot: it holds the one Live line. */
 const phoneCall: NonNullable<AppState["liveCall"]> = {
   callId: "c9", botId: "juniper", threadId: "t9", client: "ios", voice: "marin", startedAt: 0, status: "live",
@@ -52,20 +53,14 @@ const phoneCall: NonNullable<AppState["liveCall"]> = {
 
 /** The one-to-one call button's markup. */
 function renderButton(): string {
-  return renderToStaticMarkup(createElement(CallTargetButton, {
-    targetId: bot.id, targetName: bot.name, threadId: bot.threadId, voices: ["v"],
-    requireExplicitVoices: false, liveCapable: true, onStart: vi.fn(),
-  }));
+  return renderToStaticMarkup(createElement(CallButton, { bot }));
 }
 
 /** Render the one-to-one call button and press the phone. */
-function pressPhone(onStart: (mode: CallMode) => void) {
+function pressPhone() {
   let tree: ReactNode = null;
   function Capture() {
-    tree = CallTargetButton({
-      targetId: bot.id, targetName: bot.name, threadId: bot.threadId, voices: ["v"],
-      requireExplicitVoices: false, liveCapable: true, onStart,
-    });
+    tree = CallButton({ bot });
     return tree;
   }
   renderToStaticMarkup(createElement(Capture));
@@ -75,6 +70,7 @@ function pressPhone(onStart: (mode: CallMode) => void) {
 }
 
 beforeEach(() => {
+  fixture.track.mockClear();
   fixture.liveConfigured = true;
   fixture.liveCall = null;
   vi.stubGlobal("window", { colonie: { speechStart: vi.fn(), speechStop: vi.fn(async () => {}) } });
@@ -91,10 +87,9 @@ afterEach(() => {
 describe("the call button", () => {
   it("starts a Live call through the Live media, not the take-turns overlay", () => {
     setCallMode("live");
-    const onStart = vi.fn();
-    pressPhone(onStart);
+    pressPhone();
     expect(liveMedia()).toMatchObject({ phase: "starting", botId: "atlas", threadId: "thread-atlas" });
-    expect(onStart).toHaveBeenCalledWith("live");
+    expect(fixture.track).toHaveBeenCalledWith("call_started", { driver: undefined, mode: "live" });
   });
 
   // The microphone comes first, even with no key: a page that can't have
@@ -105,18 +100,17 @@ describe("the call button", () => {
     setCallMode("live");
     const getUserMedia = vi.fn(() => new Promise<MediaStream>(() => {}));
     configureLiveMedia({ getUserMedia });
-    const onStart = vi.fn();
-    pressPhone(onStart);
+    pressPhone();
     expect(getUserMedia).toHaveBeenCalledTimes(1);
     expect(liveMedia()).toMatchObject({ phase: "starting", botId: "atlas", threadId: "thread-atlas" });
     expect(renderButton()).not.toContain("OpenAI API key");
-    expect(onStart).toHaveBeenCalledWith("live");
+    expect(fixture.track).toHaveBeenCalledWith("call_started", { driver: undefined, mode: "live" });
   });
 
   it("hangs up this window's Live call", () => {
     setCallMode("live");
     void startLiveCall({ botId: "atlas", threadId: "thread-atlas" });
-    pressPhone(vi.fn());
+    pressPhone();
     // hung up before the harness knew the call: nothing to wait for
     expect(liveMedia().phase).toBe("idle");
     expect(currentCall()).toBeNull();
@@ -138,11 +132,10 @@ describe("the call button", () => {
     setCallMode("turns");
     fixture.liveCall = phoneCall;
     expect(renderButton()).toContain('aria-label="Call Atlas"');
-    const onStart = vi.fn();
-    pressPhone(onStart);
+    pressPhone();
     expect(currentCall()).toBe("atlas");
     expect(liveMedia().phase).toBe("idle");
-    expect(onStart).toHaveBeenCalledWith("turns");
+    expect(fixture.track).toHaveBeenCalledWith("call_started", { driver: undefined, mode: "turns" });
     expect(renderButton()).toContain('aria-label="Hang up on Atlas"');
   });
 
@@ -170,7 +163,7 @@ describe("the call button", () => {
         pageMicrophone: async () => pageMic,
       });
       setCallMode("live");
-      pressPhone(vi.fn());
+      pressPhone();
       await vi.waitFor(() => expect(liveMedia().phase).toBe("failed"));
       expect(liveMedia().notice, pageMic).toContain(notice);
     }
@@ -178,19 +171,17 @@ describe("the call button", () => {
 
   it("keeps Take turns as it was: the overlay's call, no Live media", () => {
     setCallMode("turns");
-    const onStart = vi.fn();
-    pressPhone(onStart);
+    pressPhone();
     expect(currentCall()).toBe("atlas");
     expect(liveMedia().phase).toBe("idle");
-    expect(onStart).toHaveBeenCalledWith("turns");
+    expect(fixture.track).toHaveBeenCalledWith("call_started", { driver: undefined, mode: "turns" });
   });
 });
 
 describe("the call mode menu", () => {
-  it("opens upward from the composer and downward from the header", () => {
+  it("opens upward from the composer", () => {
     const props = { id: "m", mode: "live" as const, onChoose: vi.fn(), onClose: vi.fn() };
-    expect(renderToStaticMarkup(createElement(CallModeMenu, { ...props, placement: "composer" }))).toContain("bottom-full");
-    expect(renderToStaticMarkup(createElement(CallModeMenu, props))).toContain("top-full");
+    expect(renderToStaticMarkup(createElement(CallModeMenu, props))).toContain("bottom-full");
   });
 
   it("offers both modes as radio items, the current one checked", () => {

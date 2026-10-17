@@ -166,7 +166,7 @@ export function beatWidth(beat: BeatId): number {
   }
 }
 
-/** The footer's step dots. The reel beat draws its own scene dots (six,
+/** The footer's step dots. The reel beat draws its own scene dots (five,
  * clickable) just above the footer, and two rows of dots with different
  * counts read as one broken progress bar, so the reel keeps only its own;
  * the footer still says "Step 2 of 5". */

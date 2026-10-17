@@ -33,7 +33,6 @@ async function installation() {
   const routines = new RoutineManager({
     file: join(home, "routines.json"),
     botState: (id) => (store.bot(id) && !store.bot(id)!.hidden ? "ready" : "missing"),
-    goalState: (groupId, botId) => (store.group(groupId)?.memberIds.includes(botId) ? "ready" : "missing"),
     createTask: () => null,
     startTurn: async () => {},
   });
@@ -79,7 +78,11 @@ describe("preset store", () => {
     const first = app.importer.importPackageDocument(document, { trust: "file", mode: "add" }, app.deps);
     if (first.alreadyAdded) throw new Error("unexpected");
     expect(first.presets).toEqual([{ id: expect.any(String), key: "support", name: "Support agent" }]);
-    expect(first.skipped).toEqual([]);
+    // Rooms are retired: the file's room and its room routine are listed, not created.
+    expect(first.skipped).toEqual([
+      { part: "rooms[desk]", reason: "rooms_not_supported" },
+      { part: "routines[weekly-review]", reason: "rooms_not_supported" },
+    ]);
     const [row] = app.presetStore.list();
     expect(row).toMatchObject({ source: "file", installId: first.installId, packageId: "sales-desk", packageName: "Sales desk", release: "1.3.0", key: "support" });
     expect(row).not.toHaveProperty("publisher");

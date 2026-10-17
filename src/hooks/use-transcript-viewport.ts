@@ -1,7 +1,5 @@
-// The scrolling transcript of a 1:1 chat or a room: which rows mount, when
-// the pane follows the bottom, and how it holds still while rows are
-// prepended. ChatView and GroupView both use this one copy, so a viewport fix
-// lands once.
+// The scrolling transcript of a 1:1 chat: which rows mount, when the pane
+// follows the bottom, and how it holds still while rows are prepended.
 import {
   useCallback,
   useEffect,

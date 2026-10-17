@@ -292,10 +292,42 @@ export async function runControlColonie(
 }
 
 export interface VerificationServer {
-  info: { url: string; pid: number; dataDir: string; logPath: string };
+  /** `gateDirs` is present only when `options.fakeAcp.gates` asked for it. */
+  info: { url: string; pid: number; dataDir: string; logPath: string; gateDirs?: FakeAcpGateDirs };
   fixtureDumpPath: string;
   child: ChildProcess;
   close(): Promise<void>;
+}
+
+/** The scripted fake ACP fixture instances a test can configure. */
+export type FakeAcpFixture = "claude" | "codex";
+export type FakeAcpGateDirs = Partial<Record<FakeAcpFixture, string>>;
+
+/** Trailing, optional knobs for `launchVerificationServer`. */
+export interface VerificationServerOptions {
+  fakeAcp?: {
+    /** FAKE_ACP_* knobs merged into each fake fixture instance's saved
+     * environment (the `claude` one, and `codex` when it is requested).
+     * They win over the launcher's defaults for that instance only, so two
+     * fixtures can be scripted differently in the same server. */
+    env?: Partial<Record<FakeAcpFixture, Record<string, string>>>;
+    /** Give each fake fixture instance its own FAKE_ACP_GATE_DIR under the
+     * owned dataDir (`<dataDir>/fake-acp-gates/<instance>`), returned in
+     * `info.gateDirs` for server/testing/fake-acp-gates.ts. An explicit
+     * FAKE_ACP_GATE_DIR in `env` wins. */
+    gates?: boolean;
+  };
+}
+
+/** The `environment` the launcher saves for one fake ACP fixture instance:
+ * its defaults, then the per-test FAKE_ACP_* knobs. Only FAKE_ACP_* keys are
+ * accepted, matching what may cross from the parent shell. */
+export function fakeAcpInstanceEnvironment(defaults: Record<string, string>, extra: Record<string, string> = {}): Record<string, string> {
+  for (const [key, value] of Object.entries(extra)) {
+    if (!key.startsWith("FAKE_ACP_")) throw new ControlColonieError(`fake ACP fixture environment accepts FAKE_ACP_* keys only, not ${JSON.stringify(key)}`);
+    if (typeof value !== "string") throw new ControlColonieError(`fake ACP fixture environment ${key} must be a string`);
+  }
+  return { ...defaults, ...extra };
 }
 
 /** The environment of a verification server child: a temporary home in
@@ -365,6 +397,74 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   return childEnv;
 }
 
+/** The verification server's saved config.json, and the fake ACP paths it
+ * implies. Pure apart from creating requested gate folders under `dataDir`,
+ * so a test can inspect exactly what a fixture server would load. */
+export function verificationServerConfig(dataDir: string, setup: {
+  extraProviders?: Array<"codex" | "colonie" | "colonie-unauth">;
+  room?: { scripted: boolean };
+  boatFixtureApi?: string;
+  fakeAcp?: VerificationServerOptions["fakeAcp"];
+} = {}): { config: Record<string, unknown>; fixtureDumpPath: string; gateDirs?: FakeAcpGateDirs } {
+  const { extraProviders = [], room, boatFixtureApi } = setup;
+  const fakeAcpEnv = setup.fakeAcp?.env ?? {};
+  const colonieFixtures = extraProviders.includes("colonie") || extraProviders.includes("colonie-unauth");
+  const colonieUnauth = extraProviders.includes("colonie-unauth");
+  const colonieInstanceEnv = (extra: Record<string, string>) => ({ ...extra, ...(colonieUnauth ? { COLONIE_FAKE_UNAUTH: "1" } : {}) });
+  const fakeFixtures: FakeAcpFixture[] = extraProviders.includes("codex") ? ["claude", "codex"] : ["claude"];
+  let gateDirs: FakeAcpGateDirs | undefined;
+  if (setup.fakeAcp?.gates) {
+    gateDirs = {};
+    for (const instance of fakeFixtures) {
+      const dir = fakeAcpEnv[instance]?.FAKE_ACP_GATE_DIR ?? join(dataDir, "fake-acp-gates", instance);
+      mkdirSync(dir, { recursive: true });
+      gateDirs[instance] = dir;
+    }
+  }
+  const fixtureEnvironment = (instance: FakeAcpFixture, defaults: Record<string, string>) => fakeAcpInstanceEnvironment(defaults, {
+    ...(gateDirs?.[instance] ? { FAKE_ACP_GATE_DIR: gateDirs[instance] } : {}),
+    ...fakeAcpEnv[instance],
+  });
+  // A per-test FAKE_ACP_DUMP for the claude fixture is where its dump lands.
+  const fixtureDumpPath = fakeAcpEnv.claude?.FAKE_ACP_DUMP ?? join(dataDir, "fake-claude-dump.json");
+  const config = {
+    ...(boatFixtureApi ? { box: { token: "box_verification_fixture" } } : {}),
+    // A real install always has a saved default; the ACP fixtures need one so
+    // the signed-out path (no ready engine) is exercised faithfully.
+    ...(colonieFixtures ? { defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" } } : {}),
+    instances: {
+      ...(colonieFixtures ? { "codex-acp": {
+        driver: "codex-acp", displayName: "Codex · ACP fixture",
+        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
+        environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600" }),
+      }, "claude-acp": {
+        driver: "claude-acp", displayName: "Claude · ACP fixture",
+        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
+        environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" }),
+      } } : {}),
+      ...(extraProviders.includes("codex") ? { codex: {
+        driver: "codex-acp", displayName: "Verification Codex",
+        config: { cli: process.execPath, args: [FAKE_ACP] },
+        // The modes the maintained codex adapter advertises.
+        environment: fixtureEnvironment("codex", { FAKE_ACP_MODES: "read-only,agent-full-access" }),
+      } } : {}),
+      // Colonie is ACP-only: the fixture engine is the scripted ACP fake,
+      // reached over the same stdio boundary a real adapter speaks. The
+      // modes are the ones the maintained Claude adapter advertises.
+      claude: {
+        driver: "claude-acp",
+        displayName: "Verification fixture",
+        config: { cli: process.execPath, args: [FAKE_ACP] },
+        environment: fixtureEnvironment("claude", {
+          FAKE_ACP_MODES: "default,bypassPermissions",
+          ...(room?.scripted ? { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } : {}),
+        }),
+      },
+    },
+  };
+  return { config, fixtureDumpPath, ...(gateDirs ? { gateDirs } : {}) };
+}
+
 /** Start one foreground-owned, fake-engine server with no access to user data. */
 export async function launchVerificationServer(
   parentEnv: NodeJS.ProcessEnv = process.env,
@@ -385,7 +485,13 @@ export async function launchVerificationServer(
   composioFixtureApi?: string,
   /** Synthetic fixture credential only; enables provenance/removal checks. */
   composioFixtureEnvironmentKey = false,
+  options: VerificationServerOptions = {},
 ): Promise<VerificationServer> {
+  const fakeAcpEnv = options.fakeAcp?.env ?? {};
+  if (fakeAcpEnv.codex && !extraProviders.includes("codex")) throw new ControlColonieError("A codex fixture environment requires the codex extra provider");
+  // Validate before any port or folder is owned.
+  fakeAcpInstanceEnvironment({}, fakeAcpEnv.claude);
+  fakeAcpInstanceEnvironment({}, fakeAcpEnv.codex);
   if (composioFixtureEnvironmentKey && !composioFixtureApi) throw new ControlColonieError("An environment-key fixture requires a loopback Composio provider");
   if (composioFixtureApi && !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}$/.test(composioFixtureApi)) throw new ControlColonieError("Composio verification requires an explicit loopback HTTP provider");
   if (boatFixtureApi) {
@@ -408,49 +514,13 @@ export async function launchVerificationServer(
   // their path limit. This is still an owned, randomly named fixture only.
   const dataDir = mkdtempSync(join(browser && process.platform !== "win32" ? "/tmp" : tmpdir(), "colonie-verify-data-"));
   const colonieFixtures = extraProviders.includes("colonie") || extraProviders.includes("colonie-unauth");
-  const colonieUnauth = extraProviders.includes("colonie-unauth");
-  const colonieInstanceEnv = (extra: Record<string, string>) => ({ ...extra, ...(colonieUnauth ? { COLONIE_FAKE_UNAUTH: "1" } : {}) });
   const fixtureTemp = join(dataDir, "tmp");
-  const fixtureDumpPath = join(dataDir, "fake-claude-dump.json");
   mkdirSync(fixtureTemp, { recursive: true });
   const evidenceDir = join(tmpdir(), "colonie-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
   const logPath = join(evidenceDir, `server-${Date.now()}-${process.pid}.log`);
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    ...(boatFixtureApi ? { box: { token: "box_verification_fixture" } } : {}),
-    // A real install always has a saved default; the ACP fixtures need one so
-    // the signed-out path (no ready engine) is exercised faithfully.
-    ...(colonieFixtures ? { defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" } } : {}),
-    instances: {
-      ...(colonieFixtures ? { "codex-acp": {
-        driver: "codex-acp", displayName: "Codex · ACP fixture",
-        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
-        environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "acp-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600" }),
-      }, "claude-acp": {
-        driver: "claude-acp", displayName: "Claude · ACP fixture",
-        config: { cli: process.execPath, args: [join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
-        environment: colonieInstanceEnv({ COLONIE_FAKE_STATE: join(dataDir, "claude-fixture-state.json"), COLONIE_FAKE_DELAY_MS: "600", COLONIE_FAKE_PROVIDER: "claude" }),
-      } } : {}),
-      ...(extraProviders.includes("codex") ? { codex: {
-        driver: "codex-acp", displayName: "Verification Codex",
-        config: { cli: process.execPath, args: [FAKE_ACP] },
-        // The modes the maintained codex adapter advertises.
-        environment: { FAKE_ACP_MODES: "read-only,agent-full-access" },
-      } } : {}),
-      // Colonie is ACP-only: the fixture engine is the scripted ACP fake,
-      // reached over the same stdio boundary a real adapter speaks. The
-      // modes are the ones the maintained Claude adapter advertises.
-      claude: {
-        driver: "claude-acp",
-        displayName: "Verification fixture",
-        config: { cli: process.execPath, args: [FAKE_ACP] },
-        environment: {
-          FAKE_ACP_MODES: "default,bypassPermissions",
-          ...(room?.scripted ? { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } : {}),
-        },
-      },
-    },
-  }, null, 2));
+  const { config, fixtureDumpPath, gateDirs } = verificationServerConfig(dataDir, { extraProviders, room, boatFixtureApi, fakeAcp: options.fakeAcp });
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify(config, null, 2));
 
   const log = openSync(logPath, "a", 0o600);
   const childEnv = verificationServerEnvironment(parentEnv, dataDir, port);
@@ -547,7 +617,7 @@ export async function launchVerificationServer(
 
   let closed = false;
   return {
-    info: { url, pid: child.pid!, dataDir, logPath },
+    info: { url, pid: child.pid!, dataDir, logPath, ...(gateDirs ? { gateDirs } : {}) },
     fixtureDumpPath,
     child,
     async close() {

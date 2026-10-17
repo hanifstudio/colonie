@@ -89,7 +89,7 @@ function capture(render: () => ReactNode): Node[] {
   renderToStaticMarkup(createElement(Capture));
   return tree;
 }
-const page = () => capture(() => RoutinesPage({ onBack: vi.fn(), onOpenRoom: vi.fn() }));
+const page = () => capture(() => RoutinesPage({ onBack: vi.fn(), onOpenChat: vi.fn() }));
 function buttons(tree: Node[]): Map<string, Node["props"]> {
   const map = new Map<string, Node["props"]>();
   for (const node of tree) {
@@ -108,7 +108,7 @@ function markup(element: ReactElement): string {
 const click = (props: Node["props"] | undefined) => (props!.onClick as () => void)();
 
 function details(item: Parameters<typeof EventDetails>[0]["item"]) {
-  const props = { item, bots: [bot], onClose: vi.fn(), onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenRoom: vi.fn(), onOpenRun: vi.fn() };
+  const props = { item, bots: [bot], onClose: vi.fn(), onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenChat: vi.fn(), onOpenRun: vi.fn() };
   return { props, tree: capture(() => EventDetails(props)), html: markup(createElement(EventDetails, props)) };
 }
 const routineItem = (definition: Routine, run: RoutineRun | null = null) =>
@@ -299,12 +299,13 @@ describe("routine editor", () => {
     expect(JSON.parse(off.body)).toMatchObject({ continuity: false });
   });
 
-  it("leaves the Advanced editor as it was", () => {
+  it("keeps the Advanced editor bot-only now that room goals are retired", () => {
     fixture.advanced = true;
     const html = editor();
-    for (const text of ['placeholder="Add title"', '<select aria-label="Repeat"', "Assign a bot", "Keeps its model and configured computer.", "Post results to", "Routine type", "New event"]) {
+    for (const text of ['placeholder="Add title"', '<select aria-label="Repeat"', "Assign a bot", "Keeps its model and configured computer.", "Post results to", "New event"]) {
       expect(html, text).toContain(text);
     }
+    expect(html).not.toContain("Routine type");
     expect(html).not.toContain("More options");
     expect(html).not.toContain("What should happen?");
   });

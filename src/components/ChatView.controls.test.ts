@@ -53,7 +53,7 @@ vi.mock("./ApprovalModeSelector", () => ({ ApprovalModeSelector: (props: Compone
   return createElement("span", { "data-test-approval-control": true });
 } }));
 
-const { ChatView, ErrorRow, FailedTurnRow, claudeUpdateTarget } = await import("./ChatView");
+const { ChatView, ErrorRow, FailedTurnRow } = await import("./ChatView");
 const { activityPreview } = await import("@/lib/failed-turn");
 afterAll(() => vi.unstubAllGlobals());
 
@@ -211,9 +211,9 @@ describe("thread control placement", () => {
     expect(markup).toContain("Sign in to Claude</button>");
     expect(markup).toMatch(/<summary[^>]*>Details<\/summary><p[^>]*>Not logged in · Please run \/login<\/p>/);
     expect(markup).not.toContain(">Retry<");
-    // an update offer is not a sign-in: the row keeps the engine's words,
-    // on a company-managed Claude too (chat cannot update it, so no offer
-    // shows, but the row is still about the update, as the list says)
+    // a too-old Claude Code is not a sign-in: the row keeps the engine's
+    // words (chat no longer offers an update; the engine's own update
+    // notice lives in Engines), on a company-managed Claude too
     const update = { name: "error: Claude Code 2.1.268 does not support this model", ok: false, setup: true, claudeUpdate: true };
     for (const engine of [claude, { ...claude, readOnly: true }]) {
       const row = renderToStaticMarkup(createElement(FailedTurnRow, { tool: update, engine }));
@@ -221,25 +221,6 @@ describe("thread control placement", () => {
       expect(row).not.toContain("isn&#x27;t signed in");
       expect(activityPreview(update, engine)).toBe("Claude Code 2.1.268 does not support this model");
     }
-  });
-  it("offers to update Claude Code for a too-old install, or hands over the command", () => {
-    const claude = { instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude", snapshot: { state: "available", authenticated: true } } as InstanceInfo;
-    const markup = renderToStaticMarkup(createElement(ErrorRow, {
-      message: "API Error: 400 Claude Code 2.1.268 does not support this model; version 2.1.280 or newer is required.",
-      onRetry: () => {},
-      setupInstance: claude,
-      claudeUpdateInstance: claude,
-    }));
-    expect(markup).toContain("Update Claude for me");
-    expect(markup).toContain("I&#x27;ll do it myself");
-    // the offer replaces the plain Retry until they pick a path
-    expect(markup).not.toContain(">Retry<");
-  });
-  it("updates only a Claude Code engine from chat", () => {
-    const claude = { instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude" } as InstanceInfo;
-    expect(claudeUpdateTarget(claude)).toBe(claude);
-    expect(claudeUpdateTarget({ ...claude, driverKind: "codex" })).toBeUndefined();
-    expect(claudeUpdateTarget(undefined)).toBeUndefined();
   });
   it("keeps Retry on the last failed turn after its digest, but never on an older turn", () => {
     const messages: Bot["messages"] = [

@@ -7,14 +7,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   botWireProjectionIsExact,
-  groupWireProjectionIsExact,
   toWireTask,
   type BotRecord,
-  type GroupRecord,
   type Message,
   type TaskRecord,
 } from "./store.ts";
-import type { WireBot, WireGroup, WireMessage, WireTask } from "../shared/wire.ts";
+import type { WireBot, WireMessage, WireTask } from "../shared/wire.ts";
 
 const fullTask: TaskRecord = {
   threadId: "thread-1",
@@ -75,29 +73,23 @@ describe("shared wire model", () => {
     expect(toWireTask(fullTask, botModel)).toMatchObject({ modelSelection: fullTask.modelSelection, followsBotModel: false });
   });
 
-  it("bot and group wire projections stay exact (compile-enforced)", () => {
-    // Referencing the guard constants keeps the exactness assertions live:
+  it("bot wire projection stays exact (compile-enforced)", () => {
+    // Referencing the guard constant keeps the exactness assertion live:
     // a new BotRecord field fails typecheck until it is declared on WireBot
-    // or listed in BotWirePrivateKeys; a group field likewise on WireGroup.
+    // or listed in BotWirePrivateKeys.
     expect(botWireProjectionIsExact).toBe(true);
-    expect(groupWireProjectionIsExact).toBe(true);
   });
 
   it("server records stay assignable to the shared wire shapes (compile-enforced)", () => {
     const task: WireTask = fullTask;
     const message: Message = { id: "m", role: "bot", kind: "text", text: "hi", at: 1 };
     const wireMessage: WireMessage = message;
-    const group: GroupRecord = {
-      id: "g", threadId: "t", name: "room", memberIds: [], defaultResponder: { kind: "everyone" },
-      bulletin: "", unread: false, createdAt: 1,
-    };
-    const wireGroup: WireGroup = { ...group, working: true };
     const bot: BotRecord = {
       id: "b", threadId: "t", name: "Bot", title: "", description: "", notifications: true,
       color: "green", unread: false, modelSelection: { instanceId: "claude", model: "m" },
       resumeCursors: {}, createdAt: 1,
     };
     const wireBot: WireBot = { ...bot, avatarUrl: bot.avatarUrl ?? null, tasks: [] };
-    expect([task.threadId, wireMessage.role, wireGroup.working, wireBot.avatarUrl]).toEqual(["thread-1", "bot", true, null]);
+    expect([task.threadId, wireMessage.role, wireBot.avatarUrl]).toEqual(["thread-1", "bot", null]);
   });
 });

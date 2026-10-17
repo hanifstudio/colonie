@@ -1,25 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  BOT_CHATS_SECTION_ID,
+  ATTENTION_SECTION_ID,
   BOTS_SECTION_ID,
-  CHANNELS_SECTION_ID,
   PINNED_SECTION_ID,
+  PINNED_THREADS_SECTION_ID,
   mergeSectionOrder,
   moveSection,
   orderedSidebarSections,
   partitionSidebarBots,
-  partitionSidebarGroups,
   pinnedCircleThreadListVisible,
   placeSection,
   sidebarConnectorPreview,
   sidebarLayoutInteractive,
-  sidebarGoalRunPreview,
   sidebarSectionCollapsed,
   sidebarSectionLabel,
   userSectionId,
   userSectionName,
 } from "./sidebar-layout";
+
+// Plain built-in buckets for the generic ordering cases below.
+const CHANNELS_SECTION_ID = ATTENTION_SECTION_ID;
+const BOT_CHATS_SECTION_ID = PINNED_THREADS_SECTION_ID;
 
 describe("sidebar virtual sections", () => {
   it("keeps reserved labels separate from identically named user sections", () => {
@@ -29,8 +31,7 @@ describe("sidebar virtual sections", () => {
       expect(userSectionName(id)).toBe(name);
       expect(sidebarSectionLabel(id)).toBe(name);
     }
-    expect(sidebarSectionLabel(CHANNELS_SECTION_ID)).toBe("Group chats");
-    expect(sidebarSectionLabel(BOT_CHATS_SECTION_ID)).toBe("Bot threads");
+    expect(sidebarSectionLabel(BOTS_SECTION_ID)).toBe("Bots");
   });
 
   it("round-trips every valid section name without URI encoding", () => {
@@ -58,22 +59,6 @@ describe("sidebar virtual sections", () => {
     expect(parts.sectionedBots).toEqual([]);
     expect(parts.unsectionedBots.map((candidate) => candidate.id)).toEqual(["plain"]);
     expect(bot.section).toBe("Work");
-  });
-
-  it("shows DMs in Bot Chats without rewriting their comms context", () => {
-    const dm = { id: "dm", dm: true, section: "Work" };
-    const namedBotChats = { id: "named", section: "Bot Chats" };
-    const parts = partitionSidebarGroups([
-      dm,
-      { id: "project", section: "Work" },
-      namedBotChats,
-      { id: "general" },
-    ]);
-    expect(parts.botChats).toEqual([dm]);
-    expect(parts.sectionedRooms.map((room) => room.id)).toEqual(["project", "named"]);
-    expect(parts.unsectionedRooms.map((room) => room.id)).toEqual(["general"]);
-    expect(dm.section).toBe("Work");
-    expect(namedBotChats.section).toBe("Bot Chats");
   });
 
   it("keeps section Chiefs in their actual section", () => {
@@ -116,21 +101,6 @@ describe("sidebar virtual sections", () => {
     expect(sidebarSectionCollapsed(PINNED_SECTION_ID, [PINNED_SECTION_ID], "compact", "")).toBe(true);
     expect(sidebarSectionCollapsed(PINNED_SECTION_ID, [PINNED_SECTION_ID], "compact", "writer")).toBe(false);
     expect(sidebarSectionCollapsed(PINNED_SECTION_ID, [PINNED_SECTION_ID], "icons", "")).toBe(false);
-  });
-
-  it("keeps a terminal channel goal meaningful in the sidebar", () => {
-    expect(sidebarGoalRunPreview({
-      runId: "run-1",
-      goal: "Ship the launch post",
-      status: "completed",
-      coordinatorBotId: "lead",
-      coordinatorName: "Lead",
-      turnCount: 3,
-      maxTurns: 13,
-      detail: "Drafted and verified.",
-      startedAt: 1,
-      finishedAt: 2,
-    })).toBe("Completed: Drafted and verified.");
   });
 
   it("previews a connection card by its app and state, not the phone fallback line", () => {

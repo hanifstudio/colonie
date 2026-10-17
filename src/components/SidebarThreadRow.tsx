@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArchiveIcon, ArchiveRestoreIcon, Clock01Icon, Clock03Icon, Delete02Icon, FolderInputIcon, Link02Icon, Loading02Icon, MoreHorizontalIcon, NotificationOff01Icon, PencilIcon, PinIcon, PinOffIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { ArchiveIcon, ArchiveRestoreIcon, Clock01Icon, Delete02Icon, FolderInputIcon, Link02Icon, Loading02Icon, MoreHorizontalIcon, NotificationOff01Icon, PencilIcon, PinIcon, PinOffIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import type { BotProject, Task } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -12,7 +12,7 @@ import { copyText } from "@/lib/copy-text";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { conversationTitle } from "@/lib/conversation-title";
 
-type ThreadRowTask = Pick<Task, "threadId" | "title" | "preview" | "projectId" | "busy" | "activity" | "unread" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil" | "waitingForTeammates"> & {
+type ThreadRowTask = Pick<Task, "threadId" | "title" | "preview" | "projectId" | "busy" | "activity" | "unread" | "openedBy" | "closedBy" | "archivedAt" | "snoozedUntil"> & {
   queued?: boolean;
   pinned?: boolean;
   createdAt?: number;
@@ -135,14 +135,10 @@ const tomorrowNineAm = () => {
  * all ask the same question. */
 const isWorking = (task: Pick<Task, "activity" | "busy">): boolean => task.activity === "working" || Boolean(task.busy);
 
-/** The current wire distinguishes coordination waits from provider work. */
-const isWaitingOnTeammate = (task: Pick<Task, "waitingForTeammates">): boolean =>
-  task.waitingForTeammates === true;
-
 /** Whether a row must stay on screen regardless of age or closed state:
  * the person is looking at it, it needs them, or it has something new. */
 const demandsAttention = (task: ThreadRowTask, activeId: string) =>
-  task.threadId === activeId || task.activity === "waiting-on-you" || isWorking(task) || isWaitingOnTeammate(task) || Boolean(task.queued) || Boolean(task.unread);
+  task.threadId === activeId || task.activity === "waiting-on-you" || isWorking(task) || Boolean(task.queued) || Boolean(task.unread);
 
 /** The default list is the six most recently updated OPEN threads, plus
  * anything pinned or demanding attention. Pins and attention rows do not
@@ -210,13 +206,12 @@ export function useRelativeNow(): number {
   return now;
 }
 /** Attention outranks recency within a bot: waiting-on-you needs the person
- * most, then working/busy, then a teammate wait, then queued, then unread.
+ * most, then working/busy, then queued, then unread.
  * The thread being looked at rides just
  * above the idle tail; idle threads keep stored order. Pure and shared so
  * the tree, the collapsed escape hatch, and the pickers agree. */
 const attentionRank = (task: ThreadRowTask, activeId: string): number => {
   if (task.activity === "waiting-on-you") return 0;
-  if (isWaitingOnTeammate(task)) return 2;
   if (task.busy || task.activity === "working") return 1;
   if (task.queued) return 3;
   if (task.unread) return 4;
@@ -235,7 +230,7 @@ export function orderedSidebarThreads<T extends ThreadRowTask>(tasks: T[], activ
 
 type ThreadRowProps = {
   task: ThreadRowTask;
-  /** the bot or room that owns the thread: the link's ?bot= */
+  /** the bot that owns the thread: the link's ?bot= */
   ownerId: string;
   current: boolean;
   compact?: boolean;
@@ -289,7 +284,7 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
   const finishing = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const actionRef = useRef<HTMLButtonElement>(null);
-  const status = task.activity === "waiting-on-you" ? conversations ? "Needs approval" : t("task.waiting") : isWaitingOnTeammate(task) ? t("task.waitingOnTeammate") : isWorking(task) ? activityLabel ?? t("chat.activity.working") : task.queued ? t("task.queued") : null;
+  const status = task.activity === "waiting-on-you" ? conversations ? "Needs approval" : t("task.waiting") : isWorking(task) ? activityLabel ?? t("chat.activity.working") : task.queued ? t("task.queued") : null;
   const byline = threadByline(task);
   const updatedAt = threadRecency(task);
   const updatedStamp = formatUpdatedAt(updatedAt);
@@ -369,7 +364,7 @@ export const SidebarThreadRow = memo(function SidebarThreadRow({ task, ownerId, 
         </span>
         {updatedLabel && <time dateTime={new Date(updatedAt).toISOString()} className="shrink-0 tabular-nums text-[10px] text-ink-secondary">{updatedLabel}</time>}
         {task.pinned === true && <HIcon icon={PinIcon} size={11} className="shrink-0 text-ink-secondary" aria-label={t("sidebar.bot.pin")} />}
-        {task.activity === "waiting-on-you" ? <span className="shrink-0 text-[10px] font-medium text-warning">{status}</span> : isWaitingOnTeammate(task) ? <HIcon icon={Clock03Icon} size={11} className="shrink-0 text-ink-secondary" aria-label={t("task.waitingOnTeammate")} /> : isWorking(task) ? <HIcon icon={Loading02Icon} size={11} className="shrink-0 animate-spin text-success" aria-label={activityLabel ?? t("chat.activity.working")} /> : task.queued ? <span className="shrink-0 text-[10px] text-ink-secondary">{t("task.queued")}</span> : null}
+        {task.activity === "waiting-on-you" ? <span className="shrink-0 text-[10px] font-medium text-warning">{status}</span> : isWorking(task) ? <HIcon icon={Loading02Icon} size={11} className="shrink-0 animate-spin text-success" aria-label={activityLabel ?? t("chat.activity.working")} /> : task.queued ? <span className="shrink-0 text-[10px] text-ink-secondary">{t("task.queued")}</span> : null}
         {task.unread && <span className="size-1.5 shrink-0 rounded-full bg-accent" aria-label={t("task.unread")} />}
       </button>}
       <button ref={actionRef} type="button" aria-label={t("task.actions", { title: task.title })} aria-expanded={Boolean(menu)}

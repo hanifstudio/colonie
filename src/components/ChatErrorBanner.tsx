@@ -2,7 +2,7 @@ import { MultiplicationSignIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { t } from "@/lib/i18n";
 
-/** The chat and room error line. Callers pass the store error; dismissing
+/** The chat error line. Callers pass the store error; dismissing
  * clears it, and the store clears it on its own after a few seconds. */
 export function ChatErrorBanner({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
   if (!message) return null;

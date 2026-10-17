@@ -9,8 +9,8 @@
 // endpoints are sealed behind a per-turn token. The real MCP config is still
 // inspected below, while the isolated server's test-only mint route provides
 // an exact synthetic legacy turn for the ask/delegate authorization checks.
-// These checks do not prove ordinary-chat dispatch: direct-coordination.e2e.test.ts
-// exercises that mounted coordinate_bots flow, including grants and revocation.
+// These checks do not prove ordinary-chat dispatch; the coordinate_bots flow
+// is retired with rooms, and ACP Chief delegation is chief.e2e.test.ts.
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

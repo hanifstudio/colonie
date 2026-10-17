@@ -210,14 +210,11 @@ export class VisibleSet {
     return seen;
   }
 
-  /** At least one bot, every bot in it visible, and the room's floor — the
-   * narrowest audience it has had — admits the viewer. */
-  group(id: string): boolean {
-    if (this.everything) return true;
-    const group = this.groups.get(id);
-    if (!group) return false;
-    const members = group.memberIds.filter((member) => this.bots.has(member));
-    return members.length > 0 && members.every((member) => this.bot(member)) && viewerSees(this.viewer, group.audienceFloor);
+  /** A stored room is visible only to a viewer who sees everything. Rooms are
+   * retired and their audience floor no longer narrows as members change, so
+   * a restricted viewer never gains a room transcript. */
+  group(_id: string): boolean {
+    return this.everything;
   }
 
   /** The bot or room that owns the thread is visible. An unknown thread is not. */
@@ -244,13 +241,12 @@ export class VisibleSet {
     return this.threads.get(threadId);
   }
 
-  /** Sections holding at least one visible bot or room. */
+  /** Sections holding at least one visible bot. */
   sections(all: readonly string[]): string[] {
     if (this.everything) return [...all];
     const key = (value?: string) => value?.trim() || "";
     const shown = new Set<string>();
     for (const bot of this.bots.values()) if (this.bot(bot.id)) shown.add(key(bot.section));
-    for (const group of this.groups.values()) if (this.group(group.id)) shown.add(key(group.section));
     return all.filter((section) => shown.has(key(section)));
   }
 

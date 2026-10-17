@@ -21,8 +21,8 @@ describe("ChatErrorBanner", () => {
     expect(markup).toContain("border-danger/30");
   });
 
-  it("is the banner both the chat and the room render", () => {
-    for (const file of ["components/ChatView.tsx", "components/GroupView.tsx"]) {
+  it("is the banner the chat renders", () => {
+    for (const file of ["components/ChatView.tsx"]) {
       const text = source(file);
       expect(text).toContain("<ChatErrorBanner");
       expect(text).toContain('message={state.error}');

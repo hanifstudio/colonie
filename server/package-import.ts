@@ -2,13 +2,14 @@
 //
 // Import is additive-only. A package is untrusted input (a file someone
 // sent, GitHub, the community catalog), so it is structurally unable to reach
-// records the person already has: every bot, group chat, routine, section and
-// connection it creates is NEW, and every privilege-bearing field is chosen
-// here, never read from the file. What the file may set is persona and
-// structure: names, standing instructions, looks, playbooks, skills (which
-// land switched off), group chats, routines (which land paused), the team
-// brief and Chief, starter notes, and connection SLOTS (an address and the
-// names of values the person fills in later; never the values).
+// records the person already has: every bot, routine, section and connection
+// it creates is NEW, and every privilege-bearing field is chosen here, never
+// read from the file. What the file may set is persona and structure: names,
+// standing instructions, looks, playbooks, skills (which land switched off),
+// routines (which land paused), the team brief and Chief, starter notes, and
+// connection SLOTS (an address and the names of values the person fills in
+// later; never the values). Rooms are retired: a file's rooms and room
+// routines are listed as skipped, never created.
 //
 // `trust` is a function argument, never read from a request. The HTTP import
 // route always passes "file". Only the organization library (wave 2, a
@@ -22,7 +23,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mcpServerNameError, MAX_MCP_SERVERS, parseStoredMcpServer } from "./mcp-registry.ts";
 import {
   AGENT_PARTS, agentReleaseValues, connectionLocalValue, connectionReleaseValue, pair, pairs, playbookValues,
-  ROOM_PARTS, roomReleaseValues, ROUTINE_PARTS, routineReleaseValues, scheduleValue, sha256Hex, TEAM_PARTS,
+  ROUTINE_PARTS, routineReleaseValues, scheduleValue, sha256Hex, TEAM_PARTS,
   type AgentPart, type PartPair, type TeamPart,
 } from "./package-parts.ts";
 import type { PresetRegistry } from "./presets.ts";
@@ -57,7 +58,10 @@ export type ImportSkipReason =
   | "too_many_connections"
   | "connection_invalid"
   | "run_limit_adjusted"
-  | "too_many_presets";
+  | "too_many_presets"
+  /** Rooms are retired: a package's rooms, its room routines and a legacy
+   * project room are listed here instead of being created. */
+  | "rooms_not_supported";
 
 export interface ImportSkip { part: string; reason: ImportSkipReason }
 
@@ -85,7 +89,7 @@ export interface PackageImportDeps {
   images: { save(bytes: Uint8Array, mime: string): string };
   /** Called once the import has succeeded. The server leaves it unset: the
    * store's own frames announce new records. Tests use it as a late step. */
-  broadcast?: (event: { kind: "bot"; bot: BotRecord } | { kind: "group"; group: GroupRecord }) => void;
+  broadcast?: (event: { kind: "bot"; bot: BotRecord }) => void;
   /** The installation's default model: packages never carry one. */
   defaultSelection: () => ModelSelection;
   /** Preset bots (presets.ts). Absent, presets are listed as skipped and a
@@ -107,9 +111,10 @@ export interface PackageImportOptions {
   /** A function argument only; never read from any request. */
   trust: PackageTrust;
   mode: "add" | "project";
-  /** Project mode (legacy team files): the folder the caller chose. */
+  /** Project mode (legacy team files) once opened a room on this folder.
+   * Rooms are retired: the project room is skipped and listed instead. */
   cwd?: string | null;
-  /** Project mode (legacy team files): the group chat name the caller chose. */
+  /** Project mode (legacy team files): the retired project room's name. */
   room?: string;
   /** Who may see the new bots: the admin's choice, never the file's. */
   visibility?: BotVisibility;
@@ -136,9 +141,9 @@ export interface PackageImportResult {
   name: string;
   section: string;
   bots: BotRecord[];
+  /** Always empty: rooms are retired and listed in `skipped` instead. Kept
+   * for callers that still read the field. */
   groups: GroupRecord[];
-  /** Project mode's new group chat (legacy team files only). */
-  group?: GroupRecord;
   routines: Routine[];
   /** Skills the package offers without assigning them to a bot. */
   offeredSkills: string[];
@@ -258,8 +263,8 @@ function importLibraryFile(document: PackageDocument, presets: PresetRegistry): 
   };
 }
 
-/** Add a legacy `colonie.team` file: people only (plus a project room when
- * the caller asks for one). */
+/** Add a legacy `colonie.team` file: people only. A project room the caller
+ * asks for is skipped, since rooms are retired. */
 export function importTeamManifest(
   manifest: ParsedTeamManifest,
   options: Omit<PackageImportOptions, "trust" | "org">,
@@ -280,7 +285,6 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
     : (source as { manifest: ParsedTeamManifest }).manifest.team.members.map((member) => ({ member, agent: undefined }));
 
   const importedBots: BotRecord[] = [];
-  const createdGroups: GroupRecord[] = [];
   const createdRoutines: Routine[] = [];
   const createdServers: string[] = [];
   const createdPresets: string[] = [];
@@ -290,7 +294,6 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
   // un-archived later, and a revived duplicate would be just as ambiguous.
   const takenNames = new Set(store.bots.map((bot) => bot.name.trim().toLowerCase()));
   const botIds = new Map<string, string>();
-  let group: GroupRecord | undefined;
   let section: string | undefined;
   let notes = 0;
   try {
@@ -435,46 +438,21 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
       }
     }
 
-    // The brief goes before the group chats and routines, and the leader is
-    // set last, so an organization Add the app stopped partway through can
-    // tell a finished team from a partial one.
+    // The brief goes before the routines, and the leader is set last, so an
+    // organization Add the app stopped partway through can tell a finished
+    // team from a partial one.
     const brief = Boolean(pkg?.team?.brief?.trim());
     if (brief) deps.sections.writeBrief(section, pkg!.team!.brief!);
 
-    // A package is an explicit structure import: its rooms are created from
-    // package-local keys only, then normalized to the fresh bot ids.
-    const groupIds = new Map<string, string>();
-    for (const room of pkg?.rooms ?? []) {
-      const ids = room.members.map((key) => botIds.get(key)!);
-      let created = store.createGroup(room.name, ids, false, section);
-      createdGroups.push(created);
-      const responder = room.defaultResponder;
-      const defaultResponder = responder.kind === "agent"
-        ? { kind: "member" as const, botId: botIds.get(responder.agent)! }
-        : responder.kind === "auto"
-          ? { kind: "auto" as const, ...(responder.agent ? { fallbackBotId: botIds.get(responder.agent)! } : {}) }
-          : { kind: responder.kind };
-      created = store.patchGroup(created.id, {
-        bulletin: room.bulletin ?? "",
-        defaultResponder,
-        setupCompletedAt: Date.now(),
-      }) ?? created;
-      groupIds.set(room.key, created.id);
-      if (org) {
-        const local = {
-          name: created.name,
-          bulletin: created.bulletin ?? "",
-          members: [...created.memberIds].sort(),
-          defaultResponder: created.defaultResponder,
-        };
-        created = store.patchGroup(created.id, {
-          installedPackage: { installId: org.installId, key: room.key, memberKeys: [...room.members].sort(), parts: pairs(ROOM_PARTS, roomReleaseValues(room), local) },
-        }) ?? created;
-        orgIndex.rooms[room.key] = created.id;
-      }
-    }
+    // Rooms are retired: a package's rooms are listed, not created.
+    for (const room of pkg?.rooms ?? []) skipped.push({ part: `rooms[${room.key}]`, reason: "rooms_not_supported" });
 
     for (const routine of pkg?.routines ?? []) {
+      // A routine that runs in a room goes with its room.
+      if (routine.room !== undefined) {
+        skipped.push({ part: `routines[${routine.key}]`, reason: "rooms_not_supported" });
+        continue;
+      }
       // Routines always arrive paused from a file. The organization channel
       // also pauses them for now; honouring enabledAfterInstall there is a
       // later, Admin-side decision.
@@ -487,14 +465,13 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
         name: routine.name,
         prompt: routine.prompt,
         botId: botIds.get(routine.agent)!,
-        ...(routine.room !== undefined ? { target: "room-goal" as const, groupId: groupIds.get(routine.room)! } : {}),
         runOn: routine.runOn,
         enabled: false,
         schedule: routine.schedule,
         durationMinutes: routine.durationMinutes,
         ...(timeoutMinutes === undefined ? {} : { timeoutMinutes }),
         ...(routine.overlap ? { overlap: routine.overlap } : {}),
-        ...(routine.continuity && routine.room === undefined ? { continuity: true } : {}),
+        ...(routine.continuity ? { continuity: true } : {}),
       };
       const created = deps.routines.create(input);
       createdRoutines.push(created);
@@ -529,23 +506,12 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
       presets = [...registered.added, ...registered.existing];
     } else for (const preset of pkg?.presets ?? []) skipped.push({ part: `presets[${preset.key}]`, reason: "presets_not_supported_yet" });
 
-    // The legacy project room is created last, so a failure anywhere above
-    // leaves no half-built project behind.
-    if (!pkg && options.mode === "project" && importedBots.length > 0) {
-      const roomName = options.room?.trim() || name;
-      group = store.createGroup(roomName, importedBots.map((bot) => bot.id), false, section);
-      createdGroups.push(group);
-      if (options.cwd) {
-        // `cwd` is the folder the room WANTS; the store pins it on the
-        // first turn (pinGroupCwd).
-        group = store.patchGroup(group.id, { cwd: options.cwd }) ?? group;
-      }
-    }
+    // Rooms are retired: a legacy project room is listed, not created.
+    if (!pkg && options.mode === "project" && importedBots.length > 0) skipped.push({ part: "room", reason: "rooms_not_supported" });
 
     const referenced = new Set((pkg?.agents ?? []).flatMap((agent) => agent.skills ?? []));
     const bots = importedBots.map((bot) => store.bot(bot.id)!);
     for (const bot of bots) deps.broadcast?.({ kind: "bot", bot });
-    if (group) deps.broadcast?.({ kind: "group", group });
     return {
       alreadyAdded: false,
       ...(installId ? { installId } : {}),
@@ -553,8 +519,7 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
       name,
       section,
       bots,
-      groups: createdGroups.map((created) => store.group(created.id) ?? created),
-      ...(group ? { group } : {}),
+      groups: [],
       routines: createdRoutines,
       offeredSkills: (pkg?.skills?.entries ?? []).filter((skill) => !referenced.has(skill.name)).map((skill) => skill.name),
       connections,
@@ -564,10 +529,7 @@ function runImport(source: ImportSource, options: PackageImportOptions, deps: Pa
       ...(presets ? { presets } : {}),
     };
   } catch (error) {
-    // A room of deleted members must not survive either — patchGroup can
-    // throw (disk) after createGroup already saved.
     for (const routine of createdRoutines) deps.routines.remove(routine.id);
-    for (const created of createdGroups) store.deleteGroup(created.id);
     for (const bot of importedBots) store.deleteBot(bot.id);
     deps.presets?.remove(createdPresets);
     if (createdServers.length) {

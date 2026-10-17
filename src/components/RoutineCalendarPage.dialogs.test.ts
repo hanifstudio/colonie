@@ -59,7 +59,7 @@ describe.each([
   {
     name: "paused routines",
     closeLabel: t("routines.paused.close"),
-    render: (onClose: () => void) => PausedList({ routines: [routine], bots: [bot], groups: [], onClose, onEdit: vi.fn(), onOpenRoom: vi.fn() }),
+    render: (onClose: () => void) => PausedList({ routines: [routine], bots: [bot], onClose, onEdit: vi.fn() }),
   },
 ])("calendar $name dialog", ({ closeLabel, render: dialog }) => {
   it("hands its dialog element to the modal keyboard handling", () => {
@@ -86,7 +86,7 @@ describe.each([
 describe("calendar event details drawer", () => {
   const drawer = (onClose: () => void) => EventDetails({
     item: { kind: "routine", id: routine.id, at: 1, durationMinutes: 30, routine, run: null },
-    bots: [bot], onClose, onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenRoom: vi.fn(),
+    bots: [bot], onClose, onEdit: vi.fn(), onCallChanged: vi.fn(), onOpenChat: vi.fn(),
   });
 
   it("is a labelled drawer beside the calendar, not a focus-trapping modal", () => {

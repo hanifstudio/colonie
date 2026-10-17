@@ -50,7 +50,6 @@ import { LicenseExpiryBanner } from "./LicenseExpiryBanner";
 
 import { SkinPicker } from "./SkinPicker";
 import { FONT_IDS, applyFont, readFont, type FontId } from "@/lib/fonts";
-import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
 import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { AboutMeSettings } from "./AboutMeSettings";
 import { ThreadConcurrencySettings } from "./ThreadConcurrencySettings";
@@ -94,10 +93,10 @@ export const SECTIONS: Array<{
   keywords: string[];
 }> = [
   { id: "general", group: "you", labelKey: "settings.section.general", icon: UserIcon, keywords: ["profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
-  { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "groups", "top"] },
+  { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "top"] },
   { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
-  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "rooms", "who answers"] },
+  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "who answers"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
@@ -888,9 +887,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
               <DefaultBotSettings />
               {colonieFleet && <SharedAgentInstructions />}
             </div>
-            <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
-              <RoomTurnTimeoutSettings />
-            </Card>
             <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
               <McpCallTimeoutSettings />
             </Card>
