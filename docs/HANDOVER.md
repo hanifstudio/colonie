@@ -1,6 +1,6 @@
 # Colonie handover
 
-Updated: October 17, 2026. Current state and active work only.
+Updated: October 18, 2026. Current state and active work only.
 Working rules live in [AGENTS](../AGENTS.md); product plans live in the
 [blueprint](COLONIE-BLUEPRINT.md), read only when relevant.
 
@@ -125,45 +125,39 @@ M0.4 still needs fresh-session pickup/review evidence. Review so far is self-rev
 unexpected-failure recovery and unattended execution remain unproven. Preserve
 these limits while scoped foundation work proceeds; do not claim M0 complete.
 
-## Active task: rooms retirement (picked up October 17, second session)
+## Active task: P1 close-out — prove the room retirement, then finish its leftovers
 
-Status (iteration 3): rooms are read-only legacy storage (`groups.json` never
-written, stored rooms admin-only, no pair DM channels); room screens and
-navigation are gone from `src/`; `coordinate_bots` is retired and live Chief
-delegation is `ask_bot`. Renderer lane verified (tsc, i18n, oxlint). Server,
-fixtures and approval lanes verified earlier; server tsc now clean after the
-`rooms` config-key fix. Open: tests lane (`tool-scope.e2e` 6/7), src test
-failures listed in PROGRESS "iteration 3" (companion section tests inherited;
-`node:sqlite` bundling suites unbaselined), `workspace-backup-workflow` paired
-client export 200 vs 403, `steer-queue` 4 cases (queue item 7), `index.test.ts`
-10 strict cases. Product gap found: tool selection is not forwarded to ACP
+The owner stopped the `claude -p` batch on October 17 and asked for verified work
+instead of fast work. This task runs in the owner's OpenCode session and is
+recorded here before any code edit, per the development loop.
+
+- Outcome: the room retirement is proven by checks, and every red case is either
+  fixed as a regression or recorded as inherited with the run that shows it.
+- Scope: `server/`, `src/`, `scripts/testing/`, docs. Dead room leftovers only
+  where no live caller remains; the Decision model Settings section comes out
+  (owner decision) while `server/decider/` stays.
+- Acceptance: PROGRESS carries the classified red list with the actual command
+  and result; regressions fixed; `tsc`, `oxlint`, `i18n:check` and each touched
+  test file pass; document edits pass
+  `scripts/testing/verification-docs.test.ts`.
+- Bounded checks: one heavy job at a time, reproduced as CI shards
+  (`pnpm exec vitest run --shard=N/4`) rather than a guessed full run; each fix
+  gets its own targeted file; two repairs per red before recording it inherited.
+- Owner-directed deviation: the batch's no-commit rule was lifted once, so the
+  stopped batch's work would not be lost (commit `842da736`, 226 files). Commits
+  stay owner-gated.
+- Missing evidence: a solo session's checks are self-review, and these rules
+  require independent review; the owner decides whether to provide a verifier.
+
+State carried over from the batch, still current: rooms are read-only legacy
+storage (`groups.json` never written, stored rooms admin-only, no pair DM
+channels); room screens and navigation are gone from `src/`; `coordinate_bots` is
+retired and live Chief delegation is `ask_bot`. Open red: `index.test.ts` 10
+cases, `tool-scope.e2e` 6/7, `workspace-backup-workflow` paired client export
+200 vs 403, `steer-queue` 4 cases, plus the src failures listed in PROGRESS
+"iteration 3". Product gap found: tool selection is not forwarded to ACP
 connected-tool mounts (see PROGRESS); needs an owner/product decision before fix.
-Git index: `server/group-tasks.test.ts` shows a staged deletion from a coordinator
-mistake; the deletion is intended; the owner decides whether to unstage.
 Do not release yet: P1 and the room-retirement milestone remain unproven.
-
-Latest owner workflow (October 17): use one Claude coordinator and five isolated
-Claude workers to accelerate the authorized foundation work. This supersedes the
-single-worker/no-delegation prompt. One outcome per worker, not one declaration
-per session. The coordinator alone integrates into this checkout, updates these
-docs/roadmap, and runs heavy checks through the shared bounded check queue.
-Workers own disjoint paths in worktrees seeded with the current tracked WIP;
-they return patches and suggested checks without running builds/tests or editing
-the shared docs. Initial lanes: server/persistence room retirement, renderer room
-retirement, ACP scripted-tool fixtures, mixed-test migration, approval smoke tooling.
-The P1 foundation milestone remains active; future Server/invitation/companion
-work stays deferred; the owner decisions themselves are settled (see P0 below).
-Never erase persisted room
-files or live app data, weaken coverage to get green, or sweep WIP into commits.
-The single-worker iteration 11 was interrupted during team-backup work: preserve
-its unfinished edits and verify them as part of the server lane. No completion
-claim follows from that interrupted run. Bounded integration acceptance: the room
-UI is removed while direct conversations remain, stored backups still parse with
-explicit skipped-room behavior, maintained ACP fixtures/smokes migrate without
-retired drivers, relevant contract/type/lint checks pass or inherited failures are
-demonstrated. One heavy local check at a time, 120 seconds per command, two repairs
-per outcome. Worker-ready is not integrated/verified; show that distinction in
-the owner roadmap. No commits, pushes, publishing, deployment or external messages.
 
 Owner monitor correction (October 17): progress means roadmap outcomes and gaps,
 not a tool/process log. The local monitor must derive product P0–P7, engineering
@@ -233,61 +227,20 @@ Decisions and findings still in force:
   the P1 foundation/rooms milestone first; those research items stay queued
   after it unless the owner reprioritizes.
 
-Current team plan (iteration 2):
-
-| Lane | State | Next |
-|---|---|---|
-| server | verified | drop `roomResponders`/`normalizeGroupDefaultResponder` and `decider.jobs.roomRouting` once tests go |
-| renderer | verified (static/i18n only) | Decision model "Who answers in rooms" toggle waits for the owner question |
-| fixtures | verified | idle |
-| tests | integrated, partly verified | `tool-scope` ACP mount scope (product gap); remaining mixed tests |
-| approval | verified | idle |
-
-Coordinator-owned follow-ups:
-`steer-queue` item 7 (gate the `dispatching` receipt, not the turn);
-UI e2e files still reading removed `groups` (`team-lifecycle-ui`,
-`thinking-timer-ui`); ACP reports no adapter cost (`acp-runtime.ts`
-`turnUsage`/`finish`), so spend-cap cost assertions need a runtime decision.
-Iteration 3 checkpoint: renderer wave 9 and tests wave 8 are integrated, not
-verified (no check has run on them). The `post-to-room.test.ts` rename is done:
-the owner's session deleted the old duplicate file and
-`scripts/testing/vitest-shard-weights.json` already lists
-`server/peer-comms-limits.test.ts`, which passes 2/2 on its own. The October 17
-23:03 stop was not a guard bug: the coordinator bundled deletion with its check
-(`rm server/post-to-room.test.ts && python3 .colonie-dev/claude-team.py check ...`),
-which the permission mode refuses as irreversible destruction. Issue destructive
-and read-only commands as separate calls; a refusal of that kind is not a reason
-to end the batch while independent authorized work remains.
-Worker task files: `.colonie-dev/team/tasks/`.
-
-Checks have a 120-second
-owned-process limit, one heavy job at a time, two repair attempts. A worker report
-alone is not check evidence; self-review is not independent review. Stop and
-checkpoint on exhausted repair budget, provider quota/auth failure, an unresolved
-owner decision or completion of all ready authorized work. No publishing,
-deployment, remote ruleset changes or sweeping existing WIP into commits.
-Local controls: `python3 .colonie-dev/claude-autopilot.py start`, `status`, or
-`stop`. The local artifact is `.colonie-dev/claude-progress.html` (reloads every
-10 seconds). Team defaults: estimated US$300 total including reserved worker
-allowances, US$25 per Claude call, five workers at most, 30 minutes per worker,
-180 minutes per coordinator session (raised from 60 on October 17: the one-hour
-limit killed sessions mid-work and stopped the batch every hour). Model: the
-coordinator and its workers run the `sonnet` alias (resolves to
-`claude-sonnet-5-5`) since October 17, an owner-directed cost decision; revert to
-`claude-opus-5-5` if output quality drops. The coordinator's model comes from the
-launcher's `--model`, the workers' from `COLONIE_WORKER_MODEL` (default in
-`claude-team.py`). The owner delegated the "move heavy checks to CI" choice to the
-coordinator; it stays parked while this batch forbids commits and pushes. A
-checkpoint that names a roadmap item or focus that does not exist is ignored with
-a visible Warning event instead of ending the batch (fixed October 17 after
-`ROOMS-ROUTES`, an ID that does not exist, killed a session); valid IDs still
-apply. The
-coordinator may continue across bounded sessions.
-`python3 .colonie-dev/claude-team.py status` inspects lane outcomes;
-`check --seconds 120 -- COMMAND` is the serialized heavy-check queue. Only passing
-post-integration check IDs can mark a lane checked. Stop on the main launcher
-also stops its owned workers while preserving patches/worktrees. Account balance
-is not observable. These local ignored tools do not change application ACP.
+Batch harness (stopped October 17 by owner decision): the five-lane `claude -p`
+experiment under `.colonie-dev/` is kept for its records and stops being the
+working plan. Lane states at stop: server, fixtures and approval verified;
+renderer verified for static/i18n; tests integrated and partly verified. Retained
+as policy: one heavy job at a time, a report is not check evidence, self-review is
+not independent review, and no publishing, deployment, remote ruleset changes or
+sweeping WIP into commits. Retained follow-ups: `steer-queue` item 7 (gate the
+`dispatching` receipt, not the turn); UI e2e files still reading removed `groups`
+(`team-lifecycle-ui`, `thinking-timer-ui`); ACP reports no adapter cost
+(`acp-runtime.ts` `turnUsage`/`finish`), so spend-cap cost assertions need a
+runtime decision. Lane task files stay in `.colonie-dev/team/tasks/`;
+`python3 .colonie-dev/claude-autopilot.py status` reports the stopped state and
+`.colonie-dev/claude-progress.html` remains the batch's own record. These ignored
+local tools do not change application ACP.
 
 CI evidence that justifies doing this now: after the static job went green,
 the remaining red vitest shards are dominated by `server/index.test.ts` (68
@@ -397,6 +350,114 @@ Commands, per-file results, diagnosed failures, and the scale correction are in
 [PROGRESS](PROGRESS.md) under 2026-10-17. In short: the fixture engine had four
 ACP shapes the SDK refuses (all fixed), 24 files are verified green, and the
 remaining work is per-file. `server/comms.test.ts` stays excluded (it hangs).
+
+Measured by the OpenCode session on October 17–18: shard 1 of the CI split
+(`pnpm exec vitest run --shard=1/4 --maxWorkers=3`) reported 30 failed files and
+94 failed tests of 2,369 in 1,922 s on Node v22.23.1 while `.nvmrc` pins
+24.13.1; on 24.13.1 the same 27 red files give 26 failed files and 93 failed
+tests in 1,637 s, so the version was not the cause. Shards 2–4 are not measured.
+
+The baseline comparisons were wrong twice over and are superseded. The pre-batch
+worktree (`fb1f0e86` at `/private/tmp/colonie-base`) had lost `@hpke/core`,
+which the batch removed from `package.json` while the old source still imports
+it through `server/phone-secret.ts`. Every file touching that module died in
+`beforeAll` and looked greener than it was — vitest reports a `beforeAll` failure
+as "all tests skipped", which the first comparison read as "0 failed". Repairing
+the link and re-running a hand-picked short list only moved the error: the
+comparison has to cover all 27 red files at once. With the link restored
+(`.colonie-dev/red-baseline-full.log`: 24 failed files, 94 failed tests, 33
+passed, 206 s) the honest classification is:
+
+- **one real regression, fixed** — `scripts/testing/duration-sequencer.test.ts`
+  (0→3: the shard weight list carried 13 deleted files; it now holds the 119 that
+  exist, 10/10);
+- **one stale expectation left by the batch's own retirement** —
+  `server/presets.e2e.test.ts` asserted `groups: []` in the team-package import
+  response, a field rooms retirement removed deliberately; the assertion is gone
+  and the file is green;
+- **one flaky file** — `server/acp/start.e2e.test.ts` failed in the shard run and
+  passes on re-run;
+- **23 inherited** — identical failure counts before and after, i.e. the ACP
+  migration backlog, not batch damage. `server/claude-account-api.test.ts` (4)
+  and `server/openai-compat-vm.e2e.test.ts` (3), the other two "regressions" of
+  the first comparison, are inherited too, each proved by running it in the
+  repaired baseline worktree (`.colonie-dev/claude-account-baseline.log`,
+  `.colonie-dev/openai-compat-baseline.log`); the "after" run of all 27 is
+  `.colonie-dev/red-current-full.log`.
+
+`server/peer-allowlist.e2e.test.ts` (0→8 in the first comparison) is inherited as
+well: its fixture still named the retired `claudeAgent` driver, so every bot
+creation answered 400 and the cleanup ran on `undefined`. Migrated onto the
+maintained ACP fixture it is green, 7/7. One roster-only test is deleted — an
+ordinary bot's prompt is the ACP context contract now, and `peer-roster.test.ts`
+still covers the builder — and the engine-side token assertion moved to the route
+that mints the per-turn capability, because an ordinary bot mounts no internal
+MCP server.
+
+Fixed and green, in the same pass:
+
+- `server/digest.e2e.test.ts` (3/3). Its fixture names the two maintained
+  adapters (`claude-acp`, `codex-acp`) with each adapter's own approval modes, and
+  it exposed a real product gap — the ACP turn path took no pre-turn workspace
+  checkpoint, so `turnCheckpoints` stayed empty and the work digest never named
+  changed files for any bot. `server/index.ts` now snapshots on the ACP path
+  exactly as the other path does (pin = dispatch claim, release on a stale claim,
+  explicit project folders only); the digest names `retry.ts`, proven by probe and
+  by the test. After review the cross-engine half really crosses adapters
+  (`gated` = claude-acp, `echo` = codex-acp) and the ACP path gained the other
+  path's pre-dispatch claim guard, so a stopped turn launches no engine.
+- `server/acp-recovery.e2e.test.ts` (2/2; red 2/2 in both trees before). The
+  maintained runtime had dropped two things the retired ACP core did: the
+  vendor's own diagnostic (from `error.data.details`, `data.message`,
+  `data.error.message`) and the retirement of a poisoned child after a JSON-RPC
+  internal error (-32603). A person now reads "Internal error: OpenCode service
+  failure" instead of "Internal error", and the next explicit message resumes the
+  recorded session on a fresh process — but only where the adapter advertises
+  `loadSession` (Claude does, Codex's default is false), because retiring a child
+  an adapter cannot re-load would end the conversation instead of continuing it.
+  The fixture advertises `loadSession` the way the real Claude adapter does.
+
+Aligned with the retired pages but not yet re-run: the Decision model Settings
+section comes out (owner decision) and the phone-pairing "Remote access" page's
+stale assertions are updated in `src/components/SettingsModal.simple.test.ts`,
+`SettingsModal.groups.test.ts`, `SettingsModal.i18n.test.ts` and
+`SettingsModal.appearance.test.ts`; retired section ids resolve to Appearance.
+`WelcomeGate.test.ts` still seeds `appSettingsSection: "companion"`.
+
+Not caused by this session and not fixed: `server/automatic-recovery.e2e.test.ts`
+fails 7–8 of 11 tests either way (A/B twice in each direction,
+`.colonie-dev/automatic-recovery-*.log`). Which "does not automatically replay"
+case fails varies run to run on this 8-core machine, and its 409s come from the
+ACP native-history rule, so the file is inherited red plus timing-flaky. Its
+fixture is already ACP.
+
+Migrating `peer-allowlist` and diagnosing the rest exposed four product gaps to
+record (each is a rebuild decision, not a test tweak):
+
+- **The ACP model catalogue is populated on demand, not at startup.** An ACP
+  adapter can only report its models inside a session, so it exposes
+  `refreshModels` — the route `POST /api/instances/:id/refresh-models` the model
+  picker calls before it offers a choice (`AcpRuntime.discoverModels` opens a
+  throwaway session). `server/index.ts` already runs a startup refresh loop over
+  `instance.startupModelRefresh`, but no adapter sets that field, so the loop has
+  nothing to do: until a picker refresh lands, a bot created by any other client
+  with `requireAvailableModel: true` is refused every model id but the default.
+- **The peer-comms "agents" MCP mount is behind a capability ACP never claims.**
+  `agentsIntegration` (`server/index.ts:1682`) is mounted only when
+  `commsDepth < MAX_COMMS_DEPTH && capabilities.agentsMcp === true`, and
+  `AcpRuntime.capabilities` (`server/acp/acp-runtime.ts:204`) does not set
+  `agentsMcp`. So the peer tool surface reaches only the retired native path: an
+  ACP turn receives the connected-apps mount and `colonie_workspace` (the Chief,
+  or a bot with assigned skills). The internal endpoints and their gate stay live
+  and tested.
+- **Named Claude accounts still create the retired `claudeAgent` kind**
+  (`server/claude-accounts.ts` and the account routes), so anything the API or UI
+  creates there is a shadow instance.
+- **`integrations.localComputer`** ("Works on: Local VM" / this computer) is built
+  only on the retired native branch (`server/index.ts:7905`–`8015`, dispatched
+  with the other `integrations` fields) — the ACP dispatch passes its mount pair
+  instead and `server/acp/acp-runtime.ts` never reads `integrations`, so no ACP
+  turn receives a Colonie computer mount.
 
 ## Milestone: ACP automation (owner decision, 2026-10-17)
 

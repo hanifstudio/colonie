@@ -599,42 +599,6 @@ export function normalizeGroupDefaultResponder(
   return { kind: "member", botId: memberIds[0] };
 }
 
-/** Resolve the bots invoked by a human room message. Explicit targets win;
- * otherwise the room policy chooses one member, everyone, or nobody. */
-export function roomResponders<T extends { id: string; name: string; hidden?: boolean }>(
-  text: string,
-  members: T[],
-  defaultResponder: GroupDefaultResponder,
-): T[] {
-  const available = members.filter((member) => !member.hidden);
-  const everyone = "everyone";
-  for (let at = text.indexOf("@"); at !== -1; at = text.indexOf("@", at + 1)) {
-    const candidate = text.slice(at + 1, at + 1 + everyone.length);
-    if (
-      isMentionBoundary(text, at) &&
-      candidate.toLocaleLowerCase() === everyone &&
-      !isMentionNameContinuation(text.slice(at + 1 + everyone.length))
-    ) {
-      return available;
-    }
-  }
-  const mentioned = mentionedBots(text, available);
-  if (mentioned.length) return mentioned;
-  if (defaultResponder.kind === "everyone") return available;
-  if (defaultResponder.kind === "member") {
-    const lead = available.find((member) => member.id === defaultResponder.botId);
-    return lead ? [lead] : [];
-  }
-  // Auto without a decision (the decision model off, unsure or failing) is
-  // lead mode: its fallback member, else the first active member. The
-  // decision itself is asked asynchronously by the room turn.
-  if (defaultResponder.kind === "auto") {
-    const fallback = available.find((member) => member.id === defaultResponder.fallbackBotId) ?? available[0];
-    return fallback ? [fallback] : [];
-  }
-  return [];
-}
-
 /** A hidden routine execution is not a conversation the person can open. */
 function taskCountsAsBotUnread(task: { unread?: boolean; routineRunId?: string }): boolean {
   return Boolean(task.unread) && !task.routineRunId;

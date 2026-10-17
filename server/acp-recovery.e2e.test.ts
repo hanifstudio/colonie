@@ -46,6 +46,10 @@ it.each([false, true])("recovers the same conversation after an ACP internal err
       config: { cli: process.execPath, args: [fileURLToPath(new URL("./testing/fake-acp-cli.ts", import.meta.url))] },
       environment: {
         FAKE_ACP_MODES: "default,bypassPermissions",
+        // The real Claude adapter advertises loadSession (dist/acp-agent.js),
+        // which is the capability this recovery depends on: the recorded
+        // session is loaded on the replacement process.
+        FAKE_ACP_AGENT_NAME: "fake-acp",
         FAKE_ACP_MODELS: "fixture/recovery", FAKE_ACP_DUMP: dumpFile, FAKE_ACP_DUMP_PROMPT: "1",
         FAKE_ACP_RPC_APPEND_FILE: rpcFile, FAKE_ACP_RPC_FAILURE_FILE: failureFile,
         ...(afterOutput ? { FAKE_ACP_RPC_FAILURE_AFTER_OUTPUT: "1" } : {}),

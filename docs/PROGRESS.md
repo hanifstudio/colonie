@@ -3,6 +3,117 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — suite recovery: measurement corrected, one product gap fixed
+
+Single OpenCode session, Node 24.13.1 (`$HOME/.nvm/versions/node/v24.13.1/bin`),
+one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
+
+- **The first regression count was wrong.** `vitest run <27 red files>` in the
+  pre-batch worktree `/private/tmp/colonie-base` (`fb1f0e86`) reported failures
+  for 7 files that all died with `Cannot find package '@hpke/core'`: the batch
+  removed that dependency from `package.json` while the old source still imports
+  it (`server/phone-secret.ts`), and the worktree's `node_modules` symlink had no
+  copy. Restoring it (a real `node_modules` of symlinks plus
+  `@hpke/{core,common}` → `node_modules/.pnpm/@hpke+core@1.9.0/...`) and
+  re-running those 7 files (`.colonie-dev/red-baseline-envfix.log`, 31 s) gives a
+  partial comparison — **4 regressions, 20 unchanged, 3 improved** — that was
+  still wrong, because the repair had to cover every file that died in
+  `beforeAll`, not a hand-picked 7. See the full-baseline correction below.
+  Regressions from that partial run: `scripts/testing/duration-sequencer.test.ts`
+  (0→3, fixed), `server/claude-account-api.test.ts` (0→4),
+  `server/openai-compat-vm.e2e.test.ts` (0→3),
+  `server/peer-allowlist.e2e.test.ts` (0→8). Improved:
+  `server/acp/start.e2e.test.ts` (1→0), `server/card-answerers.e2e.test.ts` (6→1),
+  `server/control-colonie.test.ts` (3→2). `server/digest.e2e.test.ts`,
+  `hooks.e2e`, `aside-e2e`, `host-lazy-claim.e2e`, `computer-engine-removal.e2e`
+  are inherited red, not regressions.
+- **`server/digest.e2e.test.ts` green (3/3)** from 5 failed
+  (`.colonie-dev/digest-fix4.log`). The fixture now uses the two maintained
+  adapters with each one's own approval vocabulary
+  (`claude-acp`: default,bypassPermissions,acceptEdits,auto; `codex-acp`:
+  read-only,agent-full-access,workspace-write,agent) and the scripted fake via
+  `config: { cli: process.execPath, args: [fake-acp-cli.ts] }`; the strict ACP
+  config schema rejects the old `fullAuto` key.
+- **Product gap found and fixed in `server/index.ts`:** `checkpoints.snapshot`
+  was called only on the legacy turn path, and the ACP branch (the only path
+  every turn now takes) never took a pre-turn workspace snapshot. So
+  `turnCheckpoints` stayed empty, `scheduleTurnDigest` returned at
+  `if (!checkpoint) return;`, and the digest never named changed files for any
+  bot. Diagnosed by probe (`PROBE cwd-select` never fired; `.colonie/checkpoints`
+  never created) and by A/B with the change stashed. The ACP path now mirrors the
+  other path (snapshot awaited before dispatch, pin = dispatch claim, release on
+  a stale claim, explicit project folders only); probe shows
+  `{"changed":[],"added":["retry.ts"],"deleted":[]}` and the test asserts it.
+- **Second half of that test rewritten to the ACP contract:** switching a
+  conversation to another engine mid-history is refused with 409 ("belongs to
+  another agent's native history", `server/acp/native-history.ts`), which is what
+  replaced the retired multi-engine handoff. The test now asserts that refusal
+  and that the thread keeps its digest naming `retry.ts`.
+- Checks: `pnpm typecheck` 0, `pnpm lint` 0, and
+  `vitest run server/acp server/checkpoints.test.ts server/digest.e2e.test.ts`
+  → 17/18 files, 87 passed | 2 failed | 1 skipped in 227 s.
+  `server/acp-recovery.e2e.test.ts` is the one red: 2 tests fail in isolation
+  **with and without** this session's `server/index.ts` change (A/B, change
+  stashed), so it is not caused by the checkpoint fix and is not in the
+  inherited red list either — it needs its own diagnosis.
+- **Full baseline, the honest classification.** `vitest run <all 27 red files>`
+  in the repaired worktree (`.colonie-dev/red-baseline-full.log`) → 24 failed
+  files, 94 failed tests, 33 passed, 206 s. Per-file comparison against
+  `.colonie-dev/red-current.log` (`vitest run <same 27>` on this tree: 26 failed
+  files, 93 failed tests, 1,637 s) `(.colonie-dev/red-classification.json)`:
+  **one real regression**, `scripts/testing/duration-sequencer.test.ts`, fixed;
+  **one stale expectation from the batch's own retirement**,
+  `server/presets.e2e.test.ts` (`groups: []` removed from the team-package import
+  response with rooms; the assertion is gone, green 1/1,
+  `.colonie-dev/presets-fix1.log`); **one flaky file**,
+  `server/acp/start.e2e.test.ts`; **23 inherited with identical counts**. The
+  other two "regressions" of the partial run are inherited and proved by running
+  them in the repaired worktree:
+  `claude-account-api.test.ts` 4 failed (`.colonie-dev/claude-account-baseline.log`)
+  and `openai-compat-vm.e2e.test.ts` 3 failed
+  (`.colonie-dev/openai-compat-baseline.log`) — both files' decisive source is
+  byte-identical to the baseline, so their `0` was the contamination.
+- **`server/peer-allowlist.e2e.test.ts` migrated and green (7/7)** from 8 failed
+  (`.colonie-dev/peer-allowlist-fix3.log`). Diagnosis: the fixture named the
+  retired `claudeAgent` driver, so `POST /api/bots` answered 400 and the cleanup
+  loop read `bot.id` of `undefined`. Now the ACP fixture with the scripted fake;
+  one roster-only test is deleted (the prompt an ordinary bot gets is the ACP
+  context contract, `server/acp/context.ts`; `peer-roster.test.ts` covers the
+  builder) and the engine-side token read became a real session dump assertion
+  plus the mint-route format check, because an ordinary bot mounts no internal
+  MCP server. `createBot` now asserts the 201 and its status text, which is what
+  surfaced `model "claude-sonnet-5" is not offered by instance "plain"`.
+- **`server/acp-recovery.e2e.test.ts` fixed and green (2/2, 13.6 s)** from 2/2
+  red in both trees (`.colonie-dev/acp-recovery-fix2.log`). Two product gaps in
+  the maintained runtime: ACP vendor diagnostics were dropped
+  (`server/acp/acp-runtime.ts` now shapes `error.data.details` / `data.message` /
+  `data.error.message`, redacted and bounded, so the failed-turn row says
+  "Internal error: OpenCode service failure" instead of "Internal error"), and a
+  child left poisoned by a JSON-RPC internal error was kept for the next turn.
+  The runtime now retires that child, gated on
+  `agentCapabilities.loadSession` so an adapter that cannot re-load a session
+  keeps its child (Claude advertises it, Codex's default is false); the fixture
+  advertises `loadSession` like the real adapter, and the retired core
+  (`c61d7c86:server/drivers/acp/core.ts`) is the reference for both behaviours.
+- **`server/digest.e2e.test.ts` strengthened after review:** `echo` is now
+  `codex-acp` so the 409 native-history refusal really crosses adapters, and the
+  ACP path gained the other path's pre-dispatch claim guard ("turn stopped before
+  dispatch"), so a stopped turn no longer launches an engine. Both green
+  (`.colonie-dev/digest-fix5.log`, 3/3; `pnpm typecheck` 0; `pnpm lint` 0).
+- **`server/automatic-recovery.e2e.test.ts` is inherited red and flaky.** Four
+  full runs (`.colonie-dev/automatic-recovery-{before,before2,after-gate,repeat}.log`),
+  A/B twice in each direction: 7 failed without this session's runtime change,
+  8 with it, but the membership varies (the three "does not automatically replay"
+  cases trade places) and it also fails with the change stashed. Isolated
+  `-t "authentication failure"` fails both ways. Cause of the standing red:
+  the 409 ACP native-history rule and prompt-count timing. Not caused here.
+- **Four product gaps recorded** (detailed in HANDOVER): an ACP instance reports
+  its models only in-session, so `requireAvailableModel` accepts just the default
+  until something calls the model-picker's `refresh-models` route; the peer-comms
+  "agents" MCP mount is legacy-only; named Claude accounts still create the retired
+  `claudeAgent` kind; and `integrations.localComputer` reaches no ACP turn.
+- Not run: shards 2–4, UI e2e, desktop, real provider.
+
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
 
 Static/unit plus simulated provider (fake ACP) only; helper queue, `--maxWorkers=1`.

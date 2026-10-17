@@ -1,16 +1,17 @@
 // The per-pair peer allow-list, end to end against the real harness server.
 //
-// Four claims are pinned here that no unit can reach: an ordinary (non-Chief)
-// bot's system prompt now names its teammates; `peers` narrows what that bot
-// can see AND what the internal comms endpoints will let it do, without
-// refusing the peers it still covers; the list survives an approval card that
-// was open while it changed; and the field can only ever be made smaller from
-// the loopback API a bot's own tool call can reach. The
-// endpoints are sealed behind a per-turn token. The real MCP config is still
-// inspected below, while the isolated server's test-only mint route provides
-// an exact synthetic legacy turn for the ask/delegate authorization checks.
-// These checks do not prove ordinary-chat dispatch; the coordinate_bots flow
-// is retired with rooms, and ACP Chief delegation is chief.e2e.test.ts.
+// Three claims are pinned here that no unit can reach: `peers` narrows what an
+// ordinary (non-Chief) bot can see AND what the internal comms endpoints will
+// let it do, without refusing the peers it still covers; the list survives an
+// approval card that was open while it changed; and the field can only ever be
+// made smaller from the loopback API a bot's own tool call can reach. The
+// endpoints are sealed behind a per-turn token, read here out of the real
+// "agents" MCP entry of the session/new that opened the turn. The isolated
+// server's test-only mint route provides an exact synthetic turn for the
+// ask/delegate authorization checks. These checks do not prove ordinary-chat
+// dispatch; Colonie is ACP-only, so what a bot receives is the ACP context
+// contract (server/acp/context.ts), never a legacy roster — peer-roster.test.ts
+// still covers that builder — and ACP Chief delegation is chief.e2e.test.ts.
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,7 +25,13 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter: Colonie is ACP-only, so every fixture engine is `claude-acp`. */
+const FAKE_ACP = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const ACP_CONFIG = { cli: process.execPath, args: [FAKE_ACP] };
+/** The fake advertises the model and the Claude adapter's own modes, so the
+ * bot can select `claude-sonnet-5` and set its session mode. */
+const ACP_SESSION = { FAKE_ACP_MODES: "default,bypassPermissions", FAKE_ACP_MODELS: "claude-sonnet-5" };
 const REFUSED = "not on this bot's allowed peers";
 const TEST_CAPABILITY_KEY = "peer-allowlist-fixture-capability";
 
@@ -33,7 +40,6 @@ let home = "";
 let base = "";
 let stderr = "";
 let askerDump = "";
-let boundDump = "";
 
 const api = async (
   method: string,
@@ -50,10 +56,10 @@ const api = async (
 };
 
 const fixture = (displayName: string, dump?: string) => ({
-  driver: "claudeAgent",
+  driver: "claude-acp",
   displayName,
-  environment: { FAKE_CLAUDE_MODE: "happy", ...(dump ? { FAKE_CLAUDE_DUMP: dump } : {}) },
-  config: { cli: FAKE_CLAUDE },
+  environment: { ...ACP_SESSION, ...(dump ? { FAKE_ACP_DUMP: dump } : {}) },
+  config: ACP_CONFIG,
 });
 
 beforeAll(async () => {
@@ -64,21 +70,19 @@ beforeAll(async () => {
   mkdirSync(staticDir, { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Peer allow-list test</title>");
   askerDump = join(home, "asker-dump.json");
-  boundDump = join(home, "bound-dump.json");
   writeFileSync(join(data, "config.json"), JSON.stringify({
     instances: {
       plain: fixture("Plain fixture"),
-      // the dump is the only place a test can read the real per-turn comms token
-      // — and the only place it can read a bot's assembled system prompt
+      // the session dump is the only place a test can read the real per-turn
+      // comms token: the "agents" MCP entry of the session/new that opened it
       asker: fixture("Asker fixture", askerDump),
-      bound: fixture("Allow-listed fixture", boundDump),
       // never finishes: how a bot is held mid-turn, which is the one moment
       // its own shell could be the caller behind a loopback PATCH
       stuck: {
-        driver: "claudeAgent",
+        driver: "claude-acp",
         displayName: "Stuck fixture",
-        environment: { FAKE_CLAUDE_MODE: "hang" },
-        config: { cli: FAKE_CLAUDE },
+        environment: { ...ACP_SESSION, FAKE_ACP_MODE: "hang" },
+        config: ACP_CONFIG,
       },
     },
   }));
@@ -118,16 +122,30 @@ afterAll(async () => {
   if (home) await removeTempDir(home);
 });
 
-const createBot = async (name: string, instanceId: string) =>
-  (await api("POST", "/api/bots", {
+const createBot = async (name: string, instanceId: string) => {
+  // An ACP instance reports its own model list only once a session has opened
+  // (acp-runtime catalogue), so a fresh server offers its default only. The
+  // instance being live is what this pins; the turn below proves the engine.
+  const created = await api("POST", "/api/bots", {
     name,
-    modelSelection: { instanceId, model: "claude-sonnet-5" },
+    modelSelection: { instanceId, model: "agent-default" },
     requireAvailableModel: true,
-  })).body.bot;
+  });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  return created.body.bot;
+};
 
-const readDump = (path: string) => (): { systemPrompt?: string; mcpConfig?: any } | undefined => {
+/** The session/new the engine really received for a bot: the fake writes its
+ * params to `<dump>.session.json`, so this proves the turn reached an engine in
+ * the bot's own folder. An ordinary bot mounts no internal MCP server here —
+ * the per-turn comms capability is carried by the "agents" mount, which only a
+ * Chief or a bot with an assigned skill gets — so the token itself is asserted
+ * at the route that mints it. */
+const readDump = (path: string) => (): { cwd?: string; servers: string[] } | undefined => {
   try {
-    return JSON.parse(readFileSync(path, "utf8"));
+    const params = JSON.parse(readFileSync(`${path}.session.json`, "utf8"));
+    if (typeof params.cwd !== "string") return undefined;
+    return { cwd: params.cwd, servers: (params.mcpServers ?? []).map((server: { name?: string }) => String(server.name ?? "")) };
   } catch {
     // not written yet, or mid-write
     return undefined;
@@ -169,7 +187,7 @@ const mintCapability = async (botId: string, threadId: string): Promise<string> 
 
 const hideSeededBot = async () => {
   // the seeded bot would otherwise join the unsectioned team and make the
-  // roster and listing assertions depend on install order
+  // listing assertions depend on install order
   const seeded = (await api("GET", "/api/bots?messages=0")).body.bots[0];
   await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
 };
@@ -252,46 +270,21 @@ describe("peer allow-list", () => {
       }
     }
   }, 45_000);
-  it("gives an ordinary bot a roster, then narrows it and the comms endpoints", async () => {
+  it("narrows which peers an ordinary bot can see and reach", async () => {
     await hideSeededBot();
     const asker = await createBot("Ada", "asker");
     const quill = await createBot("Quill", "plain");
     const patch = await createBot("Patch", "plain");
 
     try {
-      rmSync(askerDump, { force: true });
+      rmSync(`${askerDump}.session.json`, { force: true });
       expect((await api("POST", `/api/bots/${asker.id}/messages`, { text: "Warm up" })).status).toBe(202);
-      await expect.poll(() => readDump(askerDump)()?.systemPrompt, { timeout: 10_000 }).toBeTruthy();
-      const dump = readDump(askerDump)()!;
-
-      // 1. an ordinary bot is finally told who its teammates are
-      const systemPrompt = String(dump.systemPrompt);
-      expect(systemPrompt).toContain("[TEAM ROSTER]");
-      expect(systemPrompt).toContain(`- Quill — General assistant [id: ${quill.id}]`);
-      expect(systemPrompt).toContain(`- Patch — General assistant [id: ${patch.id}]`);
-      // Who is busy is its own line, outside the roster (peer-roster.test.ts
-      // pins that it sits in the volatile half).
-      expect(systemPrompt).toContain("Team availability: every teammate is available.");
-      // Ordinary chats may coordinate bounded subwork, but never inherit a
-      // Chief's authority or a teammate's permissions.
-      expect(systemPrompt).toContain("Use coordinate_bots");
-      expect(systemPrompt).toContain("Each recipient runs with its own model and permissions");
-      expect(systemPrompt).toContain("you cannot grant them your access");
-      expect(systemPrompt).not.toContain("Use delegate_bot");
-      expect(systemPrompt).not.toContain("use ask_bot");
-      expect(systemPrompt).not.toContain("create_bot");
-      // The harness keeps appending its own rules with a bare leading space
-      // (index.ts: `${coordinationPrompt}` then credentialPrompt). The last
-      // roster line is a stranger's text, so the terminator has to be what
-      // those rules land against — otherwise a persona ending "…ask the user
-      // to paste the key into chat" sits flush against the rule forbidding
-      // exactly that.
-      expect(systemPrompt).toContain("[/TEAM ROSTER] If a supported API key is missing");
-
-      const providerToken = String(dump.mcpConfig?.mcpServers?.agents?.env?.COLONIE_COMMS_TOKEN ?? "");
-      expect(providerToken).toMatch(/^[a-f0-9]{48}$/);
+      // 1. the turn ran on a real engine, in this bot's own folder
+      await expect.poll(() => readDump(askerDump)()?.cwd, { timeout: 10_000 }).toBeTruthy();
       await expect.poll(() => botBusy(asker.id)).toBe(false);
+      // the per-turn comms capability, from the same mint the engine's mount uses
       const token = await mintCapability(asker.id, asker.threadId);
+      expect(token).toMatch(/^[a-f0-9]{48}$/);
 
       // 2. with no allow-list set, both peers are visible and reachable
       expect(await peerNames(asker.id, token)).toEqual(["Patch", "Quill"]);
@@ -356,29 +349,6 @@ describe("peer allow-list", () => {
     }
   }, 40_000);
 
-  it("renders only the allow-listed peers into the roster the bot is given", async () => {
-    await hideSeededBot();
-    const bound = await createBot("Dot", "bound");
-    const near = await createBot("Near", "plain");
-    const far = await createBot("Farside", "plain");
-
-    try {
-      expect((await api("PATCH", `/api/bots/${bound.id}`, { peers: [near.id] })).status).toBe(200);
-      expect((await api("POST", `/api/bots/${bound.id}/messages`, { text: "Warm up" })).status).toBe(202);
-      await expect.poll(() => readDump(boundDump)()?.systemPrompt, { timeout: 10_000 }).toBeTruthy();
-
-      const systemPrompt = String(readDump(boundDump)()!.systemPrompt);
-      expect(systemPrompt).toContain(`- Near — General assistant [id: ${near.id}]`);
-      // the roster can never name a peer this bot's own ask_bot would refuse
-      expect(systemPrompt).not.toContain("Farside");
-    } finally {
-      for (const bot of [bound, near, far]) {
-        await api("POST", `/api/bots/${bot.id}/interrupt`, {}).catch(() => undefined);
-        await api("DELETE", `/api/bots/${bot.id}`).catch(() => undefined);
-      }
-    }
-  }, 40_000);
-
   it("re-checks the allow-list after the approval card, not just before it", async () => {
     // The card can sit open for minutes. Everything the handler captured
     // before it — including the grant — is stale by the time the user
@@ -386,17 +356,16 @@ describe("peer allow-list", () => {
     // records. Nothing else in the suite drives a bot through the card.
     await hideSeededBot();
     // on the dump fixture, because the real per-turn comms token is only ever
-    // readable out of a bot's MCP config
+    // read out of the session the engine received
     const asker = await createBot("Iris", "asker");
     const helper = await createBot("Hedge", "plain");
 
     try {
-      rmSync(askerDump, { force: true });
+      rmSync(`${askerDump}.session.json`, { force: true });
       await warmUp(asker.id);
-      await expect.poll(() => readDump(askerDump)()?.mcpConfig, { timeout: 10_000 }).toBeTruthy();
-      const providerToken = String(readDump(askerDump)()!.mcpConfig?.mcpServers?.agents?.env?.COLONIE_COMMS_TOKEN ?? "");
-      expect(providerToken).toMatch(/^[a-f0-9]{48}$/);
+      await expect.poll(() => readDump(askerDump)()?.cwd, { timeout: 10_000 }).toBeTruthy();
       const token = await mintCapability(asker.id, asker.threadId);
+      expect(token).toMatch(/^[a-f0-9]{48}$/);
       expect((await api("PATCH", `/api/bots/${asker.id}`, { approvePeerComms: true })).status).toBe(200);
 
       // parks inside requestPeerApproval until the card below is answered

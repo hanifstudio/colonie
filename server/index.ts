@@ -7418,6 +7418,27 @@ async function startTurn(
         if (!userMessage.sender && !userMessage.peerAsk && !acpAssignment) colonieMemorySources.set(threadId, {
           botId: bot.id, threadId, messageId: userMessage.id, text: providerText, at: new Date(userMessage.at).toISOString(),
         });
+        // Wait immediately before dispatch: resources are already claimed, but
+        // the engine cannot edit the project until the snapshot has settled.
+        // The ACP path takes the same pre-turn checkpoint the other path does,
+        // or the turn's own digest has no files to name at settle time.
+        // snapshot() absorbs failures, so checkpointing may delay but never
+        // fail a turn.
+        const checkpointCwd = cwd !== privateCwd ? cwd : undefined;
+        if (checkpointCwd) {
+          const before = await checkpoints.snapshot(bot.id, checkpointCwd, `turn ${threadId.slice(0, 8)}`, undefined, { pin: dispatchClaimId });
+          if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
+            if (before) void checkpoints.release(bot.id, checkpointCwd, dispatchClaimId);
+            throw new DirectTurnSetupCancelled("turn stopped during checkpoint");
+          }
+          forgetTurnCheckpoint(threadId);
+          if (before) turnCheckpoints.set(threadId, { botId: bot.id, cwd: checkpointCwd, hash: before, pin: dispatchClaimId });
+        }
+        // The snapshot awaits git, so a stop can land in between: do not start
+        // an engine for a turn that is already gone (the other path's guard).
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
+          throw new DirectTurnSetupCancelled("turn stopped before dispatch");
+        }
         const dispatch = await guardTurnDispatch(instance.adapter.sendTurn({
           threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
           cwd, model, approvalMode: approvalModeForTurn(bot, false),

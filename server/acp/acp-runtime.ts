@@ -173,6 +173,32 @@ function toolOutput(call: ToolCallUpdate): string | undefined {
   return text ? redactSecretsInText(text).slice(0, 32_000) : undefined;
 }
 
+/** ACP vendors put the actionable cause in `error.data` while keeping the
+ * JSON-RPC message generic ("Internal error"). Surface only known text fields,
+ * never a response body or config dump, and redact before bounding what the
+ * person reads in the failed-turn row (shared/failed-turn.ts). */
+function acpRequestError(value: unknown, method: string): { cause: string; sessionFailure: boolean } {
+  const error = value as { message?: unknown; code?: unknown; data?: any } | null | undefined;
+  const message = typeof error?.message === "string" && error.message ? error.message : "ACP request failed";
+  const data = error?.data;
+  const detail = typeof data === "string" ? data
+    : typeof data?.details === "string" ? data.details
+      : typeof data?.message === "string" ? data.message
+        : typeof data?.error?.message === "string" ? data.error.message
+          : "";
+  const context = [method,
+    typeof data?.service === "string" ? `service: ${data.service}` : "",
+    typeof data?.errorName === "string" ? data.errorName : "",
+  ].filter(Boolean).join(", ");
+  return {
+    cause: redactSecretsInText(`${detail && detail !== message ? `${message}: ${detail}` : message} (${context})`).slice(0, 1_500),
+    // -32603 is JSON-RPC's internal error: evidence the process itself is
+    // unwell. Invalid params, unsupported methods and auth refusals are
+    // configuration issues, so their session is preserved instead.
+    sessionFailure: error?.code === -32603,
+  };
+}
+
 export class AcpRuntime implements ProviderAdapter {
   readonly provider: string;
   readonly capabilities = {
@@ -672,7 +698,19 @@ export class AcpRuntime implements ProviderAdapter {
       this.emit(session, { type: "turn.started" });
       void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
         .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason, undefined, turnUsage(result)))
-        .catch((error: Error) => this.finish(session, false, turn.cancelled ? "cancelled" : "error", redactSecretsInText(error.message)));
+        .catch((error: Error) => {
+          const failure = acpRequestError(error, "session/prompt");
+          this.finish(session, false, turn.cancelled ? "cancelled" : "error", failure.cause);
+          // An internal RPC failure can leave a live child poisoned just like a
+          // silent prompt: evict it before the next turn, so the next explicit
+          // message resumes this recorded session on a fresh process instead of
+          // failing against the same broken one. The failed prompt is never
+          // replayed — it may already have executed tools. An adapter that
+          // cannot load a session keeps its child: retiring it there would end
+          // the conversation instead of continuing it, and a transient blip
+          // may well clear on its own.
+          if (failure.sessionFailure && !turn.cancelled && session.initialization?.agentCapabilities?.loadSession) void this.close(session);
+        });
       return { turnId: turn.id };
     } catch (error) {
       const session = this.sessions.get(input.threadId);

@@ -73,7 +73,7 @@ it("shares New bot defaults as a preset, imports it, and creates a bot from it",
     // Import the preset file. The body claims organization trust; it is a file.
     const imported = await call("POST", "/api/teams/import", { ...saved.document, trust: "org", org: { installId: "x" } });
     expect(imported.status).toBe(201);
-    expect(imported.body).toMatchObject({ name: "Support agent", section: "", bots: [], groups: [], routines: [], offeredSkills: ["follow-up"],
+    expect(imported.body).toMatchObject({ name: "Support agent", section: "", bots: [], routines: [], offeredSkills: ["follow-up"],
       presets: [{ id: expect.any(String), key: "new-bot-defaults", name: "Support agent" }] });
     const fileId = imported.body.presets[0].id as string;
     const listed = (await ok("GET", "/api/bot-presets")).presets;

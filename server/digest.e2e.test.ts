@@ -1,15 +1,15 @@
 // The work digest, end to end and across engines (Phase 0, item 0.1 with
-// the standing "every engine" rule): boots the real harness server with one
-// fake instance per engine family the repo has a fake for, runs one turn on
-// each, and asserts that exactly one `digest` row lands after the reply,
-// naming the tools that engine's protocol exposed. Then the "done when" of
-// the phase: a turn on one engine that changes a project file yields a
-// digest naming the file, and a different engine taking over the same
-// thread is shown that digest in its replay.
+// the standing "every engine" rule): colonie is ACP-only, so "every engine"
+// is the two maintained adapters, and the scripted ACP fake stands behind
+// both. Runs one turn on each and asserts that exactly one `digest` row lands
+// after the reply, naming the tools that engine's protocol exposed. Then the
+// "done when" of the phase: a turn on one engine that changes a project file
+// yields a digest naming the file, and the conversation stays with the engine
+// that did the work — another engine cannot take over its native history.
 //
 // Same POSIX gating as branching.test.ts (the fakes are shebang scripts).
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,16 +33,27 @@ interface Msg {
   digest?: { turnId: string; tools: Array<{ name: string; count: number }>; files?: { added: string[]; changed: string[] }; hookCoverage: string };
 }
 
-/** One row per engine family with a fake in server/testing. `tools` is what
- * that fake's default turn is known to emit through its protocol. */
+/** The scripted ACP engine, spawned exactly as the runtime spawns a real
+ * adapter: the same stdio boundary, a different program. */
+const FAKE_ACP = fake("fake-acp-cli.ts");
+const ACP_CONFIG = { cli: process.execPath, args: [FAKE_ACP] };
+/** The model the fake advertises, so a bot can select `fake-model`. */
+const ACP_ENV = { FAKE_ACP_MODELS: "fake-model" };
+/** The Claude adapter's own approval vocabulary, for the gated instance. */
+const CLAUDE_MODES = { FAKE_ACP_MODES: "default,bypassPermissions,acceptEdits,auto" };
+/** The Codex adapter's own approval vocabulary, for the echo instance. */
+const CODEX_MODES = { FAKE_ACP_MODES: "read-only,agent-full-access,workspace-write,agent" };
+
+/** One row per maintained adapter (the ACP pair is the whole fleet). `modes`
+ * is the adapter's own approval vocabulary, which the scripted engine has to
+ * advertise for the session mode to be settable; `tools` is what the fake's
+ * default turn is known to emit through that protocol. */
 const ENGINES = [
-  { id: "acp", driver: "grokAgent", cli: "fake-acp-cli.ts", env: {}, tools: ["run"] },
-  { id: "claude", driver: "claudeAgent", cli: "fake-claude-cli.ts", env: {}, tools: ["Bash"] },
-  { id: "codex", driver: "codex", cli: "fake-codex-app-server.ts", env: {}, tools: ["*"] },
-  { id: "pi", driver: "piAgent", cli: "fake-pi-cli.ts", env: { FAKE_PI_MODE: "tooluse" }, tools: ["bash"] },
+  { id: "claude-acp", driver: "claude-acp", modes: "default,bypassPermissions,acceptEdits,auto", tools: ["run"] },
+  { id: "codex-acp", driver: "codex-acp", modes: "read-only,agent-full-access,workspace-write,agent", tools: ["run"] },
 ] as const;
 
-posixOnly("work digest e2e (every fake engine)", () => {
+posixOnly("work digest e2e (both maintained adapters)", () => {
   let child: ChildProcess;
   let home: string;
   let stderr = "";
@@ -71,24 +82,25 @@ posixOnly("work digest e2e (every fake engine)", () => {
   };
 
   beforeAll(async () => {
-    for (const e of ENGINES) chmodSync(fake(e.cli), 0o755);
     home = mkdtempSync(join(tmpdir(), "colonie-digest-e2e-"));
     mkdirSync(join(home, ".colonie"), { recursive: true });
     const instances: Record<string, unknown> = {};
     for (const e of ENGINES) {
-      instances[e.id] = { driver: e.driver, environment: e.env, config: { cli: fake(e.cli), fullAuto: true } };
+      instances[e.id] = { driver: e.driver, environment: { ...ACP_ENV, FAKE_ACP_MODES: e.modes }, config: ACP_CONFIG };
     }
     // a gated ACP instance for the file-change test, and a second plain ACP
     // instance that echoes its prompt so the replay can be read back
     instances.gated = {
-      driver: "grokAgent",
-      environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: gate(), FAKE_ACP_STARTED_FILE: started() },
-      config: { cli: fake("fake-acp-cli.ts"), fullAuto: true },
+      driver: "claude-acp",
+      environment: { ...ACP_ENV, ...CLAUDE_MODES, FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: gate(), FAKE_ACP_STARTED_FILE: started() },
+      config: ACP_CONFIG,
     };
     instances.echo = {
-      driver: "grokAgent",
-      environment: { FAKE_ACP_MODE: "echo-gated" },
-      config: { cli: fake("fake-acp-cli.ts"), fullAuto: true },
+      // The other maintained adapter, so "another engine cannot take over this
+      // native history" is exercised across adapters, not just across ids.
+      driver: "codex-acp",
+      environment: { ...ACP_ENV, ...CODEX_MODES, FAKE_ACP_MODE: "echo-gated" },
+      config: ACP_CONFIG,
     };
     writeFileSync(join(home, ".colonie", "config.json"), JSON.stringify({ instances }));
 
@@ -119,7 +131,8 @@ posixOnly("work digest e2e (every fake engine)", () => {
   it.each(ENGINES)("$id: one settled turn yields exactly one digest naming its tools", async (engine) => {
     const created = (await api("POST", "/api/bots")).body.bot;
     expect((await api("PATCH", `/api/bots/${created.id}`, { modelSelection: { instanceId: engine.id, model: "fake-model" } })).status).toBe(200);
-    expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "do one thing" })).status).toBe(202);
+    const sent = await api("POST", `/api/bots/${created.id}/messages`, { text: "do one thing" });
+    expect(sent.status, JSON.stringify(sent.body)).toBe(202);
     await waitFor(() => settled(created.id), `${engine.id} to settle`);
     await waitFor(async () => (await getBot(created.id)).messages.some((m: Msg) => m.kind === "digest"), `${engine.id} digest`);
 
@@ -133,15 +146,14 @@ posixOnly("work digest e2e (every fake engine)", () => {
     expect(d!.digest?.turnId).toBeTruthy();
     if (reply.turnId) expect(d!.digest?.turnId).toBe(reply.turnId);
     const names = d!.digest!.tools.map((t) => t.name);
-    if (engine.tools[0] === "*") expect(names.length).toBeGreaterThan(0);
-    else for (const name of engine.tools) expect(names).toContain(name);
+    for (const name of engine.tools) expect(names).toContain(name);
     // every activity row of the turn is attributed to it
     const activities: Msg[] = bot.messages.filter((m: Msg) => m.kind === "activity" && m.tool);
     for (const a of activities) expect(a.turnId).toBe(d!.digest?.turnId);
     expect(d!.digest!.tools.reduce((n, t) => n + t.count, 0)).toBe(activities.length);
   }, 45_000);
 
-  it("names the project files a turn changed, and a different engine taking over sees that in its replay", async () => {
+  it("names the project files a turn changed, and refuses another engine taking over that conversation", async () => {
     const project = mkdtempSync(join(tmpdir(), "colonie-digest-project-"));
     writeFileSync(join(project, "README.md"), "hello");
     const created = (await api("POST", "/api/bots")).body.bot;
@@ -156,21 +168,22 @@ posixOnly("work digest e2e (every fake engine)", () => {
     writeFileSync(join(project, "retry.ts"), "export const RETRY_LIMIT = 5;");
     writeFileSync(gate(), "go");
     await waitFor(() => settled(created.id), "the gated turn to settle");
-    await waitFor(async () => (await getBot(created.id)).messages.some((m: Msg) => m.kind === "digest"), "digest with files");
+    // the digest row lands first; the file list is patched onto it once the
+    // workspace diff is ready, so wait for the state under test, not just the row
+    await waitFor(async () => (await getBot(created.id)).messages.some((m: Msg) => m.kind === "digest" && m.digest?.files), "digest with files");
     const digest: Msg = (await getBot(created.id)).messages.find((m: Msg) => m.kind === "digest");
     expect(digest.digest?.files?.added).toEqual(["retry.ts"]);
 
-    // switch engines: the echoing instance replays the thread, digest included
+    // switch engines: colonie is ACP-only, so the session and its digest
+    // belong to the adapter that ran the turn. Handing the conversation to
+    // another engine mid-history is refused — the words stay with the engine
+    // that did the work — and this thread keeps the digest naming its file.
     expect((await api("PATCH", `/api/bots/${created.id}`, { modelSelection: { instanceId: "echo", model: "fake-model" } })).status).toBe(200);
-    expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "what did you change?" })).status).toBe(202);
-    await waitFor(async () => {
-      const b = await getBot(created.id);
-      return !b.busy && b.messages.filter((m: Msg) => m.role === "bot" && m.kind === "text" && m.text).length >= 2;
-    }, "the echo engine to reply");
-    const replies: Msg[] = (await getBot(created.id)).messages.filter((m: Msg) => m.role === "bot" && m.kind === "text" && m.text);
-    const echoed = replies.at(-1)!.text!;
-    expect(echoed).toContain("did in an earlier turn");
-    expect(echoed).toContain("retry.ts");
+    const refused = await api("POST", `/api/bots/${created.id}/messages`, { text: "what did you change?" });
+    expect(refused.status, JSON.stringify(refused.body)).toBe(409);
+    expect(refused.body.error).toContain("belongs to another agent's native history");
+    const kept: Msg = (await getBot(created.id)).messages.find((m: Msg) => m.kind === "digest");
+    expect(kept.digest?.files?.added).toEqual(["retry.ts"]);
     await removeTempDir(project);
   }, 60_000);
 });

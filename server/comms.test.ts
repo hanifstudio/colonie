@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 
-import { mentionedBots, normalizeGroupDefaultResponder, roomResponders } from "./store.ts";
+import { mentionedBots, normalizeGroupDefaultResponder } from "./store.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -63,34 +63,11 @@ describe("mentionedBots", () => {
   });
 });
 
-describe("roomResponders", () => {
+describe("normalizeGroupDefaultResponder", () => {
   const members = [
     { id: "atlas", name: "Atlas" },
     { id: "milind", name: "Milind" },
   ];
-
-  it("routes an unmentioned message to the configured lead", () => {
-    expect(roomResponders("hello there", members, { kind: "member", botId: "atlas" })).toEqual([members[0]]);
-  });
-
-  it("lets explicit mentions override the configured lead", () => {
-    expect(roomResponders("@Milind take this", members, { kind: "member", botId: "atlas" })).toEqual([members[1]]);
-  });
-
-  it("supports everyone and mentions-only room policies", () => {
-    expect(roomResponders("hello", members, { kind: "everyone" })).toEqual(members);
-    expect(roomResponders("hello", members, { kind: "mentions" })).toEqual([]);
-    expect(roomResponders("@everyone hello", members, { kind: "mentions" })).toEqual(members);
-  });
-
-  it("applies the shared mention boundaries to everyone", () => {
-    const mentionsOnly = { kind: "mentions" } as const;
-    expect(roomResponders("**@EVERYONE** hello", members, mentionsOnly)).toEqual(members);
-    expect(roomResponders("【@everyone】 hello", members, mentionsOnly)).toEqual(members);
-    expect(roomResponders("@everyone調査 hello", members, mentionsOnly)).toEqual([]);
-    expect(roomResponders("@everyone𐐀 hello", members, mentionsOnly)).toEqual([]);
-    expect(roomResponders("user@everyone /@everyone", members, mentionsOnly)).toEqual([]);
-  });
 
   it("keeps bot-to-bot channels on their last-speaker routing", () => {
     expect(normalizeGroupDefaultResponder({ kind: "everyone" }, members.map((member) => member.id), true)).toEqual({

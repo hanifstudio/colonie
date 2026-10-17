@@ -14,7 +14,7 @@ import { parseTeamBackup } from "../../shared/team-backup.ts";
 import { DATA_DIR } from "../config.ts";
 import { createTeamPackageExport } from "../package-export.ts";
 import { RoutineManager } from "../routines.ts";
-import { Store, normalizeGroupDefaultResponder, roomResponders, type BotRecord, type GroupRecord } from "../store.ts";
+import { Store, normalizeGroupDefaultResponder, type BotRecord, type GroupRecord } from "../store.ts";
 import { createTeamBackup, importTeamBackup } from "../team-backup.ts";
 import { parseTeamManifest } from "../team-manifest.ts";
 
@@ -39,16 +39,6 @@ describe("stored rooms", () => {
     expect(normalizeGroupDefaultResponder(undefined, IDS)).toEqual({ kind: "member", botId: "maya" });
     expect(normalizeGroupDefaultResponder({ kind: "round-robin" }, IDS)).toEqual({ kind: "member", botId: "maya" });
     expect(normalizeGroupDefaultResponder({ kind: "member", botId: "ravi" }, IDS)).toEqual({ kind: "member", botId: "ravi" });
-  });
-
-  it("without a decision, Auto answers like lead mode; mentions and @everyone win", () => {
-    expect(roomResponders("the navbar is broken", MEMBERS, { kind: "auto" }).map((m) => m.id)).toEqual(["maya"]);
-    expect(roomResponders("the navbar is broken", MEMBERS, { kind: "auto", fallbackBotId: "ravi" }).map((m) => m.id)).toEqual(["ravi"]);
-    expect(roomResponders("@Theo the navbar", MEMBERS, { kind: "auto", fallbackBotId: "ravi" }).map((m) => m.id)).toEqual(["theo"]);
-    expect(roomResponders("@everyone standup", MEMBERS, { kind: "auto" }).map((m) => m.id)).toEqual(IDS);
-    // an archived fallback falls through to the first active member
-    const archived = [{ ...MEMBERS[0]!, hidden: true }, ...MEMBERS.slice(1)];
-    expect(roomResponders("hi", archived, { kind: "auto", fallbackBotId: "maya" }).map((m) => m.id)).toEqual(["theo"]);
   });
 });
 
