@@ -79,7 +79,7 @@ import {
 import * as checkpoints from "./checkpoints.ts";
 import { commandReceipt } from "./commands.ts";
 import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./digest.ts";
-import { appendDecision, bindDecisionRetention, boundRetentionDays, decisionRetentionDays, decisionsCsv, flushDecisionLog, pruneDecisions, readDecisionRange, readDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
+import { appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
 import { validateBotCwd } from "./bot-cwd.ts";
 import {
   ATTACHMENTS_DIR,
@@ -201,13 +201,13 @@ import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./thread
 import { ComputerControl } from "./computer-control.ts";
 import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
 import { registerEnginesBinDir } from "./engine-install.ts";
-import { appendUsage, parseUsageRange, flushUsageLedger, type UsageRow, type UsageTrigger } from "./usage-ledger.ts";
-import { loadPlanUsage, planAccountsFromInstances } from "./plan-usage.ts";
+import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./usage-ledger.ts";
+
 import { ledgerCost } from "./model-prices.ts";
 import type { PriceList } from "./prices.ts";
 import type { RequestAuth } from "./request-auth.ts";
-import { checkProviderKey, PROVIDER_KEY_KINDS, providerBaseUrl, type ProviderKeyKind } from "./provider-key-check.ts";
-import { forgetKey, noteKeyAccepted, noteKeyRejected, onKeyRejectionChange } from "./key-rejections.ts";
+import { PROVIDER_KEY_KINDS } from "./provider-key-check.ts";
+import { forgetKey, onKeyRejectionChange } from "./key-rejections.ts";
 import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert } from "./spend.ts";
 
 import { entitled } from "./enterprise.ts";
@@ -518,22 +518,7 @@ import {
 } from "./request-auth.ts";
 import { cookieMaxAgeSeconds, SessionRegistry, type SessionRecord } from "./sessions.ts";
 import { ThreadStarters } from "./thread-starters.ts";
-import {
-  activityCsv,
-  activityEntries,
-  appendAdminAction,
-  botAuditSnapshot,
-  botChangeRows,
-  configChangeRows,
-  parseActivityWhat,
-  flushAdminActivity,
-  pruneAdminActivity,
-  readAdminActivityRange,
-  sharedSignIn,
-  signInListsOf,
-  type AdminActionRow,
-  type AdminActor,
-} from "./admin-activity.ts";
+import { appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor } from "./admin-activity.ts";
 import {
   frameForMember,
   memberBody,
@@ -573,6 +558,7 @@ import { createLiveRoutes } from "./routes/live.ts";
 import { createUsageRoutes } from "./routes/usage.ts";
 import { createVoiceRoutes } from "./routes/voice.ts";
 import { createConnectorRoutes } from "./routes/connectors.ts";
+import { createAdminReadRoutes } from "./routes/admin-reads.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -1225,7 +1211,6 @@ function adminAuditRows(
   return rows;
 }
 
-
 /** The guarded send contract external interfaces (the Slack worker) opt into.
  * `onBehalfOf` is additive and advertised by /api/health
  * (capabilities.guardedOnBehalfOf): it names the person a relay acts for, so
@@ -1731,7 +1716,6 @@ function agentsIntegration(
     },
   };
 }
-
 
 /** Engine lifecycle hooks (item 0.2): a turn-scoped bearer the engine's hook
  * helper presents on /api/internal/hook. COLONIE_HOOKS=0 turns the channel off. */
@@ -5140,7 +5124,6 @@ function runningTurnInstance(bot: BotRecord | null | undefined, threadId: string
   return runningTurnEngines.get(threadId) ?? (bot ? registry.get(bot.modelSelection.instanceId) : null);
 }
 
-
 function localVmTargetForBot(botId: string): LocalVmTarget {
   return localVmMode(cfg) === "per-bot" ? perBotLocalVmTarget(botId) : SHARED_LOCAL_VM_TARGET;
 }
@@ -7862,7 +7845,6 @@ async function startTurn(
         opts?.onDispatchError?.(message);
         void interruptDirectThread(bot.id, threadId).catch(() => {});
       };
-
 
       // Explicit destinations are strict. In particular, Local VM must never
       // fall through to host CUA and accidentally click on the user's Mac.
@@ -10723,6 +10705,7 @@ ROUTES.push(createAcpSettingsRoutes({
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
+ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -16737,109 +16720,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, readThreadEvents({ eventsDir: EVENTS_DIR, nativeDir: NATIVE_DIR, threadId, limit }));
     }
 
-    // ── the fleet-wide authorization decision log ──
-    // Read-only like the inspector above: the rows were written at the
-    // request.opened fold and in answerRequest; this only reads them back,
-    // newest last, same order as thread events.
-
-    // Subscription windows (5-hour and weekly), not the token ledger above.
-    // Same admin gate as /api/usage: this route is unlisted, so it stays admin.
-    if (method === "GET" && path === "/api/plan-usage") {
-      res.setHeader("cache-control", "no-store");
-      const report = await loadPlanUsage({
-        accounts: planAccountsFromInstances(instanceConfigs(cfg)),
-        refresh: url.searchParams.get("refresh") === "1",
-      });
-      return json(res, 200, report);
-    }
-
-    // ── provider key check: does a pasted or saved key open the provider's door ──
-    // One read-only request from this server; the verdict never carries the
-    // key. Admin scope by default, like every route not opened to clients.
-    if (method === "POST" && path === "/api/keys/test") {
-      const body = await readBody(req, 8192);
-      const provider = body?.provider;
-      if (!PROVIDER_KEY_KINDS.includes(provider as ProviderKeyKind)) {
-        return json(res, 400, { error: `provider must be one of ${PROVIDER_KEY_KINDS.join(", ")}` });
-      }
-      const kind = provider as ProviderKeyKind;
-      const saved = { anthropic: cfg.anthropic, openai: cfg.openai, openrouter: cfg.openrouter, openaiCompat: cfg.openaiCompat, mistral: cfg.mistral, cerebras: cfg.cerebras, xai: cfg.xai }[kind];
-      if (body?.key !== undefined && typeof body.key !== "string") {
-        return json(res, 400, { error: "key must be a string" });
-      }
-      const key = typeof body?.key === "string" ? body.key.trim() : saved?.key?.trim() || "";
-      if (!key) return json(res, 400, { error: "No key to test. Paste one or save one first." });
-      if (key.length > 512) return json(res, 400, { error: "That does not look like an API key." });
-      const url = typeof body?.url === "string" && body.url.trim() ? body.url.trim() : (saved && "url" in saved ? saved.url : undefined);
-      res.setHeader("cache-control", "no-store");
-      const verdict = await checkProviderKey({ provider: kind, key, url });
-      // A Test is a real use the person chose: the engines on this key agree
-      // with its verdict. Claude runs its key through its CLI, not here.
-      if (kind !== "anthropic") {
-        const base = providerBaseUrl(kind, url);
-        if (verdict.ok) noteKeyAccepted(base, key);
-        else if (verdict.reason === "rejected") noteKeyRejected(base, key);
-      }
-      return json(res, 200, verdict);
-    }
-
-    if (method === "GET" && path === "/api/decisions") {
-      const rawLimit = url.searchParams.get("limit");
-      const parsedLimit = rawLimit === null ? undefined : Number(rawLimit);
-      if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
-        return json(res, 400, { error: "limit must be a positive whole number" });
-      }
-      return json(res, 200, { decisions: readDecisions(DATA_DIR, parsedLimit ?? 200) });
-    }
-    // Settings → Activity: admin actions and approvals together, filtered by
-    // who, what and when; the same list as CSV. Admin scope by default.
-    if (method === "GET" && (path === "/api/admin-activity" || path === "/api/admin-activity.csv")) {
-      const fromParam = url.searchParams.get("from") || new Date(Date.now() - 29 * 24 * 60 * 60_000).toISOString().slice(0, 10);
-      const range = parseUsageRange(fromParam, url.searchParams.get("to"));
-      if (!range) return json(res, 400, { error: "from and to must be dates (YYYY-MM-DD), from no later than to, at most a year apart" });
-      const what = parseActivityWhat(url.searchParams.get("what"));
-      if (!what) return json(res, 400, { error: "what must be all, approvals, decisions, config, people, session, webhook, mcp, engine, bot, budget or visibility" });
-      const entries = activityEntries(readDecisionRange(DATA_DIR, range), readAdminActivityRange(DATA_DIR, range), {
-        what,
-        who: (url.searchParams.get("who") ?? "").slice(0, 200),
-      });
-      if (path.endsWith(".csv")) {
-        const stamp = (date: Date) => date.toISOString().slice(0, 10);
-        res.writeHead(200, {
-          "content-type": "text/csv; charset=utf-8",
-          "content-disposition": `attachment; filename="activity-${stamp(range.from)}-${stamp(range.to)}.csv"`,
-          "cache-control": "no-store",
-        });
-        res.end(activityCsv(entries));
-        return;
-      }
-      const rawLimit = Number(url.searchParams.get("limit") ?? 500);
-      const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 5_000) : 500;
-      res.setHeader("cache-control", "no-store");
-      return json(res, 200, {
-        entries: entries.slice(0, limit),
-        total: entries.length,
-        from: range.from.toISOString(),
-        to: range.to.toISOString(),
-        retentionDays: boundRetentionDays(),
-        recording: adminActivityRecording(),
-      });
-    }
-    // The same rows for an auditor's spreadsheet, over a date range. Admin
-    // scope by default (not in CLIENT_ALLOW, not a service route).
-    if (method === "GET" && path === "/api/decisions.csv") {
-      const range = parseUsageRange(url.searchParams.get("from"), url.searchParams.get("to"));
-      if (!range) return json(res, 400, { error: "from and to must be YYYY-MM-DD, from no later than to, at most a year apart" });
-      const stamp = (date: Date) => date.toISOString().slice(0, 10);
-      res.writeHead(200, {
-        "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="decisions-${stamp(range.from)}-${stamp(range.to)}.csv"`,
-        "cache-control": "no-store",
-      });
-      res.end(decisionsCsv(readDecisionRange(DATA_DIR, range)));
-      return;
-    }
-
     // ── a bot's activity: what it did, with the outcome ──
     // Read-only over the same two logs as the inspector and the decision
     // route above. The bot's own threads (its DM and every task) carry the
@@ -17683,8 +17563,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         providerConfigBusy = false;
       }
     }
-
-
 
     // Desktop credential cards never send the credential through this route.
     // Electron saves it through the OS-backed store first; these actions only

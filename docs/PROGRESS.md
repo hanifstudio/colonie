@@ -288,6 +288,15 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   route answers `{"configured":false,"credentialStore":"ok","services":{}}`. The provider rejected the call
   as an invalid key, so the exported key looks stale. No credential contents were read — only the masked
   form the server itself printed.
+- **S3.3: the admin read routes left `index.ts` (October 18).** plan-usage, `keys/test`, decisions,
+  admin-activity (JSON and CSV) and decisions.csv became `server/routes/admin-reads.ts`
+  (`createAdminReadRoutes({ cfg, adminActivityRecording })`); 102 inline lines removed and 16 imports
+  the hub no longer uses were pruned (`index.ts` 18,102 → 17,982). Guard:
+  `server/routes/admin-reads.test.ts`, driven by a new shared `server/testing/route-context.ts` — the
+  three route tests were three copies of the same fake context, and the first copy set `path` to the
+  whole request line instead of `url.pathname`, so every query-string validation test silently reached
+  no handler. 16/16 pass, typecheck 0, lint 0; the live server answers 400 for `/api/decisions?limit=0`
+  and 200 `{"decisions":[]}` through the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
