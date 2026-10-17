@@ -450,18 +450,13 @@ import { WebhookManager } from "./webhooks.ts";
 import type { WebhookTrigger } from "../shared/webhooks.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import {
-  installLibrarySkill,
-  listLibrarySkills,
   loadBundledSkills,
   loadUserSkills,
   mergeSkills,
   readLibrarySkillFile,
-  readSkillLibraryIndex,
   renderSkillInstructions,
   selectBundledSkills,
-  setLibrarySkillReviewState,
 } from "./skill-library.ts";
-import type { SkillsLibrarySkillWire } from "../shared/wire.ts";
 import { runSkillsLibraryBootSweep } from "./skills-library-migration.ts";
 import { installedPlaybookInstructions } from "./installed-playbooks.ts";
 import { createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip } from "./package-export.ts";
@@ -559,6 +554,7 @@ import { createAdminReadRoutes } from "./routes/admin-reads.ts";
 import { createBotActivityRoutes } from "./routes/bot-activity.ts";
 import { createServerInfoRoutes } from "./routes/server-info.ts";
 import { teamLibraryRoutes } from "./routes/team-library.ts";
+import { createSkillsLibraryRoutes } from "./routes/skills-library.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10709,6 +10705,7 @@ ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
 ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
 ROUTES.push(teamLibraryRoutes);
+ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -15227,81 +15224,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, { ok: true });
     }
 
-    // ── skills library (features.skillsLibrary): local browse surface ────
-    // Everything here is local: the library on disk, assignments on bot
-    // records, imports from pasted SKILL.md text. No registry, no network.
-    m = path.match(/^\/api\/skills-library$/);
-    if (m && method === "GET") {
-      if (!skillsLibraryEnabled(cfg)) return json(res, 404, { error: "skills library is not enabled" });
-      const index = readSkillLibraryIndex();
-      const skills: SkillsLibrarySkillWire[] = listLibrarySkills()
-        .map((listing): SkillsLibrarySkillWire => ({
-          name: listing.name,
-          description: listing.description,
-          source: listing.source,
-          enabled: listing.enabled,
-          tags: listing.tags ?? [],
-          version: index[listing.name]?.package?.release ?? null,
-          importedAt: listing.importedAt,
-          ...(listing.license ? { license: listing.license } : {}),
-          ...(listing.compatibility ? { compatibility: listing.compatibility } : {}),
-          warnings: listing.warnings,
-          assignedBots: store.bots
-            .filter((bot) => bot.assignedSkills?.includes(listing.name))
-            .map((bot) => ({ id: bot.id, name: bot.name })),
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      return json(res, 200, { skills });
-    }
-    if (m && method === "POST") {
-      if (!skillsLibraryEnabled(cfg)) return json(res, 404, { error: "skills library is not enabled" });
-      const parsed = z.object({ text: z.string().min(1) }).safeParse(await readBody(req));
-      if (!parsed.success) return json(res, 400, { error: "text must be the SKILL.md contents to import" });
-      const skill = parseSkillMd(parsed.data.text);
-      if ("error" in skill) return json(res, 400, { error: skill.error });
-      // Imports land disabled with their scan warnings attached: enabling is
-      // a separate, explicit review step on the row.
-      const installed = installLibrarySkill({
-        name: skill.name,
-        instructions: parsed.data.text,
-        source: "local-import",
-        license: skill.license,
-        compatibility: skill.compatibility,
-        tags: skill.tags,
-        warnings: scanSkillText(parsed.data.text),
-        reviewState: "disabled",
-      });
-      if ("error" in installed) return json(res, 422, { error: installed.error });
-      return json(res, 201, { skill: installed });
-    }
-    m = path.match(/^\/api\/skills-library\/([a-z0-9-]+)$/);
-    if (m && method === "GET") {
-      if (!skillsLibraryEnabled(cfg)) return json(res, 404, { error: "skills library is not enabled" });
-      const text = readLibrarySkillFile(m[1]!);
-      if (text === null) return json(res, 404, { error: "no such skill" });
-      return json(res, 200, { text });
-    }
-    if (m && method === "PATCH") {
-      if (!skillsLibraryEnabled(cfg)) return json(res, 404, { error: "skills library is not enabled" });
-      const parsed = z.object({ enabled: z.boolean() }).safeParse(await readBody(req));
-      if (!parsed.success) return json(res, 400, { error: "enabled must be true or false" });
-      const result = setLibrarySkillReviewState(m[1]!, parsed.data.enabled ? "approved" : "disabled");
-      if ("error" in result) return json(res, 404, { error: result.error });
-      return json(res, 200, { skill: result });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/skills-library$/);
-    if (m && method === "PUT") {
-      if (!skillsLibraryEnabled(cfg)) return json(res, 404, { error: "skills library is not enabled" });
-      if (!store.bot(m[1])) return json(res, 404, { error: "no such bot" });
-      const parsed = z.object({ skills: z.array(z.string().min(1).max(64)).max(200) }).safeParse(await readBody(req));
-      if (!parsed.success) return json(res, 400, { error: "skills must be a list of skill names" });
-      const index = readSkillLibraryIndex();
-      const names = [...new Set(parsed.data.skills)];
-      const unknown = names.filter((name) => !index[name]);
-      if (unknown.length) return json(res, 422, { error: "not in the library: " + unknown.join(", ") });
-      store.patchBot(m[1]!, { assignedSkills: names });
-      return json(res, 200, { assignedSkills: names });
-    }
 
     // ── section context: a user-owned team brief ────────────────────────
     // Bots receive this in their system context, but no agent tool can write

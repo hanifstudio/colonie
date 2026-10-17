@@ -322,6 +322,15 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   instead of a guess, a GitHub import with no URL is a 400 before any network call, and scouting a real
   folder answers a profile and a suggestion. 30/30 pass, typecheck 0, lint 0; the live server answers both
   scout cases through the new module.
+- **S3.7: the skills library routes left `index.ts` (October 18).** The list, one skill's text, the
+  enable/disable patch and the per-bot assignment became `server/routes/skills-library.ts`
+  (`createSkillsLibraryRoutes({ cfg, store })`) — 75 inline lines removed and five imports the hub no
+  longer uses pruned (`index.ts` 17,880 → 17,804). Guard: `server/routes/skills-library.test.ts` — other
+  paths decline, the feature being off is a 404 on every surface rather than an empty list, the list does
+  not invent entries, an import without SKILL.md text is a 400, an unknown skill name is refused, and an
+  unknown bot is a 404 first. 36/36 pass, typecheck 0, lint 0. Live: with a throwaway HOME the route
+  answers 404; after writing `{"features":{"skillsLibrary":true}}` into that throwaway config it answers
+  `{"skills":[]}`, and a bodyless import answers 400.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
