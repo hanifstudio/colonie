@@ -63,6 +63,54 @@ e2e (all five files), and the Linux package check (missing
 `usr/share/applications/com.colonie.app.desktop` in the DEB). Diagnosing these
 is the next CI task before requiring the `CI` check.
 
+## Active milestone: restructure the code shape (`restructure` branch)
+
+Owner direction (October 18): start clean on a new branch so it stays revertible —
+local commits only, never push; one heavy job at a time. An intermediate order
+(keep the green suite as the net while restructuring) was put to the owner and
+accepted, then set aside in the same session: the owner judged the sprawl itself
+the blocker and directed that every script and every one of our test files go, on
+the branch, before anything else. That is now done — 870 files, recorded in
+PROGRESS with the counts, what was kept, and the commands it broke. The cost is
+explicit rather than hidden: no suite, no launcher, no server-bundle tooling, and
+no real Claude/Codex quota until next week, so the restructure has no net. Changes
+are judged by `pnpm typecheck`, `pnpm lint`, the app being started, and review.
+
+- `restructure` was created from `dd6cca5e`; `main` is untouched and revertible.
+- Script inventory (166 files under `scripts/`): 111 referenced by something, 38
+  discovered by the test glob, 37 referenced by nothing. Those 37 are mostly
+  manual verification instruments (`verify-*.ts`, `scripts/colonie/*-check.ts`),
+  not junk, and their legacy subjects (qwen, grok, whop, podman, opencode) still
+  exist in `server/` and `src/`, so they cannot be deleted as "dead subject".
+  Only `scripts/verify-pi-tool-scope.ts` has no subject left (zero `pi-tool`
+  references in `server/` and `src/`), and
+  `scripts/verify-codex-instructions.mjs` / `verify-codex-sandbox.mjs` verify the
+  retired native Codex protocol. The ACP instruments (`verify-real-turn.mjs`,
+  `verify-claude-account.ts`, `verify-codex-account.ts`, the `verify-codex-*`
+  acceptance files, `verify-routines.ts`) are gone now — the clean slate below
+  removed them; restore them from `main` before P2.
+- Extraction plan for `server/index.ts` is a read-only static map (16 units,
+  roughly 25–30 h for units 1–15): mechanical first — voice, connectors, admin
+  reads, bot activity/outbound, sidebar sections, section context/team memory,
+  routines/calendar/webhooks, tasks, skills, Local VM, threads/messages, bots
+  create/patch — then the design-gated ones (instances/MCP/config, browser live,
+  computer control), and last the owner-gated deletion of the dead native
+  transport (`agentsIntegration`/`hooksIntegration`, the `/api/internal/*` peer
+  block, the native half of `startTurn`, the screen poller, the aside lane;
+  ~3,400 lines). Following `server/routes/README.md`, each unit is a bounded move
+  that injects its closures through `RouteContext` and lowers the
+  `scripts/testing/index-route-ratchet.test.ts` counts in the same change.
+- Net per unit: `pnpm typecheck`, `pnpm lint`,
+  `npx vitest run server/acp/ server/colonie/`, plus that group's focused tests.
+  `server/index.test.ts` is gone (deleted as red), so no single end-to-end router
+  test exists any more; groups whose only coverage was red (peer-comms
+  `/api/internal/*`, search, command-allowlist, skills) are extracted last or
+  only after their tests are re-greened.
+- Next in this task: rebuild a minimal launcher and server-bundle tooling (without
+  `scripts/colonie/start.ts` and `scripts/bundle-server.mjs` the app cannot be
+  launched or packaged at all), then the folder restructure, then the fresh
+  feature-based suite.
+
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 
 `message-db.ts` (12 importers, 30+ module functions) is too wide for a first

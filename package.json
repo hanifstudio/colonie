@@ -30,7 +30,6 @@
     "colonie:dist": "pnpm colonie:build && electron-builder --config electron-builder.colonie.yml --mac --arm64 --publish never",
     "colonie:provider-check": "node scripts/colonie/provider-check.ts --real",
     "clean": "node scripts/clean.mjs",
-    "prepare": "node scripts/install-git-hooks.mjs",
     "lint": "oxlint --deny-warnings .",
     "check:contrast": "node scripts/check-skin-contrast.mjs",
     "i18n:check": "node scripts/generate-locale.mjs --check",

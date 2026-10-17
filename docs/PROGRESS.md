@@ -216,8 +216,29 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   rather than test rot and stay open as product work: named Claude accounts
   create the retired `claudeAgent` kind, and the packaged app appears to resolve
   the legacy fleet (HANDOVER gap list).
-- Not yet run after the deletion: the full suite (started on this tree), desktop,
-  real provider.
+- **Owner decision: clean slate — all scripts and our test files removed (October 18).**
+  The owner judged the test/script sprawl itself the blocker and asked to start clean on a
+  new branch. On `restructure` (created from `dd6cca5e`; `main` untouched, revertible by
+  discarding the branch or `git checkout main -- scripts/`), `git rm` removed **870
+  files**: all 193 files under `scripts/` and all 677 test files of our own
+  (`*.test.*`/`*.spec.*`/`__tests__/` under `src/`, `server/`, `electron/`, `shared/`).
+  Kept deliberately: the six `third_party/bloub/**/*.test.ts` files (a vendored library's
+  own tests — third-party attribution is not ours to delete) and the 39 `server/testing/`
+  fixtures (the maintained fake-engine/ACP fixtures; no consumer left, but the cheapest
+  base for the rebuilt suite).
+  Commands that pointed into `scripts/` no longer run: `colonie`
+  (`scripts/colonie/start.ts`), `build:server` (`scripts/bundle-server.mjs`),
+  `i18n:check`, `gen:bodies`, `check:contrast`, `clean`, `test:packaged-server`, and the
+  rest listed in the commit. `prepare` was dropped from `package.json`, otherwise every
+  future `pnpm install` would fail on the deleted hook installer. Still working:
+  `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint` — none of them use `scripts/`.
+  So the app can be built and type-checked but not launched or packaged until the
+  launcher/build tooling is rebuilt.
+  The post-deletion full-suite run on `main` was stopped mid-flight (it measured a tree
+  that no longer matters); `.colonie-dev/suite-after-delete.log` is a partial record only.
+  Rebuild order now: a minimal launcher and server-bundle tooling first (without them the
+  app cannot be started), then the folder restructure, then a fresh feature-based suite.
+- Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
 
