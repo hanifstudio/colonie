@@ -15,7 +15,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { RequestAuth } from "./request-auth.ts";
 import type { SessionRegistry } from "./sessions.ts";
 
-import { SERVER_ROOT } from "./proxy-paths.ts";
+import { SERVER_ROOT } from "./runtime/proxy-paths.ts";
 
 export interface EditionStatus {
   edition: "oss" | "enterprise";

@@ -3,8 +3,8 @@
 // old file's email. Only the protocol's display email leaves this helper.
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { userHome } from "../env-path.ts";
-import { killCliTree, spawnCli } from "../procs.ts";
+import { userHome } from "../runtime/env-path.ts";
+import { killCliTree, spawnCli } from "../runtime/procs.ts";
 
 const MAX_OUTPUT = 16_384;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

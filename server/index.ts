@@ -199,7 +199,7 @@ import {
 } from "./config.ts";
 import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./thread-retention.ts";
 import { ComputerControl } from "./computer-control.ts";
-import { augmentedPath, findCliCandidates, resetPathCache } from "./env-path.ts";
+import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
 import { registerEnginesBinDir } from "./engine-install.ts";
 import { appendUsage, parseUsageRange, flushUsageLedger, type UsageRow, type UsageTrigger } from "./usage-ledger.ts";
 import { loadPlanUsage, planAccountsFromInstances } from "./plan-usage.ts";
@@ -212,7 +212,7 @@ import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAle
 
 import { entitled } from "./enterprise.ts";
 
-import { describeSpawnFailure, execCli } from "./procs.ts";
+import { describeSpawnFailure, execCli } from "./runtime/procs.ts";
 import { buildNotification, buildSpendNotification, type Notification } from "./notify.ts";
 import {
   isModelVariant,
@@ -451,7 +451,7 @@ import { listenWebhookIngress, webhookCredential, type WebhookIngress } from "./
 import { assertModelVariantSupported } from "./member-turn.ts";
 import { WebhookManager } from "./webhooks.ts";
 import type { WebhookTrigger } from "../shared/webhooks.ts";
-import { SPAWNED_PROXIES } from "./proxy-paths.ts";
+import { SPAWNED_PROXIES } from "./runtime/proxy-paths.ts";
 import {
   installLibrarySkill,
   listLibrarySkills,
@@ -490,10 +490,10 @@ import {
   isTurnAdmissionBlocked,
   isTurnEventQuarantined,
 } from "./turn-dispatch-guard.ts";
-import { createGracefulShutdown } from "./graceful-shutdown.ts";
-import { acquireDataDirLeaseForProcess } from "./data-dir-lease.ts";
+import { createGracefulShutdown } from "./runtime/graceful-shutdown.ts";
+import { acquireDataDirLeaseForProcess } from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, editionForMembers, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
-import { environmentDescriptor, loadEnvironmentId, serverVersion } from "./environment.ts";
+import { environmentDescriptor, loadEnvironmentId, serverVersion } from "./runtime/environment.ts";
 import { WorkspaceBackupMaintenance } from "./workspace-backup-maintenance.ts";
 import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./workspace-backup-http.ts";
 import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult } from "./workspace-backup.ts";

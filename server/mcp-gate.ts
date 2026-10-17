@@ -21,10 +21,10 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { allowsTool, parseToolScope, type ToolScope } from "../shared/tool-scope.ts";
 
-import { resolveCliSpawn } from "./env-path.ts";
+import { resolveCliSpawn } from "./runtime/env-path.ts";
 import { directoryCallTarget, isDirectoryTool } from "./mcp-directory.ts";
 import { DEFAULT_RESULT_BUDGET, trimResultText, trimStructured } from "./mcp-trim.ts";
-import { killCliTree } from "./procs.ts";
+import { killCliTree } from "./runtime/procs.ts";
 
 type Json = Record<string, unknown>;
 

@@ -1,4 +1,4 @@
-import { killCliTree, spawnCli } from "./procs.ts";
+import { killCliTree, spawnCli } from "./runtime/procs.ts";
 import { DEFAULT_BROWSER_RESULT_BUDGET, shapeBrowserToolResult, slimBrowserToolList, stripHarnessOwnedArguments } from "./browser-tool-shape.ts";
 
 export interface BrowserSpawnSpec {

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import type { InstanceConfigMap } from "./contracts.ts";
 import { resolveClaudeConfigDir } from "./claude-config.ts";
 import { codexHome } from "./drivers/codex-identity.ts";
-import { harnessHome } from "./env-path.ts";
+import { harnessHome } from "./runtime/env-path.ts";
 
 export type PlanDriver = "claude" | "codex" | "grok";
 

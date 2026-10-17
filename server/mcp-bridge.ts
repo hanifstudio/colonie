@@ -28,7 +28,7 @@ import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 
 import { CONTROL_REFUSAL_PLAIN, createControlClient } from "./control-client.ts";
-import { augmentedPath, resolveCliSpawn } from "./env-path.ts";
+import { augmentedPath, resolveCliSpawn } from "./runtime/env-path.ts";
 import { createToolListNormalizer } from "./mcp-tool-schema.ts";
 
 // 45s of TOTAL silence before the bridge even probes. An MCP session is
