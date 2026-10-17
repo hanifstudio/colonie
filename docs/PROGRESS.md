@@ -264,6 +264,14 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   the throwaway home — and the failure was in the test, not in the code. 7/7 pass,
   typecheck 0, lint 0, server booted on a throwaway data dir with `/api/health` answering.
   Module 3 of 23.
+- **S3 started: the voice routes left `server/index.ts` (October 18).** The three `/api/tts/*`
+  handlers became `server/routes/voice.ts` (`createVoiceRoutes({ cfg })`): 42 inline lines
+  removed, one import and one `ROUTES.push` added, following `server/routes/README.md`.
+  Guard: `server/routes/voice.test.ts` (declines paths and methods that are not its own;
+  `prepare` answers 200 with utterances that keep the text intact). The first draft asserted a
+  sentence split `toUtterances` does not perform — the failure was in the test, not the code.
+  9/9 pass, typecheck 0, lint 0, and the server answered `GET /api/tts/voices` with
+  `{"voices":[]}` through the new module. First of the route groups; `index.ts` 18,207 → 18,165.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
