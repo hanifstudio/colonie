@@ -352,7 +352,6 @@ import {
   listBotSkillsWithOrigin,
   resolveBotSkills,
   parseSkillMd,
-  scanSkillText,
   listSkills,
   listStagedSkillWrites,
   isSkillName,
@@ -365,7 +364,6 @@ import {
   undoSkillWrite,
 } from "./skills.ts";
 import { fetchSkillFromSource } from "./skill-fetch.ts";
-import { pickBotName } from "./names.ts";
 import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults } from "./new-bot-defaults.ts";
 import { expandLearnTurnText, learnSource } from "./skill-learn.ts";
 import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
@@ -556,6 +554,7 @@ import { createServerInfoRoutes } from "./routes/server-info.ts";
 import { teamLibraryRoutes } from "./routes/team-library.ts";
 import { createSkillsLibraryRoutes } from "./routes/skills-library.ts";
 import { createTeamSectionRoutes } from "./routes/team-sections.ts";
+import { createBotDefaultRoutes } from "./routes/bot-defaults.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10704,6 +10703,7 @@ ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullA
 ROUTES.push(teamLibraryRoutes);
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
+ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -14145,49 +14145,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const patched = store.toggleReaction(m[1], m[2], emoji, typeof body.by === "string" ? body.by : "user");
       if (!patched) return json(res, 404, { error: "no such message" });
       return json(res, 200, { message: patched });
-    }
-    if (method === "GET" && path === "/api/bot-defaults") {
-      return json(res, 200, {
-        defaults: structuredClone(cfg.newBotDefaults ?? newBotDefaultsSchema.parse({})),
-        modelSelection: await defaultSelection(),
-        suggestedName: pickBotName(store.bots.map(bot => bot.name)),
-      });
-    }
-    if (method === "POST" && path === "/api/bot-defaults/skills/preview") {
-      const checked = z.object({ source: z.string().min(1).max(2000) }).strict().safeParse(await readBody(req));
-      if (!checked.success) return json(res, 400, { error: checked.error.message });
-      const input = checked.data;
-      const fetched = await fetchSkillFromSource(input.source);
-      if ("error" in fetched) return json(res, 422, { error: fetched.error });
-      const skills = [];
-      for (const skill of fetched.skills) {
-        const file = skill.files.find(file => file.path === "SKILL.md" || file.path.endsWith("/SKILL.md"));
-        if (!file) continue;
-        const parsed = parseSkillMd(file.content);
-        if ("error" in parsed) return json(res, 422, { error: parsed.error });
-        const skippedWarnings = skill.files.filter(candidate => candidate !== file)
-          .map(candidate => `skipped supporting file "${candidate.path}" — v1 imports only SKILL.md`);
-        const template = botSkillTemplateSchema.safeParse({ name: parsed.name, description: parsed.description, source: skill.source, text: file.content,
-          enabled: false, warnings: [...scanSkillText(file.content), ...skippedWarnings] });
-        if (!template.success) return json(res, 422, { error: template.error.message });
-        skills.push(template.data);
-      }
-      return json(res, 200, { skills });
-    }
-    if (method === "POST" && path === "/api/bot-defaults/avatar") {
-      const body = await readBody(req);
-      if (!body || typeof body !== "object" || Array.isArray(body)) return json(res, 400, { error: "avatar preview must be a JSON object" });
-      const profile = parseBotProfilePatch(body.profile, true);
-      if (!profile.ok) return json(res, 400, { error: profile.error });
-      const checked = avatarGenerationRequestSchema.safeParse({ prompt: body.prompt });
-      if (!checked.success) return json(res, 400, { error: checked.error.message });
-      const { prompt } = checked.data;
-      const generated = await generateAvatarImage(cfg, {
-        name: profile.patch.name ?? "", title: profile.patch.title ?? "", description: profile.patch.description ?? "",
-      }, prompt);
-      // A preview belongs to the draft. Upload it through the existing image
-      // endpoint only when the user commits the new bot or its defaults.
-      return json(res, 200, { dataUrl: `data:${generated.mime};base64,${generated.bytes.toString("base64")}` });
     }
     if (method === "POST" && path === "/api/bots") {
       let body = await readBody(req);

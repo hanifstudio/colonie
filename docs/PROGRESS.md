@@ -341,6 +341,16 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   rename is refused before the store is touched, an unknown team is a 404, a team the store cannot build
   is a 404 rather than a silent success, and a team with neither name nor bots is refused. 43/43 pass,
   typecheck 0, lint 0; the live server answers `{"sections":[]}`, 400 and 404 through the new module.
+- **S3.9: the new-bot defaults left `index.ts` (October 18).** `GET /api/bot-defaults`, the skills preview
+  and the avatar preview became `server/routes/bot-defaults.ts`
+  (`createBotDefaultRoutes({ cfg, store, defaultSelection })`) — 45 inline lines removed and `pickBotName`
+  plus `scanSkillText` pruned from the hub's imports (`index.ts` 17,745 → 17,704). Previews stay previews:
+  the avatar comes back as a data URL and the skills as unsaved templates, so nothing here writes a bot,
+  a skill or an image. Guard: `server/routes/bot-defaults.test.ts` — other paths decline, a fresh install
+  still answers complete defaults (schema defaults, a model selection, a suggested name), a preview without
+  a source is a 400, and a broken profile is refused before any image generation. 47/47 pass, typecheck 0,
+  lint 0; the live server answers `{"defaults":{...},"modelSelection":{...},"suggestedName":"Skye"}` through
+  the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
