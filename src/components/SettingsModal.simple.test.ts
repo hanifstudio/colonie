@@ -45,7 +45,6 @@ const { marker } = vi.hoisted(() => ({
   marker: (name: string) => () => `MARKER:${name};`,
 }));
 vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines") }));
-vi.mock("./DecisionModelSettings", () => ({ DecisionModelSettings: marker("decisionModel") }));
 vi.mock("./ApiKeys", () => ({
   ApiKeyRow: marker("apiKey"),
   AnthropicEveryClaudeBot: marker("anthropicEvery"),
@@ -120,24 +119,24 @@ describe("Settings in Simple mode", () => {
     expect(blocks(html)).toEqual(["general"]);
   });
 
-  it("stacks Model providers, API keys and Decision model on AI, each under its heading", () => {
+  it("stacks Model providers and API keys on AI, each under its heading", () => {
     fixture.section = "engines";
     const html = render();
     expect(currentPage(html)).toBe("ai");
-    expect(blocks(html)).toEqual(["engines", "connections", "decisionModel"]);
+    expect(blocks(html)).toEqual(["engines", "connections"]);
     const headings = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((match) => match[1]);
-    expect(headings).toEqual(["Model providers", "API keys", "Decision model"]);
-    expect(markers(html).filter((name) => name === "engines" || name === "decisionModel")).toEqual(["engines", "decisionModel"]);
+    expect(headings).toEqual(["Model providers", "API keys"]);
+    expect(markers(html)).toContain("engines");
     expect(html).toContain("More providers for OpenCode bots");
   });
 
-  it("stacks Remote access, Local VM and the built-in browser on Computers", () => {
-    fixture.section = "companion";
+  it("stacks Local VM and the built-in browser on Computers", () => {
+    fixture.section = "computer";
     const html = render();
     expect(currentPage(html)).toBe("computers");
-    expect(blocks(html)).toEqual(["companion", "computer", "browser"]);
+    expect(blocks(html)).toEqual(["computer", "browser"]);
     const headings = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((match) => match[1]);
-    expect(headings).toEqual(["Remote access", "Local VM", "Built-in browser"]);
+    expect(headings).toEqual(["Built-in browser"]);
     expect(html).toContain('aria-label="Enable the built-in browser"');
   });
 
@@ -156,13 +155,14 @@ describe("Settings in Simple mode", () => {
     expect(pages(render())).toEqual(["general", "appearance", "ai", "computers"]);
   });
 
-  it("keeps a paired remote client's reduced set: Appearance, and Computers with Remote access", () => {
+  it("shows a paired remote client only Appearance, the one page it keeps", () => {
     vi.stubGlobal("window", { colonie: { ...desktop.colonie, remoteClient: { active: true } } });
+    // A section stored while phones still paired lands on the surviving page.
     fixture.section = "companion";
     const html = render();
-    expect(pages(html)).toEqual(["appearance", "computers"]);
-    expect(currentPage(html)).toBe("computers");
-    expect(blocks(html)).toEqual(["companion"]);
+    expect(pages(html)).toEqual(["appearance"]);
+    expect(currentPage(html)).toBe("appearance");
+    expect(blocks(html)).toEqual(["appearance"]);
     expect(html).not.toContain('aria-label="Enable the built-in browser"');
   });
 
@@ -171,15 +171,19 @@ describe("Settings in Simple mode", () => {
     ["appearance", "appearance"],
     ["engines", "ai"],
     ["connections", "ai"],
-    ["decisionModel", "ai"],
-    ["companion", "computers"],
-    ["remote", "computers"],
     ["computer", "computers"],
   ])("lands a deep link to %s on %s", (section, page) => {
     fixture.section = section;
     const html = render();
     expect(currentPage(html)).toBe(page);
-    expect(blocks(html)).toContain(section === "remote" ? "companion" : section);
+    expect(blocks(html)).toContain(section);
+  });
+
+  it("lands a pairing deep link from before the removal on Appearance", () => {
+    fixture.section = "remote";
+    const html = render();
+    expect(currentPage(html)).toBe("appearance");
+    expect(blocks(html)).toContain("appearance");
   });
 
   it.each<[AppSettingsSection, string]>([

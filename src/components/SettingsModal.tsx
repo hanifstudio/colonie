@@ -20,7 +20,6 @@ import {
   UserCircleIcon,
   UserIcon,
   UsersIcon,
-  ZapIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { HIcon } from "./HIcon";
@@ -30,7 +29,6 @@ import { browserAvailable, browserUnavailableReason, builtInBrowserEnabled, rout
 import { localeChoices, type LocaleKey } from "@/locales";
 import { t } from "@/lib/i18n";
 import { AnthropicEveryClaudeBot, ApiKeyRow, OpenAiCompatUrl, OpenCodeProviderKeys } from "./ApiKeys";
-import { DecisionModelSettings } from "./DecisionModelSettings";
 import { useUpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { EnginesSettings } from "./EnginesSettings";
@@ -96,7 +94,6 @@ export const SECTIONS: Array<{
   { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "top"] },
   { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
-  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: ZapIcon, keywords: ["decision", "jev", "typesafe", "routing", "auto", "who answers"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
@@ -119,7 +116,7 @@ export type SimpleSettingsPage = {
 export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
-  { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "decisionModel"] },
+  { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections"] },
   { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["computer"] },
   { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["people", "activity"] },
 ];
@@ -758,9 +755,12 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const { state, dispatch } = useStore();
   const advanced = useAdvancedMode();
   const remoteActive = !workspace && window.colonie?.remoteClient?.active === true;
+  // Phone pairing is retired: a paired client keeps Appearance, and a section
+  // stored from that page (or the old "remote" deep link) lands there too.
+  const retiredSections: readonly AppSettingsSection[] = ["companion", "remote"];
   const section: AppSettingsSection =
-    (remoteActive && !["appearance", "desktopWorkspaces"].includes(state.appSettingsSection)) || state.appSettingsSection === "remote"
-      ? "companion"
+    (remoteActive && state.appSettingsSection !== "appearance") || retiredSections.includes(state.appSettingsSection)
+      ? "appearance"
       : state.appSettingsSection;
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -972,8 +972,6 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
             </div>
           </Card>
         );
-      case "decisionModel":
-        return <DecisionModelSettings />;
       case "engines":
         return <EnginesSettings />;
       case "backups":

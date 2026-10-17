@@ -105,7 +105,7 @@ describe("Settings rail groups", () => {
     expect(SETTINGS_GROUPS.map((group) => group.id)).toEqual(["you", "ai", "computers", "account"]);
     const ids = SECTIONS.map((entry) => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(13); // 12 + the shared Skills library (AI group)
+    expect(ids).toHaveLength(11); // the desktop pages, plus the shared Skills library (AI group)
     for (const entry of SECTIONS) expect(SETTINGS_GROUPS.map((group) => group.id)).toContain(entry.group);
   });
 
@@ -115,8 +115,8 @@ describe("Settings rail groups", () => {
     for (const label of ["You", "AI", "Computers", "Account"]) expect(html).toContain(`>${label}</div>`);
     expect(html).toContain("glass-surface");
     expect(rail(html)).toEqual({
-      you: ["general", "appearance", "companion"],
-      ai: ["engines", "connections", "decisionModel"],
+      you: ["general", "appearance"],
+      ai: ["engines", "connections"],
       computers: ["computer"],
       account: ["usage", "backups", "experimental"],
     });
@@ -130,15 +130,17 @@ describe("Settings rail groups", () => {
     expect(groups.account).toEqual(["usage", "backups", "people", "activity", "experimental"]);
   });
 
-  it("shows a paired remote client only Appearance and Remote access", () => {
+  it("shows a paired remote client only Appearance", () => {
     vi.stubGlobal("window", { colonie: { remoteClient: { active: true }, environments: {} } });
-    expect(rail(render())).toEqual({ you: ["appearance", "companion"] });
+    expect(rail(render())).toEqual({ you: ["appearance"] });
   });
 
   it("keeps the old deep links landing on the same page", () => {
     vi.stubGlobal("window", { colonie: { environments: {} } });
-    fixture.section = "remote" as AppSettingsSection;
-    expect(render()).toContain('data-settings-section="companion" aria-current="page"');
+    // "remote" was the pairing page; it lands on Appearance, the page a paired
+    // client keeps, rather than on a section that no longer exists.
+    fixture.section = "remote";
+    expect(render()).toContain('data-settings-section="appearance" aria-current="page"');
     fixture.section = "connections";
     expect(render()).toContain('data-settings-section="connections" aria-current="page"');
   });

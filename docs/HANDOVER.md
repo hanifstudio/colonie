@@ -125,10 +125,21 @@ M0.4 still needs fresh-session pickup/review evidence. Review so far is self-rev
 unexpected-failure recovery and unattended execution remain unproven. Preserve
 these limits while scoped foundation work proceeds; do not claim M0 complete.
 
-## Active task: P1 close-out — prove the room retirement, then finish its leftovers
+## Done task: P1 close-out — the room retirement is proven
 
-The owner stopped the `claude -p` batch on October 17 and asked for verified work
-instead of fast work. This task runs in the owner's OpenCode session and is
+Closed October 18. The acceptance below is met: PROGRESS carries the classified
+red list with commands and results (one real regression and one stale
+expectation fixed, one flaky file, 23 inherited with before/after counts on all
+27); `pnpm typecheck`, `pnpm lint` and `pnpm i18n:check` are green; every touched
+test file passes (SettingsModal 4 files / 47 tests, digest 3/3, acp-recovery 2/2,
+peer-allowlist 7/7, presets 1/1, duration-sequencer 10/10); and the document
+checks pass (`scripts/testing/verification-docs.test.ts` 5/5). The work is
+committed locally on `main`. The 23 inherited files are **not** this task's
+leftovers — they are the ACP-fixture migration backlog, which is the active
+milestone below and does not gate this close-out.
+
+Owner stopped the `claude -p` batch on October 17 and asked for verified work
+instead of fast work. This task ran in the owner's OpenCode session and was
 recorded here before any code edit, per the development loop.
 
 - Outcome: the room retirement is proven by checks, and every red case is either
@@ -254,6 +265,53 @@ live importer; `room-*` modules and `group-goal-run`/`group-thread-usage` are st
 imported by `server/index.ts`, so they wait for stage 3 together with their unit
 tests. Acceptance per stage as written below. Budget: one vitest run at a time,
 `--maxWorkers=1`, background for the e2e files, two repairs per stage.
+
+Close-out state (October 18): the acceptance above is met — see the P1 close-out
+section at the top of this document for the exact checks. The 23 inherited files
+are **not** this task's leftovers: they are the ACP-fixture migration backlog,
+tracked as its own milestone below, so this close-out does not wait on them.
+
+## Milestone: ACP-fixture migration backlog (owner-directed direction)
+
+Active since October 18 (P1's close-out did not wait on it). The owner directed a
+green maintained suite. 23 files are red only because their fixture predates the
+ACP-only fleet — retired driver names, or observables that only the retired native
+fakes produced. Their failure counts are identical in the pre-batch worktree, so
+none is a regression and none belongs to the room close-out. Each is resolved one
+at a time with a recorded reason:
+
+- the subject is retired → delete the file and record why (one line in PROGRESS);
+- the subject is live Colonie behaviour → port the fixture onto
+  `server/testing/fake-acp-cli.ts` (or the `colonie` fixture in
+  `scripts/control-colonie.ts` for launcher-based files) and run it green.
+
+Acceptance: every one of the 23 is either deleted with a reason or passing when
+run; `pnpm typecheck`/`lint` stay green; PROGRESS records the command and result
+per file; CI shards 2–4 are then measured once. Patches may be drafted read-only
+in parallel, but each file is applied and run serially here. Bounded checks:
+target the file that changed — never re-run the whole red set.
+
+Triage in hand (read-only agents, October 18):
+
+- **delete (subject retired on the ACP fleet)** — `openai-compat-vm.e2e.test.ts`
+  (retired `openai-compat` driver + native-only Local VM tools),
+  `host-lazy-claim.e2e.test.ts` (native-branch gated host-computer mount),
+  `direct-screen-settlement-api.test.ts` (screen frames need a native-only
+  capture path), `cli-stop.e2e.test.ts` (asserts the retired native drivers'
+  whole-process-tree reap; ACP interrupt is covered by `server/acp/*`).
+- **migrate** — `computer-engine-removal.e2e.test.ts` (the move flow is live; drop
+  the retired Boat/cloud-computer assertions and the string that no longer exists),
+  `server/delta-context.e2e.test.ts` (its fixture repoints the maintained ACP
+  instances at the retired native fakes so no turn can start; observables need a
+  per-test remap, and four groups are retired subject matter).
+- **product fix behind a test** — `claude-account-api.test.ts`: named Claude
+  accounts still create the retired `claudeAgent` kind; the maintained shape is a
+  `claude-acp` instance per account whose `environment.CLAUDE_CONFIG_DIR` points at
+  that account's directory, which also needs `server/acp/profile.ts` isolation to
+  yield to an explicit per-account dir.
+- **still being triaged** — hooks/incidents/aside/create-bot-model/control-colonie,
+  teams/MCP-selection/card-answerers/profile-card/tool-results, and the four
+  renderer UI e2e files.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 
@@ -458,6 +516,13 @@ record (each is a rebuild decision, not a test tweak):
   with the other `integrations` fields) — the ACP dispatch passes its mount pair
   instead and `server/acp/acp-runtime.ts` never reads `integrations`, so no ACP
   turn receives a Colonie computer mount.
+
+Next in this task: the 23 inherited files are the migration queue, not
+regressions. Each is either a retired subject (delete it and record the reason)
+or live Colonie behaviour whose fixture still names a retired driver (port it
+onto `server/testing/fake-acp-cli.ts`). One heavy job at a time: patches are
+drafted read-only in parallel, then applied and run here one file at a time and
+recorded. Still to measure after the queue: CI shards 2–4.
 
 ## Milestone: ACP automation (owner decision, 2026-10-17)
 

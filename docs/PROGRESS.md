@@ -112,6 +112,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   until something calls the model-picker's `refresh-models` route; the peer-comms
   "agents" MCP mount is legacy-only; named Claude accounts still create the retired
   `claudeAgent` kind; and `integrations.localComputer` reaches no ACP turn.
+- **Committed as `81b81e64`** (local `main`, not pushed): the honest
+  classification, the four runtime/suite fixes above, the shard-weight list and
+  the doc rewrite. `pnpm typecheck` 0 and `pnpm lint` 0 on that tree. The
+  SettingsModal/Decision-model edits are not in it yet: their tests had not been
+  run when it landed.
+- **P1 close-out (October 18).** The three checks its acceptance still owed all
+  passed: `npx vitest run src/components/SettingsModal.{simple,groups,i18n,appearance}.test.ts`
+  → 4 files / 47 tests; `pnpm i18n:check` → "locale catalogs valid (10 languages,
+  2788 English strings)"; `npx vitest run scripts/testing/verification-docs.test.ts`
+  → 5/5 (`.colonie-dev/p1-closeout.log`). With the classification recorded and the
+  touched server tests green, P1's acceptance is met and the room-retirement
+  close-out is done. The 23 inherited files move to their own milestone
+  (ACP-fixture migration backlog) rather than gating P1.
+- Committed the SettingsModal / Decision-model removal: `git status --short` clean
+  for `src/`; tests above are its evidence.
 - Not run: shards 2–4, UI e2e, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
