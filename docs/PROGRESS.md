@@ -151,7 +151,73 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   (`server/index.ts:6603`, `12070`) is dead code on the shipped fleet; and tool
   evidence can never be `full` on ACP (`server/digest.ts` `coverageForDriver`)
   even though the runtime receives untruncated `tool_call_update` content.
-- Not run: shards 2–4, UI e2e, desktop, real provider.
+- **Scope correction: the red set is bigger than the close-out saw.** The "27
+  files" of the close-out were one CI quarter's share. Quarter 2
+  (`npx vitest run --shard=2/4`, 196 of 754 test files, exit 1, 526.8 s,
+  `.colonie-dev/suite-shard2.log`) reports 23 failed files / 50 failed tests of
+  2,658, of which four are renderer UI files the close-out already knew and
+  **19 are red files it never saw**: `server/index.test.ts` (11 failed),
+  `server/thread-aware-bots.e2e.test.ts` (11),
+  `server/notification-routing.e2e.test.ts` (7),
+  `server/external-runtime.e2e.test.ts` (4), `server/bot-visibility.e2e.test.ts`
+  (1), `server/chat-followups-restart.test.ts` (1),
+  `server/chief-level-delegation.e2e.test.ts` (1),
+  `server/command-allowlist.e2e.test.ts` (1),
+  `server/delete-bot-memory.e2e.test.ts` (1),
+  `server/late-question-source.e2e.test.ts` (1),
+  `server/memory-layer.e2e.test.ts` (1), `server/message-search.e2e.test.ts` (1),
+  `server/native-replay.e2e.test.ts` (1), `server/bot-setup.e2e.test.ts` (1),
+  `server/shared-user-profile.e2e.test.ts` (1), `server/team-setup.e2e.test.ts`
+  (1), `src/components/lazy-screens.test.ts` (1), plus two whose `beforeAll`
+  failed so every case skipped (`server/memory-routes.test.ts`,
+  `server/browser-codex-path.integration.test.ts`). The queue is therefore ~35
+  files, not 23, and it is not yet classified. Measurement caveat: the split
+  follows the weight list, so the deletions' edit to
+  `vitest-shard-weights.json` moves files between quarters; no single quarter's
+  list is a stable subset.
+- **Owner-directed deletion of the red test files (October 18).** The owner chose
+  deletion over repair, so the red suite stops blocking other work. All 72 red
+  files found across the four CI quarters were removed with `git rm`
+  (`.colonie-dev/deleted-reds.json` holds `file → failed/total → quarters`), and
+  their 63 entries left `vitest-shard-weights.json` (115 → 52):
+  `scripts/testing/duration-sequencer.test.ts` 10/10, `pnpm typecheck` 0,
+  `pnpm lint` 0 (`.colonie-dev/after-delete-weights.log`). Because some files
+  failed only part of their cases, the passing cases inside them went too:
+  `server/index.test.ts` (11 of 195), `server/steer-queue.test.ts` (2 of 33),
+  `src/components/lazy-screens.test.ts` (1 of 13),
+  `server/bot-visibility.e2e.test.ts` (1 of 10), `server/tool-scope.e2e.test.ts`
+  (1 of 7), `server/card-answerers.e2e.test.ts` (1 of 7),
+  `server/control-colonie.test.ts` (2 of 20), `server/thread-capacity-api.test.ts`
+  (2 of 6), `server/thread-title-regenerate.e2e.test.ts` (4 of 5),
+  `server/trust-controls.e2e.test.ts` (3 of 12), `server/surface-pins.e2e.test.ts`
+  (6 of 8), `server/automatic-recovery.e2e.test.ts` (7 of 11),
+  `server/notification-routing.e2e.test.ts` (7 of 8). The rest failed every case.
+  A cause was traced per file for a minority only (the triage agents were
+  rate-limited); the traced ones are in the milestone's triage list (fixture still
+  naming a retired driver, or a retired subject), and the untraced majority is
+  recorded as "not traced — owner-directed deletion", not as a cause.
+  Coverage now unguarded, by area — ACP context and conversation:
+  `delta-context`, `steer-e2e`, `steer-unattended`, `steer-queue`,
+  `thread-aware-bots`, `independent-threads-api`, `branching`,
+  `context-compaction`, `native-replay`, `thread-model-follow`; memory:
+  `memory-layer`, `memory-routes`, `delete-bot-memory`, `shared-user-profile`;
+  notifications and routines: `notification-routing`, `routine-delegation`,
+  `routine-cron`; team files: `team-lifecycle`, `team-package-skills`,
+  `team-setup`, `team-template-ui`, `team-share-ui`, `team-canvas-ui`,
+  `team-computers-ui`; routes and gates: `guarded-messages-api`,
+  `command-allowlist`, `session-credentials`, `spend-cap-api`, `spend-cap-goal`,
+  `trust-controls`, `tool-results`, `mcp-selection`, `chatgpt-plan-api`,
+  `mistral-key-flow`, `key-rejected`, `openai-tools`, `codex-review`,
+  `full-access-workflows`, `bot-setup`, `bot-continuity`, `boot-readiness`,
+  `workspace-backup-workflow`, `comms`; the account surface:
+  `claude-account-api`; the renderer: `lazy-screens`, `usage-details-ui`,
+  `cloud-preview`, `bot-tools-ui`, `control-colonie-ui`, `slack-management-ui`,
+  `thinking-timer-ui`, `team-template-ui`. Two red items were product faults
+  rather than test rot and stay open as product work: named Claude accounts
+  create the retired `claudeAgent` kind, and the packaged app appears to resolve
+  the legacy fleet (HANDOVER gap list).
+- Not yet run after the deletion: the full suite (started on this tree), desktop,
+  real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
 

@@ -127,14 +127,18 @@ these limits while scoped foundation work proceeds; do not claim M0 complete.
 
 ## Done task: P1 close-out — the room retirement is proven
 
-Closed October 18. The acceptance below is met: PROGRESS carries the classified
-red list with commands and results (one real regression and one stale
-expectation fixed, one flaky file, 23 inherited with before/after counts on all
-27); `pnpm typecheck`, `pnpm lint` and `pnpm i18n:check` are green; every touched
-test file passes (SettingsModal 4 files / 47 tests, digest 3/3, acp-recovery 2/2,
-peer-allowlist 7/7, presets 1/1, duration-sequencer 10/10); and the document
-checks pass (`scripts/testing/verification-docs.test.ts` 5/5). The work is
-committed locally on `main`. The 23 inherited files are **not** this task's
+Closed October 18. The acceptance below is met for the red set as measured:
+PROGRESS carries the classified red list with commands and results (one real
+regression and one stale expectation fixed, one flaky file, 23 inherited with
+before/after counts on all 27); `pnpm typecheck`, `pnpm lint` and `pnpm i18n:check`
+are green; every touched test file passes (SettingsModal 4 files / 47 tests,
+digest 3/3, acp-recovery 2/2, peer-allowlist 7/7, presets 1/1, duration-sequencer
+10/10); and the document checks pass
+(`scripts/testing/verification-docs.test.ts` 5/5). The work is committed locally
+on `main`. **Correction, same day:** those 27 files were one CI quarter of 754,
+so the close-out's "every red case recorded" holds for the measured quarter only;
+measuring quarter 2 found 19 more red files (see the migration-backlog milestone
+below), which is the honest remaining scope of "a green maintained suite". The 23 inherited files are **not** this task's
 leftovers — they are the ACP-fixture migration backlog, which is the active
 milestone below and does not gate this close-out.
 
@@ -274,11 +278,21 @@ tracked as its own milestone below, so this close-out does not wait on them.
 ## Milestone: ACP-fixture migration backlog (owner-directed direction)
 
 Active since October 18 (P1's close-out did not wait on it). The owner directed a
-green maintained suite. 23 files are red only because their fixture predates the
-ACP-only fleet — retired driver names, or observables that only the retired native
-fakes produced. Their failure counts are identical in the pre-batch worktree, so
-none is a regression and none belongs to the room close-out. Each is resolved one
-at a time with a recorded reason:
+green maintained suite. **Scope correction (October 18):** the close-out's "27
+red files" are one CI quarter's share of 754 test files, not the whole red set.
+Quarter 2 (`npx vitest run --shard=2/4`, `.colonie-dev/suite-shard2.log`, 196
+files, 526.8 s) found 19 further red files the close-out never saw — among them
+`server/index.test.ts` (11 failed), `server/thread-aware-bots.e2e.test.ts` (11),
+`server/notification-routing.e2e.test.ts` (7), `server/external-runtime.e2e.test.ts`
+(4), and `server/memory-routes.test.ts` / `server/browser-codex-path.integration.test.ts`
+whose `beforeAll` fails so every case skips — plus 14 single-case files and
+`src/components/lazy-screens.test.ts`. The queue is ~35 files, not 23, and the
+inventory is complete only once every quarter is measured (3–4 running). The
+split follows the weight list, so the deletions' edit to
+`vitest-shard-weights.json` moved files between quarters: no quarter's list is a
+stable subset. Classification of the newly found files has not started.
+
+Each red file is resolved one at a time with a recorded reason:
 
 - the subject is retired → delete the file and record why (one line in PROGRESS);
 - the subject is live Colonie behaviour → port the fixture onto
@@ -291,27 +305,70 @@ per file; CI shards 2–4 are then measured once. Patches may be drafted read-on
 in parallel, but each file is applied and run serially here. Bounded checks:
 target the file that changed — never re-run the whole red set.
 
-Triage in hand (read-only agents, October 18):
+Triage (read-only agents, October 18) and disposition, one line each:
 
-- **delete (subject retired on the ACP fleet)** — `openai-compat-vm.e2e.test.ts`
-  (retired `openai-compat` driver + native-only Local VM tools),
+- **deleted (`a5786fdc`)** — `openai-compat-vm.e2e.test.ts` (retired
+  `openai-compat` driver + native-only Local VM tools),
   `host-lazy-claim.e2e.test.ts` (native-branch gated host-computer mount),
   `direct-screen-settlement-api.test.ts` (screen frames need a native-only
   capture path), `cli-stop.e2e.test.ts` (asserts the retired native drivers'
-  whole-process-tree reap; ACP interrupt is covered by `server/acp/*`).
-- **migrate** — `computer-engine-removal.e2e.test.ts` (the move flow is live; drop
-  the retired Boat/cloud-computer assertions and the string that no longer exists),
-  `server/delta-context.e2e.test.ts` (its fixture repoints the maintained ACP
-  instances at the retired native fakes so no turn can start; observables need a
-  per-test remap, and four groups are retired subject matter).
+  whole-process-tree reap; ACP interrupt is covered by `server/acp/*`),
+  `aside-e2e.test.ts` (aside folding needs `Adapter.steer` + `queueing`, absent
+  from `server/acp/`), `hooks.e2e.test.ts` (the engine-hooks channel is native
+  assembly behind `capabilities.hooks`; `tool.fullResult` has one setter).
+- **migrate, fixture only** — `team-package-skills.e2e.test.ts` (one string:
+  `hello from fake claude` → `fake acp`); `card-answerers.e2e.test.ts` (delete the
+  `/api/groups` room block at :190, the task-thread case covers the rule;
+  expected 7/7); `control-colonie.test.ts` (rename `FAKE_CLAUDE_PROBE` →
+  `FAKE_ACP_PROBE`; `FAKE_CLAUDE_TOOL_CALLS` → a `FAKE_ACP_TOOL_PLAN` file);
+  `mcp-selection.e2e.test.ts` (read `<dump>.mcp.json` instead of
+  `dump.mcpConfig`, drop the three `systemPrompt` assertions and the room case).
+- **migrate, fixture + test body** — `computer-engine-removal.e2e.test.ts` (drop
+  retired Boat/cloud-computer assertions), `team-lifecycle.e2e.test.ts` (delete the
+  post-`new-channel` room/group half, keep the team-file import/restart half),
+  `incidents.e2e.test.ts` (ACP fixture; the Chief's incident chip and
+  `retry_thread` are live), `create-bot-model.e2e.test.ts` (ACP `echo-gated`
+  hold, model advertisement, capability mint), `profile-card-lifecycle.e2e.test.ts`
+  and `tool-results.e2e.test.ts` (both blocked on the launcher's missing
+  test-capability option below), `server/delta-context.e2e.test.ts` (its fixture
+  repoints the maintained ACP instances at the retired native fakes so no turn can
+  start; per-test remap, four groups retired).
 - **product fix behind a test** — `claude-account-api.test.ts`: named Claude
   accounts still create the retired `claudeAgent` kind; the maintained shape is a
   `claude-acp` instance per account whose `environment.CLAUDE_CONFIG_DIR` points at
   that account's directory, which also needs `server/acp/profile.ts` isolation to
-  yield to an explicit per-account dir.
-- **still being triaged** — hooks/incidents/aside/create-bot-model/control-colonie,
-  teams/MCP-selection/card-answerers/profile-card/tool-results, and the four
-  renderer UI e2e files.
+  yield to an explicit per-account dir. Planned in full on October 18 from a
+  read-only agent — **not a fixture port** (~15 files): the account carries its
+  directory in `environment.CLAUDE_CONFIG_DIR` (legacy `config.configDir` still
+  read for old saves); `profile.ts` lets the explicit dir win over the app-wide
+  isolated one (today it is overwritten); the three gates in `server/index.ts`
+  (`describeInstances`, PATCH, DELETE) move from `claudeAgent` to `claude-acp`;
+  `server/workspace-backup.ts` and `server/plan-usage.ts` read the new field; the
+  UI family folds (`src/lib/engine-rail.ts`, `EnginesSettings.tsx`,
+  `ProviderIcons.tsx`, `EngineLibrary.tsx`) accept `claude-acp`; and
+  `server/acp/acp-runtime.ts` must keep `authStatus.account`
+  (email/organization) from the adapter's `_auth/status_update`, which it drops
+  today. The test moves onto `server/testing/fake-acp-cli.ts` behind a new opt-in
+  `--account-fixture` mode (a per-account `hang` file, and
+  `account:<dirname>` replies from the account directory's basename).
+  Decisions it depends on: a malformed saved directory stays a repairable
+  no-sign-in shadow; the built-in Claude entry keeps the id `claude-acp` while the
+  legacy id `claude` is also "default"; the terminal sign-in command stays the
+  native-style one; and the separate workspace-API-key Claude instance
+  (`claudeApi`, already a shadow) is left alone.
+- **still being triaged** — the four renderer UI e2e files
+  (cloud-preview/team-canvas-ui/team-share-ui/trust-controls-ui).
+
+**Closed by owner decision (October 18).** After the scope correction above, the
+owner chose deletion over repair so the red suite stops blocking other work. All
+72 red files were removed (`git rm`; `.colonie-dev/deleted-reds.json` and PROGRESS
+carry the per-file failed/total counts and the areas whose coverage is now
+unguarded), the weight list went 115 → 52, `duration-sequencer` 10/10 and
+typecheck/lint 0. Two items were product faults rather than test rot and move to
+the product list below: named Claude accounts still create the retired
+`claudeAgent` kind, and the packaged app appears to resolve the legacy fleet. The
+plan below is kept as the record of what was triaged; none of it is queued for
+repair now.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 
@@ -523,6 +580,36 @@ record (each is a rebuild decision, not a test tweak):
   `tool.fullResult` is the native hook ingest (`server/index.ts:4737`), so
   `server/digest.ts` reports `preview` even though the ACP runtime receives
   untruncated `tool_call_update` content.
+- **The tool-result route has no live caller on ACP.** `POST /api/internal/tool-result`
+  is called only by the agents MCP proxy, which is behind `capabilities.agentsMcp`
+  (the gap above), so `server/tool-results.ts` (16k preview, 128k cap, TTL, paging)
+  serves a route no ACP turn can reach. Either an ACP turn mounts a result-caching
+  surface or the route and `tool-results.e2e.test.ts` are dead.
+- **The launcher cannot hand a fixture a test capability.** `launchVerificationServer`
+  forwards only `FAKE_ACP_*`, so `POST /api/testing/internal-capability` is
+  unreachable from a launcher fixture and every e2e needing a bot-turn bearer
+  spawns its own server (~40 duplicated lines × ≥6 files). A documented
+  `testCapabilityKey` option removes the duplication; two queued files wait on it.
+- **The ACP context does not name the mounted MCP servers.** `customMcpPrompt`
+  (`server/system-prompt.ts:138`) is wired only into the retired native prompt
+  builder, while the ACP agent learns them from `session/new` — probably intended
+  (the protocol carries the truth) but an unrecorded difference.
+- **`FAKE_CLAUDE_*` knobs are inert for launcher-based fixtures.** 49 files still
+  name them; where the fixture is the ACP instance they are silently ignored, and
+  two launcher-side producers still set `FAKE_CLAUDE_ROOM_PLAN`. A hazard for the
+  rest of this queue, worth a sweep after it.
+- **The ACP fleet is the launcher's configuration, not the packaged app's default.**
+  Colonie's own launcher sets it (`scripts/colonie/start.ts:23`,
+  `COLONIE_PROFILE: "1"`) and `server/config.ts:1611` then resolves
+  `colonieInstances` (ACP only), while `DEFAULT_FLEET` (`server/config.ts:1626`)
+  still seeds 17 retired engines. `electron/main.mjs` builds the server child env
+  without setting the profile (it inherits `process.env`), so a packaged app
+  started from Finder plausibly resolves the legacy fleet — 17 unavailable
+  shadows and no live engine unless a saved config carries the ACP entries.
+  Owner-level decision: set the profile in the packaged child env, or make
+  `DEFAULT_FLEET` the two ACP engines. It is also why ~89 test files that never
+  set the profile can fail on "instance unavailable"; the measured probe of how
+  many of those a test-side profile default fixes is queued after the inventory.
 - **`integrations.localComputer`** ("Works on: Local VM" / this computer) is built
   only on the retired native branch (`server/index.ts:7905`–`8015`, dispatched
   with the other `integrations` fields) — the ACP dispatch passes its mount pair
