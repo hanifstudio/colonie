@@ -73,8 +73,10 @@ the blocker and directed that every script and every one of our test files go, o
 the branch, before anything else. That is now done — 870 files, recorded in
 PROGRESS with the counts, what was kept, and the commands it broke. The cost is
 explicit rather than hidden: no suite, no launcher, no server-bundle tooling, and
-no real Claude/Codex quota until next week, so the restructure has no net. Changes
-are judged by `pnpm typecheck`, `pnpm lint`, the app being started, and review.
+no real Claude/Codex quota until next week. A fresh suite is being rebuilt one
+module at a time (47 tests in 13 files so far) and the launcher tooling is back;
+changes are judged by `pnpm typecheck`, `pnpm lint`, those tests, the app being
+started, and review.
 
 - `restructure` was created from `dd6cca5e`; `main` is untouched and revertible.
 - Script inventory (166 files under `scripts/`): 111 referenced by something, 38
@@ -89,27 +91,29 @@ are judged by `pnpm typecheck`, `pnpm lint`, the app being started, and review.
   `verify-claude-account.ts`, `verify-codex-account.ts`, the `verify-codex-*`
   acceptance files, `verify-routines.ts`) are gone now — the clean slate below
   removed them; restore them from `main` before P2.
-- Extraction plan for `server/index.ts` is a read-only static map (16 units,
-  roughly 25–30 h for units 1–15): mechanical first — voice, connectors, admin
-  reads, bot activity/outbound, sidebar sections, section context/team memory,
-  routines/calendar/webhooks, tasks, skills, Local VM, threads/messages, bots
-  create/patch — then the design-gated ones (instances/MCP/config, browser live,
-  computer control), and last the owner-gated deletion of the dead native
-  transport (`agentsIntegration`/`hooksIntegration`, the `/api/internal/*` peer
-  block, the native half of `startTurn`, the screen poller, the aside lane;
-  ~3,400 lines). Following `server/routes/README.md`, each unit is a bounded move
-  that injects its closures through `RouteContext` and lowers the
-  `scripts/testing/index-route-ratchet.test.ts` counts in the same change.
-- Net per unit: `pnpm typecheck`, `pnpm lint`,
-  `npx vitest run server/acp/ server/colonie/`, plus that group's focused tests.
-  `server/index.test.ts` is gone (deleted as red), so no single end-to-end router
-  test exists any more; groups whose only coverage was red (peer-comms
-  `/api/internal/*`, search, command-allowlist, skills) are extracted last or
-  only after their tests are re-greened.
-- Next in this task: rebuild a minimal launcher and server-bundle tooling (without
-  `scripts/colonie/start.ts` and `scripts/bundle-server.mjs` the app cannot be
-  launched or packaged at all), then the folder restructure, then the fresh
-  feature-based suite.
+- Launcher and server-bundle tooling came back in Langkah 0 (`scripts/colonie/start.ts`,
+  `scripts/bundle-server.mjs`, `pnpm colonie`, `build:server`). Still broken and known:
+  `i18n:check`, `clean`, `check:contrast`, the packagers.
+- Done: `server/runtime/` (S1), `server/persistence/` (S2), then route groups out of
+  `index.ts` (S3) — voice, connectors, admin reads, bot activity/outbound, server info,
+  team library and scout, skills library, team sections, new-bot defaults. `index.ts`
+  18,207 → 17,704 lines. `server/proxy-paths.ts` stays at the `server/` root: it is the
+  anchor every spawned proxy resolves through, and moving it broke every proxy path
+  silently (S1, `0a0af8b4`).
+- Each unit ships its own test, per `server/routes/README.md`: 13 files, 47 tests, all
+  green beside `pnpm typecheck` and `pnpm lint`. The old ratchet test is gone with the
+  clean slate, so route counts live in PROGRESS and the owner board
+  (`.colonie-dev/work-state.json`) instead of a test.
+- Verification recipe, learned the hard way: `env -u COMPOSIO_API_KEY HOME=$(mktemp -d)
+  COLONIE_PROFILE=1 node server/index.ts`. `COLONIE_DATA_DIR` alone is not isolation —
+  `config.json` is read from `homedir()`, and the shell exports `COMPOSIO_API_KEY`,
+  which every child inherits. Probe local routes only; never one that reaches a provider.
+- Next in this task: the remaining `index.ts` groups, smallest first — custom MCP servers
+  (`GET/POST /api/mcp/servers`, `/import`, `/test`, sign-in flow; owns two busy counters
+  and needs `cfg`, `mcpOAuth`, `sessions`), then bot create/patch, tasks, Local VM,
+  threads and messages, and last `GET/PATCH /api/config` (~340 lines). The dead native
+  transport (`/api/internal/*` peer block and friends, ~3,400 lines) stays untouched:
+  it is owner-gated, not a default cleanup.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 
