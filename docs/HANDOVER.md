@@ -145,11 +145,14 @@ HTTP routes, agent-facing channel MCP tools and the control CLI's channel comman
 are gone. Stage 3b part 1 done: no room turn can run — the group turn engine and
 its callers are deleted and the room entry points are inert (`RoomHandoffs` refuses
 a room node, the answer route answers 409, the routine goal callbacks are no-ops) —
-and `server/index.ts` compiles again. The tree had been left mid-edit by another
-session in this checkout with a 550-line region deleted wholesale; that part (live
+and `server/index.ts` compiles again. The tree had been left mid-edit by other
+sessions in this checkout: the Claude Code session stopped on its weekly limit at
+06:47:58, then separate opencode sessions edited the same file until 07:47 and one
+of them deleted a 550-line region wholesale. That region (live
 connector/skill/approval/computer-resume helpers) was restored and only the
-room-only declarations it carried were dropped. Evidence, including the two
-inherited red files, is in PROGRESS "rooms retirement, stage 3b part 1".
+room-only declarations it carried were dropped; the other sessions' sound removals
+were kept. Both inherited red files were re-verified at the parent commit, so keep
+one writer per file. Evidence is in PROGRESS "rooms retirement, stage 3b part 1".
 Do not release before stage 4: the renderer still calls the removed routes; a room
 renders but can no longer answer.
 Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures

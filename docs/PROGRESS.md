@@ -41,9 +41,21 @@ callbacks are inert, and the group turn engine plus its callers
   `room-handoffs` 1/1 file pass; `steer-queue` 29/33 (the four dispatch-receipt
   cases recorded in HANDOVER item 7); `direct-coordination.e2e` 0/36, every failure
   a first-step `send_to_bot` evidence poll, i.e. the retired plan-runner fixture
-  (HANDOVER item 6). Both red files are the documented inherited causes, not
-  regressions from this repair.
-- Method: the working tree was being written by another session in this checkout, so
+  (HANDOVER item 6).
+- Both red files re-run at the parent commit (`4aed9bac`) in a detached worktree with
+  `node_modules` symlinked: `direct-coordination.e2e.test.ts` 36/36 failed (467 s)
+  and `steer-queue.test.ts` 4 failed / 29 passed (65 s) — the same results as after
+  the repair, so the red is inherited, not a regression here.
+- Live paths after the repair: `npx vitest run server/respond-replay.e2e.test.ts
+  server/usage-attribution.e2e.test.ts server/notification-wiring.test.ts
+  --maxWorkers=1` — 3 files, 7 tests, all pass.
+- Who left the tree mid-edit: the Claude Code session that produced the pre-cut state
+  stopped at 06:47:58 on its weekly limit
+  (`~/.claude/projects/-Users-riaenriala-Documents-etalas-colonie/864356db-*.jsonl`).
+  The 07:44–07:47 writes came from concurrent opencode sessions on other models
+  (`glm-5.3-flash-free`, `beam-free`, `muse-spark-1.3-contributor`), which is why the
+  file changed during the repair. Their sound removals are kept.
+- Method: the working tree was being written by other sessions in this checkout, so
   the file was hash-sampled until stable (last write 07:47:42) before editing, and
   the pre-edit copy is kept under the session scratch dir. Not run: the full suite,
   the remaining native-fixture e2e migrations, the renderer, packaging.
