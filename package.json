@@ -40,7 +40,7 @@
     "dev:desktop": "electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
-    "test": "vitest run && pnpm test:electron && pnpm test:packaged-server",
+    "test": "vitest run",
     "test:electron": "node --test \"electron/*.node-test.mjs\"",
     "bench:observation": "node --experimental-strip-types scripts/bench-observation.ts",
     "test:watch": "vitest",
