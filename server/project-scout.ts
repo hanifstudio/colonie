@@ -8,7 +8,7 @@ import {
   type TeamManifestMember,
   type TeamManifestV2,
 } from "./team-manifest.ts";
-import type { MausColor } from "./store.ts";
+import type { MausColor } from "./persistence/store.ts";
 
 /** What the scout can recognize a project needing. One role becomes one
  * suggested team member; the lead is always added on top. */

@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { StoreProvider, useStore } from "../state/store";
+import { StoreProvider, useStore } from "../state/store.tsx";
 import { ChatView } from "../components/ChatView";
 import { DesktopCapabilitiesProvider } from "../components/DesktopCapabilities";
 import { applySkin } from "../lib/skins";

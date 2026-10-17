@@ -3,7 +3,7 @@
 // route in index.ts (botOverview()) is the only place that reads server-only
 // state (engine capabilities, connected-apps inventory, history); everything
 // here is pure and takes that state already gathered as OverviewFacts.
-import type { BotRecord } from "./store.ts";
+import type { BotRecord } from "./persistence/store.ts";
 import type { Routine } from "./routines.ts";
 import type { RoutineRequestSchedule } from "../shared/routine-request.ts";
 import { approvalModeFor } from "../shared/approval-mode.ts";

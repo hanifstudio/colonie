@@ -18,7 +18,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import { CaptureBuffer, capturePrompt, newCandidates, parseCandidates, type Candidate, type CaptureBatch, type CaptureTurn } from "./memory-capture.ts";
 import { factIdentity, lineFactIdentity, notebookIdentities } from "./memory-entries.ts";

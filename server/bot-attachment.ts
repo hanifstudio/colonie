@@ -13,7 +13,7 @@ import {
   saveImage,
 } from "./attachments.ts";
 import { mimeFor, openMessageFile } from "./message-file.ts";
-import type { Message } from "./store.ts";
+import type { Message } from "./persistence/store.ts";
 
 export type BotAttachment = NonNullable<Message["attachments"]>[number];
 

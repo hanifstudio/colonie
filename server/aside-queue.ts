@@ -21,9 +21,9 @@
 
 import type { SteerOutcome } from "./contracts.ts";
 import { newId } from "./contracts.ts";
-import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./message-db.ts";
+import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persistence/message-db.ts";
 import { peerName } from "./peer-roster.ts";
-import type { BotRecord, Message } from "./store.ts";
+import type { BotRecord, Message } from "./persistence/store.ts";
 import type { UsageTrigger } from "./usage-ledger.ts";
 
 /** The slice of Store this module needs — narrow so tests can fake it. */

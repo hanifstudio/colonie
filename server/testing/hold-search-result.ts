@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { DATA_DIR } from "../config.ts";
-import { MessageSearchWorker } from "../message-search-worker.ts";
+import { MessageSearchWorker } from "../persistence/message-search-worker.ts";
 
 const search = MessageSearchWorker.prototype.search;
 MessageSearchWorker.prototype.search = async function (...args) {

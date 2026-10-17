@@ -14,11 +14,11 @@ import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, re
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { DATA_DIR } from "./config.ts";
-import { peerProvenanceAuthor } from "./peer-provenance.ts";
-import type { ResolvedSender, SteerQueueReason } from "../shared/wire.ts";
+import { DATA_DIR } from "../config.ts";
+import { peerProvenanceAuthor } from "../peer-provenance.ts";
+import type { ResolvedSender, SteerQueueReason } from "../../shared/wire.ts";
 import type { Message } from "./store.ts";
-import type { UsageTrigger } from "./usage-ledger.ts";
+import type { UsageTrigger } from "../usage-ledger.ts";
 import { MessageSearchWorker } from "./message-search-worker.ts";
 import { searchMessagesInDatabase, type SearchHit } from "./message-search-query.ts";
 export type { SearchHit } from "./message-search-query.ts";

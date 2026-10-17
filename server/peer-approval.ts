@@ -17,7 +17,7 @@
 import { newId } from "./contracts.ts";
 import { buildNotification, type Notification } from "./notify.ts";
 import { peerAllowKey, type PeerAction } from "./peer-approval-key.ts";
-import type { BotRecord, Message, Store } from "./store.ts";
+import type { BotRecord, Message, Store } from "./persistence/store.ts";
 
 export { peerAllowKey } from "./peer-approval-key.ts";
 

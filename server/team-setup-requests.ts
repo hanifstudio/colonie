@@ -7,7 +7,7 @@ import { profileSnapshot } from "./profile-revision.ts";
 import { validateBotCwd } from "./bot-cwd.ts";
 import { harnessCapabilityLines, type DriverCapabilities } from "./harness-capabilities.ts";
 import { redactSecretsInText } from "./redact.ts";
-import type { BotRecord, OptionCardData } from "./store.ts";
+import type { BotRecord, OptionCardData } from "./persistence/store.ts";
 import type { TeamSetupFields, TeamSetupOperation, TeamSetupRequest, TeamSetupResult } from "../shared/team-setup.ts";
 
 const section = (value?: string) => value?.trim() || "";

@@ -1,4 +1,4 @@
-import type { Bot, BotAnnouncement } from "./store";
+import type { Bot, BotAnnouncement } from "./store.tsx";
 
 /** Every field written through the desktop's broad bot PATCH boundary. */
 export type BotUpdatePatch = Partial<

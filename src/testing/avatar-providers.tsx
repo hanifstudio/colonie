@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { StoreProvider, useStore } from "../state/store";
+import { StoreProvider, useStore } from "../state/store.tsx";
 import { BotProfileAvatarCard } from "../components/BotProfileAvatarCard";
 import { applySkin } from "../lib/skins";
 import "../styles.css";

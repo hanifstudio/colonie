@@ -1,4 +1,4 @@
-import type { Message } from "./store.ts";
+import type { Message } from "./persistence/store.ts";
 
 const MAX_REPLY_EXCERPT = 900;
 

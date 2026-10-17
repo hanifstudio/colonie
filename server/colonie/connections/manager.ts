@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { McpServer } from "@agentclientprotocol/sdk";
 import { z } from "zod";
-import { writeFileAtomic } from "../../atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 import type { McpServerSpec } from "../../contracts.ts";
 import { isRemoteMcpServer } from "../../mcp-registry.ts";
 import { connectorCallFromFrame, serviceSlugForCandidates } from "../../connector-verdict.ts";

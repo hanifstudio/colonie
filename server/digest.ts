@@ -15,7 +15,7 @@
 //
 // Pure functions only: no store, no bus, no I/O. The fold wires them.
 import type { MemoryJournalEntry } from "./memory-journal.ts";
-import type { Message } from "./store.ts";
+import type { Message } from "./persistence/store.ts";
 
 import type { DigestFiles, DigestTool, HookCoverage, TurnDigest } from "../shared/digest.ts";
 import { toolIdentity } from "../shared/tool-name.ts";

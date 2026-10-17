@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DATA_DIR } from "../config.ts";
-import { writeFileAtomic } from "../atomic.ts";
+import { writeFileAtomic } from "../persistence/atomic.ts";
 import type { AcpInputReceipt } from "../../shared/acp.ts";
 
 function receiptPath(threadId: string): string {

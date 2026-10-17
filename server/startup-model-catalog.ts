@@ -5,7 +5,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import type { ModelCatalog } from "./contracts.ts";
 

@@ -15,7 +15,7 @@ import { UNDO_STALE, type DirectApply, type DirectApplyCheck } from "./direct-ap
 import { profileRevision, profileSnapshot } from "./profile-revision.ts";
 import { recordProfileChange } from "./profile-versions.ts";
 import { redactSecretsInText } from "./redact.ts";
-import type { BotRecord } from "./store.ts";
+import type { BotRecord } from "./persistence/store.ts";
 
 const MAX_REASON = 500;
 const STALE = "This bot's profile changed after this card was prepared. Ask the bot to review it and propose again.";

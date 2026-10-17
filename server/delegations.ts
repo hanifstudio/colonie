@@ -14,14 +14,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { mirrorExchange, type CommsBus } from "./comms-visibility.ts";
 import { DATA_DIR } from "./config.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
 import { newId } from "./contracts.ts";
 import { peerApprovalFailure, requestPeerApproval, type ApprovalBus, type PeerApprovalFailure } from "./peer-approval.ts";
 import { canAccessTeam, peerAllowed } from "./peer-roster.ts";
-import { type BotRecord, type GroupRecord, type Message, type Store } from "./store.ts";
+import { type BotRecord, type GroupRecord, type Message, type Store } from "./persistence/store.ts";
 
 export interface DelegationItem {
   toBotId: string;

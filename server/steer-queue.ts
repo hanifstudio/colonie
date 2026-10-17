@@ -18,10 +18,10 @@
 // the feature.
 
 import { newId } from "./contracts.ts";
-import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./message-db.ts";
+import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persistence/message-db.ts";
 import { drainCoalesceHead } from "./admission.ts";
 import type { ResolvedSender, SteerQueueReason } from "../shared/wire.ts";
-import type { BotRecord, Message } from "./store.ts";
+import type { BotRecord, Message } from "./persistence/store.ts";
 import type { UsageTrigger } from "./usage-ledger.ts";
 
 /** The slice of Store this module needs — narrow so tests can fake it. */

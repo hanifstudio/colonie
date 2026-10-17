@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, sep } from "node:path";
 
 import type { CommandAllowlistCandidate, CommandAllowlistRule } from "../shared/command-allowlist.ts";
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { redactSecretsInText } from "./redact.ts";
 
 const MAX_COMMAND_BYTES = 16_384;

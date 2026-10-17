@@ -8,8 +8,8 @@
 // few lines, the newest thing the bot said in each of its other
 // conversations — and to leave one line per finished turn in its daily log,
 // so session_search can bring back the detail on demand.
-import { latestSaidByBot, type ThreadLatest } from "./message-db.ts";
-import type { BotRecord, GroupRecord, TaskRecord } from "./store.ts";
+import { latestSaidByBot, type ThreadLatest } from "./persistence/message-db.ts";
+import type { BotRecord, GroupRecord, TaskRecord } from "./persistence/store.ts";
 
 /** How far back the brief looks: two days covers "since yesterday's standup". */
 export const RECENT_WORK_WINDOW_MS = 48 * 60 * 60_000;

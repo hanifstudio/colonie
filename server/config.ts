@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shared/image-generation.ts";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { acpIsolationDirNames, colonieProfile, colonieInstances } from "./acp/profile.ts";
 import { colonieDataDir } from "../electron/colonie-config.mjs";
 import { withoutComputerEngine } from "./computer-engine-removal.ts";

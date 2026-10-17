@@ -5,7 +5,7 @@
 // lines, never tool output, cards or screen frames, and bounded so the
 // one-shot stays as cheap as the first-message one.
 import { redactSecretsInText } from "./redact.ts";
-import type { Message } from "./store.ts";
+import type { Message } from "./persistence/store.ts";
 
 /** The most text either kind of title one-shot ever sees. */
 export const TITLE_INPUT_MAX_CHARS = 1_500;

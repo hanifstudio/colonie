@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { newId } from "./contracts.ts";
 import { sectionContextKey, sectionContextLabel } from "./section-context.ts";
 

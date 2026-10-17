@@ -3,7 +3,7 @@ import type { DefaultsPreset, PublishedLibrary } from "./presets.ts";
 import type { PublishedTeam } from "./published-teams.ts";
 import { nextPatchRelease } from "./published-teams.ts";
 import type { Routine } from "./routines.ts";
-import type { BotRecord, GroupRecord, InstalledPlaybook } from "./store.ts";
+import type { BotRecord, GroupRecord, InstalledPlaybook } from "./persistence/store.ts";
 import {
   AGENT_MAX_SKILLS,
   AVATAR_MAX_BYTES,

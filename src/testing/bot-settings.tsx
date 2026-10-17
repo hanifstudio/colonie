@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { SettingsModal } from "../components/SettingsModal";
 import { BotSettingsDialog } from "../components/BotSettingsDialog";
 import { DefaultBotSettings, NewBotDialog } from "../components/NewBotDialog";
-import { StoreProvider, api, useStore, type Bot } from "../state/store";
+import { StoreProvider, api, useStore, type Bot } from "../state/store.tsx";
 import { applySkin } from "../lib/skins";
 import { setLocale } from "../lib/i18n";
 import "../styles.css";

@@ -51,7 +51,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileAtomic } from "../atomic.ts";
+import { writeFileAtomic } from "../persistence/atomic.ts";
 import { OPENAI_COMPATIBLE_NPM, PROVIDER_PRESETS, type ProviderPreset } from "./presets.ts";
 import {
   MODEL_CATALOG_SCHEMA,

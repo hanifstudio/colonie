@@ -1,4 +1,4 @@
-import type { InstalledPlaybook } from "./store.ts";
+import type { InstalledPlaybook } from "./persistence/store.ts";
 
 const MAX_SELECTED = 3;
 const MAX_RENDERED_CHARS = 24_000;

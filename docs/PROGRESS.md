@@ -252,6 +252,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   and exits 0; a wedged job cannot hold the process past the timeout). 4/4 pass, typecheck
   0, lint 0, server booted on a throwaway data dir and `/api/health` answered.
   Module 2 of 23.
+- **S2 `server/persistence/` done (October 18).** Six files moved — store, atomic,
+  message-db, message-search-query, message-search-worker, message-search.worker — with
+  imports repointed in 77 files. The search worker is referenced as
+  `new URL("./message-search.worker.ts", import.meta.url)`, so it moved together with its
+  loader and the relative anchor stayed correct. Guards beside the module:
+  `atomic.test.ts` (a durable write leaves no temporary sibling; the if-changed variant
+  writes only on a real difference) and `store.test.ts` (a test process reads a throwaway
+  data directory, never the owner's). The first draft of that second assertion was simply
+  wrong — it compared against `os.homedir()`, which the vitest setup has already pointed at
+  the throwaway home — and the failure was in the test, not in the code. 7/7 pass,
+  typecheck 0, lint 0, server booted on a throwaway data dir with `/api/health` answering.
+  Module 3 of 23.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

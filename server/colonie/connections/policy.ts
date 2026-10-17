@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { writeFileAtomic } from "../../atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 import type { ConnectedAppsPolicy } from "../../../shared/connected-apps.ts";
 
 export const policySchema = z.object({ toolkits: z.array(z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)).max(40),

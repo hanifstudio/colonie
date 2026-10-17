@@ -10,7 +10,7 @@ import {
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "../shared/bot-profile.ts";
 import { MASCOT_BODY_IDS, mascotBodySchema } from "../shared/mascot-bodies.ts";
 
-import type { BotRecord } from "./store.ts";
+import type { BotRecord } from "./persistence/store.ts";
 
 // Shared with the package format, which checks the same rule on names it
 // carries; re-exported under its historical path.

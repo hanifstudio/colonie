@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shared/image-generation.ts";
 import { decodeGeneratedImage } from "./generated-image.ts";
-import type { BotRecord } from "./store.ts";
+import type { BotRecord } from "./persistence/store.ts";
 
 export const AVATAR_DIRECTION_MAX_CHARS = 400;
 export const AVATAR_IMAGE_TIMEOUT_MS = 120_000;

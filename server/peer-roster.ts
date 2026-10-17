@@ -5,7 +5,7 @@
 // that drift.
 
 import { sameAudience } from "./bot-visibility.ts";
-import type { BotActivity } from "./store.ts";
+import type { BotActivity } from "./persistence/store.ts";
 
 export interface RosterMember {
   id: string;

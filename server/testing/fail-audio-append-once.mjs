@@ -5,7 +5,7 @@
 // audio attachment throw; every later call runs untouched. That single
 // failure lets a test prove a persistence error leaves this turn's parked
 // voice note in place — the post can be retried and the clip still attaches.
-import { Store } from "../store.ts";
+import { Store } from "../persistence/store.ts";
 
 if (process.env.COLONIE_TEST_FAIL_AUDIO_APPEND_ONCE === "1") {
   const original = Store.prototype.appendMessage;

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { DATA_DIR } from "../config.ts";
-import { writeFileAtomic } from "../atomic.ts";
+import { writeFileAtomic } from "../persistence/atomic.ts";
 
 const preferenceSchema = z.object({
   mode: z.string().optional(),

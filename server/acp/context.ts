@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { DATA_DIR } from "../config.ts";
-import { writeFileAtomic } from "../atomic.ts";
+import { writeFileAtomic } from "../persistence/atomic.ts";
 import type { AcpContextSection, AcpContextSnapshot, AcpContextManifest, AcpContextView } from "../../shared/acp-context.ts";
 import type { AcpInputReceipt } from "../../shared/acp.ts";
 

@@ -47,7 +47,7 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
+import { writeFileAtomic, writeFileAtomicIfChanged } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import { redactSecretsInText } from "./redact.ts";
 import { LEARN_SOURCE_PREFIX } from "./skill-learn.ts";

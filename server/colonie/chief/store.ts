@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { writeFileAtomic } from "../../atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 import type { ChiefAssignment, ChiefAssignmentStatus } from "../../../shared/colonie-chief.ts";
 
 export const MAX_RECORDS = 1000;

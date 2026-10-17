@@ -7,44 +7,44 @@ import { chmodSync, existsSync, readFileSync, mkdirSync, rmSync, statSync, unlin
 import { join } from "node:path";
 
 import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
-import { colonieProfile } from "./acp/profile.ts";
-import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
-import { ensureSections, readSections, changeEmptySection } from "./section-context.ts";
-import type { TeamComputers } from "./team-computers.ts";
-import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "./bot-folder.ts";
-import type { BotProfilePatch } from "./bot-profile.ts";
-import { peerAllowKey, type PeerAction } from "./peer-approval-key.ts";
-import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "./config.ts";
+import { colonieProfile } from "../acp/profile.ts";
+import { parseToolScope, toolScopeWidens } from "../../shared/tool-scope.ts";
+import { ensureSections, readSections, changeEmptySection } from "../section-context.ts";
+import type { TeamComputers } from "../team-computers.ts";
+import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "../bot-folder.ts";
+import type { BotProfilePatch } from "../bot-profile.ts";
+import { peerAllowKey, type PeerAction } from "../peer-approval-key.ts";
+import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "../config.ts";
 import * as mdb from "./message-db.ts";
-import { forgetBotMemoryJournal, journalFile } from "./memory-journal.ts";
-import { runCommand, type Command } from "./commands.ts";
-import { workspaceDir } from "./workspace.ts";
-import type { Destination } from "./surface.ts";
-import { newId, type ModelSelection } from "./contracts.ts";
-import { pickBotName } from "./names.ts";
-import { redactSecretsInText } from "./redact.ts";
-import { AVATAR_FOCUS_CENTER, AVATAR_ZOOM_MIN, botAvatarProfile, clampAvatarFocus, clampAvatarZoom } from "../shared/bot-avatar.ts";
-import { approvalModeFor, isApprovalMode, modelSwitchNeedsAsk } from "../shared/approval-mode.ts";
-import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "./computer-engine-removal.ts";
-import type { ProfileRequestChanges } from "../shared/profile-request.ts";
-import type { TeamSetupRequest, TeamSetupResult } from "../shared/team-setup.ts";
-import { isMentionBoundary, isMentionNameContinuation } from "../shared/mention-boundary.ts";
-import type { HandedState } from "./delta-context.ts";
-import type { AgentPart, PartPair, RoomPart } from "./package-parts.ts";
+import { forgetBotMemoryJournal, journalFile } from "../memory-journal.ts";
+import { runCommand, type Command } from "../commands.ts";
+import { workspaceDir } from "../workspace.ts";
+import type { Destination } from "../surface.ts";
+import { newId, type ModelSelection } from "../contracts.ts";
+import { pickBotName } from "../names.ts";
+import { redactSecretsInText } from "../redact.ts";
+import { AVATAR_FOCUS_CENTER, AVATAR_ZOOM_MIN, botAvatarProfile, clampAvatarFocus, clampAvatarZoom } from "../../shared/bot-avatar.ts";
+import { approvalModeFor, isApprovalMode, modelSwitchNeedsAsk } from "../../shared/approval-mode.ts";
+import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "../computer-engine-removal.ts";
+import type { ProfileRequestChanges } from "../../shared/profile-request.ts";
+import type { TeamSetupRequest, TeamSetupResult } from "../../shared/team-setup.ts";
+import { isMentionBoundary, isMentionNameContinuation } from "../../shared/mention-boundary.ts";
+import type { HandedState } from "../delta-context.ts";
+import type { AgentPart, PartPair, RoomPart } from "../package-parts.ts";
 import type {
   BotActivity, GroupDefaultResponder, GroupTask as GroupTaskRecord, MausColor,
   BotVisibility, ConnectorToolGrant, OptionCardData, TaskClosedBy, TaskOpenedBy, TaskUsage, WireBot,
   WireMessage, WireTask, BotProject as BotProjectRecord,
-} from "../shared/wire.ts";
-import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN } from "../shared/wire.ts";
-import { sameModelSelection } from "../shared/thread-model.ts";
+} from "../../shared/wire.ts";
+import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN } from "../../shared/wire.ts";
+import { sameModelSelection } from "../../shared/thread-model.ts";
 // Re-exported under their historical names so server-side importers keep working.
 export type {
   BotActivity, ConnectorCardData, GroupDefaultResponder, OptionCardData,
   SecretRequestCardData, Surface, TaskClosedBy, TaskOpenedBy, TaskUsage,
-} from "../shared/wire.ts";
-export type { GroupTask as GroupTaskRecord, BotProject as BotProjectRecord } from "../shared/wire.ts";
-export type { InstalledPlaybook, InstalledPackageMetadata, MausColor, MausExpression } from "../shared/wire.ts";
+} from "../../shared/wire.ts";
+export type { GroupTask as GroupTaskRecord, BotProject as BotProjectRecord } from "../../shared/wire.ts";
+export type { InstalledPlaybook, InstalledPackageMetadata, MausColor, MausExpression } from "../../shared/wire.ts";
 
 
 /** One transcript line, serialized as stored — the shared wire shape. */

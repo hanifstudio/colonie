@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import { renamePublishedTeam } from "./published-teams.ts";
 

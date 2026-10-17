@@ -2,7 +2,7 @@
 import { createRoot } from "react-dom/client";
 import { ChatView, ErrorRow } from "../components/ChatView";
 import { DesktopCapabilitiesProvider } from "../components/DesktopCapabilities";
-import { StoreProvider, useStore, type Bot } from "../state/store";
+import { StoreProvider, useStore, type Bot } from "../state/store.tsx";
 import { PermissionsSection } from "../components/bot-settings/PermissionsSection";
 import { useBotSettingsDerived } from "../components/bot-settings/useBotSettingsDerived";
 import { applySkin } from "../lib/skins";

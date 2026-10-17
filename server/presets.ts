@@ -35,14 +35,14 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./atomic.ts";
+import { writeFileAtomic } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import type { NewBotDefaults } from "./new-bot-defaults.ts";
 import type { ExportablePackageSkill, TeamExportSkip } from "./package-export.ts";
 import type { OrgImportContext } from "./package-import.ts";
 import { pair } from "./package-parts.ts";
 import type { SkillListing, SkillPackageStamp } from "./skills.ts";
-import type { InstalledPackageMetadata, Store } from "./store.ts";
+import type { InstalledPackageMetadata, Store } from "./persistence/store.ts";
 import {
   AGENT_MAX_SKILLS,
   canonicalJson,
