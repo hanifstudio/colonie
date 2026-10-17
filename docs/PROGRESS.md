@@ -3,6 +3,51 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-17 — rooms retirement, stage 3b part 1 (room turn engine out of `server/index.ts`)
+
+Picked up the in-flight stage 3b edit in `server/index.ts` (only file modified; 105
+insertions / 3251 deletions after this work). It did not compile: `npx tsc -p
+tsconfig.server.json --noEmit` reported 98 errors, 89 of them `TS2304 Cannot find
+name` for `connectorThread` (37 uses), `drainConnectorResumes`, `approvalBus`,
+`stagedSkillListing`, `resolveReplyTarget`, `messageFileRootsForThread`,
+`attachmentVmForTurn`, `proposalPersistence`, `skillProposalPersistence`,
+`appendSkillRequestCard`, `resolveSkillRequest`, `sendSkillResolution`,
+`connectorMessage`, `maybeResumeConnectors`, `ComputerResumeEntry`,
+`teammateReportContext`, `deliverCalendarCall`, `CONNECTOR_SLUG`,
+`stagedSkillCleanupsForThread`, `rejectDeletedThreadSkillStages`.
+
+Diagnosis: one contiguous 556-line region (the WIP's own lines 10382–10937) that
+mixed live helper definitions — connectors, learned-skill proposal cards,
+peer-approval bus, computer resumes, calendar delivery, reply targeting — with
+room-only declarations had been deleted wholesale; each of those names had lost
+exactly its single definition. Repair: restored that region verbatim from the same
+in-flight state and then deleted only what was room-only inside it
+(`GROUP_CONTEXT_MESSAGES` and its stale comment, `MAX_GROUP_HOPS`,
+`GroupMemberTurnOutcome`/`GroupTurnOrchestration`, `roomPostBudgets` and
+`ROOM_POST_MAX_CHARS`, `StartGroupTurnOptions`). Live behaviour kept: direct peer
+handoffs (`RoomHandoffs` needs `room-handoff*`), the 1:1 steered queue, routines and
+the connector/skill/approval paths.
+
+State after this part: no room turn can run. `RoomHandoffs` refuses a room node,
+the answer route answers 409, the routine `goalState`/`startGoal`/`interruptGoal`
+callbacks are inert, and the group turn engine plus its callers
+(`startGroupTurn`, `runGroupMemberTurn`, goal runs, room post budget) are gone.
+
+- `npx tsc -p tsconfig.server.json --noEmit` — 0 errors (was 98).
+- `npx tsc -b` (renderer config) — 0 errors; `git diff --check` clean.
+- `npx oxlint --deny-warnings .` — exit 0.
+- `npx vitest run server/room-handoffs.test.ts server/steer-queue.test.ts
+  server/direct-coordination.e2e.test.ts --maxWorkers=1` — 515 s, 114 tests:
+  `room-handoffs` 1/1 file pass; `steer-queue` 29/33 (the four dispatch-receipt
+  cases recorded in HANDOVER item 7); `direct-coordination.e2e` 0/36, every failure
+  a first-step `send_to_bot` evidence poll, i.e. the retired plan-runner fixture
+  (HANDOVER item 6). Both red files are the documented inherited causes, not
+  regressions from this repair.
+- Method: the working tree was being written by another session in this checkout, so
+  the file was hash-sampled until stable (last write 07:47:42) before editing, and
+  the pre-edit copy is kept under the session scratch dir. Not run: the full suite,
+  the remaining native-fixture e2e migrations, the renderer, packaging.
+
 ## 2026-10-17 — the retired Linode workspace host wiped clean
 
 The owner asked for the slept-on Linode from the retired shared-workspace

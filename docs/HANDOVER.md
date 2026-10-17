@@ -142,14 +142,26 @@ tests. Acceptance per stage as written below. Budget: one vitest run at a time,
 
 Progress: stage 1 done (ten e2e files deleted, PROGRESS). Stage 3a done: group
 HTTP routes, agent-facing channel MCP tools and the control CLI's channel commands
-are gone. Do not release before stage 4: the renderer still calls the removed routes.
+are gone. Stage 3b part 1 done: no room turn can run — the group turn engine and
+its callers are deleted and the room entry points are inert (`RoomHandoffs` refuses
+a room node, the answer route answers 409, the routine goal callbacks are no-ops) —
+and `server/index.ts` compiles again. The tree had been left mid-edit by another
+session in this checkout with a 550-line region deleted wholesale; that part (live
+connector/skill/approval/computer-resume helpers) was restored and only the
+room-only declarations it carried were dropped. Evidence, including the two
+inherited red files, is in PROGRESS "rooms retirement, stage 3b part 1".
+Do not release before stage 4: the renderer still calls the removed routes; a room
+renders but can no longer answer.
 Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures
 (it still builds retired drivers; CI's macOS step fails with 409 until then).
-Next: 3b — room orchestration in `server/index.ts` (peel from the callers inward:
-`startGroupTurn`, `runGroupMemberTurn`, goal runs, handoffs; `tsc` unused-local errors
-mark each next layer), then the `room-*`/`group-*` modules with their unit tests,
-store tables (check backup/restore compatibility of persisted `groups.json` before
-dropping reads), routines/wire/package flows, then stage 4 renderer and stage 5 tests.
+Next: 3b part 2 — the room machinery `server/index.ts` still holds: `groupSpeakers`
+and `groupUsageReader` (wire and fold), group-goal coordinator turns with the
+`groupGoalCompletionTurnId`/`parseGroupGoalDecision` branch, `RoomTurnStallRegistry`
+with the room timeout/end paths, the `PATCH /api/groups/:id` audience-reset plan and
+the router's `group` case, `roomFeedsBot`'s room path. Then the `room-*`/`group-*`
+modules with their unit tests, store tables (check backup/restore compatibility of
+persisted `groups.json` before dropping reads), routines/wire/package flows, then
+stage 4 renderer and stage 5 tests.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 
