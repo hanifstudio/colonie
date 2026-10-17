@@ -272,6 +272,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   sentence split `toUtterances` does not perform — the failure was in the test, not the code.
   9/9 pass, typecheck 0, lint 0, and the server answered `GET /api/tts/voices` with
   `{"voices":[]}` through the new module. First of the route groups; `index.ts` 18,207 → 18,165.
+- **S3.2: connectors left `index.ts`, and the verification recipe was corrected (October 18).** The
+  four `/api/connectors/*` GETs plus authorize/remove became `server/routes/connectors.ts`
+  (`createConnectorRoutes({ cfg, composio })`); 65 inline lines removed. Guard:
+  `server/routes/connectors.test.ts` — declines paths and methods it does not own (a first draft used
+  `DELETE /api/connectors/connected`, which the module legitimately reads as a service named
+  "connected"), an unconfigured server answers 200 `configured:false` instead of an outage, and an
+  unreadable credential store answers `credentialStore:"unavailable"` rather than an empty-looking
+  success. 12/12 pass, typecheck 0, lint 0.
+  Boundary: probing `/api/connectors/connected` on what I called a throwaway data directory reached the
+  real Composio API twice (`{"error":"Invalid API key: ak_**HRK9"}`), because `config.json` is read from
+  `homedir()` and not from `DATA_DIR`, and the shell exports `COMPOSIO_API_KEY`, which every child process
+  inherits. The recipe that actually isolates is
+  `env -u COMPOSIO_API_KEY HOME=$(mktemp -d) COLONIE_PROFILE=1 node server/index.ts`: with it the same
+  route answers `{"configured":false,"credentialStore":"ok","services":{}}`. The provider rejected the call
+  as an invalid key, so the exported key looks stale. No credential contents were read — only the masked
+  form the server itself printed.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

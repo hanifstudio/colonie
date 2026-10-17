@@ -572,6 +572,7 @@ import { findAntigravityLeftovers, removeAntigravityLeftovers } from "./drivers/
 import { createLiveRoutes } from "./routes/live.ts";
 import { createUsageRoutes } from "./routes/usage.ts";
 import { createVoiceRoutes } from "./routes/voice.ts";
+import { createConnectorRoutes } from "./routes/connectors.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10721,6 +10722,7 @@ ROUTES.push(createAcpSettingsRoutes({
 }));
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 ROUTES.push(createVoiceRoutes({ cfg }));
+ROUTES.push(createConnectorRoutes({ cfg, composio }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -17683,71 +17685,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
 
 
-    // ── connectors (Composio) ──
-    if (method === "GET" && path === "/api/connectors/catalog") {
-      const { cards, source, pagination } = await composio.listToolkits(cfg);
-      return json(res, 200, {
-        configured: composio.configured(cfg),
-        mode: composio.connectionMode(cfg),
-        // lets the panel say "add a key" on a fresh server instead of
-        // reporting an outage that never happened
-        setup: composio.connectorSetup(cfg),
-        source,
-        cards,
-        ...(pagination ? { pagination } : {}),
-      });
-    }
-    if (method === "GET" && path === "/api/connectors/connected") {
-      const availability = composio.connectorAvailability(cfg);
-      if (availability !== "configured") {
-        // `credentialStore` is what stops the panel treating this empty list
-        // as authoritative: an unreadable store means we do not KNOW what is
-        // connected, which is not the same as knowing nothing is.
-        return json(res, 200, {
-          configured: false,
-          credentialStore: availability === "unreadable" ? "unavailable" : "ok",
-          services: {},
-        });
-      }
-      return json(res, 200, { configured: true, credentialStore: "ok", services: await composio.connectedServices(cfg) });
-    }
-    if (method === "GET" && path === "/api/connectors/tools") {
-      // The grant editor's inventory: every grantable tool name grouped by
-      // service, read from the same MCP endpoint a mounted bot relays
-      // through. Failure is a read-only editor, never a blocked save — the
-      // exact-name model does not depend on the listing being reachable.
-      const availability = composio.connectorAvailability(cfg);
-      if (availability !== "configured") {
-        return json(res, 200, { configured: false, services: {} });
-      }
-      try {
-        return json(res, 200, { configured: true, services: await composio.listConnectorTools(cfg) });
-      } catch (e) {
-        return json(res, 502, { configured: true, services: {}, error: e instanceof Error ? e.message : String(e) });
-      }
-    }
-    if (method === "GET" && path === "/api/connectors") {
-      const services = (url.searchParams.get("services") ?? "").split(",").filter(Boolean);
-      const availability = composio.connectorAvailability(cfg);
-      if (availability !== "configured") {
-        return json(res, 200, {
-          configured: false,
-          credentialStore: availability === "unreadable" ? "unavailable" : "ok",
-          services: {},
-        });
-      }
-      const status = await composio.connectionStatus(cfg, services.length ? services : composio.CURATED_SLUGS);
-      return json(res, 200, { configured: true, services: status });
-    }
-    m = path.match(/^\/api\/connectors\/([\w-]+)\/authorize$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      return json(res, 200, await composio.authorizeService(cfg, m[1], body.alias));
-    }
-    m = path.match(/^\/api\/connectors\/([\w-]+)\/accounts\/([A-Za-z0-9][A-Za-z0-9_-]{0,127})$/);
-    if (m && method === "DELETE") return json(res, 200, await composio.removeAccount(cfg, m[1], m[2]));
-    m = path.match(/^\/api\/connectors\/([\w-]+)$/);
-    if (m && method === "DELETE") return json(res, 200, await composio.removeService(cfg, m[1]));
 
     // Desktop credential cards never send the credential through this route.
     // Electron saves it through the OS-backed store first; these actions only
