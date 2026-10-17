@@ -3,7 +3,7 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
-## 2026-10-17 — rooms retirement, stage 3b part 2 (first slice: dead fold guards out of `server/index.ts`)
+## 2026-10-17 — rooms retirement, stage 3b part 2 (dead room turn state out of `server/index.ts`)
 
 Removed the two room-turn guards in the runtime fold that can no longer fire:
 
@@ -25,6 +25,21 @@ handler since part 1 removed the turn engine (`grep` found only reads and delete
   server/usage-attribution.e2e.test.ts server/notification-wiring.test.ts
   server/room-handoffs.test.ts server/turn-watchdog.test.ts --maxWorkers=1` — 11 s,
   5 files, 58 tests, all pass.
+
+Second slice: `groupSpeakers` and every branch only it gated. The map had no writer
+since part 1, so its readers were dead by construction: the watchdog's
+`stalledRoomSpeaker`/`busyBotId` cleanup, `isUnattended`'s `groupSpeakers.has`
+conjunct, the fold's `speaker` (the whole room usage/digest branch, the `from:`
+stamp and the `routedRoomReplies` map with its `RoutedBy` type), and the
+`asker`/`waiting`/`broken` room fallbacks (`bot ?? (speaker ? … : undefined)` → `bot`).
+
+- `npx tsc -p tsconfig.server.json --noEmit` — 0 errors; `npx oxlint --deny-warnings`
+  exit 0; `git diff --check` clean.
+- Wider batch over 13 files of the fold/approval/unattended/incident/digest/notify/
+  recent-work smoke set — 126 tests, 9 failed in 5 files. The same 9 tests fail at
+  the parent commit (`47ca8ef8`, worktree): `digest.e2e` (5), `incidents.e2e` (1),
+  `late-question-source.e2e` (1), `recent-work.e2e` (1), `steer-unattended.e2e` (1).
+  Inherited, not regressions.
 
 ## 2026-10-17 — rooms retirement, stage 3b part 1 (room turn engine out of `server/index.ts`)
 

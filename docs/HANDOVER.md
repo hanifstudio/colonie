@@ -146,8 +146,9 @@ are gone. Stage 3b part 1 done: no room turn can run — the group turn engine a
 its callers are deleted and the room entry points are inert (`RoomHandoffs` refuses
 a room node, the answer route answers 409, the routine goal callbacks are no-ops) —
 and `server/index.ts` compiles again. Stage 3b part 2 has begun: the fold's dead
-room-turn guards (goal-coordinator envelope, stall registry) are gone and
-`room-turn-timeout.ts` went with them. The tree had been left mid-edit by other
+room-turn state is going — the goal-coordinator envelope and the stall registry are
+gone (`room-turn-timeout.ts` with them), and so are `groupSpeakers` and every branch
+only it gated. The tree had been left mid-edit by other
 sessions in this checkout: the Claude Code session stopped on its weekly limit at
 06:47:58, then separate opencode sessions edited the same file until 07:47 and one
 of them deleted a 550-line region wholesale. That region (live
@@ -159,15 +160,14 @@ Do not release before stage 4: the renderer still calls the removed routes; a ro
 renders but can no longer answer.
 Queued separately: rewrite `scripts/smoke-approval-modes.cjs` onto the ACP fixtures
 (it still builds retired drivers; CI's macOS step fails with 409 until then).
-Next: 3b part 2 — the room machinery `server/index.ts` still holds: `groupSpeakers`
-(never set since part 1) with the fold branches it gated, `groupUsageReader` (fold,
-snapshot and the wire's `rooms.turnTimeoutMinutes`), `roomFeedsBot`'s room filters,
-`settleRoomFloor` with the `PATCH /api/groups/:id` audience-reset plan, and the
-router's `group` case. Then the `room-*`/`group-*` modules with their unit tests
-(`group-goal-run`, `room-post-budget`, `room-cwd`, `room-turn-end`, and
-`server/decider/`), store tables (check backup/restore compatibility of persisted
-`groups.json` before dropping reads), routines/wire/package flows, then stage 4
-renderer and stage 5 tests.
+Next: 3b part 2 — the room machinery `server/index.ts` still holds: `groupUsageReader`
+(fold refresh, snapshot and the wire's `rooms.turnTimeoutMinutes`), `roomFeedsBot`'s
+room filters, `settleRoomFloor` with the `PATCH /api/groups/:id` audience-reset plan,
+the room answer route's `busyBotId`/`from` owner fallback, and the router's `group`
+case. Then the `room-*`/`group-*` modules with their unit tests (`group-goal-run`,
+`room-post-budget`, `room-cwd`, `room-turn-end`, and `server/decider/`), store tables
+(check backup/restore compatibility of persisted `groups.json` before dropping
+reads), routines/wire/package flows, then stage 4 renderer and stage 5 tests.
 
 ## Milestone: retire rooms and groups (owner decision, 2026-10-17)
 

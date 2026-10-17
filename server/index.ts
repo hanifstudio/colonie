@@ -1026,10 +1026,6 @@ const groupWithThread = (group: GroupRecord) => ({
   ...(group.dm ? {} : { tasks: store.groupTasks(group.id) }),
 });
 
-// Group threads: the fold needs to know WHO is talking — the turn engine
-// records the active member here before dispatching its turn.
-const groupSpeakers = new Map<string, { botId: string; name: string; color: string }>();
-
 /** Whether a room may feed this bot's recall and recent-work brief: only
  * when everyone who can see the bot can see every bot in the room. */
 function roomFeedsBot(group: GroupRecord, bot: Pick<BotRecord, "visibility">): boolean {
@@ -4677,12 +4673,6 @@ function notify(notification: Notification | null) {
   if (notification) broadcast({ kind: "notify", notification });
 }
 
-type RoutedBy = NonNullable<Message["routedBy"]>;
-/** Auto-room rounds the decision model routed, by thread: the named
- * speaker's next reply line carries `routedBy` (stamped in the runtime fold
- * below), so the room can say "Picked by Jev". Only a routed round sets it. */
-const routedRoomReplies = new Map<string, { botId: string; routedBy: RoutedBy }>();
-
 // The latest running token totals for the turn in flight on each thread.
 // Providers report cumulative-within-turn numbers; the final value is folded
 // into the task's tally when the turn settles.
@@ -4762,18 +4752,11 @@ const watchdog = new TurnWatchdog({
       if (stalledVmTarget && localVmThreadTargets.get(turn.threadId) === stalledVmTarget) {
         releaseLocalVmThread(turn.threadId);
       }
-      const group = store.groupByThread(turn.threadId);
-      const speaker = groupSpeakers.get(turn.threadId);
-      const stalledRoomSpeaker = group && group.busyBotId === turn.botId && speaker?.botId === turn.botId;
-      if (stalledRoomSpeaker) {
-        groupSpeakers.delete(turn.threadId);
-        store.patchGroup(group.id, { busyBotId: null, unread: true });
-      }
       // A cleared UI busy flag must not strand this finished generation's
       // computer claim. The generation checks above protect replacements.
       releaseTurnResources(stalledResourceOwner);
       const currentBot = store.bot(turn.botId);
-      if (currentBot?.busy && (threadBusy(currentBot.id, turn.threadId) || stalledRoomSpeaker)) {
+      if (currentBot?.busy && threadBusy(currentBot.id, turn.threadId)) {
         stopScreenPoller(currentBot.id, turn.threadId);
         if (store.taskByThread(currentBot.id, turn.threadId)) store.setTaskActivity(currentBot.id, turn.threadId, "idle");
         else store.setActivity(currentBot.id, "idle");
@@ -5232,7 +5215,7 @@ function isUnattended(botId?: string | null, threadId?: string): boolean {
   // A long-running turn is still unattended even if its next approval comes
   // more than 30 minutes after the previous one. Only an idle bot may age
   // out; every positive read refreshes the inactivity window.
-  if (Date.now() - mark.at > UNATTENDED_TTL_MS && !threadBusy(botId, threadId) && !groupSpeakers.has(threadId)) {
+  if (Date.now() - mark.at > UNATTENDED_TTL_MS && !threadBusy(botId, threadId)) {
     unattendedThreads.delete(threadId);
     return false;
   }
@@ -5710,18 +5693,11 @@ bus.subscribe((event: RuntimeEvent) => {
   const bot = ownerBot ? botForThread(ownerBot.id, event.threadId) ?? undefined : undefined;
   const group = bot ? undefined : store.groupByThread(event.threadId);
   if (!bot && !group) return;
-  const speaker = group ? groupSpeakers.get(event.threadId) : undefined;
-
   const pushMessage = (m: Omit<Message, "id" | "at">) => {
     const owner = bot ? directRequestOwners.get(event.threadId) : undefined;
     const proven = owner?.messageId && !owner.stopped && owner.generation === directTurnGenerationByThread.get(event.threadId) &&
       owner.turnId && (!event.turnId || event.turnId === owner.turnId);
-    // One line per routed reply: the routed speaker's first text of its turn.
-    const routed = group && m.role === "bot" && m.kind === "text" ? routedRoomReplies.get(event.threadId) : undefined;
-    const routedBy = routed && speaker && routed.botId === speaker.botId ? routed.routedBy : undefined;
-    if (routedBy) routedRoomReplies.delete(event.threadId);
-    const message = store.appendMessage(event.threadId, group && m.role === "bot" ? { ...m, from: speaker, ...(routedBy ? { routedBy } : {}) }
-      : proven ? { ...m, requestMessageId: owner.messageId } : m);
+    const message = store.appendMessage(event.threadId, proven ? { ...m, requestMessageId: owner.messageId } : m);
     return message;
   };
   if (bot) handoffs.onEvent(event);
@@ -5827,7 +5803,7 @@ bus.subscribe((event: RuntimeEvent) => {
       // Approve for me allows a web search. The app does not guess whether
       // the action is safe. A QUESTION always reaches the human — even Full
       // access never invents an answer.
-      const asker = bot ?? (speaker ? store.bot(speaker.botId) : undefined);
+      const asker = bot;
       const unattended = permission && asker && event.requestId ? isUnattended(asker.id, event.threadId) : false;
       // Only the person's explicit Full access or exact saved command answers.
       const effectiveApprovalMode = asker ? approvalModeForTurn(asker, isInternalTurn(event.threadId)) : "ask";
@@ -5872,11 +5848,8 @@ bus.subscribe((event: RuntimeEvent) => {
         const requestId = event.requestId;
         const { tool, summary } = event;
         const sourceGeneration = directTurnGenerationByThread.get(event.threadId);
-        const sourceSpeaker = groupSpeakers.get(event.threadId);
-        const isCurrent = () => !shouldIgnoreProviderEvent(event) && (
-          (sourceGeneration !== undefined && directTurnGenerationByThread.get(event.threadId) === sourceGeneration) ||
-          (sourceSpeaker !== undefined && groupSpeakers.get(event.threadId) === sourceSpeaker)
-        );
+        const isCurrent = () => !shouldIgnoreProviderEvent(event) &&
+          sourceGeneration !== undefined && directTurnGenerationByThread.get(event.threadId) === sourceGeneration;
         // The chip is written only AFTER the provider takes the answer.
         // Claiming approval first and correcting later means a moment
         // where the transcript says "approved" over a request nothing
@@ -5994,7 +5967,7 @@ bus.subscribe((event: RuntimeEvent) => {
       if (event.requestId) pendingCommandRules.delete(`${event.threadId}:${event.requestId}`);
       if (event.requestId) settleWaitingOnPersonChips(event.threadId, event.requestId);
       // answered (by whoever): the turn is working again, unless it settled
-      const waiting = bot ?? (speaker ? store.bot(speaker.botId) : undefined);
+      const waiting = bot;
       if (bot && store.taskByThread(bot.id, event.threadId)?.activity === "waiting-on-you") {
         store.setTaskActivity(bot.id, event.threadId, "working");
       } else if (!bot && waiting?.activity === "waiting-on-you") store.setActivity(waiting.id, "working");
@@ -6139,16 +6112,14 @@ bus.subscribe((event: RuntimeEvent) => {
       const computerParked = event.stopReason === "exit_before_result" &&
         turnResourceOwners.get(event.threadId)?.computerParkedOn !== undefined;
       if (!event.ok && event.stopReason !== "interrupted" && !lazyClaimAlreadyReported && !computerParked && !routines?.runForThread(event.threadId)) {
-        const broken = bot ?? (speaker ? store.bot(speaker.botId) : undefined);
+        const broken = bot;
         if (broken) reportIncident({ kind: "failed", bot: broken, threadId: event.threadId, detail: event.stopReason?.trim() || "the run ended without a result" });
       }
       const lastReported = turnUsage.get(event.threadId);
       turnUsage.delete(event.threadId);
       const lastContext = turnContext.get(event.threadId);
       turnContext.delete(event.threadId);
-      // group turns run on the room's thread — the speaking bot's task
-      // tally is not the right home for a shared room's spend, so only
-      // 1:1 task turns are tallied for now.
+      // Only 1:1 task turns are tallied for now.
       if (bot) {
         const resourceOwner = turnResourceOwners.get(event.threadId);
         const generation = directTurnGenerationByThread.get(event.threadId);
@@ -6283,58 +6254,6 @@ bus.subscribe((event: RuntimeEvent) => {
           void Promise.all([screenSettled, digestSettled]).finally(() => settleDirectTurn(true));
         } else {
           void digestSettled.finally(() => settleDirectTurn(true));
-        }
-      } else if (group && speaker) {
-        // Room/goal turns run on a shared thread, but their spend still counts
-        // against the workspace cap and the ledger. Book it under the speaker.
-        const tokens = event.usage ?? lastReported;
-        const speakingBot = store.bot(speaker.botId);
-        const selection = speakingBot?.modelSelection;
-        const promptBytes = turnPromptBytes.get(event.threadId);
-        turnPromptBytes.delete(event.threadId);
-        bookTurnUsage({
-          botId: speaker.botId,
-          botName: speaker.name,
-          threadId: event.threadId,
-          instanceId: selection?.instanceId ?? "unknown",
-          driverKind: (selection && registry.get(selection.instanceId)?.driverKind) ?? "unknown",
-          model: selection?.model ?? "unknown",
-          input: tokens?.input ?? 0,
-          output: tokens?.output ?? 0,
-          ...(typeof tokens?.cachedInput === "number" ? { cachedInput: tokens.cachedInput } : {}),
-          ...(promptBytes ? { promptBytes } : {}),
-          costUsd: event.cost ?? null,
-          trigger: routineRun
-            ? { kind: "routine", routineId: routineRun.routineId, label: routineRun.routineName }
-            : turnTriggers.get(event.threadId) ?? { kind: "owner" },
-        });
-        // Appends are asynchronous. Refresh after persistence so the settled
-        // turn appears immediately, without waiting for another message.
-        void flushUsageLedger(DATA_DIR).then(() => {
-          groupUsageReader.refresh();
-          const current = store.group(group.id);
-          if (current) broadcast({ kind: "group", group: publicGroupState(current) });
-        }).catch(() => {});
-        if (event.turnId) {
-          void scheduleTurnDigest({
-            botId: speaker.botId, botName: speaker.name,
-            threadId: event.threadId, turnId: event.turnId,
-            driverKind: selection && registry.get(selection.instanceId)?.driverKind,
-            reply, from: speaker,
-            isCurrent: () => store.groupByThread(event.threadId)?.id === group.id,
-            usage: { input: tokens?.input ?? 0, output: tokens?.output ?? 0, costUsd: event.cost ?? null },
-          });
-        }
-        liveTurnByThread.delete(event.threadId);
-      }
-      if (speaker && group?.busyBotId === speaker.botId) {
-        releaseTurnResources(turnResourceOwners.get(event.threadId));
-        groupSpeakers.delete(event.threadId);
-        store.patchGroup(group.id, { busyBotId: null, unread: true });
-        const speakingBot = store.bot(speaker.botId);
-        if (speakingBot?.busy) {
-          store.setActivity(speakingBot.id, "idle");
-          retryDelegationsWaitingOn(speakingBot.id);
         }
       }
       // A delegated turn's terminal state belongs in the A⇄B channel:
@@ -7042,10 +6961,9 @@ bus.subscribe((event: RuntimeEvent) => {
 });
 
 // ── steer-queue drain: messages sent while the bot was busy ────────────
-// Runs on ANY turn.completed rather than resolving the settling thread: a
-// bot busy in a room settles on the room's thread, and by the time this
-// subscriber runs the main fold has already dropped the speaker record —
-// so the drain matches on "this queue's bot is idle now" instead.
+// Runs on ANY turn.completed rather than resolving the settling thread: by the
+// time this subscriber runs the main fold has already settled the turn, so the
+// drain matches on "this queue's bot is idle now" instead.
 // Registration order puts this after the main fold, so busy is already
 // false when it looks. Deliberately NOT gated on event.ok (unlike the
 // delegation drain above): queued delegations are a bot's fan-out and
