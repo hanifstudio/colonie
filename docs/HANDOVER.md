@@ -440,8 +440,12 @@ passed, 206 s) the honest classification is:
   and `server/openai-compat-vm.e2e.test.ts` (3), the other two "regressions" of
   the first comparison, are inherited too, each proved by running it in the
   repaired baseline worktree (`.colonie-dev/claude-account-baseline.log`,
-  `.colonie-dev/openai-compat-baseline.log`); the "after" run of all 27 is
-  `.colonie-dev/red-current-full.log`.
+  `.colonie-dev/openai-compat-baseline.log`). A full re-run of all 27 on this
+  tree (`.colonie-dev/red-current-full.log`) was stopped on purpose: the first
+  file, `server/delta-context.e2e.test.ts`, alone spent 21 minutes timing out its
+  39 tests (every `session/new` against a native-only fake), and the fixed files
+  already carry their own logs (`digest-fix5`, `acp-recovery-fix2`,
+  `peer-allowlist-fix3`, `presets-fix1`, `duration-sequencer`).
 
 `server/peer-allowlist.e2e.test.ts` (0→8 in the first comparison) is inherited as
 well: its fixture still named the retired `claudeAgent` driver, so every bot
@@ -511,6 +515,14 @@ record (each is a rebuild decision, not a test tweak):
 - **Named Claude accounts still create the retired `claudeAgent` kind**
   (`server/claude-accounts.ts` and the account routes), so anything the API or UI
   creates there is a shadow instance.
+- **No ACP mid-turn seam.** No registered adapter implements `Adapter.steer` or
+  `capabilities.queueing` (`server/acp/` has neither), so the aside lane
+  (`server/index.ts:6603`, `12070-12113`) — a peer ask folded into a running turn —
+  is unreachable on the shipped fleet, as is the steer path.
+- **Tool evidence can never be `full` on ACP.** The only setter of
+  `tool.fullResult` is the native hook ingest (`server/index.ts:4737`), so
+  `server/digest.ts` reports `preview` even though the ACP runtime receives
+  untruncated `tool_call_update` content.
 - **`integrations.localComputer`** ("Works on: Local VM" / this computer) is built
   only on the retired native branch (`server/index.ts:7905`–`8015`, dispatched
   with the other `integrations` fields) — the ACP dispatch passes its mount pair

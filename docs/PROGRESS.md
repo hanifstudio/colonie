@@ -127,6 +127,30 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   (ACP-fixture migration backlog) rather than gating P1.
 - Committed the SettingsModal / Decision-model removal: `git status --short` clean
   for `src/`; tests above are its evidence.
+- **Six files deleted from the migration backlog** (retired-subject rule, each
+  with the evidence that its subject cannot run on the maintained fleet):
+  `server/openai-compat-vm.e2e.test.ts` (retired `openai-compat` driver and its
+  Local VM computer tools — `computer_screenshot`/`agents_select_computer` appear
+  nowhere in production), `server/host-lazy-claim.e2e.test.ts` (the gated
+  host-computer mount is native-branch only; no ACP adapter declares
+  `localComputerMcp`), `server/direct-screen-settlement-api.test.ts` (screen
+  frames need `previewCapture`/`browserCapture`, both set only on the native
+  branch), `server/cli-stop.e2e.test.ts` (asserted the retired drivers'
+  whole-process-tree reap; `killCliTree` has no turn-path caller, and ACP
+  interrupt is covered by `server/acp/conversations.e2e.test.ts` and
+  `server/acp/codex-acp.test.ts`), `server/aside-e2e.test.ts` (aside folding needs
+  `Adapter.steer` + `capabilities.queueing`; `server/acp/` implements neither),
+  and `server/hooks.e2e.test.ts` (the engine-hooks channel is assembled only on
+  the native branch behind a capability no ACP adapter declares; `tool.fullResult`
+  has exactly one setter, the hook ingest at `server/index.ts:4737`). The four
+  that were shard-weighted left `vitest-shard-weights.json` (119 → 115 entries):
+  `scripts/testing/duration-sequencer.test.ts` 10/10, `pnpm typecheck` 0,
+  `pnpm lint` 0 (`.colonie-dev/weight-after-deletes.log`).
+- Two gaps those deletions exposed, recorded and not fixed: no registered adapter
+  implements `Adapter.steer`/`capabilities.queueing`, so the aside lane
+  (`server/index.ts:6603`, `12070`) is dead code on the shipped fleet; and tool
+  evidence can never be `full` on ACP (`server/digest.ts` `coverageForDriver`)
+  even though the runtime receives untruncated `tool_call_update` content.
 - Not run: shards 2–4, UI e2e, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
