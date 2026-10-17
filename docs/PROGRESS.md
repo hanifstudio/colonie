@@ -313,6 +313,15 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   `sharedWorkspaceFullAccess` capability appears only when the feature is on, `static` follows the static
   dir, and edition plus brand answer without a provider. 26/26 pass, typecheck 0, lint 0; the live server
   answers all three through the new module (`pid` matches the process it started).
+- **S3.6: the team library and the scout left `index.ts` (October 18).** The catalog, a library team, a
+  GitHub team, `/api/teams/scout` and `/api/teams/scout/directory` became `server/routes/team-library.ts`
+  — a plain handler, since it needs no dependencies: 57 inline lines removed and three imports the hub no
+  longer uses pruned (`index.ts` 17,937 → 17,880). The module keeps the split that matters: it proposes,
+  and only `POST /api/teams/import` (still in the hub) creates anything. Guard:
+  `server/routes/team-library.test.ts` — other paths decline, a missing or unusable folder is a 400
+  instead of a guess, a GitHub import with no URL is a 400 before any network call, and scouting a real
+  folder answers a profile and a suggestion. 30/30 pass, typecheck 0, lint 0; the live server answers both
+  scout cases through the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

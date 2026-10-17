@@ -434,9 +434,6 @@ import { TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.t
 import type { TeamSetupRequest } from "../shared/team-setup.ts";
 import { profileRevision, profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
-import { fetchBotDirectory, matchDirectoryBots, type MatchedDirectoryBot } from "./bot-directory.ts";
-import { scoutProject, suggestTeam } from "./project-scout.ts";
-import { fetchGithubTeam, fetchLibraryTeam, fetchTeamCatalog } from "./team-library.ts";
 import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./bot-package.ts";
 import { createTeamManifest, parseTeamManifest } from "./team-manifest.ts";
 import { readThreadEvents } from "./thread-events.ts";
@@ -561,6 +558,7 @@ import { createConnectorRoutes } from "./routes/connectors.ts";
 import { createAdminReadRoutes } from "./routes/admin-reads.ts";
 import { createBotActivityRoutes } from "./routes/bot-activity.ts";
 import { createServerInfoRoutes } from "./routes/server-info.ts";
+import { teamLibraryRoutes } from "./routes/team-library.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10710,6 +10708,7 @@ ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
 ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
+ROUTES.push(teamLibraryRoutes);
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -14036,66 +14035,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 400, { error: error instanceof Error ? error.message : "Team could not be exported" });
       }
     }
-    if (method === "GET" && path === "/api/team-library/catalog") {
-      try {
-        return json(res, 200, await fetchTeamCatalog());
-      } catch (error) {
-        return json(res, 502, { error: error instanceof Error ? error.message : "The team library is unavailable" });
-      }
-    }
-    m = path.match(/^\/api\/team-library\/teams\/([a-z0-9][a-z0-9-]*)$/);
-    if (m && method === "GET") {
-      try {
-        return json(res, 200, await fetchLibraryTeam(m[1]));
-      } catch (error) {
-        const status = (error as { status?: number }).status === 404 ? 404 : 502;
-        return json(res, status, { error: error instanceof Error ? error.message : "The team could not be loaded" });
-      }
-    }
-    if (method === "POST" && path === "/api/team-library/github") {
-      const body = await readBody(req);
-      if (typeof body.url !== "string" || !body.url.trim()) {
-        return json(res, 400, { error: "A GitHub URL is required" });
-      }
-      try {
-        return json(res, 200, await fetchGithubTeam(body.url));
-      } catch (error) {
-        const status = (error as { status?: number }).status === 404 ? 404 : 400;
-        return json(res, status, { error: error instanceof Error ? error.message : "The GitHub team could not be loaded" });
-      }
-    }
-    if (method === "GET" && path === "/api/teams/scout") {
-      // The scout reads a folder and answers with a suggestion — it creates
-      // nothing. Bots and the room come into being only when the human sends
-      // the suggested manifest through /api/teams/import, so "the agent
-      // proposes, the person imports" is enforced by the route split itself.
-      // The folder is whatever validateBotCwd accepts: the same local-user
-      // trust boundary as pointing any bot's working folder at a path.
-      // Deliberately offline — the community directory lives on its own
-      // route below, so a slow network can never delay the suggestion.
-      const validated = validateBotCwd(url.searchParams.get("cwd"));
-      if (!validated.ok) return json(res, 400, { error: validated.error });
-      if (!validated.cwd) return json(res, 400, { error: "scout needs a folder to read" });
-      const profile = scoutProject(validated.cwd);
-      return json(res, 200, { profile, suggestion: suggestTeam(profile) });
-    }
-    if (method === "GET" && path === "/api/teams/scout/directory") {
-      // Community bots that fit the scouted folder — a separate, lazy call
-      // so an unreachable directory degrades to "no extra candidates", never
-      // to a broken scout.
-      const validated = validateBotCwd(url.searchParams.get("cwd"));
-      if (!validated.ok) return json(res, 400, { error: validated.error });
-      if (!validated.cwd) return json(res, 400, { error: "scout needs a folder to read" });
-      let directory: MatchedDirectoryBot[] = [];
-      try {
-        directory = matchDirectoryBots(scoutProject(validated.cwd), await fetchBotDirectory());
-      } catch (error) {
-        // an unreachable directory is a fact of life, not an error — but an
-        // empty section should still be diagnosable from the server log
-        console.warn("bot directory lookup failed:", error instanceof Error ? error.message : String(error));
-      }
-      return json(res, 200, { directory });
-    }    if (method === "POST" && path === "/api/teams/import") {
+    if (method === "POST" && path === "/api/teams/import") {
       // Import is additive-only. A manifest is untrusted input (catalog,
       // GitHub, a shared file), so it must be structurally unable to reach
       // records the user already has: every member becomes a NEW bot with a
