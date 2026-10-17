@@ -451,7 +451,7 @@ import { listenWebhookIngress, webhookCredential, type WebhookIngress } from "./
 import { assertModelVariantSupported } from "./member-turn.ts";
 import { WebhookManager } from "./webhooks.ts";
 import type { WebhookTrigger } from "../shared/webhooks.ts";
-import { SPAWNED_PROXIES } from "./runtime/proxy-paths.ts";
+import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import {
   installLibrarySkill,
   listLibrarySkills,

@@ -238,6 +238,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   that no longer matters); `.colonie-dev/suite-after-delete.log` is a partial record only.
   Rebuild order now: a minimal launcher and server-bundle tooling first (without them the
   app cannot be started), then the folder restructure, then a fresh feature-based suite.
+- **S1 `server/runtime/` done, and it caught a trap (October 18).** Eight process-lifecycle
+  files (data-dir-lease, env-path, environment, exit, graceful-shutdown, procs,
+  proxy-paths, restart) moved with `git mv`, imports repointed in 17 files by
+  `.colonie-dev/move-module.py`. The first attempt committed `proxy-paths.ts` inside
+  `runtime/`; its own header records that it must sit at the server root, because esbuild
+  inlines modules into an entry bundle, so a nested copy resolves `SERVER_ROOT` one level
+  too high and every spawned proxy points outside `Resources/server` while `/api/health`
+  stays green — exactly the 0.1.24 breakage, and `/api/health` did stay green here too. The
+  old `proxy-paths.test.ts` was deleted in the clean slate, so the guard was rewritten:
+  `server/proxy-paths.test.ts` (SERVER_ROOT is the server directory; every `SPAWNED_PROXIES`
+  entry exists inside it) and `server/runtime/graceful-shutdown.test.ts` (cleanup runs once
+  and exits 0; a wedged job cannot hold the process past the timeout). 4/4 pass, typecheck
+  0, lint 0, server booted on a throwaway data dir and `/api/health` answered.
+  Module 2 of 23.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

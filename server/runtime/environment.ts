@@ -16,7 +16,7 @@ import {
 import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 
-import { SERVER_ROOT } from "./proxy-paths.ts";
+import { SERVER_ROOT } from "../proxy-paths.ts";
 
 export interface EnvironmentDescriptor {
   environmentId: string;

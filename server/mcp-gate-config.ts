@@ -9,7 +9,7 @@ import { parseToolScope, type ToolScope } from "../shared/tool-scope.ts";
 import { DATA_DIR } from "./config.ts";
 import { DEFAULT_RESULT_BUDGET } from "./mcp-trim.ts";
 import { REMOTE_MCP_CONFIG_ENV, remoteMcpSpec } from "./mcp-http.ts";
-import { SPAWNED_PROXIES } from "./runtime/proxy-paths.ts";
+import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 
 /** Characters of a single tool result allowed into context, or 0 to mount
  * bot servers directly as before. `COLONIE_MCP_RESULT_BUDGET=0` is the escape
