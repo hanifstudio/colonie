@@ -297,6 +297,13 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   whole request line instead of `url.pathname`, so every query-string validation test silently reached
   no handler. 16/16 pass, typecheck 0, lint 0; the live server answers 400 for `/api/decisions?limit=0`
   and 200 `{"decisions":[]}` through the new module.
+- **S3.4: a bot's activity and outbound routes left `index.ts` (October 18).** They became
+  `server/routes/bot-activity.ts` (`createBotActivityRoutes({ store, outboundCounts })`); 27 inline lines
+  removed (`index.ts` 17,982 → 17,957). Guard: `server/routes/bot-activity.test.ts` — declines other
+  paths, an unknown bot is a 404 rather than an empty report on both routes, the stored policy and
+  today's count come back, a bot with no threads reports no activity, and a bad `limit` is a 400.
+  21/21 pass, typecheck 0, lint 0; the live server answers `{"error":"no such bot"}` for
+  `/api/bots/nope/outbound`, which can only come from the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
