@@ -32,16 +32,21 @@ and code/design consistency. The [engineering roadmap E01–E06](COLONIE-BLUEPRI
 and [acceptance standards](COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance)
 are the single plan; later stages are not implemented by this documentation.
 
-E01.2 is done locally: the static CI job's "Enforce architecture boundaries" step
-runs `scripts/testing/content-boundaries.test.ts` and
-`scripts/testing/index-route-ratchet.test.ts` on every change, and
-`scripts/ci-workflow.test.ts` fails if the step disappears, loses a guard, or
-becomes skippable. The ratchet's inherited stale counts were lowered to 143/80.
-Accept/reject proof ran in disposable copies (PROGRESS, "E01.2").
+E01.2 was built and proven locally, but **nothing enforces it today**. The step
+"Enforce architecture boundaries" ran `scripts/testing/content-boundaries.test.ts`
+and `scripts/testing/index-route-ratchet.test.ts`, and `scripts/ci-workflow.test.ts`
+failed if the step disappeared, lost a guard, or became skippable (the ratchet's
+inherited stale counts had been lowered to 143/80). Commit `263666d9` ("Owner
+decision: clean slate") then deleted `scripts/ci-scope.mjs` and all of
+`scripts/testing/` while `.github/workflows/ci.yml` still names them, so the static
+job cannot pass and the vitest job behind it never starts. Live enforcement is
+`pnpm test` (which runs the guard tests) plus `pnpm structure:check`; re-creating
+those scopes or dropping the steps is an owner decision (see E01.3 below).
 
-Ratchet note for concurrent room retirement: removing routes from
-`server/index.ts` now fails the ratchet until its counts are lowered to the new
-numbers in the same change. That is intended; never raise them.
+The index-route ratchet is gone with that clean slate, so removing routes from
+`server/index.ts` no longer fails anything locally. The current guards are the
+import-boundary matrix and the module map; both are shrink-only, and the acceptance
+standard still says never raise a count.
 
 E01 stays open on remote enforcement. On October 17 the owner made
 `hanifstudio/colonie` public and retired the old remote: `origin` now points to
@@ -275,11 +280,14 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   `check-import-boundaries.mjs` → `check-structure.mjs` (the `pnpm structure:check` entry point is
   unchanged). Falsification: a temporary `server/colonie/__falsify-map/probe.ts` produced the MISSING
   line and exit 1; deleting it restored exit 0.
-- Next actions: (a) the CI question above; (b) the one remaining Phase 2 item — an independent tool
-  (`knip`/`ts-unused-exports`; neither is installed, so adding the dependency is a decision) to verify or
-  falsify the dead-export figure, which stays labelled unverified until then; (c) the restructure long tail
-  toward the ~1,000–1,500 line target for `server/index.ts` (now 2,138 lines), moving whole coherent
-  clusters only.
+- Next actions, and they need an owner choice rather than another autonomous step: (a) the CI question
+  above; (b) the restructure size target is **retired by measurement** (October 19): `server/index.ts` is
+  2,138 lines, of which ~1,400 are feature-wiring calls, and its 34 remaining helpers are 13 lines or
+  shorter, so shrinking it further moves declarations rather than improving comprehension; (c) the open
+  candidates are the two reported product bugs (named Claude accounts created with the `claudeAgent`
+  driver; no file in the tree setting `COLONIE_PROFILE`, so the packaged app resolves the legacy fleet),
+  the dead-export verification (needs a dev dependency decision), or resuming the paused renderer work
+  R1–R6.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

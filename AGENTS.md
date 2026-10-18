@@ -39,6 +39,10 @@ data, or normal development instance. Never read credential contents. Real-provi
 checks require disposable workspaces, supported inherited CLI authentication, and
 a bounded task. Follow the verification guide for methods and evidence categories.
 
+Structural edits also run `pnpm structure:check` — the import boundaries and the
+`server/` module map — and add a line to that map when a folder appears; method,
+exit codes and limits are in [structure](docs/structure/README.md).
+
 Run one heavy local job at a time, including child processes; set duration/process
 limits and clean up owned fixtures. Documentation edits need document checks, not
 builds or E2E. Report inherited failures and missing evidence; compilation or a

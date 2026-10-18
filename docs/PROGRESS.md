@@ -3,6 +3,40 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — the index.ts size target, retired by measurement
+
+Single session, Node 24.13.1. No product code changed.
+
+- Asked whether pushing `server/index.ts` from 2,138 toward the old 1,000–1,500 line target is worth
+  doing, I measured the remainder instead of guessing: `.colonie-dev/index-ast.mjs` (throwaway) parses the
+  file and lists all 378 top-level statements — 60 wiring calls and 2 wiring assignments (~1,400 lines,
+  the largest a 212-line `createServerAssembly({…})` dependency literal), 138 import lines, 93 small
+  state holders (212 lines), 35 short statements (204 lines), and 34 functions/arrows totalling 196 lines
+  whose largest is 13 lines.
+- Verdict: the target has done its job. What is left is a composition root wiring features together, and
+  the earlier push (18,207 → 2,138) is what removed the real defect — route logic and feature services
+  living in the startup hub. Reaching 1,200 lines would move the same declarations into an "assembly"
+  module and lose the single place where the server's shape is visible. Recorded in HANDOVER so the
+  question is not reopened from the number alone.
+- The first attempt at this measurement was wrong, and the failure mode is worth keeping: an
+  indentation-based scan missed bare assignments (`routines = new RoutineManager({…})`,
+  `workspaceAccess = createWorkspaceAccess({…})`), so ~400 lines were credited to the declaration above
+  them and the file looked like it held several 100-line logic blocks. Same lesson as the two graph
+  defects in Phase 2a — the measuring tool needs its own check before its number is quoted.
+- Documentation corrections, because a stale claim about enforcement misleads the next reader:
+  HANDOVER's E01.2 paragraph claimed the CI step guards run on every change, which stopped being true at
+  `263666d9`; it now states that nothing is enforced in CI and that `pnpm test` plus
+  `pnpm structure:check` are the live points. The index-route ratchet paragraph is corrected the same way
+  (that ratchet was deleted with the clean slate). `AGENTS.md` now names `pnpm structure:check` in its
+  verification boundaries, so the guard is part of the documented loop rather than a tool nobody runs.
+- Confirmed while checking the open product items: no file in the current tree sets `COLONIE_PROFILE`
+  (only throwaway probe scripts and stale `.worktrees/` copies do), and
+  `server/colonie/providers/claude-accounts.ts:68` still creates named Claude accounts with
+  `driver: "claudeAgent"`. Both stay open questions for the owner, with the evidence recorded rather than
+  acted on.
+- Checks: no code changed, so the results in the entry below stand (104 files / 511 tests, lint and
+  typecheck clean); `pnpm structure:check` still exits 0.
+
 ## 2026-10-18 — the server module map, checked against the tree (E01.3 Phase 2c)
 
 Single session, Node 24.13.1. Follows the entry above. No product code changed.
