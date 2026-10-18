@@ -116,7 +116,7 @@ import {OutboundCounts} from "./outbound-counts.ts";
 import {OutboundRequestService} from "./outbound-requests.ts";
 import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
 import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
-import {WebhookManager} from "./colonie/routines/webhooks.ts";
+import {createWebhookManager} from "./colonie/routines/webhook-wiring.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
 import { createPresetStore } from "./colonie/bots/presets.ts";
@@ -1710,30 +1710,11 @@ const { resolveAndSendTrust, cancelTeamSetupResumesForThread, drainTeamSetupResu
 // Webhook definitions are independent from calendar schedules, but every
 // delivery joins the same RoutineManager queue. That keeps unattended work
 // ordered behind a busy MAUS and gives webhook runs the same durable receipts.
-const webhooks = new WebhookManager({
-  emit: broadcast,
+const webhooks = createWebhookManager({
   botState: unattendedDispatchState,
-  enqueue: (input) => routines!.enqueueWebhook(input),
-  findRun: (webhookId, deliveryId) => routines!.webhookRunReceipt(webhookId, deliveryId),
-  cancelQueued: (webhookId, message) => routines!.cancelQueuedWebhook(webhookId, message),
-  pendingRuns: (webhookId) => routines!.activeWebhookRunCount(webhookId),
-  // delivery:"post" webhooks land in a dedicated "Updates" task, never
-  // bot.threadId (the bot's currently-selected task) -- see
-  // resolvePostThread below. Fixes
-  // https://github.com/hanifstudio/colonie/issues/2071: a post used to
-  // land wherever the owner (or another automation) had last switched
-  // that bot's selection, including a live conversation.
-  post: (botId, threadId, text) => {
-    if (!store.bot(botId)) return;
-    store.appendMessage(threadId, { role: "bot", kind: "text", text, webhookPost: true });
-  },
-  // Create-on-first-use, never activated (so it never steals the bot's
-  // live selection the way POST /api/bots/:id/tasks does), reused forever
-  // after via trigger.resultsThreadId.
-  resolvePostThread: (trigger, forceNew) => {
-    if (!forceNew && trigger.resultsThreadId) return trigger.resultsThreadId;
-    return store.createTask(trigger.botId, "Updates", false)?.threadId;
-  },
+  emit: broadcast,
+  routines: () => routines,
+  store,
 });
 
 let webhookIngress: WebhookIngress | null = null;

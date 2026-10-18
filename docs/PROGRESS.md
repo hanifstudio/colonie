@@ -629,6 +629,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.87: the webhook-manager wiring out of `index.ts` (October 18).**
+  `server/colonie/routines/webhook-wiring.ts` (`createWebhookManager`): the
+  manager this installation serves — a run delivery joins the same
+  RoutineManager queue (`enqueue`/`findRun`/`cancelQueued`/`pendingRuns`), and a
+  delivery:"post" webhook lands in a dedicated "Updates" task resolved once and
+  reused, never the bot's currently-selected thread. `index.ts` supplies
+  `botState`, `emit`, `store`, and `routines` as a getter; the four routine calls
+  became `routines()!` (a caught regression the new test locks down). `index.ts`
+  2,188 → 2,169 lines. Guard: new `webhook-wiring.test.ts` (5) — a post delivery
+  landing in the resolved thread, the destination resolved once and reused, a
+  run delivery joining the queue, a post for a deleted bot writing nothing, and
+  a webhook refused for a missing MAUS. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 101 files / 480 tests pass; live probe green.
 - **S3.86: the turn-watchdog subscriber out of `index.ts` (October 18).**
   Extended `server/colonie/chat/turn-watchdog.ts` — the watchdog's own domain —
   with `registerTurnWatchdog(deps)`: start the watchdog's timer, then let the
