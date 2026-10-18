@@ -154,11 +154,11 @@ started, and review.
   `colonie/skills/skill-resolution` (S3.37), the delegation
   watch, `colonie/peers/delegation-watch` (S3.38), the trusted-approval
   message handler, `colonie/bots/trusted-approval-message` (S3.39), and the
-  direct-send cluster, `colonie/chat/direct-send` (S3.40). Every route group named
+  direct-send cluster, `colonie/chat/direct-send` (S3.40), and the turn\n  engine itself, `colonie/chat/turn-start` (S3.41). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 11,039 lines.
+  `index.ts` is now 9,799 lines.
 
-  What remains, by measured size: `startTurn` (1,367), `localVmInventoryPayload` (628),
+  What remains, by measured size: `localVmInventoryPayload` (628),
   `deleteBotWithLifecycle` (139, 32 index-locals — the most tightly bound of the small
   ones: it drags the Local VM, browser and comms state with it), then the great
   majority of the file — shared state and small declarations that no single feature
@@ -168,8 +168,8 @@ started, and review.
   move of the state it closes over. That is a decision, not a mechanical carve.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone: with those done, what is left is state and small declarations, a
-  separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
+  giants alone — `startTurn` moved at S3.41, the last of them. What is left below 9,799 lines is state and small
+  declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and
   friends, ~3,400 lines) stays untouched: it is owner-gated, not a default cleanup.

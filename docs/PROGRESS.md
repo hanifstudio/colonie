@@ -629,6 +629,31 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.41: `startTurn` out of `index.ts` — the largest single move of the restructure (October 18).** The turn
+  engine, 1,367 lines, becomes `server/colonie/chat/turn-start.ts` behind `createStartTurn(deps)`, wired at the point
+  where it used to sit. `index.ts` goes 11,039 → **9,799 lines**. It closes over 121 pieces of the live state, so the
+  move needed three things that the earlier slices did not: (1) six bindings are handed over as **getters**
+  (`routines`, `colonieMemory`, `enginesRead`, `providerFleetReloading`, `providerInstancesChanging`, `teamMemory`) —
+  the four reassigned while the server runs would otherwise be frozen at their initial value, and the two declared
+  below the wiring point would read null or hit a temporal-dead-zone error; (2) the one top-level reader before the
+  wiring point, `bus.subscribe(makeCapContinuationSubscriber({ store, startTurn }))`, now passes a thin arrow so the
+  engine is looked up when a continuation actually fires; (3) the dependencies themselves are declared as one
+  permissive shape rather than 121 hand-typed lines — see the caveat below.
+  The carve also **missed four names**, which is worth recording because it is the failure mode of a mechanical
+  carve: `checkpoints` and `composio` are namespace imports (`import * as`), which the analyser does not classify as
+  imports, and the two types hidden in the signature were only found by the compiler. The verification of this slice
+  is therefore compiler-led: `pnpm typecheck` reported 96 errors on the first wiring, every one of them a *category*
+  the move itself created (44 now-unused imports, 19 names the carve missed, 13 closure parameters that lost their
+  contextual type, 15 values that were narrowed by a now-`any` helper, one wrong relative path, one use-before-
+  declaration), and all 96 are resolved. **Caveat, stated plainly:** inside this one module the dependencies are
+  `any`, so the calls *into* it stay checked while the calls it makes out are not. That is a real loss of type
+  safety, accepted here to land a 1,240-line reduction in one step, and marked in the module with a `ponytail:`
+  note naming the upgrade path (a hand-typed deps interface, if a turn unit test ever needs it).
+  Guard evidence, in order: 56 files / 285 tests pass, typecheck 0, lint 0; on a throwaway HOME the server boots and
+  answers `/api/health`; and a **real direct send** to the seeded bot answers `202` with the transcript's user message
+  — which is `startTurn` having run its admission, transcript and dispatch path for real, with no
+  use-before-initialization or missing-binding error in the server log. It does not prove a real provider turn: no
+  supported credentials exist in a throwaway HOME, which stays the standing limitation.
 - **S3.40: refusing and accepting a direct send out of `index.ts` (October 18).** The whole direct-send cluster
   moves together — `DirectSendReceipt` (the union of what a person's message became: a transcript line, steered words,
   or a place in the queue), `DirectSendRefused`, `directSendRefusal` and `acceptDirectSend` (138 lines) — into
