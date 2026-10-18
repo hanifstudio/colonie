@@ -12,9 +12,10 @@ const deps = (over: Partial<Record<string, unknown>> = {}) => {
   const reached: unknown[] = [];
   const fake = {
     store: { messagesFor: () => [], botByThread: () => undefined, bot: () => undefined, bots: [] },
+    requestedTaskBot: (botId: string) => ({ id: botId, threadId: "t1", modelSelection: { instanceId: "codex-acp", model: "gpt" } }),
     desktopManaged: false,
     approvalBus: {},
-    botForThread: () => null,
+    botForThread: () => ({ id: "b1", threadId: "t1", modelSelection: { instanceId: "codex-acp", model: "gpt" } }),
     answerRequest: (...args: any[]) => { reached.push(args); return { ok: true, outcome: "answered" }; },
     answeringCardAs: async (_auth: unknown, _threadId: string, _requestId: string, work: () => Promise<unknown>) => work(),
     cardAnswerRefusal: () => null,
@@ -70,4 +71,18 @@ test("remembering a command is checked on its own, too", async () => {
 
   expect(sent).toEqual([{ status: 403, body: { error: "Saving a command permission needs the desktop." } }]);
   expect(reached).toEqual([]);
+});
+
+test("a request raised in a room is answered through the bot too", async () => {
+  const { deps: fake, reached } = deps({ cardAnswerRefusal: () => "Only the person who asked may answer here." });
+  const { sent } = await call(createThreadRespondRoutes(fake), "/api/bots/b1/respond", "POST", { behavior: "allow", requestId: "r1" });
+
+  expect(sent).toEqual([{ status: 403, body: { error: "Only the person who asked may answer here." } }]);
+  expect(reached).toEqual([]);
+});
+
+test("the bot form refuses a behavior it does not know just the same", async () => {
+  const { sent } = await call(createThreadRespondRoutes(deps().deps), "/api/bots/b1/respond", "POST", { behavior: "maybe" });
+
+  expect(sent).toEqual([{ status: 400, body: { error: "behavior must be allow, deny, or answer" } }]);
 });

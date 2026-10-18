@@ -60,7 +60,7 @@ import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, 
 import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
 import {isEffortLevel, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
-import {isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard} from "../shared/ask-question.ts";
+import {isPersistentQuestionCard, shouldSettleRequestCard} from "../shared/ask-question.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import {liveDecisionRefusal} from "../shared/live-approval.ts";
 import * as composio from "./colonie/mcp/composio.ts";
@@ -9726,6 +9726,7 @@ ROUTES.push(createThreadRespondRoutes({
   resolveAndSendTrust,
   resolveSkillRequest,
   sendSkillResolution,
+  requestedTaskBot,
 }));
 ROUTES.push(createTeamsExportRoutes({
   store,
@@ -11063,86 +11064,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       // provider sessions still hold the other branch — next turn replays
       store.patchTask(bot.id, bot.threadId, { rewound: true });
       return json(res, 200, { activeLeafId: leaf });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/respond$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      const selected = requestedTaskBot(m[1], body.threadId);
-      const bot = botForThread(selected.id, selected.threadId)!;
-      const behavior = requestBehavior(body.behavior);
-      const reviewedSha256 = typeof body.reviewedSha256 === "string" ? body.reviewedSha256 : undefined;
-      if (!behavior) return json(res, 400, { error: "behavior must be allow, deny, or answer" });
-      const refusal = cardAnswerRefusal(auth, bot.threadId, String(body.requestId), behavior);
-      if (refusal) return json(res, 403, { error: refusal });
-      if (body.rememberCommand === true) {
-        const refusal = commandRememberRefusal(auth, bot.threadId, String(body.requestId), behavior);
-        if (refusal) return json(res, 403, { error: refusal });
-      }
-      return await answeringCardAs(auth, bot.threadId, String(body.requestId), async () => {
-        if (resolveAndSendTrust(res, bot.threadId, String(body.requestId), behavior)) return;
-        if (await resolveAndSendTeamSetup(res, {
-          botId: bot.id, threadId: bot.threadId, requestId: String(body.requestId), behavior,
-        }, auth.kind === "loopback" ? DESKTOP_MANAGED || Boolean(req.headers.origin) && !store.bots.some((bot) => bot.busy) : auth.scopes.includes("admin"))) return;
-        if (resolveAndSendRoutine(res, {
-          botId: bot.id,
-          botName: bot.name,
-          threadId: bot.threadId,
-          requestId: String(body.requestId),
-          behavior,
-        })) return;
-        if (resolveAndSendProfile(res, {
-          botId: bot.id,
-          botName: bot.name,
-          threadId: bot.threadId,
-          requestId: String(body.requestId),
-          behavior,
-        })) return;
-        if (resolveAndSendModel(res, {
-          botId: bot.id,
-          botName: bot.name,
-          threadId: bot.threadId,
-          requestId: String(body.requestId),
-          behavior,
-        })) return;
-        if (sendSkillResolution(res, resolveSkillRequest({
-          botId: bot.id,
-          botName: bot.name,
-          threadId: bot.threadId,
-          requestId: String(body.requestId),
-          behavior,
-          reviewedSha256,
-        }))) return;
-        // peer-approval intercept: harness-native cards carry a requestId
-        // that lives in peer-approval's pending map. Resolve them here so
-        // the provider adapter never sees a request it didn't raise.
-        if (store.messagesFor(bot.threadId).some((message) => message.card?.requestId === String(body.requestId)) &&
-          resolvePeerComms(approvalBus, String(body.requestId), behavior)) {
-          return json(res, 200, { ok: true, outcome: behavior === "allow" ? "allowed-once" : "rejected" });
-        }
-        const requestId = String(body.requestId);
-        const pending = store.messagesFor(bot.threadId).find((message) => message.card?.requestId === requestId);
-        if (isPersistentQuestionCard(pending?.card) && (body.dismiss === true || body.message === QUESTION_DISMISS_MESSAGE)) {
-          if (!pending?.card) return json(res, 404, { error: "this question is no longer available" });
-          if (pending.card.answered !== "answer" || pending.card.dismissed) {
-            return json(res, 409, { error: "answer this question before dismissing it" });
-          }
-          store.patchMessage(bot.threadId, pending.id, { card: { ...pending.card, dismissed: true } });
-          return json(res, 200, { ok: true, dismissed: true });
-        }
-        const outcome = await answerRequest(bot.threadId, bot.modelSelection.instanceId, requestId, behavior, body.message, { id: bot.id, name: bot.name }, body.always === true, body.rememberCommand === true);
-        if (outcome === "unavailable" && isPersistentQuestionCard(pending?.card) && behavior === "answer") {
-          if (!pending) return json(res, 404, { error: "this question is no longer available" });
-          const answer = typeof body.message === "string" ? body.message.trim() : "";
-          if (!answer) return json(res, 400, { error: "a question answer is required" });
-          try {
-            const reply = await deliverLateQuestionAnswer(auth, bot.threadId, requestId, answer, pending, bot);
-            return json(res, 200, { ok: true, outcome: "answered", late: true, ...(reply.queued ? { queued: true } : {}) });
-          } catch (error) {
-            return json(res, 409, { error: error instanceof Error ? error.message : "the late answer could not be queued" });
-          }
-        }
-        return json(res, 200, { ok: true, outcome });
-      });
     }
     // Answer by THREAD, so a request raised inside a room can be answered
     // too: a member's turn runs on the room's thread, and the bot that

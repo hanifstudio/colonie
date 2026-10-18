@@ -629,6 +629,14 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.33: the bot form of answering a request out of `index.ts` (October 18).** `POST /api/bots/:id/respond` (80
+  lines) did not get a module of its own: it is the *same* ladder as `thread-respond` (S3.27) addressed by bot
+  instead of by thread, because a request raised inside a room is answered where the member's turn runs. Folding it
+  into `server/routes/thread-respond.ts` cost one new dep (`requestedTaskBot`) and no new file, which is the whole
+  point of taking families instead of routes. Guard test grew to 6: the bot form refuses an unknown behavior, and a
+  card that may not be answered this way is refused before the card is touched. Live on a throwaway HOME: an unknown
+  behavior 400, answering with no such request 200 `{ok:true,outcome:"unavailable"}`, an unknown bot 404. `index.ts`
+  12,524 → **12,460 lines**; 259/259 pass, typecheck 0, lint 0.
 - **S3.32: sending a message to a bot out of `index.ts` (October 18).** `POST /api/bots/:id/messages` and its
   `/guarded` variant (92 lines) become `server/routes/bot-messages.ts`. This one sends, so the boundary had to be
   drawn carefully: the module takes the whole send layer as deps (`acceptDirectSend`, `startTurn`, `messageSender`,
