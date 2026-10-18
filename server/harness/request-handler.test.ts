@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 import { createRequestHandler } from "./request-handler.ts";
 
 test("the front door hands back a callable async handler", () => {
-  expect(createRequestHandler({})).toBeInstanceOf(Function);
+  expect(createRequestHandler({} as never)).toBeInstanceOf(Function);
 });
 
 test("building the handler does not read any of the wiring", () => {

@@ -629,6 +629,27 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.44: the runtime event bus subscriber out of `index.ts` (October 18).** The
+  largest block left was not a function but a `bus.subscribe(...)` call: 598 lines
+  (L4118–4715) folding provider events into stored messages, live turn state, Local
+  VM leases and delegation watches. It moves to
+  `server/colonie/runtime/event-subscriber.ts` as
+  `createRuntimeEventSubscriber(deps)` returning the subscriber; index wires it as
+  `bus.subscribe(createRuntimeEventSubscriber({...}))`. 63 deps, 19 of them getters
+  (the block reaches state declared below it, so a plain pass would be a temporal
+  dead zone), no setters. Guard: `event-subscriber.test.ts` (3) — an ignored event
+  broadcasts nothing, a thread without a bot stops after the public frame, a tracked
+  Local VM thread is touched rather than resumed. `index.ts` 8,157 → 7,623 lines.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 58 files / 290 tests
+  pass, live probe on a throwaway HOME green for `/api/health`, `/api/brand`,
+  `/api/bots`, `/api/local-computer`, unrouted path 404, no startup errors.
+  Two additions to the extraction tool (`.colonie-dev/extract.py`) came out of this
+  slice: it now carries the whole pipeline (carve → module → wire → compiler-driven
+  import/dep/prune/annotation passes) so one run is one block, and it detects
+  type-only names from the *source file* (`.colonie-dev/type-import-audit.py`) after
+  this block first imported `Message` as a value and the server refused to start with
+  `does not provide an export named 'Message'`. The audit now reports 0 value
+  imports of type-only names across 485 files, so the earlier modules are clean too.
 - **S3.43: the HTTP front door out of `index.ts` (October 18).** `handleRequest`
   (1,646 lines, 108 deps) moves whole to `server/harness/request-handler.ts`, the
   largest single block left and the last named giant. Carved with
