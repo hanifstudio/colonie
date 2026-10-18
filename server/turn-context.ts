@@ -1,5 +1,5 @@
 import type { DriverKind } from "./contracts.ts";
-import { peerName } from "./peer-roster.ts";
+import { peerName } from "./colonie/peers/peer-roster.ts";
 
 // All three use createOpenAIChatRuntime and get history via SendTurnInput.transcript.
 export const NATIVELY_REPLAYING_DRIVER_KINDS: readonly DriverKind[] = ["grok", "openai-compat", "minimax"];

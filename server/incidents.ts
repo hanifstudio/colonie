@@ -10,7 +10,7 @@
 //
 // The policy here is pure so it can be read and tested on its own; the
 // harness (server/index.ts) supplies the store and starts the turns.
-import { canAccessTeam } from "./peer-roster.ts";
+import { canAccessTeam } from "./colonie/peers/peer-roster.ts";
 
 export type IncidentKind = "failed" | "stalled" | "could-not-start" | "routine-failed";
 

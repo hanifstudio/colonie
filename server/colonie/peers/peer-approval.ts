@@ -14,10 +14,10 @@
 // the user-facing Always-allow flow already mirrors that key back into
 // `alwaysAllow`, so the two sides never disagree about what was granted.
 
-import { newId } from "./contracts.ts";
-import { buildNotification, type Notification } from "./notify.ts";
+import { newId } from "../../contracts.ts";
+import { buildNotification, type Notification } from "../../notify.ts";
 import { peerAllowKey, type PeerAction } from "./peer-approval-key.ts";
-import type { BotRecord, Message, Store } from "./persistence/store.ts";
+import type { BotRecord, Message, Store } from "../../persistence/store.ts";
 
 export { peerAllowKey } from "./peer-approval-key.ts";
 

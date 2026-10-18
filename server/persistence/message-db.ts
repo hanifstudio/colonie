@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { DATA_DIR } from "../config.ts";
-import { peerProvenanceAuthor } from "../peer-provenance.ts";
+import { peerProvenanceAuthor } from "../colonie/peers/peer-provenance.ts";
 import type { ResolvedSender, SteerQueueReason } from "../../shared/wire.ts";
 import type { Message } from "./store.ts";
 import type { UsageTrigger } from "../usage-ledger.ts";

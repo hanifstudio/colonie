@@ -22,7 +22,7 @@
 import type { SteerOutcome } from "./contracts.ts";
 import { newId } from "./contracts.ts";
 import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persistence/message-db.ts";
-import { peerName } from "./peer-roster.ts";
+import { peerName } from "./colonie/peers/peer-roster.ts";
 import type { BotRecord, Message } from "./persistence/store.ts";
 import type { UsageTrigger } from "./usage-ledger.ts";
 

@@ -13,7 +13,7 @@ import { ensureSections, readSections, changeEmptySection } from "../section-con
 import type { TeamComputers } from "../team-computers.ts";
 import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "../bot-folder.ts";
 import type { BotProfilePatch } from "../bot-profile.ts";
-import { peerAllowKey, type PeerAction } from "../peer-approval-key.ts";
+import { peerAllowKey, type PeerAction } from "../colonie/peers/peer-approval-key.ts";
 import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "../config.ts";
 import * as mdb from "./message-db.ts";
 import { forgetBotMemoryJournal, journalFile } from "../memory-journal.ts";

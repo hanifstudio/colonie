@@ -429,7 +429,26 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   was restored from `main`; `scripts/mcp-server.ts` is not needed by anything the app ships, so the
   bundler skips that step with a warning and one `git checkout main -- scripts/mcp-server.ts` brings it
   back. `pnpm build:server` is green again.
-- Not yet run after the deletion: the full suite, desktop, real provider.
+- **S6: peers, delegations and comms visibility into `server/colonie/peers/` (October 18).** Seven files moved
+  (`peer-approval.ts`, `peer-approval-key.ts`, `peer-delivery.ts`, `peer-provenance.ts`, `peer-roster.ts`,
+  `delegations.ts`, `comms-visibility.ts`; 13 files repointed). Guards:
+  `server/colonie/peers/comms-visibility.test.ts` and `peer-roster.test.ts`. The first holds the
+  observability rule — a peer exchange leaves a chip in both threads, each naming the other bot, and a
+  delegation names the thread it happened in rather than the sender's standing one. The second holds the
+  access rules: same team by default with an unknown owner list failing closed, a Chief reaching only the
+  teams the owner granted (a title alone grants nothing, names match exactly), only the sender's pair list
+  bounding the pair so a bot cannot refuse its own team's Chief, a hand-edited `peers` value degrading to
+  the default instead of failing a turn, a restricted teammate being unreachable by one everyone can see,
+  hidden bots and self excluded, the roster a bot is told about equal to what it may reach, opened teams
+  (COLONIE_OPEN_TEAMS) grouping the sidebar without widening a Chief's authority, and the harness activity
+  signal winning over the busy flag. 99/99 pass, typecheck 0, lint 0. No public peer route exists to probe —
+  all peer and delegation HTTP lives in the owner-gated `/api/internal/*` block — so the live check is the
+  server booting on a throwaway HOME and `GET /api/bots/:id/system-prompt`, which renders through the moved
+  `peer-roster.ts`, answering 1,866 bytes with no error in the log.
+- **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
+  all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
+  the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider
+  has been exercised yet on this branch.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
 

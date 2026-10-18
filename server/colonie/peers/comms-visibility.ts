@@ -3,7 +3,7 @@
 // Rooms and pair channels are retired, so no channel is created or written;
 // stored channels stay on disk untouched.
 
-import type { BotRecord, Message, Store } from "./persistence/store.ts";
+import type { BotRecord, Message, Store } from "../../persistence/store.ts";
 
 /** What a peer-exchange helper needs from the outside world:
  * the store (for persisted messages) and the SSE broadcasters
