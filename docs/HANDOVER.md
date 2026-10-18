@@ -149,35 +149,30 @@ started, and review.
   `thread-respond` (S3.27), exporting a team, `teams-export` (S3.28), importing one, `teams-import` (S3.29), raw uploads, `uploads` (S3.30), the event stream, `events` (S3.31), sending a message, `bot-messages` (S3.32), the bot form of answering, folded into
   `thread-respond` (S3.33), steering a queued message,
   `queue-steer` (S3.34), the provider instances and settings
-  writes, `provider-instances` (S3.35), and settings,
+  writes, `provider-instances` (S3.35), settings,
   `config` (S3.36), skill resolution,
   `colonie/skills/skill-resolution` (S3.37), the delegation
   watch, `colonie/peers/delegation-watch` (S3.38), the trusted-approval
-  message handler, `colonie/bots/trusted-approval-message` (S3.39), the direct-send\n  cluster, `colonie/chat/direct-send` (S3.40). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
-  flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
-  purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
-  stream moved at S3.31. Every route group named in S3 is out of `index.ts`, and the non-route helpers have
-  started moving (S3.37). What remains, by measured size: `startTurn` (1,367 lines,
-  6271..7637), `handleDesktopTrustedApprovalMessage` (402), `resolveSkillRequest`
-  already moved, `deleteBotWithLifecycle` (139), `acceptDirectSend` (138),
-  `finalizeDelegationWatch` (89), plus the great majority of the file — state and small
-  helpers that no route group owns. `index.ts` is 11,691 lines, so the 1,000-1,500
-  target is not reachable by moving route groups and named giants alone; reaching it
-  means moving the shared state and the small declarations too, and that is a
-  different, larger job than S3. Say so before starting it.\n\n  `startTurn` is the one to think hardest about: 1,367 lines that close over most of the
-  live state, called both from `index.ts` and (as a dep) from `bot-messages`, so it needs
-  either a deps object or a move of the state it closes over. Route families are no longer taken smallest-first: the largest are the ones that move
-  the number. After the routes: `startTurn` (1,371 lines) and `localVmInventoryPayload` (628). `.colonie-dev/carve.py`
-  carves a block and lists the deps it needs; `.colonie-dev/route-smoke` style probes (a static-path sweep on a
-  throwaway HOME) caught the S3.20 regression class and should be run after every extraction.
-  (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
-  presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
-  (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last
-  `GET/PATCH /api/config` (~340 lines, dense: it reloads the provider fleet and applies pending
-  restores, so it needs a real check, not just typecheck). The feature-folder moves (S4–S14) are done,
-  so each group can pull its own helper modules along instead of leaving them for a later slice. The dead
-  native transport (`/api/internal/*` peer block and friends, ~3,400 lines) stays untouched: it is
-  owner-gated, not a default cleanup.
+  message handler, `colonie/bots/trusted-approval-message` (S3.39), and the
+  direct-send cluster, `colonie/chat/direct-send` (S3.40). Every route group named
+  in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
+  `index.ts` is now 11,039 lines.
+
+  What remains, by measured size: `startTurn` (1,367), `localVmInventoryPayload` (628),
+  `deleteBotWithLifecycle` (139, 32 index-locals — the most tightly bound of the small
+  ones: it drags the Local VM, browser and comms state with it), then the great
+  majority of the file — shared state and small declarations that no single feature
+  owns. `carve-range.py` now reports `startTurn` at 225 distinct names: nearly all of
+  the live state plus about forty imports to add. It is called from `index.ts` and
+  from `bot-messages` (as a dep), so it needs either a deps object of that size or a
+  move of the state it closes over. That is a decision, not a mechanical carve.
+
+  The 1,000-1,500 line target is **not** reachable by moving route groups and named
+  giants alone: with those done, what is left is state and small declarations, a
+  separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
+  carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
+  after every extraction. The dead native transport (`/api/internal/*` peer block and
+  friends, ~3,400 lines) stays untouched: it is owner-gated, not a default cleanup.
 - After S3: R1–R6 (`src/features/chat|bots|teams|settings|computer`, then `src/components` + `src/lib`),
   X1 (`shared/`) and X2 (`electron/`). Each is a move plus a guard, same shape as S1–S14, and each needs
   the same check the S-modules got: typecheck, lint, the suite, and a live probe on a throwaway HOME.
