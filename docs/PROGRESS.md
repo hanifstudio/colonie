@@ -629,6 +629,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **D2: the leftovers D1 exposed are gone (October 18).** `server/external-runtime.ts` (77 lines, no importer left
+  after D1), the `externalRuntime` field and its type import in `index.ts`, the dead `/api/internal/` branch in
+  `adminAuditPlan`, and the `/api/internal/` bypass in `server/request-auth.ts` (the test-capability clause stays).
+  Two doc comments that still described the deleted routes were corrected. Evidence: typecheck 0, lint 0,
+  `build:server` 0, 197/197 tests; live on a throwaway HOME seven routes answered 200 and
+  `POST /api/testing/internal-capability` without its key answered 404, as designed.
+- **Deliberately not deleted (needs an ACP-boundary decision, not an audit).** `agentsIntegration`,
+  `hooksIntegration`, `controlIntegration` and `mcpIntegration` still build URLs for retired `/api/internal`
+  routes. They are unreachable today — each is mounted only when `instance.adapter.capabilities.<kind> === true`,
+  and none of the two ACP adapters declares any of those kinds — but the `integrations` object is handed to
+  upstream adapters through `sendTurn`, so removing them is a contract decision rather than dead-code cleanup. The
+  retired native agents driver cluster (`server/drivers/agents-call.ts`, `agents-proxy.ts`, `agents-catalog.ts`,
+  reached by `server/harness-capabilities.ts`) is the same kind of call: build-live, runtime-unreachable.
 - **D1: the dead `/api/internal/*` transport is gone (October 18).** Owner-approved deletion, first group. The
   capability-gated block (`if (path.startsWith("/api/internal/"))`, lines 11070–13056) and everything only it
   used — 27 + 15 + 3 declarations, plus the import specifiers nobody referenced any more — leave `index.ts`:

@@ -406,10 +406,8 @@ function mutatingPublicRoute(method: string, path: string): boolean {
   // password and control. Native owners open the direct viewer instead.
   if (path.startsWith("/api/desktop-viewer/")) return true;
   if (["GET", "HEAD", "OPTIONS"].includes(upper)) return false;
-  // Agent integrations have their own high-entropy, per-boot authorization
-  // and narrower route semantics.
-  return !path.startsWith("/api/internal/") &&
-    path !== "/api/testing/internal-capability";
+  // The test-capability route carries its own high-entropy, per-boot key.
+  return path !== "/api/testing/internal-capability";
 }
 
 function secureTokenMatch(actual: string | undefined, expected: string): boolean {

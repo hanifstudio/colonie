@@ -30,7 +30,6 @@ import {existsSync, readFileSync, realpathSync} from "node:fs";
 import {rm as removeDirectory} from "node:fs/promises";
 import {createServer, type IncomingMessage, type ServerResponse} from "node:http";
 import {extname, join} from "node:path";
-import {type ExternalRuntimeGrant} from "./external-runtime.ts";
 
 import {z} from "zod";
 import {selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES} from "./colonie/chat/context-rebuild.ts";
@@ -717,7 +716,7 @@ interface AuditPlan {
 
 function adminAuditPlan(method: string, path: string): AuditPlan | null {
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return null;
-  if (path.startsWith("/api/internal/") || path.startsWith("/api/testing/")) return null;
+  if (path.startsWith("/api/testing/")) return null;
   const plan: AuditPlan = {
     config: requiredScope(method, path, { sharedComputers: lendingEnabled() }) === "admin",
     createsBots: method === "POST" && (path === "/api/bots" || path === "/api/teams/import"),
@@ -1038,12 +1037,12 @@ bus.attach(registry.instances());
 // providers and the picker show; the config event refreshes /api/instances.
 onKeyRejectionChange(() => broadcast({ kind: "config", ...configStatus() }));
 // ── peer-agent comms wiring ────────────────────────────────────────────
-// Every mounted proxy receives a turn-scoped capability for localhost
-// /api/internal calls. Identity, source thread, recursion depth and route
-// family all come from this server-side record; caller fields are assertions,
-// never authority. Full mode can inspect its own MCP environment, so a
-// credential is never shared between bots or threads (see
-// sessionCredentials), and each turn's record is revoked when the turn ends.
+// Every mounted proxy receives a turn-scoped capability. Identity, source
+// thread, recursion depth and route family all come from this server-side
+// record; caller fields are assertions, never authority. Full mode can inspect
+// its own MCP environment, so a credential is never shared between bots or
+// threads (see sessionCredentials), and each turn's record is revoked when the
+// turn ends.
 type InternalCapability = {
   botId: string;
   threadId: string;
@@ -1065,7 +1064,6 @@ type InternalCapability = {
   /** Delegations this turn handed out: their ids may not be checked or
    * waited on until a later turn, so the teammate gets to work first. */
   delegatedThisTurn?: Set<string>;
-  externalRuntime?: ExternalRuntimeGrant;
 };
 // A capability lives for the exact provider-turn generation, including while
 // that turn is parked on a human approval. The long ceiling is only an orphan
@@ -1258,8 +1256,9 @@ function agentsIntegration(
   };
 }
 
-/** Engine lifecycle hooks (item 0.2): a turn-scoped bearer the engine's hook
- * helper presents on /api/internal/hook. COLONIE_HOOKS=0 turns the channel off. */
+/** Engine lifecycle hooks (item 0.2): a turn-scoped bearer for the engine's
+ * hook helper. An adapter must declare `hooks` for this to be mounted, and
+ * COLONIE_HOOKS=0 turns the channel off. */
 const hooksEnabled = () => process.env.COLONIE_HOOKS !== "0";
 function hooksIntegration(botId: string, threadId: string, generation: string): { url: string; token: string } {
   const token = mintInternalCapability({

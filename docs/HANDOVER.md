@@ -131,9 +131,12 @@ started, and review.
   it; parallel lanes are read-only (audit of the dead `/api/internal/*` block, mapping of the remaining
   groups, caller searches), and heavy local jobs (vitest, typecheck, `build:server`) run one at a time.
 - Deletion series (owner approved October 18, small groups): D1 removed the dead `/api/internal/*` block and
-  everything only it used (16,990 → 14,050 lines in `index.ts`). Next: `server/external-runtime.ts` and the retired
-  native integrations that only fed the block, the `/api/internal` scope bypass in `request-auth.ts`, and the stale
-  caller references inside the retired agents driver (`server/drivers/agents-call.ts`), each its own verified commit.
+  everything only it used (16,990 → 14,050 lines in `index.ts`); D2 removed `server/external-runtime.ts`, the
+  `externalRuntime` field, the dead `/api/internal` branch in `adminAuditPlan` and the scope bypass in
+  `request-auth.ts`. Left alone on purpose, because it is an ACP-contract decision rather than dead code: the
+  integration builders that still target retired `/api/internal` URLs (`agentsIntegration`, `hooksIntegration`,
+  `controlIntegration`, `mcpIntegration`) and the retired native agents driver cluster under `server/drivers/`.
+  Both are unreachable with the current two ACP adapters, which declare none of those capabilities.
 - Next in this task: **S3's remaining `index.ts` groups, smallest first.** A read-only mapping pass
   (October 18) ordered all 39 remaining live groups; the next few are auth-sessions revoke (`/api/auth/sessions`,
   ~11024), bot-read and bot-profile-patch. **Prerequisite before the bot clusters:** `requirePinnedClientThread`
