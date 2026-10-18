@@ -629,6 +629,42 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.51: the HTTP assembly and route table out of `index.ts` (October 18).**
+  `server/harness/server-assembly.ts` (`createServerAssembly`): static serving and
+  page headers, the workspace-backup access object and routes, the whole
+  `ROUTES.push(...)` registration block, the live-route helpers (`liveBotFor`,
+  `liveHistoryFor`, `liveSignedIn`), the loopback `authorized` check,
+  `handleRequest` (`createRequestHandler`), `liveCalls`, and the
+  `createServer`/`desktopViewer.attach`/`calendarCalls().start()` boot. 847 lines,
+  wire at old L4826–5475 (the range was cut before the top-level
+  `describeEdition(await ...)` at 5476, which cannot move into the sync factory).
+  The tool blind spot bit here: 46 names were destructured from earlier cluster
+  wires (L1843/2660/3277/3548/4766), so they surfaced as unresolved and had to be
+  added by hand to both the module's dep destructure and the index wire; `Store`,
+  `composio`, `readBody` and the `node:http`/live-call types moved to the module's
+  own imports and the now-unused imports were stripped from `index.ts`. `liveCalls`
+  is defined in the range but used by the shutdown list below it, so the factory
+  returns it and index destructures `{ server, liveCalls }`. Deferred deps lose
+  inference, so ten callback params (`.some`/`.every`/`.filter`/`.map` over
+  `teamComputers`, `store`, `registry`, `sessions`) got explicit `: any`
+  annotations, matching `config-status.ts`. Guard: `server-assembly.test.ts` (2) —
+  the exported `staticRelativePath` serves the SPA entry at `/` and strips `..`
+  before the path is joined (`/../../etc/passwd` → `///etc/passwd`,
+  `/a/../b` → `/a//b`, both of which `join` then normalizes inside the UI root).
+  `index.ts` 5,701 → 5,203. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 65 files / 315 tests pass, live probe green (health/brand/
+  bots/local-computer 200, unrouted 404, seeded bot 1 → 0, no log errors).
+- **S3.50: the config/status cluster out of `index.ts` (October 18).**
+  `server/harness/config-status.ts` (`createConfigStatus`): the access-filtered
+  `configStatus`/`configForAccess` pair, `localVmPayload` and
+  `readyLocalVmForTurn`, `existingPerBotLocalVmCount`/
+  `perBotLocalVmCountForModeChange`, `engineMcpServers`, `persistMcpServers`,
+  `describeInstances`, `persistProviderInstance` and `reloadProviders`. 390 lines.
+  Guard: `config-status.test.ts` (2) — an admin gets the status object unchanged, a
+  non-admin loses the sign-in lists, the profile email and the provider key
+  identifiers while edition and browser-profile ids survive. `index.ts`
+  5,993 → 5,701. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 64 files / 313 tests pass, live probe green.
 - **S3.49: the card resolvers out of `index.ts` (October 18).**
   `server/colonie/chat/card-resolvers.ts` (`createCardResolvers`):
   `resolveAndSendTrust`, the profile/model/team-setup/routine resolution
