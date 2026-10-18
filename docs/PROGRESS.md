@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.70: the usage booking out of `index.ts` (October 18).**
+  `server/colonie/providers/usage-booking.ts` (`createUsageBooking`): who a
+  request is for in the usage ledger (`usageTriggerFor` — a paired or signed-in
+  person, else the machine), the operator's own price list when the billing
+  entitlement reads it (`operatorPrices`), one write of a settled turn's tokens
+  and estimated cost that lets the spend cap and its admin notification see the
+  row at once (`bookTurnUsage`), and the trigger a line queued by an older build
+  still resolves to (`queuedTurnTrigger`). One block (L424–461), 38 lines. The
+  only two deps (`cfg`, `broadcast`) go over as a value and a getter. The
+  extractor left `import type {PriceList}` behind after the last reader moved
+  (its prune pass only matches a non-`type` import), removed by hand. Guard:
+  `usage-booking.test.ts` (5) — a signed-in person is billed to their email and
+  label, an email-less session is still a person, a loopback request is the
+  owner, a stored trigger is kept as recorded, a bot's own queued words set no
+  trigger, and a queued line falls back to its sender then the owner. `index.ts`
+  2,920 → 2,886 lines. `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server`
+  84 files / 399 tests pass; live probe green.
 - **S3.69: the direct-interrupt and emergency-stop cluster out of `index.ts` (October 18).**
   `server/colonie/chat/interrupts.ts` (`createChatInterrupts`): stopping one
   conversation's work (`interruptDirectThread` revokes the thread's connected

@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createUsageBooking} from "./colonie/providers/usage-booking.ts";
 import {createChatInterrupts} from "./colonie/chat/interrupts.ts";
 import {createClientStreams} from "./harness/client-streams.ts";
 import {createProcessLifecycle} from "./harness/process-lifecycle.ts";
@@ -54,7 +55,6 @@ import { bindDecisionRetention, decisionRetentionDays, pruneDecisions } from "./
 import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, saveImage } from "./colonie/chat/attachments.ts";
 import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
-import { type ResolvedSender } from "../shared/wire.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
 import {buildRecall} from "./colonie/memory/recall.ts";
@@ -66,18 +66,16 @@ import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, local
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
-import { appendUsage, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
+import { type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
-import {ledgerCost} from "./colonie/providers/model-prices.ts";
-import type {PriceList} from "./prices.ts";
 import type {RequestAuth} from "./request-auth.ts";
 import {onKeyRejectionChange} from "./colonie/providers/key-rejections.ts";
-import {assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert} from "./spend.ts";
+import { assertWithinBudget } from "./spend.ts";
 
 import {entitled} from "./enterprise.ts";
 
 
-import { buildNotification, buildSpendNotification } from "./notify.ts";
+import { buildNotification } from "./notify.ts";
 import { type ModelSelection, type RuntimeEvent } from "./contracts.ts";
 import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
@@ -421,44 +419,12 @@ const { beginAdminAudit, guardedSendSchema } = createAdminAudit({
   webhooks: () => webhooks,
 });
 
-/** Who a request is, for the usage ledger: a paired or signed-in person, or
- * this machine. Captured when the message is accepted and carried with it. */
-function usageTriggerFor(auth: RequestAuth): UsageTrigger {
-  return auth.kind === "session"
-    ? { kind: "user", ...(auth.session.email ? { email: auth.session.email } : {}), label: auth.session.label }
-    : { kind: "owner" };
-}
-
-/** The operator's price list, when the server may read it (`billing`). */
-function operatorPrices(): PriceList | null {
-  return entitled("billing") && cfg.billing?.prices && Object.keys(cfg.billing.prices).length ? cfg.billing.prices : null;
-}
-
-/** Write one settled turn to the ledger, estimating its cost when the
- * engine reported tokens but no price, and let the spend cap see it at once.
- * The first booking that takes the month past the warning threshold, or to
- * the cap, notifies admins (once per month each; server/spend.ts). */
-function bookTurnUsage(row: Omit<UsageRow, "at" | "costSource">, tokensReported = true, notificationThreadId = row.threadId): void {
-  // Missing helper usage is unpriced, not an estimated zero-dollar call.
-  const cost = tokensReported || row.costUsd !== null ? ledgerCost(row, operatorPrices()) : { costUsd: null };
-  const booked = { ...row, ...cost, at: new Date().toISOString() };
-  // The append lands asynchronously; the cap counts the row from memory
-  // until it does, so the check below (and the next turn start) sees it.
-  noteSpend(DATA_DIR, booked, appendUsage(DATA_DIR, booked));
-  const state = spendState(cfg, DATA_DIR);
-  const alert = takeSpendAlert(DATA_DIR, state);
-  if (alert && state) {
-    broadcast({ kind: "notify", notification: buildSpendNotification({ id: row.botId, name: row.botName }, notificationThreadId, spendAlertText(alert, state)) }, { adminOnly: true });
-  }
-}
-
-/** A queued line from before triggers were stored with it: its sender, else
- * the owner; a bot's own queued words set nothing. */
-function queuedTurnTrigger(item: { trigger?: UsageTrigger; sender?: ResolvedSender; peerAsk?: unknown }): UsageTrigger | undefined {
-  if (item.trigger) return item.trigger;
-  if (item.peerAsk) return undefined;
-  return item.sender ? { kind: "user", label: item.sender.name } : { kind: "owner" };
-}
+const { usageTriggerFor, operatorPrices, bookTurnUsage, queuedTurnTrigger } = createUsageBooking({
+  broadcast: () => broadcast,
+  cfg,
+  notify: () => notify,
+  server: () => server,
+});
 const providerAuthSessions = new ProviderAuthSessions();
 /** OAuth sign-in for URL servers; tokens live in their own owner-only file. */
 const mcpOAuth = new McpOAuthManager({
