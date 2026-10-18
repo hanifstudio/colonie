@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.80: the memory boot and lifecycle out of `index.ts` (October 18).**
+  `server/colonie/memory/memory-boot.ts` (`createColonieMemoryBoot`): the
+  feature-not-a-boot-dependency boot (a readable ledger builds the service; an
+  unreadable one logs and hands over an explicitly unavailable service that
+  refuses writes rather than corrupting stored data) plus its two lifecycle
+  wirings — the bot-change handler that cancels memory and the Chief and drops
+  the bot's pending sources on delete, and the settled-turn subscriber that
+  queues a capture only when the turn's stored receipt matches the person's own
+  words. `index.ts` keeps the two `let` bindings and assigns them from the
+  returned `{ memoryStore, memory }`. `index.ts` 2,480 → 2,430 lines. Guard:
+  `memory-boot.test.ts` (5) — one handler and one subscriber are registered, a
+  deleted bot cancels everywhere and drops its job while another bot's capture
+  stays queued, a read turn stops being a source, an unrelated event leaves it
+  alone, and an ignored provider turn captures nothing. `pnpm typecheck` 0,
+  `pnpm lint` 0, `npx vitest run server` 94 files / 448 tests pass; live probe
+  green.
 - **S3.79: the thread-admission gates out of `index.ts` (October 18).**
   `server/colonie/chat/thread-admission.ts` (`createThreadAdmission`):
   `botForThread`, `threadBusy`, `botAtThreadCapacity`, `hasDirectDispatch`,

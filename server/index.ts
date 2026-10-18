@@ -27,9 +27,6 @@ import {createAdminAudit} from "./harness/admin-audit.ts";
 import {createResumeTables} from "./colonie/chat/resume-tables.ts";
 import {createRoutineRunCards} from "./colonie/routines/run-cards.ts";
 import {createScreenPolling} from "./harness/screen-polling.ts";
-import {inputReceipts} from "./acp/receipts.ts";
-import {AcpRuntime} from "./acp/acp-runtime.ts";
-import {contextPin} from "./acp/context.ts";
 import {ConnectedTools} from "./colonie/connections/manager.ts";
 import {BotAppPolicies} from "./colonie/connections/policy.ts";
 import {ColonieMemoryStore} from "./colonie/memory/ledger/store.ts";
@@ -104,6 +101,7 @@ import {extractTurnImages} from "./colonie/chat/turn-images.ts";
 import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {appendMemoryLog, memorySourceLabel} from "./colonie/workspace/workspace.ts";
+import { createColonieMemoryBoot } from "./colonie/memory/memory-boot.ts";
 import { memoryDate } from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
 import { resolveBotSkills, listSkills, readSkillFile } from "./colonie/skills/skills.ts";
@@ -1156,67 +1154,19 @@ const colonieMemorySources = new Map<string, CompletedMemoryTurn>();
  * (recall/capture off, panel says so) and the existing data is never written. */
 let colonieMemoryStore: ColonieMemoryStore | null = null;
 let colonieMemory: ColonieMemoryService;
-try {
-  colonieMemoryStore = new ColonieMemoryStore(DATA_DIR);
-  colonieMemory = new ColonieMemoryService(colonieMemoryStore, {
-    bot: (id) => {
-      const bot = store.bot(id);
-      const instance = bot && registry.get(bot.modelSelection.instanceId);
-      return bot && instance && isColonieAcpDriver(instance.driverKind) ? bot : undefined;
-    },
-    owns: (botId, threadId) => {
-      const pin = contextPin(threadId);
-      return Boolean(store.taskByThread(botId, threadId) && pin?.snapshot.botId === botId
-        && pin.snapshot.app.enabled && !pin.snapshot.legacyPlain);
-    },
-    analyze: async (botId, prompt, signal) => {
-      const bot = store.bot(botId);
-      const instance = bot && registry.get(bot.modelSelection.instanceId);
-      if (!bot || !instance || !(instance.adapter instanceof AcpRuntime)) throw new Error("The selected provider cannot process memory right now.");
-      assertWithinBudget(cfg, DATA_DIR);
-      return instance.adapter.analyzeMemory(prompt, { model: bot.modelSelection.model, signal });
-    },
-    log: (message) => console.log(message),
+{
+  const booted = createColonieMemoryBoot({
+    bus,
+    cfg,
+    colonieChief,
+    colonieMemorySources,
+    registry,
+    shouldIgnoreProviderEvent,
+    store,
   });
-} catch (error) {
-  const reason = error instanceof Error ? error.message : String(error);
-  console.error(`Colonie memory is unavailable; the app continues without it and the stored data is left untouched: ${reason}`);
-  const unavailable = { revision: "0", app: { enabled: false, automatic: false }, bot: { enabled: false, automatic: false }, entries: [],
-    status: { pending: 0, running: false, lastError: "Stored memory could not be read; memory is unavailable until it is repaired. Your existing memory data was not changed." } };
-  colonieMemory = {
-    view: () => unavailable, snapshot: () => unavailable, recall: () => null, noteTurn: () => {}, start: () => {}, stop: async () => {},
-    idle: async () => {}, cancelBot: () => {}, cancelThread: () => {}, cancelAll: () => {},
-    updatePreferences: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
-    saveEntry: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
-    forgetEntry: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
-    clear: () => { throw Object.assign(new Error(unavailable.status.lastError), { status: 409 }); },
-  } as unknown as ColonieMemoryService;
+  colonieMemoryStore = booted.memoryStore;
+  colonieMemory = booted.memory;
 }
-store.onChange((change) => {
-  try { if (change.type === "bot.deleted") {
-    colonieMemory.cancelBot(change.botId);
-    colonieMemoryStore?.removeBot(change.botId);
-    colonieChief.cancelBot(change.botId);
-    for (const [threadId, source] of colonieMemorySources) if (source.botId === change.botId) colonieMemorySources.delete(threadId);
-  } else if (change.type === "bot") {
-    const bot = store.bot(change.botId);
-    if (bot?.memoryEnabled === false || bot?.memoryUpkeep === false) colonieMemory.cancelBot(change.botId);
-  } } catch { console.warn("Colonie memory could not persist this bot's memory lifecycle change."); }
-});
-bus.subscribe((event: RuntimeEvent) => {
-  if (event.type !== "turn.completed" && event.type !== "session.exited") return;
-  const source = colonieMemorySources.get(event.threadId);
-  if (!source) return;
-  colonieMemorySources.delete(event.threadId);
-  if (event.type !== "turn.completed" || !event.ok || shouldIgnoreProviderEvent(event)) return;
-  try {
-    const receipt = inputReceipts(event.threadId).find((row) => row.turnId === event.turnId);
-    if (receipt?.status !== "completed" || !receipt.context?.sections.some((section) => section.id === "app.identity" && section.status === "active")) return;
-    const user = receipt.context.sections.find((section) => section.id === "user.message");
-    if (user?.text !== source.text) return;
-    colonieMemory.noteTurn(source);
-  } catch { console.warn("Colonie memory could not queue this completed conversation."); }
-});
 // Chief assignments: the target thread's approval state drives the work card,
 // and a settled/exited turn drops its live turn id. Terminal assignment status
 // is owned by the Chief manager once the child call returns.
