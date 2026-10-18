@@ -143,8 +143,8 @@ started, and review.
   move. Groups sharing mutable `let` state — `events` (SSE fan-out), the Local VM flags, `providerConfigBusy`,
   `browserEngineInstall` — must take that state as an explicit dep, not be extracted independently.
   `/api/testing/internal-capability` stays with what is left of the internal machinery. Done since: bot-read
-  (S3.20) and the paired-safe profile edit, `bot-profile-patch` (S3.21). Next: thread-events, command-allowlist,
-  browser-engine-install.
+  (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), and thread-events (S3.22). Next:
+  command-allowlist, then browser-engine-install.
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
   presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
   (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last

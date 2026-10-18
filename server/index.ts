@@ -169,6 +169,7 @@ import {flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileC
 import {BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument} from "./colonie/bots/bot-package.ts";
 import {createTeamManifest, parseTeamManifest} from "./colonie/teams/team-manifest.ts";
 import {readThreadEvents} from "./colonie/chat/thread-events.ts";
+
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
 import {OutboundCounts} from "./outbound-counts.ts";
 import {OutboundRequestService} from "./outbound-requests.ts";
@@ -251,6 +252,7 @@ import {createAuthSessionRoutes} from "./routes/auth-sessions.ts";
 import {pinnedClientThread} from "./routes/pinned-client.ts";
 import {createBotReadRoutes} from "./routes/bot-read.ts";
 import {createBotProfilePatchRoutes} from "./routes/bot-profile-patch.ts";
+import {createThreadEventsRoutes} from "./routes/thread-events.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9658,6 +9660,7 @@ ROUTES.push(createReactionRoutes({ store }));
 ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
 ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast }));
 ROUTES.push(createBotProfilePatchRoutes({ store, storedAvatarExists, wireBot, broadcast }));
+ROUTES.push(createThreadEventsRoutes({ store, eventsDir: EVENTS_DIR, nativeDir: NATIVE_DIR, readThreadEvents }));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -12995,26 +12998,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       return json(res, 202, { installing: true });
     }
-
-    // ── inspector: a thread's runtime events + native protocol tee ──
-    // Both logs already exist on disk; this only reads them back. Threads
-    // belong to bots or rooms — anything else is not a thread we know.
-    m = path.match(/^\/api\/threads\/([\w-]+)\/events$/);
-    if (m && method === "GET") {
-      const threadId = m[1];
-      const known =
-        store.bots.some((b) => store.tasks(b.id).some((t) => t.threadId === threadId)) ||
-        Boolean(store.groupByThread(threadId));
-      if (!known) return json(res, 404, { error: "no such thread" });
-      const rawLimit = url.searchParams.get("limit");
-      const parsedLimit = rawLimit === null ? undefined : Number(rawLimit);
-      if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
-        return json(res, 400, { error: "limit must be a positive whole number" });
-      }
-      const limit = parsedLimit;
-      return json(res, 200, readThreadEvents({ eventsDir: EVENTS_DIR, nativeDir: NATIVE_DIR, threadId, limit }));
-    }
-
 
     // ── provider instances (model picker) ──
     if (method === "GET" && path === "/api/instances") {

@@ -629,6 +629,14 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.22: the thread-events inspector out of `index.ts` (October 18).** `GET /api/threads/:id/events`
+  becomes `server/routes/thread-events.ts`; `readThreadEvents` and the two log directories are deps. Guard test (4):
+  a request that is not a thread's events is left to the next handler; a bot's thread and a room's thread both read
+  their logs, with the limit passed as a number; an unknown thread is a 404 with nothing read; a limit that is not
+  a positive whole number (`0`, `1.5`, `all`) is refused with nothing read. Live on a throwaway HOME: `GET
+  /api/threads/<id>/events` answered 200 with empty entries, `?limit=0` answered 400 and an unknown thread 404.
+  `EVENTS_DIR`, `NATIVE_DIR` and `readThreadEvents` stay imported in `index.ts` because `ROUTES.push` still needs
+  them.
 - **S3.21: the paired-safe profile edit out of `index.ts` (October 18).** `PATCH /api/bots/:id/profile` becomes
   `server/routes/bot-profile-patch.ts` ("patch" because `bot-profile.ts` already holds the profile editor:
   SOUL, history, rollback, preview). Deps: `storedAvatarExists`, `wireBot`, `broadcast`, `store`; validation and
