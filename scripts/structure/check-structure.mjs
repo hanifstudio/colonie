@@ -1,22 +1,24 @@
-// The boundary check itself: `pnpm structure:check`.
+// The structure check itself: `pnpm structure:check`.
 //
 // Why this exists: folder and file organisation decays one import at a time, and by the
-// time a person notices, the shape is already different from the blueprint. This runs
-// the rules in scripts/structure/import-boundaries.json against the compiler-derived
-// import graph and exits non-zero when an edge crosses a boundary, when the matrix was
-// loosened relative to the base revision, or when a grandfathered entry became stale.
-//
-// Usage:
-//   node scripts/structure/check-import-boundaries.mjs [--base <ref>]
-//
-// Exit codes: 0 clean, 1 new boundary violations, 2 the matrix was loosened,
-// 3 a grandfathered entry is stale (the violation was fixed; remove the entry).
+// time a person notices, the shape is already different from the blueprint. Two checks run
+// here: the rules in scripts/structure/import-boundaries.json against the compiler-derived
+// import graph, and docs/structure/map.md against the folders that actually exist (see
+// scripts/structure/map.mjs). Both exit non-zero:
+//   - an edge crosses a boundary the matrix does not grandfather (exit 1)
+//   - the matrix was loosened relative to the base revision (exit 2)
+//   - a grandfathered entry became stale (exit 3)
+//   - a server folder is missing from the map, or the map names a folder that is gone (exit 1)
 // Anything it cannot decide - unresolved relative imports - is printed as a warning and
 // does not change the exit code, because that is a broken file, not a boundary.
+//
+// Usage:
+//   node scripts/structure/check-structure.mjs [--base <ref>]
 
 import { join } from "node:path";
 import { buildGraph } from "./graph.mjs";
 import { compareMatrix, evaluate, loadMatrix, matrixAtRef } from "./import-boundaries.mjs";
+import { evaluateMap } from "./map.mjs";
 
 const ROOT = join(import.meta.dirname, "../..");
 
@@ -29,6 +31,7 @@ const baseRef = option("--base", "main");
 const matrix = loadMatrix(ROOT);
 const graph = buildGraph(ROOT);
 const result = evaluate(graph.edges, matrix);
+const map = evaluateMap(ROOT);
 const base = matrixAtRef(ROOT, baseRef);
 const ratchet = base ? compareMatrix(base, matrix) : null;
 
@@ -78,8 +81,17 @@ if (graph.missing.length) {
   for (const entry of graph.missing) console.log(`    ${entry.from} imports ${entry.spec}`);
 }
 
+console.log("\n  module map (docs/structure/map.md):");
+if (!map.missing.length && !map.unknown.length) {
+  console.log(`    ok    ${map.actual.length} folder(s) under server/ named, no name that is gone`);
+} else {
+  for (const folder of map.missing) console.log(`    MISSING  ${folder} holds source files but has no line in the map`);
+  for (const folder of map.unknown) console.log(`    GONE     ${folder} is named in the map but does not exist`);
+  console.log("    fix: add or correct the line in docs/structure/map.md; the map is how a reader finds the right folder before searching.");
+}
+
 let code = 0;
-if (result.unknown.length) code = 1;
+if (result.unknown.length || map.missing.length || map.unknown.length) code = 1;
 else if (ratchet && (ratchet.addedBaseline.length || ratchet.loosened.length)) code = 2;
 else if (result.stale.length) code = 3;
 

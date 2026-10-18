@@ -10,6 +10,7 @@ rules that follow from them live in `scripts/testing/` once E01.3 lands.
 | `history.json` | `node scripts/structure/measure-history.mjs` | Change locality and co-change pairs over the whole non-merge history. |
 | `graph.json` | `node scripts/structure/measure-graph.mjs` | Import graph from the TypeScript compiler: edges, cycles, boundary-rule hits, exported-but-never-imported names, public surface sizes. |
 | `../scripts/structure/import-boundaries.json` | hand-written, ratcheted | The rules themselves. `pnpm structure:check` and `scripts/testing/import-boundaries.test.mjs` both read this file. |
+| `map.md` | hand-written, checked | What each folder under `server/` owns. `pnpm structure:check` fails when a folder that holds source files has no line here, or when a line names a folder that is gone. |
 
 The three `.mjs` tools are read-only and deterministic. `graph.mjs` is the single
 resolver: the measurement and the guard import it, so they can never disagree about
@@ -19,7 +20,8 @@ artifact reproduced at the same commit is byte-identical.
 ## The check
 
 `pnpm structure:check` builds the compiler-derived graph, applies
-`scripts/structure/import-boundaries.json`, and exits non-zero when:
+`scripts/structure/import-boundaries.json`, checks `map.md` against the folders that
+actually exist, and exits non-zero when:
 
 1. an import crosses a boundary the matrix does not grandfather (exit 1 — the message
    names the rule, the edge and the reason for the rule);
@@ -28,18 +30,28 @@ artifact reproduced at the same commit is byte-identical.
    only as a change to the base revision in its own commit, because a baseline anybody
    can raise in the same change that violates it just freezes today's mess;
 3. a grandfathered entry became stale (exit 3): the violation was fixed, so the entry
-   must go, or the same edge can come back unremarked.
+   must go, or the same edge can come back unremarked;
+4. the module map is out of date (exit 1): a folder under `server/` holds source files but
+   has no line in `map.md`, or `map.md` names a folder that no longer exists. A missing map
+   line is a one-line fix, and it is the notification that a new folder appeared without
+   anyone deciding what it owns.
 
 `scripts/testing/import-boundaries.test.mjs` runs the same rules on every `pnpm test`
 (`vite.config.ts` includes `scripts/**/*.test.mjs`), so the check is not optional. It
 tests the shipped matrix rather than a copy, plus adversarial cases: `server/harness-extra/`
 must not inherit the `server/harness/` rule, `shared-utils/` must not inherit `shared/`,
-`server/index.ts.map` must not count as `server/index.ts`.
+`server/index.ts.map` must not count as `server/index.ts`. `scripts/testing/structure-map.test.mjs`
+does the same for the map, including a guard against the walk returning a nearly empty list
+and passing for the wrong reason.
 
 Falsification evidence (the guard must be able to fail): a temporary file
 `server/harness/__falsify-boundary.ts` importing `src/lib/cn.ts` produced
 `no-server-to-ui: server/harness/__falsify-boundary.ts -> src/lib/cn.ts` and exit 1;
-deleting the file restored exit 0. The probe was removed in the same command.
+deleting the file restored exit 0. The probe was removed in the same command. The map check
+was falsified the same way: a temporary `server/colonie/__falsify-map/probe.ts` produced
+`MISSING  server/colonie/__falsify-map/ holds source files but has no line in the map` and
+exit 1, and after deleting the folder the check was clean again with `git status --short
+server/` empty.
 
 Two further tests verify the graph the rules run on, because a missing file or a missing
 edge makes a rule pass silently, and a silent pass is worse than no check. They walk the
@@ -83,7 +95,7 @@ otherwise the rule encodes a taste instead of a fact.
   `server/index.ts ↔ src/state/store.tsx` (191), `server/index.ts ↔ server/store.ts`
   (145), `server/index.ts ↔ src/locales/en.json` (120).
 
-**Graph — 1,078 source files, 3,683 edges (920 through the `@/*` alias), 4 unresolved.**
+**Graph — 1,080 source files, 3,685 edges (920 through the `@/*` alias), 4 unresolved.**
 
 Four direction rules are already at zero violations, so they are cheap to enforce from
 day one: nothing imports `server/index.ts`; `shared/` reaches into neither `server/`,

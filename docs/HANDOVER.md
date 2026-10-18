@@ -267,9 +267,17 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   `colonie/computer/desktop-viewer-contract.ts` so the route adapter imports the feature, not the reverse.
   Verified with a live probe of a throwaway instance (boot clean; `/api/health`, `/api/bots`,
   `/api/local-computer` all 200, no error in the start log).
-- Next actions: (a) the CI question above; (b) the remaining Phase 2 item — an independent tool
-  (`knip`/`ts-unused-exports`; neither is installed, so adding the dependency is a decision) for the
-  dead-export figure, plus a generated module index with a staleness check; (c) the restructure long tail
+- Phase 2c landed: `docs/structure/map.md` names all 29 folders under `server/` that hold source files,
+  one line each (the blueprint §7 tree is a target shape, so there was no current map to read).
+  `scripts/structure/map.mjs` walks the tree and `pnpm structure:check` now fails when a folder has no
+  map line or the map names a folder that is gone; `scripts/testing/structure-map.test.mjs` (6 tests)
+  enforces it on every `pnpm test`. The CLI was renamed with its scope,
+  `check-import-boundaries.mjs` → `check-structure.mjs` (the `pnpm structure:check` entry point is
+  unchanged). Falsification: a temporary `server/colonie/__falsify-map/probe.ts` produced the MISSING
+  line and exit 1; deleting it restored exit 0.
+- Next actions: (a) the CI question above; (b) the one remaining Phase 2 item — an independent tool
+  (`knip`/`ts-unused-exports`; neither is installed, so adding the dependency is a decision) to verify or
+  falsify the dead-export figure, which stays labelled unverified until then; (c) the restructure long tail
   toward the ~1,000–1,500 line target for `server/index.ts` (now 2,138 lines), moving whole coherent
   clusters only.
 

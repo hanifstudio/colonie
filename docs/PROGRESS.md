@@ -3,6 +3,31 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — the server module map, checked against the tree (E01.3 Phase 2c)
+
+Single session, Node 24.13.1. Follows the entry above. No product code changed.
+
+- The blueprint's §7 tree is a *target* shape, so there was no current folder-by-folder map:
+  an agent had to search to learn that `server/colonie/chief/` or `server/decider/` exist.
+  `docs/structure/map.md` now names all 29 folders under `server/` that hold source files,
+  one line each, plus a line per other root.
+- The map is checked, not trusted: `scripts/structure/map.mjs` walks the tree from disk and
+  `pnpm structure:check` now fails (exit 1) when a folder holding source files has no line in
+  the map or when the map names a folder that is gone. `scripts/testing/structure-map.test.mjs`
+  (6 tests) enforces the same on every `pnpm test`, including a floor on how many folders the
+  walk must see, so a broken walk cannot make the coverage rule pass emptily.
+- The CLI was renamed with its scope: `check-import-boundaries.mjs` → `check-structure.mjs`
+  (`pnpm structure:check` unchanged for callers). Exit-code contract extended, not changed:
+  map problems join the boundary crossings under exit 1; 2 (loosened) and 3 (stale) keep their
+  meaning.
+- Falsification: a temporary `server/colonie/__falsify-map/probe.ts` produced
+  `MISSING  server/colonie/__falsify-map/ holds source files but has no line in the map`,
+  exit 1; after deleting the folder, exit 0 and `git status --short server/` empty.
+- Checks: `pnpm structure:check` exit 0 (five rules 0 violations, 29 folders named, no gone
+  name); map tests 6 pass; `pnpm lint` clean; `pnpm typecheck` 0 errors; `npx vitest run
+  server scripts` 104 files / 511 tests pass. No runtime path changed, so no live probe
+  applies. Graph artifact refreshed: 1,080 files / 3,685 edges.
+
 ## 2026-10-18 — the two grandfathered crossings are cleaned up (E01.3 Phase 2b)
 
 Single session, Node 24.13.1. Follows the entry above. The matrix is now five rules, zero
