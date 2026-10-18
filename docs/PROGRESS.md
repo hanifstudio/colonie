@@ -629,6 +629,34 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.53: the routine run cards out of `index.ts` (October 18).**
+  `server/colonie/routines/run-cards.ts` (`createRoutineRunCards`): pick the source
+  conversation for a routine's lifecycle card (`routineSourceOwner`,
+  `botMainThread`, `legacyResultsThread`, `routineSourceThread`) and render plus
+  upsert the one durable card per run (`routineRunCard`, `routineRunFallbackText`,
+  `syncRoutineRunToSource`). 193 lines, L3720–3884. `syncRoutineRunToSource` is
+  called from the `store.onChange` closure at 2422, above the wire site, but only
+  when a change fires after boot, so the destructured const is in place by then.
+  Deps were just `store`; `canReachPeer`, `threadTitleFrom` and the
+  `RoutineRun`/`TaskRecord`/`Message` types moved to the module's own imports.
+  Guard: `run-cards.test.ts` (4) — a hidden results bot, a results thread already
+  carrying a run, and a run with no snapshot and no source thread all read as no
+  source, while a live owned results thread is the source. `index.ts`
+  5,069 → 4,910. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 67 files / 321 tests pass, live probe green.
+- **S3.52: the live-screen poller out of `index.ts` (October 18).**
+  `server/harness/screen-polling.ts` (`createScreenPolling`): the per-thread
+  `screenPollers` table, `startScreenPoller`/`pokeScreenPoller`/`stopScreenPoller`,
+  the `settledScreenHashes`/`shownScreenHash` gate, and `finalScreenFrame` (one
+  last fresh frame at turn end). 172 lines, L3544–3687. Every forward reference
+  from the runtime-event subscriber and the other wires above the site was already
+  a getter (`() => finalScreenFrame` and friends), so the move needed no new
+  getters. Two hand fixes the tool cannot see: `botComputerControlSnapshot` is a
+  destructured binding, and the `ScreenCapture` type plus an implicit-`any`
+  callback. Guard: `screen-polling.test.ts` (2) — a poller with no capture is never
+  registered, and a poke/teardown/final with no poller are inert. `index.ts`
+  5,203 → 5,069. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 66 files / 317 tests pass, live probe green.
 - **S3.51: the HTTP assembly and route table out of `index.ts` (October 18).**
   `server/harness/server-assembly.ts` (`createServerAssembly`): static serving and
   page headers, the workspace-backup access object and routes, the whole
