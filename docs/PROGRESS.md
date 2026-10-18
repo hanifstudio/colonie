@@ -629,6 +629,25 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.65: the turn's computer-seat binding out of `index.ts` (October 18).**
+  `server/colonie/computer/turn-computer-binding.ts`
+  (`createTurnComputerBinding`): `bindTurnComputer`, the single gate every
+  computer claim passes — the claim loop with its one place per resource, the
+  transcript's waiting chip and its resolution line, the
+  `turn.wait_started`/`turn.wait_ended` events, and the two ways the wait ends
+  without the seat (a cancelled setup throws `DirectTurnSetupCancelled`; the
+  ceiling parks the turn as `ComputerWaitParked`, ADR-2/#1651). 105 lines
+  (L728–832). `COMPUTER_WAIT_MAX_MS` (declared below the site) and `store` are
+  getters; `ComputerWaitParked`/`DirectTurnSetupCancelled` (from the
+  turn-dispatch wire), `activeInternalGenerationByThread`, `bus`,
+  `claimTurnResource`, `registry` and the three resource maps are plain deps,
+  so the module constructs the same classes index catches. The now-unused
+  `computer-wait` import left `index.ts`. Guard: `turn-computer-binding.test.ts`
+  (5) — a free seat binds without a chip, a non-exclusive claim binds without
+  asking, a cancelled setup throws before binding, a held seat waits and then
+  acquires (noting the wait), and the ceiling parks with the resource and
+  generation. `index.ts` 3,366 → 3,274. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 79 files / 371 tests pass, live probe green.
 - **S3.64: the direct-message flow out of `index.ts` (October 18).**
   `server/colonie/chat/direct-flow.ts` (`createDirectFlow`): the queued-send
   drain (`drainQueuedSends`, which starts each waiting group and then runs the
