@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createTeamPackageWiring} from "./colonie/teams/package-wiring.ts";
 import {createRecallPrompt} from "./colonie/memory/recall-prompt.ts";
 import {createUsageBooking} from "./colonie/providers/usage-booking.ts";
 import {createChatInterrupts} from "./colonie/chat/interrupts.ts";
@@ -44,7 +45,6 @@ import {z} from "zod";
 import { SharedComputers } from "./colonie/computer/shared-computers.ts";
 import {SharedComputerControl} from "./colonie/computer/shared-computer-control.ts";
 import {DirectHandoffs, type DirectHandoff} from "./colonie/chat/direct-handoffs.ts";
-import {botAvatarUrlFromStoredPath} from "../shared/bot-avatar.ts";
 import { approvalModeFor, type ApprovalMode } from "../shared/approval-mode.ts";
 import {createApprovalModeSupport} from "./harness-capabilities.ts";
 
@@ -53,7 +53,7 @@ import { CommandAllowlistStore } from "./command-allowlist.ts";
 import type {CommandAllowlistCandidate} from "../shared/command-allowlist.ts";
 import { type BrowserCleanupWireRequest } from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import { bindDecisionRetention, decisionRetentionDays, pruneDecisions } from "./decision-log.ts";
-import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, saveImage } from "./colonie/chat/attachments.ts";
+import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials } from "./colonie/chat/attachments.ts";
 import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
@@ -104,10 +104,9 @@ import {extractTurnImages} from "./colonie/chat/turn-images.ts";
 import { threadTitlePrompt, type ThreadTitleSource } from "./colonie/chat/thread-title.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {appendMemoryLog, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
-import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
+import { memoryDate } from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
-import { writeSectionContext } from "./colonie/teams/section-context.ts";
-import { installOrgSkill, installSkill, resolveBotSkills, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, setSkillEnabled } from "./colonie/skills/skills.ts";
+import { resolveBotSkills, listSkills, listStagedSkillWrites, readSkillFile, rejectStagedSkillWrite } from "./colonie/skills/skills.ts";
 
 import {LocalVmIdleTimer} from "./colonie/computer/local-vm-idle.ts";
 import { LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
@@ -127,9 +126,7 @@ import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webh
 import {WebhookManager} from "./colonie/routines/webhooks.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
-import {picture as sharedPicture, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
-import {type PackageImportDeps} from "./colonie/teams/package-import.ts";
-import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults} from "./colonie/bots/presets.ts";
+import { createPresetStore } from "./colonie/bots/presets.ts";
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
 import { PlaceUnavailableError, placeUnavailable, type PlaceSource, type Surface } from "./surface.ts";
@@ -776,106 +773,15 @@ function retryComputerEngineMove(): Promise<void> {
 }
 
 
-/** Skills on one team's bots for a whole-team share. "all" skips a skill
- * whose stored SKILL.md changed (listed to the person); an explicit list
- * refuses instead, because the person asked for that exact skill. */
-/** The team's skills for a whole-team export. `available` (every skill name
- * on the team's bots) comes back on refusals too: the Share dialog draws its
- * skill choices from it, so a refused choice can always be changed. */
-function collectTeamSkills(
-  bots: readonly BotRecord[],
-  selection: unknown,
-): { ok: true; all: boolean; skillsByBot: Map<string, ExportablePackageSkill[]>; skipped: TeamExportSkip[]; available: string[] } | { ok: false; error: string; available: string[] } {
-  const all = selection === undefined || selection === "all";
-  const available = [...new Set(bots.flatMap((bot) => listBotSkills(bot).map((skill) => skill.name)))].sort();
-  if (!all && (!Array.isArray(selection) || selection.some((name) => typeof name !== "string" || !isSkillName(name)))) {
-    return { ok: false, error: "skills must be \"all\" or a list of skill names", available };
-  }
-  const chosen = new Set(all ? available : selection as string[]);
-  const unknown = [...chosen].find((name) => !available.includes(name));
-  if (unknown) return { ok: false, error: `This team has no skill named "${unknown}"`, available };
-  const skillsByBot = new Map<string, ExportablePackageSkill[]>();
-  const skipped: TeamExportSkip[] = [];
-  for (const bot of bots) {
-    const assigned: ExportablePackageSkill[] = [];
-    for (const listing of listBotSkills(bot)) {
-      if (!chosen.has(listing.name)) continue;
-      const instructions = readBotSkillFile(bot, listing.name);
-      if (instructions === null) {
-        if (!all) return { ok: false, error: `Skill "${listing.name}" changed or is unavailable and cannot be shared safely`, available };
-        const part = `skills[${listing.name}]`;
-        if (!skipped.some((skip) => skip.part === part)) skipped.push({ part, reason: "skill_changed" });
-        continue;
-      }
-      assigned.push({
-        name: listing.name,
-        description: listing.description,
-        ...(listing.source ? { source: listing.source } : {}),
-        ...(listing.license ? { license: listing.license } : {}),
-        ...(listing.compatibility ? { compatibility: listing.compatibility } : {}),
-        instructions,
-        enabled: listing.enabled,
-      });
-    }
-    if (assigned.length) skillsByBot.set(bot.id, assigned);
-  }
-  return { ok: true, all, skillsByBot, skipped, available };
-}
-
-/** A bot's starter notes: MEMORY.md and its topic files. Daily logs never
- * travel (they are closer to chat history than to notes). */
-function starterNotes(botId: string): Array<{ path: string; text: string }> {
-  const notes: Array<{ path: string; text: string }> = [];
-  const index = readMemoryFile(botId).text;
-  if (index.trim()) notes.push({ path: "MEMORY.md", text: index });
-  for (const topic of listMemoryTopics(botId).sort((a, b) => a.name.localeCompare(b.name))) {
-    const text = readMemoryTopic(botId, topic.name);
-    if (text?.trim()) notes.push({ path: `memory/${topic.name}`, text });
-  }
-  return notes;
-}
-
-/** The importer's view of this installation. Pictures become ordinary local
- * avatars, connection slots ordinary (switched-off) MCP servers, starter
- * notes ordinary memory writes. */
-function packageImportDeps(selection: ModelSelection): PackageImportDeps {
-  return {
-    store,
-    routines: routines!,
-    skills: { install: installSkill, setEnabled: setSkillEnabled, installOrg: installOrgSkill },
-    memory: { writeIndex: writeMemoryFile, writeTopic: writeMemoryTopic },
-    mcp: { servers: () => cfg.mcpServers ?? {}, persist: persistMcpServers },
-    sections: { writeBrief: (section, text) => void writeSectionContext(section, text) },
-    images: {
-      save: (bytes, mime) => {
-        const avatarUrl = botAvatarUrlFromStoredPath(saveImage(Buffer.from(bytes), mime).path);
-        if (!avatarUrl) throw new Error("A picture in this package could not be stored");
-        return avatarUrl;
-      },
-    },
-    defaultSelection: () => selection,
-    presets: presetStore,
-  };
-}
-
-/** "Include my New bot defaults as a preset" from an export body: the saved
- * defaults through the allowlist, with the picture the dialog prepared. */
-function defaultsPresetFor(body: Record<string, unknown>, includeNotes: boolean) {
-  const skipped: TeamExportSkip[] = [];
-  let avatar: Exclude<ReturnType<typeof sharedPicture>, string> | null = null;
-  if (body.presetAvatar !== undefined && body.presetAvatar !== null && body.presetAvatar !== "") {
-    const offered = sharedPicture(body.presetAvatar);
-    if (typeof offered === "string") skipped.push({ part: `presets[${DEFAULTS_PRESET_KEY}].bot.appearance.avatar`, reason: offered });
-    else avatar = offered;
-  }
-  const built = presetFromDefaults(cfg.newBotDefaults, {
-    name: typeof body.presetName === "string" ? body.presetName : undefined,
-    description: typeof body.presetDescription === "string" ? body.presetDescription : undefined,
-    includeNotes,
-    avatar,
-  });
-  return { preset: built.value, skipped: [...skipped, ...built.skipped] };
-}
+const { collectTeamSkills, starterNotes, packageImportDeps, defaultsPresetFor } = createTeamPackageWiring({
+  cfg,
+  listBotSkills,
+  persistMcpServers: () => persistMcpServers,
+  presetStore: () => presetStore,
+  readBotSkillFile,
+  routines: () => routines,
+  store: () => store,
+});
 
 let bootSelection = { instanceId: "", model: "" };
 /** The engines read at start, while it runs (below). It is where the server

@@ -629,6 +629,31 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.72: this installation's view of a team package out of `index.ts` (October 18).**
+  `server/colonie/teams/package-wiring.ts` (`createTeamPackageWiring`):
+  `collectTeamSkills` gathers one team's bot skills for a whole-team share ("all"
+  drops a skill whose stored SKILL.md changed and lists it; an explicit list
+  refuses instead, and the available names come back on refusals so the Share
+  dialog can always offer another choice), `starterNotes` reads a bot's MEMORY.md
+  and topic files for an import (daily logs never travel), `packageImportDeps` is
+  the importer's side (pictures become local avatars, connection slots
+  switched-off MCP servers, starter notes ordinary memory writes), and
+  `defaultsPresetFor` turns a saved New-bot default into the export's preset. One
+  block (L779–878), 100 lines. Three of the extractor's known gaps needed a hand
+  fix: the object-literal shorthand `store,`/`routines: routines!` were renamed to
+  `store(),`/`routines(): ...` (invalid) and became `store: store(),` /
+  `routines: routines()!,`; an alias import (`picture as sharedPicture`) is not
+  indexed by the tool's import scanner, so the module got it by hand; and its
+  unused-import prune pass only removes a whole import declaration, so the eight
+  imports whose last reader moved (`saveImage`, the five workspace memory
+  helpers, `writeSectionContext`, the four skill helpers, `DEFAULTS_PRESET_KEY`,
+  `presetFromDefaults`, `botAvatarUrlFromStoredPath`) were removed by name. Guard:
+  `package-wiring.test.ts` (5) — a whole-team share exports every readable skill
+  and reports the changed one, naming a changed or unknown skill refuses with the
+  available list, a selection that is not skill names is refused, and each entry
+  carries its listing fields plus instructions. `index.ts` 2,856 → 2,762 lines.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 86 files / 407 tests
+  pass; live probe green.
 - **S3.71: the auto-recall prompt out of `index.ts` (October 18).**
   `server/colonie/memory/recall-prompt.ts` (`createRecallPrompt`): the block a turn
   is prefixed with (`autoRecallPrompt` draws the bot's notes and — only for a
