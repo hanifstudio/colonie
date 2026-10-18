@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createAdminAudit} from "./harness/admin-audit.ts";
 import {createResumeTables} from "./colonie/chat/resume-tables.ts";
 import {createRoutineRunCards} from "./colonie/routines/run-cards.ts";
 import {createScreenPolling} from "./harness/screen-polling.ts";
@@ -21,7 +22,7 @@ import type {ChiefBot} from "../shared/colonie-chief.ts";
 import {AsyncLocalStorage} from "node:async_hooks";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {existsSync, realpathSync} from "node:fs";
-import {type IncomingMessage, type ServerResponse} from "node:http";
+import {type IncomingMessage} from "node:http";
 import {join} from "node:path";
 
 import {z} from "zod";
@@ -131,7 +132,6 @@ import {describeConnectorScopes} from "../shared/connector-scopes.ts";
 import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
 import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
 import {WebhookManager} from "./colonie/routines/webhooks.ts";
-import type {WebhookTrigger} from "../shared/webhooks.ts";
 import {SPAWNED_PROXIES} from "./proxy-paths.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
@@ -152,16 +152,15 @@ import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRe
 import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
 import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/providers/account-signin.ts";
 import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
-import {requiredScope, resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
+import {resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
 import { SessionRegistry, type SessionRecord } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
-import {appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor} from "./admin-activity.ts";
+import {appendAdminAction, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor} from "./admin-activity.ts";
 import { frameForMember, noteSeen, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type ThreadOwner, type Viewer } from "./colonie/bots/bot-visibility.ts";
 import {describeBrand, loadBrand} from "./brand.ts";
 import {deliverSseFrame} from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and
 // loading the table after everything above leaves module start-up order as is.
-import {onJsonBody, parsedBodyOf} from "./harness/http.ts";
 import {createDesktopViewer} from "./routes/desktop-viewer.ts";
 import { localDesktopTarget, viewerTargetId } from "./colonie/computer/desktop-viewer-targets.ts";
 import {type SseClient} from "./routes/events.ts";
@@ -630,160 +629,16 @@ onConfigSaved((before, after) => {
   for (const row of configChangeRows(before, after)) appendAdminAction(DATA_DIR, { ...row, actor: scope.actor });
 });
 
-interface AuditPlan {
-  /** An admin-scope change: config saves made while it runs are recorded. */
-  config: boolean;
-  /** A bot whose permissions or audience this request may change. */
-  botId?: string;
-  createsBots: boolean;
-  deletesBot?: string;
-  createsWebhook: boolean;
-  /** A webhook changed, deleted or given a new secret by id. */
-  webhookId?: string;
-  sessionId?: string;
-  engineAction?: { id: string; action: string };
-}
-
-function adminAuditPlan(method: string, path: string): AuditPlan | null {
-  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return null;
-  if (path.startsWith("/api/testing/")) return null;
-  const plan: AuditPlan = {
-    config: requiredScope(method, path, { sharedComputers: lendingEnabled() }) === "admin",
-    createsBots: method === "POST" && (path === "/api/bots" || path === "/api/teams/import"),
-    createsWebhook: method === "POST" && path === "/api/webhooks",
-  };
-  let m = /^\/api\/bots\/([\w-]+)(?:\/(always-allow|model))?$/.exec(path);
-  if (m && ((!m[2] && method === "PATCH") || (m[2] === "model" && method === "PATCH") || (m[2] === "always-allow" && method === "POST"))) plan.botId = m[1];
-  if (m && !m[2] && method === "DELETE") plan.deletesBot = m[1];
-  m = /^\/api\/webhooks\/([\w-]+)(\/rotate)?$/.exec(path);
-  if (m && ((m[2] && method === "POST") || (!m[2] && (method === "PATCH" || method === "DELETE")))) plan.webhookId = m[1];
-  m = /^\/api\/auth\/sessions\/([\w-]+)$/.exec(path);
-  if (m && method === "DELETE") plan.sessionId = m[1];
-  m = /^\/api\/instances\/([\w.-]+)\/(install|auth\/complete|auth\/sign-out|leftover-files\/remove)$/.exec(path);
-  if (m && method === "POST") plan.engineAction = { id: m[1]!, action: m[2]!.replace("/", "-") };
-  if (method === "POST" && path === "/api/instances/claude-accounts") plan.engineAction = { id: "claude", action: "account-add" };
-  if (method === "POST" && path === "/api/instances/chatgpt-accounts") plan.engineAction = { id: "chatgpt", action: "account-add" };
-  return plan.config || plan.botId || plan.createsBots || plan.deletesBot || plan.createsWebhook || plan.webhookId || plan.sessionId || plan.engineAction ? plan : null;
-}
-
-const WEBHOOK_AUDIT_FIELDS = ["name", "prompt", "botId", "runOn", "enabled", "eventTypes"] as const;
-const auditBot = (id: string | undefined) => (id ? botAuditSnapshot(store.bot(id) as unknown as Record<string, unknown> | null) : null);
-const auditHook = (id: string | undefined) => (id ? webhooks.list().find((hook) => hook.id === id) : undefined);
-const hookFields = (hook: WebhookTrigger, fields: readonly string[] = WEBHOOK_AUDIT_FIELDS) =>
-  Object.fromEntries(fields.map((field) => [field, (hook as unknown as Record<string, unknown>)[field] ?? null]));
-
-/** The bot fields a PATCH named: only those are compared, so a concurrent
- * change to another field is not put down to this request. */
-function requestedBotFields(req: IncomingMessage, path: string): string[] {
-  if (path.endsWith("/always-allow")) return ["alwaysAllow"];
-  if (path.endsWith("/model")) return ["modelSelection"];
-  const body = parsedBodyOf(req);
-  if (!body || typeof body !== "object" || Array.isArray(body)) return [];
-  const fields = new Set(Object.keys(body));
-  if (fields.has("autoApprove") || fields.has("approvalMode")) fields.add("autoApprove").add("approvalMode");
-  if (fields.has("chiefOfStaff")) fields.add("managedSections");
-  return [...fields];
-}
-
-/** Record this request's admin changes once it has answered successfully.
- * Each row compares only what this request named or created, never a whole
- * snapshot, so another admin's change made meanwhile is not attributed here. */
-function beginAdminAudit(req: IncomingMessage, res: ServerResponse, method: string, path: string, auth: RequestAuth): void {
-  const plan = DESKTOP_MANAGED ? null : adminAuditPlan(method, path);
-  const actor = plan ? adminActorFor(auth, req) : null;
-  // Whether several people share the workspace as the request begins: a
-  // change that ends sharing (the last chat-only phone signed out) is kept.
-  const sharedAtStart = plan ? adminActivityRecording() : false;
-  // Set for every request, so a kept-alive connection never inherits one.
-  adminActorScope.enterWith(plan?.config && actor ? { actor, sharedAtStart } : null);
-  if (!plan || !actor) return;
-  const before = {
-    bot: auditBot(plan.botId ?? plan.deletesBot),
-    botName: store.bot(plan.botId ?? plan.deletesBot ?? "")?.name,
-    hook: auditHook(plan.webhookId),
-    session: plan.sessionId ? sessions.list().find((session) => session.id === plan.sessionId) : undefined,
-  };
-  let answered: unknown;
-  if (plan.createsBots || plan.createsWebhook) onJsonBody(res, (body) => (answered = body));
-  res.once("finish", () => {
-    if (res.statusCode >= 400 || (!sharedAtStart && !adminActivityRecording())) return;
-    try {
-      for (const row of adminAuditRows(plan, req, path, before, answered)) appendAdminAction(DATA_DIR, { ...row, actor });
-    } catch (error) {
-      console.warn(`admin activity: could not record ${method} ${path}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  });
-}
-
-function adminAuditRows(
-  plan: AuditPlan,
-  req: IncomingMessage,
-  path: string,
-  before: { bot: Record<string, unknown> | null; botName?: string; hook?: WebhookTrigger; session?: ReturnType<typeof sessions.list>[number] },
-  answered: unknown,
-): Array<Omit<AdminActionRow, "at" | "actor">> {
-  const rows: Array<Omit<AdminActionRow, "at" | "actor">> = [];
-  const reply = answered && typeof answered === "object" ? answered as Record<string, unknown> : {};
-  const idOf = (value: unknown) => (value && typeof value === "object" && typeof (value as { id?: unknown }).id === "string" ? (value as { id: string }).id : undefined);
-  if (plan.botId) {
-    rows.push(...botChangeRows({ id: plan.botId, name: store.bot(plan.botId)?.name }, before.bot, auditBot(plan.botId), requestedBotFields(req, path)));
-  }
-  if (plan.createsBots) {
-    const created = [idOf(reply.bot), ...(Array.isArray(reply.bots) ? reply.bots.map(idOf) : [])].filter((id): id is string => Boolean(id));
-    for (const id of new Set(created)) {
-      const fields = auditBot(id);
-      if (fields) rows.push({ category: "bot", action: "bot.create", target: { kind: "bot", id, name: store.bot(id)!.name }, after: fields });
-    }
-  }
-  if (plan.deletesBot && before.bot && !store.bot(plan.deletesBot)) {
-    rows.push({ category: "bot", action: "bot.delete", target: { kind: "bot", id: plan.deletesBot, ...(before.botName ? { name: before.botName } : {}) }, before: before.bot });
-  }
-  const hookTarget = (hook: WebhookTrigger) => ({ kind: "webhook", id: hook.id, name: hook.name });
-  if (plan.createsWebhook) {
-    const hook = auditHook(idOf(reply.webhook));
-    if (hook) rows.push({ category: "webhook", action: "webhook.create", target: hookTarget(hook), after: hookFields(hook) });
-  }
-  if (plan.webhookId && before.hook) {
-    const after = auditHook(plan.webhookId);
-    if (!after) rows.push({ category: "webhook", action: "webhook.delete", target: hookTarget(before.hook), before: hookFields(before.hook) });
-    else if (path.endsWith("/rotate")) rows.push({ category: "webhook", action: "webhook.rotate-secret", target: hookTarget(after) });
-    else {
-      const body = parsedBodyOf(req);
-      const named = body && typeof body === "object" ? Object.keys(body) : [];
-      const changed = WEBHOOK_AUDIT_FIELDS.filter((field) => named.includes(field) &&
-        JSON.stringify(hookFields(before.hook!, [field])) !== JSON.stringify(hookFields(after, [field])));
-      if (changed.length) {
-        rows.push({ category: "webhook", action: "webhook.update", target: hookTarget(after), changed: [...changed], before: hookFields(before.hook, changed), after: hookFields(after, changed) });
-      }
-    }
-  }
-  if (before.session && !sessions.list().some((session) => session.id === before.session!.id)) {
-    const session = before.session;
-    rows.push({ category: "session", action: "session.revoke", target: { kind: "session", id: session.id, name: session.email ?? session.label },
-      before: { label: session.label, ...(session.email ? { email: session.email } : {}), scopes: session.scopes } });
-  }
-  if (plan.engineAction) rows.push({ category: "engine", action: `engine.${plan.engineAction.action}`, target: { kind: "engine", id: plan.engineAction.id } });
-  return rows;
-}
-
-/** The guarded send contract external interfaces (the Slack worker) opt into.
- * `onBehalfOf` is additive and advertised by /api/health
- * (capabilities.guardedOnBehalfOf): it names the person a relay acts for, so
- * the turn is booked to them rather than to this machine. Only this
- * admin-scoped route reads it; every other send is booked to its own
- * session. */
-const guardedSendSchema = z.object({
-  threadId: z.string().regex(/^[\w-]+$/),
-  sendId: z.string().regex(/^[A-Za-z0-9_-]{16,80}$/),
-  text: z.string().min(1),
-  expectedActiveLeafId: z.string().regex(/^[\w-]+$/).nullable(),
-  expectedApprovalMode: z.enum(["ask", "full"]).optional(),
-  replyToId: z.string().optional(),
-  onBehalfOf: z.object({
-    email: z.string().trim().toLowerCase().max(254).pipe(z.email()).optional(),
-    name: z.string().trim().min(1).max(120).optional(),
-  }).strict().refine((who) => Boolean(who.email || who.name)).optional(),
-}).strict();
+const { beginAdminAudit, guardedSendSchema } = createAdminAudit({
+  DESKTOP_MANAGED,
+  adminActivityRecording,
+  adminActorFor,
+  adminActorScope,
+  lendingEnabled,
+  sessions,
+  store: () => store,
+  webhooks: () => webhooks,
+});
 
 /** Who a request is, for the usage ledger: a paired or signed-in person, or
  * this machine. Captured when the message is accepted and carried with it. */
