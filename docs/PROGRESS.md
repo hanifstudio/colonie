@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.32: sending a message to a bot out of `index.ts` (October 18).** `POST /api/bots/:id/messages` and its
+  `/guarded` variant (92 lines) become `server/routes/bot-messages.ts`. This one sends, so the boundary had to be
+  drawn carefully: the module takes the whole send layer as deps (`acceptDirectSend`, `startTurn`, `messageSender`,
+  `resolveReplyTarget`, `directSendRefusal`, `usageTriggerFor`, `guardedSendSchema`, `botAtThreadCapacity`,
+  `threadBusy`) and — the detail that matters — takes **the `DirectSendRefused` class object itself**, so the
+  `instanceof` that turns a refusal into its status and body still holds across the module line. `startTurn` is a
+  dep here and moves in its own slice later. Guard test (7): another route or verb is left to the next handler; a
+  body that is not an object, or says nothing, is refused; a guarded send without its safety preconditions is
+  refused; an unknown bot is a 404; a refusal from the send layer is answered as it is; a refusal thrown by the send
+  layer keeps its status and body; a send that lands answers 202. Live on a throwaway HOME: **a real send answered
+  202 with the receipt** (threadId and message id), a silent text 400 "text required", a non-object body 400, an
+  unknown bot 404. `index.ts` 12,600 → **12,524 lines**; 257/257 pass, typecheck 0, lint 0.
 - **S3.31: the event stream out of `index.ts` (October 18).** `GET /api/events` (91 lines) becomes
   `server/routes/events.ts`, and the `SseClient` interface moved with it: the module now owns the shape of a
   connected stream and `index.ts` imports the type (the Set, the frame builders and the fan-out stay where they are,

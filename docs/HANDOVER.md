@@ -146,7 +146,7 @@ started, and review.
   (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), thread-events (S3.22), saved command
   permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family), one bot's threads,
   `bot-task` (S3.25), creating a bot, `bot-create` (S3.26), answering a running thread,
-  `thread-respond` (S3.27), exporting a team, `teams-export` (S3.28), importing one, `teams-import` (S3.29), raw uploads, `uploads` (S3.30), the event stream, `events` (S3.31). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  `thread-respond` (S3.27), exporting a team, `teams-export` (S3.28), importing one, `teams-import` (S3.29), raw uploads, `uploads` (S3.30), the event stream, `events` (S3.31), sending a message, `bot-messages` (S3.32). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
   flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
   purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
   stream moved at S3.31. The `/api/config` family is the last big route group and is **deliberately last**: the
