@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.59: the turn-digest state out of `index.ts` (October 18).**
+  `server/colonie/chat/turn-digest.ts` (`createTurnDigest`): `turnStartedAt`,
+  `turnCheckpoints`, `liveTurnByThread`, `forgetTurnCheckpoint`,
+  `clearTurnDigestState`, and `scheduleTurnDigest` — the per-thread state a
+  finished turn's digest reads and the recorder that writes the stored digest
+  row. 112 lines (L2509–2620), one wire site at 2508. Only `memoryRowsByThread`
+  and `store` are passed by value; `isContextMessage` (destructured from the
+  delegation-lifecycle wire at 2721, below the site) is a getter, and the
+  recorder's `filter(isContextMessage())` passes the returned function. The
+  `checkpoints` and chat-digest imports left `index.ts`. Guard:
+  `turn-digest.test.ts` (4) — clearing forgets the started time, the live turn
+  and the handed memory rows; the recorder clears those before it checks
+  `isCurrent` and appends nothing when it is not current; forgetting an untracked
+  checkpoint is a no-op. `index.ts` 4,193 → 4,085. `pnpm typecheck` 0, `pnpm lint`
+  0, `npx vitest run server` 73 files / 341 tests pass, live probe green.
 - **S3.58: the client read models out of `index.ts` (October 18).**
   `server/harness/read-model.ts` (`createReadModel`): the wire shapes a client
   reads (`wireTask`, `wireBot`), the public bot with its newest page
