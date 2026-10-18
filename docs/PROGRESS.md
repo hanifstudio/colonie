@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.82: the turn-origin marks out of `index.ts` (October 18).**
+  `server/colonie/chat/turn-origins.ts` (`createTurnOrigins`): the
+  `unattendedThreads` mark (a webhook-driven turn, or one a webhook-driven bot
+  handed to a teammate, does not inherit a person's auto mode; per conversation,
+  ages out only while the bot is idle, refreshed on every positive read) and the
+  `internalTurnThreads` mark (a turn another bot started raises no badge or
+  banner). Both are module-level `const` maps/sets — never reassigned — so they
+  move intact, and the surviving call sites read the imported bindings. The
+  block was 1,288–1,348 lines of state and helpers (~61 lines) with the long
+  rationale comments, now the module's header. `index.ts` 2,403 → 2,346 lines.
+  Guard: `turn-origins.test.ts` (5) — per-conversation isolation, the
+  thread-less fail-closed read, the idle-ages-out/busy-never does, the
+  read-refreshes-window rule, and the peer-turn mark clearing. `pnpm typecheck`
+  0, `pnpm lint` 0, `npx vitest run server` 96 files / 458 tests pass; live probe
+  green.
 - **S3.81: the event-log retention sweep out of `index.ts` (October 18).**
   Extended `server/colonie/chat/thread-retention.ts` — the sweep's own domain —
   with `sweepThreadEventLogsNow` (build the candidate list from the store, then
