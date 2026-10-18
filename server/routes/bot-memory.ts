@@ -3,9 +3,9 @@
 // auth gate; scope rules stay keyed by path in server/request-auth.ts.
 //
 // The files already belong to the person (plain markdown in the bot's
-// workspace). server/memory-store.ts decides which paths can be reached
+// workspace). server/colonie/memory/memory-store.ts decides which paths can be reached
 // and refuses a save whose expectedHash no longer matches the file;
-// server/memory-journal.ts records every change made here so it can be
+// server/colonie/memory/memory-journal.ts records every change made here so it can be
 // read back and reverted. Reads never create the workspace — a bot that
 // has not run yet simply has nothing to show. Admin scope by default
 // (request-auth.ts), like the bot profile routes.
@@ -20,7 +20,7 @@ import {
   memoryOverview,
   openMemoryLocation,
   readMemoryDoc,
-} from "../memory-store.ts";
+} from "../colonie/memory/memory-store.ts";
 import {
   flushMemoryJournal,
   journalMemoryDelete,
@@ -28,8 +28,8 @@ import {
   readMemoryJournal,
   revertMemoryChange,
   type MemoryJournalEntry,
-} from "../memory-journal.ts";
-import { upkeepEnabled, type MemoryUpkeep } from "../memory-upkeep.ts";
+} from "../colonie/memory/memory-journal.ts";
+import { upkeepEnabled, type MemoryUpkeep } from "../colonie/memory/memory-upkeep.ts";
 import type { LearnedFacts } from "../profile-learned.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 

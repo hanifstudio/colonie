@@ -3,11 +3,11 @@
 // validates, redacts and queues, so the person's send path is untouched.
 // A single bounded analyzer call then drains the durable queue, rechecking
 // ownership and policy before it runs and again before it commits.
-import type { AcpMemoryContext, CompletedMemoryTurn, MemoryPreferences, MemoryScope, MemoryView } from "../../../shared/colonie-memory.ts";
+import type { AcpMemoryContext, CompletedMemoryTurn, MemoryPreferences, MemoryScope, MemoryView } from "../../../../shared/colonie-memory.ts";
 import { capturePrompt, parseCapture } from "./capture.ts";
 import { recallMemory } from "./recall.ts";
 import { ColonieMemoryStore, MAX_SOURCE, type MemoryJob } from "./store.ts";
-import { redactSecretsInText } from "../../redact.ts";
+import { redactSecretsInText } from "../../../redact.ts";
 
 export interface MemoryBot {
   id: string;

@@ -406,7 +406,7 @@ Triage (read-only agents, October 18) and disposition, one line each:
   read for old saves); `profile.ts` lets the explicit dir win over the app-wide
   isolated one (today it is overwritten); the three gates in `server/index.ts`
   (`describeInstances`, PATCH, DELETE) move from `claudeAgent` to `claude-acp`;
-  `server/workspace-backup.ts` and `server/plan-usage.ts` read the new field; the
+  `server/colonie/workspace/workspace-backup.ts` and `server/plan-usage.ts` read the new field; the
   UI family folds (`src/lib/engine-rail.ts`, `EnginesSettings.tsx`,
   `ProviderIcons.tsx`, `EngineLibrary.tsx`) accept `claude-acp`; and
   `server/acp/acp-runtime.ts` must keep `authStatus.account`

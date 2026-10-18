@@ -16,7 +16,7 @@ import type { BotProfilePatch } from "../bot-profile.ts";
 import { peerAllowKey, type PeerAction } from "../colonie/peers/peer-approval-key.ts";
 import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "../config.ts";
 import * as mdb from "./message-db.ts";
-import { forgetBotMemoryJournal, journalFile } from "../memory-journal.ts";
+import { forgetBotMemoryJournal, journalFile } from "../colonie/memory/memory-journal.ts";
 import { runCommand, type Command } from "../commands.ts";
 import { workspaceDir } from "../colonie/workspace/workspace.ts";
 import type { Destination } from "../surface.ts";

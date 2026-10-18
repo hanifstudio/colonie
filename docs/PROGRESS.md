@@ -445,6 +445,28 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   all peer and delegation HTTP lives in the owner-gated `/api/internal/*` block — so the live check is the
   server booting on a throwaway HOME and `GET /api/bots/:id/system-prompt`, which renders through the moved
   `peer-roster.ts`, answering 1,866 bytes with no error in the log.
+- **S7: memory into `server/colonie/memory/` (October 18).** The feature turned out to be two stores, so the
+  folder now says so: the Colonie ledger (its own `colonie-memory/state.json`) moved into
+  `colonie/memory/ledger/` — `store.ts`, `service.ts`, `capture.ts`, `recall.ts`, `routes.ts` — and the bot
+  memory files (MEMORY.md and `memory/` under the bot's workspace) sit beside it as `memory-capture.ts`,
+  `memory-entries.ts`, `memory-journal.ts`, `memory-organize.ts`, `memory-store.ts`, `memory-tidy.ts`,
+  `memory-topics.ts`, `memory-upkeep.ts` and `recall.ts`. Nine files moved plus the five nested, 12 files
+  repointed, `index.ts` included. Guard: `server/colonie/memory/memory-entries.test.ts` — a memory date is a
+  real calendar day and not just the shape, an entry is one dated line with or without a source, a
+  hand-written line without a date is not an entry and is never touched, the grammar reads the `until` mark,
+  a strike-through and trailing `updated`/`confirmed` marks, an entry owns the indented lines and the code
+  block under it, a fence that never closes claims nothing, the `until` day itself still loads while the day
+  after does not, expired entries are hidden from a turn without touching the file, a safety or health fact
+  always stays in what loads, a fact's identity is deliberately narrow (`-10` is not `10`, `C++` is not `C`,
+  `API_KEY` is not `api_key`), and a notebook's identities skip struck entries. 110/110 pass, typecheck 0,
+  lint 0. Live on a throwaway HOME: the ledger view reads, a fact writes and reads back with its key, a
+  clear with a stale revision is refused with "Memory changed elsewhere" and succeeds with the fresh one.
+- **Stale file paths in comments were swept (October 18),** a debt from S1–S7 leaving "see server/x.ts"
+  comments behind a move. Twelve files updated by hand-verified pairs only where the old path no longer
+  exists and exactly one file in the repo carries the basename: the blueprint, HANDOVER, the routes README,
+  the release skill, `server/index.ts`, `server/server-launcher.ts`, the moved memory and workspace files,
+  `shared/colonie-memory.ts`, and two renderer files. `docs/PROGRESS.md` was left alone: it is a log, and
+  its old paths describe work as it was done.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

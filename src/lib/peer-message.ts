@@ -8,7 +8,7 @@
 // workspace — …]"). A renderer keyed on role alone shows that line on the
 // person's side of the chat, as if they had said it — which is the bug
 // this module exists to prevent. The parse is the client twin of
-// server/peer-provenance.ts: the field wins; rows stored before it existed
+// server/colonie/peers/peer-provenance.ts: the field wins; rows stored before it existed
 // still open with the note, so the note is read as the fallback.
 import type { Message } from "@/state/store";
 

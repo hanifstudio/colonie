@@ -15,9 +15,9 @@ import { connectedToolsRoutes } from "./colonie/connections/routes.ts";
 import { composioCredentialStatus } from "./colonie/connections/credential-status.ts";
 import { composioCredentialRoutes } from "./colonie/connections/credential-routes.ts";
 import { nativeHistoryConflict } from "./acp/native-history.ts";
-import { ColonieMemoryStore } from "./colonie/memory/store.ts";
-import { ColonieMemoryService } from "./colonie/memory/service.ts";
-import { createColonieMemoryRoutes } from "./colonie/memory/routes.ts";
+import { ColonieMemoryStore } from "./colonie/memory/ledger/store.ts";
+import { ColonieMemoryService } from "./colonie/memory/ledger/service.ts";
+import { createColonieMemoryRoutes } from "./colonie/memory/ledger/routes.ts";
 import type { CompletedMemoryTurn } from "../shared/colonie-memory.ts";
 import { ColonieSkills } from "./colonie/skills/service.ts";
 import { createColonieSkillsRoutes } from "./colonie/skills/routes.ts";
@@ -127,8 +127,8 @@ import * as composio from "./composio.ts";
 import { connectorCallFromFrame, connectorRefusalText, connectorUnrecognizedText, evaluateConnectorTools } from "./connector-verdict.ts";
 import { connectorCardText } from "./connector-card-text.ts";
 import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
-import { buildRecall } from "./recall.ts";
-import { createMemoryUpkeep, upkeepEnabled } from "./memory-upkeep.ts";
+import { buildRecall } from "./colonie/memory/recall.ts";
+import { createMemoryUpkeep, upkeepEnabled } from "./colonie/memory/memory-upkeep.ts";
 import { appendAboutMe, LearnedFacts } from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed, peerName, peerRosterSystemPrompt, peerStatus, peerStatusWords, reachablePeers, resolveTeammate, PEER_ACCESS_HELP } from "./colonie/peers/peer-roster.ts";
 import {
@@ -328,7 +328,7 @@ import {
   flushAllMemoryJournals,
   journalMemoryWrite,
   type MemoryJournalEntry,
-} from "./memory-journal.ts";
+} from "./colonie/memory/memory-journal.ts";
 import {
   readSectionContext,
   readSections,
@@ -958,7 +958,7 @@ function recentWorkSources() {
   };
 }
 
-/** The automatic-recall block for a turn (server/recall.ts), or "". Notes
+/** The automatic-recall block for a turn (server/colonie/memory/recall.ts), or "". Notes
  * always; the bot's other conversations only when `conversations` — a 1:1
  * turn the person started — because a message from another bot, a webhook
  * or a room must not be able to pull a private chat into its reply. The
@@ -4422,7 +4422,7 @@ bus.subscribe((event: RuntimeEvent) => {
 // work moves forward without a person noticing and re-dispatching.
 bus.subscribe(makeCapContinuationSubscriber({ store, startTurn }));
 
-// Memory journal turn boundary (server/memory-journal.ts). A bot's own
+// Memory journal turn boundary (server/colonie/memory/memory-journal.ts). A bot's own
 // file-tool writes to MEMORY.md and memory/ have no hook to tap, so the
 // diff against the baseline taken at dispatch is made when the turn
 // settles — session.exited too, because a turn that died may still have
@@ -4442,7 +4442,7 @@ bus.subscribe((event: RuntimeEvent) => {
   }
 });
 
-// Memory upkeep (server/memory-upkeep.ts): background capture, About me
+// Memory upkeep (server/colonie/memory/memory-upkeep.ts): background capture, About me
 // suggestions and the nightly tidy-up, for bots with the switch on.
 const colonieMemorySources = new Map<string, CompletedMemoryTurn>();
 /** Memory is a feature, not a boot dependency: an unreadable ledger must not

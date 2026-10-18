@@ -4,7 +4,7 @@
 // asked again before the store is touched. Read routes are owner-gated too —
 // a session-less service caller cannot reach memory.
 import { z } from "zod";
-import { PASS, type RouteHandler } from "../../routes/table.ts";
+import { PASS, type RouteHandler } from "../../../routes/table.ts";
 import type { ColonieMemoryService } from "./service.ts";
 
 const preferencesSchema = z.object({ enabled: z.boolean(), automatic: z.boolean() }).strict();

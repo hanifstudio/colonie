@@ -18,9 +18,9 @@ import { randomUUID } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { writeFileAtomic } from "../../persistence/atomic.ts";
-import { factIdentity, isMemoryDate } from "../../memory-entries.ts";
-import { redactSecretsInText } from "../../redact.ts";
+import { writeFileAtomic } from "../../../persistence/atomic.ts";
+import { factIdentity, isMemoryDate } from "../memory-entries.ts";
+import { redactSecretsInText } from "../../../redact.ts";
 import type {
   MemoryChange,
   MemoryEntry,
@@ -29,7 +29,7 @@ import type {
   MemoryScope,
   MemorySnapshot,
   MemoryView,
-} from "../../../shared/colonie-memory.ts";
+} from "../../../../shared/colonie-memory.ts";
 
 export const MAX_TEXT = 1000;
 export const MAX_KEY = 120;

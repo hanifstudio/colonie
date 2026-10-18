@@ -8,7 +8,7 @@ import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { writeFileAtomic } from "./persistence/atomic.ts";
-import { factIdentity } from "./memory-entries.ts";
+import { factIdentity } from "./colonie/memory/memory-entries.ts";
 import { redactSecretsInText } from "./redact.ts";
 
 const MAX_KEPT = 200;

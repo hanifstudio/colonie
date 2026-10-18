@@ -8,9 +8,9 @@
 // admitted as user facts, and a proposal with no verbatim evidence from that
 // message is dropped.
 import { z } from "zod";
-import { isMemoryDate } from "../../memory-entries.ts";
-import { redactSecretsInText } from "../../redact.ts";
-import type { MemoryChange, MemoryKind, MemoryScope, MemorySnapshot } from "../../../shared/colonie-memory.ts";
+import { isMemoryDate } from "../memory-entries.ts";
+import { redactSecretsInText } from "../../../redact.ts";
+import type { MemoryChange, MemoryKind, MemoryScope, MemorySnapshot } from "../../../../shared/colonie-memory.ts";
 import type { MemoryJob } from "./store.ts";
 import { MAX_KEY, MAX_SOURCE, MAX_TEXT } from "./store.ts";
 import { tokenize } from "./recall.ts";

@@ -21,7 +21,7 @@ import { closeSync, fstatSync, mkdirSync, openSync, readSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { DATA_DIR } from "./config.ts";
+import { DATA_DIR } from "../../config.ts";
 import {
   MEMORY_INDEX,
   MemoryStoreError,
@@ -32,10 +32,10 @@ import {
   readMemoryDoc,
   writeMemoryDoc,
 } from "./memory-store.ts";
-import { redactSecretsInText } from "./redact.ts";
+import { redactSecretsInText } from "../../redact.ts";
 
 /** "upkeep" is the harness itself: background capture and the tidy-up
- * (server/memory-upkeep.ts) for a bot with Memory upkeep switched on. */
+ * (server/colonie/memory/memory-upkeep.ts) for a bot with Memory upkeep switched on. */
 export type MemoryActor = "bot" | "person" | "import" | "upkeep";
 export type MemoryChangeKind = "created" | "edited" | "deleted";
 

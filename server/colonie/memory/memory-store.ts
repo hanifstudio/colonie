@@ -20,8 +20,8 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, unlinkSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { redactSecretsInText } from "./redact.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { redactSecretsInText } from "../../redact.ts";
 import {
   MEMORY_FILE_MAX_BYTES,
   MEMORY_MAX_BYTES,
@@ -29,7 +29,7 @@ import {
   ensureWorkspace,
   isMemoryTopicName,
   workspaceDir,
-} from "./colonie/workspace/workspace.ts";
+} from "../workspace/workspace.ts";
 
 export const MEMORY_INDEX = "MEMORY.md";
 

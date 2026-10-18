@@ -1,6 +1,6 @@
 // The container image's entry point (Dockerfile, deploy/podman/Containerfile).
 // It runs the server (index.js beside it) and starts it again when the server
-// asks to (RESTART_EXIT_CODE, server/restart.ts), so the container never exits
+// asks to (RESTART_EXIT_CODE, server/runtime/restart.ts), so the container never exits
 // for that. A Caddy
 // sharing its network (compose `network_mode: service:colonie`) is cut off when
 // the container restarts, until `docker compose up -d`; this keeps it served.

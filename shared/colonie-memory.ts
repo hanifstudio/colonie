@@ -1,7 +1,7 @@
 // The Colonie cross-conversation memory contract, shared by the server and
 // the renderer. Types only: no Node and no server imports, so the Memory
 // section can import this from the browser bundle. The server owns the
-// ledger (server/colonie/memory/store.ts); the renderer only reads views and
+// ledger (server/colonie/memory/ledger/store.ts); the renderer only reads views and
 // posts explicit owner edits.
 
 export type MemoryScope = "shared" | "bot";
