@@ -1,560 +1,254 @@
 // Colonie server — the harness host. Clients hold no transports
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
-import { isColonieAcpDriver } from "../shared/acp.ts";
-import { inputReceipts } from "./acp/receipts.ts";
-import { AcpRuntime } from "./acp/acp-runtime.ts";
-import { createAcpSettingsRoutes } from "./acp/settings-routes.ts";
-import { createAcpContextRoutes } from "./acp/context-routes.ts";
-import { contextCandidate, contextPin } from "./acp/context.ts";
-import { conversationPreview } from "./acp/conversation-preview.ts";
-import { colonieProfile } from "./acp/profile.ts";
-import { ConnectedTools } from "./colonie/connections/manager.ts";
-import { BotAppPolicies } from "./colonie/connections/policy.ts";
-import { connectedToolsRoutes } from "./colonie/connections/routes.ts";
-import { composioCredentialStatus } from "./colonie/connections/credential-status.ts";
-import { composioCredentialRoutes } from "./colonie/connections/credential-routes.ts";
-import { nativeHistoryConflict } from "./acp/native-history.ts";
-import { ColonieMemoryStore } from "./colonie/memory/ledger/store.ts";
-import { ColonieMemoryService } from "./colonie/memory/ledger/service.ts";
-import { createColonieMemoryRoutes } from "./colonie/memory/ledger/routes.ts";
-import type { CompletedMemoryTurn } from "../shared/colonie-memory.ts";
-import { ColonieSkills } from "./colonie/skills/service.ts";
-import { createColonieSkillsRoutes } from "./colonie/skills/routes.ts";
-import { ColonieChief } from "./colonie/chief/manager.ts";
-import { createChiefRoutes } from "./colonie/chief/routes.ts";
-import type { ChiefAssignment, ChiefBot } from "../shared/colonie-chief.ts";
-import { AsyncLocalStorage } from "node:async_hooks";
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, mkdirSync } from "node:fs";
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { rm as removeDirectory } from "node:fs/promises";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { ToolResults, TOOL_RESULT_MAX_CHARS } from "./tool-results.ts";
-import { extname, join } from "node:path";
-import { authorizeExternalRuntime, externalRuntimeIsActive, type ExternalRuntimeGrant } from "./external-runtime.ts";
+import {isColonieAcpDriver} from "../shared/acp.ts";
+import {inputReceipts} from "./acp/receipts.ts";
+import {AcpRuntime} from "./acp/acp-runtime.ts";
+import {createAcpSettingsRoutes} from "./acp/settings-routes.ts";
+import {createAcpContextRoutes} from "./acp/context-routes.ts";
+import {contextCandidate, contextPin} from "./acp/context.ts";
+import {conversationPreview} from "./acp/conversation-preview.ts";
+import {colonieProfile} from "./acp/profile.ts";
+import {ConnectedTools} from "./colonie/connections/manager.ts";
+import {BotAppPolicies} from "./colonie/connections/policy.ts";
+import {connectedToolsRoutes} from "./colonie/connections/routes.ts";
+import {composioCredentialStatus} from "./colonie/connections/credential-status.ts";
+import {composioCredentialRoutes} from "./colonie/connections/credential-routes.ts";
+import {nativeHistoryConflict} from "./acp/native-history.ts";
+import {ColonieMemoryStore} from "./colonie/memory/ledger/store.ts";
+import {ColonieMemoryService} from "./colonie/memory/ledger/service.ts";
+import {createColonieMemoryRoutes} from "./colonie/memory/ledger/routes.ts";
+import type {CompletedMemoryTurn} from "../shared/colonie-memory.ts";
+import {ColonieSkills} from "./colonie/skills/service.ts";
+import {createColonieSkillsRoutes} from "./colonie/skills/routes.ts";
+import {ColonieChief} from "./colonie/chief/manager.ts";
+import {createChiefRoutes} from "./colonie/chief/routes.ts";
+import type {ChiefAssignment, ChiefBot} from "../shared/colonie-chief.ts";
+import {AsyncLocalStorage} from "node:async_hooks";
+import {createHash, randomBytes, randomUUID, timingSafeEqual} from "node:crypto";
+import {existsSync, readFileSync, realpathSync} from "node:fs";
+import {rm as removeDirectory} from "node:fs/promises";
+import {createServer, type IncomingMessage, type ServerResponse} from "node:http";
+import {extname, join} from "node:path";
+import {type ExternalRuntimeGrant} from "./external-runtime.ts";
 
-import { z } from "zod";
-import { selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES } from "./colonie/chat/context-rebuild.ts";
-import { draftSummary, foldPoint } from "./colonie/chat/compaction-summary.ts";
-import { autoCompactWindow, compactBudget, contextWindowFor, shouldCompact } from "./colonie/chat/context-budget.ts";
-import { SharedComputers, sharedComputerOperation, sharedComputerRegistration, provenRequestPerson } from "./colonie/computer/shared-computers.ts";
-import { SharedComputerControl } from "./colonie/computer/shared-computer-control.ts";
-import { DirectHandoffs, type DirectHandoff } from "./colonie/chat/direct-handoffs.ts";
-import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard } from "./guarded-requests.ts";
-import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
-import { failedTurnTool } from "../shared/failed-turn.ts";
-import {
-  approvalModeFor,
-  modelSwitchNeedsAsk,
-  isEmergencyApprovalDowngrade,
-  isApprovalMode,
-  type ApprovalMode,
-} from "../shared/approval-mode.ts";
-import { createApprovalModeSupport } from "./harness-capabilities.ts";
-import { threadRefUrl } from "../shared/thread-address.ts";
-import {
-  CREDENTIAL_TARGETS,
-  credentialResumeOutcome,
-  credentialIsConfigured,
-  isPendingCredentialRequest,
-  isCredentialTargetId,
-  type CredentialTargetId,
-} from "../shared/credential-request.ts";
+import {z} from "zod";
+import {selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES} from "./colonie/chat/context-rebuild.ts";
+import {draftSummary, foldPoint} from "./colonie/chat/compaction-summary.ts";
+import {autoCompactWindow, compactBudget, contextWindowFor, shouldCompact} from "./colonie/chat/context-budget.ts";
+import {SharedComputers, sharedComputerRegistration} from "./colonie/computer/shared-computers.ts";
+import {SharedComputerControl} from "./colonie/computer/shared-computer-control.ts";
+import {DirectHandoffs, type DirectHandoff} from "./colonie/chat/direct-handoffs.ts";
+import {assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard} from "./guarded-requests.ts";
+import {botAvatarUrlFromStoredPath} from "../shared/bot-avatar.ts";
+import {failedTurnTool} from "../shared/failed-turn.ts";
+import {approvalModeFor, modelSwitchNeedsAsk, isEmergencyApprovalDowngrade, isApprovalMode, type ApprovalMode} from "../shared/approval-mode.ts";
+import {createApprovalModeSupport} from "./harness-capabilities.ts";
+import {credentialResumeOutcome, credentialIsConfigured} from "../shared/credential-request.ts";
 
-import { HELD_NOTE, approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, delegatedApprovalMode } from "./auto-approve.ts";
-import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
-import type { CommandAllowlistCandidate, CommandAllowlistResponse } from "../shared/command-allowlist.ts";
-import { configuredAccountDirectory, assertSeparateClaudeAccount, claudeAccountInfo, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount } from "./colonie/providers/claude-accounts.ts";
-import { providerIconPatchSchema, withInstanceIcon } from "./colonie/providers/provider-icon.ts";
-import { providerIconError } from "../shared/provider-icon.ts";
-import {
-  BrowserCleanupCoordinator,
-  finalizeBrowserCleanupMutation,
-  requireBrowserCleanupAcknowledged,
-  type BrowserCleanupRequest,
-  type BrowserCleanupWireRequest,
-} from "./colonie/computer/browser-lifecycle-cleanup.ts";
+import {approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval} from "./auto-approve.ts";
+import {CommandAllowlistStore, commandAllowlistCandidate} from "./command-allowlist.ts";
+import type {CommandAllowlistCandidate, CommandAllowlistResponse} from "../shared/command-allowlist.ts";
+import {configuredAccountDirectory, assertSeparateClaudeAccount, claudeAccountInfo, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount} from "./colonie/providers/claude-accounts.ts";
+import {providerIconPatchSchema, withInstanceIcon} from "./colonie/providers/provider-icon.ts";
+import {providerIconError} from "../shared/provider-icon.ts";
+import {BrowserCleanupCoordinator, finalizeBrowserCleanupMutation, requireBrowserCleanupAcknowledged, type BrowserCleanupRequest, type BrowserCleanupWireRequest} from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
-import { commandReceipt } from "./commands.ts";
-import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./colonie/chat/digest.ts";
-import { appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
-import { validateBotCwd } from "./colonie/bots/bot-cwd.ts";
-import {
-  ATTACHMENTS_DIR,
-  attachmentExists,
-  cleanupStaleAttachmentPartials,
-  deleteAttachment,
-  extensionForMime,
-  FILE_MAX_BYTES,
-  IMAGE_MAX_BYTES,
-  parseAudioRange,
-  readAttachment,
-  saveAudio,
-  saveFile,
-  saveImage,
-  saveImageUpload,
-  type SavedAttachment,
-  validateAttachmentUploadId,
-} from "./colonie/chat/attachments.ts";
-import {
-  messageFileDisposition,
-  messageFileDownloadName,
-  messageAttachmentName,
-  messageFileRoots,
-  messageImageTargetAt,
-  messageReferencesFile,
-  listMessageFolder,
-  messageFolderEntryName,
-  openMessageFile,
-  openMessageFolderEntry,
-} from "./colonie/chat/message-file.ts";
-import {
-  avatarGenerationRequestSchema,
-  avatarGenerationStateMatches,
-  generateAvatarImage,
-  avatarImageStatus,
-  snapshotAvatarGenerationState,
-} from "./colonie/bots/avatar-image.ts";
-import { fitsOnOneLine, parseBotProfilePatch } from "./colonie/bots/bot-profile.ts";
-import { pickComputer } from "./colonie/computer/computer-selection.ts";
-import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./colonie/teams/team-computers.ts";
-import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask } from "../shared/wire.ts";
-import { isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard } from "../shared/ask-question.ts";
-import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
-import { liveCardKind, liveDecisionRefusal } from "../shared/live-approval.ts";
+import {buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence} from "./colonie/chat/digest.ts";
+import {appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor} from "./decision-log.ts";
+import {validateBotCwd} from "./colonie/bots/bot-cwd.ts";
+import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, parseAudioRange, readAttachment, saveFile, saveImage, saveImageUpload, type SavedAttachment, validateAttachmentUploadId} from "./colonie/chat/attachments.ts";
+import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, messageFileRoots, messageImageTargetAt, messageReferencesFile, listMessageFolder, messageFolderEntryName, openMessageFile, openMessageFolderEntry} from "./colonie/chat/message-file.ts";
+import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
+import {parseBotProfilePatch} from "./colonie/bots/bot-profile.ts";
+import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
+import {isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
+import {isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard} from "../shared/ask-question.ts";
+import {parseToolScope, toolScopeWidens} from "../shared/tool-scope.ts";
+import {liveDecisionRefusal} from "../shared/live-approval.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import { connectorCallFromFrame, connectorRefusalText, connectorUnrecognizedText, evaluateConnectorTools } from "./colonie/mcp/connector-verdict.ts";
-import { connectorCardText } from "./colonie/mcp/connector-card-text.ts";
-import { chiefOfStaffSystemPrompt } from "./colonie/teams/chief-of-staff.ts";
-import { buildRecall } from "./colonie/memory/recall.ts";
-import { createMemoryUpkeep, upkeepEnabled } from "./colonie/memory/memory-upkeep.ts";
-import { appendAboutMe, LearnedFacts } from "./profile-learned.ts";
-import { canAccessTeam, canReachPeer, peerAllowed, peerName, peerRosterSystemPrompt, peerStatus, peerStatusWords, reachablePeers, resolveTeammate, PEER_ACCESS_HELP } from "./colonie/peers/peer-roster.ts";
-import {
-  containerComputerAction,
-  containerComputerExists,
-  containerComputerFrame,
-  containerComputerMcp,
-  containerComputerScreenshot,
-  containerComputerStatus,
-  containerExec,
-  containerRuntimeStatus,
-  localVmWakeAction,
-  localVmWorkspaceExists,
-  perBotLocalVmTarget,
-  poolLocalVmTarget,
-  SHARED_LOCAL_VM_TARGET,
-  setupCommands,
-  VM_WORKSPACE_GUEST,
-  type LocalVmTarget,
-  type Runtime,
-} from "./colonie/computer/container-computer.ts";
-import { attachForTurn, saveBotAttachment } from "./colonie/bots/bot-attachment.ts";
-import {
-  cacheUntilConfigChanges,
-  ensureDirs,
-  instanceConfigs,
-  loadConfig,
-  providerReloadKeys,
-  localVmIdleTimeoutMinutes,
-  localVmMaxInstances,
-  localVmMode,
-  parseConfigPatch,
-  mcpCallTimeoutMinutes,
-  threadEventLogMaxBytes,
-  maxConcurrentBotThreads,
-  threadEventLogRetentionDays,
-  saveConfig,
-  showToolCallsEnabled,
-  routinesInConversationEnabled,
-  claudeUserMcpEnabled,
-  skillAuthoringEnabled,
-  autoRecallEnabled,
-  captureQuietMs,
-  tidyHour,
-  sharedComputersEnabled,
-  builtInBrowserEnabled,
-  llmThreadTitlesEnabled,
-  browserProfileReplacementConflict,
-  browserProfilePartitionTarget,
-  syncCredentialEnv,
-  withInstanceCli,
-  persistableInstanceConfigs,
-  type AppConfig,
-  browserEngineAttachCdpUrl,
-  DATA_DIR,
-  skillsLibraryEnabled,
-  EVENTS_DIR,
-  NATIVE_DIR,
-  customMcpServers,
-  onConfigSaved,
-  CLAUDE_API_INSTANCE,
-  liveSettingsFor,
-  mergeOpenCodeProviderKeys,
-  openCodeProviderKeys,
-} from "./config.ts";
-import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./colonie/chat/thread-retention.ts";
-import { ComputerControl } from "./colonie/computer/computer-control.ts";
-import { augmentedPath, resetPathCache } from "./runtime/env-path.ts";
-import { registerEnginesBinDir } from "./colonie/providers/engine-install.ts";
-import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
+import {chiefOfStaffSystemPrompt} from "./colonie/teams/chief-of-staff.ts";
+import {buildRecall} from "./colonie/memory/recall.ts";
+import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.ts";
+import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
+import {canAccessTeam, canReachPeer, peerAllowed, peerName, peerRosterSystemPrompt, reachablePeers} from "./colonie/peers/peer-roster.ts";
+import {containerComputerAction, containerComputerExists, containerComputerFrame, containerComputerMcp, containerComputerScreenshot, containerComputerStatus, containerRuntimeStatus, localVmWakeAction, localVmWorkspaceExists, perBotLocalVmTarget, poolLocalVmTarget, SHARED_LOCAL_VM_TARGET, setupCommands, type LocalVmTarget, type Runtime} from "./colonie/computer/container-computer.ts";
+import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, providerReloadKeys, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, parseConfigPatch, mcpCallTimeoutMinutes, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, showToolCallsEnabled, routinesInConversationEnabled, claudeUserMcpEnabled, skillAuthoringEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, llmThreadTitlesEnabled, browserProfileReplacementConflict, browserProfilePartitionTarget, syncCredentialEnv, withInstanceCli, persistableInstanceConfigs, type AppConfig, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, EVENTS_DIR, NATIVE_DIR, customMcpServers, onConfigSaved, CLAUDE_API_INSTANCE, liveSettingsFor, mergeOpenCodeProviderKeys, openCodeProviderKeys} from "./config.ts";
+import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
+import {ComputerControl} from "./colonie/computer/computer-control.ts";
+import {augmentedPath, resetPathCache} from "./runtime/env-path.ts";
+import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
+import {appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger} from "./colonie/providers/usage-ledger.ts";
 
-import { ledgerCost } from "./colonie/providers/model-prices.ts";
-import type { PriceList } from "./prices.ts";
-import type { RequestAuth } from "./request-auth.ts";
-import { PROVIDER_KEY_KINDS } from "./colonie/providers/provider-key-check.ts";
-import { forgetKey, onKeyRejectionChange } from "./colonie/providers/key-rejections.ts";
-import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert } from "./spend.ts";
+import {ledgerCost} from "./colonie/providers/model-prices.ts";
+import type {PriceList} from "./prices.ts";
+import type {RequestAuth} from "./request-auth.ts";
+import {PROVIDER_KEY_KINDS} from "./colonie/providers/provider-key-check.ts";
+import {forgetKey, onKeyRejectionChange} from "./colonie/providers/key-rejections.ts";
+import {assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert} from "./spend.ts";
 
-import { entitled } from "./enterprise.ts";
+import {entitled} from "./enterprise.ts";
 
 
-import { buildNotification, buildSpendNotification, type Notification } from "./notify.ts";
-import {
-  isModelVariant,
-  TurnNotStartedError,
-  type ModelSelection,
-  type RequestOutcome,
-  type RuntimeEvent,
-  type SteerOutcome,
-  newId,
-} from "./contracts.ts";
-import { RETRY_MAX_ATTEMPTS } from "./drivers/retry.ts";
-import { recoveryCapabilityError } from "./automatic-recovery.ts";
-import { decodeGeneratedImage } from "./generated-image.ts";
-import {
-  addDisabledMcpServer,
-  MAX_MCP_SERVERS,
-  isRemoteMcpServer,
-  mcpServerNameError,
-  parseStoredMcpServer,
-} from "./colonie/mcp/mcp-registry.ts";
-import { MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn } from "./colonie/mcp/mcp-oauth.ts";
-import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
-import { mirrorExchange, type CommsBus } from "./colonie/peers/comms-visibility.ts";
-import { readMessageText, recallMessages, recentMessages, searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing } from "./persistence/message-db.ts";
-import { parseSince, parseUntil, recentWork, recentWorkPrompt, turnOutcomeLine } from "./recent-work.ts";
-import { chiefForBot, INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incidentText, type Incident, type IncidentKind } from "./incidents.ts";
+import {buildNotification, buildSpendNotification, type Notification} from "./notify.ts";
+import {isModelVariant, TurnNotStartedError, type ModelSelection, type RequestOutcome, type RuntimeEvent, type SteerOutcome, newId} from "./contracts.ts";
+import {RETRY_MAX_ATTEMPTS} from "./drivers/retry.ts";
+import {recoveryCapabilityError} from "./automatic-recovery.ts";
+import {decodeGeneratedImage} from "./generated-image.ts";
+import {MAX_MCP_SERVERS, isRemoteMcpServer, mcpServerNameError, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
+import {MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn} from "./colonie/mcp/mcp-oauth.ts";
+import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
+import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
+import {searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing} from "./persistence/message-db.ts";
+import {recentWork, recentWorkPrompt, turnOutcomeLine} from "./recent-work.ts";
+import {chiefForBot, INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incidentText, type Incident, type IncidentKind} from "./incidents.ts";
+import {drainAsideMessages, restoreAsideMessages} from "./colonie/chat/aside-queue.ts";
+import {promptWithReply, transcriptText} from "./replies.ts";
+import {admit} from "./admission.ts";
+import {_loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, pendingDelegationSnapshot, pendingThreads, recordDelegationReceipt, releaseDelegationsWaitingOn, type DelegationReceipt} from "./colonie/peers/delegations.ts";
+import {cancelSteeredMessage, drainSteeredMessages, hasQueuedSteeredMessages, holdSteeredQueue, isSteeredMessageQueued, onSteeredQueueChange, queuedSteerSnapshot, queuedSteeredMessage, queueSteeredMessage, restoreHeldSteeredQueue, restoreSteeredMessages, settleHeldSteeredQueue} from "./colonie/chat/steer-queue.ts";
+import {restoreChannelMessages} from "./colonie/chat/channel-queue.ts";
+import {acceptedSendMatch, parseSendId, sendFingerprint, SendSequencer} from "./send-idempotency.ts";
+import {EventBus} from "./harness/bus.ts";
+import {ProviderRegistry} from "./harness/registry.ts";
 
-/** A session_read answer competes with the transcript for the context
- * window; a computer-use turn's output can run to hundreds of KB. */
-const SESSION_READ_MAX_CHARS = 8_000;
-import {
-  attemptAsideInjection,
-  drainAsideMessages,
-  queueAsideMessage,
-  restoreAsideMessages,
-} from "./colonie/chat/aside-queue.ts";
-import { promptWithReply, transcriptText } from "./replies.ts";
-import { admit } from "./admission.ts";
-import { _loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DELEGATION_TTL_MS, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, findDelegationReceipt, pendingDelegationInfo, pendingDelegationSnapshot, pendingThreads, queueDelegation, recordDelegationReceipt, releaseDelegationsWaitingOn, summarizeDelegatedActivity, type DelegationReceipt, type QueueResult } from "./colonie/peers/delegations.ts";
-import {
-  cancelSteeredMessage,
-  drainSteeredMessages,
-  hasQueuedSteeredMessages,
-  holdSteeredQueue,
-  isSteeredMessageQueued,
-  onSteeredQueueChange,
-  queuedSteerSnapshot,
-  queuedSteeredMessage,
-  queuedThreadPosition,
-  queueSteeredMessage,
-  restoreHeldSteeredQueue,
-  restoreSteeredMessages,
-  settleHeldSteeredQueue,
-} from "./colonie/chat/steer-queue.ts";
-import { restoreChannelMessages } from "./colonie/chat/channel-queue.ts";
-import {
-  acceptedSendMatch,
-  parseSendId,
-  sendFingerprint,
-  SendSequencer,
-} from "./send-idempotency.ts";
-import { EventBus } from "./harness/bus.ts";
-import { ProviderRegistry } from "./harness/registry.ts";
-
-import { selectDefaultModelSelection, withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
-import { threadModelFallback, type ThreadEngine } from "./colonie/chat/thread-model.ts";
-import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./colonie/computer/computer-engine-removal.ts";
-import { cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, peerApprovalFailure, requestPeerApproval, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
-import { peerDeliveryReceipt } from "./colonie/peers/peer-delivery.ts";
-import { withPeerProvenance } from "./colonie/peers/peer-provenance.ts";
-import {
-  isProjectEmoji,
-  mentionedBots,
-  parseConnectorTools,
-  sectionKey,
-  Store,
-  threadTitleFrom,
-  titleFromLlm,
-  type BotRecord,
-  type Message,
-  type TaskRecord,
-  toWireTask,
-} from "./persistence/store.ts";
+import {selectDefaultModelSelection, withNewBotEffort} from "./colonie/providers/default-model-selection.ts";
+import {threadModelFallback, type ThreadEngine} from "./colonie/chat/thread-model.ts";
+import {computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines} from "./colonie/computer/computer-engine-removal.ts";
+import {cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, resolvePeerComms, type ApprovalBus} from "./colonie/peers/peer-approval.ts";
+import {withPeerProvenance} from "./colonie/peers/peer-provenance.ts";
+import {isProjectEmoji, mentionedBots, parseConnectorTools, sectionKey, Store, threadTitleFrom, titleFromLlm, type BotRecord, type Message, type TaskRecord, toWireTask} from "./persistence/store.ts";
 import * as tts from "./tts/index.ts";
-import { createDecider, deciderSavePatch, describeDecider } from "./decider/index.ts";
-import { createLiveSession, liveAttachUrl, LiveSessionError, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
-import { LiveCallController, LiveCallSignedOutError, type LiveSocket } from "./live-call-controller.ts";
-import { narrateTool, toUtterances } from "./tts/speech-text.ts";
-import { turnStartLogLine } from "./colonie/chat/turn-log.ts";
-import { makeCapContinuationSubscriber } from "./colonie/chat/turn-continuation.ts";
-import { buildRecoveryText, buildTurnContext, engineIsFresh, NATIVELY_REPLAYING_DRIVER_KINDS, peerMessageText } from "./colonie/chat/turn-context.ts";
-import { Handoffs, handedStateUsable, recordHanded, renderUnseen, sessionStart, unseenMessages, withUnseenMessages, type ContextMessage } from "./colonie/chat/delta-context.ts";
-import { extractTurnImages } from "./colonie/chat/turn-images.ts";
-import { threadTitlePrompt, titleConversationExcerpt, type ThreadTitleSource } from "./colonie/chat/thread-title.ts";
-import { TurnWatchdog } from "./colonie/chat/turn-watchdog.ts";
-import { TurnResources, type TurnOwner } from "./colonie/chat/turn-resources.ts";
-import {
-  ensureWorkspace,
-  ensureTaskWorkspace,
-  workspaceLocationsPrompt,
-  supportsWorkspaceFiles,
-  updateMemory,
-  appendMemoryLog,
-  memorySystemPrompt,
-  memorySourceLabel,
-  searchMemoryFiles,
-  SESSION_SEARCH_SYSTEM_PROMPT,
-  workspaceDir,
-} from "./colonie/workspace/workspace.ts";
-import { listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic } from "./colonie/workspace/workspace.ts";
-import {
-  beginMemoryTurn,
-  endMemoryTurn,
-  flushAllMemoryJournals,
-  journalMemoryWrite,
-  type MemoryJournalEntry,
-} from "./colonie/memory/memory-journal.ts";
-import {
-  readSectionContext,
-  readSections,
-  sectionContextKey,
-  sectionContextSystemPrompt,
-  writeSectionContext,
-} from "./colonie/teams/section-context.ts";
-import {
-  applyStagedSkillWrite,
-  applySkillWriteWithReceipt,
-  getStagedSkillWrite,
-  installOrgSkill,
-  installSkill,
-  listBotSkillsWithOrigin,
-  resolveBotSkills,
-  parseSkillMd,
-  listSkills,
-  listStagedSkillWrites,
-  isSkillName,
-  readSkillFile,
-  rejectStagedSkillWrite,
-  removeSkill,
-  setSkillEnabled,
-  skillsSystemPrompt,
-  stageSkillWrite,
-  undoSkillWrite,
-} from "./colonie/skills/skills.ts";
-import { fetchSkillFromSource } from "./colonie/skills/skill-fetch.ts";
-import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults } from "./colonie/bots/new-bot-defaults.ts";
-import { expandLearnTurnText, learnSource } from "./colonie/skills/skill-learn.ts";
-import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
-import type { SkillRequestCardData } from "../shared/skill-request.ts";
-import { checkSoulDrift } from "./colonie/bots/bot-folder.ts";
-import {
-  buildSystemPrompt,
-  userProfileSystemPrompt,
-  computerPrompt,
-  composioSystemPrompt,
-  customMcpPrompt,
-  CREDENTIAL_PROMPT,
-  mentionPrompt,
-  THREADS_PROMPT,
-  LEARN_PROMPT,
-  PROFILE_PROMPT,
-  TEAM_MEMORY_PROMPT,
-  ROUTINE_PROMPT,
-  ROUTINE_EXECUTION_PROMPT,
-  WEBHOOK_PROMPT,
-  resolveComputerPromptKind,
-  teamAvailabilityPart,
-} from "./colonie/bots/system-prompt.ts";
-import { readCuaConnection, readCuaUnavailableReason, gatedLocalComputer } from "./local-computer.ts";
-import {
-  discoverExistingPerBotLocalVms,
-  discoverExistingPoolLocalVms,
-  localVmInventoryEntry,
-  shouldArmLocalVmIdle,
-} from "./colonie/computer/local-vm-inventory.ts";
-import { localVmStopReason, recordLocalVmIdleStop } from "./colonie/computer/local-vm-stop-reason.ts";
-import { LocalVmIdleTimer } from "./colonie/computer/local-vm-idle.ts";
-import { LocalVmLease, LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
-import { LocalVmSeatPool, type LocalVmSeatHolder } from "./colonie/computer/local-vm-seat-pool.ts";
-import { RepeatDetector, callKey } from "./repeat-detector.ts";
-import { redactSecretsInText } from "./redact.ts";
-import { RoutineManager, type RoutineRun, type RoutineRunOn, type RoutineRunTrigger } from "./colonie/routines/routines.ts";
-import { CalendarCallManager, type CalendarCall } from "./colonie/routines/calendar-calls.ts";
-import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./colonie/computer/browser-engine.ts";
-import { BrowserRuntime, browserRuntimeEnv } from "./colonie/computer/browser-runtime.ts";
-import { BrowserLive } from "./colonie/computer/browser-live.ts";
-import {
-  agentBrowserFrame,
-  agentBrowserIntegration,
-  browserEngineEncryptionKey,
-  prepareBrowserSessionState,
-  clearBrowserSessionState,
-  closeBrowserSession,
-  ensureChrome,
-  installAgentBrowserBinary,
-  resolveAgentBrowserBinary,
-  browserEngineStatus,
-  browserSessionId,
-  describeBrowserEngine,
-  setBrowserViewport,
-} from "./colonie/computer/browser-engine.ts";
-import { createScreenFrameSource, type ScreenCapture } from "./colonie/computer/screen-frame-source.ts";
-import { screenFrameHash, screenSurfaceForTool, screenTouchingTool, settledFrameIsNews } from "./colonie/computer/screen-frame-gate.ts";
-import { RoutineRequestService } from "./colonie/routines/routine-requests.ts";
-import { directApply, UNDO_STALE, type DirectApply } from "./direct-apply.ts";
-import { createOptionsCard } from "./options-card.ts";
-import { buildBotOverview, type BotOverview, connectedAppsFacts } from "./colonie/bots/bot-overview.ts";
-import { ProfileRequestService } from "./profile-requests.ts";
-import { ModelRequestService } from "./colonie/providers/model-requests.ts";
-import { TeamSetupError, TeamSetupRequestService } from "./colonie/teams/team-setup-requests.ts";
-import type { TeamSetupRequest } from "../shared/team-setup.ts";
-import { profileSnapshot } from "./profile-revision.ts";
-import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
-import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./colonie/bots/bot-package.ts";
-import { createTeamManifest, parseTeamManifest } from "./colonie/teams/team-manifest.ts";
-import { readThreadEvents } from "./colonie/chat/thread-events.ts";
-import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./colonie/teams/team-memory.ts";
-import { describeTool } from "./activity.ts";
-import { OutboundCounts } from "./outbound-counts.ts";
-import { OutboundRequestService } from "./outbound-requests.ts";
-import { DEFAULT_OUTBOUND_POLICY, connectorCallsIn, normalizeOutboundPolicy, outboundCallsIn } from "../shared/outbound.ts";
-import { connectorAccessDecision, describeConnectorScopes, normalizeConnectorScopes } from "../shared/connector-scopes.ts";
-import { bindThreadLogCapProvider } from "./colonie/chat/thread-log-rotation.ts";
-import { listenWebhookIngress, type WebhookIngress } from "./colonie/routines/webhook-ingress.ts";
-import { assertModelVariantSupported } from "./colonie/chat/member-turn.ts";
-import { WebhookManager } from "./colonie/routines/webhooks.ts";
-import type { WebhookTrigger } from "../shared/webhooks.ts";
-import { SPAWNED_PROXIES } from "./proxy-paths.ts";
-import {
-  loadBundledSkills,
-  loadUserSkills,
-  mergeSkills,
-  readLibrarySkillFile,
-  renderSkillInstructions,
-  selectBundledSkills,
-} from "./colonie/skills/skill-library.ts";
-import { runSkillsLibraryBootSweep } from "./colonie/skills/skills-library-migration.ts";
-import { installedPlaybookInstructions } from "./installed-playbooks.ts";
-import { createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip } from "./colonie/teams/package-export.ts";
-import { importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult } from "./colonie/teams/package-import.ts";
-import {
-  applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE,
-  presetFromDefaults, readPublishedLibrary, writePublishedLibrary,
-} from "./colonie/bots/presets.ts";
-import { readPublishedTeam, writePublishedTeam } from "./colonie/teams/published-teams.ts";
-import { createTeamBackup, importTeamBackup } from "./colonie/workspace/team-backup.ts";
-import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
-import { shouldMountLocalComputer } from "./local-routing.ts";
-import { autoLocalVmAttachable, type ContainerComputerStatus } from "./colonie/computer/container-computer.ts";
-import { lazyClaimWaitMs, startAutoVmClaim, type AutoVmClaimTable } from "./colonie/computer/auto-vm-claims.ts";
-import { computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder } from "./colonie/computer/computer-wait.ts";
-import { modelContextWindow } from "./colonie/providers/model-context-window.ts";
-import { computerToolsReason, parseSurface, PlaceUnavailableError, placeUnavailable, resolveSurface, surfaceLabel, surfaceOfComputerKind, surfacePrompt, type PlaceSource, type Surface } from "./surface.ts";
-import {
-  PendingTurnCancellations,
-  ProviderTurnGenerationRegistry,
-  RetiredTurnRegistry,
-  guardTurnDispatch,
-  isTurnAdmissionBlocked,
-  isTurnEventQuarantined,
-} from "./colonie/chat/turn-dispatch-guard.ts";
-import { createGracefulShutdown } from "./runtime/graceful-shutdown.ts";
-import { acquireDataDirLeaseForProcess } from "./runtime/data-dir-lease.ts";
-import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
-import { environmentDescriptor, loadEnvironmentId, serverVersion } from "./runtime/environment.ts";
-import { WorkspaceBackupMaintenance } from "./colonie/workspace/workspace-backup-maintenance.ts";
-import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./colonie/workspace/workspace-backup-http.ts";
-import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult } from "./colonie/workspace/workspace-backup.ts";
-import { createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain } from "./custom-domain.ts";
-import { allowedScopes, createEmailSignIn, parseAllowList } from "./colonie/providers/account-signin.ts";
-import { ProviderAuthSessions } from "./colonie/providers/provider-auth-sessions.ts";
-import {
-  clearSessionCookie,
-  clientBotPatchViolation,
-  isLoopbackHost,
-  isProxied,
-  labelFromUserAgent,
-  requestOrigin,
-  requestSource,
-  requiredScope,
-  resolveLoopbackTrust,
-  resolveRequestAuth,
-  parseCookies,
-  serializeSessionCookie,
-  sessionCookieName,
-} from "./request-auth.ts";
-import { cookieMaxAgeSeconds, SessionRegistry, type SessionRecord } from "./sessions.ts";
-import { ThreadStarters } from "./colonie/chat/thread-starters.ts";
-import { appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor } from "./admin-activity.ts";
-import {
-  frameForMember,
-  memberBody,
-  memberBot,
-  noteSeen,
-  notFoundFor,
-  parseVisibility,
-  pathSubject,
-  routineVisible,
-  sameAudience,
-  SEES_EVERYTHING,
-  VisibleSet,
-  type FrameContext,
-  type PathSubject,
-  type StreamSeen,
-  type ThreadOwner,
-  type Viewer,
-} from "./colonie/bots/bot-visibility.ts";
-import { describeBrand, loadBrand } from "./brand.ts";
-import { deliverSseFrame } from "./sse-fanout.ts";
+import {createDecider, deciderSavePatch, describeDecider} from "./decider/index.ts";
+import {createLiveSession, liveAttachUrl, LiveSessionError, type LiveBot, type LiveHistoryMessage} from "./live-call.ts";
+import {LiveCallController, LiveCallSignedOutError, type LiveSocket} from "./live-call-controller.ts";
+import {narrateTool, toUtterances} from "./tts/speech-text.ts";
+import {turnStartLogLine} from "./colonie/chat/turn-log.ts";
+import {makeCapContinuationSubscriber} from "./colonie/chat/turn-continuation.ts";
+import {buildRecoveryText, buildTurnContext, engineIsFresh, NATIVELY_REPLAYING_DRIVER_KINDS, peerMessageText} from "./colonie/chat/turn-context.ts";
+import {Handoffs, handedStateUsable, recordHanded, renderUnseen, sessionStart, unseenMessages, withUnseenMessages, type ContextMessage} from "./colonie/chat/delta-context.ts";
+import {extractTurnImages} from "./colonie/chat/turn-images.ts";
+import {threadTitlePrompt, titleConversationExcerpt, type ThreadTitleSource} from "./colonie/chat/thread-title.ts";
+import {TurnWatchdog} from "./colonie/chat/turn-watchdog.ts";
+import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
+import {ensureWorkspace, ensureTaskWorkspace, workspaceLocationsPrompt, supportsWorkspaceFiles, appendMemoryLog, memorySystemPrompt, memorySourceLabel, SESSION_SEARCH_SYSTEM_PROMPT, workspaceDir} from "./colonie/workspace/workspace.ts";
+import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
+import {beginMemoryTurn, endMemoryTurn, flushAllMemoryJournals, journalMemoryWrite, type MemoryJournalEntry} from "./colonie/memory/memory-journal.ts";
+import {readSectionContext, readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
+import {applyStagedSkillWrite, getStagedSkillWrite, installOrgSkill, installSkill, listBotSkillsWithOrigin, resolveBotSkills, parseSkillMd, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, removeSkill, setSkillEnabled, skillsSystemPrompt, undoSkillWrite} from "./colonie/skills/skills.ts";
+import {fetchSkillFromSource} from "./colonie/skills/skill-fetch.ts";
+import {botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults} from "./colonie/bots/new-bot-defaults.ts";
+import {expandLearnTurnText} from "./colonie/skills/skill-learn.ts";
+import {expandSetupTurnText, setupModeActive, setupSystemPrompt} from "./setup-mode.ts";
+import {checkSoulDrift} from "./colonie/bots/bot-folder.ts";
+import {buildSystemPrompt, userProfileSystemPrompt, computerPrompt, composioSystemPrompt, customMcpPrompt, CREDENTIAL_PROMPT, mentionPrompt, THREADS_PROMPT, LEARN_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, ROUTINE_PROMPT, ROUTINE_EXECUTION_PROMPT, WEBHOOK_PROMPT, resolveComputerPromptKind, teamAvailabilityPart} from "./colonie/bots/system-prompt.ts";
+import {readCuaConnection, readCuaUnavailableReason, gatedLocalComputer} from "./local-computer.ts";
+import {discoverExistingPerBotLocalVms, discoverExistingPoolLocalVms, localVmInventoryEntry, shouldArmLocalVmIdle} from "./colonie/computer/local-vm-inventory.ts";
+import {localVmStopReason, recordLocalVmIdleStop} from "./colonie/computer/local-vm-stop-reason.ts";
+import {LocalVmIdleTimer} from "./colonie/computer/local-vm-idle.ts";
+import {LocalVmLease, LocalVmLeasePool} from "./colonie/computer/local-vm-lease.ts";
+import {LocalVmSeatPool, type LocalVmSeatHolder} from "./colonie/computer/local-vm-seat-pool.ts";
+import {RepeatDetector, callKey} from "./repeat-detector.ts";
+import {redactSecretsInText} from "./redact.ts";
+import {RoutineManager, type RoutineRun, type RoutineRunOn, type RoutineRunTrigger} from "./colonie/routines/routines.ts";
+import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
+import {BUILT_IN_BROWSER_SYSTEM_PROMPT} from "./colonie/computer/browser-engine.ts";
+import {BrowserRuntime, browserRuntimeEnv} from "./colonie/computer/browser-runtime.ts";
+import {BrowserLive} from "./colonie/computer/browser-live.ts";
+import {agentBrowserFrame, agentBrowserIntegration, browserEngineEncryptionKey, prepareBrowserSessionState, clearBrowserSessionState, closeBrowserSession, ensureChrome, installAgentBrowserBinary, resolveAgentBrowserBinary, browserEngineStatus, browserSessionId, describeBrowserEngine, setBrowserViewport} from "./colonie/computer/browser-engine.ts";
+import {createScreenFrameSource, type ScreenCapture} from "./colonie/computer/screen-frame-source.ts";
+import {screenFrameHash, screenSurfaceForTool, screenTouchingTool, settledFrameIsNews} from "./colonie/computer/screen-frame-gate.ts";
+import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
+import {directApply, UNDO_STALE, type DirectApply} from "./direct-apply.ts";
+import {buildBotOverview, type BotOverview, connectedAppsFacts} from "./colonie/bots/bot-overview.ts";
+import {ProfileRequestService} from "./profile-requests.ts";
+import {ModelRequestService} from "./colonie/providers/model-requests.ts";
+import {TeamSetupError, TeamSetupRequestService} from "./colonie/teams/team-setup-requests.ts";
+import type {TeamSetupRequest} from "../shared/team-setup.ts";
+import {profileSnapshot} from "./profile-revision.ts";
+import {flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange} from "./profile-versions.ts";
+import {BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument} from "./colonie/bots/bot-package.ts";
+import {createTeamManifest, parseTeamManifest} from "./colonie/teams/team-manifest.ts";
+import {readThreadEvents} from "./colonie/chat/thread-events.ts";
+import {TeamMemory} from "./colonie/teams/team-memory.ts";
+import {OutboundCounts} from "./outbound-counts.ts";
+import {OutboundRequestService} from "./outbound-requests.ts";
+import {normalizeOutboundPolicy} from "../shared/outbound.ts";
+import {describeConnectorScopes, normalizeConnectorScopes} from "../shared/connector-scopes.ts";
+import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
+import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
+import {assertModelVariantSupported} from "./colonie/chat/member-turn.ts";
+import {WebhookManager} from "./colonie/routines/webhooks.ts";
+import type {WebhookTrigger} from "../shared/webhooks.ts";
+import {SPAWNED_PROXIES} from "./proxy-paths.ts";
+import {loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile, renderSkillInstructions, selectBundledSkills} from "./colonie/skills/skill-library.ts";
+import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
+import {installedPlaybookInstructions} from "./installed-playbooks.ts";
+import {createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
+import {importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult} from "./colonie/teams/package-import.ts";
+import {applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE, presetFromDefaults, readPublishedLibrary, writePublishedLibrary} from "./colonie/bots/presets.ts";
+import {readPublishedTeam, writePublishedTeam} from "./colonie/teams/published-teams.ts";
+import {createTeamBackup, importTeamBackup} from "./colonie/workspace/team-backup.ts";
+import {MAX_TEAM_BACKUP_BYTES} from "../shared/team-backup.ts";
+import {shouldMountLocalComputer} from "./local-routing.ts";
+import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
+import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
+import {computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder} from "./colonie/computer/computer-wait.ts";
+import {modelContextWindow} from "./colonie/providers/model-context-window.ts";
+import {parseSurface, PlaceUnavailableError, placeUnavailable, resolveSurface, surfaceLabel, surfaceOfComputerKind, surfacePrompt, type PlaceSource, type Surface} from "./surface.ts";
+import {PendingTurnCancellations, ProviderTurnGenerationRegistry, RetiredTurnRegistry, guardTurnDispatch, isTurnAdmissionBlocked, isTurnEventQuarantined} from "./colonie/chat/turn-dispatch-guard.ts";
+import {createGracefulShutdown} from "./runtime/graceful-shutdown.ts";
+import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
+import {createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess} from "./enterprise.ts";
+import {environmentDescriptor, loadEnvironmentId, serverVersion} from "./runtime/environment.ts";
+import {WorkspaceBackupMaintenance} from "./colonie/workspace/workspace-backup-maintenance.ts";
+import {createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl} from "./colonie/workspace/workspace-backup-http.ts";
+import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult} from "./colonie/workspace/workspace-backup.ts";
+import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
+import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/providers/account-signin.ts";
+import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
+import {clearSessionCookie, clientBotPatchViolation, isLoopbackHost, isProxied, labelFromUserAgent, requestOrigin, requestSource, requiredScope, resolveLoopbackTrust, resolveRequestAuth, parseCookies, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
+import {cookieMaxAgeSeconds, SessionRegistry, type SessionRecord} from "./sessions.ts";
+import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
+import {appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor} from "./admin-activity.ts";
+import {frameForMember, memberBody, memberBot, noteSeen, notFoundFor, parseVisibility, pathSubject, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type StreamSeen, type ThreadOwner, type Viewer} from "./colonie/bots/bot-visibility.ts";
+import {describeBrand, loadBrand} from "./brand.ts";
+import {deliverSseFrame} from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and
 // loading the table after everything above leaves module start-up order as is.
-import { json, onJsonBody, parsedBodyOf, readBody } from "./harness/http.ts";
-import { ROUTES, dispatchRoutes } from "./routes/table.ts";
-import { createHostedSlackRoutes } from "./routes/hosted-slack.ts";
-import { createBotPresetRoutes } from "./routes/bot-presets.ts";
-import { createBotMemoryRoutes } from "./routes/bot-memory.ts";
-import { createBotAcpRoutes } from "./routes/bot-acp.ts";
-import { createDeciderRoutes } from "./routes/decider.ts";
-import { createThreadModelRoutes } from "./routes/thread-models.ts";
-import { createUndoRoutes } from "./routes/undo.ts";
-import { createDesktopViewer } from "./routes/desktop-viewer.ts";
-import { localDesktopTarget, localVmViewerStatus, viewerTargetId } from "./colonie/computer/desktop-viewer-targets.ts";
-import { createAntigravityLeftoverRoutes } from "./routes/antigravity-leftovers.ts";
-import { findAntigravityLeftovers, removeAntigravityLeftovers } from "./drivers/antigravity-temp.ts";
-import { createLiveRoutes } from "./routes/live.ts";
-import { createUsageRoutes } from "./routes/usage.ts";
-import { createVoiceRoutes } from "./routes/voice.ts";
-import { createConnectorRoutes } from "./routes/connectors.ts";
-import { createAdminReadRoutes } from "./routes/admin-reads.ts";
-import { createBotActivityRoutes } from "./routes/bot-activity.ts";
-import { createServerInfoRoutes } from "./routes/server-info.ts";
-import { teamLibraryRoutes } from "./routes/team-library.ts";
-import { createSkillsLibraryRoutes } from "./routes/skills-library.ts";
-import { createTeamSectionRoutes } from "./routes/team-sections.ts";
-import { createBotDefaultRoutes } from "./routes/bot-defaults.ts";
-import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
-import { createTeamBriefRoutes } from "./routes/team-brief.ts";
-import { createBotProfileRoutes } from "./routes/bot-profile.ts";
-import { cliProbeRoutes } from "./routes/cli-probe.ts";
-import { createTeamMapRoutes } from "./routes/team-map.ts";
-import { createRoutineRoutes } from "./routes/routines.ts";
-import { createCalendarWebhookRoutes } from "./routes/calendar-webhooks.ts";
-import { createReactionRoutes } from "./routes/reactions.ts";
-import { createAuthSessionRoutes } from "./routes/auth-sessions.ts";
-import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
+import {json, onJsonBody, parsedBodyOf, readBody} from "./harness/http.ts";
+import {ROUTES, dispatchRoutes} from "./routes/table.ts";
+import {createHostedSlackRoutes} from "./routes/hosted-slack.ts";
+import {createBotPresetRoutes} from "./routes/bot-presets.ts";
+import {createBotMemoryRoutes} from "./routes/bot-memory.ts";
+import {createBotAcpRoutes} from "./routes/bot-acp.ts";
+import {createDeciderRoutes} from "./routes/decider.ts";
+import {createThreadModelRoutes} from "./routes/thread-models.ts";
+import {createUndoRoutes} from "./routes/undo.ts";
+import {createDesktopViewer} from "./routes/desktop-viewer.ts";
+import {localDesktopTarget, localVmViewerStatus, viewerTargetId} from "./colonie/computer/desktop-viewer-targets.ts";
+import {createAntigravityLeftoverRoutes} from "./routes/antigravity-leftovers.ts";
+import {findAntigravityLeftovers, removeAntigravityLeftovers} from "./drivers/antigravity-temp.ts";
+import {createLiveRoutes} from "./routes/live.ts";
+import {createUsageRoutes} from "./routes/usage.ts";
+import {createVoiceRoutes} from "./routes/voice.ts";
+import {createConnectorRoutes} from "./routes/connectors.ts";
+import {createAdminReadRoutes} from "./routes/admin-reads.ts";
+import {createBotActivityRoutes} from "./routes/bot-activity.ts";
+import {createServerInfoRoutes} from "./routes/server-info.ts";
+import {teamLibraryRoutes} from "./routes/team-library.ts";
+import {createSkillsLibraryRoutes} from "./routes/skills-library.ts";
+import {createTeamSectionRoutes} from "./routes/team-sections.ts";
+import {createBotDefaultRoutes} from "./routes/bot-defaults.ts";
+import {createMcpServerRoutes} from "./routes/mcp-servers.ts";
+import {createTeamBriefRoutes} from "./routes/team-brief.ts";
+import {createBotProfileRoutes} from "./routes/bot-profile.ts";
+import {cliProbeRoutes} from "./routes/cli-probe.ts";
+import {createTeamMapRoutes} from "./routes/team-map.ts";
+import {createRoutineRoutes} from "./routes/routines.ts";
+import {createCalendarWebhookRoutes} from "./routes/calendar-webhooks.ts";
+import {createReactionRoutes} from "./routes/reactions.ts";
+import {createAuthSessionRoutes} from "./routes/auth-sessions.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -739,19 +433,6 @@ function cardRequesterKey(threadId: string, requestId: string): string | undefin
     : thread.slice(0, index).findLast((message) => message.role === "user"));
 }
 
-/** The signed-in person a thread's current work is for: whoever sent its
- * current (else latest) request from a session, else whoever the thread was
- * opened for. A bot opening a thread while working records this for the new
- * thread, so delegated work leads back to the person who asked. */
-function threadPersonKey(threadId: string): string | undefined {
-  const thread = store.messagesFor(threadId);
-  const owner = directRequestOwners.get(threadId);
-  const request = owner?.messageId
-    ? thread.find((message) => message.id === owner.messageId)
-    : thread.findLast((message) => message.role === "user");
-  return linePersonKey(request) ?? threadStarters.get(threadId);
-}
-
 /** Whose lent computers a status reader may see: the person behind the
  * asking session. */
 function sessionLendingPrincipal(auth: RequestAuth): string | null {
@@ -761,25 +442,6 @@ function sessionLendingPrincipal(auth: RequestAuth): string | null {
 /** Who a session acts as, for lines, openers and answers. */
 function actorKey(auth: RequestAuth & { kind: "session" }): string {
   return personKey(auth.session);
-}
-
-/** The model a thread a bot opens from one of its own threads starts on
- * (#1950): the model a person picked in that thread, kept as the new thread's
- * own. A thread that follows the bot opens one that follows it too. Only the
- * bot's own thread counts — a room or a teammate's thread is not one of its
- * tasks, and another bot's model belongs to another engine. Approval stays
- * the bot's, except that a level the inherited engine would have to confirm
- * on a model switch starts the new thread in Ask. */
-function parentThreadModel(botId: string, parentThreadId: string): { modelSelection?: ModelSelection; approvalMode?: "ask" } {
-  // The stored profile, never a per-thread projection: the comparison is
-  // against the defaults the new thread would otherwise get.
-  const bot = store.bot(botId);
-  const modelSelection = bot && store.taskByThread(bot.id, parentThreadId)?.modelSelection;
-  if (!bot || !modelSelection) return {};
-  const needsAsk = modelSwitchNeedsAsk(approvalModeFor(bot),
-    registry.cliTarget(bot.modelSelection.instanceId)?.driverKind,
-    registry.cliTarget(modelSelection.instanceId)?.driverKind);
-  return { modelSelection, ...(needsAsk ? { approvalMode: "ask" as const } : {}) };
 }
 
 /** Whose session may answer a card. The provider CLI's own approval modes and
@@ -1405,8 +1067,6 @@ type InternalCapability = {
   delegatedThisTurn?: Set<string>;
   externalRuntime?: ExternalRuntimeGrant;
 };
-const MAX_ATTACHED_FILES_PER_TURN = 10;
-const MAX_CREATED_BOTS_PER_TURN = 4;
 // A capability lives for the exact provider-turn generation, including while
 // that turn is parked on a human approval. The long ceiling is only an orphan
 // backstop for an impossible-to-settle adapter; normal terminal paths revoke
@@ -1424,49 +1084,6 @@ const computerSelectionTurns = new Map<string, {
   selected?: Surface;
   previousSurface?: Surface;
 }>();
-// A bot can also run outside this server — a Telegram gateway, a Slack bot,
-// any long-lived engine process the harness did not spawn. That process never
-// receives a turn-scoped capability, so it cannot ask or delegate to its peers.
-// `<data dir>/external-runtimes.json` maps bot ids to standing bearer tokens
-// and an explicit threadId. Missing bindings fail closed, even for one task.
-// A matching bearer resolves to an agents capability bound to that thread only —
-// depth 0, no skill authoring, no room coordination, no bot/room/thread
-// creation. Every other bearer still goes through the per-turn map above. The
-// file is read on demand, so adding or rotating a token needs no restart, and
-// it must not be readable by other users (mode 600).
-const EXTERNAL_RUNTIME_GENERATION = "external-runtime";
-const EXTERNAL_RUNTIMES_FILE = join(DATA_DIR, "external-runtimes.json");
-/** The standing capability is for peer comms only. Everything that creates or
- * changes state on this server (threads, bots, rooms, skills, memory, …) needs
- * a real turn, which an external runtime never has here, so the routes are an
- * allow-list rather than flags on the capability. */
-function externalRuntimeMayCall(method: string, path: string): boolean {
-  if (method === "GET") return path === "/api/internal/agents" || /^\/api\/internal\/delegations\/[\w-]+$/.test(path);
-  return method === "POST" && (path === "/api/internal/ask-bot" || path === "/api/internal/delegate-bot");
-}
-/** An external runtime polls check/wait_delegation for what it hands off, so
- * the result must not also wake the bot's own engine on the pinned thread. */
-function externalCompletion(capability: InternalCapability): { completionOwner?: "external" } {
-  return capability.generation === EXTERNAL_RUNTIME_GENERATION ? { completionOwner: "external" } : {};
-}
-function externalRuntimeCapability(header: string | string[] | undefined): InternalCapability | null {
-  const grant = authorizeExternalRuntime(EXTERNAL_RUNTIMES_FILE, header, id => store.bot(id));
-  if (!grant) return null;
-  return {
-    botId: grant.botId,
-    threadId: grant.threadId,
-    externalRuntime: grant,
-    generation: EXTERNAL_RUNTIME_GENERATION,
-    depth: 0,
-    kind: "agents",
-    skillAuthoring: false,
-    createdBots: 0,
-    openedThreads: 0,
-    orphanExpiresAt: Number.MAX_SAFE_INTEGER,
-    roomCoordination: false,
-    ownThreadCreation: false,
-  };
-}
 
 function beginInternalCapabilityGeneration(threadId: string, generation = randomUUID()): string {
   const previous = activeInternalGenerationByThread.get(threadId);
@@ -1577,42 +1194,6 @@ function revokeInternalCapabilityForProviderEvent(event: RuntimeEvent): void {
   const owner = internalGenerationByProviderTurn.complete(event.threadId, event.turnId);
   if (!owner) return;
   revokeInternalCapabilityGeneration(owner.threadId, owner.generation);
-}
-
-/** Resolve a high-entropy bearer to its immutable server-side claims.
- * Constant-time comparisons keep the check independent of matching prefix
- * length; only capabilities for currently active turns are retained. */
-function authorizedInternalCapability(header: string | string[] | undefined): InternalCapability | null {
-  const got = Buffer.from(Array.isArray(header) ? "" : (header ?? ""));
-  for (const [token, capability] of internalCapabilities) {
-    if (!internalCapabilityIsActive(capability)) {
-      internalCapabilities.delete(token);
-      continue;
-    }
-    const expected = Buffer.from(`Bearer ${token}`);
-    if (got.length === expected.length && timingSafeEqual(got, expected)) return capability;
-  }
-  return externalRuntimeCapability(header);
-}
-
-function internalCapabilityIsActive(capability: InternalCapability): boolean {
-  if (capability.generation === EXTERNAL_RUNTIME_GENERATION) {
-    return Boolean(capability.externalRuntime && capability.externalRuntime.botId === capability.botId &&
-      capability.externalRuntime.threadId === capability.threadId &&
-      externalRuntimeIsActive(EXTERNAL_RUNTIMES_FILE, capability.externalRuntime, id => store.bot(id)));
-  }
-  const switching = computerSelectionTurns.get(capability.threadId);
-  if ((capability.kind === "computer" || capability.kind === "browser") &&
-      switching?.generation === capability.generation && switching.selected) return false;
-  if (capability.localVmTarget) {
-    const owner = localVmLeaseFor(capability.localVmTarget).current(localVmOwnerBusy);
-    if (localVmThreadTargets.get(capability.threadId) !== capability.localVmTarget ||
-        owner?.threadId !== capability.threadId || owner.botId !== capability.botId) return false;
-  }
-  return (
-    capability.orphanExpiresAt > Date.now() &&
-    activeInternalGenerationByThread.get(capability.threadId) === capability.generation
-  );
 }
 // Cap message chains: depth 0 = a user-initiated turn (may ask a peer);
 // a peer invoked via ask_bot runs at depth 1 and gets NO agents tool, so
@@ -1909,17 +1490,6 @@ function botForThread(botId: string, threadId: string): BotRecord | null {
 
 function threadBusy(botId: string, threadId: string): boolean {
   return store.taskByThread(botId, threadId)?.busy === true || directTurnDispatchClaims.has(threadId);
-}
-
-/** Who a shared computer's tool call acts for, or null when nobody provable
- * does. A lent computer serves only turns provably acting for the owner, so a
- * guest, webhook, room line or unattended routine gets nothing. */
-function sharedComputerPrincipal(capability: Pick<InternalCapability, "botId" | "threadId" | "generation">): string | null {
-  return provenRequestPerson(
-    directRequestOwners.get(capability.threadId),
-    capability.generation,
-    (messageId) => linePersonKey(store.messagesFor(capability.threadId).find((message) => message.id === messageId)),
-  );
 }
 
 function botAtThreadCapacity(botId: string): boolean {
@@ -2251,23 +1821,6 @@ const computerControl = new ComputerControl((key, snapshot) => {
   }
 });
 const controlLeaseIdSchema = z.string().min(16).max(120).regex(/^[A-Za-z0-9_-]+$/);
-const routineRequestSourceSchema = {
-  fromBotId: z.string().min(1).max(128),
-  fromThreadId: z.string().min(1).max(128),
-};
-const routineRequestEnvelopeSchema = z.discriminatedUnion("action", [
-  z.object({ ...routineRequestSourceSchema, action: z.literal("create"), routine: z.unknown(), forBotId: z.unknown().optional() }).strict(),
-  z.object({
-    ...routineRequestSourceSchema,
-    action: z.literal("update"),
-    routineId: z.unknown(),
-    changes: z.unknown(),
-    forBotId: z.unknown().optional(),
-  }).strict(),
-  ...(["pause", "resume", "run_now", "delete"] as const).map((action) =>
-    z.object({ ...routineRequestSourceSchema, action: z.literal(action), routineId: z.unknown(), forBotId: z.unknown().optional() }).strict()
-  ),
-]);
 
 /** The loopback endpoint a bot's computer proxy polls before acting. The
  * bridge is revoked when the turn ends. This computer runs as long as the
@@ -2294,67 +1847,6 @@ function controlIntegration(
       openedThreads: 0,
     }, { perTurn: machine !== "this computer" }),
   };
-}
-
-/** Run a turn on `targetBotId` and resolve with its assistant text — the
- * synchronous half of ask_bot. Subscribes to the bus, folds assistant_text
- * for that thread, resolves on turn.completed (or the short inline wait budget). */
-type AskBotOutcome = {
-  status: "reply" | "failed" | "timeout" | "error";
-  text: string;
-  /** Provider's stop reason when the turn completed not-ok. */
-  stopReason?: string | null;
-};
-
-function askBotAndWait(targetBotId: string, message: string, depth: number, fromBotId?: string, fromThreadId?: string, targetThreadId?: string): Promise<AskBotOutcome> {
-  const target = store.bot(targetBotId);
-  if (!target) return Promise.resolve({ status: "error", text: "(no such bot)" });
-  const threadId = targetThreadId ?? target.threadId;
-  return new Promise((resolve) => {
-    let text = "";
-    let done = false;
-    const finish = (out: AskBotOutcome) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      unsub();
-      resolve(out);
-    };
-    const unsub = bus.subscribe((e: RuntimeEvent) => {
-      // A cancelled provider may flush text/completion after its replacement
-      // has started on the same thread. Retired turn ids must never satisfy a
-      // newer ask_bot waiter with the old partial reply.
-      if (shouldIgnoreProviderEvent(e)) return;
-      if (e.threadId !== threadId) return;
-      if (e.type === "item.completed" && e.itemType === "assistant_text") {
-        text += (text ? "\n" : "") + e.text;
-      } else if (e.type === "turn.completed") {
-        if (e.ok) finish({ status: "reply", text: text || "(the bot finished without a text reply)" });
-        else finish({ status: "failed", text, stopReason: e.stopReason ?? null });
-      }
-    });
-    // Timing out does NOT stop the peer's turn — the caller decides whether
-    // the still-running work becomes a delegation claim ticket instead.
-    const timer = setTimeout(() => finish({ status: "timeout", text }), ASK_BOT_TIMEOUT_MS);
-    // The asker's identity rides on the stored line as well as in the note
-    // prefixed to it: the wording is for the model reading this turn, the
-    // field is for anything that reads the transcript later.
-    const asker = fromBotId ? store.bot(fromBotId) : undefined;
-    const unattended = isUnattended(fromBotId, fromThreadId);
-    startTurn(targetBotId, message, {
-      threadId,
-      commsDepth: depth + 1,
-      unattended,
-      peerAsk: asker
-        ? unattended
-          ? { botId: asker.id, name: asker.name, unattended: true }
-          : { botId: asker.id, name: asker.name }
-        : undefined,
-      onDispatchError: (reason) => finish({ status: "error", text: `(couldn't start that bot: ${reason})` }),
-    }).catch((err) =>
-      finish({ status: "error", text: `(couldn't start that bot: ${err instanceof Error ? err.message : String(err)})` }),
-    );
-  });
 }
 
 /** One Chief assignment: run the target's fresh conversation under its own
@@ -3193,51 +2685,6 @@ function appliesDirectly(botId: string, threadId: string, targetBotId: string): 
     botId,
     targetBotId,
     blocked: !connectorThread(botId, threadId),
-  });
-}
-
-function peerReviewRequired(bot: BotRecord, threadId: string): boolean {
-  return Boolean(bot.approvePeerComms && !fullAccessForSource(bot.id, threadId));
-}
-
-/** A Chief of Staff's level flows down its delegation. The person set the
- * Chief's level so its work runs that way; a teammate the Chief brings in
- * starting at "Ask for approval" meant switching every such thread by hand,
- * all day, for the whole team. So a teammate a Chief delegates to starts at
- * the Chief's level for that work: Auto-accept edits, Approve for me or Full
- * access (delegatedApprovalMode: never lower than the teammate's own level,
- * capped at what its engine implements). Only a Chief passes its level on —
- * an ordinary bot's delegation still uses the recipient's setting. Returns
- * null to keep the recipient's own level. */
-function delegatedLevel(from: BotRecord, fromThreadId: string, target: BotRecord, recipientMode: ApprovalMode): ApprovalMode | null {
-  return delegatedApprovalMode({
-    senderIsChief: Boolean(from.chiefOfStaff),
-    senderMode: sourceApprovalMode(from.id, fromThreadId),
-    sameBot: from.id === target.id,
-    recipientMode,
-    recipientDriverKind: registry.cliTarget(target.modelSelection.instanceId)?.driverKind,
-  });
-}
-
-/** The teammate's own level for a thread of its own, before any delegation. */
-function ownThreadLevel(target: BotRecord, threadId: string): ApprovalMode {
-  return approvalModeForTurn(store.projectBotForTask(target.id, threadId) ?? target, false);
-}
-
-const DELEGATED_LEVEL_NAMES: Partial<Record<ApprovalMode, string>> = { edits: "Auto-accept edits", auto: "Approve for me", full: "Full access" };
-
-/** Start a thread the Chief opened at the Chief's level, and say so in it
- * once, so the level the chip shows and the level the turns run at agree,
- * and the person can see where it came from (and change it there). */
-function applyDelegatedLevel(from: BotRecord, fromThreadId: string, target: BotRecord, threadId: string): void {
-  const level = delegatedLevel(from, fromThreadId, target, ownThreadLevel(target, threadId));
-  if (!level || store.taskByThread(target.id, threadId)?.approvalMode === level) return;
-  store.patchTask(target.id, threadId, { approvalMode: level, autoApprove: false, alwaysAllow: [] });
-  const name = DELEGATED_LEVEL_NAMES[level] ?? level;
-  store.appendMessage(threadId, {
-    role: "bot",
-    kind: "activity",
-    tool: { name: `${name} — delegated by ${from.name}, a Chief of Staff on ${name}`, ok: true },
   });
 }
 
@@ -4283,9 +3730,6 @@ const repeats = new RepeatDetector({ thresholds: [5, 10, 20], maxKeysPerThread: 
 // activity-based, so an hour-long turn that keeps streaming is never
 // touched, and turns parked on a human approval are exempt.
 const TURN_STALL_MS = Math.max(60_000, Number(process.env.COLONIE_TURN_STALL_MS) || 20 * 60_000);
-/** How long ask_bot waits synchronously before the ask is converted into a
- * delegation claim ticket (the peer's turn keeps running either way). */
-const ASK_BOT_TIMEOUT_MS = Math.max(5_000, Number(process.env.COLONIE_ASK_BOT_TIMEOUT_MS) || 15_000);
 // A room waits for a busy teammate instead of dropping them, but never
 // forever: a bot parked on a permission card in another chat is "busy" until
 // a human returns. Past this cap a goal's lead is told the teammate could not
@@ -4625,66 +4069,6 @@ function clearTurnDigestState(threadId: string): void {
   memoryRowsByThread.delete(threadId);
 }
 
-const TOOL_RESULTS_DIR = join(DATA_DIR, "tool-results");
-const TOOL_RESULT_SPILL_MAX = 512 * 1024;
-
-/** A hook event from the engine (item 0.2). PostToolUse carries the tool's
- * full result: it is redacted, spilled to a private file, and attached to
- * the activity row the fold already wrote for that call, which flips the
- * turn's evidence to "full" for the digest. Idempotent on the tool_use_id
- * (a re-delivered hook never double-writes). Other events are accepted and
- * ignored here; item 0.4 gives PreCompact/SessionStart/Stop their meaning. */
-const DIGESTS_AFTER_COMPACTION = 2;
-function ingestEngineHook(capability: InternalCapability, body: unknown): { ok: boolean; ignored?: string; context?: string; hookSpecificOutput?: unknown } {
-  const event = body && typeof body === "object" ? (body as { event?: unknown; payload?: unknown }) : {};
-  const name = typeof event.event === "string" ? event.event : "";
-  const payload = event.payload && typeof event.payload === "object" ? (event.payload as Record<string, unknown>) : {};
-  const threadId = capability.threadId;
-  const chip = (text: string) => store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: text, ok: true } });
-  // Compaction is a harness event with a record, not something that silently
-  // happens to the model: a chip before, and after it the latest digests go
-  // back in as plain-text context so the compacted session still knows what
-  // its earlier turns DID (the CLI's own summary keeps what was said).
-  if (name === "PreCompact") {
-    const trigger = payload.trigger === "manual" ? "manual" : "auto";
-    chip(`context compaction started (${trigger})`);
-    return { ok: true };
-  }
-  if (name === "SessionStart") {
-    if (payload.source !== "compact") return { ok: true, ignored: `SessionStart ${String(payload.source ?? "")}` };
-    const bot = store.bot(capability.botId);
-    const digests = store.activePath(threadId).filter((m) => m.kind === "digest" && m.digest).slice(-DIGESTS_AFTER_COMPACTION);
-    chip(`context compacted — re-sent the last ${digests.length} digest${digests.length === 1 ? "" : "s"}`);
-    if (!digests.length) return { ok: true };
-    const context = digests.map((m) => digestPromptLine(m.digest!, m.from?.name ?? store.bot(m.digest!.botId)?.name ?? bot?.name ?? "the bot")).join("\n");
-    return { ok: true, context };
-  }
-  if (name === "Stop") return { ok: true };
-  if (name !== "PostToolUse") return { ok: true, ignored: name || "unknown" };
-  const toolUseId = typeof payload.tool_use_id === "string" ? payload.tool_use_id : "";
-  if (!toolUseId) return { ok: true, ignored: "PostToolUse without tool_use_id" };
-  if (!Object.hasOwn(payload, "tool_response")) return { ok: true, ignored: "hook did not include a tool response" };
-  const response = payload.tool_response;
-  const text = typeof response === "string" ? response : JSON.stringify(response ?? null, null, 2);
-  const turnId = liveTurnByThread.get(threadId);
-  const row = store.activePath(threadId).findLast((m) => m.kind === "activity" && m.turnId === turnId && m.tool?.itemId === toolUseId);
-  if (!turnId || !row?.tool) return { ok: true, ignored: "tool not observed in this turn" };
-  const key = `${threadId}:${turnId}:${toolUseId}`;
-  if (!commandReceipt("hook.ingest", key)) {
-    const dir = join(TOOL_RESULTS_DIR, threadId.replace(/[^\w.-]/g, "_"));
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const safeId = createHash("sha256").update(key).digest("hex");
-    const file = join(dir, `${safeId}.txt`);
-    const redacted = redactSecretsInText(text);
-    const bounded = redacted.length > TOOL_RESULT_SPILL_MAX
-      ? `${redacted.slice(0, TOOL_RESULT_SPILL_MAX)}\n[… ${redacted.length - TOOL_RESULT_SPILL_MAX} more characters omitted]`
-      : redacted;
-    writeFileAtomic(file, bounded, { mode: 0o600 });
-    store.patchMessage(threadId, row.id, { tool: { ...row.tool, fullResult: redacted.length <= TOOL_RESULT_SPILL_MAX } }, { kind: "hook.ingest", key });
-  }
-  return { ok: true };
-}
-
 /** Persist observed tools and memory immediately, then enrich that same
  * row only if its task and active branch still exist. */
 async function scheduleTurnDigest(input: {
@@ -4847,10 +4231,6 @@ const localVmActiveThreads = new Map<string, string>();
 // tools/call gate can fire it. Dispatch claims eagerly today, so entries
 // exist only as a no-op handoff to the gate.
 const autoVmClaims: AutoVmClaimTable = new Map();
-/** How long the computer-control gate lets a lazy claim land before it
- * answers held. A free, ready VM claims in the time of one container
- * inspect; only a claim queued behind another holder outlives this. */
-const LAZY_VM_CLAIM_GRACE_MS = 5_000;
 /** Local VM targets with a durable workspace or seen ready/recreatable — at
  * boot, in the inventory, or in a turn. Auto probes the container runtime for a VM
  * only when one of these exists, so an ordinary Auto turn on a machine with
@@ -4873,68 +4253,6 @@ const localVmIdles = new Map<string, LocalVmIdleTimer>();
 
 function botComputerControlKey(bot: BotRecord): string {
   return bot.id;
-}
-
-async function computerCallGate(internalCapability: InternalCapability) {
-  const botId = internalCapability.botId;
-  const snapshot = botComputerControlSnapshot(botId);
-  const slot = autoVmClaims.get(internalCapability.threadId);
-  const lazyClaim = slot && slot.owner.generation === internalCapability.generation ? slot : undefined;
-  const waitMs = snapshot.held ? null : lazyClaimWaitMs(lazyClaim, LAZY_VM_CLAIM_GRACE_MS);
-  if (lazyClaim && waitMs !== null) {
-    // First screen tools/call on a lazily-attached computer (issue
-    // #1361): fire the exclusive claim — once — and give it a moment
-    // to land. A free, ready VM claims in the time of one container
-    // inspect, so this call then proceeds with an honest answer;
-    // only a claim still queued behind another holder answers held
-    // below, and then the contention text is true. A cloud computer's
-    // claim creates or wakes it, so every call waits on that start
-    // (graceMs) instead of being told someone else holds it. Keyed on
-    // the slot, never on the thread's turn-computer entry: a bind this
-    // turn abandoned earlier (a VPS that turned out to be asleep)
-    // must not hide the unclaimed VM and let the call through.
-    startAutoVmClaim(autoVmClaims, internalCapability.threadId, internalCapability.generation);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      lazyClaim.begin ?? Promise.resolve(),
-      new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs); }),
-    ]);
-    clearTimeout(timer);
-  }
-  if (!snapshot.held && lazyClaim?.failed === true) {
-    // A rejected lazy claim (gate finding F1, issue #1361): the
-    // computer MCP mounted at dispatch is still live, and the claim
-    // may even have left a turn-computer entry behind (it can reject
-    // after bindTurnComputer succeeded — lease lost to a person,
-    // lifecycle busy, boot failure). Either way this turn owns no
-    // usable VM, so keep refusing every screen call for the rest of
-    // the generation; the bridge must never forward one onto a VM
-    // this turn never claimed. Turn settle GC clears the slot. Say
-    // why, and say not to retry: the contention text would send the
-    // model into a screenshot loop against a claim that cannot land.
-    return {
-      held: true, helpOpen: false,
-      blockedReason: `This turn could not claim ${lazyClaim.label ?? "this computer"}${lazyClaim.failure ? ` (${lazyClaim.failure})` : ""}. This call was not performed. Do not retry computer work in this turn; tell the person what you could not do.`,
-    };
-  }
-  if (!snapshot.held && lazyClaim?.lazy && lazyClaim.begin && !lazyClaim.claimed) {
-    // The claim fired and is still waiting on the exclusive bind:
-    // another turn genuinely holds this desktop right now. A slow claim
-    // says what it is still doing instead.
-    return {
-      held: true, helpOpen: false,
-      blockedReason: lazyClaim.pendingReason ?? "Another thread is using this computer. This call was not performed. Pause computer work until that thread finishes, then take a fresh screenshot before acting.",
-    };
-  }
-  const computer = turnComputerResources.get(internalCapability.threadId);
-  if (!snapshot.held && computer && computer.owner.generation === internalCapability.generation &&
-      !claimTurnResource(computer.owner, computer.resource)) {
-    return {
-      held: true, helpOpen: false,
-      blockedReason: "Another thread is using this computer. This call was not performed. Pause computer work until that thread finishes, then take a fresh screenshot before acting.",
-    };
-  }
-  return { held: snapshot.held, helpOpen: snapshot.helpReason !== null };
 }
 
 function botComputerControlSnapshot(botId: string) {
@@ -5007,43 +4325,6 @@ async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   if (shouldMountLocalComputer({ requested: undefined, hostPlatform: process.platform,
     providerSupportsLocal: instance?.adapter.capabilities.localComputerMcp === true }) && readCuaConnection()) return "local";
   return plan.browser ? "browser" : "off";
-}
-
-/** Discovery is read-only. Starting or creating a configured computer is
- * deferred until a chat tool selects it and the old turn releases its tools. */
-async function selectableComputers(bot: BotRecord) {
-  const instance = registry.get(bot.modelSelection.instanceId);
-  const caps = instance?.adapter.capabilities;
-  const off = bot.computer === "off";
-  // A desktop the bot's tools cannot reach is not offered, and not probed.
-  const toolsLeaveOut = computerToolsReason(bot.toolScope, bot.name) ?? undefined;
-  const surfaces = (["vm", "local", "browser"] as const);
-  return Promise.all(surfaces.map(async surface => {
-    let ready = false;
-    let canStart = false;
-    let canCreate = false;
-    let reason = "This computer is not configured or running. Open the Computer panel to set it up.";
-    try {
-      if (off) reason = "Computer access is Off in this bot's settings.";
-      else if (toolsLeaveOut && surface !== "browser") reason = toolsLeaveOut;
-      else if (surface === "vm" && caps?.computerMcp) {
-        const target = localVmTargetForStatus(bot.id);
-        const status = await containerComputerStatus(undefined, undefined, target);
-        ready = status.ready;
-        canCreate = !ready && autoLocalVmAttachable(status);
-        if (ready || canCreate) noteLocalVmSeen(target, status);
-        reason = status.problem ?? reason;
-      } else if (surface === "local") {
-        ready = shouldMountLocalComputer({ requested: "local", hostPlatform: process.platform,
-          providerSupportsLocal: caps?.localComputerMcp === true }) && Boolean(readCuaConnection());
-      } else if (surface === "browser") {
-        ready = caps?.browserMcp === true && builtInBrowserEnabled(cfg) && bot.browser !== false && browserEngineStatus().kind === "ready";
-        reason = "The built-in browser is disabled, not installed, or unsupported by this model.";
-      }
-    } catch (error) { reason = error instanceof Error ? error.message : String(error); }
-    const available = ready || canStart || canCreate;
-    return { surface, label: surfaceLabel(surface), available, ready, canStart, canCreate, ...(!available ? { reason } : {}) };
-  }));
 }
 
 function continueComputerSelection(threadId: string, generation: string | undefined, succeeded: boolean): boolean {
@@ -5860,18 +5141,6 @@ const delegationWatch = new Map<string, {
   /** An external runtime's handoff: record the receipt, never wake the source. */
   completionOwner?: "external";
 }>();
-
-/** The card in this thread that is waiting on the person: an approval, a
- * question or a proposal to review, newest first. */
-function openPersonCard(threadId: string): { kind: "approval" | "question" | "review"; tool?: string } | undefined {
-  const messages = store.messagesFor(threadId);
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const card = messages[i]!.kind === "options" ? messages[i]!.card : undefined;
-    const kind = liveCardKind(card);
-    if (kind) return { kind, tool: card?.tool };
-  }
-  return undefined;
-}
 
 /** The conversation waiting on work that runs in this thread: a Chief's
  * delegate_bot task or coordinate_bots assignment. */
@@ -6828,50 +6097,6 @@ async function deliverLateQuestionAnswer(
     store.patchMessage(threadId, cardMessage.id, { card: { ...latest, answered: "answer", answeredText: answer, dismissed: false } });
   }
   return receipt;
-}
-
-/** How many start_thread calls one turn may make. Same spirit as the
- * create-bot ceiling above: a handful is a plan, more is a fan-out. */
-const MAX_THREADS_OPENED_PER_TURN = 5;
-
-/** A thread a bot opened on itself gets its first turn exactly the way a
- * person's message would: it runs now if the bot has a free slot, and
- * otherwise waits in the same composer queue, in line behind whatever the
- * bot already has waiting. Its provenance survives the queue: this is the
- * bot's own request, not a new human request authorizing recursive fan-out. */
-async function startOrQueueOpenedThread(
-  botId: string,
-  threadId: string,
-  text: string,
-  unattended: boolean,
-): Promise<{ state: "running" } | { state: "queued"; position: number } | { state: "failed"; error: string }> {
-  const peerAsk = { botId, name: store.bot(botId)!.name, unattended: unattended || undefined };
-  const decision = admit("opened-thread", {}, {
-    // A room turn holds the bot too (startTurn refuses a direct turn during
-    // one); the drain's own block check already waits for it, so the words
-    // queue here rather than bounce.
-    atCapacity: botAtThreadCapacity(botId),
-  });
-  if (decision.action === "queue") {
-    queueSteeredMessage(botId, threadId, text, {
-      reason: decision.reason,
-      unattended,
-      peerAsk,
-    });
-    return { state: "queued", position: queuedThreadPosition(botId, threadId) ?? 1 };
-  }
-  try {
-    await startTurn(botId, text, { threadId, unattended, peerAsk });
-    return { state: "running" };
-  } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
-    store.appendMessage(threadId, {
-      role: "bot",
-      kind: "activity",
-      tool: failedTurnTool(`this thread could not start — ${why}`),
-    });
-    return { state: "failed", error: why };
-  }
 }
 
 // ── live screen: poll the bot's computer while it works ───────────────
@@ -8937,7 +8162,6 @@ const validateModelProposal = (selection: ModelSelection, current?: BotRecord): 
 const teamMemory = new TeamMemory(join(DATA_DIR, "team-memory.json"));
 const outboundRequests = new OutboundRequestService();
 const outboundCounts = new OutboundCounts(join(DATA_DIR, "outbound-counts.json"));
-const OUTBOUND_HOLD_MS = 9 * 60_000;
 
 function resolveAndSendTrust(res: ServerResponse, threadId: string, requestId: string, behavior: "allow" | "deny" | "answer"): boolean {
   const teamMemoryCard = store.messagesFor(threadId).find(
@@ -9104,72 +8328,6 @@ async function resolveAndSendTeamSetup(res: ServerResponse, args: { botId: strin
   json(res, 200, { ok: true, outcome: resolved.result.state === "applied" ? "allowed-once" : "rejected", result: resolved.result, alreadySettled: resolved.duplicate });
   return true;
 }
-const ROUTINE_WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
-const routineTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-const routineTimestamp = (value: number | undefined) =>
-  value !== undefined && Number.isFinite(value) ? new Date(value).toISOString() : null;
-const agentRoutine = (
-  routine: ReturnType<RoutineManager["listRoutines"]>[number],
-  latestRun?: RoutineRun,
-) => {
-  // Routines created in the calendar predate chat-card redaction and may
-  // contain a credential in their instructions. The list result is handed
-  // back to the model, so scrub the complete value before taking its preview.
-  const safeInstructions = redactSecretsInText(routine.prompt);
-  const safeName = redactSecretsInText(routine.name);
-  return {
-    id: routine.id,
-    name: safeName,
-    instructions: safeInstructions.slice(0, 2_000),
-    instructionsTruncated: safeInstructions.length > 2_000,
-    continuity: routine.continuity === true,
-    overlap: routine.overlap ?? "skip",
-    skippedRuns: routine.skippedRuns ?? 0,
-    lastSkippedAt: routineTimestamp(routine.lastSkippedAt),
-    failureStreak: routine.failureStreak ?? 0,
-    enabled: routine.enabled,
-    runOn: routine.runOn,
-    durationMinutes: routine.durationMinutes,
-    ...(routine.timeoutMinutes === undefined ? {} : { timeoutMinutes: routine.timeoutMinutes }),
-    schedule: routine.schedule.type === "once"
-      ? { type: "once" as const, at: new Date(routine.schedule.at).toISOString() }
-      : routine.schedule.type === "interval"
-        ? {
-            type: "interval" as const,
-            everyMinutes: routine.schedule.everyMinutes,
-            anchorAt: new Date(routine.schedule.anchorAt).toISOString(),
-            ...(routine.schedule.weekdays === undefined
-              ? {}
-              : { weekdays: routine.schedule.weekdays.map((day) => ROUTINE_WEEKDAY_NAMES[day]) }),
-            ...(routine.schedule.window === undefined ? {} : { window: { ...routine.schedule.window } }),
-            ...(routine.schedule.endsAt === undefined
-              ? {}
-              : { endsAt: new Date(routine.schedule.endsAt).toISOString() }),
-          }
-        : routine.schedule.type === "cron"
-          ? { ...routine.schedule }
-          : {
-              type: "weekly" as const,
-              time: routine.schedule.time,
-              weekdays: routine.schedule.weekdays.map((day) => ROUTINE_WEEKDAY_NAMES[day]),
-            },
-    nextRunAt: routine.nextRunAt === null ? null : new Date(routine.nextRunAt).toISOString(),
-    latestRun: latestRun
-      ? {
-          id: latestRun.id,
-          status: latestRun.status,
-          triggerSource: latestRun.triggerSource ?? (latestRun.manual ? "manual" : "schedule"),
-          scheduledFor: routineTimestamp(latestRun.scheduledFor),
-          startedAt: routineTimestamp(latestRun.startedAt),
-          finishedAt: routineTimestamp(latestRun.finishedAt),
-          attention: latestRun.attention ? redactSecretsInText(latestRun.attention).slice(0, 500) : null,
-          output: latestRun.output ? redactSecretsInText(latestRun.output).slice(0, 1_000) : null,
-          error: latestRun.error ? redactSecretsInText(latestRun.error).slice(0, 500) : null,
-          executionThreadId: latestRun.threadId ?? null,
-        }
-      : null,
-  };
-};
 function sendRoutineResolution(
   res: ServerResponse,
   result: ReturnType<RoutineRequestService["resolve"]>,
@@ -9455,8 +8613,6 @@ function resolveReplyTarget(threadId: string, value: unknown): Message | undefin
   }
   return target;
 }
-
-const CONNECTOR_SLUG = /^[a-z0-9][a-z0-9_-]{0,80}$/;
 const pendingConnectorResumes = new Map<
   string,
   { botId: string; threadId: string; resumeKey: string; labels: string[] }
@@ -9484,19 +8640,6 @@ function messageFileRootsForThread(senderId: string, threadId: string): string[]
     pinnedCwd,
     configuredCwd,
   });
-}
-
-async function attachmentVmForTurn(capability: InternalCapability): Promise<LocalVmTarget | undefined> {
-  const slot = autoVmClaims.get(capability.threadId);
-  if (!localVmThreadTargets.has(capability.threadId) &&
-      !(slot?.localVm && slot.owner.generation === capability.generation)) return undefined;
-  const gate = await computerCallGate(capability);
-  if (gate.held) throw Object.assign(new Error(gate.blockedReason ?? "The person has control of this computer. Wait for them to release it."), { status: 409 });
-  const vm = localVmThreadTargets.get(capability.threadId);
-  if (!vm || !internalCapabilityIsActive({ ...capability, localVmTarget: vm })) {
-    throw Object.assign(new Error("This turn no longer owns the Local VM."), { status: 409 });
-  }
-  return vm;
 }
 
 function connectorThread(botId: string, threadId: string) {
@@ -9533,25 +8676,6 @@ function proposalPersistence(botId: string, threadId: string, opensCard = true) 
     : { ok: true as const };
 }
 
-function skillProposalPersistence(botId: string, threadId: string, opensCard = true) {
-  if (!store.bot(botId)) {
-    return { ok: false as const, status: 403, error: "unknown sender" };
-  }
-  if (!connectorThread(botId, threadId)) {
-    return { ok: false as const, status: 403, error: "source conversation does not belong to sender" };
-  }
-  if (!opensCard || fullAccessForSource(botId, threadId)) return { ok: true as const };
-  const openRequests = store.activePath(threadId).filter(
-    (message) =>
-      message.card?.skillRequest?.botId === botId &&
-      !message.card.answered &&
-      !message.card.dismissed,
-  ).length;
-  return openRequests >= 8
-    ? { ok: false as const, status: 429, error: "confirm or cancel an existing learned-skill card first" }
-    : { ok: true as const };
-}
-
 /** Listing endpoints expose lifecycle metadata, never the staged instructions
  * themselves. The exact review copy lives only on the durable approval card. */
 function stagedSkillListing(staged: ReturnType<typeof listStagedSkillWrites>[number]) {
@@ -9581,77 +8705,6 @@ function stagedSkillCleanupsForThread(threadId: string): Array<{ botId: string; 
 
 function rejectDeletedThreadSkillStages(cleanups: Array<{ botId: string; stagedId: string }>): void {
   for (const cleanup of cleanups) rejectStagedSkillWrite(cleanup.botId, cleanup.stagedId);
-}
-
-function skillCardCopy(staged: { action: "create" | "update"; name: string; gist: string; warnings: string[] }): {
-  title: string;
-  subtitle: string;
-  tool: string;
-} {
-  const warnings = staged.warnings.length ? `\n\nWarnings:\n- ${staged.warnings.join("\n- ")}` : "";
-  return {
-    title: staged.action === "create"
-      ? `Enable skill "${staged.name}"?`
-      : `Update skill "${staged.name}"?`,
-    subtitle: `${staged.gist || staged.name}\n\nAdds one line to the prompt index; the body is read only when used.${warnings}`,
-    tool: "stage_skill",
-  };
-}
-
-function appendSkillRequestCard(args: {
-  botId: string;
-  threadId: string;
-  /** Applied without a person: a one-line receipt with Undo. */
-  applied?: boolean;
-  previous?: SkillRequestCardData["previous"];
-  staged: {
-    id: string;
-    action: "create" | "update";
-    name: string;
-    gist: string;
-    source: string;
-    files: Array<{ path: string; content: string }>;
-    sha256: string;
-    warnings: string[];
-  };
-}): { requestId: string; summary: string } {
-  const requestId = randomUUID();
-  const copy = skillCardCopy(args.staged);
-  const payload: SkillRequestCardData = {
-    version: 1,
-    requestId,
-    botId: args.botId,
-    threadId: args.threadId,
-    stagedId: args.staged.id,
-    action: args.staged.action,
-    name: args.staged.name,
-    gist: args.staged.gist,
-    source: args.staged.source,
-    preview: args.staged.files.find((file) => file.path === "SKILL.md")?.content ?? "",
-    sha256: args.staged.sha256,
-    warnings: args.staged.warnings,
-    createdAt: Date.now(),
-    ...(args.applied && args.previous ? { previous: args.previous } : {}),
-  };
-  const from = store.bot(args.botId);
-  store.appendMessage(args.threadId, {
-    role: "bot",
-    kind: "options",
-    from: from ? { botId: from.id, name: from.name, color: from.color } : undefined,
-    card: {
-      title: copy.title,
-      subtitle: copy.subtitle,
-      options: args.applied ? [] : [args.staged.action === "create" ? "Enable" : "Update", "Deny"],
-      ...(args.applied ? { answered: "allow", autoApplied: true, title: `Skill "${args.staged.name}" ${args.staged.action === "create" ? "enabled" : "updated"}` } : {}),
-      requestId,
-      tool: copy.tool,
-      skillRequest: payload,
-    },
-  });
-  return {
-    requestId,
-    summary: `${copy.title} ${args.staged.gist}`.trim(),
-  };
 }
 
 function resolveSkillRequest(args: {
@@ -9979,10 +9032,6 @@ type SecretResumeEntry = {
   outcome: "provided" | "dismissed";
 };
 const pendingSecretResumes = new Map<string, SecretResumeEntry>();
-
-function credentialDesktopHandoff(label: string): string {
-  return `Securely provide the ${label} from Colonie. It is never added to chat.`;
-}
 
 function secretMessage(botId: string, threadId: string, messageId: string): Message | null {
   const owner = connectorThread(botId, threadId);
@@ -10750,8 +9799,6 @@ ROUTES.push(createLiveRoutes({
     return liveSettingsFor(cfg);
   },
 }));
-
-const toolResults = new ToolResults();
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
   let url: URL;
   try {
@@ -11066,1993 +10113,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (path === "/api/internal/colonie-workspace-mcp") {
       return await colonieChief.handle(req, res, method === "POST" ? await readBody(req) : null);
-    }
-    // ── internal peer-agent comms (localhost + bot capability only) ───
-    // The agents-proxy (spawned inside a bot's agent process) calls these to
-    // discover peers and hand a message to one. Not part of the public API.
-    if (path.startsWith("/api/internal/")) {
-      const internalCapability = authorizedInternalCapability(req.headers.authorization);
-      if (!internalCapability) {
-        return json(res, 401, { error: "unauthorized" });
-      }
-      const internalSender = store.bot(internalCapability.botId);
-      if (!internalSender) {
-        return json(res, 401, { error: "unauthorized" });
-      }
-      if (internalCapability.generation === EXTERNAL_RUNTIME_GENERATION && !externalRuntimeMayCall(method, path)) {
-        return json(res, 403, { error: "an external runtime can only list, ask and delegate to its peers and read its delegations" });
-      }
-      const requiredCapabilityKind = path === "/api/internal/hook"
-        ? "hooks"
-        : path === "/api/internal/browser/mcp"
-        ? "browser"
-        : path.startsWith("/api/internal/connectors/")
-        ? "connectors"
-        : path === "/api/internal/computer-control" || path === "/api/internal/computer/mcp"
-          ? "computer"
-          : "agents";
-      if (internalCapability.kind !== requiredCapabilityKind) {
-        return json(res, 403, { error: "this internal capability cannot access that service" });
-      }
-      if (internalCapability.roomCoordination && method === "POST" && ["/api/internal/ask-bot", "/api/internal/delegate-bot"].includes(path)) {
-        return json(res, 409, { error: "Use coordinate_bots for teamwork; it queues actual teammates and resumes you automatically." });
-      }
-      // Query/body sender ids remain on the wire for proxy compatibility,
-      // but the opaque bearer is the authority. Refuse disagreement instead
-      // of letting a Full bot reuse its own token to impersonate a peer.
-      for (const key of ["self", "fromBotId", "botId"] as const) {
-        const claimed = url.searchParams.get(key);
-        if (claimed !== null && claimed !== internalSender.id) {
-          return json(res, 403, { error: "the internal capability belongs to a different bot" });
-        }
-      }
-      const claimedThread = url.searchParams.get("fromThreadId");
-      if (claimedThread !== null && claimedThread !== internalCapability.threadId) {
-        return json(res, 403, { error: "the internal capability belongs to a different conversation" });
-      }
-      const readInternalBody = async () => {
-        const body = await readBody(req);
-        // The body may arrive slowly. Authorization at header time is not a
-        // lease: if the owning turn settled while bytes were in flight, this
-        // request must die before it reaches any side effect.
-        if (!internalCapabilityIsActive(internalCapability)) {
-          throw Object.assign(new Error("the internal turn capability has expired"), { status: 401 });
-        }
-        if (body && typeof body === "object" && !Array.isArray(body)) {
-          for (const key of ["fromBotId", "botId"] as const) {
-            if (body[key] !== undefined && String(body[key]) !== internalSender.id) {
-              throw Object.assign(new Error("the internal capability belongs to a different bot"), { status: 403 });
-            }
-          }
-          for (const key of ["fromThreadId", "threadId"] as const) {
-            if (body[key] !== undefined && String(body[key]) !== internalCapability.threadId) {
-              throw Object.assign(new Error("the internal capability belongs to a different conversation"), { status: 403 });
-            }
-          }
-        }
-        return body;
-      };
-      const requireActiveInternalCapability = () => {
-        if (!internalCapabilityIsActive(internalCapability)) {
-          throw Object.assign(new Error("the internal turn capability has expired"), { status: 401 });
-        }
-      };
-      const delegatedThisTurn = (taskId: string) => {
-        (internalCapability.delegatedThisTurn ??= new Set()).add(taskId);
-      };
-      // Where an entry came from, as the person will read it in MEMORY.md:
-      // the room or the thread title, never a bare id unless nothing else
-      // names the conversation.
-      const memorySource = (): string => memorySourceLabel({
-        task: store.taskByThread(internalSender.id, internalCapability.threadId),
-        threadId: internalCapability.threadId,
-      });
-      // ── shared computers (lent between this person's own desktops) ────
-      // Off by default: both fall through to the same "unknown internal
-      // endpoint" 404 a never-implemented route returns.
-      // Owner-scoped: a turn sees and uses only the computers of the person it
-      // provably acts for (sharedComputerPrincipal), never anyone else's.
-      if (method === "GET" && path === "/api/internal/shared-computers" && lendingEnabled()) {
-        const principal = sharedComputerPrincipal(internalCapability);
-        return json(res, 200, { computers: sharedComputers.list(principal) });
-      }
-      if (method === "POST" && path === "/api/internal/shared-computers" && lendingEnabled()) {
-        const parsed = sharedComputerOperation.safeParse(await readInternalBody());
-        if (!lendingEnabled()) return json(res, 404, { error: "unknown internal endpoint" });
-        if (!parsed.success) return json(res, 400, { error: "Invalid shared computer operation" });
-        // The bot's own "no computer" setting holds on a lent screen too.
-        if (["computer_tools", "computer_call"].includes(parsed.data.action) && store.bot(internalCapability.botId)?.computer === "off") {
-          return json(res, 403, { error: "This bot has no computer. Change its Computer setting to use a shared computer's apps and screen." });
-        }
-        const principal = sharedComputerPrincipal(internalCapability);
-        return json(res, 200, { result: await sharedComputers.request(parsed.data, principal, () => lendingEnabled() && internalCapabilityIsActive(internalCapability)) });
-      }
-      if (path === "/api/internal/computer/select" && (method === "GET" || method === "POST")) {
-        const source = computerSelectionTurns.get(internalCapability.threadId);
-        const bot = store.projectBotForTask(internalSender.id, internalCapability.threadId);
-        const canSelect = Boolean(source && source.generation === internalCapability.generation && bot && bot.computer !== "off");
-        if (!bot) return json(res, 403, { error: "Computer selection belongs to a direct bot conversation." });
-        const requested = method === "POST" ? (await readInternalBody()).surface : undefined;
-        if (method === "POST" && !canSelect) return json(res, 403, { error: "Computer selection is only available once per direct user request, with computer access enabled." });
-        if (method === "POST" && requested !== "auto" && !parseSurface(requested)) {
-          return json(res, 400, { error: "surface must be auto, vm, local, or browser" });
-        }
-        const options = await selectableComputers(bot);
-        const current = source ? source.mounted ?? "off" : await computerPreviewSurface(bot, bot.threadId);
-        requireActiveInternalCapability();
-        if (method === "GET") return json(res, 200, { current, canSelect, options });
-        if (computerSelectionTurns.get(internalCapability.threadId) !== source) return json(res, 409, { error: "The user request ended before its computer was selected." });
-        // The computer this turn mounted is already selected, even before it
-        // is up when its first call starts it (the bot's cloud computer):
-        // switching to it would only restart the request.
-        const claim = autoVmClaims.get(internalCapability.threadId);
-        const startsOnFirstCall = claim?.owner.generation === internalCapability.generation && claim.startsComputer === true && !claim.failed;
-        const picked = pickComputer(options, requested, current, startsOnFirstCall);
-        const option = picked.option;
-        if (!option?.available) return json(res, 409, { error: option?.reason ?? "No configured computer or browser is available. Open the Computer panel to set one up.", options });
-        if (source!.selected) {
-          if (source!.selected !== option.surface) return json(res, 409, { error: "A computer switch is already pending. End this turn to continue there." });
-        } else {
-          if (picked.current) {
-            return json(res, 200, { status: "ready", surface: current, message: option.ready
-              ? "This computer is already selected. Use its mounted tools."
-              : "This computer is already selected. It starts on its first call; use its mounted tools." });
-          }
-          source!.selected = option.surface;
-          source!.previousSurface = store.taskByThread(bot.id, bot.threadId)?.surface;
-        }
-        return json(res, 200, { status: "pending", surface: option.surface,
-          message: `End this turn now without using the previous computer tools. Colonie will continue the original request on ${option.label} with a fresh tool connection.` });
-      }
-      if (method === "POST" && path === "/api/internal/hook") {
-        const body = await readInternalBody();
-        return json(res, 200, ingestEngineHook(internalCapability, body));
-      }
-      if (method === "POST" && path === "/api/internal/tool-result") {
-        const body = await readInternalBody();
-        if (!body || typeof body.text !== "string" || !body.text || body.text.length > TOOL_RESULT_MAX_CHARS ||
-          (body.truncated !== undefined && typeof body.truncated !== "boolean")) {
-          return json(res, 400, { error: "Expected bounded text and an optional truncated boolean." });
-        }
-        return json(res, 201, toolResults.save(internalCapability, body.text, body.truncated));
-      }
-      if (method === "GET" && path === "/api/internal/tool-result") {
-        const id = url.searchParams.get("id") ?? "";
-        const offset = Number(url.searchParams.get("offset") ?? "0");
-        if (!/^r-[0-9a-f-]{36}$/.test(id) || !Number.isSafeInteger(offset) || offset < 0) {
-          return json(res, 400, { error: "Expected a saved result id and a non-negative integer offset." });
-        }
-        const result = toolResults.read(internalCapability, id, offset);
-        return result ? json(res, 200, result) : json(res, 404, { error: "Saved result unavailable in this bot's conversation, expired, or offset out of range. Do not repeat an action to retrieve its output." });
-      }
-      if (method === "POST" && path === "/api/internal/options-card") {
-        if (!connectorThread(internalSender.id, internalCapability.threadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const body = await readInternalBody();
-        requireActiveInternalCapability();
-        const result = createOptionsCard({
-          store,
-          bot: internalSender,
-          threadId: internalCapability.threadId,
-          input: body,
-        });
-        return result.ok
-          ? json(res, 201, { messageId: result.messageId })
-          : json(res, result.status, { error: result.error });
-      }
-      if ((path === "/api/internal/memory" || path === "/api/internal/memory/log") && method === "POST" && internalSender.memoryEnabled === false) {
-        return json(res, 403, { error: "Memory is disabled for this bot." });
-      }
-      // A resolved loopback request is the owner's own shell on this Mac:
-      // the write is theirs.
-      if (method === "POST" && path === "/api/internal/memory") {
-        const body = await readInternalBody();
-        const result = updateMemory(internalSender.id, { action: body.action, text: body.text, oldText: body.oldText, ...(body.until !== undefined ? { until: body.until } : {}) }, { source: memorySource() });
-        return json(res, result.ok ? 200 : result.code === "conflict" ? 409 : 400, result);
-      }
-      if (method === "POST" && path === "/api/internal/memory/log") {
-        const body = await readInternalBody();
-        const result = appendMemoryLog(internalSender.id, body.text, { source: memorySource() });
-        return json(res, result.ok ? 200 : 400, result);
-      }
-      if (method === "POST" && path === "/api/internal/browser/mcp") {
-        const body = await readInternalBody();
-        const bot = store.bot(internalCapability.botId);
-        if (!bot || bot.browser === false || bot.computer === "off" || !builtInBrowserEnabled(cfg)) {
-          return json(res, 403, { error: "browser tools are not enabled for this bot" });
-        }
-        const browser = await browserIntegration(bot.id, bot.browserProfile);
-        if (!browser || browser.session !== internalCapability.browserSession) {
-          return json(res, 409, { error: "this browser profile changed; start a new turn" });
-        }
-        if (body?.method !== "tools/list" && body?.method !== "tools/call") {
-          return json(res, 400, { error: "unsupported browser method" });
-        }
-        const result = await browserRuntime.agentRpc(browser.session, browser.spec, body.method, body.params, () => {
-          requireActiveInternalCapability();
-          const current = store.bot(bot.id);
-          if (!current || current.browser === false || current.computer === "off" || !builtInBrowserEnabled(cfg) ||
-              currentBrowserSession(current.id, current.browserProfile) !== browser.session) {
-            throw Object.assign(new Error("Browser access changed while connecting."), { status: 409 });
-          }
-          if (body.method === "tools/call" && !claimTurnResource(internalCapability, `browser:${browser.session}`)) {
-            throw Object.assign(new Error("another thread is using this browser — pause browser work until that thread finishes"), { status: 409 });
-          }
-        });
-        requireActiveInternalCapability();
-        return json(res, 200, { result });
-      }
-      // Off by default: both fall through to the same "unknown internal
-      // endpoint" 404 a never-implemented route returns.
-      if (method === "GET" && path === "/api/internal/agents") {
-        const sender = internalSender;
-        // title/description included so the caller can judge the team (who
-        // does what, who has no job description yet). Every bot reads this
-        // now, not just the Chief, so it answers the same reachability
-        // question the roster does — same peers, same order.
-        const bots = reachablePeers(store.bots, sender)
-          .map((b) => {
-            const status = peerStatus(b.activity, b.busy);
-            return {
-              id: b.id,
-              name: b.name,
-              section: b.section?.trim() || "",
-              model: b.modelSelection.model,
-              busy: !!b.busy,
-              status,
-              statusText: peerStatusWords(status),
-              title: b.title || undefined,
-              description: b.description || undefined,
-            };
-          });
-        return json(res, 200, { bots });
-      }
-      // list_threads: the caller's own threads, plus — on every peer it can
-      // reach — only the threads the caller itself opened. A peer's other
-      // threads are its own business (and the person's), so the scope is
-      // "what you started", never "what that bot is doing". State is read
-      // the way the sidebar reads it, so the bot and the person agree.
-      if (method === "GET" && path === "/api/internal/threads") {
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const rows: Array<{
-          threadId: string; botId: string; botName: string; title: string;
-          state: "running" | "waiting-on-you" | "queued" | "idle" | "closed";
-          unread: boolean; openedAt: number; delegationId?: string; own: boolean;
-        }> = [];
-        const stateOf = (bot: BotRecord, task: TaskRecord) => {
-          if (task.activity === "waiting-on-you") return "waiting-on-you" as const;
-          if (threadBusy(bot.id, task.threadId)) return "running" as const;
-          if (queuedThreadPosition(bot.id, task.threadId) !== null) return "queued" as const;
-          if (task.closedBy) return "closed" as const;
-          return "idle" as const;
-        };
-        for (const task of store.tasks(from.id)) {
-          rows.push({
-            threadId: task.threadId, botId: from.id, botName: from.name, title: task.title,
-            state: stateOf(from, task), unread: task.unread === true, openedAt: task.openedBy?.at ?? task.createdAt,
-            delegationId: task.openedBy?.delegationId, own: true,
-          });
-        }
-        for (const peer of reachablePeers(store.bots, from)) {
-          for (const task of store.tasks(peer.id)) {
-            if (task.openedBy?.botId !== from.id) continue;
-            rows.push({
-              threadId: task.threadId, botId: peer.id, botName: peer.name, title: task.title,
-              state: stateOf(peer, task), unread: task.unread === true, openedAt: task.openedBy.at,
-              delegationId: task.openedBy.delegationId, own: false,
-            });
-          }
-        }
-        rows.sort((a, b) => b.openedAt - a.openedAt);
-        return json(res, 200, { threads: rows.slice(0, 100) });
-      }
-      // close_thread: a bot tidies a thread it opened (or one of its own)
-      // once its result has been read. Closing is the sidebar's idle state
-      // plus a chip saying who closed it — never a deletion, which stays a
-      // person's confirmed action, and never while the thread is running.
-      const closeMatch = method === "POST" ? path.match(/^\/api\/internal\/threads\/([\w-]+)\/close$/) : null;
-      if (closeMatch) {
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const threadId = closeMatch[1]!;
-        const owner = [from, ...reachablePeers(store.bots, from)].find((bot) => store.taskByThread(bot.id, threadId));
-        const task = owner ? store.taskByThread(owner.id, threadId) : undefined;
-        if (!owner || !task) return json(res, 404, { error: "no such thread — call list_threads for the ones you can see" });
-        if (owner.id !== from.id && task.openedBy?.botId !== from.id) {
-          return json(res, 403, { error: "that thread is not yours to close — only the bot that opened it, or its own bot, can" });
-        }
-        if (threadId === fromThreadId) return json(res, 400, { error: "you cannot close the thread you are speaking in — finish your turn instead" });
-        if (threadBusy(owner.id, threadId) || queuedThreadPosition(owner.id, threadId) !== null) {
-          return json(res, 409, { error: `#${task.title} is still running — wait for it to finish (list_threads), or the person can stop it from the app` });
-        }
-        // Closing twice is not an error and leaves no second chip: the
-        // thread is already folded away, so there is nothing more to do.
-        if (task.closedBy) {
-          return json(res, 200, { closed: true, alreadyClosed: true, threadId, title: task.title, botName: owner.name, closedBy: task.closedBy.name });
-        }
-        store.appendMessage(threadId, {
-          role: "bot",
-          kind: "activity",
-          from: { botId: from.id, name: from.name, color: from.color },
-          tool: { name: `Closed by @${from.name}`, ok: true },
-        });
-        if (task.unread) store.patchTask(owner.id, threadId, { unread: false });
-        // The stamp is what the sidebar folds on and what list_threads
-        // reports; the chip above is only the transcript's record of it.
-        store.setTaskClosedBy(owner.id, threadId, { botId: from.id, name: from.name, at: Date.now() });
-        return json(res, 200, { closed: true, threadId, title: task.title, botName: owner.name });
-      }
-      if (method === "POST" && path === "/api/internal/attach-file") {
-        const from = internalSender;
-        const threadId = internalCapability.threadId;
-        const source = connectorThread(from.id, threadId);
-        if (!source) return json(res, 403, { error: "source conversation does not belong to sender" });
-        const body = await readInternalBody();
-        const requestedPath = typeof body.path === "string" ? body.path : "";
-        const requestedName = typeof body.name === "string" ? body.name : undefined;
-        try {
-          const vm = await attachmentVmForTurn(internalCapability);
-          const outcome = await attachForTurn(internalCapability, MAX_ATTACHED_FILES_PER_TURN, {
-            save: () => {
-              // The agents capability carries no VM; the thread's claimed desktop does.
-              return saveBotAttachment({
-                path: requestedPath,
-                name: requestedName,
-                // The attachment store is not a source: only the bot's own files are.
-                roots: messageFileRootsForThread(from.id, threadId).filter((root) => root !== ATTACHMENTS_DIR),
-                ...(vm ? { guest: { root: VM_WORKSPACE_GUEST, host: vm.workspaceDir } } : {}),
-              });
-            },
-            // The copy is awaited: the turn may have been stopped, replaced or
-            // deleted, or the bot removed from the room, before it finished.
-            stillLive: () => internalCapabilityIsActive({ ...internalCapability, ...(vm ? { localVmTarget: vm } : {}) }) &&
-              connectorThread(from.id, threadId) !== null,
-            publish: (saved) => {
-              store.appendMessage(threadId, {
-                role: "bot",
-                kind: "text",
-                text: "",
-                attachments: [saved.attachment],
-              });
-            },
-            // Each save gets its own stored file, so an unpublished one is ours to remove.
-            discard: (saved) => deleteAttachment(saved.attachment.path),
-          });
-          if (outcome.status === "limit") {
-            return json(res, 429, { error: `You already attached ${MAX_ATTACHED_FILES_PER_TURN} files this turn. Put the rest in one document or archive summary instead.` });
-          }
-          if (outcome.status === "ended") {
-            return json(res, 409, { error: "This turn ended before the file could be attached, so nothing was posted." });
-          }
-          const { saved } = outcome;
-          const label = saved.attachment.kind === "file"
-            ? saved.attachment.name
-            : (requestedName?.trim() || requestedPath.split(/[\\/]/).at(-1) || "image");
-          return json(res, 200, { ok: true, name: label, bytes: saved.bytes });
-        } catch (error) {
-          const status = typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 500;
-          const message = status === 404
-            ? `No file was found at ${requestedPath}. Save it under /home/cua/workspace (or your working folder) and pass its exact path.`
-            : error instanceof Error ? error.message : "could not attach that file";
-          return json(res, status, { error: message });
-        }
-      }
-      if (method === "POST" && path === "/api/internal/vm-exec") {
-        const threadId = internalCapability.threadId;
-        if (!connectorThread(internalSender.id, threadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const body = await readInternalBody();
-        // Only the desktop this thread has claimed for the running turn; a bot
-        // without one has nothing to run a command in.
-        try {
-          const vm = await attachmentVmForTurn(internalCapability);
-          if (!vm) return json(res, 409, { error: "You have no Local VM desktop in this turn, so there is nowhere to run a command." });
-          const runtime = (await containerRuntimeStatus()).runtime;
-          requireActiveInternalCapability();
-          if (!runtime || !internalCapabilityIsActive({ ...internalCapability, localVmTarget: vm }) ||
-              botComputerControlSnapshot(internalSender.id).held) {
-            return json(res, 409, { error: "The Local VM is no longer available to this turn." });
-          }
-          const result = await containerExec(vm, typeof body.command === "string" ? body.command : "", {
-            runtime,
-            timeoutSeconds: typeof body.timeout_seconds === "number" ? body.timeout_seconds : undefined,
-          });
-          localVmIdleFor(vm).touch();
-          return json(res, 200, result);
-        } catch (error) {
-          const status = typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 500;
-          return json(res, status, { error: error instanceof Error ? error.message : "could not run the command" });
-        }
-      }
-      if (method === "GET" && path === "/api/internal/routines") {
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const latestRuns = new Map<string, RoutineRun>();
-        // listRuns is newest-first. Keep the first receipt per definition so
-        // the agent can answer "did it run?" from scheduler truth rather
-        // than guessing from conversation history.
-        for (const run of routines!.listRuns()) {
-          if (run.botId === from.id && !latestRuns.has(run.routineId)) latestRuns.set(run.routineId, run);
-        }
-        return json(res, 200, {
-          now: new Date().toISOString(),
-          timeZone: routineTimeZone(),
-          routines: routines!.listRoutines()
-            .filter((routine) => routine.botId === from.id)
-            .slice(0, 100)
-            .map((routine) => agentRoutine(routine, latestRuns.get(routine.id))),
-        });
-      }
-      if (method === "POST" && path === "/api/internal/routine-requests") {
-        const parsed = routineRequestEnvelopeSchema.safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "invalid routine proposal" });
-        const body = parsed.data;
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        const owner = connectorThread(from.id, fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        // "Make a routine for @B" / "pause @B's routine": resolve the target
-        // up front so the model gets a teaching error now, not a mis-bound
-        // routine later. Omitted (or the sender's own id) keeps the
-        // own-routine path unchanged.
-        let forBot: { botId: string; name: string } | undefined;
-        if (body.forBotId !== undefined) {
-          const parsedForBotId = z.string().max(128).safeParse(body.forBotId);
-          const forBotId = parsedForBotId.success ? parsedForBotId.data.trim() : "";
-          if (!forBotId) {
-            return json(res, 400, { error: 'for_bot_id must be a bot id from list_bots, e.g. { "for_bot_id": "bot-abc123" }' });
-          }
-          if (forBotId !== from.id) {
-            const target = store.bot(forBotId);
-            if (!target) {
-              return json(res, 404, { error: "no bot with that id — call list_bots and copy the exact id from the result" });
-            }
-            if (!canReachPeer(from, target)) {
-              return json(res, 403, { error: `that bot belongs to a different section or is unavailable. ${PEER_ACCESS_HELP}` });
-            }
-            forBot = { botId: target.id, name: target.name };
-          }
-        }
-        // Sender and conversation only: the service checks the open-card
-        // budget once it knows whether this change opens a card at all.
-        const persistence = proposalPersistence(from.id, fromThreadId, false);
-        if (!persistence.ok) {
-          return json(res, persistence.status, { error: persistence.error });
-        }
-        const proposedInput = body.action === "create"
-          ? { action: body.action, routine: body.routine, forBot }
-          : body.action === "update"
-            ? { action: body.action, routineId: body.routineId, changes: body.changes, forBot }
-            : { action: body.action, routineId: body.routineId, forBot };
-        const proposed = await routineRequests.submit({
-          botId: from.id,
-          threadId: fromThreadId,
-          proposal: proposedInput,
-          canCommit: () => internalCapabilityIsActive(internalCapability),
-        });
-        const proposedCard = store.messagesFor(fromThreadId).find((message) => message.id === proposed.messageId)?.card;
-        appendDecision(DATA_DIR, {
-          threadId: fromThreadId,
-          requestId: proposed.requestId,
-          botId: from.id,
-          botName: from.name,
-          tool: proposedCard?.tool,
-          // Audit what the human was actually shown, not the shorter tool
-          // response returned to the model.
-          summary: proposedCard?.subtitle ?? proposed.summary,
-          decision: proposed.state === "applied" ? "auto-approved" : "card-shown",
-          source: proposed.state === "applied" ? proposed.appliedBy ?? "full-access" : "routine",
-        });
-        return json(res, 201, proposed);
-      }
-      if (method === "POST" && path === "/api/internal/team-memory") {
-        const parsed = z.object({
-          fromBotId: z.string().min(1).max(128),
-          fromThreadId: z.string().min(1).max(128),
-          kind: z.string(),
-          name: z.string(),
-          detail: z.string(),
-          aliases: z.array(z.string()).optional(),
-        }).strict().safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "invalid team memory proposal" });
-        const body = parsed.data;
-        const from = store.bot(body.fromBotId);
-        if (!from) return json(res, 403, { error: "unknown sender" });
-        const owner = connectorThread(from.id, body.fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        if (!sameAudience(from.visibility, undefined)) {
-          return json(res, 403, { error: "restricted conversations cannot publish section-wide memory; ask an admin to add it" });
-        }
-        if (!(TEAM_MEMORY_KINDS as readonly string[]).includes(body.kind)) {
-          return json(res, 400, { error: `kind must be one of ${TEAM_MEMORY_KINDS.join(", ")}` });
-        }
-        let proposed: ReturnType<TeamMemory["propose"]>;
-        try {
-          proposed = teamMemory.propose(
-            from.section,
-            { kind: body.kind as TeamMemoryKind, name: body.name, detail: body.detail, aliases: body.aliases },
-            { botId: from.id, botName: from.name, threadId: body.fromThreadId, at: Date.now() },
-          );
-        } catch (error) {
-          return json(res, 400, { error: error instanceof Error ? error.message : String(error) });
-        }
-        const summary = `${proposed.entry.kind[0].toUpperCase()}${proposed.entry.kind.slice(1)}: ${proposed.entry.name}${proposed.entry.aliases.length ? ` (also ${proposed.entry.aliases.join(", ")})` : ""} — ${proposed.entry.detail}`;
-        const section = sectionContextKey(from.section);
-        const card = store.appendMessage(body.fromThreadId, {
-          role: "bot",
-          kind: "options",
-          card: {
-            title: "Remember this for the team?",
-            subtitle: summary,
-            options: ["Remember", "Skip"],
-            requestId: proposed.entry.id,
-            tool: "propose_team_memory",
-            teamMemoryRequest: { section, entryId: proposed.entry.id, kind: proposed.entry.kind },
-          },
-        });
-        appendDecision(DATA_DIR, {
-          threadId: body.fromThreadId, requestId: proposed.entry.id, botId: from.id, botName: from.name,
-          tool: "propose_team_memory", summary, decision: "card-shown", source: "team-memory",
-        });
-        return json(res, 201, { status: "proposed", requestId: proposed.entry.id, messageId: card.id, summary });
-      }
-      if (method === "POST" && path === "/api/internal/profile-requests") {
-        const parsed = z.object({
-          fromBotId: z.string().min(1).max(128),
-          fromThreadId: z.string().min(1).max(128),
-          forBotId: z.string().max(128).optional(),
-          changes: z.unknown(),
-          reason: z.unknown(),
-        }).strict().safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "invalid profile proposal" });
-        const body = parsed.data;
-        const from = store.bot(body.fromBotId);
-        if (!from) return json(res, 403, { error: "unknown sender" });
-        const owner = connectorThread(from.id, body.fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        const targetBotId = body.forBotId?.trim() || from.id;
-        const proposed = profileRequests.submit({
-          botId: from.id,
-          threadId: body.fromThreadId,
-          targetBotId,
-          changes: body.changes,
-          reason: body.reason,
-        });
-        appendDecision(DATA_DIR, {
-          threadId: body.fromThreadId, requestId: proposed.requestId, botId: from.id, botName: from.name,
-          tool: "update_profile", summary: proposed.detail, decision: proposed.state === "applied" ? "auto-approved" : "card-shown",
-          source: proposed.state === "applied" ? proposed.appliedBy ?? "full-access" : "profile",
-        });
-        return json(res, 201, proposed);
-      }
-      if (method === "POST" && path === "/api/internal/model-requests") {
-        const parsed = z.object({
-          fromBotId: z.string().min(1).max(128),
-          fromThreadId: z.string().min(1).max(128),
-          forBotId: z.string().max(128).optional(),
-          modelSelection: z.unknown(),
-          reason: z.unknown(),
-        }).strict().safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "invalid model proposal" });
-        const body = parsed.data;
-        const from = store.bot(body.fromBotId);
-        if (!from) return json(res, 403, { error: "unknown sender" });
-        const owner = connectorThread(from.id, body.fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        const proposed = modelRequests.submit({
-          botId: from.id,
-          threadId: body.fromThreadId,
-          targetBotId: body.forBotId?.trim() || from.id,
-          selection: body.modelSelection,
-          reason: body.reason,
-        });
-        appendDecision(DATA_DIR, {
-          threadId: body.fromThreadId, requestId: proposed.requestId, botId: from.id, botName: from.name,
-          tool: "update_model", summary: proposed.detail, decision: proposed.state === "applied" ? "auto-approved" : "card-shown",
-          source: proposed.state === "applied" ? proposed.appliedBy ?? "full-access" : "model",
-        });
-        return json(res, 201, proposed);
-      }
-      if (method === "GET" && path === "/api/internal/team-setup-catalog") {
-        let chief = store.bot(internalCapability.botId)!;
-        if (!chief.chiefOfStaff || chief.hidden) return json(res, 403, { error: "Only an active Chief may plan team setup" });
-        const instances = await registry.describe();
-        requireActiveInternalCapability();
-        chief = store.bot(internalCapability.botId)!;
-        if (!chief.chiefOfStaff || chief.hidden) return json(res, 403, { error: "Only an active Chief may plan team setup" });
-        return json(res, 200, {
-          teams: teamSetupTeams().filter((name) => canAccessTeam(chief, name)),
-          bots: store.bots.filter((bot) => !bot.hidden && canAccessTeam(chief, bot.section) && (bot.id === chief.id || peerAllowed(chief, bot)))
-            .map((bot) => ({ id: bot.id, name: bot.name, title: bot.title, section: bot.section ?? "", modelSelection: bot.modelSelection, chiefOfStaff: Boolean(bot.chiefOfStaff) })),
-          instances: instances.map((instance) => ({ instanceId: instance.instanceId, driverKind: instance.driverKind, displayName: instance.displayName,
-            state: instance.snapshot.state, models: instance.models, effortLevels: instance.capabilities?.effortLevels ?? [] })),
-          scope: "Bot model defaults apply to groups and new threads; existing threads retain their models. Full Access applies requested team setup immediately; other modes return a review card. Existing unauthorized teams remain outside this Chief's scope.",
-        });
-      }
-      if (method === "POST" && path === "/api/internal/team-setup-requests") {
-        const parsed = z.object({ fromBotId: z.string().optional(), fromThreadId: z.string().optional(), plan: z.unknown() }).strict().safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "Invalid team setup request" });
-        const chief = store.bot(internalCapability.botId)!;
-        const owner = connectorThread(chief.id, internalCapability.threadId);
-        if (!owner) return json(res, 403, { error: "Source conversation no longer belongs to the Chief" });
-        const proposed = await teamSetupRequests.submit({ botId: chief.id, threadId: internalCapability.threadId, plan: parsed.data.plan,
-          canCommit: () => internalCapabilityIsActive(internalCapability) });
-        if (proposed.state === "applied" || proposed.state === "pending") appendDecision(DATA_DIR, { threadId: internalCapability.threadId, requestId: proposed.requestId, botId: chief.id,
-          tool: "set_up_team", summary: proposed.detail, decision: proposed.state === "applied" ? "auto-approved" : "card-shown",
-          source: proposed.state === "pending" ? "profile" : "full-access" });
-        return json(res, 201, proposed);
-      }
-      if (method === "POST" && path === "/api/internal/bot-deletion-requests") {
-        const parsed = z.object({ fromBotId: z.string().optional(), fromThreadId: z.string().optional(), targetBotId: z.string().min(1), reason: z.string().trim().min(1).max(500) }).strict().safeParse(await readInternalBody());
-        if (!parsed.success) return json(res, 400, { error: "An exact bot id and deletion reason are required" });
-        const chief = store.bot(internalCapability.botId)!;
-        const owner = connectorThread(chief.id, internalCapability.threadId);
-        if (!owner) return json(res, 403, { error: "Source conversation no longer belongs to the Chief" });
-        const proposed = await teamSetupRequests.submitDeletion({ botId: chief.id, threadId: internalCapability.threadId, targetBotId: parsed.data.targetBotId, reason: parsed.data.reason,
-          canCommit: () => internalCapabilityIsActive(internalCapability) });
-        if (proposed.state === "applied" || proposed.state === "pending") appendDecision(DATA_DIR, { threadId: internalCapability.threadId, requestId: proposed.requestId, botId: chief.id,
-          tool: "delete_bot", summary: proposed.detail, decision: proposed.state === "applied" ? "auto-approved" : "card-shown",
-          source: proposed.state === "pending" ? "profile" : "full-access" });
-        return json(res, 201, proposed);
-      }
-      // session_search: ranked recall over the calling bot's OWN threads,
-      // every task included. Own-bot only, on purpose — a bot's transcripts
-      // are its notebook the same way MEMORY.md is (section-context.ts draws
-      // that line), and search across bots would be an isolation change.
-      if (method === "GET" && path === "/api/internal/session-search") {
-        const fromBotId = String(url.searchParams.get("fromBotId") ?? "");
-        const from = store.bot(fromBotId);
-        if (!from) return json(res, 403, { error: "unknown sender" });
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const q = String(url.searchParams.get("q") ?? "").trim();
-        // A recall by time needs no words: "what happened since yesterday"
-        // is the standup question, and it has no keyword.
-        const now = Date.now();
-        const sinceRaw = url.searchParams.get("since");
-        const untilRaw = url.searchParams.get("until");
-        const since = sinceRaw ? parseSince(sinceRaw, now) : null;
-        const until = untilRaw ? parseUntil(untilRaw, now) : null;
-        if (sinceRaw && since === null) return json(res, 400, { error: "since must be a date, or a span like 24h, 3d, today, yesterday" });
-        if (untilRaw && until === null) return json(res, 400, { error: "until must be a date, or a span like 24h, 3d, today, yesterday" });
-        if (!q && since === null) return json(res, 400, { error: "q or since is required" });
-        const range = since !== null || until !== null
-          ? { ...(since !== null ? { since } : {}), ...(until !== null ? { until } : {}) }
-          : undefined;
-        const rawLimit = Number(url.searchParams.get("limit"));
-        const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.trunc(rawLimit), 25) : 12;
-        // Memory files ride along by default: the bot's own notes are as
-        // much its notebook as its transcripts, and scoped the same way —
-        // the caller's own bot, never another's. A recall by time alone
-        // has no words to match a file with.
-        const scope = url.searchParams.get("scope") ?? "all";
-        if (scope !== "all" && scope !== "conversations" && scope !== "memory") {
-          return json(res, 400, { error: "scope must be all, conversations, or memory" });
-        }
-        const memoryHits = scope === "conversations" || !q || from.memoryEnabled === false ? [] : searchMemoryFiles(from.id, q, limit);
-        if (scope === "memory") return json(res, 200, { hits: [], memoryHits });
-        // Own threads: the bot's main chat and tasks — conversations it
-        // already saw in full. Another bot's threads never enter this list.
-        const ownThreads = [...new Set([from.threadId, ...(from.tasks ?? []).map((task) => task.threadId)])];
-        // A recall is never a disclosure: the source is the bot's own
-        // conversation, and the user already owns every thread it can reach.
-        // `crossed` stays false for callers that still read it.
-        const found = q ? recallMessages(q, ownThreads, limit, range) : recentMessages(ownThreads, range ?? {}, limit);
-        const hits = found.map((hit) => ({
-          ...hit,
-          task: store.taskByThread(from.id, hit.threadId)?.title,
-          current: hit.threadId === fromThreadId,
-          crossed: false,
-        }));
-        return json(res, 200, { hits, memoryHits });
-      }
-      // session_read: the whole message behind a session_search hit. Same
-      // own-bot scope — a message id from another bot's thread reads as
-      // missing, not as forbidden, so the id space leaks nothing.
-      if (method === "GET" && path === "/api/internal/session-read") {
-        const fromBotId = String(url.searchParams.get("fromBotId") ?? "");
-        const from = store.bot(fromBotId);
-        if (!from) return json(res, 403, { error: "unknown sender" });
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        const threadId = String(url.searchParams.get("threadId") ?? "").trim();
-        const messageId = String(url.searchParams.get("messageId") ?? "").trim();
-        if (!threadId || !messageId) return json(res, 400, { error: "threadId and messageId are required" });
-        const own = threadId === from.threadId || Boolean(store.taskByThread(from.id, threadId));
-        const message = own ? readMessageText(threadId, messageId) : null;
-        if (!message) return json(res, 404, { error: "no such message in your conversations" });
-        return json(res, 200, {
-          ...message,
-          crossed: false,
-          text: message.text.length > SESSION_READ_MAX_CHARS ? `${message.text.slice(0, SESSION_READ_MAX_CHARS)}…` : message.text,
-          task: store.taskByThread(from.id, threadId)?.title,
-        });
-      }
-      if (method === "GET" && path === "/api/internal/skills") {
-        if (!skillAuthoringEnabled(cfg)) return json(res, 403, { error: "skill authoring is not enabled in Settings" });
-        if (!internalCapability.skillAuthoring) {
-          return json(res, 403, { error: "skill authoring is not enabled for this turn" });
-        }
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        return json(res, 200, {
-          skills: listBotSkills(from),
-          staged: listStagedSkillWrites(from.id).map(stagedSkillListing),
-        });
-      }
-      if (method === "POST" && path === "/api/internal/skills/stage") {
-        if (!skillAuthoringEnabled(cfg)) return json(res, 403, { error: "skill authoring is not enabled in Settings" });
-        if (!internalCapability.skillAuthoring) {
-          return json(res, 403, { error: "skill authoring is not enabled for this turn" });
-        }
-        const body = await readInternalBody();
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        // Skills written here are always the sender's own, so they apply at
-        // any level, with a one-line receipt and Undo (appliesDirectly).
-        const direct = appliesDirectly(from.id, fromThreadId, from.id);
-        const persistence = skillProposalPersistence(from.id, fromThreadId, !direct);
-        if (!persistence.ok) return json(res, persistence.status, { error: persistence.error });
-        const action = body.action === "create" || body.action === "update" ? body.action : "";
-        if (!action) return json(res, 400, { error: 'action must be "create" or "update"' });
-        const skillMd = typeof body.skill_md === "string" ? body.skill_md : "";
-        if (!skillMd.trim()) {
-          return json(res, 400, { error: 'skill_manage needs skill_md: the full SKILL.md including YAML frontmatter, for example ---\\nname: file-expense\\ndescription: Files an expense in the company portal.\\n---\\n\\n# File expense\\n' });
-        }
-        const source = typeof body.source === "string" ? body.source.trim() : "";
-        if (!source) return json(res, 400, { error: 'source must be a URL, folder, or "conversation"' });
-        const targetName = typeof body.skill_name === "string" ? body.skill_name.trim() : "";
-        if (action === "update" && !targetName) {
-          return json(res, 400, { error: "skill_name is required when action is update" });
-        }
-        const staged = stageSkillWrite(from.id, {
-          action,
-          targetName: targetName || undefined,
-          files: [{ path: "SKILL.md", content: skillMd }],
-          gist: typeof body.gist === "string" ? body.gist : undefined,
-          source: learnSource(source),
-        });
-        if ("error" in staged) return json(res, 422, { error: staged.error });
-        if (direct) {
-          // What an update replaces, so Undo can put it back.
-          const previousSkillMd = staged.action === "update" ? readSkillFile(from.id, staged.name) : null;
-          const previousSource = listSkills(from.id).find((skill) => skill.name === staged.name)?.source;
-          const previous = previousSkillMd !== null && previousSource ? { preview: previousSkillMd, source: previousSource } : undefined;
-          const applied = applySkillWriteWithReceipt(from.id, staged, () => {
-            const receipt = appendSkillRequestCard({ botId: from.id, threadId: fromThreadId, staged, applied: true, previous });
-            appendDecision(DATA_DIR, { threadId: fromThreadId, requestId: receipt.requestId, botId: from.id, botName: from.name,
-              tool: "stage_skill", summary: receipt.summary, decision: "auto-approved", source: direct });
-          });
-          if ("error" in applied) {
-            rejectStagedSkillWrite(from.id, staged.id);
-            return json(res, 422, { state: "failed", error: applied.error });
-          }
-          return json(res, 201, { state: "applied", stagedId: staged.id, name: staged.name, action: staged.action,
-            gist: staged.gist, warnings: staged.warnings, ...applied, summary: `Skill ${staged.name} ${staged.action === "create" ? "enabled" : "updated"}.` });
-        }
-        let card: ReturnType<typeof appendSkillRequestCard>;
-        try {
-          card = appendSkillRequestCard({ botId: from.id, threadId: fromThreadId, staged });
-        } catch (error) {
-          rejectStagedSkillWrite(from.id, staged.id);
-          throw error;
-        }
-        appendDecision(DATA_DIR, {
-          threadId: fromThreadId,
-          requestId: card.requestId,
-          botId: from.id,
-          botName: from.name,
-          tool: "stage_skill",
-          summary: card.summary,
-          decision: "card-shown",
-          source: "skill",
-        });
-        return json(res, 201, {
-          state: "pending",
-          stagedId: staged.id,
-          name: staged.name,
-          action: staged.action,
-          gist: staged.gist,
-          warnings: staged.warnings,
-          summary: card.summary,
-        });
-      }
-      if (method === "POST" && path === "/api/internal/ask-bot") {
-        const body = await readInternalBody();
-        const fromBotId = internalSender.id;
-        const toBotRef = String(body.toBotId ?? "");
-        const message = String(body.message ?? "").trim();
-        if (
-          body.depth !== undefined &&
-          (!Number.isInteger(body.depth) || body.depth < 0 || body.depth !== internalCapability.depth)
-        ) {
-          return json(res, 403, { error: "the recursion depth does not match this turn" });
-        }
-        const depth = internalCapability.depth;
-        if (!toBotRef || !message) return json(res, 400, { error: "toBotId and message required" });
-        if (toBotRef === fromBotId) return json(res, 400, { error: "a bot cannot message itself" });
-        if (depth >= MAX_COMMS_DEPTH) return json(res, 200, { error: "message chains are limited to one hop", receipt: peerDeliveryReceipt({
-          botId: toBotRef, outcome: "failed", detail: "message chains are limited to one hop — the message was not sent",
-        }) });
-        // A unique reachable teammate name is accepted where an id is
-        // expected; see resolveTeammate for why.
-        const resolvedTo = resolveTeammate(store.bots, internalSender, toBotRef);
-        if ("error" in resolvedTo) return json(res, 404, { error: `no such bot: ${resolvedTo.error}` });
-        if (resolvedTo.id === fromBotId) return json(res, 400, { error: "a bot cannot message itself" });
-        const toBotId = resolvedTo.id;
-        const target = store.bot(toBotId);
-        if (!target) return json(res, 404, { error: "no such bot" });
-        // An unknown sender used to fall through: no mirroring AND no
-        // approval, while still running the peer turn. That made an
-        // unresolvable id the cheapest way past the gate, so it is now a
-        // hard refusal — every peer turn has an accountable sender.
-        const from = internalSender;
-        if (!canAccessTeam(from, target.section) || target.hidden) {
-          return json(res, 403, { error: `that bot belongs to a different section or is unavailable. ${PEER_ACCESS_HELP}` });
-        }
-        // The sender's allow-list, when it has one. Checked here rather than
-        // trusted from the roster: the tool call carries a bot id, and an id
-        // the model held from an earlier turn must not outlive the grant.
-        if (!peerAllowed(from, target)) {
-          return json(res, 403, { error: `that bot is not on this bot's allowed peers. ${PEER_ACCESS_HELP}` });
-        }
-        const fromThreadId = internalCapability.threadId;
-        // Rooms are conversations too. The task-only lookup here refused every
-        // ask made from a room turn — the bot could see its teammates and not
-        // reach them — while create_bot and the routine endpoints already
-        // accepted a group thread the sender belongs to. One ownership rule,
-        // and it is still the sender's own membership that decides.
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source thread does not belong to sender" });
-        }
-        // A busy peer used to be a flat bounce ("try again later") — a
-        // dead-end mid-turn that models rarely retry, so the exchange just
-        // evaporated. Demote the synchronous ask into a durable handoff
-        // instead: the message waits in the delegation ledger (up to 24
-        // hours, receipts, restart-safe) and the asker gets a task id it
-        // can check next turn. If the ledger refuses (cap/depth), fall back
-        // to the plain busy bounce rather than dropping the refusal reason.
-        const queueBusyFallback = (approvalAlreadyGranted = false) => {
-          const queued = queueDelegation(
-            commsBus,
-            from,
-            { toBotId, message, reason: "asked while busy", depth, approvalAlreadyGranted, ...externalCompletion(internalCapability) },
-            MAX_COMMS_DEPTH,
-            fromThreadId,
-          );
-          if (queued.result !== "ok" || !queued.id) return json(res, 200, { busy: true, receipt: peerDeliveryReceipt({
-            botId: toBotId, botName: target.name, outcome: "failed",
-            detail: "the teammate was busy and the delegation queue refused the fallback — the message was not delivered",
-          }) });
-          // An external caller has no source turn whose completion can
-          // begin the busy wait. Drain now so the target's idle release
-          // retries this handoff, retaining any approval already granted.
-          if (internalCapability.generation === EXTERNAL_RUNTIME_GENERATION && !threadBusy(from.id, fromThreadId)) {
-            drainThreadDelegations(fromThreadId);
-          }
-          delegatedThisTurn(queued.id);
-          return json(res, 200, { busy: true, taskId: queued.id, toBotName: target.name, receipt: peerDeliveryReceipt({
-            botId: toBotId, botName: target.name, outcome: "queued", taskId: queued.id,
-            detail: "the teammate was busy; the ask was queued as a delegation instead",
-          }) });
-        };
-        // The aside lane: this ask was addressed to the conversation
-        // target.threadId holds, and that conversation is mid-turn. When
-        // the engine running it exposes a mid-turn seam, the words fold
-        // into the live turn as enveloped peer context — no interruption,
-        // no new turn, and the sender learns exactly how the send landed.
-        // A mid-turn injection is delivery, so it never routes through the
-        // peer-review card: review gates turns a peer would start, and a
-        // bot whose comms need approval keeps the delegation queue below.
-        const tryAsideDelivery = async (): Promise<Record<string, unknown> | null> => {
-          if (peerReviewRequired(from, fromThreadId)) return null;
-          // Busy elsewhere (room turn, sibling thread): the thread this ask
-          // targets is not the running one, so there is nothing to fold
-          // into here — the queue lane keeps it.
-          if (!threadBusy(toBotId, target.threadId)) return null;
-          const instance = runningTurnInstance(target, target.threadId);
-          if (!instance?.adapter.capabilities.queueing || !instance.adapter.steer) return null;
-          const steer = instance.adapter.steer;
-          queueAsideMessage(toBotId, target.threadId, message, {
-            fromBotId: from.id,
-            fromBotName: from.name,
-            unattended: isUnattended(from.id, fromThreadId),
-            commsDepth: depth,
-          });
-          const attempt = await attemptAsideInjection(store, toBotId, target.threadId, (_botId, threadId, prompt) =>
-            steer(threadId, prompt).catch((): SteerOutcome => "indeterminate"));
-          if (!attempt) return null;
-          return attempt.delivered
-            ? {
-                busy: true,
-                aside: "injected" as const,
-                toBotName: target.name,
-                message: `@${target.name} is mid-turn; your message was handed to them as an aside — peer context folded into their current work. It is not a request for a reply: continue your plan and treat their next output as possibly informed by it.`,
-              }
-            : {
-                busy: true,
-                aside: "queued" as const,
-                toBotName: target.name,
-                message: `@${target.name} is mid-turn and the aside could not be folded in yet; it is queued and will reach them as context when the turn settles. No reply is expected.`,
-              };
-        };
-        if (target.busy) {
-          const asideReceipt = await tryAsideDelivery();
-          if (asideReceipt) return json(res, 200, asideReceipt);
-          return queueBusyFallback();
-        }
-        let currentFrom = from;
-        let currentTarget = target;
-
-        // the exchange is mirrored into a bot⇄bot channel: it shows up in
-        // the sidebar like any room, keeps the pair's full history, and the
-        // user can open it and chip in. Both 1:1 threads get a clickable
-        // chip that opens the channel, so bot-to-bot turns are never
-        // invisible (they cost the user tokens).
-        //
-        // per-bot approval gate: a chief-of-staff bot without this on is
-        // free to coordinate; one with it on must wait for a human card
-        // (15-min timeout → expired) before its peer turn starts. The channel
-        // and the chips are created only AFTER the verdict, so a denied
-        // contact leaves no trace of an exchange that never happened.
-        if (peerReviewRequired(from, fromThreadId)) {
-          const verdict = await requestPeerApproval(
-            approvalBus,
-            from,
-            target,
-            message,
-            "ask_bot",
-            fromThreadId,
-          );
-          requireActiveInternalCapability();
-          if (verdict !== "allow") {
-            const failure = peerApprovalFailure(verdict);
-            return json(res, 200, { ...failure, receipt: peerDeliveryReceipt({
-              botId: toBotId, botName: target.name, outcome: "failed",
-              detail: `peer review ${failure.error} — the message was not sent`,
-            }) });
-          }
-          // The card may have been open for minutes. Re-read both records so
-          // deleted bots cannot recreate transcripts through stale objects.
-          const freshFrom = store.bot(fromBotId);
-          const freshTarget = store.bot(toBotId);
-          if (!freshFrom || !freshTarget) return json(res, 404, { error: "no such bot" });
-          if (!canAccessTeam(freshFrom, freshTarget.section) || freshTarget.hidden) {
-            return json(res, 200, { error: "that bot moved to a different section", receipt: peerDeliveryReceipt({
-              // Access no longer permits reading the peer's current profile.
-              botId: toBotId, outcome: "failed",
-              detail: "that bot moved to a different section — the message was not sent",
-            }) });
-          }
-          if (!peerAllowed(freshFrom, freshTarget)) {
-            return json(res, 200, { error: "that bot is no longer an allowed peer", receipt: peerDeliveryReceipt({
-              botId: toBotId, outcome: "failed",
-              detail: "that bot is no longer an allowed peer — the message was not sent",
-            }) });
-          }
-          // Membership can be revoked while the card is open: re-check the
-          // same way, so a bot removed from a room mid-approval cannot go on
-          // speaking through it.
-          if (!connectorThread(freshFrom.id, fromThreadId)) {
-            return json(res, 404, { error: "source conversation no longer belongs to sender" });
-          }
-          // The user just approved this exact ask_bot request. Preserve that
-          // decision if it has to become an async handoff; asking twice makes
-          // the fallback look stuck behind a second, surprising card.
-          if (freshTarget.busy) return queueBusyFallback(true);
-          currentFrom = freshFrom;
-          currentTarget = freshTarget;
-        }
-        // The exchange stays in the two bots' own threads: chips in both make
-        // the bot-to-bot turn observable without creating a pair channel.
-        mirrorExchange(commsBus, currentFrom, currentTarget, fromThreadId);
-        const prefixed = withPeerProvenance(message, {
-          botName: currentFrom.name,
-          delivery: "ask_bot",
-          unattended: isUnattended(currentFrom.id, fromThreadId),
-        });
-        const targetThreadId = currentTarget.threadId;
-        const outcome = await askBotAndWait(toBotId, prefixed, depth, fromBotId, fromThreadId, targetThreadId);
-        requireActiveInternalCapability();
-        const replySender = store.bot(fromBotId);
-        const replyTarget = store.bot(toBotId);
-        if (!replySender || !replyTarget || !canReachPeer(replySender, replyTarget)) {
-          return json(res, 403, { error: "Result withheld: team access changed while the teammate was working" });
-        }
-        if (outcome.status === "timeout" && !delegationWatch.has(targetThreadId)) {
-          // The peer's turn is still running — only the wait ended. Convert
-          // the ask into a delegation claim ticket: the watch mirrors the
-          // terminal state into the channel AND the asker's thread when the
-          // turn settles, and check/wait_delegation read the same receipt.
-          // Losing the reply was the old behavior, and it read as "the bots
-          // don't respond to each other".
-          const taskId = newId();
-          delegationWatch.set(targetThreadId, {
-            toBotId,
-            toBotName: currentTarget.name,
-            taskId,
-            sourceThreadId: fromThreadId,
-            sourceBotId: currentFrom.id,
-            routineRunId: activeRoutineRunForThread(fromThreadId)?.id,
-            ...externalCompletion(internalCapability),
-          });
-          store.appendMessage(fromThreadId, {
-            role: "bot",
-            kind: "activity",
-            tool: { name: `@${currentTarget.name} is still working — ask converted to a delegation` },
-          });
-          delegatedThisTurn(taskId);
-          return json(res, 200, { timeout: true, taskId, toBotName: currentTarget.name, waitedMs: ASK_BOT_TIMEOUT_MS,
-            receipt: peerDeliveryReceipt({ botId: toBotId, botName: currentTarget.name, outcome: "injected", taskId,
-              detail: "the teammate's turn started and is still running; only the synchronous wait ended" }) });
-        }
-        if (outcome.status === "failed" && !outcome.text.trim()) {
-          // No partial answer to hand back — report the provider's reason
-          // instead of silence.
-          const why = outcome.stopReason?.trim() ? ` — ${outcome.stopReason.trim().slice(0, 120)}` : "";
-          return json(res, 200, { botName: currentTarget.name, text: `(the bot's turn failed${why})`,
-            receipt: peerDeliveryReceipt({ botId: toBotId, botName: currentTarget.name, outcome: "injected",
-              detail: `the teammate's turn started and failed${why}` }) });
-        }
-        const reply = outcome.status === "timeout"
-          ? outcome.text || "(timed out waiting for the bot to reply)"
-          : outcome.text;
-        // A dispatch error arrives as outcome "error" with the reason folded
-        // into text — to the sender it reads like a reply from the peer. The
-        // receipt is what keeps that honest: the turn never started, so the
-        // message was never delivered.
-        const dispatchFailed = outcome.status === "error";
-        return json(res, 200, { botName: currentTarget.name, text: reply,
-          receipt: peerDeliveryReceipt({ botId: toBotId, botName: currentTarget.name,
-            outcome: dispatchFailed ? "failed" : "injected",
-            detail: dispatchFailed
-              ? "the teammate's turn could not start — the message was not delivered"
-              : outcome.status === "timeout"
-                ? "the teammate's turn started and is still running"
-                : "the teammate's turn ran to completion",
-          }) });
-      }
-      // Async handoff: the source bot queues a task for a peer and goes
-      // back to the user; the peer turn runs after the source's
-      // turn.completed. Returns immediately (the caller does not wait).
-      const delegationMatch = method === "GET" ? path.match(/^\/api\/internal\/delegations\/([\w-]{4,64})$/) : null;
-      if (delegationMatch) {
-        const taskId = delegationMatch[1];
-        if (internalCapability.delegatedThisTurn?.has(taskId)) {
-          return json(res, 409, { error: `Task ${taskId} was delegated during this turn. Finish your response now so the other bot can work; its result will be delivered to this conversation automatically. Do not check or wait for a newly delegated task until a later turn.` });
-        }
-        const fromThreadId = internalCapability.threadId;
-        const from = internalSender;
-        if (!connectorThread(from.id, fromThreadId)) return json(res, 403, { error: "unknown sender" });
-        const waitMs = Math.min(Math.max(Number(url.searchParams.get("wait_ms")) || 0, 0), 240_000);
-        const deadline = Date.now() + waitMs;
-        // Bounded long-poll: the delegating bot parks ONE cheap HTTP request
-        // here instead of burning a model inference per status check.
-        for (;;) {
-          requireActiveInternalCapability();
-          const receipt = findDelegationReceipt(taskId);
-          if (receipt) {
-            if (receipt.sourceThreadId !== fromThreadId) {
-              return json(res, 403, { error: "that task belongs to a different conversation" });
-            }
-            const sender = store.bot(from.id);
-            const target = store.bot(receipt.toBotId);
-            if (!sender || (target && !canReachPeer(sender, target))) {
-              return json(res, 403, { error: "Result withheld: team access changed while the teammate was working" });
-            }
-            return json(res, 200, {
-              status: receipt.status, toBotName: receipt.toBotName, result: receipt.result ?? "",
-              ...(receipt.approvalOutcome ? {
-                approvalOutcome: receipt.approvalOutcome, approvalSource: receipt.approvalSource,
-              } : {}),
-            });
-          }
-          const stillQueued = pendingDelegationInfo(taskId);
-          const runningEntry = [...delegationWatch.entries()].find(([, watch]) => watch.taskId === taskId);
-          const running = runningEntry?.[1];
-          const owner = stillQueued?.sourceThreadId ?? running?.sourceThreadId;
-          if (!owner) return json(res, 404, { error: "unknown task id — delegation receipts are kept for about 48 hours" });
-          if (owner !== fromThreadId) return json(res, 403, { error: "that task belongs to a different conversation" });
-          const toBotId = stillQueued?.toBotId ?? running?.toBotId ?? "";
-          const sender = store.bot(from.id);
-          const target = store.bot(toBotId);
-          if (!sender || (target && !canReachPeer(sender, target))) {
-            return json(res, 403, { error: "Result withheld: team access changed while the teammate was working" });
-          }
-          // Nothing moves while the teammate's card waits on the person, so
-          // say so now rather than holding the long-poll to its deadline.
-          const awaitingPerson = running && runningEntry ? openPersonCard(runningEntry[0]) : undefined;
-          if (Date.now() >= deadline || awaitingPerson) {
-            if (running && runningEntry) {
-              const recent = summarizeDelegatedActivity(
-                store.messagesFor(runningEntry[0]),
-                running.startedAtMs ?? Date.now(),
-              );
-              return json(res, 200, {
-                status: "running",
-                toBotName: store.bot(toBotId)?.name ?? toBotId,
-                elapsedMs: Math.max(0, Date.now() - (running.startedAtMs ?? Date.now())),
-                recentActivity: recent,
-                ...(awaitingPerson ? {
-                  awaitingPerson: {
-                    ...awaitingPerson,
-                    threadTitle: store.taskByThread(toBotId, runningEntry[0])?.title,
-                  },
-                } : {}),
-              });
-            }
-            const queuedTarget = store.bot(toBotId);
-            return json(res, 200, {
-              status: "queued",
-              toBotName: queuedTarget?.name ?? toBotId,
-              ...(stillQueued
-                ? {
-                  // A deleted target must never read as "available" — peerStatus's
-                  // undefined/undefined fallback is "available", which is wrong here.
-                  targetStatus: queuedTarget ? peerStatus(queuedTarget.activity, queuedTarget.busy) : "unavailable",
-                  expiresInMs: Math.max(0, stillQueued.queuedAt + DELEGATION_TTL_MS - Date.now()),
-                }
-                : {}),
-            });
-          }
-          await new Promise((wake) => setTimeout(wake, 500));
-        }
-      }
-      // A Chief resumes a teammate's broken thread (server/incidents.ts): the
-      // same thread, its conversation and files, one more turn, with a line
-      // saying who asked and why. Chief-only, for a teammate it can reach,
-      // never a room (coordinate there) and never a thread still running.
-      if (method === "POST" && path === "/api/internal/retry-thread") {
-        const body = await readInternalBody();
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!from.chiefOfStaff || from.hidden) return json(res, 403, { error: "only a Chief of Staff can retry a teammate's thread" });
-        // `toBotId`/`toThreadId`: the guard above reads bare botId/threadId as
-        // the caller's own identity, the way every internal route does.
-        const botId = typeof body.toBotId === "string" ? body.toBotId : "";
-        const threadId = typeof body.toThreadId === "string" ? body.toThreadId : "";
-        const note = typeof body.note === "string" ? body.note.trim().slice(0, 300) : "";
-        const target = store.bot(botId);
-        if (!target || target.id === from.id) return json(res, 404, { error: "no such teammate" });
-        if (target.hidden || !canAccessTeam(from, target.section) || !peerAllowed(from, target)) {
-          return json(res, 403, { error: "that bot is not on this Chief's team — call list_bots for the ones you can reach" });
-        }
-        const task = store.taskByThread(target.id, threadId);
-        if (!task) return json(res, 404, { error: "no such thread on that bot" });
-        if (threadBusy(target.id, threadId) || queuedThreadPosition(target.id, threadId) !== null) {
-          return json(res, 409, { error: "that thread is still running — wait for it to settle before retrying" });
-        }
-        requireActiveInternalCapability();
-        const unattended = isUnattended(from.id, fromThreadId);
-        const text = `[Retry requested by ${from.name}, your Chief of Staff, after this thread's last run stopped.${note ? ` Note from ${from.name}: ${note}` : ""} Continue the request above from where it stopped and finish it. If the same problem comes back, say exactly what is blocking and stop.]`;
-        try {
-          await startTurn(target.id, text, { threadId, unattended, peerAsk: { botId: from.id, name: from.name, ...(unattended ? { unattended: true } : {}) } });
-        } catch (error) {
-          return json(res, 409, { error: error instanceof Error ? error.message : String(error) });
-        }
-        store.appendMessage(fromThreadId, {
-          role: "bot",
-          kind: "activity",
-          tool: { name: `Retried ${target.name}'s thread #${task.title}`, ok: true },
-          threadRef: { botId: target.id, threadId, title: task.title },
-        });
-        return json(res, 200, { started: true, message: `${target.name}'s thread #${task.title} is running again. Its result stays in that thread; you are not woken for it — check later with list_threads or session_search if you need to.` });
-      }
-      if (method === "POST" && path === "/api/internal/delegate-bot") {
-        const body = await readInternalBody();
-        const toBotRef = String(body.toBotId ?? "");
-        const message = String(body.message ?? "").trim();
-        const reason = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim() : undefined;
-        if (
-          body.depth !== undefined &&
-          (!Number.isInteger(body.depth) || body.depth < 0 || body.depth !== internalCapability.depth)
-        ) {
-          return json(res, 403, { error: "the recursion depth does not match this turn" });
-        }
-        const depth = internalCapability.depth;
-        if (!toBotRef || !message) return json(res, 400, { error: "toBotId and message required" });
-        const from = internalSender;
-        const resolvedTo = resolveTeammate(store.bots, from, toBotRef);
-        if ("error" in resolvedTo) return json(res, 404, { error: `no such bot: ${resolvedTo.error}` });
-        const toBotId = resolvedTo.id;
-        const target = store.bot(toBotId);
-        if (!target) return json(res, 404, { error: "no such bot" });
-        if (!canAccessTeam(from, target.section) || target.hidden) {
-          return json(res, 403, { error: `that bot belongs to a different section or is unavailable. ${PEER_ACCESS_HELP}` });
-        }
-        if (!peerAllowed(from, target)) {
-          return json(res, 403, { error: `that bot is not on this bot's allowed peers. ${PEER_ACCESS_HELP}` });
-        }
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(from.id, fromThreadId)) {
-          return json(res, 403, { error: "source thread does not belong to sender" });
-        }
-        const queued = queueDelegation(
-          commsBus,
-          from,
-          { toBotId, message, reason, depth, ...externalCompletion(internalCapability) },
-          MAX_COMMS_DEPTH,
-          fromThreadId,
-        );
-        if (queued.result !== "ok" || !queued.id) {
-          // the agent reads this string — a bare enum ("too_deep") tells it
-          // nothing about what to do instead
-          const said: Record<Exclude<QueueResult, "ok">, string> = {
-            self: "a bot cannot delegate to itself",
-            too_deep: "delegation chains are limited to one hop — do this one yourself",
-            no_target: "no such bot",
-            too_many: "too many delegations queued on this turn — finish some first",
-          };
-          const refusal = said[queued.result === "ok" ? "no_target" : queued.result];
-          return json(res, 200, { error: refusal, receipt: peerDeliveryReceipt({
-            botId: toBotId, botName: store.bot(toBotId)?.name, outcome: "failed",
-            detail: `${refusal} — nothing was queued`,
-          }) });
-        }
-        delegatedThisTurn(queued.id);
-        const targetName = store.bot(toBotId)?.name ?? toBotId;
-        // The queue normally drains when the source thread's turn completes. A
-        // caller this server did not spawn (an external runtime) has no live
-        // turn here, so its handoff would wait for an unrelated turn on that
-        // thread to settle. Nothing in flight on the source thread means there
-        // is nothing to wait for: drain now.
-        if (internalCapability.generation === EXTERNAL_RUNTIME_GENERATION && !threadBusy(from.id, fromThreadId)) {
-          drainThreadDelegations(fromThreadId);
-          const reviewed = peerReviewRequired(from, fromThreadId);
-          return json(res, 200, {
-            queued: true,
-            taskId: queued.id,
-            message: reviewed
-              ? `Queued for review — @${targetName} will pick it up once the user approves.`
-              : `Delegated — @${targetName} is picking it up now.`,
-            receipt: peerDeliveryReceipt({ botId: toBotId, botName: targetName, outcome: "queued", taskId: queued.id,
-              detail: reviewed
-                ? "the teammate's turn waits on the user's approval"
-                : "the drain started; the teammate's turn has not started yet" }),
-          });
-        }
-        const reviewed = peerReviewRequired(from, internalCapability.threadId);
-        return json(res, 200, {
-          queued: true,
-          taskId: queued.id,
-          message: reviewed
-            ? `Queued for review — @${targetName} will only pick it up if the user approves after your turn finishes.`
-            : `Delegation queued — @${targetName} will pick it up after your current turn finishes.`,
-          receipt: peerDeliveryReceipt({ botId: toBotId, botName: targetName, outcome: "queued", taskId: queued.id,
-            detail: reviewed
-              ? "the teammate's turn waits on the user's approval after your turn finishes"
-              : "the teammate's turn runs after your current turn finishes" }),
-        });
-      }
-      // start_thread: a bot opens a real thread — on itself for separate
-      // work, or on a teammate as a handoff that should run on its own.
-      // Never activates: a bot must not move what the person is looking at.
-      if (method === "POST" && path === "/api/internal/threads") {
-        const body = await readInternalBody();
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        const owner = connectorThread(from.id, fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        if (
-          body.depth !== undefined &&
-          (!Number.isInteger(body.depth) || body.depth < 0 || body.depth !== internalCapability.depth)
-        ) {
-          return json(res, 403, { error: "the recursion depth does not match this turn" });
-        }
-        const title = String(body.title ?? "").trim();
-        const message = String(body.message ?? "").trim();
-        if (!title || !message) return json(res, 400, { error: "title and message are required" });
-        if (title.length > 80) return json(res, 400, { error: "title must be at most 80 characters" });
-        // the title is quoted into chips and the sidebar, one line each
-        if (!fitsOnOneLine(title)) return json(res, 400, { error: "title must fit on one line" });
-        if (internalCapability.openedThreads >= MAX_THREADS_OPENED_PER_TURN) {
-          return json(res, 429, { error: `You have already opened ${MAX_THREADS_OPENED_PER_TURN} threads this turn, which is the limit. Do not retry — finish your turn and tell the person which threads you still wanted to open, so they can open them or ask you again.` });
-        }
-        const toBotId = typeof body.toBotId === "string" && body.toBotId.trim() ? body.toBotId.trim() : from.id;
-        const target = store.bot(toBotId);
-        if (!target) return json(res, 404, { error: "no such bot" });
-        const oneWay = body.oneWay === true;
-        if (oneWay && target.id === from.id) {
-          return json(res, 409, { error: "send_to_bot is cross-bot only; use start_thread to send independent work to yourself" });
-        }
-        if (internalCapability.roomCoordination) {
-          if (target.id !== from.id && !oneWay) {
-            return json(res, 409, { error: "Use coordinate_bots for teamwork; it queues actual teammates and resumes you automatically." });
-          }
-          if (target.id === from.id && !internalCapability.ownThreadCreation) {
-            return json(res, 409, { error: "Only a direct user request can open separate self-owned threads. Finish this assigned work here; use coordinate_bots for teammates." });
-          }
-        }
-        // A folder is the target's own organisation; a name is what the
-        // model has, an id is what the sidebar has, so accept either.
-        const folder = typeof body.folder === "string" ? body.folder.trim() : "";
-        let projectId: string | undefined;
-        if (folder) {
-          const project = (target.projects ?? []).find(
-            (candidate) => candidate.id === folder || candidate.name.trim().toLowerCase() === folder.toLowerCase(),
-          );
-          if (!project) {
-            const names = (target.projects ?? []).map((candidate) => candidate.name).join(", ");
-            return json(res, 400, { error: `@${target.name} has no folder named "${folder}"${names ? ` — the folders are: ${names}` : " — it has no folders; leave folder out"}` });
-          }
-          projectId = project.id;
-        }
-        const sourceTitle = store.taskByThread(from.id, fromThreadId)?.title ?? "";
-        if (target.id === from.id) {
-          const inherited = parentThreadModel(from.id, fromThreadId);
-          const task = store.createTask(from.id, title, false, projectId, { botId: from.id, name: from.name, at: Date.now() },
-            inherited.approvalMode, inherited.modelSelection);
-          if (!task) return json(res, 500, { error: "couldn't create that thread" });
-          threadStarters.set(task.threadId, threadPersonKey(fromThreadId));
-          internalCapability.openedThreads += 1;
-          const chip: Omit<Message, "id" | "at"> = {
-            role: "bot",
-            kind: "activity",
-            tool: { name: `Opened thread #${task.title}`, ok: true },
-            threadRef: { botId: from.id, threadId: task.threadId, title: task.title },
-          };
-          store.appendMessage(fromThreadId, chip);
-          // The first line is the bot's own words. Say so where the model
-          // reads it, so a later turn in that thread never mistakes the
-          // request for the person's.
-          const opening = `[Thread you opened yourself${sourceTitle ? ` from #${sourceTitle}` : ""}. The request below is your own words, not the person's: do the work here and end with a clear result they can read.]\n\n${message}`;
-          const outcome = await startOrQueueOpenedThread(from.id, task.threadId, opening, isUnattended(from.id, fromThreadId));
-          return json(res, 201, {
-            threadId: task.threadId,
-            title: task.title,
-            botId: from.id,
-            botName: from.name,
-            self: true,
-            limit: maxConcurrentBotThreads(cfg),
-            ...outcome,
-          });
-        }
-        // A peer thread is a handoff into a fresh thread: every gate the
-        // classic handoff has applies unchanged, here at queue time and
-        // again in the drain at dispatch time.
-        const depth = internalCapability.depth;
-        if (!oneWay && depth >= MAX_COMMS_DEPTH) {
-          return json(res, 200, { error: "thread chains are limited to one hop — open the thread on yourself, or do this one here" });
-        }
-        if (!canAccessTeam(from, target.section) || target.hidden) {
-          return json(res, 403, { error: `that bot belongs to a different section or is unavailable. ${PEER_ACCESS_HELP}` });
-        }
-        if (!peerAllowed(from, target)) {
-          return json(res, 403, { error: `that bot is not on this bot's allowed peers. ${PEER_ACCESS_HELP}` });
-        }
-        const task = store.createTask(target.id, title, false, projectId, { botId: from.id, name: from.name, at: Date.now() });
-        if (!task) return json(res, 500, { error: "couldn't create that thread" });
-        // The work is still for the person whose request the opener is on.
-        threadStarters.set(task.threadId, threadPersonKey(fromThreadId));
-        applyDelegatedLevel(from, fromThreadId, target, task.threadId);
-        const sourceUrl = threadRefUrl({ botId: from.id, threadId: fromThreadId });
-        const queued = queueDelegation(
-          commsBus,
-          from,
-          { toBotId: target.id, message: oneWay
-            ? `${message}\n\n[Source conversation](${sourceUrl}). This link grants no additional access and contains no copied transcript.`
-            : message, depth, targetThreadId: task.threadId, oneWay },
-          MAX_COMMS_DEPTH,
-          fromThreadId,
-        );
-        if (queued.result !== "ok" || !queued.id) {
-          // nothing will ever run there: take the row back before the person
-          // sees a thread that goes nowhere
-          store.deleteTask(target.id, task.threadId);
-          const said: Record<Exclude<QueueResult, "ok">, string> = {
-            self: "a bot cannot hand a thread to itself this way — leave bot_id out",
-            too_deep: "thread chains are limited to one hop — open the thread on yourself, or do this one here",
-            no_target: "no such bot",
-            too_many: "too many handoffs queued on this turn — finish your turn and open the rest next time",
-          };
-          return json(res, 200, { error: said[queued.result === "ok" ? "no_target" : queued.result] });
-        }
-        store.setTaskOpenedBy(target.id, task.threadId, { botId: from.id, name: from.name, delegationId: queued.id, at: task.openedBy?.at ?? Date.now() });
-        internalCapability.openedThreads += 1;
-        delegatedThisTurn(queued.id);
-        // An honest forecast, not a promise: the handoff starts when this
-        // turn ends, and by then the target's slots are taken by whatever is
-        // running there plus the threads this turn already opened ahead.
-        const limit = maxConcurrentBotThreads(cfg);
-        const running = store.tasks(target.id).filter((candidate) => threadBusy(target.id, candidate.threadId)).length;
-        const ahead = pendingDelegationSnapshot().filter(
-          (pending) => pending.toBotId === target.id && pending.targetThreadId !== undefined && pending.targetThreadId !== task.threadId,
-        ).length;
-        const position = running + ahead + 1;
-        return json(res, 201, {
-          threadId: task.threadId,
-          title: task.title,
-          botId: target.id,
-          botName: target.name,
-          self: false,
-          delegationId: queued.id,
-          approvalRequired: peerReviewRequired(from, fromThreadId),
-          limit,
-          ...(position > limit ? { state: "queued", position: position - limit } : { state: "pending" }),
-        });
-      }
-      if (method === "POST" && path === "/api/internal/create-bot") {
-        const body = await readInternalBody();
-        const chief = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        if (!connectorThread(chief.id, fromThreadId)) {
-          return json(res, 403, { error: "source conversation does not belong to sender" });
-        }
-        if (!chief.chiefOfStaff) {
-          return json(res, 403, { error: "only a section's Chief of Staff can create operator bots" });
-        }
-        if (internalCapability.createdBots >= MAX_CREATED_BOTS_PER_TURN) {
-          return json(res, 429, { error: `You can create at most ${MAX_CREATED_BOTS_PER_TURN} bots in one turn. Use the team you have before adding more.` });
-        }
-        if (store.bots.length >= MAX_WORKSPACE_BOTS) {
-          return json(res, 409, { error: `this workspace is limited to ${MAX_WORKSPACE_BOTS} bots` });
-        }
-        const name = String(body.name ?? "").trim();
-        const role = String(body.role ?? "").trim();
-        const instructions = String(body.instructions ?? "").trim();
-        if (!name || !role || !instructions) {
-          return json(res, 400, { error: "name, role, and instructions are required" });
-        }
-        if (name.length > 80) return json(res, 400, { error: "name must be at most 80 characters" });
-        if (role.length > 120) return json(res, 400, { error: "role must be at most 120 characters" });
-        // the same door the profile endpoints keep: both fields are quoted
-        // into every other room member's system prompt, one line each
-        if (!fitsOnOneLine(name)) return json(res, 400, { error: "name must fit on one line" });
-        if (!fitsOnOneLine(role)) return json(res, 400, { error: "role must fit on one line" });
-        if (instructions.length > 1_000) {
-          return json(res, 400, { error: "instructions must be at most 1000 characters" });
-        }
-        let selection: ModelSelection;
-        if (body.modelSelection === undefined) {
-          selection = await defaultSelection();
-        } else {
-          const checked = checkedModelSelection(body.modelSelection, undefined, true);
-          if (!checked.ok) return json(res, checked.status, { error: checked.error });
-          selection = checked.selection;
-        }
-        // The same check the profile path runs: absolute, exists, is a
-        // folder. Creation names where the specialist works; nothing looser.
-        let cwd: string | undefined;
-        if (body.cwd !== undefined) {
-          const checkedCwd = validateBotCwd(body.cwd);
-          if (!checkedCwd.ok) return json(res, 400, { error: checkedCwd.error });
-          cwd = checkedCwd.cwd ?? undefined;
-        }
-        // Discovery can yield; check current authority and capacity again before writing.
-        if (store.bot(chief.id) !== chief || chief.hidden || !chief.chiefOfStaff || !connectorThread(chief.id, fromThreadId)) {
-          return json(res, 403, { error: "only an active Chief of Staff can create operator bots" });
-        }
-        if (internalCapability.createdBots >= MAX_CREATED_BOTS_PER_TURN) {
-          return json(res, 429, { error: `You can create at most ${MAX_CREATED_BOTS_PER_TURN} bots in one turn. Use the team you have before adding more.` });
-        }
-        if (store.bots.length >= MAX_WORKSPACE_BOTS) return json(res, 409, { error: `this workspace is limited to ${MAX_WORKSPACE_BOTS} bots` });
-        const duplicate = store.bots.find(
-          (candidate) =>
-            !candidate.hidden &&
-            sectionKey(candidate.section) === sectionKey(chief.section) &&
-            candidate.name.trim().toLowerCase() === name.toLowerCase(),
-        );
-        if (duplicate) {
-          return json(res, 409, { error: `@${duplicate.name} already exists in this section; use list_bots` });
-        }
-        const created = store.createBot(
-          {
-            name,
-            title: role,
-            description: instructions,
-            modelSelection: selection,
-            section: chief.section,
-            ...(cwd !== undefined ? { cwd } : {}),
-            // exactly the Chief's audience: a restricted Chief never makes a bot everyone sees
-            ...(chief.visibility ? { visibility: chief.visibility } : {}),
-          },
-          { seedMessages: false },
-        );
-        const safeBot = store.patchBot(created.id, {
-          composio: false,
-          connectorTools: {},
-          autoApprove: false,
-          approvePeerComms: false,
-        })!;
-        internalCapability.createdBots += 1;
-        return json(res, 201, {
-          id: safeBot.id,
-          name: safeBot.name,
-          title: safeBot.title,
-          section: safeBot.section || "General",
-          model: safeBot.modelSelection.model,
-          modelSelection: safeBot.modelSelection,
-        });
-      }
-      if (method === "POST" && path === "/api/internal/mcp-servers") {
-        // Same single-flight lock as POST /api/mcp/servers: two writers must
-        // not interleave a read of cfg.mcpServers with a save.
-        if (mcpConfigBusy) return json(res, 409, { error: "MCP servers are already being updated." });
-        mcpConfigBusy = true;
-        try {
-          const body = await readInternalBody();
-          const added = addDisabledMcpServer(cfg.mcpServers ?? {}, body);
-          if (!added.ok) return json(res, added.status, { error: added.error });
-          persistMcpServers(added.next);
-          const server = added.server;
-          const remote = isRemoteMcpServer(server);
-          return json(res, 201, {
-            name: added.name,
-            enabled: false,
-            transport: remote ? server.type : "command",
-            target: remote ? server.url : server.command,
-            envKeys: remote ? [] : Object.keys(server.env).sort(),
-            headerKeys: remote ? Object.keys(server.headers).sort() : [],
-          });
-        } finally {
-          mcpConfigBusy = false;
-        }
-      }
-      if (method === "POST" && path === "/api/internal/request-credential") {
-        const body = await readInternalBody();
-        const from = internalSender;
-        const fromThreadId = internalCapability.threadId;
-        const owner = connectorThread(from.id, fromThreadId);
-        if (!owner) return json(res, 403, { error: "source conversation does not belong to sender" });
-        if (!isCredentialTargetId(body.credentialId)) {
-          return json(res, 400, { error: "unsupported credential id" });
-        }
-        const credentialId: CredentialTargetId = body.credentialId;
-        const target = CREDENTIAL_TARGETS[credentialId];
-        if (credentialIsConfigured(cfg, credentialId)) {
-          return json(res, 200, { alreadyConfigured: true, label: target.label });
-        }
-        // A later request supersedes every still-pending card for this
-        // credential instead of silently reusing it: the reason or task has
-        // moved on, so the old card stops offering entry and the person gets
-        // one fresh card they can act on. The fresh card is appended FIRST:
-        // if persistence then fails, the prior cards stay actionable rather
-        // than every pending request ending terminal with no card to act on.
-        const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 240) : "";
-        const message = store.appendMessage(fromThreadId, {
-          role: "bot",
-          kind: "secret",
-          text: credentialDesktopHandoff(target.label),
-          secret: {
-            target: credentialId,
-            label: target.label,
-            description: `${reason ? `${target.description} ${reason}` : target.description} ${from.name} can use it but never read it back.`,
-            placeholder: target.placeholder,
-            helpUrl: target.helpUrl,
-            requestKey: randomUUID(),
-          },
-        });
-        for (const prior of store.activePath(fromThreadId)) {
-          if (prior.id === message.id) continue;
-          if (!prior.secret || !isPendingCredentialRequest(prior, credentialId, from.id, false)) continue;
-          store.patchMessage(fromThreadId, prior.id, { secret: { ...prior.secret, superseded: true } });
-        }
-        return json(res, 201, { messageId: message.id, label: target.label });
-      }
-      if (method === "POST" && path === "/api/internal/voice-note") {
-        const body = await readInternalBody();
-        const text = typeof body.text === "string" ? body.text.trim() : "";
-        if (!text) return json(res, 400, { error: "text required" });
-        if (text.length > 1000) return json(res, 413, { error: "voice notes are limited to 1000 characters" });
-        // Advertisement is presentation only; the capability is re-checked
-        // here so a call that reaches an unconfigured workspace answers with
-        // the setup guidance instead of a provider failure.
-        const voiceBot = botForThread(internalSender.id, internalCapability.threadId) ?? internalSender;
-        if (voiceBot.voiceNotes === false) {
-          return json(res, 403, { error: "voice notes are turned off for this bot" });
-        }
-        try {
-          const audio = await tts.speak(cfg, text, voiceBot.voice);
-          // Synthesis can outlive its turn: a stop or settle during the await
-          // revokes the capability and clears the live turn. Re-check both
-          // before saving so the clip cannot park under the :active fallback
-          // or onto a later turn's key (#1742).
-          requireActiveInternalCapability();
-          const turnId = liveTurnByThread.get(internalCapability.threadId);
-          if (!turnId) {
-            return json(res, 409, { error: "this turn has not started yet or already ended" });
-          }
-          const saved = saveAudio(Buffer.from(audio.bytes), audio.mime);
-          const key = turnAttachmentKey(internalCapability.threadId, turnId);
-          const current = turnAttachmentsByTurn.get(key) ?? [];
-          current.push({ kind: "audio", path: saved.path, mime: saved.mime, text });
-          turnAttachmentsByTurn.set(key, current);
-          return json(res, 201, { attached: true });
-        } catch (error) {
-          // "no voice configured" is a setup state, not a provider failure —
-          // 409 with the hint, exactly like /api/tts/speak.
-          if (error instanceof tts.NoVoiceConfigured) return json(res, 409, { error: error.message });
-          const status = (error as { status?: number }).status;
-          if (typeof status === "number" && status >= 400 && status < 500) {
-            return json(res, status, { error: error instanceof Error ? error.message : "voice note failed" });
-          }
-          throw error;
-        }
-      }
-      if (method === "POST" && path === "/api/internal/connectors/mcp") {
-        const body = await readInternalBody();
-        // Reading a streamed MCP body yields to ordinary settings requests.
-        // Re-read the live bot immediately before relay so turning Connected
-        // Apps off wins over a request that authenticated under the old value.
-        let currentSender = store.bot(internalCapability.botId);
-        if (!currentSender || currentSender.composio === false || !composio.configured(cfg)) {
-          return json(res, 403, { error: "connected apps are not enabled for this bot" });
-        }
-        // Per-bot tool grants (issue #1736): verdict every tools/call frame
-        // against the calling bot's connectorTools before it reaches
-        // Composio. A bot with no grants record keeps the legacy all-tools
-        // behavior; a grants record makes every unrecognized shape a deny.
-        // Rows are fire-and-forget: a log failure must never take the call
-        // (or its refusal) down with it.
-        const call = connectorCallFromFrame(body);
-        let serviceSlugs: readonly string[] = [];
-        // A bot with no grants record keeps the pre-grants relay: even an
-        // unreadable frame passes through exactly as it always did.
-        if (call.kind === "unrecognized" && currentSender.connectorTools !== undefined) {
-          appendDecision(DATA_DIR, {
-            threadId: internalCapability.threadId,
-            botId: currentSender.id,
-            botName: currentSender.name,
-            tool: call.invoked,
-            summary: call.reason,
-            decision: "auto-denied",
-            source: "connector-scope",
-            rule: "connectorTools",
-          });
-          const refusal = connectorUnrecognizedText(call.invoked, call.reason);
-          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-          return res.end(JSON.stringify({
-            jsonrpc: "2.0",
-            id: (body as { id?: unknown }).id ?? null,
-            result: { content: [{ type: "text", text: refusal }], isError: true },
-          }));
-        }
-        if (call.kind === "tools") {
-          // The resolver needs the real connected-service slugs, so an
-          // underscored service (bland_ai) keeps its own tools instead of
-          // a plain-prefix grant (bland) capturing them; an unreachable
-          // catalog reads as empty and the plain split stands.
-          serviceSlugs = await composio.connectedServiceSlugs(cfg);
-          requireActiveInternalCapability();
-          currentSender = store.bot(internalCapability.botId);
-          if (!currentSender || currentSender.composio === false || !composio.configured(cfg)) return json(res, 403, { error: "connected apps are no longer enabled for this bot" });
-          const verdict = evaluateConnectorTools(call.names, currentSender.connectorTools, serviceSlugs);
-          if (!verdict.allowed) {
-            for (const denial of verdict.denials) {
-              appendDecision(DATA_DIR, {
-                threadId: internalCapability.threadId,
-                botId: currentSender.id,
-                botName: currentSender.name,
-                tool: denial.tool,
-                summary: denial.service === null
-                  ? "tool name does not name a service"
-                  : denial.onGrantedService
-                    ? "tool is not in this service's grant"
-                    : "service is not granted",
-                decision: "auto-denied",
-                source: "connector-scope",
-                rule: denial.service ? "connectorTools." + denial.service : "connectorTools",
-              });
-            }
-            const refusal = connectorRefusalText(verdict.denials);
-            res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-            return res.end(JSON.stringify({
-              jsonrpc: "2.0",
-              id: (body as { id?: unknown }).id ?? null,
-              result: { content: [{ type: "text", text: refusal }], isError: true },
-            }));
-          }
-          // One row per allowed call, naming the first target: the audit
-          // trail reads "which bot ran what", not one row per tool.
-          appendDecision(DATA_DIR, {
-            threadId: internalCapability.threadId,
-            botId: currentSender.id,
-            botName: currentSender.name,
-            tool: call.names[0],
-            summary: ("allowed " + call.names.join(", ")).slice(0, 240),
-            decision: "auto-approved",
-            source: "connector-scope",
-            rule: verdict.rule,
-          });
-        }
-        // ── the outbound gate ──
-        // A tools/call that sends something (shared/outbound.ts) is its own
-        // confirmation in every approval mode, Full included: it waits on a
-        // card, or spends the bot's daily allowance. Everything else relays
-        // untouched. A refusal is an ordinary tool error so the bot reads
-        // it and carries on, rather than a transport failure it retries.
-        const rpc = body && typeof body === "object" && !Array.isArray(body)
-          ? (body as { id?: unknown; method?: unknown; params?: unknown })
-          : null;
-        const rpcParams = rpc?.params && typeof rpc.params === "object" && !Array.isArray(rpc.params)
-          ? (rpc.params as { name?: unknown; arguments?: unknown })
-          : null;
-        // The app tools this call would actually run, seen through Composio's
-        // meta tools (a multi-execute list, workbench code), and the ones
-        // among them that send.
-        const outboundCalls = rpc?.method === "tools/call" && typeof rpcParams?.name === "string"
-          ? outboundCallsIn(rpcParams.name, rpcParams.arguments)
-          : [];
-        const outboundTool = outboundCalls.length ? outboundCalls[0].slug : null;
-        const refuseOutbound = (text: string) => {
-          res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-          return res.end(JSON.stringify({ jsonrpc: "2.0", id: rpc?.id ?? null, result: { content: [{ type: "text", text }], isError: true } }));
-        };
-        // ── connection scopes ──
-        // Checked first: an app this bot may not touch is refused outright,
-        // never turned into a question for the person.
-        const connectorCalls = rpc?.method === "tools/call" && typeof rpcParams?.name === "string"
-          ? connectorCallsIn(rpcParams.name, rpcParams.arguments)
-          : [];
-        const access = connectorAccessDecision(currentSender.connectorScopes, connectorCalls, serviceSlugs);
-        if (!access.ok) {
-          const described = describeTool(access.slug);
-          const appName = described.app ?? access.toolkit;
-          appendDecision(DATA_DIR, {
-            threadId: internalCapability.threadId, botId: currentSender.id, botName: currentSender.name,
-            tool: access.slug, decision: "auto-denied", source: "connector-scope", rule: `scope:${access.toolkit}:${access.reason}`,
-          });
-          return refuseOutbound(
-            access.reason === "app"
-              ? `Colonie did not run this: ${currentSender.name} has not been given access to ${appName}. Ask the user to allow it under the bot's Access settings, and do not retry.`
-              : `Colonie did not run this: ${appName} is read-only for ${currentSender.name}, and ${described.label} would write to it. Ask the user before trying again.`,
-          );
-        }
-        const opaque = connectorCalls.some(call => call.slug === "COMPOSIO_PROXY_EXECUTE");
-        if (opaque && currentSender.connectorTools !== undefined) return refuseOutbound("Colonie cannot verify this code against this bot's tool grants. Use a direct app tool.");
-        let outboundApproved = false;
-        if (outboundTool) {
-          const policy = currentSender.outbound ?? DEFAULT_OUTBOUND_POLICY;
-          const threadId = internalCapability.threadId;
-          const { app } = describeTool(outboundTool);
-          // One entry per call, in the summary's order, so a phone can say
-          // "Send to Linear? Create linear comment ×2" without parsing the
-          // raw arguments out of the subtitle.
-          const calls = outboundCalls.map((call) => {
-            const described = describeTool(call.slug);
-            return { app: described.app, label: described.label };
-          });
-          const summary = outboundCalls.map((call, index) => {
-            const described = calls[index];
-            const argsText = call.arguments === undefined ? "" : JSON.stringify(call.arguments);
-            return `${described.app ? `${described.app} · ` : ""}${described.label}${argsText ? `\n${argsText.slice(0, 400)}${argsText.length > 400 ? "… [arguments truncated]" : ""}` : ""}`;
-          }).join("\n\n");
-          const capNote = (count: number) =>
-            `Colonie did not send this. ${currentSender.name} has reached its daily limit of ${count} outbound action${count === 1 ? "" : "s"}. Ask the user to raise the limit under the bot's Permissions before trying again.`;
-          if (policy.policy === "allow" && !opaque) {
-            const today = outboundCounts.today(currentSender.id);
-            if (today + outboundCalls.length > policy.dailyCap) {
-              appendDecision(DATA_DIR, {
-                threadId, botId: currentSender.id, botName: currentSender.name,
-                tool: outboundTool, summary, decision: "auto-denied", source: "outbound", rule: `daily-cap:${policy.dailyCap}`,
-              });
-              return refuseOutbound(capNote(policy.dailyCap));
-            }
-          } else {
-            const held = outboundRequests.open({ botId: currentSender.id, threadId, tool: outboundTool, timeoutMs: OUTBOUND_HOLD_MS });
-            const card = store.appendMessage(threadId, {
-              role: "bot",
-              kind: "options",
-              card: {
-                title: "Send on your behalf?",
-                subtitle: summary,
-                options: ["Allow", "Deny"],
-                requestId: held.requestId,
-                tool: outboundTool,
-                held: HELD_NOTE["approval.held.outbound"],
-                heldCode: "approval.held.outbound",
-                outboundRequest: { tool: outboundTool, app, calls },
-              },
-            });
-            appendDecision(DATA_DIR, {
-              threadId, requestId: held.requestId, botId: currentSender.id, botName: currentSender.name,
-              tool: outboundTool, summary, decision: "card-shown", source: "outbound",
-            });
-            if (store.taskByThread(currentSender.id, threadId)?.busy) {
-              store.setTaskActivity(currentSender.id, threadId, "waiting-on-you");
-            }
-            notify(buildNotification("approval", currentSender, threadId, summary, { avatarUrl: currentSender.avatarUrl }));
-            const answer = await held.answer;
-            outboundRequests.forget(held.requestId);
-            if (internalCapabilityIsActive(internalCapability)) {
-              if (store.taskByThread(currentSender.id, threadId)?.activity === "waiting-on-you") {
-                store.setTaskActivity(currentSender.id, threadId, "working");
-              }
-            }
-            if (answer !== "allow") {
-              if (answer === "timeout") {
-                const stale = store.messagesFor(threadId).find((message) => message.id === card.id);
-                if (stale?.card && !stale.card.answered) {
-                  store.patchMessage(threadId, stale.id, { card: { ...stale.card, answered: "unavailable", dismissed: true } });
-                }
-              }
-              return refuseOutbound(
-                answer === "timeout"
-                  ? "Colonie did not send this: nobody answered the approval in time. Ask the user before trying again."
-                  : "Colonie did not send this: the user declined. Do not retry it; ask the user what they would like instead.",
-              );
-            }
-            outboundApproved = true;
-            requireActiveInternalCapability();
-          }
-        }
-        let dispatchRefusal: string | undefined;
-        const refuseDispatch: (text: string) => never = (text) => {
-          dispatchRefusal = text;
-          throw new Error(text);
-        };
-        let upstream: Awaited<ReturnType<typeof composio.relayMcp>>;
-        try { upstream = await composio.relayMcp(
-          cfg,
-          body,
-          Array.isArray(req.headers["mcp-session-id"])
-            ? req.headers["mcp-session-id"][0]
-            : req.headers["mcp-session-id"],
-          () => {
-            requireActiveInternalCapability();
-            const fresh = store.bot(internalCapability.botId);
-            if (!fresh || fresh.composio === false || !composio.configured(cfg)) refuseDispatch("Connected apps were disabled while this call waited.");
-            const freshAccess = connectorAccessDecision(fresh.connectorScopes, connectorCalls, serviceSlugs);
-            if (!freshAccess.ok || (opaque && fresh.connectorTools !== undefined) ||
-                (call.kind === "tools" && !evaluateConnectorTools(call.names, fresh.connectorTools, serviceSlugs).allowed) ||
-                (call.kind === "unrecognized" && fresh.connectorTools !== undefined)) {
-              refuseDispatch("This bot's connected-app permissions changed. The call was not run.");
-            }
-            if (outboundTool) {
-              const policy = fresh.outbound ?? DEFAULT_OUTBOUND_POLICY;
-              if (policy.policy === "allow" && !opaque) {
-                let reserved: number | null;
-                try { reserved = outboundCounts.reserve(fresh.id, outboundCalls.length, policy.dailyCap); }
-                catch { refuseDispatch("The daily allowance could not be saved. Nothing was sent."); }
-                if (reserved === null) refuseDispatch("This bot has reached its daily outbound limit. Nothing was sent.");
-                appendDecision(DATA_DIR, { threadId: internalCapability.threadId, botId: fresh.id, botName: fresh.name,
-                  tool: outboundTool, decision: "auto-approved", source: "outbound", rule: `daily-allowance:${reserved}/${policy.dailyCap}` });
-              } else if (!outboundApproved) {
-                refuseDispatch("The outbound policy changed. Ask for approval again before sending.");
-              }
-            }
-          },
-        ); } catch (error) {
-          if (dispatchRefusal) return refuseOutbound(dispatchRefusal);
-          throw error;
-        }
-        const headers: Record<string, string> = {
-          "content-type": upstream.contentType,
-          "cache-control": "no-store",
-        };
-        if (upstream.transportSessionId) headers["mcp-session-id"] = upstream.transportSessionId;
-        res.writeHead(upstream.status, headers);
-        // A missing OAuth permission gets a note on what fixes it (MOCA-273).
-        return res.end(Buffer.from(withScopeHint(upstream.bytes, upstream.contentType, connectorCalls.map((call) => call.slug))));
-      }
-      // ── computer control: proxies read the hold, bots plead for help ──
-      if (path === "/api/internal/computer-control") {
-        const botId = url.searchParams.get("botId") ?? "";
-        const bot = store.bot(botId);
-        if (!bot) return json(res, 404, { error: "no such bot" });
-        if (method === "GET") {
-          return json(res, 200, await computerCallGate(internalCapability));
-        }
-        if (method === "POST") {
-          const body = await readInternalBody();
-          const controlKey = botId;
-          const { snapshot, requestId } = computerControl.requestHelpLease(controlKey, body.reason);
-          // worth a buzz: the bot is blocked on the person's hands, which
-          // is exactly the "blocked on you" rule notify.ts encodes.
-          const helpPlace = store.taskByThread(bot.id, internalCapability.threadId)?.surface ?? bot.computer;
-          const helpWhere = helpPlace && helpPlace !== "off" ? ` on ${surfaceLabel(helpPlace)}` : "";
-          notify(
-            buildNotification("takeover", bot, internalCapability.threadId, `${snapshot.helpReason ?? "asked you to take over"}${helpWhere}`),
-          );
-          return json(res, 200, { held: snapshot.held, helpOpen: snapshot.helpReason !== null, requestId });
-        }
-        if (method === "DELETE") {
-          const body = await readInternalBody();
-          const snapshot = computerControl.expireHelp(botId, body.requestId);
-          return json(res, 200, { held: snapshot.held, helpOpen: snapshot.helpReason !== null });
-        }
-        return json(res, 405, { error: "method not allowed" });
-      }
-      if (method === "POST" && path === "/api/internal/connectors/request") {
-        const body = await readInternalBody();
-        const botId = String(body.botId ?? "");
-        const threadId = String(body.threadId ?? "");
-        const resumeKey = String(body.resumeKey ?? "");
-        const rawItems = Array.isArray(body.items) ? body.items : Array.isArray(body.slugs) ? body.slugs : [];
-        const items: { slug: string; alias?: string }[] = [];
-        for (const raw of rawItems as unknown[]) {
-          if (typeof raw === "string") {
-            const slug = raw.trim().toLowerCase();
-            if (CONNECTOR_SLUG.test(slug)) items.push({ slug });
-            continue;
-          }
-          if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-          const row = raw as { slug?: unknown; toolkit?: unknown; alias?: unknown; account?: unknown };
-          const slug = typeof row.slug === "string" ? row.slug : typeof row.toolkit === "string" ? row.toolkit : undefined;
-          if (!slug || !CONNECTOR_SLUG.test(slug.toLowerCase())) continue;
-          const alias = composio.normalizeAccountAlias((row.alias ?? row.account) as string | undefined);
-          items.push({ slug: slug.toLowerCase(), ...(alias ? { alias } : {}) });
-        }
-        const slugs = [...new Set(items.map((item) => item.slug))];
-        const owner = connectorThread(botId, threadId);
-        if (!owner) return json(res, 403, { error: "conversation does not belong to this bot" });
-        if (!/^[\w-]{8,100}$/.test(resumeKey)) return json(res, 400, { error: "invalid resume key" });
-        if (!items.length || items.length > 12) return json(res, 400, { error: "one to twelve valid connection requests are required" });
-        if (!composio.configured(cfg) || owner.bot.composio === false) {
-          return json(res, 409, { error: "connected apps are not enabled for this bot" });
-        }
-        if (owner.bot.connectorScopes) {
-          const outside = slugs.find((slug) => !owner.bot.connectorScopes?.apps[slug]);
-          if (outside) {
-            appendDecision(DATA_DIR, {
-              threadId, botId: owner.bot.id, botName: owner.bot.name,
-              tool: "COMPOSIO_MANAGE_CONNECTIONS", summary: outside, decision: "auto-denied", source: "connector-scope", rule: `scope:${outside}:app`,
-            });
-            return json(res, 403, { error: `${owner.bot.name} has not been given access to ${outside}; allow it under the bot's Access settings first` });
-          }
-        }
-        const connectionState: Record<string, { connected?: boolean }> = await composio.connectionStatus(cfg, slugs).catch(() => ({}));
-        requireActiveInternalCapability();
-        const messageIds: string[] = [];
-        for (const item of items) {
-          const existing = store.messagesFor(threadId).find(
-            (message) => message.connector?.resumeKey === resumeKey && message.connector.slug === item.slug
-              && (message.connector.alias ?? "").toLowerCase() === (item.alias ?? "").toLowerCase(),
-          );
-          if (existing) {
-            messageIds.push(existing.id);
-            continue;
-          }
-          const toolkit = await composio.toolkitCard(cfg, item.slug);
-          requireActiveInternalCapability();
-          const connected = connectionState[item.slug]?.connected === true;
-          const status = item.alias ? "required" : connected ? "connected" : "required";
-          const description = item.alias
-            ? `Connect ${toolkit.label} as “${item.alias}” so the bot can continue`
-            : toolkit.blurb || `Connect ${toolkit.label} so the bot can continue`;
-          const message = store.appendMessage(threadId, {
-            role: "bot",
-            kind: "connector",
-            // Read only by clients that predate the card (older phones draw
-            // an unknown kind by its text); see connector-card-text.ts.
-            text: connectorCardText(toolkit.label, item.alias),
-            connector: {
-              slug: item.slug,
-              label: toolkit.label,
-              description,
-              status,
-              resumeKey,
-              ...(item.alias ? { alias: item.alias } : {}),
-            },
-          });
-          messageIds.push(message.id);
-        }
-        maybeResumeConnectors(botId, threadId, resumeKey);
-        return json(res, 200, { messageIds });
-      }
-      return json(res, 404, { error: "unknown internal endpoint" });
     }
 
     // ── events stream ──

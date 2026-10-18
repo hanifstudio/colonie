@@ -130,6 +130,10 @@ started, and review.
   writer per file**. Extraction of inline routes always edits `server/index.ts`, so only one lane may write
   it; parallel lanes are read-only (audit of the dead `/api/internal/*` block, mapping of the remaining
   groups, caller searches), and heavy local jobs (vitest, typecheck, `build:server`) run one at a time.
+- Deletion series (owner approved October 18, small groups): D1 removed the dead `/api/internal/*` block and
+  everything only it used (16,990 → 14,050 lines in `index.ts`). Next: `server/external-runtime.ts` and the retired
+  native integrations that only fed the block, the `/api/internal` scope bypass in `request-auth.ts`, and the stale
+  caller references inside the retired agents driver (`server/drivers/agents-call.ts`), each its own verified commit.
 - Next in this task: **S3's remaining `index.ts` groups, smallest first.** A read-only mapping pass
   (October 18) ordered all 39 remaining live groups; the next few are auth-sessions revoke (`/api/auth/sessions`,
   ~11024), bot-read and bot-profile-patch. **Prerequisite before the bot clusters:** `requirePinnedClientThread`

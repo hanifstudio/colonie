@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **D1: the dead `/api/internal/*` transport is gone (October 18).** Owner-approved deletion, first group. The
+  capability-gated block (`if (path.startsWith("/api/internal/"))`, lines 11070–13056) and everything only it
+  used — 27 + 15 + 3 declarations, plus the import specifiers nobody referenced any more — leave `index.ts`:
+  16,990 → **14,050 lines**. The two *pass-through* routes that must stay (`/api/internal/colonie-mcp`,
+  `/api/internal/colonie-workspace-mcp`) sat outside the block and were untouched, as the audit said they would.
+  Three mistakes of mine were caught by checks rather than shipped: a first pruning pass merged two import
+  declarations into one line, a second stripped the per-specifier `type ` markers (so `tsc` was happy while node
+  crashed importing a type as a value — found only by booting the server), and removals glued 80 following lines
+  onto the line above. All three were caught by `pnpm typecheck`, a runtime boot probe and a diff review, then
+  redone from a clean revert. Evidence now: `index.ts` 14,050 lines, no glued line, every added diff line either
+  an `import` or blank; typecheck 0, lint 0, `build:server` 0, 197/197 tests; live on a throwaway HOME with 14
+  routes answering 200 (health, bots, config, routines, team-map, mcp/servers, connectors, local-computer, usage,
+  plan-usage, webhooks, calendar-calls, auth/sessions, search) and no runtime error in the log. What is left for
+  the deletion series: `server/external-runtime.ts` (now unreferenced), the retired native integrations that only
+  fed the block, the `/api/internal` scope bypass, and the stale caller references inside the retired agents
+  driver.
 - **S3.18: signed-in devices out of `index.ts` (October 18).** `server/routes/auth-sessions.ts` takes `GET
   /api/auth/sessions` and `DELETE /api/auth/sessions/:id` — `index.ts` 16,997 → 16,990 lines. The module gets
   the session registry and the cookie name as deps and imports `clearSessionCookie` itself. Two rules are now
