@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.76: the boot recovery out of `index.ts` (October 18).**
+  `server/colonie/chat/boot-recovery.ts` (`createBootRecovery`): on a restart or
+  workspace restore, walk the durable follow-up journal and, for every row whose
+  dispatch claim was already committed, recover the user's words to the transcript
+  plus a review notice and count the line as handed to the resumed session — never
+  re-execute it as a turn; a claim whose owning bot, task or room is gone is
+  cancelled instead, and rows that were never claimed are left to their own lane.
+  The cluster then restores the steered, aside and channel queues from their
+  journals. One block (L2578–2621), 44 lines. Guard: `boot-recovery.test.ts` (4) —
+  an unowned claim is cancelled with no transcript write, an owned claim recovers a
+  user line plus the "may have already run" notice and counts the line as handed
+  before retiring the row, a room claim recovers its channel provenance while a
+  foreign group's claim is cancelled, and a never-claimed row stays pending.
+  `index.ts` 2,671 → 2,628 lines. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 90 files / 425 tests pass; live probe green.
 - **S3.75: the staged skill cleanup out of `index.ts` (October 18).**
   `server/colonie/skills/staged-cleanup.ts` (`createStagedSkillCleanup`):
   `stagedSkillListing` (listing routes expose lifecycle metadata and never the
