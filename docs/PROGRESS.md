@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.55: the admin-activity audit out of `index.ts` (October 18).**
+  `server/harness/admin-audit.ts` (`createAdminAudit`): `adminAuditPlan` (method
+  and path → what a request may change), the before-state capture, `adminAuditRows`
+  (one row per bot/webhook/session/engine change, comparing only what the request
+  named), `beginAdminAudit`, and the `guardedSendSchema` contract the Slack worker
+  opts into. 181 lines, L633–786. Only `beginAdminAudit` and `guardedSendSchema`
+  are read outside the range, both below it. `store` and `webhooks` are read
+  through getters because their declarations sit below the site;
+  `AdminActionRow`/`WebhookTrigger`/`RequestAuth`/`IncomingMessage` types,
+  `requiredScope`, `onJsonBody`, `parsedBodyOf` and the audit helpers moved to the
+  module's own imports. Guard: `admin-audit.test.ts` (5) — a well-formed send
+  parses, a short send id and an empty text are refused, on-behalf-of needs an
+  email or a name, and an unknown field is rejected rather than passed through.
+  `index.ts` 4,692 → 4,547. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 69 files / 329 tests pass, live probe green.
 - **S3.54: the parked-turn resume tables out of `index.ts` (October 18).**
   `server/colonie/chat/resume-tables.ts` (`createResumeTables`): the connector,
   credential and computer resume tables — the message lookups and markers
