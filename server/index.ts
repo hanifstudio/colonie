@@ -550,6 +550,7 @@ import { createTeamBriefRoutes } from "./routes/team-brief.ts";
 import { createBotProfileRoutes } from "./routes/bot-profile.ts";
 import { cliProbeRoutes } from "./routes/cli-probe.ts";
 import { createTeamMapRoutes } from "./routes/team-map.ts";
+import { createRoutineRoutes } from "./routes/routines.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -941,14 +942,6 @@ function subjectVisible(subject: PathSubject, visible: VisibleSet): boolean {
 }
 
 /** A member may schedule a routine only for a bot or room they can see. */
-function hiddenRoutineTarget(body: unknown, visible: VisibleSet): string | null {
-  if (visible.everything || !body || typeof body !== "object") return null;
-  const { botId, groupId } = body as { botId?: unknown; groupId?: unknown };
-  if (typeof botId === "string" && store.bot(botId) && !visible.bot(botId)) return "no such bot";
-  if (typeof groupId === "string" && store.group(groupId) && !visible.group(groupId)) return "no such channel";
-  return null;
-}
-
 /** The conversations a bot's recent-work brief may draw on: its own. Rooms
  * are retired and no longer feed it. */
 function recentWorkSources() {
@@ -10618,6 +10611,11 @@ ROUTES.push(createTeamMapRoutes({
   pendingDelegationSnapshot,
   delegationWatch,
 }));
+ROUTES.push(createRoutineRoutes({
+  routines: routines!,
+  store,
+  visibleFor: (auth) => visibleTo(viewerFor(auth)),
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -13075,62 +13073,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, { messageIds });
       }
       return json(res, 404, { error: "unknown internal endpoint" });
-    }
-
-    
-
-    // ── routines calendar ────────────────────────────────────────────────
-    if (path === "/api/routines" && method === "GET") {
-      const fromParam = url.searchParams.get("from");
-      const toParam = url.searchParams.get("to");
-      const from = fromParam == null ? undefined : Number(fromParam);
-      const to = toParam == null ? undefined : Number(toParam);
-      return json(res, 200, {
-        routines: routines!.listRoutines().filter((routine) => routineVisible(routine, visible)),
-        runs: routines!.listRuns(from != null && Number.isFinite(from) ? from : undefined, to != null && Number.isFinite(to) ? to : undefined)
-          .filter((run) => routineVisible(run, visible)),
-      });
-    }
-    if (path === "/api/routines" && method === "POST") {
-      const body = await readBody(req);
-      const hidden = hiddenRoutineTarget(body, visible);
-      if (hidden) return json(res, 404, { error: hidden });
-      const routine = routines!.create(body);
-      return json(res, 201, { routine });
-    }
-    // The desktop shell polls this to decide whether to hold the computer
-    // awake: a run in flight, or a routine due within the hour.
-    if (path === "/api/routines/wake" && method === "GET") {
-      return json(res, 200, routines!.wakeHold());
-    }
-    let routineMatch = path.match(/^\/api\/routines\/([\w-]+)\/run$/);
-    if (routineMatch && method === "POST") {
-      const run = routines!.runNow(routineMatch[1]);
-      return run ? json(res, 201, { run }) : json(res, 404, { error: "no such routine" });
-    }
-    routineMatch = path.match(/^\/api\/routines\/([\w-]+)$/);
-    if (routineMatch && method === "PATCH") {
-      const body = await readBody(req);
-      const hidden = hiddenRoutineTarget(body, visible);
-      if (hidden) return json(res, 404, { error: hidden });
-      const routine = routines!.update(routineMatch![1], body);
-      return routine ? json(res, 200, { routine }) : json(res, 404, { error: "no such routine" });
-    }
-    if (routineMatch && method === "DELETE") {
-      const removed = routines!.remove(routineMatch[1]);
-      return removed
-        ? json(res, 200, { ok: true })
-        : json(res, 404, { error: "no such routine" });
-    }
-    if (path === "/api/routine-runs/seen-all" && method === "POST") {
-      return json(res, 200, { runs: routines!.markAllSeen() });
-    }
-    const runMatch = path.match(/^\/api\/routine-runs\/([\w-]+)\/(cancel|seen)$/);
-    if (runMatch && method === "POST") {
-      const run = runMatch[2] === "cancel"
-        ? await routines!.cancelRun(runMatch[1])
-        : routines!.markSeen(runMatch[1]);
-      return run ? json(res, 200, { run }) : json(res, 404, { error: "no such active run" });
     }
 
     // ── scheduled room sessions ────────────────────────────────────────

@@ -617,6 +617,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   connections). Guard: `server/routes/team-map.test.ts` (4). Live on a throwaway HOME:
   `{"collaborations":[],"queued":[],"running":[]}` and `POST /api/team-map` is still not a route. 172/172
   pass, typecheck 0, lint 0.
+- **S3.15: routines and their runs out of `index.ts` (October 18).** `server/routes/routines.ts` takes
+  `GET/POST /api/routines`, `GET /api/routines/wake`, `POST /api/routines/:id/run`, `PATCH/DELETE
+  /api/routines/:id`, `POST /api/routine-runs/seen-all` and `POST /api/routine-runs/:id/(cancel|seen)`,
+  plus the `hiddenRoutineTarget` helper only they used. The module declines a request that is not on one of
+  its paths before it builds a VisibleSet, so pulling the routes out does not add work to every other
+  request. Guard: `server/routes/routines.test.ts` (7) — a listing never shows a hidden bot's routine or run,
+  a window that is not a number falls back to the manager's default, a routine aimed at a bot or room the
+  caller cannot see reads as "no such bot"/"no such channel" rather than as a refusal, running/cancelling/
+  acknowledging answer for the routine named, and the shell's wake question is answered by the manager. Live
+  on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
+  list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
+  179/179 pass, typecheck 0, lint 0.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider
