@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.78: the conversation-source helpers out of `index.ts` (October 18).**
+  `server/colonie/chat/conversation-sources.ts` (`createConversationSources`):
+  `resolveReplyTarget` (an absent target is allowed, a malformed one is 400, and
+  a target that is gone or not a non-empty text line is 404),
+  `messageFileRootsForThread` (the conversation's pinned or configured folder,
+  the bot's workspace and the attachment store), `connectorThread` (only the
+  sender's own main chat or one of its task threads is writable; a stored room
+  thread is read-only history), and `proposalPersistence` (unknown sender or
+  foreign thread is 403; otherwise the shared eight-open-card budget, skipped
+  when the change applies directly). Four functions (L2096–2166, ~61 lines) that
+  answer from the same store facts. The wire sits just after
+  `createApprovalResolution` because `proposalPersistence` is handed over as a
+  value (`canPersist`), not a getter, and so must be bound before that site reads
+  it. `index.ts` 2,591 → 2,529 lines. Guard: `conversation-sources.test.ts` (6).
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 92 files / 437 tests
+  pass; live probe green.
 - **S3.77: the thread-title one-shot out of `index.ts` (October 18).**
   `server/colonie/chat/title-generation.ts`: `generateThreadTitle` (the cheap
   provider `generateText` one-shot behind a fresh thread's name and "Regenerate
