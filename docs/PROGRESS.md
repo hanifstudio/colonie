@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.49: the card resolvers out of `index.ts` (October 18).**
+  `server/colonie/chat/card-resolvers.ts` (`createCardResolvers`):
+  `resolveAndSendTrust`, the profile/model/team-setup/routine resolution
+  services and their resume queue, and skill-undo application. 364 lines,
+  L4327–4690. The `createStartTurn` deps had to pass `drainTeamSetupResumes` as a
+  getter once it moved below that wire. Guard: `card-resolvers.test.ts` (3).
+  `index.ts` 6,335 → 5,993. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 62 files / 311 tests pass, live probe green.
+- **S3.48: the local-VM/computer state out of `index.ts` (October 18).**
+  `server/colonie/computer/local-vm-state.ts` (`createLocalVmState`):
+  `botComputerControlKey`/`Snapshot`, `teamComputerInUse`, `mountHostComputer`,
+  `botHasActiveTurn`, `turnSurfacePlan`, preview resolution,
+  `continueComputerSelection`, `runningTurnEngines`/`runningTurnInstance`, the
+  local-VM target/lease/idle helpers, `releaseLocalVmThread`,
+  `localVmInventoryPayload`, and the startup discovery IIFE. 273 lines,
+  L3282–3554. Guard: `local-vm-state.test.ts` (4). `index.ts` 6,577 → 6,335.
+  Full suite 61 files / 308 tests, live probe green.
 - **S3.47: the delegation lifecycle out of `index.ts` (October 18).**
   `server/colonie/peers/delegation-lifecycle.ts` (`createDelegationLifecycle`):
   waiting-on-person chips, delegation wakes + budget, incident reporting,
