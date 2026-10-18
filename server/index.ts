@@ -23,7 +23,7 @@ import {ColonieSkills} from "./colonie/skills/service.ts";
 import {createColonieSkillsRoutes} from "./colonie/skills/routes.ts";
 import {ColonieChief} from "./colonie/chief/manager.ts";
 import {createChiefRoutes} from "./colonie/chief/routes.ts";
-import type {ChiefAssignment, ChiefBot} from "../shared/colonie-chief.ts";
+import type {ChiefBot} from "../shared/colonie-chief.ts";
 import {AsyncLocalStorage} from "node:async_hooks";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {existsSync, readFileSync, realpathSync} from "node:fs";
@@ -40,7 +40,7 @@ import {DirectHandoffs, type DirectHandoff} from "./colonie/chat/direct-handoffs
 import { guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard } from "./guarded-requests.ts";
 import {botAvatarUrlFromStoredPath} from "../shared/bot-avatar.ts";
 import {failedTurnTool} from "../shared/failed-turn.ts";
-import {approvalModeFor, modelSwitchNeedsAsk, type ApprovalMode} from "../shared/approval-mode.ts";
+import { approvalModeFor, type ApprovalMode } from "../shared/approval-mode.ts";
 import {createApprovalModeSupport} from "./harness-capabilities.ts";
 
 import { approvalModeForOrigin } from "./auto-approve.ts";
@@ -55,7 +55,7 @@ import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, dele
 import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { avatarImageStatus } from "./colonie/bots/avatar-image.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
-import {isEffortLevel, type CardAnswerer, type ResolvedSender, type WireBot, type WireTask} from "../shared/wire.ts";
+import { type CardAnswerer, type ResolvedSender, type WireBot, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard } from "../shared/ask-question.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import {liveDecisionRefusal} from "../shared/live-approval.ts";
@@ -83,7 +83,7 @@ import {entitled} from "./enterprise.ts";
 
 
 import {buildNotification, buildSpendNotification, type Notification} from "./notify.ts";
-import { isModelVariant, type ModelSelection, type RequestOutcome, type RuntimeEvent, type SteerOutcome, newId } from "./contracts.ts";
+import { type ModelSelection, type RequestOutcome, type RuntimeEvent, type SteerOutcome, newId } from "./contracts.ts";
 import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
 import { McpOAuthManager, withMcpSignIn, withoutPendingSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
@@ -101,9 +101,8 @@ import { acceptedSendMatch, sendFingerprint, SendSequencer } from "./send-idempo
 import {EventBus} from "./harness/bus.ts";
 import {ProviderRegistry} from "./harness/registry.ts";
 
-import {selectDefaultModelSelection, withNewBotEffort} from "./colonie/providers/default-model-selection.ts";
-import {threadModelFallback, type ThreadEngine} from "./colonie/chat/thread-model.ts";
-import {computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines} from "./colonie/computer/computer-engine-removal.ts";
+import { withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
+
 import { cancelPeerApprovalsForThread, dismissStalePeerCards, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
 import {withPeerProvenance} from "./colonie/peers/peer-provenance.ts";
 import { sectionKey, Store, threadTitleFrom, titleFromLlm, type BotRecord, type Message, type TaskRecord, toWireTask } from "./persistence/store.ts";
@@ -124,7 +123,6 @@ import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemo
 import { endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
 import {readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
 import { installOrgSkill, installSkill, resolveBotSkills, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, setSkillEnabled, skillsSystemPrompt, undoSkillWrite } from "./colonie/skills/skills.ts";
-import { newBotDefaultsSchema } from "./colonie/bots/new-bot-defaults.ts";
 import { setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
 import { buildSystemPrompt, userProfileSystemPrompt, computerPrompt, composioSystemPrompt, customMcpPrompt, CREDENTIAL_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, ROUTINE_PROMPT, resolveComputerPromptKind, teamAvailabilityPart } from "./colonie/bots/system-prompt.ts";
 import {readCuaConnection, readCuaUnavailableReason, gatedLocalComputer} from "./local-computer.ts";
@@ -151,7 +149,6 @@ import {ModelRequestService} from "./colonie/providers/model-requests.ts";
 import {TeamSetupError, TeamSetupRequestService} from "./colonie/teams/team-setup-requests.ts";
 import type {TeamSetupRequest} from "../shared/team-setup.ts";
 import {flushAllProfileHistory, flushProfileHistory, readHistory} from "./profile-versions.ts";
-import {BOT_PACKAGE_MAX_SKILLS} from "./colonie/bots/bot-package.ts";
 import {readThreadEvents} from "./colonie/chat/thread-events.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
@@ -249,6 +246,7 @@ import {createDirectSend, DirectSendRefused} from "./colonie/chat/direct-send.ts
 import {createStartTurn} from "./colonie/chat/turn-start.ts";
 import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 import {createRequestHandler} from "./harness/request-handler.ts";
+import {createModelSelection} from "./colonie/providers/model-selection.ts";
 import {createRuntimeEventSubscriber} from "./colonie/runtime/event-subscriber.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -1853,97 +1851,21 @@ function controlIntegration(
 /** One Chief assignment: run the target's fresh conversation under its own
  * provider/tools/permissions and return the result text. Stop aborts exactly
  * this child; the caller (Chief manager) owns the durable status. */
-function runColonieAssignment(job: ChiefAssignment, signal: AbortSignal): Promise<string> {
-  const threadId = job.targetThreadId;
-  if (!threadId) return Promise.reject(new Error("The assignment has no conversation."));
-  return new Promise<string>((resolve, reject) => {
-    let text = "";
-    let done = false;
-    const finish = (settle: () => void) => {
-      if (done) return;
-      done = true;
-      unsub();
-      signal.removeEventListener("abort", onAbort);
-      settle();
-    };
-    const unsub = bus.subscribe((event: RuntimeEvent) => {
-      if (shouldIgnoreProviderEvent(event) || event.threadId !== threadId) return;
-      if (event.type === "item.completed" && event.itemType === "assistant_text") text += (text ? "\n" : "") + event.text;
-      else if (event.type === "turn.completed") {
-        finish(() => event.ok ? resolve(text || "(the bot finished without a text reply)") : reject(new Error(event.stopReason ?? "The task failed.")));
-      }
-    });
-    const onAbort = () => {
-      finish(() => reject(Object.assign(new Error("The task was stopped."), { name: "AbortError" })));
-      void interruptDirectThread(job.targetBotId, threadId);
-    };
-    if (signal.aborted) { onAbort(); return; }
-    signal.addEventListener("abort", onAbort, { once: true });
-    const chief = store.bot(job.chiefBotId);
-    startTurn(job.targetBotId, job.message, {
-      threadId,
-      colonieAssignment: { id: job.id, chiefBotId: job.chiefBotId, chiefName: chief?.name ?? "the Chief",
-        sourceThreadId: job.sourceThreadId, ...(job.context ? { context: job.context } : {}) },
-      onDispatchError: (reason) => finish(() => reject(new Error(reason))),
-    }).catch((error) => finish(() => reject(error instanceof Error ? error : new Error(String(error)))));
-  });
-}
-
-// New bots honor setup's saved choice; without one, an engine that can run a
-// turn now (Claude first). `null` leaves the saved choice out
-// (moveOffComputerEngine).
-async function defaultSelection(saved: ModelSelection | null = cfg.defaultModelSelection ?? null) {
-  return selectDefaultModelSelection(await registry.describe(), saved ?? undefined);
-}
-
-/** The Computer engine was removed: it ran a whole turn on Boat's own agent.
- * Everything still set to it moves, once, to the engine a new bot gets
- * (defaultSelection, the one picker), or the one a new bot would get without
- * the saved choice when that cannot run: the saved default and new-bot
- * defaults, each bot and conversation (Store.retireInstances keeps each one
- * where it worked), and an automatic-recovery backup, which could never run
- * and is cleared. Each moved conversation says so in one plain line. When no
- * engine is available yet it runs again the next time the engines are read
- * (describeInstances): an install, a sign-in, a key or a Company engine. At
- * start it sees what a new bot made then would see; a policy that arrives
- * later refuses an engine for a moved bot the way it does for any bot. */
-async function moveOffComputerEngine(): Promise<void> {
-  const removed = removedComputerInstanceIds(cfg.instances);
-  const named = (selection?: { instanceId: string }) => Boolean(selection && removed.has(selection.instanceId));
-  if (named(cfg.automaticRecovery?.backup)) {
-    saveConfig({ automaticRecovery: { enabled: false } });
-    cfg.automaticRecovery = { enabled: false };
-  }
-  const defaults = named(cfg.defaultModelSelection) || named(cfg.newBotDefaults?.profile.modelSelection);
-  if (!defaults && !store.bots.some(bot => named(bot.modelSelection) || bot.fallback?.some(named) ||
-    store.tasks(bot.id).some(task => named(task.modelSelection)))) return;
-  let replacement = named(cfg.defaultModelSelection) ? { instanceId: "", model: "" } : await defaultSelection();
-  if (!replacement.instanceId) replacement = await defaultSelection(null);
-  if (!replacement.instanceId) {
-    console.warn("[engines] the Computer engine was removed and no other engine is available yet; its bots move when one is");
-    return;
-  }
-  if (defaults) {
-    // One write keeps both saved defaults on the replacement (saveConfig
-    // syncs them), and the copies in memory follow at once, so a bot made
-    // before the next start never lands on the removed engine.
-    const newBotDefaults = cfg.newBotDefaults && newBotDefaultsSchema.parse({
-      ...cfg.newBotDefaults, profile: { ...cfg.newBotDefaults.profile, modelSelection: replacement },
-    });
-    saveConfig(newBotDefaults ? { newBotDefaults } : { defaultModelSelection: replacement });
-    cfg.defaultModelSelection = replacement;
-    if (newBotDefaults) cfg.newBotDefaults = newBotDefaults;
-  }
-  const instance = registry.get(replacement.instanceId);
-  const engine = instance?.displayName ?? instance?.driverKind ?? replacement.instanceId;
-  const moves = store.retireInstances(removed, replacement, {
-    driverKind: instance?.driverKind,
-  });
-  writeComputerEngineMoveLines(moves, (move) => {
-    const bot = store.bot(move.botId);
-    if (bot) store.appendMessage(move.threadId, { role: "bot", kind: "activity", tool: { name: computerEngineMoveText(move, bot.name, engine), ok: true } });
-  });
-}
+const { runColonieAssignment, defaultSelection, moveOffComputerEngine, checkedModelSelection, checkedTaskModelSwitch, turnSelection, healThreadModel, checkedExportSkillNames, collectExportSkills } = createModelSelection({
+  bus,
+  cfg,
+  describeInstances: () => describeInstances,
+  interruptDirectThread,
+  registry,
+  shouldIgnoreProviderEvent,
+  startTurn: () => startTurn,
+  store: () => store,
+  listBotSkills,
+  providerConfigs,
+  providerInstancesChanging: () => providerInstancesChanging,
+  readBotSkillFile,
+  threadBusy,
+});
 let computerEngineMoveRunning: Promise<void> | null = null;
 /** The move, once at a time; it returns at once when nothing names the
  * removed engine any more. A failure is logged and never rejects, so it never
@@ -1958,216 +1880,6 @@ function retryComputerEngineMove(): Promise<void> {
   return computerEngineMoveRunning;
 }
 
-function checkedModelSelection(
-  raw: unknown,
-  current?: { selection: ModelSelection; busy: boolean },
-  requireAvailableModel = false,
-): { ok: true; selection: ModelSelection } | { ok: false; status: number; error: string } {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ok: false, status: 400, error: "modelSelection must be an object" };
-  }
-  const value = raw as { instanceId?: unknown; model?: unknown; effort?: unknown; variant?: unknown };
-  if (typeof value.instanceId !== "string" || !value.instanceId.trim()) {
-    return { ok: false, status: 400, error: "modelSelection.instanceId is required" };
-  }
-  if (typeof value.model !== "string" || !value.model.trim()) {
-    return { ok: false, status: 400, error: "modelSelection.model is required" };
-  }
-  const selection: ModelSelection = {
-    instanceId: value.instanceId.trim(),
-    model: value.model.trim(),
-  };
-  
-  if (value.effort !== undefined) {
-    if (!isEffortLevel(value.effort)) {
-      return { ok: false, status: 400, error: `effort "${String(value.effort)}" is not recognized` };
-    }
-    selection.effort = value.effort;
-  }
-  if (value.variant !== undefined) {
-    if (!isModelVariant(value.variant)) {
-      return { ok: false, status: 400, error: "variant must be a non-empty model variant ID" };
-    }
-    if (value.effort !== undefined) {
-      return { ok: false, status: 400, error: "choose either a model variant or an effort level" };
-    }
-    selection.variant = value.variant;
-  }
-  const changed = current && (
-    selection.instanceId !== current.selection.instanceId ||
-    selection.model !== current.selection.model ||
-    selection.effort !== current.selection.effort ||
-    selection.variant !== current.selection.variant
-  );
-  if (current?.busy && changed) {
-    return { ok: false, status: 409, error: "the bot is working — stop it before changing models" };
-  }
-  const target = registry.get(selection.instanceId);
-  if (providerInstancesChanging.has(selection.instanceId)) {
-    return { ok: false, status: 409, error: "this provider account is being updated — try again shortly" };
-  }
-  // Model IDs remain free-form at the app's general API boundary. Custom
-  // engines can accept IDs that are not in their discovery catalog, and
-  // several drivers only learn the final catalog when a turn starts. The
-  // MCP tool applies a stricter discovered-model policy for its own calls.
-  if (requireAvailableModel) {
-    if (!target) {
-      return { ok: false, status: 400, error: `model instance "${selection.instanceId}" is unavailable` };
-    }
-    const offered =
-      selection.model === target.models.default ||
-      target.models.options.some((option) => option.id === selection.model);
-    if (!offered) {
-      return {
-        ok: false,
-        status: 400,
-        error: `model "${selection.model}" is not offered by instance "${selection.instanceId}"`,
-      };
-    }
-  }
-  const allowed: readonly string[] = target?.adapter.capabilities.effortLevels ?? [];
-  if (target && selection.effort !== undefined && !allowed.includes(selection.effort)) {
-    return { ok: false, status: 400, error: `effort "${selection.effort}" is not offered by this bot's engine` };
-  }
-  if (target && selection.variant !== undefined && !target.adapter.capabilities.modelVariants) {
-    return { ok: false, status: 400, error: "model variants are not offered by this bot's engine" };
-  }
-  return { ok: true, selection };
-}
-
-function checkedTaskModelSwitch(current: BotRecord, raw: unknown, updateBotDefault: boolean,
-  resetApprovalToAsk: boolean, requireAvailableModel = false, trusted = false) {
-  if (current.approvalGrant) return { ok: false as const, status: 409, error: "Wait for the approval change to finish before switching models" };
-  const checked = checkedModelSelection(raw, {
-    selection: current.modelSelection, busy: threadBusy(current.id, current.threadId),
-  }, requireAvailableModel);
-  if (!checked.ok) return checked;
-  const profile = store.bot(current.id)!;
-  if (updateBotDefault) {
-    const defaults = checkedModelSelection(checked.selection, {
-      selection: profile.modelSelection, busy: false,
-    });
-    if (!defaults.ok) return defaults;
-  }
-  for (const target of updateBotDefault ? [current, profile] : [current]) {
-    const mode = approvalModeFor(target);
-    if (resetApprovalToAsk && mode === "custom" && !trusted) {
-      return { ok: false as const, status: 403, error: "Leaving Custom approval requires confirmation in the packaged desktop app" };
-    }
-    if (!resetApprovalToAsk && modelSwitchNeedsAsk(mode,
-      registry.cliTarget(target.modelSelection.instanceId)?.driverKind,
-      registry.cliTarget(checked.selection.instanceId)?.driverKind)) {
-      return { ok: false as const, status: 400, error: "Confirm switching this model with Ask permissions first (resetApprovalToAsk)" };
-    }
-  }
-  if (resetApprovalToAsk && threadBusy(current.id, current.threadId)) {
-    return { ok: false as const, status: 409, error: "Stop work in the selected scope before switching its permissions" };
-  }
-  return checked;
-}
-
-/** An engine as a turn's start sees it, without waiting on its CLI: the live
- * instance and what its last read said (registry.lastSnapshot). Before the
- * first read it counts as available, so only what is known stops a pick. */
-function threadEngine(instanceId: string): ThreadEngine | undefined {
-  const live = registry.get(instanceId);
-  if (!live) return undefined;
-  return {
-    instanceId, driverKind: live.driverKind, enabled: live.enabled, models: live.models,
-    capabilities: { modelVariants: live.adapter.capabilities.modelVariants === true },
-    snapshot: registry.lastSnapshot(instanceId) ?? { state: "available" },
-    access: providerConfigs()[instanceId]?.access ?? registry.access(instanceId),
-  };
-}
-
-/** This thread's own model, when it gives way to its bot's now
- * (threadModelFallback); null when the thread follows its bot or its own
- * model runs as picked. */
-function threadModelGivingWay(botId: string, threadId: string): ModelSelection | null {
-  const bot = store.bot(botId);
-  const own = store.taskByThread(botId, threadId)?.modelSelection;
-  if (!bot || !own) return null;
-  return threadModelFallback(own, bot.modelSelection, threadEngine) ? own : null;
-}
-
-/** The model a turn in this thread would run on now (healThreadModel). */
-function turnSelection(botId: string, threadId: string): ModelSelection | undefined {
-  return threadModelGivingWay(botId, threadId) ? store.bot(botId)?.modelSelection : store.projectBotForTask(botId, threadId)?.modelSelection;
-}
-
-/** A model as a person reads it: its catalog label, after its engine's name
- * while that engine is here. */
-function modelName(selection: ModelSelection): string {
-  const instance = registry.get(selection.instanceId);
-  const label = instance?.models.options.find((option) => option.id === selection.model)?.label ?? selection.model;
-  return instance ? `${instance.displayName || instance.driverKind} · ${label}` : label;
-}
-
-/** A thread's own model that can't run here gives way to its bot's: the turn
- * about to start runs on the bot's model, the thread follows the bot from
- * then on, and one plain line in it says so. Every turn starts through
- * startTurn (a person's message, a routine, a delegation, a webhook, a
- * queued follow-up), so this is the one place it happens; a room turn
- * already runs on each member's own model. */
-function healThreadModel(botId: string, threadId: string): void {
-  const bot = store.bot(botId);
-  const own = threadModelGivingWay(botId, threadId);
-  if (!bot || !own || bot.approvalGrant || threadBusy(botId, threadId)) return;
-  if (!store.followBotModel(botId, [threadId]).length) return;
-  store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
-    name: `notice: This thread's model (${modelName(own)}) isn't available, so it now uses ${bot.name}'s model (${modelName(bot.modelSelection)}).`,
-    ok: true,
-  } });
-}
-
-function checkedExportSkillNames(
-  value: unknown,
-  bots: readonly BotRecord[],
-): { ok: true; names: string[] } | { ok: false; error: string } {
-  // Sharing instructions is explicit: ordinary package exports include none.
-  if (value === undefined) return { ok: true, names: [] };
-  if (!Array.isArray(value) || value.some((name) => typeof name !== "string" || !isSkillName(name))) {
-    return { ok: false, error: "skillIds must be a list of exact imported skill names" };
-  }
-  const names = [...value] as string[];
-  if (new Set(names).size !== names.length) return { ok: false, error: "skillIds must not contain duplicates" };
-  if (names.length > BOT_PACKAGE_MAX_SKILLS) return { ok: false, error: `skillIds must contain at most ${BOT_PACKAGE_MAX_SKILLS} names` };
-  const available = new Set(bots.flatMap((bot) => listBotSkills(bot).map((skill) => skill.name)));
-  const unknown = names.find((name) => !available.has(name));
-  if (unknown) return { ok: false, error: `skillIds contains unknown imported skill "${unknown}"` };
-  return { ok: true, names };
-}
-
-function collectExportSkills(
-  bots: readonly BotRecord[],
-  names: readonly string[],
-): ReadonlyMap<string, readonly ExportablePackageSkill[]> {
-  const selected = new Set(names);
-  const byBot = new Map<string, ExportablePackageSkill[]>();
-  if (!selected.size) return byBot;
-  for (const bot of bots) {
-    const assigned: ExportablePackageSkill[] = [];
-    for (const listing of listBotSkills(bot)) {
-      if (!selected.has(listing.name)) continue;
-      const instructions = readBotSkillFile(bot, listing.name);
-      if (instructions === null) {
-        throw new Error(`Skill "${listing.name}" changed or is unavailable and cannot be exported safely`);
-      }
-      const skill: ExportablePackageSkill = {
-        name: listing.name,
-        description: listing.description,
-        ...(listing.source ? { source: listing.source } : {}),
-        ...(listing.license ? { license: listing.license } : {}),
-        ...(listing.compatibility ? { compatibility: listing.compatibility } : {}),
-        instructions,
-      };
-      // The shared exporter validates duplicate bytes and metadata together.
-      assigned.push(skill);
-    }
-    if (assigned.length) byBot.set(bot.id, assigned);
-  }
-  return byBot;
-}
 
 /** Skills on one team's bots for a whole-team share. "all" skips a skill
  * whose stored SKILL.md changed (listed to the person); an explicit list
