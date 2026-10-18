@@ -597,6 +597,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   future move of either file fails a test rather than a turn. Verified after the fix on a throwaway HOME:
   `GET /api/search` and a real workspace export both work from `server/index.ts` and from
   `dist-server/index.js` (`eb1dab83`).
+- **S3.13: the CLI discovery and pre-save probe out of `index.ts` (October 18).** `server/routes/cli-probe.ts`
+  takes `GET /api/cli-candidates` and `POST /api/cli-test` plus the three helpers only they used
+  (`testCliBinary`, `cliProbeEnvironment`, `stderrOf`), all verified unused elsewhere before they moved.
+  `index.ts` 17,261 → 17,166 lines. Non-internal guards 48 → 46. Guard: `server/routes/cli-probe.test.ts`
+  — a request that is not its own is passed on, a candidates lookup for a name nobody has comes back empty
+  rather than failed, a form post that could come from another page is refused with 415, an empty or
+  multi-line path is refused before anything is executed, a binary that is there answers with the version
+  line the UI shows, and a path that is not there reads as a setup problem rather than a crash. The
+  environment the probe hands a wrapper is the credential-redacted one `cliProbeEnvironment` builds, which
+  is why the module owns it rather than index.ts. Live on a throwaway HOME: candidates for `node` listed in
+  PATH order, `node` probed as `v24.13.1`, a missing path reported as "isn't installed, or isn't on this
+  app's PATH", and a `text/plain` post refused. 168/168 pass, typecheck 0, lint 0.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

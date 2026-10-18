@@ -179,8 +179,6 @@ import {
   browserProfileReplacementConflict,
   browserProfilePartitionTarget,
   syncCredentialEnv,
-  stripWorkspaceCredentialEnv,
-  PROVIDER_CREDENTIAL_ENV,
   withInstanceCli,
   persistableInstanceConfigs,
   type AppConfig,
@@ -198,7 +196,7 @@ import {
 } from "./config.ts";
 import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./colonie/chat/thread-retention.ts";
 import { ComputerControl } from "./colonie/computer/computer-control.ts";
-import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
+import { augmentedPath, resetPathCache } from "./runtime/env-path.ts";
 import { registerEnginesBinDir } from "./colonie/providers/engine-install.ts";
 import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
@@ -211,7 +209,7 @@ import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAle
 
 import { entitled } from "./enterprise.ts";
 
-import { describeSpawnFailure, execCli } from "./runtime/procs.ts";
+
 import { buildNotification, buildSpendNotification, type Notification } from "./notify.ts";
 import {
   isModelVariant,
@@ -550,6 +548,7 @@ import { createBotDefaultRoutes } from "./routes/bot-defaults.ts";
 import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { createTeamBriefRoutes } from "./routes/team-brief.ts";
 import { createBotProfileRoutes } from "./routes/bot-profile.ts";
+import { cliProbeRoutes } from "./routes/cli-probe.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10097,71 +10096,6 @@ bus.subscribe((event: RuntimeEvent) => {
   }
 });
 
-/** Pre-save probe for a CLI path override: run `<cli> --version` with the
- * same environment a real turn gets (augmented PATH). Returns ok + the
- * version line, or a fail the UI can act on — ENOENT on a GUI-launched app
- * usually means "not on the app's PATH", the exact mistake this catches
- * before the override is saved. */
-async function testCliBinary(
-  cli: string,
-  driver: (typeof BUILT_IN_DRIVERS)[number] | undefined,
-): Promise<{ ok: boolean; version?: string; message?: string; install?: (typeof BUILT_IN_DRIVERS)[number]["install"] }> {
-  return new Promise((resolve) => {
-    execCli(
-      cli,
-      ["--version"],
-      {
-        timeout: 10_000,
-        // SIGKILL, not SIGTERM: a child that traps TERM (sh -c "trap '' TERM;
-        // sleep 99999") would otherwise never fire the callback and pin the
-        // HTTP socket forever. maxBuffer bounds a chatty --version too.
-        killSignal: "SIGKILL",
-        maxBuffer: 1024 * 64,
-        env: cliProbeEnvironment(),
-      },
-      (err, stdout) => {
-        if (err) {
-          const e = err as NodeJS.ErrnoException & { killed?: boolean };
-          // err.code is an errno CONSTANT ("ENOENT", "EACCES") only for spawn
-          // failures; for a non-zero exit it's the exit STATUS (a number) and
-          // for a timeout it's null + killed:true — describeSpawnFailure words
-          // only the first kind
-          const exceededBuffer = e.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER";
-          const isSpawnError = typeof e.code === "string" && !exceededBuffer;
-          const message = exceededBuffer
-            ? "CLI test produced more than 64 KiB of output"
-            : isSpawnError
-              ? describeSpawnFailure(e, cli).message
-              : e.killed
-              ? "CLI test timed out after 10s"
-              : `CLI exited with error ${String(e.code)}: ${(stderrOf(err) || "").slice(0, 200) || err.message.split("\n")[0]}`;
-          resolve({ ok: false, message, ...(driver?.install && isSpawnError ? { install: driver.install } : {}) });
-          return;
-        }
-        resolve({ ok: true, version: stdout.trim().split("\n")[0] });
-      },
-    );
-  });
-}
-
-/** A pre-save probe only needs PATH. Never hand credentials inherited by the
- * desktop/server process to an arbitrary wrapper selected through Settings.
- * The shared lists (config.ts) cover every workspace, control-plane and
- * provider credential, including ones added later; the probe and `claude
- * update` keep everything else (HOME, proxy settings, CA bundles). */
-function cliProbeEnvironment(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, PATH: augmentedPath() };
-  stripWorkspaceCredentialEnv(env);
-  for (const key of PROVIDER_CREDENTIAL_ENV) delete env[key];
-  return env;
-}
-
-/** execFile's error carries the child's stderr in .stderr. */
-function stderrOf(err: unknown): string {
-  const s = (err as { stderr?: unknown }).stderr;
-  return typeof s === "string" ? s : Buffer.isBuffer(s) ? s.toString("utf8") : "";
-}
-
 async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
   const status = await containerComputerStatus(undefined, undefined, target);
   return {
@@ -10676,6 +10610,7 @@ ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
 ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
 ROUTES.push(teamLibraryRoutes);
+ROUTES.push(cliProbeRoutes);
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -16364,38 +16299,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
     }
 
-    // ── CLI binary discovery for the Engines "detected" dropdown ──
-    // ?name=claude → absolute paths of every `claude` on the augmented PATH,
-    // in PATH order (first = what a bare name runs). Polled when the user
-    // opens the Custom picker so a just-installed CLI appears without a restart.
-    if (method === "GET" && path === "/api/cli-candidates") {
-      const name = url.searchParams.get("name") ?? "";
-      resetPathCache();
-      return json(res, 200, { candidates: findCliCandidates(name) });
-    }
-
-    // ── pre-save CLI probe: does this path actually run? ──
-    // POST {cli, driver} → spawn `<cli> --version` with the same PATH the
-    // turn itself would use. A miss here (typo, missing exec bit, a binary
-    // the GUI app can't see) means every turn would fail, so the UI asks
-    // before saving rather than registering a dead engine.
-    if (method === "POST" && path === "/api/cli-test") {
-      // same gate as the local-VM lifecycle routes: this executes a local
-      // binary, so a hostile page must not be able to submit it as a simple
-      // text/plain cross-origin request
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const body = await readBody(req);
-      const cli = typeof body?.cli === "string" ? body.cli.trim() : "";
-      if (!cli || /[\n\r]/.test(cli)) return json(res, 400, { error: "cli must be a non-empty path" });
-      const driver = typeof body?.driver === "string" ? BUILT_IN_DRIVERS.find((d) => d.driverKind === body.driver) : undefined;
-      // Probe the exact configured wrapper plus --version. testCliBinary uses
-      // a credential-redacted environment, so fixed wrapper arguments cannot
-      // turn this endpoint into an inherited-secret reader.
-      const probe = await testCliBinary(cli, driver);
-      return json(res, 200, probe);
-    }
+    
 
     // ── in-app sign-in for a Colonie ACP connection ──
     // Runs the adapter's own authenticate (the provider's browser/device flow)
