@@ -253,6 +253,7 @@ import {pinnedClientThread} from "./routes/pinned-client.ts";
 import {createBotReadRoutes} from "./routes/bot-read.ts";
 import {createBotProfilePatchRoutes} from "./routes/bot-profile-patch.ts";
 import {createThreadEventsRoutes} from "./routes/thread-events.ts";
+import {createCommandAllowlistRoutes} from "./routes/command-allowlist.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9661,6 +9662,15 @@ ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
 ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast }));
 ROUTES.push(createBotProfilePatchRoutes({ store, storedAvatarExists, wireBot, broadcast }));
 ROUTES.push(createThreadEventsRoutes({ store, eventsDir: EVENTS_DIR, nativeDir: NATIVE_DIR, readThreadEvents }));
+ROUTES.push(createCommandAllowlistRoutes({
+  store,
+  allowlist: commandAllowlist,
+  registry,
+  canManage: canManageCommandAllowlist,
+  requestedTaskBot,
+  response: commandAllowlistResponse,
+  drivers: COMMAND_ALLOWLIST_DRIVERS,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -11189,26 +11199,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!bot) return json(res, 404, { error: "no such bot" });
       store.patchTask(bot.id, selected.threadId, { modelSelection: undefined });
       return json(res, 200, { bot: wireBot(bot) });
-    }
-    if (m && ["GET", "POST", "DELETE"].includes(method)) {
-      if (!canManageCommandAllowlist(auth)) return json(res, 403, { error: "Only the owner or an admin can manage command permissions." });
-      const bot = requestedTaskBot(m[1], url.searchParams.get("threadId") ?? undefined);
-      if (method === "GET" && !m[2]) return json(res, 200, commandAllowlistResponse(bot));
-      if (method === "POST" && !m[2]) {
-        const candidate = commandAllowlistCandidate(await readBody(req));
-        if (!candidate) return json(res, 400, { error: "Enter an exact command without secret values, an absolute working folder, and a provider." });
-        const instance = registry.get(candidate.providerInstanceId);
-        if (!instance || !COMMAND_ALLOWLIST_DRIVERS.has(instance.driverKind)) {
-          return json(res, 400, { error: "This provider does not supply structured command approvals." });
-        }
-        commandAllowlist.add(bot.id, candidate);
-        return json(res, 200, commandAllowlistResponse(bot));
-      }
-      if (method === "DELETE" && m[2]) {
-        commandAllowlist.remove(bot.id, m[2]);
-        return json(res, 200, commandAllowlistResponse(bot));
-      }
-      return json(res, 405, { error: "Unsupported command allowlist operation" });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/always-allow$/);
     if (m && method === "POST") {

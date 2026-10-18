@@ -629,6 +629,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.23: saved command permissions out of `index.ts`, and a regression from S3.20 repaired (October 18).**
+  `server/routes/command-allowlist.ts` takes `GET`/`POST`/`DELETE /api/bots/:id/command-allowlist(?/:ruleId)`.
+  Deps: the allowlist store, the provider registry, `canManage`, `requestedTaskBot`, `commandAllowlistResponse`
+  and the driver set; candidate validation stays the shared function. Guard test (5): another route is left to the
+  next handler; only the owner or an admin may look at all; reading answers with the rules and whether the
+  provider supports them; adding checks the candidate, then the provider, then saves; removing takes a rule id and
+  anything else on the path is a 405. Live on a throwaway HOME: `GET .../command-allowlist` answered 200
+  (`supported:false` for the codex engine), an unknown provider answered 400 with "does not supply structured
+  command approvals", `PATCH` answered 405.
+  **Regression found and repaired:** S3.20's edit removed the `m = path.match(.../command-allowlist...)` line along
+  with the bot-read block, so those three requests answered 404 from S3.20 until now. No test covers the inline
+  blocks, but a live probe now does for every extracted route; when deleting an inline block, check the diff for a
+  removed `m = path.match(...)` line that has no matching added line — the assignment above a block belongs to that
+  block, not to the block being deleted.
 - **S3.22: the thread-events inspector out of `index.ts` (October 18).** `GET /api/threads/:id/events`
   becomes `server/routes/thread-events.ts`; `readThreadEvents` and the two log directories are deps. Guard test (4):
   a request that is not a thread's events is left to the next handler; a bot's thread and a room's thread both read
