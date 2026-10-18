@@ -1,6 +1,6 @@
 /** Which computer select_computer picks for a request, kept free of index.ts
  * so the rule stays unit-testable. */
-import type { Surface } from "./surface.ts";
+import type { Surface } from "../../surface.ts";
 
 /** One computer select_computer can offer (selectableComputers). */
 export interface ComputerOption {

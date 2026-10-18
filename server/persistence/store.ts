@@ -25,7 +25,7 @@ import { pickBotName } from "../names.ts";
 import { redactSecretsInText } from "../redact.ts";
 import { AVATAR_FOCUS_CENTER, AVATAR_ZOOM_MIN, botAvatarProfile, clampAvatarFocus, clampAvatarZoom } from "../../shared/bot-avatar.ts";
 import { approvalModeFor, isApprovalMode, modelSwitchNeedsAsk } from "../../shared/approval-mode.ts";
-import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "../computer-engine-removal.ts";
+import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "../colonie/computer/computer-engine-removal.ts";
 import type { ProfileRequestChanges } from "../../shared/profile-request.ts";
 import type { TeamSetupRequest, TeamSetupResult } from "../../shared/team-setup.ts";
 import { isMentionBoundary, isMentionNameContinuation } from "../../shared/mention-boundary.ts";

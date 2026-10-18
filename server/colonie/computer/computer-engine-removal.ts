@@ -3,7 +3,7 @@
 // one place that still knows the removed engine's names, so settings saved
 // before the removal can be moved off it, once, on every kind of server
 // (moveOffComputerEngine in index.ts, Store.retireInstances).
-import type { InstanceConfigMap } from "./contracts.ts";
+import type { InstanceConfigMap } from "../../contracts.ts";
 
 /** The removed engine's driver kind ("boxAgent" was Boat's historical name). */
 export const REMOVED_COMPUTER_DRIVER = "boxAgent";

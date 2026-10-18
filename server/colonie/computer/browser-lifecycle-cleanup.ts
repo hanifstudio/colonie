@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { z } from "zod";
-import { writeFileAtomic } from "./persistence/atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 
 const BOT_ID = /^[A-Za-z0-9_-]{1,120}$/;
 const PROFILE_ID = /^[a-z0-9_-]{1,40}$/;

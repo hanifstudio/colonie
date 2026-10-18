@@ -27,7 +27,7 @@
 import { spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 
-import { CONTROL_REFUSAL_PLAIN, createControlClient } from "../../control-client.ts";
+import { CONTROL_REFUSAL_PLAIN, createControlClient } from "../computer/control-client.ts";
 import { augmentedPath, resolveCliSpawn } from "../../runtime/env-path.ts";
 import { createToolListNormalizer } from "./mcp-tool-schema.ts";
 

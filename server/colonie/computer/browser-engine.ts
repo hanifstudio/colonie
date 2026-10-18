@@ -14,11 +14,11 @@ import { chmodSync, constants, copyFileSync, existsSync, mkdirSync, readFileSync
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
 import { browserBundlePaths } from "./browser-bundle-release.ts";
 import { BROWSER_VIEWPORT_ARGS, browserRuntimeEnv, ownsBrowserViewport } from "./browser-runtime.ts";
-import { SIGN_IN_PROMPT } from "./colonie/bots/system-prompt.ts";
+import { SIGN_IN_PROMPT } from "../bots/system-prompt.ts";
 import {
   AGENT_BROWSER_VERSION,
   agentBrowserReleaseUrl,

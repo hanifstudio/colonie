@@ -1,6 +1,6 @@
 import type { ContainerComputerStatus, LocalVmTarget } from "./container-computer.ts";
-import type { RequestAuth } from "./request-auth.ts";
-import { desktopViewerUrl, type DesktopTarget } from "./routes/desktop-viewer.ts";
+import type { RequestAuth } from "../../request-auth.ts";
+import { desktopViewerUrl, type DesktopTarget } from "../../routes/desktop-viewer.ts";
 
 export const viewerTargetId = (target: { key: string }) => `local/${target.key.replace(":", "-")}`;
 

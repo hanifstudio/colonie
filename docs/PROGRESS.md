@@ -549,6 +549,26 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   throwaway HOME: `/api/mcp/servers` lists and accepts a new stdio server, `/api/connectors` answers without
   reaching Composio (`COMPOSIO_API_KEY` unset), and both answer the same from `dist-server/index.js`; all ten
   `SPAWNED_PROXIES` files are emitted where `resolveProxy` looks for them.
+- **S13: computers, containers, browsers and the local VM into `server/colonie/computer/` (October 18).**
+  Twenty-six files moved — `container-computer.ts` (1,334 lines), `browser-engine.ts`, `browser-live.ts`,
+  `browser-runtime.ts`, `browser-lifecycle-cleanup.ts`, `browser-bundle-release.ts`,
+  `browser-engine-release.ts`, `browser-tool-shape.ts`, `computer-control.ts`, `computer-observation.ts`,
+  `computer-selection.ts`, `computer-wait.ts`, `computer-engine-removal.ts`, `control-client.ts`,
+  `desktop-viewer-targets.ts`, `auto-vm-claims.ts`, `local-vm-idle.ts`, `local-vm-inventory.ts`,
+  `local-vm-lease.ts`, `local-vm-seat-pool.ts`, `local-vm-stop-reason.ts`, `private-screen-capture.ts`,
+  `screen-frame-gate.ts`, `screen-frame-source.ts`, `shared-computer-control.ts`, `shared-computers.ts` —
+  16 files repointed. Four stayed at the server root: `container-mcp.ts`, `local-computer.ts`,
+  `local-computer-proxy.ts` and `permission-proxy.ts` are all bundle entries or spawn targets. Guards:
+  `computer-selection.test.ts` — asking for a place gets that place and nothing when it is not offered, the
+  turn's own place is kept rather than restarted elsewhere, a place this turn is about to wake counts as its
+  own before it is up, Auto prefers a ready virtual machine over an already-ready local one, Auto walks its
+  order (ready, then startable, then creatable, virtual first), and a place that cannot be used at all is
+  never picked by Auto though it is still the answer when asked for by name; `screen-frame-gate.test.ts` — a
+  settled frame is news only when it differs from what the reader already sees and otherwise fails open, the
+  fingerprint is the frame's, and a shell command over the computer is not a screen touch. 158/158 pass,
+  typecheck 0, lint 0, `build:server` green with all ten `SPAWNED_PROXIES` files emitted. Live on a throwaway
+  HOME: `/api/local-computer` and `/api/local-computer/instances` answer through the moved modules, and the
+  same answer comes from `dist-server/index.js` (Docker not started, reported as designed).
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

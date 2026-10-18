@@ -38,8 +38,8 @@ import { z } from "zod";
 import { selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES } from "./context-rebuild.ts";
 import { draftSummary, foldPoint } from "./compaction-summary.ts";
 import { autoCompactWindow, compactBudget, contextWindowFor, shouldCompact } from "./context-budget.ts";
-import { SharedComputers, sharedComputerOperation, sharedComputerRegistration, provenRequestPerson } from "./shared-computers.ts";
-import { SharedComputerControl } from "./shared-computer-control.ts";
+import { SharedComputers, sharedComputerOperation, sharedComputerRegistration, provenRequestPerson } from "./colonie/computer/shared-computers.ts";
+import { SharedComputerControl } from "./colonie/computer/shared-computer-control.ts";
 import { DirectHandoffs, type DirectHandoff } from "./direct-handoffs.ts";
 import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard } from "./guarded-requests.ts";
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
@@ -74,7 +74,7 @@ import {
   requireBrowserCleanupAcknowledged,
   type BrowserCleanupRequest,
   type BrowserCleanupWireRequest,
-} from "./browser-lifecycle-cleanup.ts";
+} from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import * as checkpoints from "./checkpoints.ts";
 import { commandReceipt } from "./commands.ts";
 import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./digest.ts";
@@ -117,7 +117,7 @@ import {
   snapshotAvatarGenerationState,
 } from "./colonie/bots/avatar-image.ts";
 import { fitsOnOneLine, parseBotProfilePatch } from "./colonie/bots/bot-profile.ts";
-import { pickComputer } from "./computer-selection.ts";
+import { pickComputer } from "./colonie/computer/computer-selection.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./colonie/teams/team-computers.ts";
 import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard } from "../shared/ask-question.ts";
@@ -149,7 +149,7 @@ import {
   VM_WORKSPACE_GUEST,
   type LocalVmTarget,
   type Runtime,
-} from "./container-computer.ts";
+} from "./colonie/computer/container-computer.ts";
 import { attachForTurn, saveBotAttachment } from "./colonie/bots/bot-attachment.ts";
 import {
   cacheUntilConfigChanges,
@@ -197,7 +197,7 @@ import {
   openCodeProviderKeys,
 } from "./config.ts";
 import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./thread-retention.ts";
-import { ComputerControl } from "./computer-control.ts";
+import { ComputerControl } from "./colonie/computer/computer-control.ts";
 import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
 import { registerEnginesBinDir } from "./colonie/providers/engine-install.ts";
 import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
@@ -278,7 +278,7 @@ import { ProviderRegistry } from "./harness/registry.ts";
 
 import { selectDefaultModelSelection, withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
 import { threadModelFallback, type ThreadEngine } from "./thread-model.ts";
-import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./computer-engine-removal.ts";
+import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./colonie/computer/computer-engine-removal.ts";
 import { cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, peerApprovalFailure, requestPeerApproval, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
 import { peerDeliveryReceipt } from "./colonie/peers/peer-delivery.ts";
 import { withPeerProvenance } from "./colonie/peers/peer-provenance.ts";
@@ -386,18 +386,18 @@ import {
   discoverExistingPoolLocalVms,
   localVmInventoryEntry,
   shouldArmLocalVmIdle,
-} from "./local-vm-inventory.ts";
-import { localVmStopReason, recordLocalVmIdleStop } from "./local-vm-stop-reason.ts";
-import { LocalVmIdleTimer } from "./local-vm-idle.ts";
-import { LocalVmLease, LocalVmLeasePool } from "./local-vm-lease.ts";
-import { LocalVmSeatPool, type LocalVmSeatHolder } from "./local-vm-seat-pool.ts";
+} from "./colonie/computer/local-vm-inventory.ts";
+import { localVmStopReason, recordLocalVmIdleStop } from "./colonie/computer/local-vm-stop-reason.ts";
+import { LocalVmIdleTimer } from "./colonie/computer/local-vm-idle.ts";
+import { LocalVmLease, LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
+import { LocalVmSeatPool, type LocalVmSeatHolder } from "./colonie/computer/local-vm-seat-pool.ts";
 import { RepeatDetector, callKey } from "./repeat-detector.ts";
 import { redactSecretsInText } from "./redact.ts";
 import { RoutineManager, type RoutineRun, type RoutineRunOn, type RoutineRunTrigger } from "./colonie/routines/routines.ts";
 import { CalendarCallManager, type CalendarCall } from "./colonie/routines/calendar-calls.ts";
-import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./browser-engine.ts";
-import { BrowserRuntime, browserRuntimeEnv } from "./browser-runtime.ts";
-import { BrowserLive } from "./browser-live.ts";
+import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "./colonie/computer/browser-engine.ts";
+import { BrowserRuntime, browserRuntimeEnv } from "./colonie/computer/browser-runtime.ts";
+import { BrowserLive } from "./colonie/computer/browser-live.ts";
 import {
   agentBrowserFrame,
   agentBrowserIntegration,
@@ -412,9 +412,9 @@ import {
   browserSessionId,
   describeBrowserEngine,
   setBrowserViewport,
-} from "./browser-engine.ts";
-import { createScreenFrameSource, type ScreenCapture } from "./screen-frame-source.ts";
-import { screenFrameHash, screenSurfaceForTool, screenTouchingTool, settledFrameIsNews } from "./screen-frame-gate.ts";
+} from "./colonie/computer/browser-engine.ts";
+import { createScreenFrameSource, type ScreenCapture } from "./colonie/computer/screen-frame-source.ts";
+import { screenFrameHash, screenSurfaceForTool, screenTouchingTool, settledFrameIsNews } from "./colonie/computer/screen-frame-gate.ts";
 import { RoutineRequestService } from "./colonie/routines/routine-requests.ts";
 import { directApply, UNDO_STALE, type DirectApply } from "./direct-apply.ts";
 import { createOptionsCard } from "./options-card.ts";
@@ -460,9 +460,9 @@ import { readPublishedTeam, writePublishedTeam } from "./colonie/teams/published
 import { createTeamBackup, importTeamBackup } from "./colonie/workspace/team-backup.ts";
 import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
 import { shouldMountLocalComputer } from "./local-routing.ts";
-import { autoLocalVmAttachable, type ContainerComputerStatus } from "./container-computer.ts";
-import { lazyClaimWaitMs, startAutoVmClaim, type AutoVmClaimTable } from "./auto-vm-claims.ts";
-import { computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder } from "./computer-wait.ts";
+import { autoLocalVmAttachable, type ContainerComputerStatus } from "./colonie/computer/container-computer.ts";
+import { lazyClaimWaitMs, startAutoVmClaim, type AutoVmClaimTable } from "./colonie/computer/auto-vm-claims.ts";
+import { computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder } from "./colonie/computer/computer-wait.ts";
 import { modelContextWindow } from "./colonie/providers/model-context-window.ts";
 import { computerToolsReason, parseSurface, PlaceUnavailableError, placeUnavailable, resolveSurface, surfaceLabel, surfaceOfComputerKind, surfacePrompt, type PlaceSource, type Surface } from "./surface.ts";
 import {
@@ -533,7 +533,7 @@ import { createDeciderRoutes } from "./routes/decider.ts";
 import { createThreadModelRoutes } from "./routes/thread-models.ts";
 import { createUndoRoutes } from "./routes/undo.ts";
 import { createDesktopViewer } from "./routes/desktop-viewer.ts";
-import { localDesktopTarget, localVmViewerStatus, viewerTargetId } from "./desktop-viewer-targets.ts";
+import { localDesktopTarget, localVmViewerStatus, viewerTargetId } from "./colonie/computer/desktop-viewer-targets.ts";
 import { createAntigravityLeftoverRoutes } from "./routes/antigravity-leftovers.ts";
 import { findAntigravityLeftovers, removeAntigravityLeftovers } from "./drivers/antigravity-temp.ts";
 import { createLiveRoutes } from "./routes/live.ts";

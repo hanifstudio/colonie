@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 
 // Tool-name classification lives in shared/tool-surface.ts so the renderer
 // reads a tool the same way the poller does.
-import { screenSurfaceForTool, screenTouchingTool } from "../shared/tool-surface.ts";
+import { screenSurfaceForTool, screenTouchingTool } from "../../../shared/tool-surface.ts";
 export { screenSurfaceForTool, screenTouchingTool };
 
 /** sha256 over the base64 frame — the same fingerprint the model-side

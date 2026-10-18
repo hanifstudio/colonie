@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
 
 function recordPath(key: string, dataDir: string): string {
   return join(dataDir, "local-vm-stops", `${createHash("sha256").update(key).digest("hex")}.json`);
