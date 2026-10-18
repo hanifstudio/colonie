@@ -280,14 +280,20 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   `check-import-boundaries.mjs` → `check-structure.mjs` (the `pnpm structure:check` entry point is
   unchanged). Falsification: a temporary `server/colonie/__falsify-map/probe.ts` produced the MISSING
   line and exit 1; deleting it restored exit 0.
-- Next actions, and they need an owner choice rather than another autonomous step: (a) the CI question
-  above; (b) the restructure size target is **retired by measurement** (October 19): `server/index.ts` is
-  2,138 lines, of which ~1,400 are feature-wiring calls, and its 34 remaining helpers are 13 lines or
-  shorter, so shrinking it further moves declarations rather than improving comprehension; (c) the open
-  candidates are the two reported product bugs (named Claude accounts created with the `claudeAgent`
-  driver; no file in the tree setting `COLONIE_PROFILE`, so the packaged app resolves the legacy fleet),
-  the dead-export verification (needs a dev dependency decision), or resuming the paused renderer work
-  R1–R6.
+- Next actions, and they need an owner choice rather than another autonomous step:
+  (a) the CI question above;
+  (b) the restructure size target is **retired by measurement** (October 19): `server/index.ts` is 2,138
+  lines, of which ~1,400 are feature-wiring calls, and its 34 remaining helpers are 13 lines or shorter,
+  so shrinking it further moves declarations rather than improving comprehension;
+  (c) the **engine-fleet defect verified on October 19**: in Colonie profile a created named Claude account
+  is dropped by the ACP filter and the fleet comes back empty, so the person loses every engine
+  (`claude-accounts.ts:68` → `config.ts:1611` → `colonieInstances`, reproduced against the pure function).
+  Three repairs are known and each one is a product choice: fall back to the default ACP pair (never show
+  zero engines, the account stays invisible), create the account as a `claude-acp` instance (blocked on the
+  `CLAUDE_CONFIG_DIR` precedence in `acp/profile.ts:20-23`), or refuse the creation with a message;
+  (d) nothing in `electron/` sets `COLONIE_PROFILE` — only `scripts/colonie/start.ts:23` does — so an app
+  launched straight from the dmg runs the legacy fleet with `~/.colonie`; that is a product decision too;
+  (e) the dead-export verification (needs a dev dependency decision), and the paused renderer work R1–R6.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

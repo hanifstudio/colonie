@@ -3,6 +3,35 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — the two "open product bugs" verified: one is a reproducible defect
+
+Single session, Node 24.13.1. No product code changed. This replaces two vague claims carried in
+HANDOVER with evidence, the same way the CI claim was corrected.
+
+- "Named Claude accounts still create the retired `claudeAgent` kind" — confirmed, and worse than the
+  note said. `server/colonie/providers/claude-accounts.ts:68` creates a new named account with
+  `driver: "claudeAgent"`. In Colonie profile the fleet is resolved by `server/config.ts:1611` through
+  `colonieInstances`, which keeps only `codex-acp`/`claude-acp` (`shared/acp.ts:24-27`) and returns early.
+  Reproduced against the pure function, no config file and no credential read:
+  `colonieInstances({ "claude-named": { driver: "claudeAgent", … } }, "/tmp/native")` returns `{}` — not
+  the default pair, because the fallback at `server/acp/profile.ts:36-44` runs only when nothing is
+  configured at all. So in Colonie profile, creating a named Claude account empties the **whole** engine
+  list, not just that account.
+- "The packaged app resolves the legacy fleet" — refined rather than confirmed. `COLONIE_PROFILE=1` is set
+  in exactly one place, `scripts/colonie/start.ts:23` (the `pnpm colonie` launcher, which starts Electron
+  with that environment); nothing in `electron/` sets it, and `electron/main.mjs` only reads it (port
+  request, protocol registration, dock, updater) and passes the inherited environment to the server child.
+  So an app started through the launcher runs Colonie profile, and one launched straight from the dmg on
+  macOS inherits nothing and runs the legacy fleet with `~/.colonie`. Whether the shipped app should set
+  the profile itself is a product decision, not a defect this investigation can prove.
+- Neither is fixed here. The tempting repair has a trap worth recording: making named accounts into
+  `claude-acp` instances is not enough on its own, because `isolationEnvironment`
+  (`server/acp/profile.ts:20-23`) writes `CLAUDE_CONFIG_DIR` for every `claude-acp` instance *after* the
+  instance's own environment is spread, so a per-account directory would be overwritten. The three
+  candidate repairs, all of them visible product choices, are in HANDOVER.
+- Checks: nothing changed, so `pnpm structure:check` exit 0 and the suite/lint/typecheck results in the
+  entry below stand.
+
 ## 2026-10-19 — the index.ts size target, retired by measurement
 
 Single session, Node 24.13.1. No product code changed.
