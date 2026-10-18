@@ -366,6 +366,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   is a 404 on delete, a patch of anything but `enabled` is refused, and deleting forgets the sign-in.
   56/56 pass, typecheck 0, lint 0. Live on a throwaway HOME: `{"servers":[]}`, 415 without the header,
   201 with `{"name":"demo","enabled":false}`, then `{"servers":[]}` after DELETE.
+- **S3.11: the team brief and team memory left `index.ts` (October 18).** `/api/team-memory`, the
+  `/api/team-memory/:id` patch/delete/accept and `/api/section-context` became
+  `server/routes/team-brief.ts` (`createTeamBriefRoutes({ store, teamMemory })`) — 100 inline lines removed
+  and two imports pruned (`index.ts` 17,490 → 17,390). Process note worth keeping: the first draft was
+  written from a read whose output had been compressed, and it invented three details (the 201 plus
+  `proposed.entry.id` on a new memory, pass-through of `aliases`, and a 60-character check in the
+  patch/delete branch that the original does not have). It was thrown away and re-transcribed from the
+  original lines in small reads. Guard: `server/routes/team-brief.test.ts` — other paths decline, both
+  surfaces demand a section even for General, an explicitly empty section is a valid known team, an
+  unknown team is a 404 rather than an empty brief, a 61-character section is refused, a missing memory
+  entry is a 404, a person's own entry is trusted immediately, and an unknown kind is refused. 64/64 pass,
+  typecheck 0, lint 0. Live on a throwaway HOME: General reads empty, an unknown team is 404, team memory
+  lists empty, and a PUT stores the brief and reads it back.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
