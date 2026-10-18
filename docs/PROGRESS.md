@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.26: creating a bot out of `index.ts` (October 18).** `POST /api/bots` (161 lines: profile fields, folder,
+  engine, section, preset, the inheriting defaults, and the skills, routines and memory a bot is born with)
+  becomes `server/routes/bot-create.ts`. Refusals that the creation dialog relies on stay exactly where they were:
+  the avatar must be stored, the folder valid, the section short, the MCP selection valid, the workspace limit
+  respected, and a phone session may not ask for a preset, skills, routines, memory or the wider profile fields.
+  Guard test (4): another route or verb is left to the next handler; an unstored avatar is refused; a section name
+  the default-profile schema rejects is refused — **by throwing**, because that is how the schema refuses and the
+  server's outer catch is what turns it into an answer, module or not; a workspace at its limit refuses the next
+  bot. Live on a throwaway HOME: create 201 (the bot list grew 1 → 2), a 61-character section 400 through the throw
+  path, an unstored avatar 400, a non-object body 400. `index.ts` 13,299 → **13,150 lines**; 230/230 pass,
+  typecheck 0, lint 0.
 - **S3.25: one bot's threads out of `index.ts` (October 18).** `POST`/`PATCH`/`DELETE /api/bots/:id/tasks/:taskId`
   (177 lines: switching to a thread and the page the app asks for, renaming it, its model and approval mode, its
   surface, pinning, and deleting it) becomes `server/routes/bot-task.ts`. Deleting a thread also forgets what only

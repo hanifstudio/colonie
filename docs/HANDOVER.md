@@ -145,7 +145,7 @@ started, and review.
   `/api/testing/internal-capability` stays with what is left of the internal machinery. Done since: bot-read
   (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), thread-events (S3.22), saved command
   permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family), one bot's threads,
-  `bot-task` (S3.25). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  `bot-task` (S3.25), creating a bot, `bot-create` (S3.26). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
   flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
   purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
   stream `/api/events` (~94). Route families are no longer taken smallest-first: the largest are the ones that move

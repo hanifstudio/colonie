@@ -59,7 +59,6 @@ import {validateBotCwd} from "./colonie/bots/bot-cwd.ts";
 import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, parseAudioRange, readAttachment, saveFile, saveImage, saveImageUpload, type SavedAttachment, validateAttachmentUploadId} from "./colonie/chat/attachments.ts";
 import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, messageFileRoots, messageImageTargetAt, messageReferencesFile, listMessageFolder, messageFolderEntryName, openMessageFile, openMessageFolderEntry} from "./colonie/chat/message-file.ts";
 import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
-import {parseBotProfilePatch} from "./colonie/bots/bot-profile.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
 import {isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
 import {isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard} from "../shared/ask-question.ts";
@@ -94,7 +93,7 @@ import {isModelVariant, TurnNotStartedError, type ModelSelection, type RequestOu
 import {RETRY_MAX_ATTEMPTS} from "./drivers/retry.ts";
 import {recoveryCapabilityError} from "./automatic-recovery.ts";
 import {decodeGeneratedImage} from "./generated-image.ts";
-import {MAX_MCP_SERVERS, isRemoteMcpServer, mcpServerNameError, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
+import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
 import {MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn} from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
 import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
@@ -132,11 +131,11 @@ import {TurnWatchdog} from "./colonie/chat/turn-watchdog.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {ensureWorkspace, ensureTaskWorkspace, workspaceLocationsPrompt, supportsWorkspaceFiles, appendMemoryLog, memorySystemPrompt, memorySourceLabel, SESSION_SEARCH_SYSTEM_PROMPT, workspaceDir} from "./colonie/workspace/workspace.ts";
 import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
-import {beginMemoryTurn, endMemoryTurn, flushAllMemoryJournals, journalMemoryWrite, type MemoryJournalEntry} from "./colonie/memory/memory-journal.ts";
+import {beginMemoryTurn, endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry} from "./colonie/memory/memory-journal.ts";
 import {readSectionContext, readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
 import {applyStagedSkillWrite, getStagedSkillWrite, installOrgSkill, installSkill, listBotSkillsWithOrigin, resolveBotSkills, parseSkillMd, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, removeSkill, setSkillEnabled, skillsSystemPrompt, undoSkillWrite} from "./colonie/skills/skills.ts";
 import {fetchSkillFromSource} from "./colonie/skills/skill-fetch.ts";
-import {botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults} from "./colonie/bots/new-bot-defaults.ts";
+import {botSkillTemplateSchema, newBotDefaultsSchema} from "./colonie/bots/new-bot-defaults.ts";
 import {expandLearnTurnText} from "./colonie/skills/skill-learn.ts";
 import {expandSetupTurnText, setupModeActive, setupSystemPrompt} from "./setup-mode.ts";
 import {checkSoulDrift} from "./colonie/bots/bot-folder.ts";
@@ -184,7 +183,7 @@ import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migrati
 import {installedPlaybookInstructions} from "./installed-playbooks.ts";
 import {createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
 import {importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult} from "./colonie/teams/package-import.ts";
-import {applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE, presetFromDefaults, readPublishedLibrary, writePublishedLibrary} from "./colonie/bots/presets.ts";
+import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults, readPublishedLibrary, writePublishedLibrary} from "./colonie/bots/presets.ts";
 import {readPublishedTeam, writePublishedTeam} from "./colonie/teams/published-teams.ts";
 import {createTeamBackup, importTeamBackup} from "./colonie/workspace/team-backup.ts";
 import {MAX_TEAM_BACKUP_BYTES} from "../shared/team-backup.ts";
@@ -205,7 +204,7 @@ import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRe
 import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
 import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/providers/account-signin.ts";
 import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
-import {clearSessionCookie, clientBotPatchViolation, isLoopbackHost, isProxied, labelFromUserAgent, requestOrigin, requestSource, requiredScope, resolveLoopbackTrust, resolveRequestAuth, parseCookies, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
+import {clearSessionCookie, isLoopbackHost, isProxied, labelFromUserAgent, requestOrigin, requestSource, requiredScope, resolveLoopbackTrust, resolveRequestAuth, parseCookies, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
 import {cookieMaxAgeSeconds, SessionRegistry, type SessionRecord} from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import {appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor} from "./admin-activity.ts";
@@ -254,6 +253,7 @@ import {createThreadEventsRoutes} from "./routes/thread-events.ts";
 import {createCommandAllowlistRoutes} from "./routes/command-allowlist.ts";
 import {createBotUpdateRoutes} from "./routes/bot-update.ts";
 import {createBotTaskRoutes} from "./routes/bot-task.ts";
+import {createBotCreateRoutes} from "./routes/bot-create.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9716,6 +9716,18 @@ ROUTES.push(createBotTaskRoutes({
   stagedSkillCleanupsForThread,
   rejectDeletedThreadSkillStages,
 }));
+ROUTES.push(createBotCreateRoutes({
+  store,
+  cfg,
+  presetStore,
+  routines: () => routines,
+  desktopManaged: DESKTOP_MANAGED,
+  maxWorkspaceBots: MAX_WORKSPACE_BOTS,
+  wireBot,
+  storedAvatarExists,
+  defaultSelection,
+  checkedModelSelection,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -11006,167 +11018,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         brief: imported.brief,
         notes: imported.notes,
         presets: imported.presets ?? [],
-      });
-    }
-    if (method === "POST" && path === "/api/bots") {
-      let body = await readBody(req);
-      if (!body || typeof body !== "object" || Array.isArray(body)) {
-        return json(res, 400, { error: "bot must be a JSON object" });
-      }
-      const template = resolveBotCreationDefaults(cfg.newBotDefaults, body);
-      const settings = template.profile;
-      if (auth.kind === "session" && !auth.scopes.includes("admin")) {
-        const field = clientBotPatchViolation(settings);
-        if (field || body.preset !== undefined || template.skills.length || template.routines.length || Object.keys(template.memory).length) {
-          return json(res, 403, { error: "Creating a bot with these defaults needs the admin scope" });
-        }
-      }
-      // A preset (presets.ts) supplies content: playbooks, skills and
-      // starter notes. Name, look and instructions stay the request's own.
-      if (body.preset !== undefined && (typeof body.preset !== "string" || !/^[\w-]{1,64}$/.test(body.preset))) {
-        return json(res, 400, { error: "preset must be a preset id from New bot" });
-      }
-      const resolvedPreset = typeof body.preset === "string" ? presetStore.resolve(body.preset) : null;
-      const preset = resolvedPreset;
-      if (body.preset !== undefined && !preset) return json(res, 404, { error: PRESET_UNAVAILABLE_MESSAGE });
-      body = { ...body, ...settings, name: settings.name };
-      if (settings.approvalMode === "full" || settings.approvalMode === "custom") {
-        return json(res, 403, { error: "This approval level requires the desktop permission flow. Use the bot creation dialog or explicitly choose Ask/Auto for API creation." });
-      }
-      if (settings.computer === "local" && settings.approvalMode === "auto" && body.acknowledgeLocalAuto !== true) {
-        return json(res, 400, { error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)" });
-      }
-      if (settings.avatarUrl && !storedAvatarExists(settings.avatarUrl)) {
-        return json(res, 400, { error: "avatarUrl must reference an existing stored image" });
-      }
-      if (settings.browserProfile && settings.browserProfile !== "guest" && !(cfg.browserProfiles ?? []).some(profile => profile.id === settings.browserProfile)) {
-        return json(res, 400, { error: "browserProfile must name an existing browser profile" });
-      }
-      if (settings.mcpServers?.some(name => mcpServerNameError(name) !== null) || (settings.mcpServers?.length ?? 0) > MAX_MCP_SERVERS) {
-        return json(res, 400, { error: "Invalid MCP server selection" });
-      }
-      if (settings.managedSections?.length) {
-        if (!settings.chiefOfStaff || settings.managedSections.some(name => name !== "" && !store.sections.includes(name))) {
-          return json(res, 400, { error: "Only a Chief may manage existing additional teams" });
-        }
-        if (body.acknowledgePeerScope !== true) return json(res, 400, { error: "Confirm additional team access (acknowledgePeerScope)" });
-        if (auth.kind === "loopback" && !DESKTOP_MANAGED && store.bots.some(bot => bot.busy)) {
-          return json(res, 409, { error: "Stop running bots before granting access to another team" });
-        }
-      }
-      const checkedCwd = validateBotCwd(settings.cwd ?? null);
-      if (!checkedCwd.ok) return json(res, 400, { error: checkedCwd.error });
-      if (body.requireAvailableModel !== undefined && typeof body.requireAvailableModel !== "boolean") {
-        return json(res, 400, { error: "requireAvailableModel must be true or false" });
-      }
-      if (body.requireAvailableModel === true && body.modelSelection === undefined) {
-        return json(res, 400, { error: "requireAvailableModel requires modelSelection" });
-      }
-      const profileInput = Object.fromEntries(
-        ["name", "title", "description"]
-          .filter((key) => body[key] !== undefined)
-          .map((key) => [key, body[key]]),
-      );
-      const profile = parseBotProfilePatch(profileInput, true);
-      if (!profile.ok) return json(res, 400, { error: profile.error });
-      let section: string | undefined;
-      if (body.section !== undefined && body.section !== null) {
-        if (typeof body.section !== "string") return json(res, 400, { error: "section must be a string" });
-        section = body.section.trim() || undefined;
-        if (section && section.length > 60) {
-          return json(res, 400, { error: "section must be at most 60 characters" });
-        }
-      }
-      let selection: ModelSelection;
-      if (body.modelSelection === undefined) {
-        selection = await defaultSelection();
-      } else {
-        const checked = checkedModelSelection(body.modelSelection, undefined, body.requireAvailableModel === true);
-        if (!checked.ok) return json(res, checked.status, { error: checked.error });
-        selection = checked.selection;
-      }
-      // Keep the capacity check immediately beside the synchronous write.
-      // Awaiting provider discovery before this point cannot race the cap.
-      if (store.bots.length >= MAX_WORKSPACE_BOTS) {
-        return json(res, 409, { error: `this workspace is limited to ${MAX_WORKSPACE_BOTS} bots` });
-      }
-      // Apply the audience before creation can announce the bot to members.
-      const created = body.visibility === undefined ? null : parseVisibility(body.visibility);
-      if (created && !created.ok) return json(res, 400, { error: created.error });
-      const bot = store.createBot({ ...profile.patch, soul: settings.soul, section, modelSelection: selection,
-        toolScope: settings.toolScope ?? undefined,
-        ...(created?.ok ? { visibility: created.visibility } : {}) });
-      const createdRoutines: Array<{ id: string; enabled: boolean }> = [];
-      try {
-        const { chiefOfStaff: _chief, managedSections: _managed, toolScope: _toolScope, ...ordinary } = settings;
-        store.patchBot(bot.id, {
-          // Store creation completes workspace defaults (including effort).
-          // Applying the rest of the template must not undo that selection.
-          ...ordinary, name: bot.name, section, modelSelection: bot.modelSelection,
-          mascotExpression: ordinary.mascotExpression ?? undefined,
-          avatarUrl: ordinary.avatarUrl || undefined,
-          computer: ordinary.computer ?? undefined, cwd: checkedCwd.cwd ?? undefined,
-          peers: ordinary.peers ?? undefined, mcpServers: ordinary.mcpServers ?? undefined,
-          browserProfile: ordinary.browserProfile || undefined,
-          autoApprove: ordinary.approvalMode === "auto",
-        });
-        // What the preset brings wins over the saved defaults for the same
-        // skill name or note file.
-        const presetSkills = new Set(preset?.preset.skills ?? []);
-        const presetNotes = new Set(Object.keys(preset?.preset.seed?.memory ?? {}));
-        for (const [file, text] of Object.entries(template.memory)) {
-          if (presetNotes.has(file)) continue;
-          journalMemoryWrite(bot.id, file, text, { actor: "person", via: "api" });
-        }
-        if (preset) {
-          applyPresetToBot(bot.id, preset, {
-            store,
-            skills: { install: installSkill, setEnabled: setSkillEnabled, installOrg: installOrgSkill },
-            memory: { writeIndex: writeMemoryFile, writeTopic: writeMemoryTopic },
-          });
-        }
-        for (const skill of template.skills) {
-          if (presetSkills.has(skill.name)) continue;
-          const parsed = parseSkillMd(skill.text);
-          if ("error" in parsed || parsed.name !== skill.name) throw Object.assign(new Error("Skill name does not match its contents"), { status: 400 });
-          const installed = installSkill(bot.id, skill.source, [{ path: "SKILL.md", content: skill.text }]);
-          if ("error" in installed) throw Object.assign(new Error(installed.error), { status: 422 });
-          if (skill.enabled) {
-            const enabled = setSkillEnabled(bot.id, skill.name, true);
-            if ("error" in enabled) throw Object.assign(new Error(enabled.error), { status: 422 });
-          }
-        }
-        for (const routine of template.routines) {
-          const created = routines!.create({ ...routine, botId: bot.id, enabled: false });
-          createdRoutines.push({ id: created.id, enabled: routine.enabled !== false });
-        }
-      } catch (error) {
-        for (const routine of createdRoutines) routines!.remove(routine.id);
-        store.deleteBot(bot.id);
-        throw error;
-      }
-      // Creation is complete. Activation errors must not invite a duplicate
-      // creation retry or delete a bot whose routine may already have run.
-      const warnings: string[] = [];
-      if (settings.chiefOfStaff) {
-        try {
-          store.patchBot(bot.id, { managedSections: settings.managedSections ?? [] });
-          store.setChiefOfStaff(bot.id);
-        } catch {
-          warnings.push("Bot created; review its Chief of Staff setting before delegating work.");
-        }
-      }
-      for (const routine of createdRoutines) if (routine.enabled) {
-        try { routines!.update(routine.id, { enabled: true }); }
-        catch { warnings.push(`Bot created; routine ${routine.id} could not be activated.`); }
-      }
-      return json(res, 201, {
-        ...(warnings.length ? { warnings } : {}),
-        bot: {
-          ...wireBot(bot),
-          messages: store.messagesFor(bot.threadId),
-          activeLeafId: store.activeLeaf(bot.threadId),
-        },
       });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/avatar\/generate$/);
