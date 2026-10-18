@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createApprovalResolution} from "./harness/approval-resolution.ts";
 import {createTeamPackageWiring} from "./colonie/teams/package-wiring.ts";
 import {createRecallPrompt} from "./colonie/memory/recall-prompt.ts";
 import {createUsageBooking} from "./colonie/providers/usage-booking.ts";
@@ -45,10 +46,9 @@ import {z} from "zod";
 import { SharedComputers } from "./colonie/computer/shared-computers.ts";
 import {SharedComputerControl} from "./colonie/computer/shared-computer-control.ts";
 import {DirectHandoffs, type DirectHandoff} from "./colonie/chat/direct-handoffs.ts";
-import { approvalModeFor, type ApprovalMode } from "../shared/approval-mode.ts";
+import { approvalModeFor } from "../shared/approval-mode.ts";
 import {createApprovalModeSupport} from "./harness-capabilities.ts";
 
-import { approvalModeForOrigin } from "./auto-approve.ts";
 import { CommandAllowlistStore } from "./command-allowlist.ts";
 import type {CommandAllowlistCandidate} from "../shared/command-allowlist.ts";
 import { type BrowserCleanupWireRequest } from "./colonie/computer/browser-lifecycle-cleanup.ts";
@@ -116,7 +116,6 @@ import { RoutineManager, type RoutineRunTrigger } from "./colonie/routines/routi
 import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
 import { browserEngineStatus } from "./colonie/computer/browser-engine.ts";
 import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
-import { directApply, type DirectApply } from "./direct-apply.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
 import {OutboundCounts} from "./outbound-counts.ts";
@@ -969,6 +968,12 @@ const wireTrustedApprovalBot = (bot: NonNullable<ReturnType<typeof store.bot>>) 
   return { ...rest, approvalMode: approvalModeFor(rest), avatarUrl: rest.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection)) } : {}) };
 };
 
+const { approvalModeForTurn, fullAccessForSource, appliesDirectly } = createApprovalResolution({
+  connectorThread: () => connectorThread,
+  store,
+  supportsApprovalMode,
+});
+
 const { botOverview, previewSystemPrompt } = createBotSettingsView({
   approvalModeForTurn: () => approvalModeForTurn,
   cfg: () => cfg,
@@ -980,50 +985,6 @@ const { botOverview, previewSystemPrompt } = createBotSettingsView({
   teamMemory: () => teamMemory,
   webhooks: () => webhooks,
 });
-
-/** Defense in depth for hand-edited/corrupt durable records: elevated
- * approval semantics require an implemented provider mapping. The trusted transition enforces
- * this too, but no provider dispatch or later permission callback relies on
- * persistence having been produced exclusively by that route. Delegation
- * uses the receiving bot's grant, never the sender's (approvalModeForOrigin) —
- * with one deliberate exception: a Chief of Staff's level flows down to the
- * threads it delegates (delegatedLevel), so the level the person gave the
- * Chief covers the work the Chief hands out. */
-const approvalModeForTurn = (bot: BotRecord, peerInitiated = false): ApprovalMode => {
-  const mode = approvalModeForOrigin(approvalModeFor(bot), { peerInitiated });
-  if (!supportsApprovalMode(bot.modelSelection, mode)) {
-    return "ask";
-  }
-  return mode;
-};
-
-/** A level belongs to the requesting conversation, not whichever sibling is
- * selected in the UI or the bot's default for future conversations. */
-function sourceApprovalMode(botId: string, threadId: string): ApprovalMode {
-  const owner = connectorThread(botId, threadId);
-  if (!owner) return "ask";
-  const bot = store.projectBotForTask(botId, threadId) ?? owner.bot;
-  // Origin changes Custom to Auto, never Full; no live-turn state is needed.
-  return approvalModeForTurn(bot, false);
-}
-
-function fullAccessForSource(botId: string, threadId: string): boolean {
-  return sourceApprovalMode(botId, threadId) === "full";
-}
-
-/** Whether a bot's routine, skill, profile or model change applies without
- * a person, and why: Full access applies everything as it always has, and
- * at any level a change to the bot itself applies, shown as a one-line
- * receipt with Undo (server/direct-apply.ts). Team setup and peer approvals
- * stay Full access only (fullAccessForSource). */
-function appliesDirectly(botId: string, threadId: string, targetBotId: string): DirectApply | null {
-  return directApply({
-    fullAccess: fullAccessForSource(botId, threadId),
-    botId,
-    targetBotId,
-    blocked: !connectorThread(botId, threadId),
-  });
-}
 
 /** The handler for Electron's private trusted-approval channel; it answers
  * whether the message was its own. */

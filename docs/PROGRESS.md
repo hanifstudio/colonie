@@ -629,6 +629,26 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.73: the approval resolution out of `index.ts` (October 18).**
+  `server/harness/approval-resolution.ts` (`createApprovalResolution`): the level a
+  turn actually runs at (`approvalModeForTurn` — a peer's Custom becomes the
+  provider's Auto, and any level the selected provider has no mapping for falls
+  back to Ask), the level of the conversation that asked rather than a sibling's
+  (`sourceApprovalMode`), whether that conversation is Full
+  (`fullAccessForSource`), and whether a bot's routine/skill/profile/model change
+  may be applied without a person (`appliesDirectly`, one state of
+  `server/direct-apply.ts`). One block (L984–1026), 43 lines. Two hand fixes: the
+  extractor invented a `server` dep from the word in a comment (dropped), and its
+  warning that `approvalModeForTurn` was read above the wire site was real —
+  `createBotSettingsView` took it as a lazy getter — so the new wire site was
+  moved above that one; `sourceApprovalMode` is the module's own helper and is no
+  longer destructured in `index.ts`. Guard: `approval-resolution.test.ts` (5) — an
+  implemented elevated level passes through, an unimplemented one falls back to
+  Ask, a peer-initiated Custom becomes Auto while the person's own stays Custom, a
+  conversation with no connector thread asks and is not Full, and the level comes
+  from the task's own bot (with the owner's default as the fallback). `index.ts`
+  2,762 → 2,723 lines. `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server`
+  87 files / 412 tests pass; live probe green.
 - **S3.72: this installation's view of a team package out of `index.ts` (October 18).**
   `server/colonie/teams/package-wiring.ts` (`createTeamPackageWiring`):
   `collectTeamSkills` gathers one team's bot skills for a whole-team share ("all"
