@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.54: the parked-turn resume tables out of `index.ts` (October 18).**
+  `server/colonie/chat/resume-tables.ts` (`createResumeTables`): the connector,
+  credential and computer resume tables — the message lookups and markers
+  (`connectorMessage`, `connectorCards`, `secretMessage`, `currentSecretState`,
+  `resumeSecretCard`), the park helpers, and the drain/redispatch passes with the
+  staleness rules (a replaced ask, a gone bot/thread, or a newer generation drops
+  the entry). 259 lines, L4174–4402. `pendingComputerResumes`, the three drain
+  functions and `registerComputerResume` are read above the wire site (in
+  `releaseTurnResources`, `interruptDirectThread`, the runtime-event subscriber),
+  so those wire entries stay getters and the exported map is destructured at the
+  site. `connectorThread` stays in `index.ts` as a dep; `isTurnAdmissionBlocked`,
+  `Message` and the implicit-`any` callbacks moved/fixed in the module. Guard:
+  `resume-tables.test.ts` (3) — a drain drops an entry whose ask was replaced, one
+  whose bot/thread is gone, and one a newer generation owns, and resumes none of
+  them. `index.ts` 4,910 → 4,692. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 68 files / 324 tests pass, live probe green.
 - **S3.53: the routine run cards out of `index.ts` (October 18).**
   `server/colonie/routines/run-cards.ts` (`createRoutineRunCards`): pick the source
   conversation for a routine's lifecycle card (`routineSourceOwner`,

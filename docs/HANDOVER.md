@@ -166,10 +166,11 @@ started, and review.
   `colonie/chat/card-resolvers` (S3.49), the config/status cluster,
   `harness/config-status` (S3.50), the HTTP assembly and route table,
   `harness/server-assembly` (S3.51), the live-screen poller,
-  `harness/screen-polling` (S3.52), and the routine run cards,
-  `colonie/routines/run-cards` (S3.53). Every route group named
+  `harness/screen-polling` (S3.52), the routine run cards,
+  `colonie/routines/run-cards` (S3.53), and the parked-turn resume tables,
+  `colonie/chat/resume-tables` (S3.54). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 4,910 lines, and the target is under 3,000 (owner instruction).
+  `index.ts` is now 4,692 lines, and the target is under 3,000 (owner instruction).
 
   Every named giant is now out (S3.43 was the last: the 1,646-line `handleRequest`,
   carved whole into `harness/request-handler.ts`). The largest remaining top-level
@@ -185,7 +186,7 @@ started, and review.
   which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 4,910 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 4,692 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and
