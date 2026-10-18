@@ -1,0 +1,413 @@
+{
+  "head": "69707a05a8618f36ca80adaa68c0f06bd10133b0",
+  "commits": 3231,
+  "firstDate": "2026-08-12",
+  "lastDate": "2026-10-18",
+  "churn": {
+    "added": 1196132,
+    "deleted": 855751,
+    "files": 4591
+  },
+  "locality": {
+    "filesPerChange": {
+      "p50": 3,
+      "p75": 8,
+      "p90": 18,
+      "p99": 66,
+      "max": 968
+    },
+    "foldersPerChange": {
+      "p50": 2,
+      "p75": 5,
+      "p90": 11,
+      "p99": 33,
+      "max": 564
+    },
+    "singleFileChanges": 872,
+    "singleFolderChanges": 1169
+  },
+  "mostChanged": [
+    {
+      "path": "server/index.ts",
+      "commits": 817,
+      "medianCoChange": 7,
+      "p90CoChange": 32
+    },
+    {
+      "path": "src/state/store.tsx",
+      "commits": 305,
+      "medianCoChange": 15,
+      "p90CoChange": 44
+    },
+    {
+      "path": "src/locales/en.json",
+      "commits": 298,
+      "medianCoChange": 15,
+      "p90CoChange": 44
+    },
+    {
+      "path": "server/index.test.ts",
+      "commits": 287,
+      "medianCoChange": 9,
+      "p90CoChange": 39
+    },
+    {
+      "path": "package.json",
+      "commits": 213,
+      "medianCoChange": 3,
+      "p90CoChange": 38
+    },
+    {
+      "path": "server/store.ts",
+      "commits": 197,
+      "medianCoChange": 12,
+      "p90CoChange": 43
+    },
+    {
+      "path": "electron/main.mjs",
+      "commits": 186,
+      "medianCoChange": 12,
+      "p90CoChange": 49
+    },
+    {
+      "path": "docs/PROGRESS.md",
+      "commits": 177,
+      "medianCoChange": 4,
+      "p90CoChange": 34
+    },
+    {
+      "path": "src/components/ChatView.tsx",
+      "commits": 167,
+      "medianCoChange": 11,
+      "p90CoChange": 48
+    },
+    {
+      "path": "src/components/Sidebar.tsx",
+      "commits": 167,
+      "medianCoChange": 9,
+      "p90CoChange": 39
+    },
+    {
+      "path": "server/drivers/claude.ts",
+      "commits": 148,
+      "medianCoChange": 10,
+      "p90CoChange": 44
+    },
+    {
+      "path": "server/config.ts",
+      "commits": 129,
+      "medianCoChange": 13,
+      "p90CoChange": 63
+    },
+    {
+      "path": "src/components/SettingsModal.tsx",
+      "commits": 121,
+      "medianCoChange": 17,
+      "p90CoChange": 66
+    },
+    {
+      "path": "server/drivers/claude.test.ts",
+      "commits": 117,
+      "medianCoChange": 11,
+      "p90CoChange": 43
+    },
+    {
+      "path": "docs/HANDOVER.md",
+      "commits": 112,
+      "medianCoChange": 4,
+      "p90CoChange": 32
+    },
+    {
+      "path": "src/locales/source-hashes.json",
+      "commits": 109,
+      "medianCoChange": 20,
+      "p90CoChange": 77
+    },
+    {
+      "path": "docs/verification/README.md",
+      "commits": 98,
+      "medianCoChange": 19,
+      "p90CoChange": 54
+    },
+    {
+      "path": "src/components/GroupView.tsx",
+      "commits": 97,
+      "medianCoChange": 11,
+      "p90CoChange": 39
+    },
+    {
+      "path": "server/contracts.ts",
+      "commits": 97,
+      "medianCoChange": 18,
+      "p90CoChange": 54
+    },
+    {
+      "path": "server/drivers/codex.ts",
+      "commits": 97,
+      "medianCoChange": 11,
+      "p90CoChange": 34
+    },
+    {
+      "path": "src/components/Composer.tsx",
+      "commits": 96,
+      "medianCoChange": 9,
+      "p90CoChange": 43
+    },
+    {
+      "path": "server/drivers/acp/core.ts",
+      "commits": 96,
+      "medianCoChange": 10,
+      "p90CoChange": 42
+    },
+    {
+      "path": "src/components/ComputerPanel.tsx",
+      "commits": 95,
+      "medianCoChange": 12,
+      "p90CoChange": 71
+    },
+    {
+      "path": "src/types/ogb.d.ts",
+      "commits": 94,
+      "medianCoChange": 16,
+      "p90CoChange": 51
+    },
+    {
+      "path": "ios/App/Session.swift",
+      "commits": 92,
+      "medianCoChange": 12,
+      "p90CoChange": 35
+    },
+    {
+      "path": "electron/preload.cjs",
+      "commits": 86,
+      "medianCoChange": 15,
+      "p90CoChange": 63
+    },
+    {
+      "path": "src/state/store.test.ts",
+      "commits": 85,
+      "medianCoChange": 17,
+      "p90CoChange": 114
+    },
+    {
+      "path": "src/locales/zh.json",
+      "commits": 85,
+      "medianCoChange": 26,
+      "p90CoChange": 114
+    },
+    {
+      "path": "src/App.tsx",
+      "commits": 84,
+      "medianCoChange": 15,
+      "p90CoChange": 70
+    },
+    {
+      "path": "server/store.test.ts",
+      "commits": 83,
+      "medianCoChange": 13,
+      "p90CoChange": 52
+    }
+  ],
+  "coupledPairs": [
+    {
+      "a": "server/index.test.ts",
+      "b": "server/index.ts",
+      "commits": 203
+    },
+    {
+      "a": "server/index.ts",
+      "b": "src/state/store.tsx",
+      "commits": 191
+    },
+    {
+      "a": "server/index.ts",
+      "b": "server/store.ts",
+      "commits": 145
+    },
+    {
+      "a": "server/index.ts",
+      "b": "src/locales/en.json",
+      "commits": 120
+    },
+    {
+      "a": "docs/PROGRESS.md",
+      "b": "server/index.ts",
+      "commits": 103
+    },
+    {
+      "a": "docs/HANDOVER.md",
+      "b": "docs/PROGRESS.md",
+      "commits": 99
+    },
+    {
+      "a": "server/index.test.ts",
+      "b": "src/state/store.tsx",
+      "commits": 91
+    },
+    {
+      "a": "server/store.ts",
+      "b": "src/state/store.tsx",
+      "commits": 90
+    },
+    {
+      "a": "server/drivers/claude.test.ts",
+      "b": "server/drivers/claude.ts",
+      "commits": 83
+    },
+    {
+      "a": "src/locales/en.json",
+      "b": "src/state/store.tsx",
+      "commits": 78
+    },
+    {
+      "a": "server/config.ts",
+      "b": "server/index.ts",
+      "commits": 73
+    },
+    {
+      "a": "src/locales/en.json",
+      "b": "src/locales/source-hashes.json",
+      "commits": 73
+    },
+    {
+      "a": "docs/HANDOVER.md",
+      "b": "server/index.ts",
+      "commits": 71
+    },
+    {
+      "a": "src/components/ChatView.tsx",
+      "b": "src/state/store.tsx",
+      "commits": 71
+    },
+    {
+      "a": "src/state/store.test.ts",
+      "b": "src/state/store.tsx",
+      "commits": 69
+    },
+    {
+      "a": "server/contracts.ts",
+      "b": "server/index.ts",
+      "commits": 69
+    },
+    {
+      "a": "electron/main.mjs",
+      "b": "electron/preload.cjs",
+      "commits": 65
+    },
+    {
+      "a": "server/drivers/claude.ts",
+      "b": "server/index.ts",
+      "commits": 63
+    },
+    {
+      "a": "electron/main.mjs",
+      "b": "src/types/ogb.d.ts",
+      "commits": 63
+    },
+    {
+      "a": "server/store.test.ts",
+      "b": "server/store.ts",
+      "commits": 62
+    },
+    {
+      "a": "src/locales/pt-br.json",
+      "b": "src/locales/source-hashes.json",
+      "commits": 60
+    },
+    {
+      "a": "server/drivers/codex.test.ts",
+      "b": "server/drivers/codex.ts",
+      "commits": 60
+    },
+    {
+      "a": "src/components/ChatView.tsx",
+      "b": "src/components/GroupView.tsx",
+      "commits": 59
+    },
+    {
+      "a": "src/locales/source-hashes.json",
+      "b": "src/locales/zh.json",
+      "commits": 58
+    },
+    {
+      "a": "server/config.test.ts",
+      "b": "server/config.ts",
+      "commits": 58
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/source-hashes.json",
+      "commits": 56
+    },
+    {
+      "a": "src/locales/en.json",
+      "b": "src/locales/pt-br.json",
+      "commits": 56
+    },
+    {
+      "a": "src/locales/en.json",
+      "b": "src/locales/zh.json",
+      "commits": 56
+    },
+    {
+      "a": "server/index.ts",
+      "b": "src/components/ChatView.tsx",
+      "commits": 56
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/pt-br.json",
+      "commits": 55
+    },
+    {
+      "a": "electron/preload.cjs",
+      "b": "src/types/ogb.d.ts",
+      "commits": 55
+    },
+    {
+      "a": "server/drivers/agents-proxy.ts",
+      "b": "server/index.ts",
+      "commits": 55
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/en.json",
+      "commits": 54
+    },
+    {
+      "a": "src/locales/ja.json",
+      "b": "src/locales/source-hashes.json",
+      "commits": 54
+    },
+    {
+      "a": "server/drivers/agents-proxy.test.ts",
+      "b": "server/index.ts",
+      "commits": 54
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/es.json",
+      "commits": 53
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/fr.json",
+      "commits": 53
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/hi.json",
+      "commits": 53
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/ja.json",
+      "commits": 53
+    },
+    {
+      "a": "src/locales/de.json",
+      "b": "src/locales/zh.json",
+      "commits": 53
+    }
+  ]
+}

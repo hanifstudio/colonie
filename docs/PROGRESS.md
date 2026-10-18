@@ -3,6 +3,46 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — structure baseline measured (E01.3 Phase 0)
+
+Single session, Node 24.13.1 (`$HOME/.nvm/versions/node/v24.13.1/bin`), one heavy job at
+a time. Scope and acceptance are in HANDOVER "E01.3 Phase 0". Measurement only: no
+product file changed, no rule installed.
+
+- Added `scripts/structure/measure-history.mjs` and
+  `scripts/structure/measure-graph.mjs`; artifacts `docs/structure/history.json` and
+  `docs/structure/graph.json`; reading and limits in `docs/structure/README.md`. Both
+  scripts are read-only, write the HEAD hash (not a timestamp) and reproduce
+  byte-identically. Run: `node scripts/structure/measure-history.mjs` (git numstat over
+  3,231 non-merge commits) and `node scripts/structure/measure-graph.mjs`
+  (three compiler programs: server, app, and `shared/`+`electron/`).
+- Result at `69707a05`: 1,061 files, 3,710 edges of which 920 resolve through the `@/*`
+  alias, 2 unresolved relative specifiers. Four direction rules have zero hits (nothing
+  imports `server/index.ts`; `shared/` is portable; no server→UI; no UI→server). 10
+  file-level cycles, largest 14 files around `server/commands.ts` +
+  `colonie/workspace/workspace.ts` + memory store/journal. 54 mutually-importing folder
+  pairs, the top ones server-root ↔ feature. 1,997 exported names never imported by name
+  (unverified, see limits). Locality: median change 3 files / 2 folders, 27% single-file,
+  p90 18 files / 11 folders, max 968 files.
+- Two candidate rules were withdrawn as mis-specified: five of their nine hits are
+  `routes/table.ts` (the shared route contract the blueprint sanctions for feature-owned
+  adapters) and `harness/http.ts` (shared HTTP helpers), not the composition layer the
+  prohibition is about. Folder-level cycle detection was dropped as a signal: at this
+  granularity everything is one 24-folder SCC.
+- Two bugs in the measurement were found and fixed: the resolver bailed out before
+  asking the compiler, silently dropping every `@/*` import (dead-export count fell
+  2,728 → 2,060 → 1,997 as fixes landed); and re-exported names were credited to the
+  barrel file instead of the declaring file. Then the *verification* of the metric was
+  wrong twice — naive `grep` counted a re-export line as a use, and `SignInLists` exists
+  as two different symbols in server and renderer (`SKILL_NAME_MAX` likewise is
+  re-exported by `colonie/skills/skills.ts` and consumed nowhere). Conclusion recorded:
+  the figure needs an independent implementation before any rule cites it.
+- Inherited breakage found, not fixed: `electron/mac-updater.node-test.mjs` and
+  `electron/vendor-updater.node-test.mjs` import `../scripts/patch-mac-updater.mjs` and
+  `../scripts/patch-appimage-updater.mjs`; both files are absent.
+- Checks: `pnpm lint` clean; `pnpm typecheck` 0 errors; the measurement touches no
+  runtime path, so no live probe was run (stated, not skipped silently).
+
 ## 2026-10-18 — suite recovery: measurement corrected, one product gap fixed
 
 Single OpenCode session, Node 24.13.1 (`$HOME/.nvm/versions/node/v24.13.1/bin`),

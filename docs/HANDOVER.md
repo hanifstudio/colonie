@@ -216,6 +216,36 @@ started, and review.
   real data), and real Claude/Codex provider verification waits for next week's quota. A compiled tree is
   not evidence of either.
 
+### E01.3 Phase 0 — structure baseline measured (October 18, 2026)
+
+Scope: measure the goal ("an agent finds the right file and changes it without collateral damage") from
+raw material **before** writing any rule. No product code, no behaviour change, no rule installed yet.
+Acceptance: two read-only deterministic measurement tools plus committed artifacts, and a written
+statement of what the numbers do and do not support. Bounded checks: `pnpm lint` and `pnpm typecheck`;
+the measurement touches neither `server/` nor `src/`, so no live probe applies.
+
+- Tools: `scripts/structure/measure-history.mjs` (git locality and co-change) and
+  `scripts/structure/measure-graph.mjs` (compiler-derived import graph). Artifacts, method, numbers and
+  limits: [docs/structure/README.md](../structure/README.md). HEAD `69707a05`: 1,061 files, 3,710
+  edges (920 via `@/*`), 10 file-level cycles, 54 mutually-importing folder pairs, 1,997 exported names
+  never imported by name (unverified figure).
+- Two results already changed the plan. The candidate rules "a feature may not import `server/routes/`"
+  and "… `server/harness/`" are **mis-specified**: five of their nine hits are blueprint-sanctioned
+  imports of the shared route contract (`routes/table.ts`) and shared HTTP helpers (`harness/http.ts`).
+  Folder-level cycles at this granularity are one 24-folder blob with no signal, so the rule set keeps
+  file-level SCCs and mutual pairs instead. Four direction rules are already at zero violations and are
+  safe to enforce from day one.
+- The measurement caught two bugs in itself (alias imports dropped; re-exported names credited to the
+  barrel), and the first verification of the dead-export metric was itself wrong twice — a re-export line
+  is not a use, and `SignInLists` is two different symbols. The count stays labelled unverified until an
+  independent tool (`knip`/`ts-unused-exports`) compares, as E01.3 requires.
+- Inherited breakage reported, not fixed: `electron/mac-updater.node-test.mjs` and
+  `electron/vendor-updater.node-test.mjs` import `scripts/patch-mac-updater.mjs` and
+  `scripts/patch-appimage-updater.mjs`, and neither script exists.
+- Next action (owner go-ahead given): E01.3 Phase 1–2 — the four zero-violation rules plus the corrected
+  pair as a machine-readable allow matrix, a checker in `scripts/testing/` exposed as
+  `pnpm structure:check`, and a merge-base-protected shrink-only baseline that cannot be raised quietly.
+
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 
 `message-db.ts` (12 importers, 30+ module functions) is too wide for a first
