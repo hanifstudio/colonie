@@ -129,7 +129,7 @@ import {ensureWorkspace, ensureTaskWorkspace, workspaceLocationsPrompt, supports
 import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
 import {beginMemoryTurn, endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry} from "./colonie/memory/memory-journal.ts";
 import {readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
-import {applyStagedSkillWrite, getStagedSkillWrite, installOrgSkill, installSkill, listBotSkillsWithOrigin, resolveBotSkills, parseSkillMd, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, removeSkill, setSkillEnabled, skillsSystemPrompt, undoSkillWrite} from "./colonie/skills/skills.ts";
+import {installOrgSkill, installSkill, listBotSkillsWithOrigin, resolveBotSkills, parseSkillMd, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, removeSkill, setSkillEnabled, skillsSystemPrompt, undoSkillWrite} from "./colonie/skills/skills.ts";
 import {fetchSkillFromSource} from "./colonie/skills/skill-fetch.ts";
 import {botSkillTemplateSchema, newBotDefaultsSchema} from "./colonie/bots/new-bot-defaults.ts";
 import {expandLearnTurnText} from "./colonie/skills/skill-learn.ts";
@@ -255,6 +255,7 @@ import {createBotMessagesRoutes} from "./routes/bot-messages.ts";
 import {createQueueSteerRoutes} from "./routes/queue-steer.ts";
 import {createProviderInstanceRoutes} from "./routes/provider-instances.ts";
 import {createConfigRoutes} from "./routes/config.ts";
+import {createSkillResolution} from "./colonie/skills/skill-resolution.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -8693,179 +8694,7 @@ function rejectDeletedThreadSkillStages(cleanups: Array<{ botId: string; stagedI
   for (const cleanup of cleanups) rejectStagedSkillWrite(cleanup.botId, cleanup.stagedId);
 }
 
-function resolveSkillRequest(args: {
-  botId: string;
-  botName?: string;
-  threadId: string;
-  requestId: string;
-  behavior: "allow" | "deny" | "answer";
-  reviewedSha256?: string;
-}):
-  | { claimed: false }
-  | { claimed: true; status: number; error: string }
-  | { claimed: true; outcome: "allowed-once" | "rejected"; alreadySettled?: true } {
-  const message = store.messagesFor(args.threadId).find(
-    (candidate) => candidate.card?.requestId === args.requestId && candidate.card.skillRequest,
-  );
-  const card = message?.card;
-  const request = card?.skillRequest;
-  if (!request || !card || !message) return { claimed: false };
-  if (request.botId !== args.botId) {
-    return { claimed: true, status: 403, error: "this skill request belongs to a different bot" };
-  }
-  if (card.answered || card.dismissed) {
-    // Settlement is durable before cleanup. Retry cleanup for either outcome
-    // so a disk failure cannot leave a denied name permanently reserved.
-    const cleanup = rejectStagedSkillWrite(args.botId, request.stagedId);
-    if ("applied" in cleanup && cleanup.applied && card.answered !== "allow") {
-      store.patchMessage(args.threadId, message.id, {
-        card: { ...card, answered: "allow", dismissed: false, held: undefined },
-      });
-      return { claimed: true, outcome: "allowed-once", alreadySettled: true };
-    }
-    return { claimed: true, outcome: card.answered === "allow" ? "allowed-once" : "rejected", alreadySettled: true };
-  }
-  if (args.behavior !== "allow") {
-    const rejected = rejectStagedSkillWrite(args.botId, request.stagedId);
-    if ("error" in rejected && rejected.error !== "no such staged skill") {
-      return { claimed: true, status: 409, error: rejected.error };
-    }
-    if ("applied" in rejected) {
-      store.patchMessage(args.threadId, message.id, {
-        card: { ...card, answered: "allow", dismissed: false, held: undefined },
-      });
-      appendDecision(DATA_DIR, {
-        threadId: args.threadId,
-        requestId: args.requestId,
-        botId: args.botId,
-        botName: args.botName,
-        tool: card.tool,
-        summary: card.subtitle,
-        decision: "user-approved",
-        source: "user",
-      });
-      return { claimed: true, outcome: "allowed-once" };
-    }
-    store.patchMessage(args.threadId, message.id, {
-      card: { ...card, answered: "deny", dismissed: true, held: undefined },
-    });
-    appendDecision(DATA_DIR, {
-      threadId: args.threadId,
-      requestId: args.requestId,
-      botId: args.botId,
-      botName: args.botName,
-      tool: card.tool,
-      summary: card.subtitle,
-      decision: "user-denied",
-      source: "user",
-    });
-    return { claimed: true, outcome: "rejected" };
-  }
-  if (typeof request.preview !== "string" || typeof request.sha256 !== "string") {
-    return {
-      claimed: true,
-      status: 409,
-      error: "this proposal was created by an older build — deny it and ask the bot to create it again",
-    };
-  }
-  if (args.reviewedSha256 !== request.sha256) {
-    return {
-      claimed: true,
-      status: 409,
-      error: "reviewedSha256 must match the skill shown on the approval card",
-    };
-  }
-  const previewSha256 = createHash("sha256").update(request.preview).digest("hex");
-  if (previewSha256 !== request.sha256) {
-    return { claimed: true, status: 422, error: "the skill preview changed after review — deny and recreate it" };
-  }
-  const staged = getStagedSkillWrite(args.botId, request.stagedId);
-  if (!staged) {
-    // A later proposal may have pruned this already-applied replay record.
-    // The protected manifest still binds the stage id and reviewed hash, so
-    // the old card can be settled without asking the model to recreate it.
-    const replayed = applyStagedSkillWrite(args.botId, request.stagedId, {
-      expectedSha256: request.sha256,
-    });
-    if (
-      "error" in replayed ||
-      replayed.name !== request.name ||
-      replayed.source !== request.source
-    ) {
-      return {
-        claimed: true,
-        status: 422,
-        error: "the staged skill no longer matches this approval card",
-      };
-    }
-    const patched = store.patchMessage(args.threadId, message.id, {
-      card: { ...card, answered: "allow", held: undefined },
-    });
-    if (!patched) {
-      return { claimed: true, status: 409, error: "the learned-skill approval card is no longer available" };
-    }
-    appendDecision(DATA_DIR, {
-      threadId: args.threadId,
-      requestId: args.requestId,
-      botId: args.botId,
-      botName: args.botName,
-      tool: card.tool,
-      summary: card.subtitle,
-      decision: "user-approved",
-      source: "user",
-    });
-    return { claimed: true, outcome: "allowed-once" };
-  }
-  if (
-    request.requestId !== args.requestId ||
-    request.threadId !== args.threadId ||
-    staged.action !== request.action ||
-    staged.name !== request.name ||
-    staged.source !== request.source ||
-    staged.sha256 !== request.sha256
-  ) {
-    return { claimed: true, status: 422, error: "the staged skill no longer matches this approval card" };
-  }
-  const applied = applyStagedSkillWrite(args.botId, request.stagedId, {
-    expectedSha256: request.sha256,
-    onApplied: () => {
-      const patched = store.patchMessage(args.threadId, message.id, {
-        card: { ...card, answered: "allow", held: undefined },
-      });
-      if (!patched) throw new Error("the learned-skill approval card is no longer available");
-    },
-  });
-  if ("error" in applied) {
-    store.patchMessage(args.threadId, message.id, {
-      card: { ...card, held: applied.error },
-    });
-    return { claimed: true, status: 422, error: applied.error };
-  }
-  appendDecision(DATA_DIR, {
-    threadId: args.threadId,
-    requestId: args.requestId,
-    botId: args.botId,
-    botName: args.botName,
-    tool: card.tool,
-    summary: card.subtitle,
-    decision: "user-approved",
-    source: "user",
-  });
-  return { claimed: true, outcome: "allowed-once" };
-}
 
-function sendSkillResolution(
-  res: ServerResponse,
-  result: ReturnType<typeof resolveSkillRequest>,
-): boolean {
-  if (!result.claimed) return false;
-  if ("error" in result) {
-    json(res, result.status, { error: result.error });
-    return true;
-  }
-  json(res, 200, { ok: true, outcome: result.outcome, alreadySettled: result.alreadySettled });
-  return true;
-}
 
 function connectorMessage(botId: string, threadId: string, messageId: string) {
   if (!connectorThread(botId, threadId)) return null;
@@ -9545,6 +9374,7 @@ const workspaceBackupRoutes = createWorkspaceBackupRoutes({
 });
 // Route modules (server/routes/README.md). `workspaceAccess` is assigned at
 // boot, after this line, so the dependency reads it per request.
+const { resolveSkillRequest: resolveSkillRequestFn, sendSkillResolution: sendSkillResolutionFn } = createSkillResolution({ store });
 ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: () => Boolean(workspaceAccess) && entitled("admin") }));
 ROUTES.push(composioCredentialRoutes(() => composioCredentialStatus(cfg)));
 ROUTES.push(createColonieMemoryRoutes({ service: colonieMemory, exists: (botId) => Boolean(store.bot(botId)),
@@ -9727,8 +9557,8 @@ ROUTES.push(createThreadRespondRoutes({
   resolveAndSendRoutine,
   resolveAndSendTeamSetup,
   resolveAndSendTrust,
-  resolveSkillRequest,
-  sendSkillResolution,
+  resolveSkillRequest: resolveSkillRequestFn,
+  sendSkillResolution: sendSkillResolutionFn,
   requestedTaskBot,
 }));
 ROUTES.push(createTeamsExportRoutes({

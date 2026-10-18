@@ -629,6 +629,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.37: answering a staged skill request out of `index.ts` (October 18).** `resolveSkillRequest` (160 lines)
+  and the 12-line `sendSkillResolution` move together into `server/colonie/skills/skill-resolution.ts`, which is the
+  first slice that is *not* a route group: it is the decision both respond routes share (claim the card once, patch
+  it, log it) plus the HTTP shape they send back. The only closed-over value was the store, so the module exports
+  `createSkillResolution({ store })` and `index.ts` takes the two functions from it — the respond routes keep taking
+  them as deps, unchanged. Guard test (3): a request this thread has no card for claims nothing; a card that is not a
+  skill request claims nothing either; the HTTP shape answers only what was claimed (false, then 403, then 200).
+  Live on a throwaway HOME: both `POST /api/threads/:id/respond` and `POST /api/bots/:id/respond` still answer 200
+  `{ok:true,outcome:"unavailable"}` for a request that is not there. `index.ts` 11,862 → **11,691 lines**; 275/275
+  pass, typecheck 0, lint 0.
+  **Correction to S3.36:** that entry claims "typecheck 0", but typecheck was last run *before* `config.test.ts` was
+  added, and the test's `ctx.auth` cast was in fact a `TS2352` until S3.37 fixed it (`as unknown as`). The suite and
+  lint were green at S3.36; the typecheck claim was not verified. Every slice below this line whose test file was
+  written after the last typecheck has the same caveat unless its entry says otherwise.
 - **S3.36: settings (`/api/config`) out of `index.ts` (October 18).** The biggest remaining route group (343
   lines) becomes `server/routes/config.ts`: one GET that answers the whole config and one PUT/PATCH that applies a
   patch, reloads the providers it affects and drains what the change unblocked. This is the slice the holder objects

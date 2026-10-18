@@ -55,7 +55,7 @@ const call = async (
   scopes: string[] = [],
 ) => {
   const { ctx, sent } = callRoute(path, method, body);
-  (ctx as { auth: { scopes: string[] } }).auth = { scopes };
+  (ctx as unknown as { auth: { scopes: string[] } }).auth = { scopes };
   return { out: await handler(ctx), sent };
 };
 

@@ -150,12 +150,21 @@ started, and review.
   `thread-respond` (S3.33), steering a queued message,
   `queue-steer` (S3.34), the provider instances and settings
   writes, `provider-instances` (S3.35), and settings,
-  `config` (S3.36). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  `config` (S3.36), skill resolution,
+  `colonie/skills/skill-resolution` (S3.37). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
   flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
   purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
-  stream moved at S3.31. Every route group named in S3 is now out of `index.ts`; what remains is the giant
-  non-route helpers (`localVmInventoryPayload`, `handleDesktopTrustedApprovalMessage`),
-  `startTurn`, and the ~496 small declarations. Route families are no longer taken smallest-first: the largest are the ones that move
+  stream moved at S3.31. Every route group named in S3 is out of `index.ts`, and the non-route helpers have
+  started moving (S3.37). What remains, by measured size: `startTurn` (1,367 lines,
+  6271..7637), `handleDesktopTrustedApprovalMessage` (402), `resolveSkillRequest`
+  already moved, `deleteBotWithLifecycle` (139), `acceptDirectSend` (138),
+  `finalizeDelegationWatch` (89), plus the great majority of the file — state and small
+  helpers that no route group owns. `index.ts` is 11,691 lines, so the 1,000-1,500
+  target is not reachable by moving route groups and named giants alone; reaching it
+  means moving the shared state and the small declarations too, and that is a
+  different, larger job than S3. Say so before starting it.\n\n  `startTurn` is the one to think hardest about: 1,367 lines that close over most of the
+  live state, called both from `index.ts` and (as a dep) from `bot-messages`, so it needs
+  either a deps object or a move of the state it closes over. Route families are no longer taken smallest-first: the largest are the ones that move
   the number. After the routes: `startTurn` (1,371 lines) and `localVmInventoryPayload` (628). `.colonie-dev/carve.py`
   carves a block and lists the deps it needs; `.colonie-dev/route-smoke` style probes (a static-path sweep on a
   throwaway HOME) caught the S3.20 regression class and should be run after every extraction.
