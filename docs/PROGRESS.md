@@ -629,6 +629,16 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.29: importing a team out of `index.ts` (October 18).** `POST /api/teams/import` (106 lines: a team
+  package, a library package, a bot package or a workspace backup, added next to what is there or projected into a
+  folder) becomes `server/routes/teams-import.ts` — the pair to S3.28. What must be decided *before* the file is
+  trusted stayed where it was: who may see the imported bots (the admin's `?visibility=`, never the file's), and
+  the folder a template may project into. Guard test (5): another route or verb is left to the next handler; a
+  folder a template may not project into is refused; an audience nobody can parse is refused; a file the app does
+  not recognize is refused rather than half-imported; a backup may not be imported in project mode. Live on a
+  throwaway HOME, and this is the strongest check of the slice: a **round trip** — backup export 200, then that
+  same document imported 201 and the bot list grew 1 → 2; an empty body 400 "Team file version is not supported";
+  project mode with a backup 400. `index.ts` 12,912 → **12,811 lines**; 243/243 pass, typecheck 0, lint 0.
 - **S3.28: exporting a team out of `index.ts` (October 18).** `POST /api/teams/export` (134 lines: the team
   manifest, one team package, a library package of New-bot defaults, or a whole-workspace backup, with the skills,
   notes and avatars that travel with it) becomes `server/routes/teams-export.ts`. Guard test (4): another route or

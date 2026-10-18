@@ -55,12 +55,11 @@ import {BrowserCleanupCoordinator, finalizeBrowserCleanupMutation, requireBrowse
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import {buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence} from "./colonie/chat/digest.ts";
 import {appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor} from "./decision-log.ts";
-import {validateBotCwd} from "./colonie/bots/bot-cwd.ts";
 import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, parseAudioRange, readAttachment, saveFile, saveImage, saveImageUpload, type SavedAttachment, validateAttachmentUploadId} from "./colonie/chat/attachments.ts";
 import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, messageFileRoots, messageImageTargetAt, messageReferencesFile, listMessageFolder, messageFolderEntryName, openMessageFile, openMessageFolderEntry} from "./colonie/chat/message-file.ts";
 import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
-import {isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
+import {isEffortLevel, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
 import {isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard} from "../shared/ask-question.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import {liveDecisionRefusal} from "../shared/live-approval.ts";
@@ -164,8 +163,7 @@ import {ModelRequestService} from "./colonie/providers/model-requests.ts";
 import {TeamSetupError, TeamSetupRequestService} from "./colonie/teams/team-setup-requests.ts";
 import type {TeamSetupRequest} from "../shared/team-setup.ts";
 import {flushAllProfileHistory, flushProfileHistory, readHistory} from "./profile-versions.ts";
-import {BOT_PACKAGE_MAX_SKILLS, isBotPackage, parsePackageDocument, type PackageDocument} from "./colonie/bots/bot-package.ts";
-import {parseTeamManifest} from "./colonie/teams/team-manifest.ts";
+import {BOT_PACKAGE_MAX_SKILLS} from "./colonie/bots/bot-package.ts";
 import {readThreadEvents} from "./colonie/chat/thread-events.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
@@ -182,10 +180,8 @@ import {loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile, re
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
 import {installedPlaybookInstructions} from "./installed-playbooks.ts";
 import {picture as sharedPicture, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
-import {importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult} from "./colonie/teams/package-import.ts";
+import {type PackageImportDeps} from "./colonie/teams/package-import.ts";
 import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults} from "./colonie/bots/presets.ts";
-import {importTeamBackup} from "./colonie/workspace/team-backup.ts";
-import {MAX_TEAM_BACKUP_BYTES} from "../shared/team-backup.ts";
 import {shouldMountLocalComputer} from "./local-routing.ts";
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
@@ -207,7 +203,7 @@ import {clearSessionCookie, isLoopbackHost, isProxied, labelFromUserAgent, reque
 import {cookieMaxAgeSeconds, SessionRegistry, type SessionRecord} from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import {appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor} from "./admin-activity.ts";
-import {frameForMember, memberBody, memberBot, noteSeen, notFoundFor, parseVisibility, pathSubject, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type StreamSeen, type ThreadOwner, type Viewer} from "./colonie/bots/bot-visibility.ts";
+import {frameForMember, memberBody, memberBot, noteSeen, notFoundFor, pathSubject, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type StreamSeen, type ThreadOwner, type Viewer} from "./colonie/bots/bot-visibility.ts";
 import {describeBrand, loadBrand} from "./brand.ts";
 import {deliverSseFrame} from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and
@@ -255,6 +251,7 @@ import {createBotTaskRoutes} from "./routes/bot-task.ts";
 import {createBotCreateRoutes} from "./routes/bot-create.ts";
 import {createThreadRespondRoutes} from "./routes/thread-respond.ts";
 import {createTeamsExportRoutes} from "./routes/teams-export.ts";
+import {createTeamsImportRoutes} from "./routes/teams-import.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9758,6 +9755,14 @@ ROUTES.push(createTeamsExportRoutes({
   collectExportSkills,
   collectTeamSkills,
 }));
+ROUTES.push(createTeamsImportRoutes({
+  store,
+  routines: () => routines,
+  broadcast,
+  publicBot,
+  defaultSelection,
+  packageImportDeps,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -10810,112 +10815,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return res.end(lines.join("\n"));
     }
 
-    if (method === "POST" && path === "/api/teams/import") {
-      // Import is additive-only. A manifest is untrusted input (catalog,
-      // GitHub, a shared file), so it must be structurally unable to reach
-      // records the user already has: every member becomes a NEW bot with a
-      // fresh id — a manifest cannot name, update, or merge into an existing
-      // bot or room. Repeated imports create freshly numbered copies.
-      const importMode = url.searchParams.get("mode") ?? "add";
-      if (importMode === "replace") {
-        return json(res, 400, { error: "Replacing your team is no longer supported. Reopen Import in the updated app to add bots alongside your existing conversations." });
-      }
-      if (importMode !== "add" && importMode !== "project") {
-        return json(res, 400, { error: "Team import mode must be add or project" });
-      }
-      // `project` once also opened a room on a caller-chosen folder. Rooms are
-      // retired: both formats add bots only, and a project room or a
-      // package's rooms come back in `skipped`. Neither format can point at
-      // an existing record or choose a local folder; the folder stays an
-      // explicit caller parameter, validated here.
-      let projectCwd: string | null = null;
-      if (importMode === "project") {
-        const requested = url.searchParams.get("cwd");
-        if (requested !== null) {
-          const validated = validateBotCwd(requested);
-          if (!validated.ok) return json(res, 400, { error: validated.error });
-          projectCwd = validated.cwd;
-        }
-      }
-      // Who may see the imported bots, from their first moment: the admin's
-      // choice (?visibility=admins, or a JSON value), never the file's.
-      const rawVisibility = url.searchParams.get("visibility");
-      let importVisibility: BotVisibility | undefined;
-      if (rawVisibility !== null) {
-        let value: unknown = rawVisibility;
-        if (rawVisibility.trim().startsWith("{")) {
-          try {
-            value = JSON.parse(rawVisibility);
-          } catch {
-            /* parseVisibility refuses the raw text with a plain sentence */
-          }
-        }
-        const parsed = parseVisibility(value);
-        if (!parsed.ok) return json(res, 400, { error: parsed.error });
-        importVisibility = parsed.visibility;
-      }
-      const body = await readBody(req, MAX_TEAM_BACKUP_BYTES);
-      if (body?.format === "colonie.backup") {
-        if (importMode !== "add") return json(res, 400, { error: "Import backups alongside your existing bots; project mode is only for templates" });
-        try {
-          const imported = importTeamBackup(store, routines!, body, await defaultSelection(), { visibility: importVisibility });
-          // A restore writes its transcripts without store events, after the
-          // store's own frames announced each bot, so these frames are what
-          // carries the restored pages to other clients. Rooms are skipped
-          // and named in `warnings`.
-          const bots = imported.bots.map((bot) => publicBot(bot));
-          for (const bot of bots) broadcast({ kind: "bot", bot });
-          return json(res, 201, { ...imported, bots });
-        } catch (error) {
-          return json(res, 400, { error: error instanceof Error ? error.message : "Backup could not be imported" });
-        }
-      }
-      // Every package (v1 JSON, BotMRR Markdown, v2) is read by the one shared
-      // parser as a FILE: it cannot claim a publisher, and its skills and
-      // routines arrive off. A body field such as `trust` is just an unknown
-      // field of the document and is stripped; only the organization library
-      // module ever imports with trust "org".
-      let packageDocument: PackageDocument | null = null;
-      let manifest: ReturnType<typeof parseTeamManifest> | null = null;
-      try {
-        if (isBotPackage(body)) packageDocument = parsePackageDocument(body, { trust: "file" });
-        else manifest = parseTeamManifest(body);
-      } catch (error) {
-        return json(res, 400, { error: error instanceof Error ? error.message : "Invalid bot package" });
-      }
-      const deps = packageImportDeps(await defaultSelection());
-      const options = {
-        mode: importMode as "add" | "project",
-        cwd: projectCwd,
-        room: url.searchParams.get("room") ?? undefined,
-        ...(importVisibility ? { visibility: importVisibility } : {}),
-      };
-      let imported: PackageImportResult;
-      try {
-        const result = packageDocument
-          ? importPackageDocument(packageDocument, { ...options, trust: "file" }, deps)
-          : importTeamManifest(manifest!, options, deps);
-        // A file import always gets a fresh install id, so it never reports
-        // "already added"; that answer belongs to the organization library.
-        if (result.alreadyAdded) return json(res, 200, result);
-        imported = result;
-      } catch (error) {
-        if (error instanceof PackageImportError) return json(res, error.status, { error: error.message, code: error.code });
-        throw error;
-      }
-      return json(res, 201, {
-        name: imported.name,
-        section: imported.section,
-        bots: imported.bots.map((bot) => publicBot(store.bot(bot.id) ?? bot)),
-        routines: imported.routines,
-        offeredSkills: imported.offeredSkills,
-        connections: imported.connections,
-        skipped: imported.skipped,
-        brief: imported.brief,
-        notes: imported.notes,
-        presets: imported.presets ?? [],
-      });
-    }
     m = path.match(/^\/api\/bots\/([\w-]+)\/avatar\/generate$/);
     if (m && method === "POST") {
       const existing = store.bot(m[1]);
