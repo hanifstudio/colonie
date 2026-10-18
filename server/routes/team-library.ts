@@ -3,8 +3,8 @@
 // being only when the human sends the suggested manifest through
 // POST /api/teams/import, so "the agent proposes, the person imports" is
 // enforced by the route split itself.
-import { fetchGithubTeam, fetchLibraryTeam, fetchTeamCatalog } from "../team-library.ts";
-import { scoutProject, suggestTeam } from "../project-scout.ts";
+import { fetchGithubTeam, fetchLibraryTeam, fetchTeamCatalog } from "../colonie/teams/team-library.ts";
+import { scoutProject, suggestTeam } from "../colonie/teams/project-scout.ts";
 import { fetchBotDirectory, matchDirectoryBots, type MatchedDirectoryBot } from "../colonie/bots/bot-directory.ts";
 import { validateBotCwd } from "../colonie/bots/bot-cwd.ts";
 import { PASS, type RouteHandler } from "./table.ts";

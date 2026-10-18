@@ -5,7 +5,7 @@
 // membership that changed under the dialog is refused rather than guessed.
 import { z } from "zod";
 import type { BotRecord, Store } from "../persistence/store.ts";
-import type { TeamComputers } from "../team-computers.ts";
+import type { TeamComputers } from "../colonie/teams/team-computers.ts";
 import type { WireBot } from "../../shared/wire.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 

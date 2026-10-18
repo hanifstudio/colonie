@@ -14,8 +14,8 @@ import {
   sectionContextLabel,
   writeSectionContext,
   SECTION_CONTEXT_MAX_BYTES,
-} from "../section-context.ts";
-import { TEAM_MEMORY_KINDS, type TeamMemory, type TeamMemoryKind } from "../team-memory.ts";
+} from "../colonie/teams/section-context.ts";
+import { TEAM_MEMORY_KINDS, type TeamMemory, type TeamMemoryKind } from "../colonie/teams/team-memory.ts";
 import type { Store } from "../persistence/store.ts";
 import { sectionKey } from "../persistence/store.ts";
 import { PASS, type RouteHandler } from "./table.ts";

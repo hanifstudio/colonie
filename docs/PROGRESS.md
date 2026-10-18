@@ -495,6 +495,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   audience. 126/126 pass, typecheck 0, lint 0. Live on a throwaway HOME: `/api/bot-presets`,
   `/api/bot-defaults`, `/api/bots/:id/overview` and `/api/bots/:id/system-prompt` all answer through the
   moved modules.
+- **S10: teams, packages and the catalog into `server/colonie/teams/` (October 18).** Twelve files moved —
+  `team-computers.ts`, `team-library.ts`, `team-manifest.ts`, `team-memory.ts`, `team-setup-requests.ts`,
+  `published-teams.ts`, `project-scout.ts`, `section-context.ts`, `chief-of-staff.ts`, `package-export.ts`,
+  `package-import.ts`, `package-parts.ts` — 20 files repointed. Guard:
+  `server/colonie/teams/section-context.test.ts` — General is the empty team spelled the same everywhere, a
+  brief round-trips while unrelated teams stay unknown, empty text clears rather than storing a blank, the
+  byte cap is enforced below the route too, a written brief becomes a bounded lower-priority block that
+  carries the byte count and says it is context rather than authorization and that contains no path to the
+  store, a team with no brief adds nothing, a team is remembered once when first named, and renaming an
+  empty team carries its brief and refuses a name that does not exist. Two of the three failures while
+  writing it were the test's fault, not the code's: tests in one file share the throwaway data directory, so
+  expectations had to stop assuming an empty list of teams. 134/134 pass, typecheck 0, lint 0. Live on a
+  throwaway HOME: `/api/sidebar-sections`, `/api/section-context?section=`, `/api/team-map` and
+  `/api/teams/scout` answer through the moved modules, and `/api/teams/export` produced a 184-byte package.
+  Two probes reached out rather than staying local and are reported as such: `/api/team-library/catalog`
+  fetches its catalogue from GitHub (`{"error":"GitHub returned HTTP 404"}` unauthenticated) and
+  `/api/teams/scout` without a folder answers as designed.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

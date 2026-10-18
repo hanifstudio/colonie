@@ -12,8 +12,8 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { newId } from "./contracts.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { newId } from "../../contracts.ts";
 import { sectionContextKey, sectionContextLabel } from "./section-context.ts";
 
 export const TEAM_MEMORY_KINDS = ["person", "place", "decision", "term"] as const;

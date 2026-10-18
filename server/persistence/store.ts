@@ -9,8 +9,8 @@ import { join } from "node:path";
 import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
 import { colonieProfile } from "../acp/profile.ts";
 import { parseToolScope, toolScopeWidens } from "../../shared/tool-scope.ts";
-import { ensureSections, readSections, changeEmptySection } from "../section-context.ts";
-import type { TeamComputers } from "../team-computers.ts";
+import { ensureSections, readSections, changeEmptySection } from "../colonie/teams/section-context.ts";
+import type { TeamComputers } from "../colonie/teams/team-computers.ts";
 import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "../colonie/bots/bot-folder.ts";
 import type { BotProfilePatch } from "../colonie/bots/bot-profile.ts";
 import { peerAllowKey, type PeerAction } from "../colonie/peers/peer-approval-key.ts";
@@ -30,7 +30,7 @@ import type { ProfileRequestChanges } from "../../shared/profile-request.ts";
 import type { TeamSetupRequest, TeamSetupResult } from "../../shared/team-setup.ts";
 import { isMentionBoundary, isMentionNameContinuation } from "../../shared/mention-boundary.ts";
 import type { HandedState } from "../delta-context.ts";
-import type { AgentPart, PartPair, RoomPart } from "../package-parts.ts";
+import type { AgentPart, PartPair, RoomPart } from "../colonie/teams/package-parts.ts";
 import type {
   BotActivity, GroupDefaultResponder, GroupTask as GroupTaskRecord, MausColor,
   BotVisibility, ConnectorToolGrant, OptionCardData, TaskClosedBy, TaskOpenedBy, TaskUsage, WireBot,

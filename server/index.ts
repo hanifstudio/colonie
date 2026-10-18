@@ -118,7 +118,7 @@ import {
 } from "./colonie/bots/avatar-image.ts";
 import { fitsOnOneLine, parseBotProfilePatch } from "./colonie/bots/bot-profile.ts";
 import { pickComputer } from "./computer-selection.ts";
-import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
+import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./colonie/teams/team-computers.ts";
 import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard } from "../shared/ask-question.ts";
 import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
@@ -126,7 +126,7 @@ import { liveCardKind, liveDecisionRefusal } from "../shared/live-approval.ts";
 import * as composio from "./composio.ts";
 import { connectorCallFromFrame, connectorRefusalText, connectorUnrecognizedText, evaluateConnectorTools } from "./connector-verdict.ts";
 import { connectorCardText } from "./connector-card-text.ts";
-import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
+import { chiefOfStaffSystemPrompt } from "./colonie/teams/chief-of-staff.ts";
 import { buildRecall } from "./colonie/memory/recall.ts";
 import { createMemoryUpkeep, upkeepEnabled } from "./colonie/memory/memory-upkeep.ts";
 import { appendAboutMe, LearnedFacts } from "./profile-learned.ts";
@@ -335,7 +335,7 @@ import {
   sectionContextKey,
   sectionContextSystemPrompt,
   writeSectionContext,
-} from "./section-context.ts";
+} from "./colonie/teams/section-context.ts";
 import {
   applyStagedSkillWrite,
   applySkillWriteWithReceipt,
@@ -421,14 +421,14 @@ import { createOptionsCard } from "./options-card.ts";
 import { buildBotOverview, type BotOverview, connectedAppsFacts } from "./colonie/bots/bot-overview.ts";
 import { ProfileRequestService } from "./profile-requests.ts";
 import { ModelRequestService } from "./model-requests.ts";
-import { TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.ts";
+import { TeamSetupError, TeamSetupRequestService } from "./colonie/teams/team-setup-requests.ts";
 import type { TeamSetupRequest } from "../shared/team-setup.ts";
 import { profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
 import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./colonie/bots/bot-package.ts";
-import { createTeamManifest, parseTeamManifest } from "./team-manifest.ts";
+import { createTeamManifest, parseTeamManifest } from "./colonie/teams/team-manifest.ts";
 import { readThreadEvents } from "./thread-events.ts";
-import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./team-memory.ts";
+import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./colonie/teams/team-memory.ts";
 import { describeTool } from "./activity.ts";
 import { OutboundCounts } from "./outbound-counts.ts";
 import { OutboundRequestService } from "./outbound-requests.ts";
@@ -450,13 +450,13 @@ import {
 } from "./colonie/skills/skill-library.ts";
 import { runSkillsLibraryBootSweep } from "./colonie/skills/skills-library-migration.ts";
 import { installedPlaybookInstructions } from "./installed-playbooks.ts";
-import { createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip } from "./package-export.ts";
-import { importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult } from "./package-import.ts";
+import { createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip } from "./colonie/teams/package-export.ts";
+import { importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult } from "./colonie/teams/package-import.ts";
 import {
   applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE,
   presetFromDefaults, readPublishedLibrary, writePublishedLibrary,
 } from "./colonie/bots/presets.ts";
-import { readPublishedTeam, writePublishedTeam } from "./published-teams.ts";
+import { readPublishedTeam, writePublishedTeam } from "./colonie/teams/published-teams.ts";
 import { createTeamBackup, importTeamBackup } from "./colonie/workspace/team-backup.ts";
 import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
 import { shouldMountLocalComputer } from "./local-routing.ts";

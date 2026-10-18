@@ -1,5 +1,5 @@
-import { parseJson, type JsonValue } from "./schema.ts";
-import { isBotPackage, parseBotPackage, parsePackageDocument, type PackageDocument, type ParsedBotPackage } from "./colonie/bots/bot-package.ts";
+import { parseJson, type JsonValue } from "../../schema.ts";
+import { isBotPackage, parseBotPackage, parsePackageDocument, type PackageDocument, type ParsedBotPackage } from "../bots/bot-package.ts";
 import { parseTeamManifest, type ParsedTeamManifest } from "./team-manifest.ts";
 
 export const TEAM_LIBRARY_REPOSITORY = "https://github.com/milind-soni/colonie-teams";

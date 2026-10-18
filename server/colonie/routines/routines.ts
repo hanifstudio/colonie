@@ -11,7 +11,7 @@ import type { GroupGoalRunStatus } from "../../../shared/group-goal-run.ts";
 import type { RoutineRequestOperation } from "../../../shared/routine-request.ts";
 import { normalizeCronSchedule, nextCronRuns, type RoutineCronSchedule } from "../../../shared/routine-schedule.ts";
 import { isRoutineProblemRun } from "../../../shared/routines.ts";
-import { ROUTINE_PARTS, type PartPair, type RoutinePart } from "../../package-parts.ts";
+import { ROUTINE_PARTS, type PartPair, type RoutinePart } from "../teams/package-parts.ts";
 
 export interface RoutineIntervalWindow {
   start: string;

@@ -1,9 +1,9 @@
-import { parseBotPackage, type BotPackageDefinition, type BotPackagePlaybook, type BotPackageSkill, type ParsedBotPackage } from "./colonie/bots/bot-package.ts";
-import type { DefaultsPreset, PublishedLibrary } from "./colonie/bots/presets.ts";
+import { parseBotPackage, type BotPackageDefinition, type BotPackagePlaybook, type BotPackageSkill, type ParsedBotPackage } from "../bots/bot-package.ts";
+import type { DefaultsPreset, PublishedLibrary } from "../bots/presets.ts";
 import type { PublishedTeam } from "./published-teams.ts";
 import { nextPatchRelease } from "./published-teams.ts";
-import type { Routine } from "./colonie/routines/routines.ts";
-import type { BotRecord, GroupRecord, InstalledPlaybook } from "./persistence/store.ts";
+import type { Routine } from "../routines/routines.ts";
+import type { BotRecord, GroupRecord, InstalledPlaybook } from "../../persistence/store.ts";
 import {
   AGENT_MAX_SKILLS,
   AVATAR_MAX_BYTES,
@@ -28,7 +28,7 @@ import {
   type PackageRoom,
   type PackageRoutine,
   type PackageRoutineSchedule,
-} from "../shared/package-format.ts";
+} from "../../../shared/package-format.ts";
 
 function portableKey(value: string, fallback: string, used: Set<string>): string {
   const stem = value
