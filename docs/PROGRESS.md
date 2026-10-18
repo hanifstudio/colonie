@@ -629,6 +629,25 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.66: the browser feature's process-local construction out of `index.ts` (October 18).**
+  `server/colonie/computer/browser-sessions.ts` (`createBrowserSessions`): one
+  `BrowserRuntime` and the `BrowserLive` viewer that mirrors it, the map of
+  throwaway guest sessions with `currentBrowserSession`/`forgetTemporaryBrowser`,
+  and the `BrowserCleanupCoordinator` outbox that clears a deleted bot's or
+  profile's saved engine state on every host. 81 lines across two blocks
+  (L556–595, 841–881); `cfg` is the only dep. The comment-only false deps the
+  extractor saw (`sessions` from a local const, `server` from prose) were
+  dropped by hand. `temporaryBrowserSessions` goes over as a `const` map for the
+  shutdown sweep, so the now-unused browser imports (the runtime, live viewer,
+  cleanup coordinator, engine helpers and `augmentedPath`) left `index.ts`.
+  Guard: `browser-sessions.test.ts` (6) — a guest session is minted once per bot
+  and reused, two bots get distinct guests, a configured profile addresses its
+  own partition, an unknown profile falls back to the bot's own session, and
+  forgetting a guest mints a new one next time (a no-op when there is none).
+  `index.ts` 3,274 → 3,194. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 80 files / 377 tests pass, live probe
+  green (health/brand/bots/local-computer 200, unrouted 404, delete 200, no log
+  errors).
 - **S3.65: the turn's computer-seat binding out of `index.ts` (October 18).**
   `server/colonie/computer/turn-computer-binding.ts`
   (`createTurnComputerBinding`): `bindTurnComputer`, the single gate every
