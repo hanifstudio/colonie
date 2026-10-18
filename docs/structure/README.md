@@ -41,6 +41,24 @@ Falsification evidence (the guard must be able to fail): a temporary file
 `no-server-to-ui: server/harness/__falsify-boundary.ts -> src/lib/cn.ts` and exit 1;
 deleting the file restored exit 0. The probe was removed in the same command.
 
+Two further tests verify the graph the rules run on, because a missing file or a missing
+edge makes a rule pass silently, and a silent pass is worse than no check. They walk the
+tree from disk and parse statements instead of reusing the graph builder:
+
+- every source file under `server/`, `src/`, `shared/`, `electron/` and `scripts/` must
+  appear in the graph;
+- every import statement the parser can see must appear as an edge, once a deliberately
+  dumb path probe can name its target. Specifiers only a bundler can resolve (`.css`,
+  `.png`, `?raw`) are counted and reported, not asserted.
+
+Those two tests earned their place immediately. They found that
+`parseJsonConfigFileContent` collects only the extensions a tsconfig enables, so
+`server/testing/*.mjs` was invisible to every rule while `server/` was nominally covered;
+that `ts.resolveModuleName("./x.mjs")` returns `x.d.mts` when a type stub sits beside the
+implementation, so a rule about `electron/colonie.mjs` was evaluating a file that never
+runs; and that `electron/fixtures/browser-closed-shadow.cjs` requires
+`electron/browser-surface.cjs`, which does not exist.
+
 
 ## Why this exists
 
@@ -65,7 +83,7 @@ otherwise the rule encodes a taste instead of a fact.
   `server/index.ts ↔ src/state/store.tsx` (191), `server/index.ts ↔ server/store.ts`
   (145), `server/index.ts ↔ src/locales/en.json` (120).
 
-**Graph — 1,061 files, 3,672 edges (920 through the `@/*` alias), 2 unresolved.**
+**Graph — 1,077 source files, 3,682 edges (920 through the `@/*` alias), 4 unresolved.**
 
 Four direction rules are already at zero violations, so they are cheap to enforce from
 day one: nothing imports `server/index.ts`; `shared/` reaches into neither `server/`,
@@ -101,13 +119,24 @@ named as exceptions:
 - Folder-level cycles at this granularity are one 24-folder blob and carry no signal;
   the useful signal is the file-level SCC list and the mutual-pair list, which stays.
 - Two electron test files import scripts that do not exist
-  (`scripts/patch-mac-updater.mjs`, `scripts/patch-appimage-updater.mjs`). Inherited
-  breakage, reported here, not fixed by this measurement.
+  (`scripts/patch-mac-updater.mjs`, `scripts/patch-appimage-updater.mjs`), and
+  `electron/fixtures/browser-closed-shadow.cjs` requires `electron/browser-surface.cjs`,
+  which does not exist either. Inherited breakage, reported here, not fixed by this
+  measurement. The guard prints these as warnings: an unresolved import is a broken file,
+  not a boundary crossing. `scripts/desktop-server-entry.mjs` importing `./index.js` is
+  the one expected entry in that list, because it names the bundled output on purpose.
 - The first artifact's edge count was wrong by 38: `shared/` files are pulled into two
   programs, and the first version walked them once per program, double-counting their
   outgoing edges. Deduplicating by path (now inside `graph.mjs`) corrected 3,710 → 3,672.
   Having one resolver for both the measurement and the guard is what made that correction
   reach both at once.
+- Two further defects in the graph were found by the independent walk and fixed: the
+  graph missed `server/testing/*.mjs` entirely (tsconfig `include` collects only the
+  extensions that config enables, so `allowJs` did not help), and a specifier naming an
+  implementation file could resolve to its `.d.mts` type stub instead. Program roots are
+  now listed from disk per area, and a declaration target is mapped back to its
+  implementation. The graph went 3,672 → 3,682 edges and 1,061 → 1,077 files, which is
+  coverage gained, not work invented.
 
 ## Limits — read before quoting a number
 
@@ -117,7 +146,11 @@ named as exceptions:
   (`export { N } from "x"` is not a use) and cannot tell two same-named symbols in
   different files apart (`SignInLists` exists in both the server and the renderer).
   Verifying this metric needs an independent implementation (`knip`,
-  `ts-unused-exports`), which E01.3 must add before any rule cites the number.
+  `ts-unused-exports`), which E01.3 must add before any rule cites the number. Neither is
+  installed today, and adding a dependency is a decision rather than a cleanup, so it is
+  recorded as open. The import graph — the part the guard actually runs on — was verified
+  instead, because a wrong edge silently disables a rule while a wrong dead-export count
+  only misinforms a reader.
 - The metric counts a name as dead only when it is declared in that file and never
   imported by name anywhere in the three programs; names reachable only through a
   namespace import or `export * from` are treated as used, so the figure is a lower

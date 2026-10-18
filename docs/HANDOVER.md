@@ -254,10 +254,18 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   and all of `scripts/testing/` while `.github/workflows/ci.yml` still runs them, so the static job cannot
   pass and the vitest job behind it never starts. Until that is decided, `pnpm structure:check` and
   `pnpm test` are the enforcement points; re-creating the scopes or dropping the steps is an owner choice.
-- Next actions: (a) the CI question above; (b) E01.3 Phase 2 — an independent tool
-  (`knip`/`ts-unused-exports`) for the dead-export figure, a differential graph run
-  (`dependency-cruiser`/`madge`) against `graph.mjs`, and a generated module index with a staleness check;
-  (c) a cleanup slice for the two grandfathered crossings, which also removes their baseline entries.
+- Phase 2a landed: the graph the guard runs on is verified by a method-different second pass (walk the
+  tree from disk, parse every statement, require full file coverage and full edge coverage). It found two
+  defects that would have let rules pass silently — `server/testing/*.mjs` was invisible because a
+  tsconfig `include` collects only the extensions that config enables, and `./x.mjs` could resolve to the
+  type stub `x.d.mts` instead of the file that runs — both fixed in `scripts/structure/graph.mjs`; the
+  graph is now 1,077 files / 3,682 edges. It also surfaced
+  `electron/fixtures/browser-closed-shadow.cjs` requiring `electron/browser-surface.cjs`, which does not
+  exist (inherited breakage, reported, not fixed).
+- Next actions: (a) the CI question above; (b) the remaining Phase 2 item — an independent tool
+  (`knip`/`ts-unused-exports`; neither is installed, so adding the dependency is a decision) for the
+  dead-export figure, plus a generated module index with a staleness check; (c) a cleanup slice for the two
+  grandfathered crossings, which also removes their baseline entries.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

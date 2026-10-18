@@ -13,15 +13,34 @@
 // `export ... from`, dynamic `import()` and `require()`.
 //
 // Three programs are built because the areas compile differently and neither tsconfig
-// includes `shared/` or `electron/`, which are exactly the areas a portability rule is
-// about: server/** under tsconfig.server.json, src/** plus vite.config.ts under
-// tsconfig.json, and shared/** plus electron/** under a readable variant of
-// tsconfig.json.
+// includes `shared/`, `electron/` or `scripts/`, which are exactly the areas a
+// portability rule is about and the areas tooling lives in: server/** under
+// tsconfig.server.json, src/** plus vite.config.ts under tsconfig.json, and shared/**,
+// electron/** and scripts/** under a readable variant of tsconfig.json.
+//
+// Leaving `scripts/` out was a real gap: no rule could see an import made there, so the
+// guard would have stayed silent about a whole directory. `import-boundaries.test.mjs`
+// now walks the tree independently and fails if a source file is missing from this
+// graph, so the gap cannot come back unnoticed.
 
 import { dirname, join, normalize, relative } from "node:path";
 import ts from "typescript";
 
-const SKIP = /(^|\/)(node_modules|dist|dist-server|dist-electron|release|vendor)\//;
+const SKIP = /(^|\/)(node_modules|dist|dist-server|dist-electron|release|vendor|resources)\//;
+
+// The extensions each area is allowed to contain. Used to list program roots from disk
+// instead of trusting the tsconfig `include` extension list.
+const AREA_EXTENSIONS = {
+  server: [".ts", ".tsx", ".js", ".mjs", ".cjs"],
+  src: [".ts", ".tsx", ".js", ".mjs"],
+  shared: [".ts"],
+  electron: [".mjs", ".ts", ".cjs"],
+  scripts: [".ts", ".mjs"],
+};
+
+function extraRoots(root, areas) {
+  return areas.flatMap((area) => collect(root, area, AREA_EXTENSIONS[area]));
+}
 
 function readConfig(configPath) {
   const file = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -47,11 +66,29 @@ export function relativePath(root, fileName) {
 // it silently dropped every `@/*` import. The file probe is a counted fallback for
 // targets outside a program (`.mjs` files); a fallback that fires often means the graph
 // is no longer fully compiler-derived.
+// A specifier that names an implementation file must resolve to that file, not to its
+// type declaration. `ts.resolveModuleName("./colonie-config.mjs")` returns
+// `colonie-config.d.mts` when the pair exists, and a rule evaluated against a `.d.mts`
+// stub is evaluating a file that never runs. The independent coverage check in
+// `scripts/testing/import-boundaries.test.mjs` is what surfaced this.
+function declarationToImplementation(root, path) {
+  const match = /\.d\.(mts|cts|ts)$/.exec(path);
+  if (!match) return null;
+  const stem = path.slice(0, -match[0].length);
+  const candidates = match[1] === "mts" ? [".mjs", ".js"] : match[1] === "cts" ? [".cjs", ".js"] : [".ts", ".js", ".mjs"];
+  for (const extension of candidates) {
+    if (ts.sys.fileExists(join(root, stem + extension))) return stem + extension;
+  }
+  return null;
+}
+
 export function resolveSpec(root, fromPath, spec, options) {
   const resolved = ts.resolveModuleName(spec, join(root, fromPath), options, ts.sys).resolvedModule;
   if (resolved && !resolved.resolvedFileName.includes("node_modules")) {
     const path = relativePath(root, resolved.resolvedFileName);
-    if (!path.startsWith("..")) return { kind: "file", path, via: spec.startsWith(".") ? "ts" : "ts-alias" };
+    if (!path.startsWith("..")) {
+      return { kind: "file", path: declarationToImplementation(root, path) ?? path, via: spec.startsWith(".") ? "ts" : "ts-alias" };
+    }
   }
   if (!spec.startsWith(".")) return { kind: "external" };
   const base = normalize(join(root, dirname(fromPath), spec));
@@ -82,10 +119,14 @@ export function label(path) {
 }
 
 export function buildGraph(root) {
+  // Roots are listed from disk rather than taken only from the tsconfig `include`,
+  // because `parseJsonConfigFileContent` collects only the extensions the tsconfig
+  // enables: `server/testing/*.mjs` was invisible to every rule while `server` was
+  // nominally "covered". Listing them here makes the graph cover the tree.
   const programs = [
-    { name: "server", program: programFrom(root, "tsconfig.server.json") },
-    { name: "app", program: programFrom(root, "tsconfig.json") },
-    { name: "portable", program: programFrom(root, "tsconfig.json", [...collect(root, "shared", [".ts"]), ...collect(root, "electron", [".mjs", ".ts"])]) },
+    { name: "server", program: programFrom(root, "tsconfig.server.json", extraRoots(root, ["server"])) },
+    { name: "app", program: programFrom(root, "tsconfig.json", extraRoots(root, ["src"])) },
+    { name: "portable", program: programFrom(root, "tsconfig.json", extraRoots(root, ["shared", "electron", "scripts"])) },
   ];
 
   const edges = [];

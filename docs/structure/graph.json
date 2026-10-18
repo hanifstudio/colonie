@@ -1,9 +1,9 @@
 {
-  "head": "f3c184fee27685621b58928cc813535f64dc3bba",
+  "head": "6264eab21024c535cd5a64e26a5afd8b125c8a4a",
   "programs": [
     {
       "name": "server",
-      "files": 566
+      "files": 570
     },
     {
       "name": "app",
@@ -11,15 +11,15 @@
     },
     {
       "name": "portable",
-      "files": 557
+      "files": 569
     }
   ],
   "totals": {
-    "files": 1061,
-    "sourceFiles": 1061,
-    "edges": 3672,
+    "files": 1065,
+    "sourceFiles": 1077,
+    "edges": 3682,
     "aliasEdges": 920,
-    "unresolvedRelativeSpecs": 2,
+    "unresolvedRelativeSpecs": 4,
     "probeResolutions": 8
   },
   "ruleSource": "scripts/structure/import-boundaries.json",
@@ -531,6 +531,14 @@
     {
       "from": "electron/vendor-updater.node-test.mjs",
       "spec": "../scripts/patch-appimage-updater.mjs"
+    },
+    {
+      "from": "electron/fixtures/browser-closed-shadow.cjs",
+      "spec": "../browser-surface.cjs"
+    },
+    {
+      "from": "scripts/desktop-server-entry.mjs",
+      "spec": "./index.js"
     }
   ],
   "probeResolutions": [
@@ -576,7 +584,7 @@
     }
   ],
   "deadExports": {
-    "count": 1997,
+    "count": 1998,
     "byArea": {
       "shared/outbound.ts": 4,
       "shared/tool-scope.ts": 1,
@@ -701,7 +709,8 @@
       "electron/data-dir-lease.mjs": 3,
       "electron/encrypted-record-store.mjs": 3,
       "electron/lent-screen-tools.mjs": 4,
-      "electron/secure-credential-state.mjs": 1
+      "electron/secure-credential-state.mjs": 1,
+      "scripts/structure": 1
     },
     "sample": [
       {

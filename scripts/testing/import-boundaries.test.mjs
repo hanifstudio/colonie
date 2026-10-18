@@ -9,6 +9,9 @@
 // re-implements the rule it is checking proves nothing: the adversarial cases below
 // (a folder that merely shares a prefix) only mean something against the real matrix.
 
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, normalize } from "node:path";
+import ts from "typescript";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildGraph } from "../structure/graph.mjs";
 import { compareMatrix, evaluate, loadMatrix, matchesPath, matrixAtRef } from "../structure/import-boundaries.mjs";
@@ -173,4 +176,90 @@ describe("this repository", () => {
     expect(graph.sources).toContain("server/index.ts");
     expect(graph.sources).toContain("src/App.tsx");
   });
+
+  // The two tests below check the graph the rules run on, which matters more than any
+  // single rule: a missing file or a missing edge makes a rule pass silently, and a
+  // silent pass is worse than no check. They walk the tree from disk and parse
+  // statements instead of reusing the graph builder, so a folder that no tsconfig
+  // includes - or a file the compiler skipped - shows up as a failure.
+  it("sees every source file the tree contains", () => {
+    const missing = walkSources().filter((file) => !graph.sources.includes(file));
+    expect(missing, `not in the graph: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("contains every import statement the parser can see", () => {
+    const known = new Set(graph.edges.map((candidate) => `${candidate.from}\u0000${candidate.to}`));
+    const missing = [];
+    let specifiers = 0;
+    let needsBundler = 0;
+    for (const file of walkSources()) {
+      for (const specifier of specifiersIn(file)) {
+        specifiers += 1;
+        const target = probeSpecifier(file, specifier);
+        if (!target) {
+          needsBundler += 1;
+          continue;
+        }
+        if (!known.has(`${file}\u0000${target}`)) missing.push(`${file} -> ${target} (${specifier})`);
+      }
+    }
+    console.log(`[structure] coverage: ${graph.sources.length} files in the graph, ${specifiers} import statements, ${needsBundler} not resolvable without a bundler (.css, ?raw, JSON), ${missing.length} missing`);
+    expect(missing, `imports the compiler-derived graph does not contain: ${missing.slice(0, 20).join(", ")}`).toEqual([]);
+  });
 });
+
+const SKIP_DIRS = new Set(["node_modules", "dist", "dist-server", "dist-electron", "release", "vendor", "resources", ".git"]);
+const SOURCE_AREAS = ["server", "src", "shared", "electron", "scripts"];
+const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mjs", ".js"];
+
+function walkSources(area = "", found = []) {
+  const areas = area ? [area] : SOURCE_AREAS;
+  for (const current of areas) {
+    for (const entry of readdirSync(join(ROOT, current), { withFileTypes: true })) {
+      if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
+      const path = `${current}/${entry.name}`;
+      if (entry.isDirectory()) walkSources(path, found);
+      else if (SOURCE_EXTENSIONS.some((extension) => entry.name.endsWith(extension)) && !entry.name.endsWith(".d.ts")) found.push(path);
+    }
+  }
+  return found;
+}
+
+function specifiersIn(file) {
+  const text = readFileSync(join(ROOT, file), "utf8");
+  const kind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+  const found = [];
+  const visit = (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) found.push(node.moduleSpecifier.text);
+    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments.length >= 1 && ts.isStringLiteral(node.arguments[0])) found.push(node.arguments[0].text);
+    else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "require" && node.arguments.length >= 1 && ts.isStringLiteral(node.arguments[0])) found.push(node.arguments[0].text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+// Deliberately dumb: join the specifier onto the importing file and try the handful of
+// extensions this repository uses. It only has to be right about the target path when it
+// finds one, because its job is to notice edges the graph is missing.
+function probeSpecifier(file, specifier) {
+  if (specifier.startsWith("@/")) return probePath(join(ROOT, "src", specifier.slice(2)));
+  if (!specifier.startsWith(".")) return null;
+  return probePath(normalize(join(ROOT, dirname(file), specifier)));
+}
+
+function probePath(base) {
+  const extensions = [...SOURCE_EXTENSIONS, ".cjs"];
+  const candidates = extensions.map((extension) => `${base}${extension}`);
+  // Only ever return a source file: the bare `base` counts only when it already names
+  // one (otherwise `logo.png` would be reported as a module the graph is missing), and
+  // the `.js` -> `.ts` mapping only applies when the specifier really ends in `.js`.
+  if (extensions.some((extension) => base.endsWith(extension))) candidates.unshift(base);
+  if (base.endsWith(".js")) candidates.push(base.replace(/\.js$/, ".ts"));
+  candidates.push(join(base, "index.ts"), join(base, "index.tsx"), join(base, "index.mjs"));
+  for (const candidate of candidates) {
+    if (candidate.startsWith(ROOT) && existsSync(candidate) && statSync(candidate).isFile()) return candidate.slice(ROOT.length + 1);
+  }
+  return null;
+}

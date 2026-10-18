@@ -3,6 +3,43 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — the graph the guard runs on is verified (E01.3 Phase 2)
+
+Single session, Node 24.13.1. Follows the two entries below. No product code changed: this
+verifies the graph, it does not extend the rules.
+
+- No comparison tool is installed (`madge`, `dependency-cruiser`, `knip`,
+  `ts-unused-exports` all absent), and adding a dependency is a decision, not a cleanup.
+  So the check was built as a method-different second pass instead: walk `server/`, `src/`,
+  `shared/`, `electron/`, `scripts/` from disk, parse every statement with the TypeScript
+  parser (no tsconfig, no resolver), then require that (a) every walked file is in the
+  graph and (b) every import statement whose target a dumb path probe can name is an edge.
+  Two new tests in `scripts/testing/import-boundaries.test.mjs`, 18 tests total, 5 s.
+- The verification found two real defects in the graph, both of the "rule silently passes"
+  kind:
+  - `server/testing/*.mjs` was invisible to every rule. `parseJsonConfigFileContent`
+    collects only the extensions the tsconfig enables, so `include: ["server"]` yielded no
+    `.mjs` roots and `allowJs` did not help. Program roots are now listed from disk per
+    area (`AREA_EXTENSIONS` in `scripts/structure/graph.mjs`).
+  - `ts.resolveModuleName("./colonie-config.mjs")` returns `colonie-config.d.mts` when a
+    type stub sits beside the implementation, so a rule about `electron/colonie.mjs` was
+    evaluating a file that never runs. A declaration target is now mapped back to its
+    implementation.
+  Graph after the fixes: 1,077 files, 3,682 edges (920 through tsconfig paths), 4
+  unresolved. Matrix unchanged: 0 new violations, 0 stale entries, exit 0.
+- A third finding is inherited breakage, now visible because coverage extends into
+  `electron/fixtures/`: `electron/fixtures/browser-closed-shadow.cjs` requires
+  `electron/browser-surface.cjs`, and that file does not exist. Reported, not fixed.
+  `scripts/desktop-server-entry.mjs` importing `./index.js` is the expected one in the
+  warning list: it names the bundled output on purpose.
+- Also fixed in the verifier itself, since a wrong verifier is as bad as a wrong graph: the
+  probe returned `base` unchanged when the specifier was not `.js`, so an asset
+  (`@/assets/whop/logo.png`) looked like a missing edge. The asset is external to the
+  graph by design.
+- Checks: verifier tests 18 passed; `pnpm structure:check` exit 0; `pnpm lint` clean;
+  `pnpm typecheck` 0 errors; `npx vitest run server scripts` 103 files / 505 tests pass.
+  No live probe: no runtime path changed.
+
 ## 2026-10-18 — structure guard lands (E01.3 Phase 1)
 
 Single session, Node 24.13.1. Follows the measurement entry below; scope and acceptance
