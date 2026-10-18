@@ -631,7 +631,7 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   179/179 pass, typecheck 0, lint 0.
 - **S3.41: `startTurn` out of `index.ts` — the largest single move of the restructure (October 18).** The turn
   engine, 1,367 lines, becomes `server/colonie/chat/turn-start.ts` behind `createStartTurn(deps)`, wired at the point
-  where it used to sit. `index.ts` goes 11,039 → **9,799 lines**. It closes over 121 pieces of the live state, so the
+  where it used to sit. `index.ts` goes 11,039 → **9,794 lines**. It closes over 121 pieces of the live state, so the
   move needed three things that the earlier slices did not: (1) six bindings are handed over as **getters**
   (`routines`, `colonieMemory`, `enginesRead`, `providerFleetReloading`, `providerInstancesChanging`, `teamMemory`) —
   the four reassigned while the server runs would otherwise be frozen at their initial value, and the two declared
