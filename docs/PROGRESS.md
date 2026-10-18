@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.58: the client read models out of `index.ts` (October 18).**
+  `server/harness/read-model.ts` (`createReadModel`): the wire shapes a client
+  reads (`wireTask`, `wireBot`), the public bot with its newest page
+  (`publicBot`, `publicBotQueuedMessages`), the guarded snapshot of one request
+  (`guardedRequestSnapshot`, `settleTrackedRequest`), and the message-page
+  helpers every HTTP/SSE reply uses (`DEFAULT_PAGE`, `pageSize`, `slimMessage`,
+  `messagePage`, `messageWindow`). 155 lines across three blocks (L1732–1764,
+  2010–2015, 2095–2210), one wire site at 1731. `store`, `directRequestOwners`
+  and `threadBusy` are plain; `pendingTeamSetupResumes` is a getter (declared at
+  3472, below the site) — the tool did not detect it because it is destructured,
+  so it was wired and renamed by hand. `MESSAGE_PAGE_MAX` stays module-local.
+  Guard: `read-model.test.ts` (4) — pageSize distinguishes absent/invalid/bounded,
+  slimMessage strips screen pixels only, messagePage reads the tail, messageWindow
+  centres and clamps. `index.ts` 4,344 → 4,193. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 72 files / 337 tests pass, live probe green (200s,
+  unrouted 404 `{"error":"no route: ..."}`, DELETE 1 → 0, no error lines).
 - **S3.57: identity and card answering out of `index.ts` (October 18).**
   `server/harness/identity.ts` (`createIdentity`): `messageSender`, the stable
   `personKey`, `sessionLendingPrincipal`, `actorKey`, the `cardAnswerRefusal` rule
