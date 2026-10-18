@@ -406,6 +406,29 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   one-off run ignores the continuity flag because it has nothing to continue from. 80/80 pass, typecheck 0,
   lint 0. Live on a throwaway HOME: `/api/routines`, `/api/calendar-calls` and `/api/webhooks` all answer
   empty lists through the moved files.
+- **S5: workspace and backup into `server/colonie/workspace/`, and `build:server` works again (October 18).**
+  Six files moved (`workspace.ts`, `workspace-backup.ts`, `workspace-backup-http.ts`,
+  `workspace-backup-maintenance.ts`, `workspace-backup-policy.ts`, `team-backup.ts`; 16 files repointed).
+  `workspace-backup.worker.ts` stayed at the root on purpose. Guard:
+  `server/colonie/workspace/workspace-backup-policy.test.ts` — a backup carries the portable sections
+  (profile, budgets, language) and never the machine's own (provider API keys, sign-in, custom domain,
+  CLI startup), a malformed config is refused by name, restoring replaces portable sections and keeps
+  everything else local, lending this computer stays the machine's own decision in both directions, the
+  refused authentication paths are named exactly (allowlist, OAuth, provider keys, Caddy, chrome profile,
+  agent-browser, workspace credentials, browser-engine key) while ordinary files are not mistaken for
+  them, and per-turn engine hooks are never exported though an old backup still restores. 87/87 pass,
+  typecheck 0, lint 0. Live on a throwaway HOME: a real export ran the backup worker and produced a 3 MB
+  archive (74 files); the same export and `GET /api/search` both work from the packaged bundle
+  (`dist-server/index.js`).
+- **S5 uncovered two build breaks, one of them mine (October 18).** `build:server` had been failing since
+  S2: `message-search.worker.ts` moved into `persistence/` but the bundler entry list did not, so the
+  packaged worker would have been emitted under `dist-server/persistence/` while `import.meta.url` inside
+  the inlined spawner points at the bundle root. The rule is now written into `bundle-server.mjs`: a worker
+  spawned by URL from a module that is not itself an entry point must be emitted beside `index.js`. The
+  other was the clean slate's: `scripts/desktop-server-entry.mjs` is needed to run the packaged app and
+  was restored from `main`; `scripts/mcp-server.ts` is not needed by anything the app ships, so the
+  bundler skips that step with a warning and one `git checkout main -- scripts/mcp-server.ts` brings it
+  back. `pnpm build:server` is green again.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

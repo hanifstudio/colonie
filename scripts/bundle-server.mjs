@@ -16,8 +16,15 @@
 // preferring the .ts in dev and falling back to the sibling .js in the
 // packaged tree. outbase keeps subdirectories nested; import.meta.url still
 // resolves to the same location, so that lookup is unaffected.
+//
+// The exception, and the one that breaks silently: a worker spawned as
+// `new URL("./x.worker.ts", import.meta.url)` from a module that is NOT itself
+// an entry point. That spawning module is inlined into index.js at the root, so
+// import.meta.url is dist-server/index.js and the worker has to be emitted BESIDE
+// it, not under its source subdirectory. message-search.worker.ts and
+// workspace-backup.worker.ts stay at the server root for that reason.
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -41,6 +48,10 @@ const yamlEsmPlugin = {
 const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",
+  // Lives at the server root on purpose, not with the rest of the workspace
+  // code in colonie/workspace/: it is spawned by new URL("./…", import.meta.url)
+  // from workspace-backup.ts, which esbuild inlines into index.js — so the
+  // worker must be emitted beside index.js in the bundle.
   "workspace-backup.worker.ts",
   // the container image's entry point (Dockerfile, deploy/podman): it spawns
   // index.js beside it and starts it again on RESTART_EXIT_CODE
@@ -83,16 +94,25 @@ await build({
 // source under scripts for a pleasant checkout command (`pnpm mcp`), but ship
 // the bundled output beside the packaged harness so release users do not need
 // the repository, TypeScript, pnpm, or node_modules.
-await build({
-  entryPoints: [join(root, "scripts", "mcp-server.ts")],
-  bundle: true,
-  platform: "node",
-  target: "node20",
-  format: "esm",
-  outfile: join(root, "dist-server", "mcp-server.js"),
-  allowOverwrite: true,
-  logLevel: "info",
-});
+// The external MCP client entry (scripts/mcp-server.ts) was removed with the
+// clean slate; nothing the app ships launches it, only `pnpm mcp` does. Restore
+// it with `git checkout main -- scripts/mcp-server.ts` and this step ships again
+// on its own.
+const mcpClientEntry = join(root, "scripts", "mcp-server.ts");
+if (existsSync(mcpClientEntry)) {
+  await build({
+    entryPoints: [mcpClientEntry],
+    bundle: true,
+    platform: "node",
+    target: "node20",
+    format: "esm",
+    outfile: join(root, "dist-server", "mcp-server.js"),
+    allowOverwrite: true,
+    logLevel: "info",
+  });
+} else {
+  console.warn("bundle-server: skipping dist-server/mcp-server.js — scripts/mcp-server.ts is not in this tree");
+}
 
 // The packaged desktop forks this bootstrap rather than index.js
 // (electron/server-child-launch.mjs): it turns on Node's compile cache for the

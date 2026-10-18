@@ -1,5 +1,5 @@
 import { parentPort, workerData } from "node:worker_threads";
-import { createWorkspaceBackupSnapshot, type CreateWorkspaceBackupOptions } from "./workspace-backup.ts";
+import { createWorkspaceBackupSnapshot, type CreateWorkspaceBackupOptions } from "./colonie/workspace/workspace-backup.ts";
 
 const { dataDir, options, jobId } = workerData as { dataDir: string; options: CreateWorkspaceBackupOptions; jobId: string };
 try {

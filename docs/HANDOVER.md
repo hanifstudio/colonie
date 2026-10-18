@@ -92,15 +92,25 @@ started, and review.
   acceptance files, `verify-routines.ts`) are gone now — the clean slate below
   removed them; restore them from `main` before P2.
 - Launcher and server-bundle tooling came back in Langkah 0 (`scripts/colonie/start.ts`,
-  `scripts/bundle-server.mjs`, `pnpm colonie`, `build:server`). Still broken and known:
-  `i18n:check`, `clean`, `check:contrast`, the packagers.
-- Done: `server/runtime/` (S1), `server/persistence/` (S2), then route groups out of
-  `index.ts` (S3) — voice, connectors, admin reads, bot activity/outbound, server info,
-  team library and scout, skills library, team sections, new-bot defaults. `index.ts`
-  18,207 → 17,704 lines. `server/proxy-paths.ts` stays at the `server/` root: it is the
-  anchor every spawned proxy resolves through, and moving it broke every proxy path
-  silently (S1, `0a0af8b4`).
-- Each unit ships its own test, per `server/routes/README.md`: 13 files, 47 tests, all
+  `scripts/bundle-server.mjs`, `pnpm colonie`, `build:server`). `scripts/desktop-server-entry.mjs`
+  came back with S5: `build:server` cannot finish without it and `electron/server-child-launch.mjs`
+  forks it. `scripts/mcp-server.ts` stays out (nothing the app ships launches it, only `pnpm mcp`);
+  the bundler skips that step with a warning and restores it with
+  `git checkout main -- scripts/mcp-server.ts`. Still broken and known: `i18n:check`, `clean`,
+  `check:contrast`, the packagers.
+- Done: `server/runtime/` (S1), `server/persistence/` (S2), `server/colonie/routines/` (S4),
+  `server/colonie/workspace/` (S5), and route groups out of `index.ts` (S3) — voice, connectors,
+  admin reads, bot activity/outbound, server info, team library and scout, skills library, team
+  sections, new-bot defaults, custom MCP servers, the team brief with team memory, and a bot's SOUL,
+  history and overview. `index.ts` 18,207 → 17,261 lines. Two files stay at the `server/` root, both
+  for path lookups that fail silently otherwise: `proxy-paths.ts` (the anchor every spawned proxy
+  resolves through; moving it broke every proxy path, S1 `0a0af8b4`) and the two spawned workers
+  `message-search.worker.ts` / `workspace-backup.worker.ts`. A worker launched as
+  `new URL("./x.worker.ts", import.meta.url)` from a module that is not itself a bundle entry point
+  is inlined into `dist-server/index.js`, so its `import.meta.url` is the bundle root and the worker
+  must be emitted beside `index.js`. S2 moved `message-search.worker.ts` into `persistence/` without
+  the bundler list, which broke `build:server` until S5 moved it back (`28f453bd`).
+- Each unit ships its own test, per `server/routes/README.md`: 18 files, 87 tests, all
   green beside `pnpm typecheck` and `pnpm lint`. The old ratchet test is gone with the
   clean slate, so route counts live in PROGRESS and the owner board
   (`.colonie-dev/work-state.json`) instead of a test.

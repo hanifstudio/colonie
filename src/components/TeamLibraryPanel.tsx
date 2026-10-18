@@ -29,7 +29,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ShareTeamDialog } from "./ShareTeamDialog";
-import { MAX_TEAM_BACKUP_BYTES, TEAM_BACKUP_EXCLUSIONS } from "../../shared/team-backup";
+import { MAX_TEAM_BACKUP_BYTES, TEAM_BACKUP_EXCLUSIONS } from "../../shared/team-backup.ts";
 import { takeImportName } from "../../shared/import-name";
 const COMMUNITY_TEAMS_REPOSITORY = "https://github.com/milind-soni/colonie-teams";
 

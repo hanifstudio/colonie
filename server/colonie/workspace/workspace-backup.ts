@@ -13,13 +13,13 @@ import { pipeline } from "node:stream/promises";
 import { Worker } from "node:worker_threads";
 import * as tar from "tar";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { escapeAttribute, splitTranscriptAttachments } from "../shared/transcript-attachments.ts";
-import { WORKSPACE_BACKUP_CLIENT_KEYS } from "../shared/workspace-backup-client.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { escapeAttribute, splitTranscriptAttachments } from "../../../shared/transcript-attachments.ts";
+import { WORKSPACE_BACKUP_CLIENT_KEYS } from "../../../shared/workspace-backup-client.ts";
 import { ephemeralWorkspaceTokenPath, excludedWorkspaceAuthPath, portableWorkspaceConfig, restoredWorkspaceConfig } from "./workspace-backup-policy.ts";
-import type { WorkspaceBackupClientState, WorkspaceBackupPrivateMetadata, WorkspaceBackupSummary } from "../shared/workspace-backup.ts";
+import type { WorkspaceBackupClientState, WorkspaceBackupPrivateMetadata, WorkspaceBackupSummary } from "../../../shared/workspace-backup.ts";
 
-export type { WorkspaceBackupSummary, WorkspaceBackupPrivateMetadata } from "../shared/workspace-backup.ts";
+export type { WorkspaceBackupSummary, WorkspaceBackupPrivateMetadata } from "../../../shared/workspace-backup.ts";
 export const MAX_WORKSPACE_BACKUP_BYTES = 10 * 1024 ** 3;
 export const MAX_WORKSPACE_BACKUP_FILES = 100_000;
 export const MAX_WORKSPACE_BACKUP_UPLOAD_BYTES = MAX_WORKSPACE_BACKUP_BYTES + 256 * 1024 ** 2;
@@ -271,7 +271,7 @@ function databaseCounts(path: string): { threads: number; messages: number } {
 /** The existing maintenance gate owns exclusivity until this worker has exited.
  * Keep synchronous file validation/fsync intact, but off the request thread. */
 export async function createWorkspaceBackup(dataDir: string, options: CreateWorkspaceBackupOptions): Promise<CreatedWorkspaceBackup> {
-  const source = new URL("./workspace-backup.worker.ts", import.meta.url);
+  const source = new URL("../../workspace-backup.worker.ts", import.meta.url);
   // Assign ownership before the worker can create staging, including crashes
   // too early to send a job-created message back to this process.
   const jobId = randomUUID();

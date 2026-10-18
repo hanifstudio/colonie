@@ -320,8 +320,8 @@ import {
   searchMemoryFiles,
   SESSION_SEARCH_SYSTEM_PROMPT,
   workspaceDir,
-} from "./workspace.ts";
-import { listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic } from "./workspace.ts";
+} from "./colonie/workspace/workspace.ts";
+import { listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic } from "./colonie/workspace/workspace.ts";
 import {
   beginMemoryTurn,
   endMemoryTurn,
@@ -457,7 +457,7 @@ import {
   presetFromDefaults, readPublishedLibrary, writePublishedLibrary,
 } from "./presets.ts";
 import { readPublishedTeam, writePublishedTeam } from "./published-teams.ts";
-import { createTeamBackup, importTeamBackup } from "./team-backup.ts";
+import { createTeamBackup, importTeamBackup } from "./colonie/workspace/team-backup.ts";
 import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
 import { shouldMountLocalComputer } from "./local-routing.ts";
 import { autoLocalVmAttachable, type ContainerComputerStatus } from "./container-computer.ts";
@@ -477,9 +477,9 @@ import { createGracefulShutdown } from "./runtime/graceful-shutdown.ts";
 import { acquireDataDirLeaseForProcess } from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
 import { environmentDescriptor, loadEnvironmentId, serverVersion } from "./runtime/environment.ts";
-import { WorkspaceBackupMaintenance } from "./workspace-backup-maintenance.ts";
-import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./workspace-backup-http.ts";
-import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult } from "./workspace-backup.ts";
+import { WorkspaceBackupMaintenance } from "./colonie/workspace/workspace-backup-maintenance.ts";
+import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./colonie/workspace/workspace-backup-http.ts";
+import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult } from "./colonie/workspace/workspace-backup.ts";
 import { createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain } from "./custom-domain.ts";
 import { allowedScopes, createEmailSignIn, parseAllowList } from "./account-signin.ts";
 import { ProviderAuthSessions } from "./provider-auth-sessions.ts";

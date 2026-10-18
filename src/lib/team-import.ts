@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "yaml";
-import { parseTeamBackup, TEAM_BACKUP_CONTENTS } from "../../shared/team-backup";
+import { parseTeamBackup, TEAM_BACKUP_CONTENTS } from "../../shared/team-backup.ts";
 import { NEWER_PACKAGE_MESSAGE, PACKAGE_VERSION, parsePackageDocument, type PackageDocument } from "../../shared/package-format";
 
 export interface PendingTeamImport {

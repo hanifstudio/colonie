@@ -11,7 +11,7 @@
 // are neutralised so a note cannot close the block; the block is capped.
 import { recallMessages, recallTerms, type MemoryHit, type RecallHit } from "./persistence/message-db.ts";
 import { parseTopicHeader, readTopicHead, topicBody, topicWords } from "./memory-topics.ts";
-import { listMemoryTopics, memoryDate, readMemoryTopic, searchMemoryFiles, workspaceDir } from "./workspace.ts";
+import { listMemoryTopics, memoryDate, readMemoryTopic, searchMemoryFiles, workspaceDir } from "./colonie/workspace/workspace.ts";
 import { withoutExpired } from "./memory-entries.ts";
 import { join } from "node:path";
 

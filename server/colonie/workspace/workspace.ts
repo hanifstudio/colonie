@@ -11,13 +11,13 @@
 import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { alwaysCore, isExpired, isMemoryDate, parseMemoryEntries, untilMark, withoutExpired, type MemoryEntryLine } from "./memory-entries.ts";
-import { parseTopicHeader, readTopicHead, renderTopicIndex } from "./memory-topics.ts";
-import { indexMemoryFile, indexedMemoryFiles, recallMemory, removeMemoryFile, type MemoryHit, type SearchMode } from "./persistence/message-db.ts";
-import { redactSecretsInText } from "./redact.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { alwaysCore, isExpired, isMemoryDate, parseMemoryEntries, untilMark, withoutExpired, type MemoryEntryLine } from "../../memory-entries.ts";
+import { parseTopicHeader, readTopicHead, renderTopicIndex } from "../../memory-topics.ts";
+import { indexMemoryFile, indexedMemoryFiles, recallMemory, removeMemoryFile, type MemoryHit, type SearchMode } from "../../persistence/message-db.ts";
+import { redactSecretsInText } from "../../redact.ts";
 
-import { DATA_DIR } from "./config.ts";
+import { DATA_DIR } from "../../config.ts";
 
 export const WORKSPACES_DIR = join(DATA_DIR, "workspaces");
 export const TASK_WORKSPACES_DIR = join(DATA_DIR, "task-workspaces");

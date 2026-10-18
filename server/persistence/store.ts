@@ -18,7 +18,7 @@ import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from ".
 import * as mdb from "./message-db.ts";
 import { forgetBotMemoryJournal, journalFile } from "../memory-journal.ts";
 import { runCommand, type Command } from "../commands.ts";
-import { workspaceDir } from "../workspace.ts";
+import { workspaceDir } from "../colonie/workspace/workspace.ts";
 import type { Destination } from "../surface.ts";
 import { newId, type ModelSelection } from "../contracts.ts";
 import { pickBotName } from "../names.ts";

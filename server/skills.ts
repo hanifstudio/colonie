@@ -52,7 +52,7 @@ import { DATA_DIR } from "./config.ts";
 import { redactSecretsInText } from "./redact.ts";
 import { LEARN_SOURCE_PREFIX } from "./skill-learn.ts";
 import { librarySkillFilePath, listLibrarySkills, type LibrarySkillListing } from "./skill-library.ts";
-import { workspaceDir } from "./workspace.ts";
+import { workspaceDir } from "./colonie/workspace/workspace.ts";
 import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES, type ParsedSkill } from "../shared/skill-md.ts";
 
 // SKILL.md parsing and the static scan live in shared/ so the package

@@ -29,7 +29,7 @@ import {
   ensureWorkspace,
   isMemoryTopicName,
   workspaceDir,
-} from "./workspace.ts";
+} from "./colonie/workspace/workspace.ts";
 
 export const MEMORY_INDEX = "MEMORY.md";
 

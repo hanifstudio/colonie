@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Download01Icon, Loading02Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import type { WorkspaceBackupSummary } from "../../shared/workspace-backup";
+import type { WorkspaceBackupSummary } from "../../shared/workspace-backup.ts";
 import { api } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { applyWorkspaceClientState, collectWorkspaceClientState, WORKSPACE_RESTORE_MARKER } from "@/lib/workspace-backup-client";

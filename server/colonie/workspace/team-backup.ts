@@ -1,11 +1,11 @@
-import { newId, type ModelSelection } from "./contracts.ts";
-import { botMascotBody } from "../shared/mascot-bodies.ts";
-import { takeImportName } from "../shared/import-name.ts";
-import { MAX_TEAM_BACKUP_BYTES, parseTeamBackup, type BackupTask, type TeamBackup } from "../shared/team-backup.ts";
-import type { BotVisibility } from "../shared/wire.ts";
-import type { BotRecord, GroupRecord, Message, Store, TaskRecord } from "./persistence/store.ts";
-import type { Routine, RoutineManager } from "./colonie/routines/routines.ts";
-import { redactSecretsInText } from "./redact.ts";
+import { newId, type ModelSelection } from "../../contracts.ts";
+import { botMascotBody } from "../../../shared/mascot-bodies.ts";
+import { takeImportName } from "../../../shared/import-name.ts";
+import { MAX_TEAM_BACKUP_BYTES, parseTeamBackup, type BackupTask, type TeamBackup } from "../../../shared/team-backup.ts";
+import type { BotVisibility } from "../../../shared/wire.ts";
+import type { BotRecord, GroupRecord, Message, Store, TaskRecord } from "../../persistence/store.ts";
+import type { Routine, RoutineManager } from "../routines/routines.ts";
+import { redactSecretsInText } from "../../redact.ts";
 import {
   listMemoryLogs, listMemoryTopics, readMemoryFile, readMemoryLog, readMemoryTopic,
   writeMemoryFile, writeMemoryLog, writeMemoryTopic,
