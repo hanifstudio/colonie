@@ -9,7 +9,7 @@ import { localVmViewerStatus } from "../colonie/computer/desktop-viewer-targets.
 import { discoverExistingPerBotLocalVms } from "../colonie/computer/local-vm-inventory.ts";
 import { localVmStopReason } from "../colonie/computer/local-vm-stop-reason.ts";
 import { withoutPendingSignIn } from "../colonie/mcp/mcp-oauth.ts";
-import { claudeAccountInfo } from "../colonie/providers/claude-accounts.ts";
+import { claudeAccountInfo, isClaudeAccountDriver } from "../colonie/providers/claude-accounts.ts";
 import { CLAUDE_API_INSTANCE, autoRecallEnabled, builtInBrowserEnabled, claudeUserMcpEnabled, customMcpServers, instanceConfigs, liveSettingsFor, llmThreadTitlesEnabled, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, maxConcurrentBotThreads, mcpCallTimeoutMinutes, openCodeProviderKeys, routinesInConversationEnabled, saveConfig, sharedComputersEnabled, showToolCallsEnabled, skillAuthoringEnabled, skillsLibraryEnabled, threadEventLogMaxBytes, threadEventLogRetentionDays, type AppConfig } from "../config.ts";
 import { describeDecider } from "../decider/index.ts";
 import { decisionRetentionDays } from "../decision-log.ts";
@@ -287,7 +287,7 @@ async function describeInstances() {
     // Windows keeps what Antigravity's runtime unpacked whenever it is
     // stopped by force; its Settings card offers to clear that.
     if (instance.driverKind === "antigravityAgent" && process.platform === "win32") return { ...described, freeUpSpace: true };
-    if (entry?.driver !== "claudeAgent") return described;
+    if (!isClaudeAccountDriver(entry?.driver)) return described;
     // Claude on the workspace API key has no account to sign in to.
     if (instance.instanceId === CLAUDE_API_INSTANCE) {
       return { ...described, authentication: undefined, install: { ...instance.install, signInCommand: undefined } };

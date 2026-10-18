@@ -3,6 +3,38 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — a named account is now an engine of the system the app runs
+
+Owner decision: adapt the two "add account" screens instead of hiding them. Single session,
+Node 24.13.1.
+
+- The screens used to create the inherited `claudeAgent`/`codex` drivers, which the Colonie
+  fleet filters out: the account was accepted and then absent from the picker. A named
+  Claude account is now a `claude-acp` instance with its own `CLAUDE_CONFIG_DIR`, a named
+  ChatGPT account a `codex-acp` instance with its own `CODEX_HOME`.
+- The directory is one value written to both the engine's environment and the account's
+  config (`setClaudeAccountDirectory`), including when settings change it, so the engine can
+  never run on the directory the card no longer names.
+- `isClaudeAccountDriver` now covers both the inherited and the maintained driver in the
+  duplicate-directory check, the settings guard and the per-account sign-in card;
+  `claudeAccountInfo.isDefault` recognises `claude-acp`, and the picker's sign-in families
+  (`src/lib/engine-rail.ts`) recognise both ACP engines. The isolation default became a
+  default rather than a ceiling: an explicitly configured directory wins.
+
+Evidence. New `server/colonie/providers/claude-accounts.test.ts` (4 tests) and
+`src/lib/engine-rail.test.ts` (2), plus the fleet-precedence test in
+`server/acp/profile.test.ts` and two route tests in `server/routes/provider-instances.test.ts`
+— 4 files / 18 tests pass. `pnpm typecheck` 0 errors, `pnpm lint` clean,
+`pnpm structure:check` exit 0, `npx vitest run server src scripts` 107 files / 524 tests
+pass. Throwaway boot (`COLONIE_PROFILE=1`, temp `COLONIE_DATA_DIR`): the create route
+returned 201 and `/api/instances` then listed
+`claude-<uuid> (claude-acp, unavailable)` with `claudeAccount.configDir` under
+`providers/<id>` and a sign-in command pointing at that directory, while the default
+`claude-acp` kept `native/claude` with `isDefault: true`; `config.json` held the same
+directory in `environment.CLAUDE_CONFIG_DIR` and `config.configDir`; no error in the log.
+Not verified: a real sign-in into a new account (needs a provider account), and accounts
+already saved under the inherited drivers are untouched (out of scope).
+
 ## 2026-10-19 — the app runs the Colonie engine system; the fleet no longer empties
 
 Single session, Node 24.13.1. Owner decision: "Number 3 sounds like we have to adapt into the

@@ -1,5 +1,7 @@
-// Named accounts reuse provider instances. Claude owns login and credentials;
-// removing a Colonie entry never removes its directory or signs it out.
+// Named accounts reuse provider instances: a Claude account is the maintained
+// `claude-acp` engine with a directory of its own, a ChatGPT account the
+// `codex-acp` engine with a home of its own. Claude and OpenAI own login and
+// credentials; removing a Colonie entry never removes its directory or signs it out.
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +24,36 @@ export const instanceSettingsSchema = z.object({
 function rawConfig(entry: InstanceConfig): Record<string, unknown> {
   return entry.config && typeof entry.config === "object" && !Array.isArray(entry.config)
     ? entry.config as Record<string, unknown> : {};
+}
+
+/** Drivers that name a person's sign-in account: the inherited `claudeAgent`
+ * instance and the maintained `claude-acp` engine that replaced it. */
+const CLAUDE_ACCOUNT_DRIVERS = ["claudeAgent", "claude-acp"];
+export function isClaudeAccountDriver(driver?: string): boolean {
+  return CLAUDE_ACCOUNT_DRIVERS.some((kind) => kind === driver);
+}
+
+/** The account's directory is read from two places — the engine through its
+ * environment, the sign-in card through its config — so one write sets both and
+ * a changed directory can never leave the engine on the old one. */
+export function setClaudeAccountDirectory(entry: InstanceConfig, directory: string | undefined): void {
+  const config = { ...rawConfig(entry) };
+  const environment = { ...entry.environment };
+  if (directory?.trim()) {
+    try {
+      const resolved = resolveClaudeConfigDir(directory, { ...process.env, ...entry.environment });
+      config.configDir = resolved;
+      environment.CLAUDE_CONFIG_DIR = resolved;
+    } catch {
+      throw Object.assign(new Error("Use an absolute Claude configuration directory or a path beginning with ~/."), { status: 400 });
+    }
+  } else {
+    delete config.configDir;
+    delete environment.CLAUDE_CONFIG_DIR;
+  }
+  entry.config = config;
+  if (Object.keys(environment).length) entry.environment = environment;
+  else delete entry.environment;
 }
 
 export function accountDirectory(entry: InstanceConfig): string {
@@ -50,7 +82,7 @@ function directoryIdentity(path: string): string {
 export function assertSeparateClaudeAccount(map: InstanceConfigMap, id: string, entry: InstanceConfig): void {
   const directory = directoryIdentity(accountDirectory(entry));
   if (Object.entries(map).some(([otherId, other]) => {
-    if (otherId === id || other.driver !== "claudeAgent") return false;
+    if (otherId === id || !isClaudeAccountDriver(other.driver)) return false;
     // A malformed saved account must not block adding or repairing another one.
     try { return directoryIdentity(accountDirectory(other)) === directory; } catch { return false; }
   })) {
@@ -61,20 +93,34 @@ export function assertSeparateClaudeAccount(map: InstanceConfigMap, id: string, 
 export function newClaudeAccount(cfg: AppConfig, body: z.infer<typeof createClaudeAccountSchema>) {
   const instances = persistableInstanceConfigs(cfg);
   const instanceId = `claude-${randomUUID()}`;
-  // Reuse the installed binary, not the original account's environment/auth.
-  const existing = Object.values(instances).find((entry) => entry.driver === "claudeAgent");
+  // Reuse the installed binary, not another account's environment/auth.
+  const existing = Object.values(instances).find((entry) => isClaudeAccountDriver(entry.driver));
   const cli = existing ? rawConfig(existing).cli : undefined;
   const entry: InstanceConfig = {
-    driver: "claudeAgent",
+    driver: "claude-acp",
     displayName: body.displayName,
-    config: {
-      ...(typeof cli === "string" && cli ? { cli } : {}),
-      configDir: body.configDir || join(DATA_DIR, "providers", instanceId),
-    },
+    config: typeof cli === "string" && cli ? { cli } : {},
   };
-  entry.config = { ...entry.config as Record<string, unknown>, configDir: accountDirectory(entry) };
+  setClaudeAccountDirectory(entry, body.configDir || join(DATA_DIR, "providers", instanceId));
   assertSeparateClaudeAccount(instances, instanceId, entry);
   instances[instanceId] = entry;
+  return { instanceId, instances };
+}
+
+/** A named ChatGPT account is the maintained Codex ACP engine with its own
+ * `CODEX_HOME`, so one account's login never reaches another's sessions. */
+export function newCodexAccount(cfg: AppConfig, displayName: string) {
+  const instances = persistableInstanceConfigs(cfg);
+  const instanceId = `chatgpt-${randomUUID()}`;
+  // Reuse the selected executable, never another account's environment.
+  const existing = Object.values(instances).find((entry) => entry.driver === "codex-acp" || entry.driver === "codex");
+  const cli = existing ? rawConfig(existing).cli : undefined;
+  instances[instanceId] = {
+    driver: "codex-acp",
+    displayName,
+    config: { authMode: "chatgpt-plan", ...(typeof cli === "string" && cli ? { cli } : {}) },
+    environment: { CODEX_HOME: join(DATA_DIR, "providers", instanceId) },
+  };
   return { instanceId, instances };
 }
 
@@ -97,6 +143,6 @@ export function claudeAccountInfo(instanceId: string, entry: InstanceConfig, cli
     configDir: directory,
     signInCommand: claudeSignInCommand(cli, directory),
     signInShell: process.platform === "win32" ? "powershell" as const : "sh" as const,
-    isDefault: instanceId === "claude",
+    isDefault: instanceId === "claude" || instanceId === "claude-acp",
   };
 }

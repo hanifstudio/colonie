@@ -33,4 +33,16 @@ describe("the Colonie fleet", () => {
   it("adds a Claude ACP engine when the configured engines are all Codex", () => {
     expect(Object.keys(colonieInstances({ "codex-acp": { driver: "codex-acp" } }, NATIVE)).sort()).toEqual(["claude-acp", "codex-acp"]);
   });
+
+  // A named account carries its own directory; the shared default applies only
+  // where the person has not chosen one.
+  it("lets an account's own directory win over the shared default", () => {
+    const fleet = colonieInstances({
+      "claude-acp": { driver: "claude-acp", environment: { CLAUDE_CONFIG_DIR: "/tmp/mine" } },
+      "codex-acp": { driver: "codex-acp" },
+    }, NATIVE);
+
+    expect(fleet["claude-acp"]!.environment).toEqual({ CLAUDE_CONFIG_DIR: "/tmp/mine" });
+    expect(fleet["codex-acp"]!.environment).toEqual({ CODEX_HOME: `${NATIVE}/codex` });
+  });
 });

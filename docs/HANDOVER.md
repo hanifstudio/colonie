@@ -63,17 +63,53 @@ tests (`mac-updater`, `vendor-updater`) because they import `scripts/patch-mac-u
 and `scripts/patch-appimage-updater.mjs`, which the clean-slate commit deleted — not
 from this change.
 
-Next action (needs an owner decision, because it changes what a person sees): the app's
-two "add account" screens still create legacy engines that this profile cannot start —
-`src/components/ClaudeAccountSettings.tsx` → `POST /api/instances/claude-accounts` →
-`driver: "claudeAgent"`, and `src/components/CodexAccountSettings.tsx` →
-`POST /api/instances/chatgpt-accounts` → `driver: "codex"`. Both are filtered out of the
-fleet, so a new user adds a second account, the request succeeds, and no engine appears.
-The fallback added here keeps that from taking the whole list down, but the account itself
-is still unusable. Adapt the two flows to create `claude-acp`/`codex-acp` instances with
-their own `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, which also needs the isolation default to stop
-overriding an explicitly configured directory (`server/acp/profile.ts:20-23`), or hide
-those screens in this profile.
+Owner decision, also October 19: adapt those two screens to the system the app now runs,
+rather than hiding them. The next task below carries it out.
+
+## Active engineering task: a named account is a new-system engine
+
+Owner decision, October 19: adapt the two "add account" screens to the system the app now
+runs. Today they create legacy engines the profile filters out
+(`POST /api/instances/claude-accounts` → `driver: "claudeAgent"`,
+`POST /api/instances/chatgpt-accounts` → `driver: "codex"`), so a new user adds an account,
+the request succeeds, and no engine appears.
+
+- Scope: a named Claude account becomes a `claude-acp` instance whose directory is its own
+  `CLAUDE_CONFIG_DIR`; a named ChatGPT account becomes a `codex-acp` instance with its own
+  `CODEX_HOME`. The directory is one value written to both the engine's environment and the
+  account's config, including when settings change it. Account identity, the
+  duplicate-directory check, the per-account sign-in card and the model picker's "Claude"/
+  "OpenAI" account grouping all recognise the new drivers, so the account appears where the
+  person just looked. The isolation default becomes a default rather than a ceiling: an
+  explicitly configured directory wins, because that is what an account means.
+- Out of scope: changing how a sign-in itself runs (the engine's own auth flow and the
+  printed CLI command stay as they are), and any migration of accounts already saved under
+  the legacy drivers.
+- Acceptance: creating either account through its route persists a `claude-acp`/`codex-acp`
+  instance that `/api/instances` lists and whose sign-in card names its own directory; two
+  accounts cannot share a directory; changing an account's directory updates both places;
+  the default pair still runs in the isolated directories. Checks: unit tests for the
+  account builders, the fleet precedence and the picker families, `pnpm typecheck`,
+  `pnpm lint`, `pnpm structure:check`, `npx vitest run server src scripts`, and a throwaway
+  boot that creates an account over HTTP and reads it back.
+
+Status: implemented and verified. A named Claude account is a `claude-acp` instance and a
+named ChatGPT account a `codex-acp` instance, each with its own directory written to both
+the engine's environment and the account's config (`server/colonie/providers/claude-accounts.ts`
+— `setClaudeAccountDirectory`, `newClaudeAccount`, `newCodexAccount`); the duplicate-directory
+check, the settings write in `server/routes/provider-instances.ts`, the sign-in card in
+`server/harness/config-status.ts` and the picker's families in `src/lib/engine-rail.ts` all
+recognise both drivers. Evidence: `server/colonie/providers/claude-accounts.test.ts`,
+`src/lib/engine-rail.test.ts`, the extended `server/acp/profile.test.ts` and
+`server/routes/provider-instances.test.ts` (4 files / 18 tests); `pnpm typecheck` 0 errors;
+`pnpm lint` clean; `pnpm structure:check` exit 0; `npx vitest run server src scripts`
+107 files / 524 tests pass. Throwaway boot, `POST /api/instances/claude-accounts`
+`{"displayName":"Second account"}`: 201, `/api/instances` lists the account as
+`claude-acp` (state `unavailable` until signed in) with `claudeAccount.configDir` under
+`providers/<id>` and a sign-in command targeting that same directory, while the default
+`claude-acp` keeps `native/claude` and `isDefault: true`; `config.json` holds the directory
+in both `environment.CLAUDE_CONFIG_DIR` and `config.configDir`; no error in the start log.
+The two inherited `pnpm test:electron` failures are unchanged.
 
 ## Active engineering stage: E01 — enforceable architecture checks
 

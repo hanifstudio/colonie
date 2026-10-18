@@ -2,11 +2,10 @@
 // what is installed, what an account is signed in as, one settings write at a
 // time (the shared `providerWrite` flag), and installing or refreshing a runtime
 // on demand. Credentials are never echoed here — only booleans and states.
-import { randomUUID } from "node:crypto";
 import { providerIconPatchSchema, withInstanceIcon } from "../colonie/providers/provider-icon.ts";
 import { providerIconError } from "../../shared/provider-icon.ts";
 import { AcpRuntime } from "../acp/acp-runtime.ts";
-import { assertSeparateClaudeAccount, configuredAccountDirectory, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount } from "../colonie/providers/claude-accounts.ts";
+import { assertSeparateClaudeAccount, configuredAccountDirectory, createClaudeAccountSchema, instanceSettingsSchema, isClaudeAccountDriver, newClaudeAccount, newCodexAccount, setClaudeAccountDirectory } from "../colonie/providers/claude-accounts.ts";
 import { type ProviderAuthSessions } from "../colonie/providers/provider-auth-sessions.ts";
 import { type AppConfig, persistableInstanceConfigs, saveConfig, withInstanceCli } from "../config.ts";
 import { type ProviderRegistry } from "../harness/registry.ts";
@@ -87,13 +86,7 @@ export function createProviderInstanceRoutes(deps: ProviderInstanceRouteDeps): R
       if (providerWrite.busy) return json(res, 409, { error: "provider settings are already being updated" });
       providerWrite.busy = true;
       try {
-        const instances = persistableInstanceConfigs(cfg);
-        const instanceId = `chatgpt-${randomUUID()}`;
-        // Reuse the selected executable, never another account's environment.
-        const cli = (instances.chatgpt?.config as { cli?: unknown } | undefined)?.cli
-          ?? (instances.codex?.config as { cli?: unknown } | undefined)?.cli;
-        instances[instanceId] = { driver: "codex", displayName: parsed.data.displayName,
-          config: { authMode: "chatgpt-plan", ...(typeof cli === "string" && cli ? { cli } : {}) } };
+        const { instanceId, instances } = newCodexAccount(cfg, parsed.data.displayName);
         await persistProviderInstance(instanceId, instances);
         return json(res, 201, { instanceId, instances: await describeInstances() });
       } finally { providerWrite.busy = false; }
@@ -228,7 +221,7 @@ export function createProviderInstanceRoutes(deps: ProviderInstanceRouteDeps): R
         const instances = persistableInstanceConfigs(result.config);
         if (!result.ok || !Object.hasOwn(instances, instanceId)) return json(res, 404, { error: `unknown instance "${instanceId}"` });
         const entry = instances[instanceId];
-        if ((body.displayName !== undefined || body.configDir !== undefined) && entry.driver !== "claudeAgent") {
+        if ((body.displayName !== undefined || body.configDir !== undefined) && !isClaudeAccountDriver(entry.driver)) {
           return json(res, 400, { error: "Account settings are currently available for Claude only." });
         }
         if (body.tools !== undefined) {
@@ -241,7 +234,7 @@ export function createProviderInstanceRoutes(deps: ProviderInstanceRouteDeps): R
         if (body.configDir !== undefined) {
           let previousDir: string | undefined;
           try { previousDir = configuredAccountDirectory(entry); } catch { /* Allow repairing an unused malformed account. */ }
-          entry.config = { ...entry.config as Record<string, unknown>, configDir: body.configDir };
+          setClaudeAccountDirectory(entry, body.configDir);
           if (previousDir !== configuredAccountDirectory(entry)) {
             const used = store.bots.some((bot) => bot.modelSelection.instanceId === instanceId || bot.fallback?.some(candidate => candidate.instanceId === instanceId) || store.tasks(bot.id).some((task) =>
               task.modelSelection?.instanceId === instanceId || task.resumeCursors[instanceId] || task.lastInstanceId === instanceId));

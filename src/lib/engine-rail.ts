@@ -29,10 +29,12 @@ export function isCustomOnly(instance: { access?: InstanceInfo["access"] } | und
  * folded; it sits in its own group. */
 export type SignInFamily = "claude" | "openai";
 
+/** Sign-in families, including the maintained ACP engines: in the system the app
+ * now runs, `claude-acp`/`codex-acp` are the accounts a person signs in to. */
 export function signInFamily(instance: { driverKind: string; access?: InstanceInfo["access"] } | undefined): SignInFamily | undefined {
   if (!instance || instance.access === "api") return undefined;
-  if (instance.driverKind === "claudeAgent") return "claude";
-  if (instance.driverKind === "codex") return "openai";
+  if (instance.driverKind === "claudeAgent" || instance.driverKind === "claude-acp") return "claude";
+  if (instance.driverKind === "codex" || instance.driverKind === "codex-acp") return "openai";
   return undefined;
 }
 

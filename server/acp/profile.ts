@@ -33,7 +33,9 @@ function defaultFleet(isolated: (entry: InstanceConfig) => InstanceConfig): Inst
 export function colonieInstances(configured: InstanceConfigMap | undefined, nativeBase: string): InstanceConfigMap {
   const isolated = (entry: InstanceConfig): InstanceConfig => ({
     ...entry,
-    environment: { ...entry.environment, ...isolationEnvironment(entry.driver, nativeBase) },
+    // An explicitly configured directory (a named account, say) wins over the default
+    // per-engine directory: isolation is the default, not a ceiling.
+    environment: { ...isolationEnvironment(entry.driver, nativeBase), ...entry.environment },
   });
   const entries = Object.entries(configured ?? {});
   const usable = entries.filter(([, entry]) => isColonieAcpDriver(entry.driver));

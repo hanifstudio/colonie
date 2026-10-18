@@ -101,3 +101,25 @@ test("an account without a name is refused before anything is written", async ()
   expect(errorOf(sent)).toBeTruthy();
   expect(persisted).toEqual([]);
 });
+
+test("a new account is saved as the engine this app runs, with a directory of its own", async () => {
+  const { deps: fake, persisted } = deps();
+  const { sent } = await call(createProviderInstanceRoutes(fake), "/api/instances/claude-accounts", "POST", { displayName: "Second account" });
+
+  expect(sent[0]?.status).toBe(201);
+  const [instanceId, instances] = persisted[0] as [string, Record<string, { driver: string; environment?: Record<string, string> }>];
+  expect(instanceId).toMatch(/^claude-/);
+  expect(instances[instanceId]!.driver).toBe("claude-acp");
+  expect(instances[instanceId]!.environment?.CLAUDE_CONFIG_DIR).toContain(instanceId);
+});
+
+test("a new ChatGPT account is saved as the Codex engine with a home of its own", async () => {
+  const { deps: fake, persisted } = deps();
+  const { sent } = await call(createProviderInstanceRoutes(fake), "/api/instances/chatgpt-accounts", "POST", { displayName: "Work account" });
+
+  expect(sent[0]?.status).toBe(201);
+  const [instanceId, instances] = persisted[0] as [string, Record<string, { driver: string; environment?: Record<string, string> }>];
+  expect(instanceId).toMatch(/^chatgpt-/);
+  expect(instances[instanceId]!.driver).toBe("codex-acp");
+  expect(instances[instanceId]!.environment?.CODEX_HOME).toContain(instanceId);
+});
