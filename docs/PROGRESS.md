@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.85: the memory-upkeep wiring out of `index.ts` (October 18).**
+  `server/colonie/memory/memory-upkeep-wiring.ts` (`createMemoryUpkeepWiring`):
+  the construction of the memory-upkeep pass — which bots may be captured, how
+  a capture/organize/contradiction call reaches the model and books the tokens
+  it spends, and how an "About me" suggestion is saved. `index.ts` supplies the
+  shared collaborators (`store`, `registry`, `cfg`, `bookTurnUsage`,
+  `broadcast`, `learnedFacts`, `configStatus` as a getter, `botHasActiveTurn` as
+  a getter); the module imports the rest itself. `store`, `registry` and
+  `learnedFacts` stay typed so the engine callbacks keep their `(prompt,
+  options, usage)` shapes; the rest move under the permissive deps shape. Eight
+  now-unused imports left `index.ts` (`isColonieAcpDriver`, `randomUUID`,
+  `createMemoryUpkeep`, `appendAboutMe`, `assertWithinBudget`,
+  `memorySourceLabel`, `captureQuietMs`, `tidyHour`). `index.ts` 2,243 → 2,200
+  lines. Guard: new `memory-upkeep-wiring.test.ts` (3) — the model step follows
+  the instance's own `generateText`, an ACP-driven instance is never a memory
+  engine, and an unknown bot has no model step. `pnpm typecheck` 0, `pnpm lint`
+  0, `npx vitest run server` 99 files / 470 tests pass; live probe green.
 - **S3.84: the desktop private channel out of `index.ts` (October 18).**
   `server/harness/desktop-channel.ts`: Electron's private parent port and
   everything it carries — the `utilityParentPort` handle and its types, the

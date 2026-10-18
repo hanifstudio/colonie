@@ -1,7 +1,6 @@
 // Colonie server — the harness host. Clients hold no transports
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
-import {isColonieAcpDriver} from "../shared/acp.ts";
 import {createBootRecovery} from "./colonie/chat/boot-recovery.ts";
 import {createStagedSkillCleanup} from "./colonie/skills/staged-cleanup.ts";
 import {createProposalValidation} from "./colonie/bots/proposal-validation.ts";
@@ -37,7 +36,6 @@ import {ColonieSkills} from "./colonie/skills/service.ts";
 import {ColonieChief} from "./colonie/chief/manager.ts";
 import type {ChiefBot} from "../shared/colonie-chief.ts";
 import {AsyncLocalStorage} from "node:async_hooks";
-import { randomUUID } from "node:crypto";
 import {existsSync} from "node:fs";
 import {type IncomingMessage} from "node:http";
 import {join} from "node:path";
@@ -57,11 +55,11 @@ import { attachmentExists, cleanupStaleAttachmentPartials } from "./colonie/chat
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import {createMemoryUpkeep} from "./colonie/memory/memory-upkeep.ts";
-import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
+import {createMemoryUpkeepWiring} from "./colonie/memory/memory-upkeep-wiring.ts";
+import {LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";
-import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
+import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
 import {scheduleThreadLogRetention} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
@@ -69,7 +67,6 @@ import { type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
 import type {RequestAuth} from "./request-auth.ts";
 import {onKeyRejectionChange} from "./colonie/providers/key-rejections.ts";
-import { assertWithinBudget } from "./spend.ts";
 
 import {entitled} from "./enterprise.ts";
 
@@ -100,9 +97,7 @@ import { createThreadAdmission } from "./colonie/chat/thread-admission.ts";
 import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
 import { createTurnOrigins } from "./colonie/chat/turn-origins.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
-import {memorySourceLabel} from "./colonie/workspace/workspace.ts";
 import { createColonieMemoryBoot } from "./colonie/memory/memory-boot.ts";
-import { memoryDate } from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
 import { resolveBotSkills, listSkills, readSkillFile } from "./colonie/skills/skills.ts";
 
@@ -1119,53 +1114,15 @@ bus.subscribe((event: RuntimeEvent) => {
   else if (event.type === "request.resolved" || event.type === "turn.started") colonieChief.setAssignmentStatus(event.threadId, "running");
 });
 
-const memoryUpkeep = createMemoryUpkeep({
-  bots: () => store.bots.filter((bot) => !isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)),
-  bot: (id) => store.bot(id) ?? undefined,
-  engine: (botId) => {
-    const bot = store.bot(botId);
-    const instance = bot ? registry.get(bot.modelSelection.instanceId) : undefined;
-    if (!bot || !instance || isColonieAcpDriver(instance.driverKind)) return null;
-    const generate = instance.generateText?.bind(instance);
-    return generate ? {
-      generateText: async (prompt, options) => {
-        // Check every capture, organize and contradiction call, including
-        // consecutive calls within one upkeep pass.
-        assertWithinBudget(cfg, DATA_DIR);
-        const threadId = `memory-${randomUUID()}`;
-        return generate(prompt, { ...options, onUsage: (usage) => bookTurnUsage({
-          botId: bot.id,
-          botName: bot.name,
-          threadId,
-          instanceId: instance.instanceId,
-          driverKind: instance.driverKind,
-          model: usage.model,
-          input: usage.input ?? 0,
-          output: usage.output ?? 0,
-          ...(usage.cachedInput !== undefined ? { cachedInput: usage.cachedInput } : {}),
-          costUsd: usage.costUsd ?? null,
-          trigger: { kind: "bot", botId: bot.id },
-        }, usage.input !== undefined && usage.output !== undefined, bot.threadId) });
-      },
-    } : {};
-  },
-  busy: (botId) => botHasActiveTurn(botId),
-  addToAboutMe: (from, texts) => {
-    const current = cfg.profile?.aboutMe ?? "";
-    const facts = learnedFacts.plan(from, texts, current, memoryDate());
-    const next = appendAboutMe(current, facts.map((fact) => fact.line));
-    // a full About me takes nothing more; the person trims it first
-    if (!facts.length || next === null) return 0;
-    saveConfig({ profile: { ...cfg.profile, aboutMe: next } });
-    Object.assign(cfg, loadConfig());
-    learnedFacts.commit(facts);
-    broadcast({ kind: "config", ...configStatus() });
-    return facts.length;
-  },
-  sourceLabel: (botId, threadId) => memorySourceLabel({ task: store.taskByThread(botId, threadId), threadId }),
-  quietMs: () => captureQuietMs(cfg),
-  tidyHour: () => tidyHour(cfg),
-  log: (line) => console.log(line),
+const memoryUpkeep = createMemoryUpkeepWiring({
+  botHasActiveTurn: (botId: string) => botHasActiveTurn(botId),
+  bookTurnUsage,
+  broadcast,
+  cfg,
+  configStatus: () => configStatus,
+  learnedFacts,
+  registry,
+  store,
 });
 
 const { turnStartedAt, turnCheckpoints, liveTurnByThread, clearTurnDigestState, forgetTurnCheckpoint, scheduleTurnDigest } = createTurnDigest({
