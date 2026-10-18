@@ -629,6 +629,15 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.28: exporting a team out of `index.ts` (October 18).** `POST /api/teams/export` (134 lines: the team
+  manifest, one team package, a library package of New-bot defaults, or a whole-workspace backup, with the skills,
+  notes and avatars that travel with it) becomes `server/routes/teams-export.ts`. Guard test (4): another route or
+  verb is left to the next handler; a team package without a team is refused with nothing packed; a team that is
+  gone is a 404 with nothing packed; a workspace with no bots is refused with nothing packed. Live on a throwaway
+  HOME: a backup export answered 200 with a real 668-byte file, a package without a team 400, an unknown team 404,
+  and a library preview 400 with the app's own "New bot defaults are empty" wording. `index.ts` 13,036 → **12,912
+  lines**; 238/238 pass, typecheck 0, lint 0. Eleven imports became unused in `index.ts` and were pruned one
+  specifier at a time — the multi-name import lines are why a scripted prune needs a diff review.
 - **S3.27: answering a running thread out of `index.ts` (October 18).** `POST /api/threads/:id/respond` (134
   lines) becomes `server/routes/thread-respond.ts`: allow, always-allow, deny or answer the question a thread is
   waiting on, whether that question is an approval, a persistent question card, a skill/routine/team-setup/profile/

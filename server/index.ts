@@ -132,7 +132,7 @@ import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {ensureWorkspace, ensureTaskWorkspace, workspaceLocationsPrompt, supportsWorkspaceFiles, appendMemoryLog, memorySystemPrompt, memorySourceLabel, SESSION_SEARCH_SYSTEM_PROMPT, workspaceDir} from "./colonie/workspace/workspace.ts";
 import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
 import {beginMemoryTurn, endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry} from "./colonie/memory/memory-journal.ts";
-import {readSectionContext, readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
+import {readSections, sectionContextSystemPrompt, writeSectionContext} from "./colonie/teams/section-context.ts";
 import {applyStagedSkillWrite, getStagedSkillWrite, installOrgSkill, installSkill, listBotSkillsWithOrigin, resolveBotSkills, parseSkillMd, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, removeSkill, setSkillEnabled, skillsSystemPrompt, undoSkillWrite} from "./colonie/skills/skills.ts";
 import {fetchSkillFromSource} from "./colonie/skills/skill-fetch.ts";
 import {botSkillTemplateSchema, newBotDefaultsSchema} from "./colonie/bots/new-bot-defaults.ts";
@@ -164,8 +164,8 @@ import {ModelRequestService} from "./colonie/providers/model-requests.ts";
 import {TeamSetupError, TeamSetupRequestService} from "./colonie/teams/team-setup-requests.ts";
 import type {TeamSetupRequest} from "../shared/team-setup.ts";
 import {flushAllProfileHistory, flushProfileHistory, readHistory} from "./profile-versions.ts";
-import {BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument} from "./colonie/bots/bot-package.ts";
-import {createTeamManifest, parseTeamManifest} from "./colonie/teams/team-manifest.ts";
+import {BOT_PACKAGE_MAX_SKILLS, isBotPackage, parsePackageDocument, type PackageDocument} from "./colonie/bots/bot-package.ts";
+import {parseTeamManifest} from "./colonie/teams/team-manifest.ts";
 import {readThreadEvents} from "./colonie/chat/thread-events.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
@@ -181,11 +181,10 @@ import {SPAWNED_PROXIES} from "./proxy-paths.ts";
 import {loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile, renderSkillInstructions, selectBundledSkills} from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
 import {installedPlaybookInstructions} from "./installed-playbooks.ts";
-import {createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
+import {picture as sharedPicture, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
 import {importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult} from "./colonie/teams/package-import.ts";
-import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults, readPublishedLibrary, writePublishedLibrary} from "./colonie/bots/presets.ts";
-import {readPublishedTeam, writePublishedTeam} from "./colonie/teams/published-teams.ts";
-import {createTeamBackup, importTeamBackup} from "./colonie/workspace/team-backup.ts";
+import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults} from "./colonie/bots/presets.ts";
+import {importTeamBackup} from "./colonie/workspace/team-backup.ts";
 import {MAX_TEAM_BACKUP_BYTES} from "../shared/team-backup.ts";
 import {shouldMountLocalComputer} from "./local-routing.ts";
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
@@ -255,6 +254,7 @@ import {createBotUpdateRoutes} from "./routes/bot-update.ts";
 import {createBotTaskRoutes} from "./routes/bot-task.ts";
 import {createBotCreateRoutes} from "./routes/bot-create.ts";
 import {createThreadRespondRoutes} from "./routes/thread-respond.ts";
+import {createTeamsExportRoutes} from "./routes/teams-export.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9748,6 +9748,16 @@ ROUTES.push(createThreadRespondRoutes({
   resolveSkillRequest,
   sendSkillResolution,
 }));
+ROUTES.push(createTeamsExportRoutes({
+  store,
+  cfg,
+  routines: () => routines,
+  defaultsPresetFor,
+  starterNotes,
+  checkedExportSkillNames,
+  collectExportSkills,
+  collectTeamSkills,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -10800,140 +10810,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return res.end(lines.join("\n"));
     }
 
-    if (method === "POST" && path === "/api/teams/export") {
-      // Pictures the Share dialog prepared ride this body, so it is larger
-      // than the default JSON limit (the document itself is capped at 4 MB).
-      const body = await readBody(req, 8 * 1024 * 1024);
-      const profileName = cfg.profile?.name?.trim();
-      if (body.format === "package" && body.version === 2 && body.kind === "library") {
-        // Preset bots and their skills, no team: my New bot defaults as a
-        // preset someone else picks in New bot (presets.ts has the allowlist).
-        const optional = (value: unknown) => (typeof value === "string" ? value : undefined);
-        const built = defaultsPresetFor(body, body.includeMemory === true);
-        try {
-          const exported = createLibraryPackageExport({
-            name: optional(body.name),
-            tagline: optional(body.tagline),
-            summary: optional(body.summary),
-            release: optional(body.release),
-            notes: optional(body.notes),
-            authorName: profileName,
-            published: readPublishedLibrary(),
-            preset: built.preset,
-            skipped: built.skipped,
-          });
-          if (body.dryRun !== true) writePublishedLibrary(exported.published);
-          return json(res, 200, {
-            document: exported.document,
-            filename: exported.filename,
-            redacted: exported.redacted,
-            skipped: exported.skipped,
-            summary: packageSummary(exported.document),
-          });
-        } catch (error) {
-          if (error instanceof TeamExportError) return json(res, error.status, { error: error.message });
-          throw error;
-        }
-      }
-      if (body.format === "package" && body.version === 2) {
-        // One team, whole, except its chat history (package format v2).
-        if (typeof body.team !== "string") return json(res, 400, { error: "Choose a team to share." });
-        const team = body.team.trim();
-        if (team && !store.sections.includes(team) && !store.bots.some((bot) => sectionKey(bot.section) === team)) {
-          return json(res, 404, { error: "That team no longer exists." });
-        }
-        const optional = (value: unknown) => (typeof value === "string" ? value : undefined);
-        const teamBots = store.bots.filter((bot) => !bot.hidden && sectionKey(bot.section) === team);
-        const skills = collectTeamSkills(teamBots, body.skills);
-        if (!skills.ok) return json(res, 400, { error: skills.error, choices: { skills: skills.available } });
-        const avatars = body.avatars && typeof body.avatars === "object" && !Array.isArray(body.avatars)
-          ? body.avatars as Record<string, unknown>
-          : undefined;
-        // Off unless asked: New bot defaults are personal until shared.
-        const defaults = body.includeDefaultsPreset === true ? defaultsPresetFor(body, body.includeMemory === true) : null;
-        try {
-          const exported = createTeamPackageExport({
-            team,
-            name: optional(body.name),
-            tagline: optional(body.tagline),
-            summary: optional(body.summary),
-            release: optional(body.release),
-            notes: optional(body.notes),
-            authorName: profileName,
-            bots: store.bots,
-            groups: store.groups,
-            routines: routines!.listRoutines(),
-            brief: readSectionContext(team)?.text,
-            published: readPublishedTeam(team),
-            skillsByBot: skills.skillsByBot,
-            skillSelection: skills.all ? "all" : "chosen",
-            memoryByBot: body.includeMemory === true ? new Map(teamBots.map((bot) => [bot.id, starterNotes(bot.id)])) : undefined,
-            avatars,
-            mcpServers: cfg.mcpServers ?? {},
-            skipped: [...skills.skipped, ...(defaults?.skipped ?? [])],
-            preset: defaults?.preset ?? null,
-          });
-          // A preview (the dialog's live counts) never records keys; saving
-          // the file does, so renaming anything later keeps its identity.
-          if (body.dryRun !== true) writePublishedTeam(team, exported.published);
-          return json(res, 200, {
-            document: exported.document,
-            filename: exported.filename,
-            redacted: exported.redacted,
-            skipped: exported.skipped,
-            summary: packageSummary(exported.document),
-            choices: { skills: skills.available },
-          });
-        } catch (error) {
-          if (error instanceof TeamExportError) return json(res, error.status, { error: error.message, choices: { skills: skills.available } });
-          throw error;
-        }
-      }
-      const name =
-        typeof body.name === "string" && body.name.trim()
-          ? body.name.trim()
-          : profileName
-            ? `${profileName}'s Team`
-            : "My Colonie Team";
-      const memberIds = store.bots.filter((bot) => !bot.hidden).map((bot) => bot.id);
-      if ((body.format === "backup" ? store.bots.length : memberIds.length) === 0) return json(res, 400, { error: "Create a bot before exporting your team" });
-      try {
-        if (body.format === "backup") {
-          return json(res, 200, createTeamBackup(store, routines!.listRoutines(), name));
-        }
-        if (body.format === "package") {
-          const selectedBots = store.bots.filter((bot) => !bot.hidden);
-          const skillNames = checkedExportSkillNames(body.skillIds, selectedBots);
-          if (!skillNames.ok) return json(res, 400, { error: skillNames.error });
-          const document = createBotPackageExport({
-            name,
-            authorName: profileName,
-            bots: selectedBots,
-            groups: store.groups,
-            routines: routines!.listRoutines(),
-            skillsByBot: collectExportSkills(selectedBots, skillNames.names),
-          });
-          return json(res, 200, {
-            name: document.package.name,
-            members: document.package.agents.length,
-            markdown: renderBotPackageMarkdown(document),
-          });
-        }
-        return json(
-          res,
-          200,
-          createTeamManifest(
-            {
-              name,
-              memberIds,
-            },
-            store.bots,
-          ),
-        );
-      } catch (error) {
-        return json(res, 400, { error: error instanceof Error ? error.message : "Team could not be exported" });
-      }
-    }
     if (method === "POST" && path === "/api/teams/import") {
       // Import is additive-only. A manifest is untrusted input (catalog,
       // GitHub, a shared file), so it must be structurally unable to reach
