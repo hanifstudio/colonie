@@ -250,6 +250,7 @@ import {createReactionRoutes} from "./routes/reactions.ts";
 import {createAuthSessionRoutes} from "./routes/auth-sessions.ts";
 import {pinnedClientThread} from "./routes/pinned-client.ts";
 import {createBotReadRoutes} from "./routes/bot-read.ts";
+import {createBotProfilePatchRoutes} from "./routes/bot-profile-patch.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9656,6 +9657,7 @@ ROUTES.push(createCalendarWebhookRoutes({
 ROUTES.push(createReactionRoutes({ store }));
 ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
 ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast }));
+ROUTES.push(createBotProfilePatchRoutes({ store, storedAvatarExists, wireBot, broadcast }));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -11143,22 +11145,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const visible = wireBot(bot);
       broadcast({ kind: "bot", bot: visible });
       return json(res, 201, { avatarUrl, bot: visible });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/profile$/);
-    if (m && method === "PATCH") {
-      const parsed = parseBotProfilePatch(await readBody(req), true);
-      if (!parsed.ok) return json(res, 400, { error: parsed.error });
-      if (parsed.patch.avatarUrl && !storedAvatarExists(parsed.patch.avatarUrl)) {
-        return json(res, 400, { error: "avatarUrl must reference an existing stored image" });
-      }
-      const existingBot = store.bot(m[1]);
-      const beforeProfile = existingBot ? profileSnapshot(existingBot) : undefined;
-      const bot = store.patchBotProfile(m[1], parsed.patch);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (beforeProfile) recordProfileChange(bot.id, "user", "api", beforeProfile, profileSnapshot(bot));
-      const visible = wireBot(bot);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 200, { bot: visible });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/model$/);
     if (m && method === "PATCH") {

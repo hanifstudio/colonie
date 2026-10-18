@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.21: the paired-safe profile edit out of `index.ts` (October 18).** `PATCH /api/bots/:id/profile` becomes
+  `server/routes/bot-profile-patch.ts` ("patch" because `bot-profile.ts` already holds the profile editor:
+  SOUL, history, rollback, preview). Deps: `storedAvatarExists`, `wireBot`, `broadcast`, `store`; validation and
+  the revision record stay the shared functions. Guard test (4): a request that is not an edit is left to the next
+  handler; an unknown field is refused rather than ignored; an accepted edit is stored, answered and told to the
+  room with the same bot payload; a well-formed but unstored avatar is refused and an unknown bot is a 404.
+  Live on a throwaway HOME: `PATCH .../profile` answered 200 with the bot, `{"nickname":"x"}` answered 400
+  `unsupported profile field: nickname`, an unknown bot answered 404.
+  **Trap worth remembering:** `bot-profile` was already taken, and `write` overwrote the existing module and its
+  test rather than failing. Both were restored from `HEAD` (`git checkout HEAD -- server/routes/bot-profile.ts
+  server/routes/bot-profile.test.ts`) and the new module named `bot-profile-patch`. Check `git status` for a
+  "modified" (not "created") route file before writing one.
 - **S3.20: marking a bot read out of `index.ts` (October 18).** `server/routes/bot-read.ts` takes `POST
   /api/bots/:id/read`. Four handler-local helpers had to become deps rather than copied: the pinned-thread rule
   (S3.19), `requestedTaskBot`, `wireBot` and `broadcast`. Guard test (3) covers the three things that matter: a
