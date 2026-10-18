@@ -629,6 +629,33 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.61: one direct turn's dispatch claim out of `index.ts` (October 18).**
+  `server/colonie/chat/turn-dispatch.ts` (`createTurnDispatch`): the
+  `DirectTurnDispatchClaim` record (exported as a type for `index.ts`'s own map
+  and imported back as `type`), the two control-flow exceptions
+  `DirectTurnSetupCancelled` and `ComputerWaitParked`, the claim phase
+  transitions (`directTurnClaimIsCurrent`, `directTurnClaimExists`,
+  `markDirectTurnDispatching`, `clearDirectTurnDispatch`,
+  `cancelDirectTurnDispatch`), the per-thread `compactionControllers`, the
+  cancelled-handshake quarantine (`markCancelledProviderHandshake`,
+  `clearCancelledProviderHandshake`, `pendingCancelledProviderHandshakes`) with
+  `retireProviderTurn` and `shouldIgnoreProviderEvent`, and the mid-turn staged
+  attachment parking lot (`turnAttachmentsByTurn`, `turnAttachmentKey`,
+  `purgeTurnAttachmentsForThread`). 167 lines across two blocks (L704–725,
+  1011–1117), one wire site at 704. The compaction check reads
+  `if (compacting && compacting.generation === claim.id)` — the same condition as
+  index's `compacting?.generation === claim.id`, spelled for an explicit guard.
+  `markCancelledProviderHandshake` is reached only from inside the module, so
+  `index.ts` does not destructure it (`clearCancelledProviderHandshake` still is,
+  by the shutdown path). `deleteAttachment` and the
+  `PendingTurnCancellations`/`RetiredTurnRegistry`/`isTurnEventQuarantined`
+  imports left `index.ts`. Guard: `turn-dispatch.test.ts` (5) — a stale id cannot
+  promote a claim, a current claim needs a busy task while an existing one does
+  not, clearing releases only the matching owner and re-settles the thread,
+  cancelling aborts the controller of the dropped generation, and cancelling a
+  dispatching claim quarantines its thread. `index.ts` 3,933 → 3,814.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 75 files / 351 tests
+  pass, live probe green.
 - **S3.60: the internal capability table out of `index.ts` (October 18).**
   `server/harness/internal-capabilities.ts` (`createInternalCapabilities`):
   the `InternalCapability` record, the `sessionCredentials` bearer reuse keyed
