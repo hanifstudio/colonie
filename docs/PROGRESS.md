@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.56: bot visibility out of `index.ts` (October 18).**
+  `server/harness/visibility.ts` (`createVisibility`): `viewerFor` (owner/admin →
+  all, else a member named by email), the cached `threadOwners`/`visibleSets`
+  lookups, `threadOwner`, `visibleTo`, `forgetVisibility`, the cached
+  `threadsUsingAttachment` scan, and `subjectVisible` (the one check every member
+  request naming a bot, thread, room, routine, run or attachment passes).
+  101 lines, L461–535. `viewerFor`, `visibleTo` and `subjectVisible` are read below
+  the site; `visibleTo` inside a function body at 2555 and `forgetVisibility` in the
+  `store.onChange` closure at 2257, both safe with the destructured const. `routines`
+  and `store` are getters (`routines` read as `routines()?`); `threadOwner` and
+  `threadsUsingAttachment` stay internal so only four names are destructured back.
+  `SEES_EVERYTHING`, `VisibleSet`, `routineVisible`, `threadsReferencing` and the
+  `Viewer`/`ThreadOwner`/`PathSubject` types moved to the module's own imports.
+  Guard: `visibility.test.ts` (2) — loopback and admin sessions see everything,
+  another session is a member carrying the email it signed in with (or none).
+  `index.ts` 4,547 → 4,477. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 70 files / 331 tests pass, live probe green.
 - **S3.55: the admin-activity audit out of `index.ts` (October 18).**
   `server/harness/admin-audit.ts` (`createAdminAudit`): `adminAuditPlan` (method
   and path → what a request may change), the before-state capture, `adminAuditRows`
