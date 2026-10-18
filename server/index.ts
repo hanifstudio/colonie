@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createRecallPrompt} from "./colonie/memory/recall-prompt.ts";
 import {createUsageBooking} from "./colonie/providers/usage-booking.ts";
 import {createChatInterrupts} from "./colonie/chat/interrupts.ts";
 import {createClientStreams} from "./harness/client-streams.ts";
@@ -57,12 +58,11 @@ import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import {buildRecall} from "./colonie/memory/recall.ts";
 import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.ts";
 import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";
-import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
+import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
@@ -323,41 +323,11 @@ function recentWorkSources() {
   };
 }
 
-/** The automatic-recall block for a turn (server/colonie/memory/recall.ts), or "". Notes
- * always; the bot's other conversations only when `conversations` — a 1:1
- * turn the person started — because a message from another bot, a webhook
- * or a room must not be able to pull a private chat into its reply. The
- * conversations are the ones session_search would search, minus this one. */
-function autoRecallPrompt(bot: BotRecord, threadId: string, message: string, opts: { conversations: boolean; userName: string }): string {
-  if (bot.memoryEnabled === false || !autoRecallEnabled(cfg)) return "";
-  const threadIds = opts.conversations
-    ? [...new Set([bot.threadId, ...(bot.tasks ?? []).map((task) => task.threadId)])]
-      .filter((id) => id !== threadId)
-    : [];
-  try {
-    const recalled = buildRecall({
-      botId: bot.id,
-      message,
-      threadIds,
-      label: (id) => {
-        const task = store.taskByThread(bot.id, id);
-        if (task) return `chat ${JSON.stringify(task.title)}`;
-        return id === bot.threadId ? "your main chat" : "an earlier chat";
-      },
-      author: (hit) => (hit.role === "user" ? hit.peer ?? opts.userName : hit.from ?? bot.name),
-    });
-    if (recalled) console.log(`auto-recall: ${bot.name} (${bot.id}) got ${recalled.notes} note and ${recalled.conversations} conversation passage(s) in ${threadId}`);
-    return recalled?.text ?? "";
-  } catch (err) {
-    console.warn(`auto-recall failed for ${bot.id}: ${(err as Error).message}`);
-    return "";
-  }
-}
-
-/** The recalled block in front of a turn's message, or the message alone. */
-function withRecalled(recalled: string, text: string): string {
-  return recalled ? `${recalled}\n\n${text}` : text;
-}
+const { autoRecallPrompt, withRecalled } = createRecallPrompt({
+  cfg,
+  server: () => server,
+  store: () => store,
+});
 
 
 

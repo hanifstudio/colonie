@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.71: the auto-recall prompt out of `index.ts` (October 18).**
+  `server/colonie/memory/recall-prompt.ts` (`createRecallPrompt`): the block a turn
+  is prefixed with (`autoRecallPrompt` draws the bot's notes and — only for a
+  conversation the person started — its other chats through `buildRecall`, and
+  returns nothing whenever memory or auto-recall is off), plus `withRecalled`,
+  which joins it to the message. One block (L326–360), 35 lines; `cfg` goes over
+  as a value and `store` as a getter. `index.ts` 2,886 → 2,856 lines.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 85 files / 402 tests
+  pass; live probe green. Guard: `recall-prompt.test.ts` (3) — a bot with memory
+  off and a workspace with auto-recall off both get no block, and the recalled
+  text is joined in front of the message only when there is any.
 - **S3.70: the usage booking out of `index.ts` (October 18).**
   `server/colonie/providers/usage-booking.ts` (`createUsageBooking`): who a
   request is for in the usage ledger (`usageTriggerFor` — a paired or signed-in

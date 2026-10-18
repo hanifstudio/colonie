@@ -185,7 +185,7 @@ started, and review.
   client push, `harness/client-streams` (S3.68). Every
   route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 2,886 lines — **under the owner's 3,000 target**. The owner
+  `index.ts` is now 2,856 lines — **under the owner's 3,000 target**. The owner
   asked for it pushed further, toward the older still-open ~1,000–1,500 target, by
   keeping whole coherent clusters (a domain module, never a catch-all) coming out;
   S3.69+ is that long tail.
@@ -204,7 +204,7 @@ started, and review.
   which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 2,886 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 2,856 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and
