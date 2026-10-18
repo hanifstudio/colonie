@@ -629,6 +629,16 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.47: the delegation lifecycle out of `index.ts` (October 18).**
+  `server/colonie/peers/delegation-lifecycle.ts` (`createDelegationLifecycle`):
+  waiting-on-person chips, delegation wakes + budget, incident reporting,
+  context-marker bookkeeping, compaction, the `Handoffs` state, and the
+  drain/sweep/retry subscribers. 510 lines, L3638–4147. The earlier
+  `createDelegationWatch` wire had to pass `markTaskContextExternallyUpdated` and
+  `wakeDelegationSource` as getters once their declarations moved below it.
+  Guard: `delegation-lifecycle.test.ts` (5). `index.ts` 7,066 → 6,577.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 61 files / 304 tests
+  pass, live probe green.
 - **S3.46: requests, cards and the stall watchdog out of `index.ts` (October 18).**
   `server/colonie/chat/requests.ts` (`createChatRequests`): `commandRememberRefusal`,
   `answerRequest`, `respondToCard`, `closeOpenApprovals`, `requestBehavior`,
