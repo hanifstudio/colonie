@@ -152,7 +152,8 @@ started, and review.
   writes, `provider-instances` (S3.35), and settings,
   `config` (S3.36), skill resolution,
   `colonie/skills/skill-resolution` (S3.37), the delegation
-  watch, `colonie/peers/delegation-watch` (S3.38). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  watch, `colonie/peers/delegation-watch` (S3.38), the trusted-approval
+  message handler, `colonie/bots/trusted-approval-message` (S3.39). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
   flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
   purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
   stream moved at S3.31. Every route group named in S3 is out of `index.ts`, and the non-route helpers have

@@ -629,6 +629,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.39: the trusted-approval message handler out of `index.ts` (October 18).** `handleDesktopTrustedApprovalMessage`
+  (402 lines — the biggest single move since `bot-update`) becomes
+  `server/colonie/bots/trusted-approval-message.ts`, behind `createTrustedApprovalMessageHandler(deps)` with ten deps.
+  It is the counterpart of S3.35 in kind: a privileged path that deliberately does **not** exist over loopback HTTP
+  (a bot with shell access could curl that surface itself), reachable only through Electron's private
+  utility-process channel — and the module's header now says so, where the file used to keep that fact to itself.
+  It has exactly one call site, which now reads the handler from the factory. Type slips worth recording: the dep for
+  `wireBot` has to be typed `=> any` rather than `=> unknown`, because the handler spreads its result into a frame;
+  `supportsApprovalMode` must take `any` (not `unknown`) as its first parameter or strict function types reject the
+  real function, whose parameter is narrower; and a `.then(onOk, onErr)` callback off an `any`-typed helper needs its
+  `error` annotated. Guard test (4): a message that is not one of ours claims nothing; an object with no type claims
+  nothing; a commit with an unusable request id is answered without acting; a commit that names no bot or no elevated
+  mode is answered without acting. `index.ts` 11,593 → **11,202 lines**; 282/282 pass, typecheck 0, lint 0, and the
+  server boots and answers `/api/health`, `/api/config`, `/api/bots` and `/api/instances` on a throwaway HOME.
 - **S3.38: the delegation watch out of `index.ts` (October 18).** `finalizeDelegationWatch` (89 lines) and the
   `delegationWatch` map it ends entries in move together into `server/colonie/peers/delegation-watch.ts`. The map is
   the reason this one is interesting: whoever dispatches a delegated turn still puts the entry in *from `index.ts`*
