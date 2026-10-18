@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.84: the desktop private channel out of `index.ts` (October 18).**
+  `server/harness/desktop-channel.ts`: Electron's private parent port and
+  everything it carries — the `utilityParentPort` handle and its types, the
+  `DesktopPrivateMessage` union (the wire bot now spelled `WireBot` instead of
+  `ReturnType<typeof wireBot>`), `postDesktopPrivateMessage`,
+  `applyDesktopMutationTokenMessage`, and `registerDesktopChannel`, which routes
+  each private message to exactly one owner (the mutation capability, the
+  trusted-approval handler, browser cleanup, then the Composio broker) and logs
+  a rejected one instead of throwing into the listener. The trusted-approval
+  handler is created further down the assembly, so its dep is a getter; the
+  mutation token stays a `let` in `index.ts`, adopted through a setter.
+  `index.ts` 2,300 → 2,243 lines. Guard: new `desktop-channel.test.ts` (4) — no
+  port makes sending inert, each message reaches exactly one owner (the
+  capability is consumed, only an unclaimed message falls through to the
+  broker), a malformed capability is rejected and logged rather than thrown, and
+  a failing hand-off reports false. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 98 files / 467 tests pass; live probe green.
 - **S3.83: the finished-turn notes out of `index.ts` (October 18).**
   `server/colonie/chat/completed-turn-notes.ts` (`registerCompletedTurnNotes`):
   the two `turn.completed` folds, in the order they have always run — the
