@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.75: the staged skill cleanup out of `index.ts` (October 18).**
+  `server/colonie/skills/staged-cleanup.ts` (`createStagedSkillCleanup`):
+  `stagedSkillListing` (listing routes expose lifecycle metadata and never the
+  staged instructions, which live only on the durable card),
+  `stagedSkillCleanupsForThread` (the `(botId, stagedId)` pairs a transcript's
+  skill cards own, deduplicated, with the owner read from the server-authored
+  sender and the thread's own bot as fallback), and `rejectDeletedThreadSkillStages`
+  (drop them before the transcript goes, so a name is never reserved for 30 days
+  with no decision UI left). One block (L2207–2236), 30 lines. The extractor again
+  invented a `server` dep from the word in a comment (dropped from the wire).
+  Guard: `staged-cleanup.test.ts` (4) — the listing drops the staged files and
+  base hashes, cards are deduplicated per bot, a card with no sender falls back to
+  the thread's own bot, and neither a card-less message nor a sender-less card in a
+  thread with no bot produces a cleanup. `index.ts` 2,697 → 2,671 lines.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 89 files / 421 tests
+  pass; live probe green.
 - **S3.74: the bot-config proposal validation out of `index.ts` (October 18).**
   `server/colonie/bots/proposal-validation.ts` (`createProposalValidation`):
   `driverCapabilitiesFor` (an engine switch is warned about only from a live

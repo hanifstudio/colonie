@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createStagedSkillCleanup} from "./colonie/skills/staged-cleanup.ts";
 import {createProposalValidation} from "./colonie/bots/proposal-validation.ts";
 import {createApprovalResolution} from "./harness/approval-resolution.ts";
 import {createTeamPackageWiring} from "./colonie/teams/package-wiring.ts";
@@ -107,7 +108,7 @@ import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {appendMemoryLog, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
 import { memoryDate } from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
-import { resolveBotSkills, listSkills, listStagedSkillWrites, readSkillFile, rejectStagedSkillWrite } from "./colonie/skills/skills.ts";
+import { resolveBotSkills, listSkills, readSkillFile } from "./colonie/skills/skills.ts";
 
 import {LocalVmIdleTimer} from "./colonie/computer/local-vm-idle.ts";
 import { LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
@@ -2204,36 +2205,9 @@ function proposalPersistence(botId: string, threadId: string, opensCard = true) 
     : { ok: true as const };
 }
 
-/** Listing endpoints expose lifecycle metadata, never the staged instructions
- * themselves. The exact review copy lives only on the durable approval card. */
-function stagedSkillListing(staged: ReturnType<typeof listStagedSkillWrites>[number]) {
-  const { files: _files, baseSha256: _baseSha256, baseAppliedStageId: _baseAppliedStageId, ...listing } = staged;
-  return listing;
-}
-
-/** Capture proposal cleanup before a transcript is deleted. Staged writes
- * are bot-scoped and live outside the thread, so deleting the only card
- * without this would reserve its name for up to 30 days with no decision UI.
- * Ownership comes from the server-authored sender, never the card payload. */
-function stagedSkillCleanupsForThread(threadId: string): Array<{ botId: string; stagedId: string }> {
-  const directOwner = store.botByThread(threadId)?.id;
-  const seen = new Set<string>();
-  const cleanups: Array<{ botId: string; stagedId: string }> = [];
-  for (const message of store.messagesFor(threadId)) {
-    const request = message.card?.skillRequest;
-    const botId = message.from?.botId ?? directOwner;
-    if (!request || !botId) continue;
-    const key = `${botId}:${request.stagedId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    cleanups.push({ botId, stagedId: request.stagedId });
-  }
-  return cleanups;
-}
-
-function rejectDeletedThreadSkillStages(cleanups: Array<{ botId: string; stagedId: string }>): void {
-  for (const cleanup of cleanups) rejectStagedSkillWrite(cleanup.botId, cleanup.stagedId);
-}
+const { stagedSkillListing, stagedSkillCleanupsForThread, rejectDeletedThreadSkillStages } = createStagedSkillCleanup({
+  store,
+});
 
 
 const { connectorMessage, maybeResumeConnectors, drainConnectorResumes, pendingComputerResumes, registerComputerResume, drainComputerResumes, secretMessage, currentSecretState, resumeSecretCard, drainSecretResumes } = createResumeTables({
