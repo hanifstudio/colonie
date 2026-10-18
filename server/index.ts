@@ -99,6 +99,7 @@ import { Store, type BotRecord } from "./persistence/store.ts";
 import { createDecider } from "./decider/index.ts";
 import {makeCapContinuationSubscriber} from "./colonie/chat/turn-continuation.ts";
 import { createConversationSources } from "./colonie/chat/conversation-sources.ts";
+import { createThreadAdmission } from "./colonie/chat/thread-admission.ts";
 import {extractTurnImages} from "./colonie/chat/turn-images.ts";
 import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
@@ -625,64 +626,14 @@ const { bindTurnComputer } = createTurnComputerBinding({
   turnResources,
 });
 
-function botForThread(botId: string, threadId: string): BotRecord | null {
-  return directTurnBots.get(threadId) ?? store.projectBotForTask(botId, threadId) ?? store.bot(botId);
-}
-
-function threadBusy(botId: string, threadId: string): boolean {
-  return store.taskByThread(botId, threadId)?.busy === true || directTurnDispatchClaims.has(threadId);
-}
-
-function botAtThreadCapacity(botId: string): boolean {
-  // Setup/dispatch reservations still occupy a slot even if an early
-  // completion event has already cleared the stored busy flag.
-  return store.tasks(botId).filter((task) => threadBusy(botId, task.threadId)).length >= maxConcurrentBotThreads(cfg);
-}
-
-function hasDirectDispatch(botId: string): boolean {
-  return [...directTurnDispatchClaims.values()].some((claim) => claim.botId === botId);
-}
-
-/** Exactly what startTurn admits for a direct thread: the landing thread
- * itself free, a free capacity slot, and no live group turn. Never the
- * whole-bot busy flag — that is true whenever ANY thread is working,
- * waiting on a person, or has no signal. Delegations and the resume drains
- * share this test so peer and room work waits for a real slot, not total
- * bot idleness. */
-function canAdmitDirectTurn(botId: string, threadId: string): boolean {
-  return admit("peer", {}, {
-    threadBusy: threadBusy(botId, threadId),
-    atCapacity: botAtThreadCapacity(botId),
-  }).action === "start";
-}
-
-/** Routine and webhook dispatch shares startTurn's admission preconditions
- * instead of waiting for whole-bot idleness: a free thread slot and no
- * active group turn. A group turn blocks scheduled starts the same way it
- * blocks every other turn kind; it does not consume a capacity slot. The
- * bot's project folder is not a slot: a fresh run works there beside the
- * bot's other threads (see startTurn's cwd resolution). */
-function unattendedDispatchState(botId: string): "ready" | "busy" | "missing" {
-  const bot = store.bot(botId);
-  const decision = admit("unattended", {}, {
-    botPresent: Boolean(bot),
-    atCapacity: Boolean(bot) && botAtThreadCapacity(botId),
-  });
-  if (decision.action === "refuse") return decision.code === "missing" ? "missing" : "busy";
-  return "ready";
-}
-
-function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
-  const profile = store.bot(botId);
-  if (!profile) throw Object.assign(new Error("no such bot"), { status: 404 });
-  if (rawThreadId !== undefined && (typeof rawThreadId !== "string" || !/^[\w-]+$/.test(rawThreadId))) {
-    throw Object.assign(new Error("threadId must be a task id"), { status: 400 });
-  }
-  const threadId = typeof rawThreadId === "string" ? rawThreadId : profile.threadId;
-  const task = store.projectBotForTask(botId, threadId);
-  if (!task) throw Object.assign(new Error("no such task"), { status: 404 });
-  return task;
-}
+const { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot } = createThreadAdmission({
+  admit,
+  directTurnBots,
+  directTurnDispatchClaims,
+  maxConcurrentThreads: () => maxConcurrentBotThreads(cfg),
+  // `store` is created below this point and these read it only when called.
+  store: () => store,
+});
 
 const { interruptDirectThread, interruptAllDirectThreads, stopBotForEmergencyApprovalDowngrade } = createChatInterrupts({
   botForThread,

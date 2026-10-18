@@ -629,6 +629,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.79: the thread-admission gates out of `index.ts` (October 18).**
+  `server/colonie/chat/thread-admission.ts` (`createThreadAdmission`):
+  `botForThread`, `threadBusy`, `botAtThreadCapacity`, `hasDirectDispatch`,
+  `canAdmitDirectTurn`, `unattendedDispatchState` and `requestedTaskBot` — the
+  state half of admission (the bot records, the live dispatch claims and the
+  configured slot count) feeding the unchanged pure policy in
+  `server/admission.ts`, which this module imports directly rather than
+  duplicating. Seven functions (L628–685, ~58 lines). `store` is passed as a
+  getter because it is created below this point and these read it only when
+  called; the wire keeps `maxConcurrentThreads: () => maxConcurrentBotThreads(cfg)`
+  live to config edits. `index.ts` 2,529 → 2,480 lines. Guard:
+  `thread-admission.test.ts` (6). `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 93 files / 443 tests pass; live probe green.
 - **S3.78: the conversation-source helpers out of `index.ts` (October 18).**
   `server/colonie/chat/conversation-sources.ts` (`createConversationSources`):
   `resolveReplyTarget` (an absent target is allowed, a malformed one is 400, and
