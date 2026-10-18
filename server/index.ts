@@ -552,6 +552,7 @@ import { cliProbeRoutes } from "./routes/cli-probe.ts";
 import { createTeamMapRoutes } from "./routes/team-map.ts";
 import { createRoutineRoutes } from "./routes/routines.ts";
 import { createCalendarWebhookRoutes } from "./routes/calendar-webhooks.ts";
+import { createReactionRoutes } from "./routes/reactions.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10601,6 +10602,7 @@ ROUTES.push(createCalendarWebhookRoutes({
   store,
   visibleFor: (auth) => visibleTo(viewerFor(auth)),
 }));
+ROUTES.push(createReactionRoutes({ store }));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -13896,16 +13898,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         notes: imported.notes,
         presets: imported.presets ?? [],
       });
-    }
-    // emoji reactions — works on any thread (1:1 or room)
-    m = path.match(/^\/api\/threads\/([\w-]+)\/messages\/([\w-]+)\/reactions$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      const emoji = String(body.emoji ?? "").slice(0, 8);
-      if (!emoji) return json(res, 400, { error: "emoji required" });
-      const patched = store.toggleReaction(m[1], m[2], emoji, typeof body.by === "string" ? body.by : "user");
-      if (!patched) return json(res, 404, { error: "no such message" });
-      return json(res, 200, { message: patched });
     }
     if (method === "POST" && path === "/api/bots") {
       let body = await readBody(req);

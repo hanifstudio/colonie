@@ -126,7 +126,17 @@ started, and review.
   COLONIE_PROFILE=1 node server/index.ts`. `COLONIE_DATA_DIR` alone is not isolation —
   `config.json` is read from `homedir()`, and the shell exports `COMPOSIO_API_KEY`,
   which every child inherits. Probe local routes only; never one that reaches a provider.
-- Next in this task: **S3's remaining `index.ts` groups, smallest first** — bot create/patch
+- Swarms are authorized by the owner (October 18) for S3 and after. The rule that makes them safe: **one
+  writer per file**. Extraction of inline routes always edits `server/index.ts`, so only one lane may write
+  it; parallel lanes are read-only (audit of the dead `/api/internal/*` block, mapping of the remaining
+  groups, caller searches), and heavy local jobs (vitest, typecheck, `build:server`) run one at a time.
+- Next in this task: **S3's remaining `index.ts` groups, smallest first.** A read-only mapping pass
+  (October 18) ordered all 39 remaining live groups; the next few are auth-sessions revoke (`/api/auth/sessions`,
+  ~11024), bot-read and bot-profile-patch. **Prerequisite before the bot clusters:** `requirePinnedClientThread`
+  is an in-handler arrow at ~13201 used by about eleven groups, so it needs a shared home (module export or an
+  injected dep) before any of its consumers move. Groups sharing mutable `let` state — `events` (SSE fan-out),
+  the Local VM flags, `providerConfigBusy`, `browserEngineInstall` — must take that state as an explicit dep, not
+  be extracted independently. `/api/testing/internal-capability` stays with the internal block.
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
   presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
   (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last

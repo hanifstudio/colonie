@@ -629,6 +629,12 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.17: reactions out of `index.ts` (October 18).** `server/routes/reactions.ts` takes `POST
+  /api/threads/:id/messages/:id/reactions` — `index.ts` 17,005 → 16,997 lines. The smallest self-contained
+  guard in the file: it needs only the store, no per-request locals, no shared `let`. Its guard test (5) also
+  pins behaviour I would otherwise have guessed wrong: the route refuses an *absent* emoji but happily stores a
+  whitespace-only one, so the test asserts the real rule rather than the tidier one. 192/192 pass, typecheck 0,
+  lint 0.
 - **S3.16: scheduled calls and webhook triggers out of `index.ts` (October 18).** `server/routes/
   calendar-webhooks.ts` takes `GET/POST /api/calendar-calls`, `PATCH/DELETE /api/calendar-calls/:id`,
   `GET/POST /api/webhooks`, `POST /api/webhooks/:id/(rotate|test)`, `PATCH/DELETE /api/webhooks/:id`, plus
