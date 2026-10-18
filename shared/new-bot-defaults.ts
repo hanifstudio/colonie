@@ -1,5 +1,5 @@
 import type { WireBot } from "./wire";
-import type { RoutineInput } from "./routines";
+import type { RoutineInput } from "./routines.ts";
 import type { ToolScope } from "./tool-scope";
 
 /** Data shared by the default template and an individual creation draft. */

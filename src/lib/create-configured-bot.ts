@@ -1,5 +1,5 @@
 import { api, persistBotUpdate, type Bot } from "@/state/store";
-import type { Routine } from "./routines";
+import type { Routine } from "./routines.ts";
 import type { BotCreationDraft } from "./bot-creation-draft";
 import { imageAttachmentFromFile } from "./composer-attachments";
 import type { BotVisibility } from "../../shared/wire";

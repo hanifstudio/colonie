@@ -3,12 +3,12 @@ import { isDeepStrictEqual } from "node:util";
 
 import { z } from "zod";
 
-import { cronScheduleLabel } from "../shared/cron-label.ts";
-import { normalizeCronSchedule, nextCronRuns } from "../shared/routine-schedule.ts";
-import { newId } from "./contracts.ts";
-import { SELF_ROUTINE_CAP, UNDO_STALE, type DirectApply, type DirectApplyCheck } from "./direct-apply.ts";
-import { redactSecretsInText } from "./redact.ts";
-import { parseJson, schemaIssue, type JsonObject, type JsonValue } from "./schema.ts";
+import { cronScheduleLabel } from "../../../shared/cron-label.ts";
+import { normalizeCronSchedule, nextCronRuns } from "../../../shared/routine-schedule.ts";
+import { newId } from "../../contracts.ts";
+import { SELF_ROUTINE_CAP, UNDO_STALE, type DirectApply, type DirectApplyCheck } from "../../direct-apply.ts";
+import { redactSecretsInText } from "../../redact.ts";
+import { parseJson, schemaIssue, type JsonObject, type JsonValue } from "../../schema.ts";
 import {
   intervalHasRestrictions,
   nextOccurrence,
@@ -29,7 +29,7 @@ import type {
   RoutineRequestScheduleChanges,
   RoutineRequestSnapshot,
   RoutineRequestUndo,
-} from "../shared/routine-request.ts";
+} from "../../../shared/routine-request.ts";
 
 const WEEKDAY_NUMBER = {
   sunday: 0,

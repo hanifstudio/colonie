@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
 
-import { parseJson, type JsonValue } from "./schema.ts";
+import { parseJson, type JsonValue } from "../../schema.ts";
 import type { WebhookManager } from "./webhooks.ts";
 
 export const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;

@@ -1,4 +1,4 @@
-import type { WebhookTrigger, WebhookTriggerInput } from "../../shared/webhooks";
+import type { WebhookTrigger, WebhookTriggerInput } from "../../shared/webhooks.ts";
 
 /** Webhook wire shapes — triggers and delivery attempts as they ride the REST
  * snapshot and the `webhook` / `webhook.attempt` live frames — live in
@@ -11,7 +11,7 @@ export type {
   WebhookAttemptOutcome,
   WebhookAttempt,
   WebhookIngressStatus,
-} from "../../shared/webhooks";
+} from "../../shared/webhooks.ts";
 
 export interface WebhookCredential {
   endpointUrl: string;

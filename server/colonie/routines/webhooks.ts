@@ -3,10 +3,10 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
 import type { RoutineRunOn } from "./routines.ts";
-import { parseJson, schemaIssue, type JsonValue } from "./schema.ts";
+import { parseJson, schemaIssue, type JsonValue } from "../../schema.ts";
 
 export type WebhookTriggerInput = z.input<typeof triggerInputSchema>;
 export type WebhookVerificationSample = z.output<typeof verificationSampleSchema>;

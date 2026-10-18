@@ -1,7 +1,7 @@
 import type { NewBotDefaults, BotDefaultsProfile, BotRoutineTemplate } from "../../shared/new-bot-defaults";
 import { api, type Bot, type ModelSelection } from "@/state/store";
 import type { BotUpdatePatch } from "@/state/bot-patch-queue";
-import type { Routine, RoutineInput } from "./routines";
+import type { Routine, RoutineInput } from "./routines.ts";
 import type { ChosenPreset } from "./bot-presets";
 
 export const EMPTY_BOT_DEFAULTS: NewBotDefaults = { profile: {}, memory: {}, skills: [], routines: [] };

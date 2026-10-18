@@ -15,5 +15,5 @@ export type {
   Routine,
   RoutineRun,
   RoutineInput,
-} from "../../shared/routines";
-export { ROUTINE_PROBLEM_STATUSES, isRoutineProblemRun, type RoutineRunStatusFilter } from "../../shared/routines";
+} from "../../shared/routines.ts";
+export { ROUTINE_PROBLEM_STATUSES, isRoutineProblemRun, type RoutineRunStatusFilter } from "../../shared/routines.ts";

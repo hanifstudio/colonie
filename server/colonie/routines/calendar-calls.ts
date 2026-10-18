@@ -3,8 +3,8 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
 import { nextOccurrence } from "./routines.ts";
 
 export type CalendarCallSchedule =

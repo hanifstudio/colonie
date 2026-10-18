@@ -393,6 +393,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   expected the "matches the record" answer that only exists once a SOUL.md mirror is on disk.
   73/73 pass, typecheck 0, lint 0. Live on a throwaway HOME: `/api/bots/nope/soul`, `/history` and
   `/overview` all answer `{"error":"no such bot"}` through the new module.
+- **S4: routines, calendar calls and webhooks moved into `server/colonie/routines/` (October 18).** Five files
+  (`routines.ts`, `calendar-calls.ts`, `routine-requests.ts`, `webhooks.ts`, `webhook-ingress.ts`, 4,870 lines)
+  moved with `git mv` and every relative import repointed — 17 files changed, `server/index.ts` among them.
+  The mover had to be taught one thing: it assumed a file sits in the destination's sibling directory, which
+  is false for `server/colonie/<feature>/`; it now locates the file anywhere in the repo first. Guard:
+  `server/colonie/routines/routine-requests.test.ts` covers the pure schedule text — an interval without an
+  anchor starts one interval after confirmation and says so, an interval with restrictions says the first run
+  is the next allowed time, an anchored interval names its anchor and zone, `asSchedule` copies rather than
+  shares the weekday array, a one-off run never carries a cadence, the consequence line states the real
+  frequency (24 times a day, once a day, or the restriction sentence), a daily one counts its days, and a
+  one-off run ignores the continuity flag because it has nothing to continue from. 80/80 pass, typecheck 0,
+  lint 0. Live on a throwaway HOME: `/api/routines`, `/api/calendar-calls` and `/api/webhooks` all answer
+  empty lists through the moved files.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
