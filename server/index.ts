@@ -549,6 +549,7 @@ import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { createTeamBriefRoutes } from "./routes/team-brief.ts";
 import { createBotProfileRoutes } from "./routes/bot-profile.ts";
 import { cliProbeRoutes } from "./routes/cli-probe.ts";
+import { createTeamMapRoutes } from "./routes/team-map.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10611,6 +10612,12 @@ ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
 ROUTES.push(teamLibraryRoutes);
 ROUTES.push(cliProbeRoutes);
+ROUTES.push(createTeamMapRoutes({
+  store,
+  visibleFor: (auth) => visibleTo(viewerFor(auth)),
+  pendingDelegationSnapshot,
+  delegationWatch,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -13070,25 +13077,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 404, { error: "unknown internal endpoint" });
     }
 
-    // Live Team Map metadata. Prompts and replies never leave their
-    // transcripts: this projection carries only ids, status relationships,
-    // optional delegation labels, and timestamps.
-    if (method === "GET" && path === "/api/team-map") {
-      const mapped = new Set(store.bots.filter((bot) => !bot.hidden && visible.bot(bot.id)).map((bot) => bot.id));
-      const queued = pendingDelegationSnapshot().flatMap((item) => {
-        if (!mapped.has(item.sourceBotId) || !mapped.has(item.toBotId)) return [];
-        return [{ sourceBotId: item.sourceBotId, targetBotId: item.toBotId, reason: item.reason }];
-      });
-      const running = [...delegationWatch.entries()].flatMap(([threadId, watch]) => {
-        if (!mapped.has(watch.toBotId)) return [];
-        const sourceBotId = watch.sourceBotId;
-        if (!sourceBotId || !mapped.has(sourceBotId)) return [];
-        return [{ sourceBotId, targetBotId: watch.toBotId, threadId }];
-      });
-      // Stored DM rooms are retired history, not live connections; the key
-      // stays empty so clients that still read it draw no stale edges.
-      return json(res, 200, { collaborations: [], queued, running });
-    }
+    
 
     // ── routines calendar ────────────────────────────────────────────────
     if (path === "/api/routines" && method === "GET") {

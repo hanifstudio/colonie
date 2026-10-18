@@ -609,6 +609,14 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   is why the module owns it rather than index.ts. Live on a throwaway HOME: candidates for `node` listed in
   PATH order, `node` probed as `v24.13.1`, a missing path reported as "isn't installed, or isn't on this
   app's PATH", and a `text/plain` post refused. 168/168 pass, typecheck 0, lint 0.
+- **S3.14: the Live Team Map out of `index.ts` (October 18).** `server/routes/team-map.ts` takes
+  `GET /api/team-map`; `index.ts` 17,166 → 17,154 lines. The route keeps its whole rule set: a viewer sees
+  an edge only between bots it is already allowed to see, a queued handoff naming a hidden bot is dropped,
+  a running delegation needs both ends visible and names its thread, and only ids, labels and thread ids
+  leave the server (`collaborations` stays empty because stored DM rooms are retired history, not live
+  connections). Guard: `server/routes/team-map.test.ts` (4). Live on a throwaway HOME:
+  `{"collaborations":[],"queued":[],"running":[]}` and `POST /api/team-map` is still not a route. 172/172
+  pass, typecheck 0, lint 0.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider
