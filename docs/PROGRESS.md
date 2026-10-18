@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.74: the bot-config proposal validation out of `index.ts` (October 18).**
+  `server/colonie/bots/proposal-validation.ts` (`createProposalValidation`):
+  `driverCapabilitiesFor` (an engine switch is warned about only from a live
+  registry instance; a shadow or unknown one warns nothing), `chiefPeerTargetRule`
+  (a Chief of Staff may target one section peer, anyone else only itself, shared by
+  the profile and default-model proposals and re-checked at confirm), and
+  `validateModelProposal` (the selection must resolve, the approval-level
+  confirmation must have landed, and the destination driver must still carry the
+  bot's existing permissions). One block (L2023–2055), 33 lines, 4 value deps.
+  Guard: `proposal-validation.test.ts` (5) — capabilities come only from a live
+  instance, the Chief rule's four answers, a proposal before the approval grant is
+  refused, an unresolvable selection keeps the checker's own words, and an
+  incompatible destination is refused while an acceptable one passes. `index.ts`
+  2,723 → 2,697 lines. `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server`
+  88 files / 417 tests pass; live probe green.
 - **S3.73: the approval resolution out of `index.ts` (October 18).**
   `server/harness/approval-resolution.ts` (`createApprovalResolution`): the level a
   turn actually runs at (`approvalModeForTurn` — a peer's Custom becomes the

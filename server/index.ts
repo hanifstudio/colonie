@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createProposalValidation} from "./colonie/bots/proposal-validation.ts";
 import {createApprovalResolution} from "./harness/approval-resolution.ts";
 import {createTeamPackageWiring} from "./colonie/teams/package-wiring.ts";
 import {createRecallPrompt} from "./colonie/memory/recall-prompt.ts";
@@ -76,7 +77,7 @@ import {entitled} from "./enterprise.ts";
 
 
 import { buildNotification } from "./notify.ts";
-import { type ModelSelection, type RuntimeEvent } from "./contracts.ts";
+import { type RuntimeEvent } from "./contracts.ts";
 import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
@@ -2020,39 +2021,12 @@ const deleteBotWithLifecycle = createBotDeletion({
   webhooks: () => webhooks,
 });
 
-/** Per-driver capability facts behind engine-switch warnings on proposal
- * cards. A live registry instance decides; a shadow or unknown instance
- * warns nothing rather than guessing from a stale catalog. */
-const driverCapabilitiesFor = (instanceId: string) => {
-  const instance = registry.get(instanceId);
-  return instance ? { driverKind: instance.driverKind, agentsMcp: instance.adapter.capabilities.agentsMcp === true } : undefined;
-};
-/** A Chief may target one section peer; anyone else only itself. Shared by
- * profile and default-model proposals, and re-checked at confirm. */
-const chiefPeerTargetRule = (noun: string) => (proposerBotId: string, targetBotId: string): string | null => {
-  const proposer = store.bot(proposerBotId);
-  const target = store.bot(targetBotId);
-  if (!target) return "that bot no longer exists";
-  if (!proposer?.chiefOfStaff) return "only a section's Chief of Staff can change another bot's " + noun;
-  if (!canReachPeer(proposer, target)) return "that bot is not in a team this Chief is allowed to manage";
-  return null;
-};
-/** Shared model validation for team-setup cards and propose_model: the
- * selection must resolve, and the destination driver must still support the
- * bot's existing approval setup. */
-const validateModelProposal = (selection: ModelSelection, current?: BotRecord): string | null => {
-  const checked = checkedModelSelection(selection, undefined, true);
-  if (!checked.ok) return checked.error;
-  if (current?.approvalGrant) return "Wait for the approval-level confirmation before changing this bot's model";
-  if (current) {
-    const mode = approvalModeFor(current);
-    const driver = registry.cliTarget(selection.instanceId)?.driverKind;
-    if (!supportsApprovalMode(selection, mode) || ((mode === "full" || mode === "custom") && driver !== registry.cliTarget(current.modelSelection.instanceId)?.driverKind)) {
-      return `@${current.name}'s existing permissions are incompatible with that provider. Change its permissions in bot settings, then propose the model change again.`;
-    }
-  }
-  return null;
-};
+const { driverCapabilitiesFor, chiefPeerTargetRule, validateModelProposal } = createProposalValidation({
+  checkedModelSelection,
+  registry,
+  store,
+  supportsApprovalMode,
+});
 const teamMemory = new TeamMemory(join(DATA_DIR, "team-memory.json"));
 const outboundRequests = new OutboundRequestService();
 const outboundCounts = new OutboundCounts(join(DATA_DIR, "outbound-counts.json"));
