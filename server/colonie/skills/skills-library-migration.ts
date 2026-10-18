@@ -12,6 +12,8 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync } 
 import { dirname, join } from "node:path";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { skillsLibraryEnabled, type AppConfig } from "../../config.ts";
+import type { Store } from "../../persistence/store.ts";
 import {
   installLibrarySkill,
   libraryArchiveDirectory,
@@ -247,5 +249,26 @@ export function botIdsWithSkillState(dataDir: string): string[] {
       .sort();
   } catch {
     return [];
+  }
+}
+
+/** The boot sweep, with its flag gate and its own failure guard: flag-off
+ * boots never enter it, keeping per-bot behavior byte-identical, and a sweep
+ * that throws is reported but never stops the server from starting. */
+export function runSkillsLibraryBoot(deps: { cfg: AppConfig; store: Store }): void {
+  if (!skillsLibraryEnabled(deps.cfg)) return;
+  try {
+    const sweep = runSkillsLibraryBootSweep({
+      bots: deps.store.bots,
+      patch: (botId, assignedSkills) => {
+        deps.store.patchBot(botId, { assignedSkills });
+      },
+    });
+    const applied = sweep.outcomes.filter((outcome) => outcome.outcome !== "skipped").length;
+    if (sweep.outcomes.length) {
+      console.log(`[skills-library] boot sweep: ${applied} skill(s) migrated or deduplicated, ${sweep.outcomes.length - applied} skipped`);
+    }
+  } catch (error) {
+    console.error(`[skills-library] boot sweep failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

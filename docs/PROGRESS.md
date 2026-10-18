@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.88: the skills-library boot sweep out of `index.ts` (October 18).**
+  Added `runSkillsLibraryBoot({ cfg, store })` to
+  `server/colonie/skills/skills-library-migration.ts` — the boot sweep with its
+  `features.skillsLibrary` gate and its own failure guard, so a flag-off boot
+  never enters it and a sweep that throws is reported without stopping the
+  server. The log strings are unchanged. `index.ts` 2,169 → 2,154 lines. Guard:
+  new `skills-library-migration.test.ts` (3) — a flag-off boot leaves the
+  pending assignments untouched, a flag-on boot applies them and clears the
+  file, and a failing patch is reported instead of thrown. `pnpm typecheck` 0,
+  `pnpm lint` 0, `npx vitest run server` 102 files / 483 tests pass; live probe
+  green.
 - **S3.87: the webhook-manager wiring out of `index.ts` (October 18).**
   `server/colonie/routines/webhook-wiring.ts` (`createWebhookManager`): the
   manager this installation serves — a run delivery joins the same

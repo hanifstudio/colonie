@@ -118,7 +118,7 @@ import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
 import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
 import {createWebhookManager} from "./colonie/routines/webhook-wiring.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
-import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
+import {runSkillsLibraryBoot} from "./colonie/skills/skills-library-migration.ts";
 import { createPresetStore } from "./colonie/bots/presets.ts";
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
@@ -794,22 +794,7 @@ store.ensureWorkspaceChief();
 // Skills library boot sweep (features.skillsLibrary): migrate per-bot
 // copies into the shared library and apply assignments. Flag-off boots
 // never enter this block, keeping per-bot behavior byte-identical.
-if (skillsLibraryEnabled(cfg)) {
-  try {
-    const sweep = runSkillsLibraryBootSweep({
-      bots: store.bots,
-      patch: (botId, assignedSkills) => {
-        store.patchBot(botId, { assignedSkills });
-      },
-    });
-    const applied = sweep.outcomes.filter((outcome) => outcome.outcome !== "skipped").length;
-    if (sweep.outcomes.length) {
-      console.log(`[skills-library] boot sweep: ${applied} skill(s) migrated or deduplicated, ${sweep.outcomes.length - applied} skipped`);
-    }
-  } catch (error) {
-    console.error(`[skills-library] boot sweep failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
+runSkillsLibraryBoot({ cfg, store });
 // A committed profile cleanup means both its config deletion and bot-reference
 // cleanup were intended to be durable. Reconcile stale secondary references
 // before Electron can ACK and remove the journal: a crash between those writes
