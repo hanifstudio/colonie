@@ -629,6 +629,13 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.20: marking a bot read out of `index.ts` (October 18).** `server/routes/bot-read.ts` takes `POST
+  /api/bots/:id/read`. Four handler-local helpers had to become deps rather than copied: the pinned-thread rule
+  (S3.19), `requestedTaskBot`, `wireBot` and `broadcast`. Guard test (3) covers the three things that matter: a
+  request that is not a read is left to the next handler, reading marks the named thread read and tells the room
+  with the same bot payload it answers with, and a client session with several threads is refused (409) *before*
+  anything is marked read. Live on a throwaway HOME: `POST .../read` answered 200 with the bot, an unknown bot
+  answered 404 and `GET .../read` answered 404. 204/204 pass, typecheck 0, lint 0.
 - **S3.19: the shared client-thread rule gets its own home (October 18).** `requirePinnedClientThread` was an
   in-handler arrow used by about eleven route groups, which blocked every one of them from moving. It is now
   `server/routes/pinned-client.ts` (`pinnedClientThread({ auth, store })`), so a module can hold the rule without

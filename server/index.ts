@@ -249,6 +249,7 @@ import {createCalendarWebhookRoutes} from "./routes/calendar-webhooks.ts";
 import {createReactionRoutes} from "./routes/reactions.ts";
 import {createAuthSessionRoutes} from "./routes/auth-sessions.ts";
 import {pinnedClientThread} from "./routes/pinned-client.ts";
+import {createBotReadRoutes} from "./routes/bot-read.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9654,6 +9655,7 @@ ROUTES.push(createCalendarWebhookRoutes({
 }));
 ROUTES.push(createReactionRoutes({ store }));
 ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
+ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast }));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -11199,18 +11201,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       store.patchTask(bot.id, selected.threadId, { modelSelection: undefined });
       return json(res, 200, { bot: wireBot(bot) });
     }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/read$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      requirePinnedClientThread(m[1], body?.threadId);
-      const current = requestedTaskBot(m[1], body?.threadId);
-      store.patchTask(current.id, current.threadId, { unread: false });
-      const bot = store.bot(current.id)!;
-      const visible = wireBot(bot);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 200, { bot: visible });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/command-allowlist(?:\/([\w-]+))?$/);
     if (m && ["GET", "POST", "DELETE"].includes(method)) {
       if (!canManageCommandAllowlist(auth)) return json(res, 403, { error: "Only the owner or an admin can manage command permissions." });
       const bot = requestedTaskBot(m[1], url.searchParams.get("threadId") ?? undefined);
