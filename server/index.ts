@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createBotSettingsView} from "./colonie/bots/settings-view.ts";
 import {createTurnDispatch, type DirectTurnDispatchClaim} from "./colonie/chat/turn-dispatch.ts";
 import {createInternalCapabilities} from "./harness/internal-capabilities.ts";
 import {createTurnDigest} from "./colonie/chat/turn-digest.ts";
@@ -14,7 +15,7 @@ import {createRoutineRunCards} from "./colonie/routines/run-cards.ts";
 import {createScreenPolling} from "./harness/screen-polling.ts";
 import {inputReceipts} from "./acp/receipts.ts";
 import {AcpRuntime} from "./acp/acp-runtime.ts";
-import {contextCandidate, contextPin} from "./acp/context.ts";
+import {contextPin} from "./acp/context.ts";
 import {ConnectedTools} from "./colonie/connections/manager.ts";
 import {BotAppPolicies} from "./colonie/connections/policy.ts";
 import {ColonieMemoryStore} from "./colonie/memory/ledger/store.ts";
@@ -50,13 +51,12 @@ import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import { type ResolvedSender } from "../shared/wire.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import {chiefOfStaffSystemPrompt} from "./colonie/teams/chief-of-staff.ts";
 import {buildRecall} from "./colonie/memory/recall.ts";
 import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.ts";
 import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
-import { canAccessTeam, canReachPeer, peerAllowed, peerRosterSystemPrompt, reachablePeers } from "./colonie/peers/peer-roster.ts";
+import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { containerComputerStatus, perBotLocalVmTarget, poolLocalVmTarget, SHARED_LOCAL_VM_TARGET, type LocalVmTarget } from "./colonie/computer/container-computer.ts";
-import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, skillAuthoringEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, browserProfilePartitionTarget, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved} from "./config.ts";
+import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, browserProfilePartitionTarget, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved} from "./config.ts";
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import { augmentedPath } from "./runtime/env-path.ts";
@@ -102,13 +102,11 @@ import { recordHanded } from "./colonie/chat/delta-context.ts";
 import {extractTurnImages} from "./colonie/chat/turn-images.ts";
 import { threadTitlePrompt, type ThreadTitleSource } from "./colonie/chat/thread-title.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
-import {supportsWorkspaceFiles, appendMemoryLog, memorySystemPrompt, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
+import {appendMemoryLog, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
 import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
-import { sectionContextSystemPrompt, writeSectionContext } from "./colonie/teams/section-context.ts";
-import { installOrgSkill, installSkill, resolveBotSkills, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, setSkillEnabled, skillsSystemPrompt } from "./colonie/skills/skills.ts";
-import { setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
-import { buildSystemPrompt, userProfileSystemPrompt, computerPrompt, composioSystemPrompt, customMcpPrompt, CREDENTIAL_PROMPT, PROFILE_PROMPT, TEAM_MEMORY_PROMPT, ROUTINE_PROMPT, resolveComputerPromptKind, teamAvailabilityPart } from "./colonie/bots/system-prompt.ts";
+import { writeSectionContext } from "./colonie/teams/section-context.ts";
+import { installOrgSkill, installSkill, resolveBotSkills, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, setSkillEnabled } from "./colonie/skills/skills.ts";
 
 import {LocalVmIdleTimer} from "./colonie/computer/local-vm-idle.ts";
 import { LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
@@ -116,20 +114,17 @@ import { LocalVmSeatPool } from "./colonie/computer/local-vm-seat-pool.ts";
 import {redactSecretsInText} from "./redact.ts";
 import { RoutineManager, type RoutineRunTrigger } from "./colonie/routines/routines.ts";
 import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
-import {BUILT_IN_BROWSER_SYSTEM_PROMPT} from "./colonie/computer/browser-engine.ts";
 import {BrowserRuntime, browserRuntimeEnv} from "./colonie/computer/browser-runtime.ts";
 import {BrowserLive} from "./colonie/computer/browser-live.ts";
 import { agentBrowserIntegration, browserEngineEncryptionKey, prepareBrowserSessionState, clearBrowserSessionState, closeBrowserSession, browserEngineStatus, browserSessionId, describeBrowserEngine, setBrowserViewport } from "./colonie/computer/browser-engine.ts";
 import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
 import { directApply, type DirectApply } from "./direct-apply.ts";
-import {buildBotOverview, type BotOverview, connectedAppsFacts} from "./colonie/bots/bot-overview.ts";
 
-import {flushAllProfileHistory, flushProfileHistory, readHistory} from "./profile-versions.ts";
+import {flushAllProfileHistory} from "./profile-versions.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
 import {OutboundCounts} from "./outbound-counts.ts";
 import {OutboundRequestService} from "./outbound-requests.ts";
-import {describeConnectorScopes} from "../shared/connector-scopes.ts";
 import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
 import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
 import {WebhookManager} from "./colonie/routines/webhooks.ts";
@@ -142,7 +137,7 @@ import {createPresetStore, DEFAULTS_PRESET_KEY, presetFromDefaults} from "./colo
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
 import {computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder} from "./colonie/computer/computer-wait.ts";
-import { PlaceUnavailableError, placeUnavailable, resolveSurface, surfacePrompt, type PlaceSource, type Surface } from "./surface.ts";
+import { PlaceUnavailableError, placeUnavailable, type PlaceSource, type Surface } from "./surface.ts";
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
 import {createGracefulShutdown} from "./runtime/graceful-shutdown.ts";
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
@@ -1476,167 +1471,17 @@ const wireTrustedApprovalBot = (bot: NonNullable<ReturnType<typeof store.bot>>) 
   return { ...rest, approvalMode: approvalModeFor(rest), avatarUrl: rest.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection)) } : {}) };
 };
 
-/** A settings-based preview, not a receipt of a dispatched turn. No
- * provisioning or credentials are needed to inspect it. The selected engine
- * bounds advertised tools; task-specific context is added only at dispatch. */
-function previewSystemPrompt(bot: BotRecord) {
-  if (isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)) {
-    const config = instanceConfigs(cfg)[bot.modelSelection.instanceId]?.config as { instructions?: string } | undefined;
-    const candidate = contextCandidate(bot, bot.modelSelection.instanceId, config?.instructions ?? "");
-    const sections = candidate.sections.filter((section) => section.status === "active").map((section) => ({ ...section, bytes: Buffer.byteLength(section.text) }));
-    const bytes = sections.reduce((sum, section) => sum + section.bytes, 0);
-    return {
-      sections,
-      totalBytes: bytes, approxTokens: Math.ceil(bytes / 4),
-      note: "Developer preview for a new conversation. App awareness and saved bot profiles are enabled by default. Context is pinned at first dispatch; native capabilities follow runtime settings. Native/project instructions remain provider-owned. No memory, team or automation context is added.",
-    };
-  }
-  // `cfg` is the module-level config (`const cfg = loadConfig()` near the
-  // top of index.ts), the same object the turn code reads.
-  const persona = [
-    `You are ${bot.name}, a personal bot in Colonie.`,
-    bot.title && `Role: ${bot.title}.`,
-    bot.description && `About: ${bot.description}`,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const instance = registry.get(bot.modelSelection.instanceId);
-  const caps = instance?.adapter.capabilities;
-  const previewComputer = bot.computer;
-  const computerPromptKind = resolveComputerPromptKind({
-    kind: previewComputer === "vm" ? "vm" : previewComputer === "local" ? "local" : null,
-    vmPrivate: localVmMode(cfg) === "per-bot",
-  });
-  const peers = reachablePeers(store.bots, bot);
-  const coordination = bot.chiefOfStaff
-    ? chiefOfStaffSystemPrompt(bot.id, store.bots, true)
-    : peers.length > 0
-      ? peerRosterSystemPrompt(peers)
-      : "";
-  // Same gate a real turn applies: the block only goes to a bot whose
-  // engine actually mounts agent tools, since it names propose_profile,
-  // propose_routine and request_credential.
-  const agentsMounted = caps?.agentsMcp === true;
-  // The preview asks the same question a dispatch asks, through the same
-  // policy, so "what the model sees" cannot drift from what a turn sends.
-  // Spelling the browser rule out a second time here is what let Off keep a
-  // browser in one place while the preview said it had none.
-  const previewPlan = resolveSurface({
-    destination: previewComputer,
-    browserOn: caps?.browserMcp === true && builtInBrowserEnabled(cfg) && bot.browser !== false,
-  });
-  const privateWorkspace = instance && supportsWorkspaceFiles(instance.driverKind);
-  const built = buildSystemPrompt(persona, bot.soul ?? "", [
-    { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(cfg.profile) },
-    {
-      id: "setup",
-      label: "Setup",
-      text: setupSystemPrompt(agentsMounted && setupModeActive({ soul: bot.soul, description: bot.description, text: "" }), {
-        skills: skillAuthoringEnabled(cfg),
-        cwd: bot.cwd,
-      }),
-    },
-    { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
-    // Auto cannot know its place until dispatch, so the preview stays silent
-    // there and only carries the note; explicit settings preview the paragraph.
-    { id: "plan", label: "Surface", text: previewPlan.computer === undefined ? "" : surfacePrompt({
-      computer: previewPlan.computer && previewPlan.computer !== "off" && computerPromptKind ? previewPlan.computer : null,
-      browser: previewPlan.computer === undefined ? false : previewPlan.browser,
-    }, { note: previewPlan.note }) },
-    { id: "composio", label: "Connected apps", text: caps?.composioMcp && bot.composio !== false && composio.configured(cfg) ? composioSystemPrompt(bot.connectorTools) + describeConnectorScopes(bot.connectorScopes) : "" },
-    { id: "mcp", label: "MCP servers", text: caps?.customMcp ? customMcpPrompt(Object.keys(engineMcpServers(bot))) : "" },
-    { id: "browser", label: "Browser", text: previewPlan.browser ? BUILT_IN_BROWSER_SYSTEM_PROMPT : "" },
-    { id: "coordination", label: "Team", text: agentsMounted && coordination ? ` ${coordination}` : "" },
-    { id: "credential", label: "Credentials", text: agentsMounted ? CREDENTIAL_PROMPT : "" },
-    { id: "routine", label: "Routines", text: agentsMounted ? ROUTINE_PROMPT : "" },
-    { id: "profile", label: "Profile changes", text: agentsMounted ? PROFILE_PROMPT : "" },
-    { id: "section-context", label: "Section context", text: sectionContextSystemPrompt(bot.section) },
-    { id: "team-memory", label: "Team memory", text: teamMemory.systemPrompt(bot.section) + (agentsMounted ? TEAM_MEMORY_PROMPT : "") },
-    teamAvailabilityPart(agentsMounted && coordination ? peers : []),
-    { id: "memory", label: "Memory", text: memorySystemPrompt(bot.id, { managedWrites: agentsMounted, fileTools: Boolean(privateWorkspace), enabled: bot.memoryEnabled !== false }) },
-    { id: "skills", label: "Skills index", text: privateWorkspace ? skillsSystemPrompt(bot.id, skillsLibraryEnabled(cfg) ? bot.assignedSkills : undefined) : "" },
-  ]);
-  const totalBytes = built.sections.reduce((n, s) => n + s.bytes, 0);
-  return {
-    sections: built.sections,
-    totalBytes,
-    approxTokens: Math.ceil(totalBytes / 4),
-    note:
-      "Preview from current bot settings, not the exact prompt of a running task. Task folders, notes, recall, selected skills and available connections can change the dispatched prompt. Token count is an estimate.",
-  };
-}
-
-/** The plain-language "what does this bot do" facts, gathered once from
- * every server-only source (engine capabilities, connected-apps inventory,
- * routines/webhooks/skills, and recent history) and handed to the pure
- * sentence builder. The phones (step 5) and the web settings dialog both
- * read this same route, so they can never disagree about what a bot does. */
-async function botOverview(bot: BotRecord): Promise<BotOverview> {
-  const connectedApps = await connectedAppsFacts(
-    composio.configured(cfg),
-    composio.connectorAvailability(cfg),
-    () => composio.connectedServices(cfg),
-  );
-  const engine = registry.get(bot.modelSelection.instanceId)?.adapter.capabilities ?? null;
-  const sectionPeers = reachablePeers(store.bots, bot).length;
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  // Same flush as GET /history: profile-change rows queue in
-  // profile-versions.ts and land asynchronously, so a client checking the
-  // overview right after causing a change must see its own row.
-  await flushProfileHistory(bot.id);
-  const recent = readHistory(bot.id, 5).map((r) => ({ at: r.at, summary: r.summary }));
-  return buildBotOverview({
-    bot: {
-      name: bot.name,
-      title: bot.title,
-      description: bot.description,
-      soul: bot.soul,
-      computer: bot.computer,
-      cwd: bot.cwd,
-      autoApprove: bot.autoApprove,
-      approvalMode: approvalModeForTurn(bot),
-      approvePeerComms: bot.approvePeerComms,
-      peers: bot.peers,
-      composio: bot.composio,
-      connectorTools: bot.connectorTools,
-      browser: bot.browser,
-      chiefOfStaff: bot.chiefOfStaff,
-      managedSections: bot.managedSections,
-    },
-    routines: routines!.listRoutines()
-      .filter((routine) => routine.botId === bot.id)
-      .map((routine) => ({
-        id: routine.id,
-        name: routine.name,
-        enabled: routine.enabled,
-        schedule: routine.schedule,
-        nextRunAt: routine.nextRunAt,
-      })),
-    runs: routines!.listRuns()
-      .filter((run) => run.botId === bot.id)
-      .map((run) => ({
-        routineId: run.routineId,
-        status: run.status,
-        finishedAt: run.finishedAt,
-        startedAt: run.startedAt,
-        scheduledFor: run.scheduledFor,
-      })),
-    webhooks: webhooks.list()
-      .filter((webhook) => webhook.botId === bot.id)
-      .map((webhook) => ({ name: webhook.name, enabled: webhook.enabled })),
-    skills: listBotSkills(bot).map((skill) => ({
-      name: skill.name,
-      description: skill.description,
-      enabled: skill.enabled,
-    })),
-    engine,
-    browserEnabled: builtInBrowserEnabled(cfg),
-    connectedApps,
-    sectionPeers,
-    timeZone,
-    recent,
-  });
-}
+const { botOverview, previewSystemPrompt } = createBotSettingsView({
+  approvalModeForTurn: () => approvalModeForTurn,
+  cfg: () => cfg,
+  engineMcpServers: () => engineMcpServers,
+  listBotSkills,
+  registry,
+  routines: () => routines,
+  store,
+  teamMemory: () => teamMemory,
+  webhooks: () => webhooks,
+});
 
 /** Defense in depth for hand-edited/corrupt durable records: elevated
  * approval semantics require an implemented provider mapping. The trusted transition enforces

@@ -629,6 +629,31 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.62: the two settings-derived bot views out of `index.ts` (October 18).**
+  `server/colonie/bots/settings-view.ts` (`createBotSettingsView`):
+  `previewSystemPrompt`, the developer preview of the prompt a new conversation
+  would build from current settings (the ACP branch reads the context candidate
+  and reports its active sections; the legacy branch rebuilds the same policy a
+  dispatch uses), and `botOverview`, the plain-language "what does this bot do"
+  facts gathered from every server-only source (engine capabilities,
+  connected-apps inventory, routines/webhooks/skills, recent history) and handed
+  to `buildBotOverview`. 161 lines (L1479–1639). `approvalModeForTurn`,
+  `engineMcpServers`, `routines`, `teamMemory` and `webhooks` (all declared
+  below the site) are getters; `registry`, `listBotSkills` and `store` are plain.
+  `composio` (a namespace import) and the `BotRecord`/`BotOverview` types moved
+  in; eighteen now-unused imports left `index.ts` (`contextCandidate`,
+  `chiefOfStaffSystemPrompt`, `peerRosterSystemPrompt`, `reachablePeers`,
+  `localVmMode`, `skillAuthoringEnabled`, `supportsWorkspaceFiles`,
+  `memorySystemPrompt`, `sectionContextSystemPrompt`, `skillsSystemPrompt`, the
+  `setup-mode` pair, the whole `system-prompt` family,
+  `BUILT_IN_BROWSER_SYSTEM_PROMPT`, the `bot-overview` pair,
+  `flushProfileHistory`/`readHistory`, `describeConnectorScopes` and the
+  `surface` pair). Guard: `settings-view.test.ts` (5) — only active sections
+  reach the ACP preview, its totals are those sections' bytes and the /4
+  ceiling, its note names it a developer preview, `botOverview` names this bot's
+  routine and drops another bot's, and a fresh data dir carries no history.
+  `index.ts` 3,814 → 3,659. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 76 files / 356 tests pass, live probe green.
 - **S3.61: one direct turn's dispatch claim out of `index.ts` (October 18).**
   `server/colonie/chat/turn-dispatch.ts` (`createTurnDispatch`): the
   `DirectTurnDispatchClaim` record (exported as a type for `index.ts`'s own map
