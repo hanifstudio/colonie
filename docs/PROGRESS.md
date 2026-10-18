@@ -629,6 +629,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.25: one bot's threads out of `index.ts` (October 18).** `POST`/`PATCH`/`DELETE /api/bots/:id/tasks/:taskId`
+  (177 lines: switching to a thread and the page the app asks for, renaming it, its model and approval mode, its
+  surface, pinning, and deleting it) becomes `server/routes/bot-task.ts`. Deleting a thread also forgets what only
+  that thread knew — its handoff, its digest state, the internal capabilities granted on it, its staged skill
+  cleanups — and the test pins that. Deps: 19, including the handoff registry, the per-thread generation map and
+  the routines getter. Guard test (4): another route or verb is left to the next handler; switching answers the bot
+  with its settings and a bad page size is refused; a thread setting the app never sends, or one that needs a model
+  selection with none, is refused; deleting forgets the thread before it is gone and an unknown thread is a 404.
+  Live on a throwaway HOME: switch 200, an unknown key 400, title 200, pinned 200, an unknown thread on delete 404.
+  `index.ts` 13,449 → **13,299 lines**; 226/226 pass, typecheck 0, lint 0.
+  **Reading-a-block trap, second time:** the carve takes everything up to the *next* route start, so a comment
+  block that documents the following route came along; it was put back before wiring. Check the last lines of the
+  carved text for a trailing comment that belongs to the next route.
 - **S3.24: the broad bot edit out of `index.ts` — the largest route family so far (October 18).** `PATCH
   /api/bots/:id` (566 lines: name, persona, model and effort, folder, approval level, visibility, audience, peers,
   tool scope, MCP servers, connectors, browser, memory, sections, chief-of-staff) becomes

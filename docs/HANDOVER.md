@@ -144,11 +144,14 @@ started, and review.
   `browserEngineInstall` — must take that state as an explicit dep, not be extracted independently.
   `/api/testing/internal-capability` stays with what is left of the internal machinery. Done since: bot-read
   (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), thread-events (S3.22), saved command
-  permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family). Next biggest
-  remaining: `/api/config` (~347), a bot's tasks (~177), bot create (~161), thread respond (~134), teams
-  export/import (~240 together), uploads (~117), the SSE stream `/api/events` (~94). Route families are no longer
-  taken smallest-first: the largest are the ones that move the number. `startTurn` (1,371 lines) and
-  `localVmInventoryPayload` (628) are the next big moves after the routes.
+  permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family), one bot's threads,
+  `bot-task` (S3.25). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
+  purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
+  stream `/api/events` (~94). Route families are no longer taken smallest-first: the largest are the ones that move
+  the number. After the routes: `startTurn` (1,371 lines) and `localVmInventoryPayload` (628). `.colonie-dev/carve.py`
+  carves a block and lists the deps it needs; `.colonie-dev/route-smoke` style probes (a static-path sweep on a
+  throwaway HOME) caught the S3.20 regression class and should be run after every extraction.
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
   presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
   (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last
