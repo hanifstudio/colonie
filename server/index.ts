@@ -55,7 +55,7 @@ import {BrowserCleanupCoordinator, finalizeBrowserCleanupMutation, requireBrowse
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import {buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence} from "./colonie/chat/digest.ts";
 import {appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor} from "./decision-log.ts";
-import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, parseAudioRange, readAttachment, saveFile, saveImage, saveImageUpload, type SavedAttachment, validateAttachmentUploadId} from "./colonie/chat/attachments.ts";
+import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, parseAudioRange, readAttachment, saveImage} from "./colonie/chat/attachments.ts";
 import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, messageFileRoots, messageImageTargetAt, messageReferencesFile, listMessageFolder, messageFolderEntryName, openMessageFile, openMessageFolderEntry} from "./colonie/chat/message-file.ts";
 import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
@@ -252,6 +252,7 @@ import {createBotCreateRoutes} from "./routes/bot-create.ts";
 import {createThreadRespondRoutes} from "./routes/thread-respond.ts";
 import {createTeamsExportRoutes} from "./routes/teams-export.ts";
 import {createTeamsImportRoutes} from "./routes/teams-import.ts";
+import {createUploadRoutes} from "./routes/uploads.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9763,6 +9764,7 @@ ROUTES.push(createTeamsImportRoutes({
   defaultSelection,
   packageImportDeps,
 }));
+ROUTES.push(createUploadRoutes());
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -10567,107 +10569,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // payload), so it needs its own reader rather than readBody. A share
     // extension can add a UUID uploadId; retrying that UUID returns the same
     // committed path instead of creating an orphan duplicate.
-    if (method === "POST" && path === "/api/attachments") {
-      let uploadId: string | undefined;
-      try {
-        uploadId = validateAttachmentUploadId(url.searchParams.get("uploadId") ?? undefined);
-      } catch (error) {
-        req.resume();
-        throw error;
-      }
-      const rawType = Array.isArray(req.headers["content-type"]) ? req.headers["content-type"][0] : req.headers["content-type"];
-      const mime = rawType?.split(";")[0]?.trim().toLowerCase();
-      if (!mime || !extensionForMime(mime)) {
-        return json(res, 400, { error: "content-type must be an image type" });
-      }
-      const rawLength = Array.isArray(req.headers["content-length"])
-        ? req.headers["content-length"][0]
-        : req.headers["content-length"];
-      const declaredLength = rawLength === undefined ? undefined : Number(rawLength);
-      if (declaredLength !== undefined && (!Number.isSafeInteger(declaredLength) || declaredLength < 0)) {
-        req.resume();
-        return json(res, 400, { error: "content-length must be a non-negative integer" });
-      }
-      if (declaredLength !== undefined && declaredLength > IMAGE_MAX_BYTES) {
-        req.resume();
-        return json(res, 413, { error: `image exceeds ${IMAGE_MAX_BYTES} bytes` });
-      }
-      const saved = await new Promise<SavedAttachment>((resolve, reject) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        let settled = false;
-        const fail = (status: number, msg: string) => {
-          if (settled) return;
-          settled = true;
-          reject(Object.assign(new Error(msg), { status }));
-        };
-        req.on("data", (chunk: Buffer) => {
-          if (settled) return;
-          received += chunk.byteLength;
-          if (received > IMAGE_MAX_BYTES) return fail(413, `image exceeds ${IMAGE_MAX_BYTES} bytes`);
-          chunks.push(chunk);
-        });
-        req.on("end", async () => {
-          if (settled) return;
-          settled = true;
-          try {
-            resolve(await saveImageUpload(Buffer.concat(chunks), mime, uploadId));
-          } catch (e) {
-            reject(e instanceof Error ? e : new Error(String(e)));
-          }
-        });
-        req.on("error", (e) => fail(400, e instanceof Error ? e.message : String(e)));
-      });
-      return json(res, 201, saved);
-    }
-
-    // ── shared files ────────────────────────────────────────────────────
-    // Companion apps and the desktop composer send documents as raw bytes
-    // over the same authenticated connection as messages. saveFile writes each
-    // incoming chunk directly to disk, atomically commits it, and removes
-    // partial uploads on error. Its optional UUID uploadId is stable across
-    // route retries, while the aggregate store quota rejects rather than
-    // silently deleting files that old prompts may still reference.
-    if (method === "POST" && path === "/api/files") {
-      let uploadId: string | undefined;
-      try {
-        uploadId = validateAttachmentUploadId(url.searchParams.get("uploadId") ?? undefined);
-      } catch (error) {
-        req.resume();
-        throw error;
-      }
-      const name = url.searchParams.get("name");
-      if (!name) {
-        req.resume();
-        return json(res, 400, { error: "name is required" });
-      }
-      const rawType = Array.isArray(req.headers["content-type"])
-        ? req.headers["content-type"][0]
-        : req.headers["content-type"];
-      const rawLength = Array.isArray(req.headers["content-length"])
-        ? req.headers["content-length"][0]
-        : req.headers["content-length"];
-      const declaredLength = rawLength === undefined ? undefined : Number(rawLength);
-      if (declaredLength !== undefined && (!Number.isSafeInteger(declaredLength) || declaredLength < 0)) {
-        req.resume();
-        return json(res, 400, { error: "content-length must be a non-negative integer" });
-      }
-      if (declaredLength !== undefined && declaredLength > FILE_MAX_BYTES) {
-        req.resume();
-        return json(res, 413, { error: `file exceeds ${FILE_MAX_BYTES} bytes` });
-      }
-      try {
-        // Returning from this iterator must not destroy the request socket:
-        // the caller still needs to receive the useful 4xx response when the
-        // streamed byte count crosses the limit.
-        const chunks = req.iterator({ destroyOnReturn: false }) as AsyncIterable<Buffer>;
-        const saved = await saveFile(chunks, name, rawType ?? "", { uploadId, expectedBytes: declaredLength });
-        return json(res, 201, saved);
-      } catch (error) {
-        req.resume();
-        throw error;
-      }
-    }
 
     // serving is name-locked to the attachments dir — readAttachment
     // refuses anything that is not a bare generated filename

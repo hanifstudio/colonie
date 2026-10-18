@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.30: raw uploads out of `index.ts` (October 18).** The two adjacent families moved as one module,
+  `server/routes/uploads.ts`: `POST /api/attachments` (a picture pasted into the composer) and `POST /api/files`
+  (a document a companion app or the desktop sends as bytes), 101 lines together. They share one front door and one
+  reason to exist — a partial upload is removed on error and the aggregate quota refuses rather than silently
+  deleting files old prompts may still reference — so they are one module and **need no deps at all**: the saving
+  lives in `colonie/chat/attachments.ts` and is imported directly. Guard test (5): another route or verb is left to
+  the next handler; a picture must say it is an image; a declared size that is not a size is refused; a picture over
+  the limit is refused before it is read; a document without a name is refused before it is read. Live on a throwaway
+  HOME: an uploaded 1×1 PNG answered 201 and the file it named was served back 200 (the carve left the GET route
+  where it was), a document 201, a document without a name 400, a non-image 400. `index.ts` 12,811 → **12,711
+  lines**; 248/248 pass, typecheck 0, lint 0.
 - **S3.29: importing a team out of `index.ts` (October 18).** `POST /api/teams/import` (106 lines: a team
   package, a library package, a bot package or a workspace backup, added next to what is there or projected into a
   folder) becomes `server/routes/teams-import.ts` — the pair to S3.28. What must be decided *before* the file is
