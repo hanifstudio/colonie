@@ -629,6 +629,35 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.43: the HTTP front door out of `index.ts` (October 18).** `handleRequest`
+  (1,646 lines, 108 deps) moves whole to `server/harness/request-handler.ts`, the
+  largest single block left and the last named giant. Carved with
+  `.colonie-dev/carve-range.py 7811 9456 handleRequest`, wrapped as
+  `createRequestHandler(deps)` and wired at its original position with the same
+  shape as `startTurn`: the permissive `{ [name: string]: any }` deps shape (one
+  `ponytail:` note names the upgrade path), eight reassigned bindings passed as
+  getters (`browserEngineInstall`, `browserEngineInstallError`,
+  `customDomainRevision`, `desktopMutationToken`, `localVmProvisionBusy`,
+  `routines`, `server`, `workspaceAccess`) so a pass never freezes a value, and
+  four setters (`setBrowserEngineInstall`, `setBrowserEngineInstallError`,
+  `setCustomDomainRevision`, `setLocalVmProvisionBusy`) because the handler is what
+  writes them — that choice kept every already-moved route module untouched.
+  `index.ts` 9,689 → 8,157 lines. Guard: `server/harness/request-handler.test.ts`
+  (2) — the factory returns a callable handler, and building it reads none of the
+  wiring (in `index.ts` the server object and several counters are declared below
+  the wiring point, so an eager read would be a temporal dead zone).
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 56 files / 285 tests
+  pass. Live on a throwaway HOME (`env -u COMPOSIO_API_KEY HOME=$(mktemp -d)
+  COLONIE_PROFILE=1 COLONIE_PORT=<free> node server/index.ts`): `/api/health`,
+  `/api/brand`, `/api/bots`, `/api/local-computer` all 200, an unrouted path 404
+  `{"error":"no route: GET /api/nope"}`, `DELETE /api/bots/<id>` on an idle bot 200
+  `{"ok":true}` with the bot list 1 → 0, no startup errors in the log.
+  Two generator mistakes worth remembering: rewriting import paths needs
+  `"../" * depth` for `./` specs but `"../" * (depth + 1)` for `../` specs, and
+  renames must skip comments and string contents — the first attempt wrote
+  `server()` into user-visible text such as "email sign-in is not set up on this
+  server". Both are now handled in the generator, and the tree was restored to the
+  green S3.42 state before the corrected run.
 - **S3.42: deleting a bot, and a runtime lesson about type imports (October 18).** `deleteBotWithLifecycle` (139
   lines, 31 deps) moves to `server/colonie/bots/delete-bot.ts`. It is the last named giant and, by index-local count,
   the most entangled of the small ones: it settles peer approvals, delegations, queued team-setup resumes, direct

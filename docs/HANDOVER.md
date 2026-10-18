@@ -154,23 +154,28 @@ started, and review.
   `colonie/skills/skill-resolution` (S3.37), the delegation
   watch, `colonie/peers/delegation-watch` (S3.38), the trusted-approval
   message handler, `colonie/bots/trusted-approval-message` (S3.39), and the
-  direct-send cluster, `colonie/chat/direct-send` (S3.40), and the turn\n  engine itself, `colonie/chat/turn-start` (S3.41), and the bot teardown,\n  `colonie/bots/delete-bot` (S3.42). Every route group named
+  direct-send cluster, `colonie/chat/direct-send` (S3.40), the turn
+  engine itself, `colonie/chat/turn-start` (S3.41), the bot teardown,
+  `colonie/bots/delete-bot` (S3.42), and the HTTP front door itself,
+  `harness/request-handler` (S3.43). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 9,689 lines.
+  `index.ts` is now 8,157 lines.
 
-  Every named giant is now out (S3.42 was the last, `deleteBotWithLifecycle`). The
-  largest remaining top-level function is `bindTurnComputer` at 105 lines; everything
+  Every named giant is now out (S3.43 was the last: the 1,646-line `handleRequest`,
+  carved whole into `harness/request-handler.ts`). The largest remaining top-level
+  function in `index.ts` is `bindTurnComputer` at 105 lines; everything
   else of size is the shared state and small declarations that no single feature owns
-  (about 9,600 lines), which is the next job and a different kind of one: moving a
+  (about 8,100 lines), which is the next job and a different kind of one: moving a
   mutable binding to a module is safe only while every reader imports that same
   binding, and the state reads `cfg`, so the groups have to be chosen by what they
-  close over, not by name. `carve-range.py` now reports `startTurn` at 225 distinct names: nearly all of
-  the live state plus about forty imports to add. It is called from `index.ts` and
-  from `bot-messages` (as a dep), so it needs either a deps object of that size or a
-  move of the state it closes over. That is a decision, not a mechanical carve.
+  close over, not by name. The body reached 108 deps; eight of them are reassigned
+  while the server runs, so the wiring passes them as getters, and the four that the
+  handler itself writes go over as getters plus setters (`setBrowserEngineInstall`,
+  `setBrowserEngineInstallError`, `setCustomDomainRevision`, `setLocalVmProvisionBusy`),
+  which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `startTurn` moved at S3.41, the last of them. What is left below 9,794 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 8,157 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and
