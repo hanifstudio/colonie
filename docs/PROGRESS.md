@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.38: the delegation watch out of `index.ts` (October 18).** `finalizeDelegationWatch` (89 lines) and the
+  `delegationWatch` map it ends entries in move together into `server/colonie/peers/delegation-watch.ts`. The map is
+  the reason this one is interesting: whoever dispatches a delegated turn still puts the entry in *from `index.ts`*
+  (the map is handed back out of the factory and used at four other places there), while the module owns the one
+  function that takes it out — same object, by reference, so the two halves cannot drift. The factory takes three
+  deps (`store`, `markTaskContextExternallyUpdated`, `wakeDelegationSource`), all function declarations in `index.ts`.
+  Guard test (3): a watch that is not there ends nothing; ending a watch takes the entry out exactly once (a second
+  finalize cannot re-report it); a source that is still reachable is woken with the name that answered — the last one
+  took two tries to set up honestly, because the wake only happens on the 1:1 path where the source thread really has
+  a task. `index.ts` 11,691 → **11,593 lines**; 278/278 pass, typecheck 0, lint 0, and the server boots and answers
+  on a throwaway HOME.
 - **S3.37: answering a staged skill request out of `index.ts` (October 18).** `resolveSkillRequest` (160 lines)
   and the 12-line `sendSkillResolution` move together into `server/colonie/skills/skill-resolution.ts`, which is the
   first slice that is *not* a route group: it is the decision both respond routes share (claim the card once, patch

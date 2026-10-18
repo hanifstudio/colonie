@@ -99,7 +99,7 @@ import {chiefForBot, INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incid
 import {drainAsideMessages, restoreAsideMessages} from "./colonie/chat/aside-queue.ts";
 import {promptWithReply, transcriptText} from "./replies.ts";
 import {admit} from "./admission.ts";
-import {_loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, pendingDelegationSnapshot, pendingThreads, recordDelegationReceipt, releaseDelegationsWaitingOn, type DelegationReceipt} from "./colonie/peers/delegations.ts";
+import {_loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, pendingDelegationSnapshot, pendingThreads, releaseDelegationsWaitingOn, type DelegationReceipt} from "./colonie/peers/delegations.ts";
 import {cancelSteeredMessage, drainSteeredMessages, hasQueuedSteeredMessages, isSteeredMessageQueued, onSteeredQueueChange, queuedSteerSnapshot, queuedSteeredMessage, queueSteeredMessage, restoreSteeredMessages} from "./colonie/chat/steer-queue.ts";
 import {restoreChannelMessages} from "./colonie/chat/channel-queue.ts";
 import {acceptedSendMatch, parseSendId, sendFingerprint, SendSequencer} from "./send-idempotency.ts";
@@ -256,6 +256,7 @@ import {createQueueSteerRoutes} from "./routes/queue-steer.ts";
 import {createProviderInstanceRoutes} from "./routes/provider-instances.ts";
 import {createConfigRoutes} from "./routes/config.ts";
 import {createSkillResolution} from "./colonie/skills/skill-resolution.ts";
+import {createDelegationWatch} from "./colonie/peers/delegation-watch.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -5112,22 +5113,12 @@ bus.subscribe((event: RuntimeEvent) => {
 /** A delegated turn in flight, so its terminal state reaches the source
  * bot's own thread. Exchanges stay in the bots' own threads; no pair
  * channel or room is created or written. */
-const delegationWatch = new Map<string, {
-  toBotId: string;
-  toBotName?: string;
-  taskId?: string;
-  sourceThreadId?: string;
-  sourceBotId?: string;
-  /** Bind a late peer result to the run that requested it, not later user
-   * work that happens to reuse that run's execution conversation. */
-  routineRunId?: string;
-  /** when the delegated turn was dispatched — elapsed time for status checks */
-  startedAtMs?: number;
-  /** Cross-bot send: leave the terminal state in the recipient thread. */
-  oneWay?: boolean;
-  /** An external runtime's handoff: record the receipt, never wake the source. */
-  completionOwner?: "external";
-}>();
+/** The watch itself, plus the one function that ends an entry. */
+const { delegationWatch, finalizeDelegationWatch } = createDelegationWatch({
+  store,
+  markTaskContextExternallyUpdated,
+  wakeDelegationSource,
+});
 
 /** The conversation waiting on work that runs in this thread: a Chief's
  * delegate_bot task or coordinate_bots assignment. */
@@ -5474,95 +5465,6 @@ const handoffs = new Handoffs({
 /** Consume one delegated-turn watch and mirror exactly one terminal state.
  * Some harness paths settle a busy bot without a provider turn.completed
  * event, so they call this same finalizer explicitly. */
-function finalizeDelegationWatch(
-  threadId: string,
-  ok: boolean,
-  reply = "",
-  failureName = "Delegated turn did not finish",
-): boolean {
-  const watched = delegationWatch.get(threadId);
-  if (!watched) return false;
-  delegationWatch.delete(threadId);
-  const target = store.bot(watched.toBotId);
-  const targetName = target?.name ?? watched.toBotName ?? watched.toBotId;
-  const source = watched.sourceBotId
-    ? store.bot(watched.sourceBotId)
-    : (watched.sourceThreadId ? store.botByThread(watched.sourceThreadId) : undefined);
-  if (!watched.oneWay && source && target && !canReachPeer(source, target)) {
-    ok = false;
-    reply = "";
-    failureName = "Result withheld: team or peer access changed while the teammate was working";
-  }
-  // The receipt is written before any mirror short-circuits: the delegating
-  // bot's check/wait_delegation must see a terminal state even when the
-  // channel or target is gone.
-  if (watched.taskId && watched.sourceThreadId) {
-    recordDelegationReceipt({
-      id: watched.taskId,
-      sourceThreadId: watched.sourceThreadId,
-      toBotId: watched.toBotId,
-      toBotName: store.bot(watched.toBotId)?.name ?? watched.toBotId,
-      status: ok ? "done" : "failed",
-      result: ok ? reply : failureName,
-    });
-  }
-  if (watched.oneWay) {
-    if (!ok && store.taskByThread(watched.toBotId, threadId)) {
-      store.appendMessage(threadId, {
-        role: "bot",
-        kind: "activity",
-        tool: { name: `Send failed — ${failureName}`, ok: false, ...(watched.taskId ? { handoffId: watched.taskId } : {}) },
-      });
-    }
-    return true;
-  }
-  if (source && watched.sourceThreadId) {
-    if (store.groupByThread(watched.sourceThreadId)) {
-      // A delegation queued from a stored room before rooms were retired.
-      // Room transcripts are read-only history, so the result stays in the
-      // target's own thread instead of being written into the room.
-    } else if (store.taskByThread(source.id, watched.sourceThreadId)) {
-      // 1:1 source: the source thread is the delegating bot's own task.
-      if (ok && reply.trim()) {
-        const sourceReply: Omit<Message, "id" | "at"> = {
-          role: "bot",
-          kind: "text",
-          text: `@${targetName} replied to the delegated task:\n\n${reply.trim()}`,
-        };
-        if (target) sourceReply.from = { botId: target.id, name: target.name, color: target.color };
-        store.appendMessage(watched.sourceThreadId, sourceReply);
-      } else {
-        store.appendMessage(watched.sourceThreadId, {
-          role: "bot",
-          kind: "activity",
-          tool: {
-            name: ok
-              ? `Delegation to @${targetName} completed without a text reply`
-              : `Delegation to @${targetName} failed — ${failureName}`,
-            ok,
-          },
-        });
-      }
-      markTaskContextExternallyUpdated(source, watched.sourceThreadId);
-      // Peer wake: a settled delegated turn resumes the source bot so it
-      // folds the result in and answers the user, instead of sitting idle
-      // with the reply only visible in the thread (the "delegated and went
-      // silent" gap). Failures wake it too — the user must hear the task did
-      // not finish. Idle-checked and burst-capped so a busy source or a
-      // re-delegating loop cannot spin up runs. An external runtime polls
-      // for the receipt instead; waking would answer it a second time.
-      if (watched.completionOwner !== "external") {
-        if (ok) {
-          wakeDelegationSource(source, watched.sourceThreadId, targetName, undefined, watched.routineRunId);
-        } else {
-          wakeDelegationSource(source, watched.sourceThreadId, targetName, failureName || "the delegated turn did not finish", watched.routineRunId);
-        }
-      }
-    }
-  }
-
-  return true;
-}
 
 // A bot going in circles — the same call with the same arguments, over and
 // over in one turn — gets a chip at 5, 10 and 20 repeats. Observe and say
