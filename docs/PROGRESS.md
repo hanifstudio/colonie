@@ -629,6 +629,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.36: settings (`/api/config`) out of `index.ts` (October 18).** The biggest remaining route group (343
+  lines) becomes `server/routes/config.ts`: one GET that answers the whole config and one PUT/PATCH that applies a
+  patch, reloads the providers it affects and drains what the change unblocked. This is the slice the holder objects
+  were built for — `providerWrite.busy` (one settings write at a time) and `localVmFlags.modeChangeBusy` — and they
+  are read and written through the dep, so the flag stayed one flag. Two namespace imports (`composio`, `tts`) and
+  `parseConfigPatch` stay as they were: the module imports them directly rather than taking them as deps. **Carve
+  lesson, hit again:** the mechanical comma-prune of five specifiers out of one long `config.ts` import line ate the
+  neighbouring commas (`loadConfig localVmIdleTimeoutMinutes`, `localVmMode mcpCallTimeoutMinutes`); typecheck showed
+  it as `TS1005 ',' expected` on that line, and the fix was rewriting the import line whole rather than patching
+  specifiers. Guard test (4): another route is left to the next handler; reading the config asks for the admin half
+  only for an admin; a patch that changes nothing is refused; a second settings write is refused while the first is in
+  flight. Live on a throwaway HOME: GET 200 with 30 keys, an empty patch 400 `nothing to save`, and a **real write**
+  — `features.showToolCalls` false → PUT 200 → the next GET reads true. `index.ts` 12,174 → **11,862 lines**;
+  272/272 pass, typecheck 0, lint 0.
 - **S3.35: the provider instances and settings writes out of `index.ts` (October 18).** The whole block of nine
   routes from the model picker through the instance settings (240 lines) becomes
   `server/routes/provider-instances.ts`: `GET /api/instances`, the icon patch, adding a ChatGPT or Claude account,
