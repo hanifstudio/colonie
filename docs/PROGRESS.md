@@ -629,6 +629,30 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.68: the server-side client push out of `index.ts` (October 18).**
+  `server/harness/client-streams.ts` (`createClientStreams`): what a store change
+  broadcasts (which also pages a bot whose active thread moved), the SSE frame
+  numbering and replay buffer, the per-member narrowing of a frame, the desktop
+  viewer manager and the stream teardown a revoked session uses. 189 lines across
+  five blocks (L1263–1311, 1313–1314, 1318–1372, 1379–1395, 1397–1462) — the last
+  big coherent feature left in `index.ts`. `let lastSeq`/`let audienceChangedAt`
+  stay in `index.ts` (server-assembly reads them) and go over as getters plus
+  setters; the extractor's two known gaps were fixed by hand — the `++lastSeq`
+  prefix was not detected as an assignment (`setLastSeq` added), and
+  `...configForAccess(...)` inside a `${…}` was not renamed (the spread's dot
+  defeats the lookbehind), so the call became `configForAccess()(…)`. The
+  broadcast passed at module-init to `createTrustedApprovalMessageHandler` became
+  a lazy wrapper, since `broadcast` is now a `const` below that wire site. The
+  route-module imports and the six now-unused imports left `index.ts`. Guard:
+  `client-streams.test.ts` (6) — frames are numbered and kept for replay, an
+  admin-only frame never reaches a member, a member frame is narrowed or
+  withdrawn by what the member may see, `audienceChanged` marks the frame and ends
+  only member streams, a cursor is trusted only from this run's stream, and
+  closing one session's streams leaves the others open. `index.ts` 3,133 → 2,965
+  (**under the 3,000 target**). `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 82 files / 388 tests pass; live probe green, and a
+  manual SSE check saw `id:`-numbered `bot.queued`/`bot.deleted` frames arrive
+  with a matching cursor.
 - **S3.67: the process lifecycle out of `index.ts` (October 18).**
   `server/harness/process-lifecycle.ts` (`createProcessLifecycle`): what runs once
   the HTTP listener is up — the queued-send drain, the engine-read gate, the
