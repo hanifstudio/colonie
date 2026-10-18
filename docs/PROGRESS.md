@@ -629,6 +629,24 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.57: identity and card answering out of `index.ts` (October 18).**
+  `server/harness/identity.ts` (`createIdentity`): `messageSender`, the stable
+  `personKey`, `sessionLendingPrincipal`, `actorKey`, the `cardAnswerRefusal` rule
+  (owner/admin any card; on a shared workspace only the person who started the
+  conversation or sent its request, plus the team-memory admin gate),
+  `canManageCommandAllowlist`, `COMMAND_ALLOWLIST_DRIVERS`,
+  `commandAllowlistResponse`, and the decision/card-answerer actors
+  (`decisionActorFor`, `cardAnswererFor`, `answeringCardAs`). 179 lines, L320–460.
+  `COMMAND_ALLOWLIST_DRIVERS` is read again by the `createServerAssembly` wire at
+  3908, so it is exported with the rest; `store` is a getter (declared below the
+  site) and `commandAllowlist`, `registry`, `signInAllowList`, `threadStarters`
+  are plain. `ResolvedSender`/`CardAnswerer`, `SessionRecord`, `Message`/`BotRecord`,
+  `DecisionActor`, `CommandAllowlistResponse` and the implicit-`any` callbacks
+  moved/fixed in the module. Guard: `identity.test.ts` (2) — the same email is the
+  same person regardless of session or casing, and a session with no email is keyed
+  by the session itself without leaking its id. `index.ts` 4,477 → 4,344.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 71 files / 333 tests
+  pass, live probe green.
 - **S3.56: bot visibility out of `index.ts` (October 18).**
   `server/harness/visibility.ts` (`createVisibility`): `viewerFor` (owner/admin →
   all, else a member named by email), the cached `threadOwners`/`visibleSets`
