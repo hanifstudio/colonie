@@ -629,6 +629,23 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.35: the provider instances and settings writes out of `index.ts` (October 18).** The whole block of nine
+  routes from the model picker through the instance settings (240 lines) becomes
+  `server/routes/provider-instances.ts`: `GET /api/instances`, the icon patch, adding a ChatGPT or Claude account,
+  the auth-status/refresh-models/install/auth-*/sign-out actions, the ACP sign-in, and the instance settings PATCH and
+  DELETE. Two pieces of shared mutable state made this the slice that needed real work: `providerConfigBusy`
+  (one settings write at a time, used by six routes) and the two Local VM flags. They are now **holder objects** —
+  `providerWrite = { busy }` and `localVmFlags = { imageBusy, modeChangeBusy }` — declared once in `index.ts` and
+  passed by reference, so the module and the routes still in `index.ts` (and the config family next) read and write the
+  same flag. A `let` could not have been passed; a snapshot would have let two settings writes overlap. A new
+  `.colonie-dev/carve-range.py` carves an explicit line range, because this family has prelude `const`s and several
+  routes in one span, which `carve.py` (which stops at the next route) cannot express. Guard test (5): another route
+  or verb is left to the next handler; the picker lists instances without ever sending a credential; an engine Colonie
+  cannot reach is a 404 rather than an empty list; signing in refuses a form post from another page (415); an account
+  without a name is refused before anything is written. Live on a throwaway HOME: the picker answered 200 with 2
+  instances and their keys, an unknown engine 404 `unknown instance`, an unknown ACP sign-in 404, an empty account 400
+  with the schema's own sentence, and a form post 415. `index.ts` 12,395 → **12,174 lines**; 268/268 pass, typecheck 0,
+  lint 0.
 - **S3.34: steering a queued message out of `index.ts` (October 18).** `POST /api/bots/:id/queue/:queueId/steer`
   (75 lines) becomes `server/routes/queue-steer.ts`: the whole queue is lifted atomically so that a settle racing this
   request either drains it as a follow-up or this request folds it into the live turn, never both for the same words.

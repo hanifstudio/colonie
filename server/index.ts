@@ -48,9 +48,7 @@ import {credentialResumeOutcome, credentialIsConfigured} from "../shared/credent
 import {approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval} from "./auto-approve.ts";
 import {CommandAllowlistStore, commandAllowlistCandidate} from "./command-allowlist.ts";
 import type {CommandAllowlistCandidate, CommandAllowlistResponse} from "../shared/command-allowlist.ts";
-import {configuredAccountDirectory, assertSeparateClaudeAccount, claudeAccountInfo, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount} from "./colonie/providers/claude-accounts.ts";
-import {providerIconPatchSchema, withInstanceIcon} from "./colonie/providers/provider-icon.ts";
-import {providerIconError} from "../shared/provider-icon.ts";
+import {claudeAccountInfo} from "./colonie/providers/claude-accounts.ts";
 import {BrowserCleanupCoordinator, finalizeBrowserCleanupMutation, requireBrowserCleanupAcknowledged, type BrowserCleanupRequest, type BrowserCleanupWireRequest} from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import {buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence} from "./colonie/chat/digest.ts";
@@ -70,7 +68,7 @@ import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.
 import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
 import {canAccessTeam, canReachPeer, peerAllowed, peerName, peerRosterSystemPrompt, reachablePeers} from "./colonie/peers/peer-roster.ts";
 import {containerComputerAction, containerComputerExists, containerComputerFrame, containerComputerMcp, containerComputerScreenshot, containerComputerStatus, containerRuntimeStatus, localVmWakeAction, localVmWorkspaceExists, perBotLocalVmTarget, poolLocalVmTarget, SHARED_LOCAL_VM_TARGET, setupCommands, type LocalVmTarget, type Runtime} from "./colonie/computer/container-computer.ts";
-import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, providerReloadKeys, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, parseConfigPatch, mcpCallTimeoutMinutes, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, showToolCallsEnabled, routinesInConversationEnabled, claudeUserMcpEnabled, skillAuthoringEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, llmThreadTitlesEnabled, browserProfileReplacementConflict, browserProfilePartitionTarget, syncCredentialEnv, withInstanceCli, persistableInstanceConfigs, type AppConfig, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, EVENTS_DIR, NATIVE_DIR, customMcpServers, onConfigSaved, CLAUDE_API_INSTANCE, liveSettingsFor, mergeOpenCodeProviderKeys, openCodeProviderKeys} from "./config.ts";
+import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, providerReloadKeys, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, parseConfigPatch, mcpCallTimeoutMinutes, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, showToolCallsEnabled, routinesInConversationEnabled, claudeUserMcpEnabled, skillAuthoringEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, llmThreadTitlesEnabled, browserProfileReplacementConflict, browserProfilePartitionTarget, syncCredentialEnv, type AppConfig, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, EVENTS_DIR, NATIVE_DIR, customMcpServers, onConfigSaved, CLAUDE_API_INSTANCE, liveSettingsFor, mergeOpenCodeProviderKeys, openCodeProviderKeys} from "./config.ts";
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {augmentedPath, resetPathCache} from "./runtime/env-path.ts";
@@ -256,6 +254,7 @@ import {createUploadRoutes} from "./routes/uploads.ts";
 import {createEventRoutes, type SseClient} from "./routes/events.ts";
 import {createBotMessagesRoutes} from "./routes/bot-messages.ts";
 import {createQueueSteerRoutes} from "./routes/queue-steer.ts";
+import {createProviderInstanceRoutes} from "./routes/provider-instances.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -4225,9 +4224,10 @@ const localVmSeen = new Set<string>();
 function noteLocalVmSeen(target: LocalVmTarget, status: ContainerComputerStatus | null | undefined): void {
   if (status && autoLocalVmAttachable(status)) localVmSeen.add(target.key);
 }
-let localVmImageBusy = false;
+/** One image pull and one Local VM mode change at a time, shared with the
+ * settings write that reports and enforces them (see the config route). */
+const localVmFlags = { imageBusy: false, modeChangeBusy: false };
 let localVmProvisionBusy = false;
-let localVmModeChangeBusy = false;
 /** The effective idle window, read from config so a Settings change applies
  * to both new and already-armed timers (see the config route). */
 const localVmIdleMs = () => localVmIdleTimeoutMinutes(cfg) * 60_000;
@@ -4388,7 +4388,7 @@ function localVmIdleFor(target: LocalVmTarget): LocalVmIdleTimer {
   if (idle) return idle;
   idle = new LocalVmIdleTimer(
     localVmIdleMs(),
-    () => localVmImageBusy || localVmLifecycleBusy.has(target.key) || localVmActiveThreads.has(target.key),
+    () => localVmFlags.imageBusy || localVmLifecycleBusy.has(target.key) || localVmActiveThreads.has(target.key),
     async () => {
       localVmLifecycleBusy.add(target.key);
       try {
@@ -6902,7 +6902,7 @@ async function startTurn(
       const claimAutoLocalVm = async (claimThreadId: string, pinnedTarget?: LocalVmTarget): Promise<{ target: LocalVmTarget; runtime: Runtime }> => {
         const localVmTarget = pinnedTarget ?? localVmThreadTargets.get(claimThreadId) ?? { ...localVmTargetForThread(bot.id, claimThreadId) };
         await bindTurnComputer(resourceOwner, `computer:vm:${localVmTarget.key}`, true);
-        if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) {
+        if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) {
           throw new Error("this Local VM is being started, stopped, or replaced — wait for setup to finish");
         }
         // Claim before the first await. The lifecycle route performs its
@@ -7045,7 +7045,7 @@ async function startTurn(
           if (!localVmSeen.has(localVmTarget.key) && !opts?.automationSource) return false;
           const seen = await containerComputerStatus(undefined, undefined, localVmTarget).catch(() => null);
           if (!seen || !autoLocalVmAttachable(seen)) return false;
-          if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) return false;
+          if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) return false;
           if (seen.ready && seen.runtime) lazyReadyVm = { runtime: seen.runtime };
         }
         try {
@@ -7977,7 +7977,7 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
       revalidate();
       const bot = store.bot(botId);
       if (!bot) return deletionResponse( 404, { error: "no such bot" });
-      if (localVmModeChangeBusy) {
+      if (localVmFlags.modeChangeBusy) {
         return deletionResponse(409, { error: "Local VM settings are being updated — wait before deleting this bot" });
       }
       const activeRoutine = routines!.activeRunForBot(bot.id);
@@ -9442,7 +9442,9 @@ async function reloadProviders() {
 // Config writes rebuild the whole provider registry. Keep the read-modify-write
 // and reload sequence single-flight so two settings requests cannot drop one
 // another's changes or dispose a fleet while another reload is creating it.
-let providerConfigBusy = false;
+/** One settings write at a time; every route that owns part of Settings shares
+ * this flag, so two cannot drop each other's changes. */
+const providerWrite = { busy: false };
 const providerInstancesChanging = new Set<string>();
 let mcpConfigBusy = false;
 /** The busiest section's flag, shared with the MCP routes: the legacy internal
@@ -9518,7 +9520,7 @@ const workspaceBackupAccess = {
   }, {
     idle: () => !providerFleetReloading && !providerAuthSessions.active && !browserEngineInstall &&
       !routines?.isTicking && !calendarCalls?.isTicking &&
-      !localVmImageBusy && !localVmProvisionBusy && !localVmModeChangeBusy &&
+      !localVmFlags.imageBusy && !localVmProvisionBusy && !localVmFlags.modeChangeBusy &&
       !localVmLifecycleBusy.size &&
       teamComputers.list().every(computer => !teamComputerInUse(computer)) &&
       store.bots.every((bot) => !botHasActiveTurn(bot.id) && !routines?.activeRunForBot(bot.id) && !botComputerControlSnapshot(bot.id).held),
@@ -9786,6 +9788,21 @@ ROUTES.push(createQueueSteerRoutes({
   clearUnattended,
   drainQueuedSends,
 }));
+ROUTES.push(createProviderInstanceRoutes({
+  store,
+  cfg,
+  registry,
+  providerAuthSessions,
+  sessions,
+  providerInstancesChanging,
+  providerWrite,
+  botForThread,
+  threadBusy,
+  describeInstances,
+  persistProviderInstance,
+  configStatus,
+  broadcast,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -9924,7 +9941,7 @@ ROUTES.push(createLiveRoutes({
   // Non-secret settings only, written the way PUT /api/config writes a
   // section: saveConfig merges into `live`, so the key stays where it is.
   saveSettings: async (patch) => {
-    if (providerConfigBusy) throw Object.assign(new Error("Settings are already being updated. Try again in a moment."), { status: 409 });
+    if (providerWrite.busy) throw Object.assign(new Error("Settings are already being updated. Try again in a moment."), { status: 409 });
     saveConfig({ live: patch });
     Object.assign(cfg, loadConfig());
     broadcast({ kind: "config", ...configStatus() });
@@ -11182,7 +11199,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 415, { error: "content-type must be application/json" });
       }
       const action = z.enum(["pull", "run", "start", "stop", "remove"]).parse(m[1]);
-      if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key)) {
+      if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key)) {
         return json(res, 409, { error: "another Local VM setup action is still running" });
       }
       if (localVmMode(cfg) === "per-bot" && action === "run") {
@@ -11201,7 +11218,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if ((action === "stop" || action === "remove") && (localVmActiveThreads.has(SHARED_LOCAL_VM_TARGET.key) || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key))) {
         return json(res, 409, { error: localVmActiveThreads.has(SHARED_LOCAL_VM_TARGET.key) ? "the Local VM is being used by a bot — stop that turn first" : "another Local VM setup action is still running" });
       }
-      if (action === "pull") localVmImageBusy = true;
+      if (action === "pull") localVmFlags.imageBusy = true;
       else localVmLifecycleBusy.add(SHARED_LOCAL_VM_TARGET.key);
       try {
         const status = await containerComputerAction(action, undefined, undefined, SHARED_LOCAL_VM_TARGET);
@@ -11218,7 +11235,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           max_instances: localVmMaxInstances(cfg),
         });
       } finally {
-        if (action === "pull") localVmImageBusy = false;
+        if (action === "pull") localVmFlags.imageBusy = false;
         else localVmLifecycleBusy.delete(SHARED_LOCAL_VM_TARGET.key);
       }
     }
@@ -11248,7 +11265,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (target.key === SHARED_LOCAL_VM_TARGET.key) {
         return json(res, 409, { error: "Shared mode manages this desktop in App Settings → Computers" });
       }
-      if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(target.key)) {
+      if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(target.key)) {
         return json(res, 409, { error: "this bot's Local VM setup action is still running" });
       }
       if (action === "run" && localVmProvisionBusy) {
@@ -11391,246 +11408,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 202, { installing: true });
     }
 
-    // ── provider instances (model picker) ──
-    if (method === "GET" && path === "/api/instances") {
-      // Rescan PATH first: this endpoint is how the app answers "what can I
-      // run?", and the interesting case is a CLI installed since launch.
-      // Windows never pushes PATH changes into a live process, so without
-      // this the answer is frozen at boot and "check again" is a no-op.
-      resetPathCache();
-      return json(res, 200, { instances: await describeInstances() });
-    }
-    const companyMutation = /^\/api\/instances\/(company\.[\w.-]+)(?:\/|$)/.exec(path);
-    
-    if (companyMutation && method !== "GET") return json(res, 403, { error: "Company accounts are read-only here. Manage this connection in desktop Settings." });
-
-    const instanceIconPatch = /^\/api\/instances\/([\w.-]+)\/icon$/.exec(path);
-    if (method === "PATCH" && instanceIconPatch) {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const parsed = providerIconPatchSchema.safeParse(await readBody(req, 192 * 1024));
-      if (!parsed.success) {
-        const detail = parsed.error.issues[0]?.message;
-        return json(res, 400, { error: detail && detail !== "Invalid input" ? detail : "Choose a built-in icon or upload a PNG, JPEG, or WebP image up to 128 KB." });
-      }
-      if (parsed.data.icon) {
-        const invalid = providerIconError(parsed.data.icon);
-        if (invalid) return json(res, 400, { error: invalid });
-      }
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      providerConfigBusy = true;
-      try {
-        const changed = withInstanceIcon(cfg, instanceIconPatch[1], parsed.data.icon);
-        if (!changed.ok) return json(res, 404, { error: `unknown instance "${instanceIconPatch[1]}"` });
-        saveConfig({ instances: changed.instances }, { replaceInstances: true });
-        cfg.instances = changed.instances;
-        broadcast({ kind: "config", ...configStatus() });
-        return json(res, 200, { instances: await describeInstances() });
-      } finally { providerConfigBusy = false; }
-    }
-
-    if (method === "POST" && path === "/api/instances/chatgpt-accounts") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) return json(res, 415, { error: "content-type must be application/json" });
-      const parsed = createClaudeAccountSchema.pick({ displayName: true }).safeParse(await readBody(req, 8192));
-      if (!parsed.success) return json(res, 400, { error: "Enter an account name (up to 80 characters)." });
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      providerConfigBusy = true;
-      try {
-        const instances = persistableInstanceConfigs(cfg);
-        const instanceId = `chatgpt-${randomUUID()}`;
-        // Reuse the selected executable, never another account's environment.
-        const cli = (instances.chatgpt?.config as { cli?: unknown } | undefined)?.cli
-          ?? (instances.codex?.config as { cli?: unknown } | undefined)?.cli;
-        instances[instanceId] = { driver: "codex", displayName: parsed.data.displayName,
-          config: { authMode: "chatgpt-plan", ...(typeof cli === "string" && cli ? { cli } : {}) } };
-        await persistProviderInstance(instanceId, instances);
-        return json(res, 201, { instanceId, instances: await describeInstances() });
-      } finally { providerConfigBusy = false; }
-    }
-
-    if (method === "POST" && path === "/api/instances/claude-accounts") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const parsed = createClaudeAccountSchema.safeParse(await readBody(req, 8192));
-      if (!parsed.success) return json(res, 400, { error: "Enter an account name (up to 80 characters) and an optional configuration directory." });
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      providerConfigBusy = true;
-      try {
-        const { instanceId, instances } = newClaudeAccount(cfg, parsed.data);
-        await persistProviderInstance(instanceId, instances);
-        return json(res, 201, { instanceId, instances: await describeInstances() });
-      } finally { providerConfigBusy = false; }
-    }
-
-    const authStatus = /^\/api\/instances\/([\w.-]+)\/auth\/status$/.exec(path);
-    if (method === "GET" && authStatus) {
-      res.setHeader("cache-control", "no-store");
-      const state = await providerAuthSessions.status(authStatus[1], auth.kind === "session" ? auth.session.id : "loopback", url.searchParams.get("flowId") ?? "");
-      return json(res, 200, { auth: state });
-    }
-    const instanceAction = /^\/api\/instances\/([\w.-]+)\/(refresh-models|install|auth\/start|auth\/complete|auth\/cancel|auth\/sign-out)$/.exec(path);
-    if (method === "POST" && instanceAction) {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const instanceId = instanceAction[1];
-      const action = instanceAction[2];
-      const owner = auth.kind === "session" ? auth.session.id : "loopback";
-      if (action.startsWith("auth/")) res.setHeader("cache-control", "no-store");
-      try {
-        if (action === "refresh-models") {
-          if (!(await registry.refreshModels(instanceId))) return json(res, 404, { error: "unknown instance" });
-          return json(res, 200, { instances: await describeInstances() });
-        }
-        if (action === "install") {
-          if (!(await registry.installRuntime(instanceId))) return json(res, 404, { error: "Installing this engine from Settings is not available on this server. Use the install command on the machine running Colonie." });
-          return json(res, 200, { instances: await describeInstances() });
-        }
-        if (action === "auth/start") {
-          const instance = registry.get(instanceId);
-          if (!instance) return json(res, 404, { error: "unknown instance" });
-          // The official local OAuth callback terminates on this machine,
-          // not a phone or the browser visiting a remotely hosted workspace.
-          if (instance.authenticationMethod === "browser-pkce" && (isProxied(req) || !isLoopbackHost(req.socket.remoteAddress))) {
-            return json(res, 403, { error: "Continue with ChatGPT on the computer running Colonie. Hosted Pro sign-in requires OpenAI's hosted-app approval." });
-          }
-          const started = await providerAuthSessions.start(instance, owner);
-          // Revocation can arrive while the CLI is obtaining a device code.
-          if (auth.kind === "session" && !sessions.isLive(auth.session.id)) {
-            providerAuthSessions.revokeOwner(owner);
-            return json(res, 401, { error: "Your session ended. Start a new sign-in." });
-          }
-          return json(res, 200, { auth: started });
-        }
-        if (action === "auth/sign-out") {
-          const instance = registry.get(instanceId);
-          if (!instance) return json(res, 404, { error: "unknown instance" });
-          await providerAuthSessions.signOut(instance, owner);
-          return json(res, 200, { instances: await describeInstances() });
-        }
-        if (action === "auth/complete") {
-          const body = await readBody(req);
-          const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-          // `code` for a pasted sign-in code (Claude), `callbackUrl` for a browser callback
-          const callbackUrl = typeof body?.callbackUrl === "string" ? body.callbackUrl : typeof body?.code === "string" ? body.code : "";
-          if (!flowId || !callbackUrl) return json(res, 400, { error: "flowId and a code or callbackUrl are required" });
-          await providerAuthSessions.complete(instanceId, owner, flowId, callbackUrl);
-          return json(res, 200, { ok: true });
-        }
-        const body = await readBody(req, 4096);
-        await providerAuthSessions.cancel(instanceId, owner, typeof body?.flowId === "string" ? body.flowId : "");
-        return json(res, 200, { ok: true });
-      } catch (error) {
-        const requestedStatus = error && typeof error === "object" ? (error as { status?: unknown }).status : undefined;
-        const status = typeof requestedStatus === "number" && [400, 401, 404, 409, 413, 415].includes(requestedStatus) ? requestedStatus : 500;
-        return json(res, status, { error: error instanceof Error ? error.message : String(error) });
-      }
-    }
-
-    
-
-    // ── in-app sign-in for a Colonie ACP connection ──
-    // Runs the adapter's own authenticate (the provider's browser/device flow)
-    // with the isolated config dir; never a terminal command.
-    const acpAuth = /^\/api\/instances\/([\w.-]+)\/acp-auth$/.exec(path);
-    if (method === "POST" && acpAuth) {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      await readBody(req);
-      const instance = registry.get(acpAuth[1]);
-      if (!instance || !(instance.adapter instanceof AcpRuntime) || !instance.enabled) return json(res, 404, { error: "no such sign-in-able ACP connection" });
-      // Colonie signs in through the engine's own CLI in a Terminal, with the
-      // isolated config dir — the same for Codex and Claude.
-      return json(res, 200, { terminal: { command: instance.adapter.signInCommand() }, instances: await describeInstances() });
-    }
-
-    const busyProviderSelections = () => store.bots.flatMap((bot) => {
-      const busyTasks = store.tasks(bot.id).filter((task) => threadBusy(bot.id, task.threadId));
-      const selections = busyTasks.map((task) => botForThread(bot.id, task.threadId)!.modelSelection);
-      if (bot.busy && busyTasks.length === 0) selections.push(bot.modelSelection);
-      return selections;
-    });
-
-    // ── per-instance settings (CLI/account or API tool support) ──
-    // PATCH /api/instances/:id {cli: "/path/to/cli" | ""} — "" reverts to the
-    // driver default. Only this idle instance is replaced; siblings keep running.
-    const instancePatch = /^\/api\/instances\/([\w.-]+)$/.exec(path);
-    if (method === "PATCH" && instancePatch) {
-      // same non-simple-request gate as the local-VM lifecycle routes
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const parsed = instanceSettingsSchema.safeParse(await readBody(req, 16384));
-      if (!parsed.success) return json(res, 400, { error: "Supply a valid CLI path, account name, configuration directory or boolean tools setting." });
-      const body = parsed.data;
-      const instanceId = instancePatch[1];
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      if (busyProviderSelections().some((selection) => selection.instanceId === instanceId)) {
-        return json(res, 409, { error: "Wait for bots using this account to finish before changing its settings." });
-      }
-      providerConfigBusy = true;
-      providerInstancesChanging.add(instanceId);
-      try {
-        const result = body.cli === undefined ? { ok: true, config: cfg } : withInstanceCli(cfg, instanceId, body.cli);
-        const instances = persistableInstanceConfigs(result.config);
-        if (!result.ok || !Object.hasOwn(instances, instanceId)) return json(res, 404, { error: `unknown instance "${instanceId}"` });
-        const entry = instances[instanceId];
-        if ((body.displayName !== undefined || body.configDir !== undefined) && entry.driver !== "claudeAgent") {
-          return json(res, 400, { error: "Account settings are currently available for Claude only." });
-        }
-        if (body.tools !== undefined) {
-          if (!["openai-compat", "grok", "minimax", "mistral", "cerebras"].includes(entry.driver)) {
-            return json(res, 400, { error: "The tools setting is available for OpenAI-compatible, Grok API, MiniMax API, Mistral API and Cerebras API instances only." });
-          }
-          entry.config = { ...entry.config as Record<string, unknown>, tools: body.tools };
-        }
-        if (body.displayName !== undefined) entry.displayName = body.displayName;
-        if (body.configDir !== undefined) {
-          let previousDir: string | undefined;
-          try { previousDir = configuredAccountDirectory(entry); } catch { /* Allow repairing an unused malformed account. */ }
-          entry.config = { ...entry.config as Record<string, unknown>, configDir: body.configDir };
-          if (previousDir !== configuredAccountDirectory(entry)) {
-            const used = store.bots.some((bot) => bot.modelSelection.instanceId === instanceId || bot.fallback?.some(candidate => candidate.instanceId === instanceId) || store.tasks(bot.id).some((task) =>
-              task.modelSelection?.instanceId === instanceId || task.resumeCursors[instanceId] || task.lastInstanceId === instanceId));
-            if (used) return json(res, 409, { error: "This account is used by bots or conversation history. Add another account and select it for the bot instead." });
-            assertSeparateClaudeAccount(instances, instanceId, entry);
-          }
-        }
-        await persistProviderInstance(instanceId, instances);
-        return json(res, 200, { instances: await describeInstances() });
-      } finally {
-        providerInstancesChanging.delete(instanceId);
-        providerConfigBusy = false;
-      }
-    }
-
-    if (method === "DELETE" && instancePatch) {
-      const instanceId = instancePatch[1];
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      const instances = persistableInstanceConfigs(cfg);
-      if (!Object.hasOwn(instances, instanceId)) return json(res, 404, { error: "unknown instance" });
-      if (instances[instanceId].driver !== "claudeAgent" || instanceId === "claude") {
-        return json(res, 400, { error: "Only added Claude accounts can be removed here." });
-      }
-      if (cfg.defaultModelSelection?.instanceId === instanceId || store.bots.some((bot) =>
-        bot.modelSelection.instanceId === instanceId || bot.fallback?.some(candidate => candidate.instanceId === instanceId) || store.tasks(bot.id).some((task) => task.modelSelection?.instanceId === instanceId)) ||
-        busyProviderSelections().some((selection) => selection.instanceId === instanceId)) {
-        return json(res, 409, { error: "Choose another account for the bots and default model using this account before removing it." });
-      }
-      providerConfigBusy = true;
-      providerInstancesChanging.add(instanceId);
-      try {
-        delete instances[instanceId];
-        await persistProviderInstance(instanceId, instances);
-        return json(res, 200, { instances: await describeInstances() });
-      } finally {
-        providerInstancesChanging.delete(instanceId);
-        providerConfigBusy = false;
-      }
-    }
 
     // ── app config (API keys — never echoed back, booleans only) ──
     if (method === "GET" && path === "/api/config") {
@@ -11675,7 +11452,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         // voice for the newly selected provider in this same atomic patch.
         patch.tts = { ...patch.tts, voice: "" };
       }
-      if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
+      if (providerWrite.busy) return json(res, 409, { error: "provider settings are already being updated" });
       if (patch.browserProfiles !== undefined && body.expectedBrowserProfiles !== undefined) {
         const current = (cfg.browserProfiles ?? []).map(({ id, name }) => ({ id, name }));
         if (JSON.stringify(body.expectedBrowserProfiles) !== JSON.stringify(current)) {
@@ -11722,12 +11499,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           });
         }
       }
-      providerConfigBusy = true;
+      providerWrite.busy = true;
       const changingLocalVmMode = patch.localVm?.mode !== undefined && patch.localVm.mode !== localVmMode(cfg);
-      if (changingLocalVmMode) localVmModeChangeBusy = true;
+      if (changingLocalVmMode) localVmFlags.modeChangeBusy = true;
       try {
         if (changingLocalVmMode) {
-          if (localVmActiveThreads.size > 0 || localVmLifecycleBusy.size > 0 || localVmImageBusy) {
+          if (localVmActiveThreads.size > 0 || localVmLifecycleBusy.size > 0 || localVmFlags.imageBusy) {
             return json(res, 409, { error: "stop Local VM turns and setup actions before changing the Local VM isolation mode" });
           }
           if (localVmMode(cfg) === "per-bot" && patch.localVm?.mode === "shared") {
@@ -11972,8 +11749,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       );
       return json(res, 200, finalized.value);
       } finally {
-        if (changingLocalVmMode) localVmModeChangeBusy = false;
-        providerConfigBusy = false;
+        if (changingLocalVmMode) localVmFlags.modeChangeBusy = false;
+        providerWrite.busy = false;
       }
     }
 
