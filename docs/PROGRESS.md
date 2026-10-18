@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.67: the process lifecycle out of `index.ts` (October 18).**
+  `server/harness/process-lifecycle.ts` (`createProcessLifecycle`): what runs once
+  the HTTP listener is up — the queued-send drain, the engine-read gate, the
+  routines/memory presenters, the leftover delegation drain and the periodic sweep
+  — and what a SIGINT/SIGTERM tears down, in order, before the process exits. 97
+  lines (single block L3098–3194, the file's tail). 36 deps; `followupsReady` and
+  `shuttingDown` are the two `let`s the block writes, so they go over as getters
+  plus setters (`setFollowupsReady`, `setShuttingDown`) and `enginesRead`,
+  `routines`, `calendarCalls`, `webhookIngress` and `colonieMemory` as getters. The
+  extractor's comment-only false deps (`handoffs` from prose) were dropped by hand,
+  along with the eight now-unused imports and the `createGracefulShutdown` import.
+  Guard: `process-lifecycle.test.ts` (5) — the listener binds on loopback with both
+  signals wired, the boot drains and starts the presenters, a signal tears down in
+  order and exits 0, a second signal does not tear down twice, and a failed session
+  close still exits (code 1). `index.ts` 3,194 → 3,133. `pnpm typecheck` 0,
+  `pnpm lint` 0, `npx vitest run server` 81 files / 382 tests pass, live probe green.
 - **S3.66: the browser feature's process-local construction out of `index.ts` (October 18).**
   `server/colonie/computer/browser-sessions.ts` (`createBrowserSessions`): one
   `BrowserRuntime` and the `BrowserLive` viewer that mirrors it, the map of

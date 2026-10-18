@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createProcessLifecycle} from "./harness/process-lifecycle.ts";
 import {createBrowserSessions} from "./colonie/computer/browser-sessions.ts";
 import {createTurnComputerBinding} from "./colonie/computer/turn-computer-binding.ts";
 import {createDirectFlow} from "./colonie/chat/direct-flow.ts";
@@ -47,7 +48,7 @@ import { approvalModeForOrigin } from "./auto-approve.ts";
 import { CommandAllowlistStore } from "./command-allowlist.ts";
 import type {CommandAllowlistCandidate} from "../shared/command-allowlist.ts";
 import { type BrowserCleanupWireRequest } from "./colonie/computer/browser-lifecycle-cleanup.ts";
-import { bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions,  } from "./decision-log.ts";
+import { bindDecisionRetention, decisionRetentionDays, pruneDecisions } from "./decision-log.ts";
 import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, saveImage } from "./colonie/chat/attachments.ts";
 import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
@@ -63,7 +64,7 @@ import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, local
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
-import {appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger} from "./colonie/providers/usage-ledger.ts";
+import { appendUsage, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
 import {ledgerCost} from "./colonie/providers/model-prices.ts";
 import type {PriceList} from "./prices.ts";
@@ -80,7 +81,7 @@ import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registr
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
 import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
-import { closeMessageSearch, closeMessageDb, chatFollowups, settleChatFollowups } from "./persistence/message-db.ts";
+import { chatFollowups, settleChatFollowups } from "./persistence/message-db.ts";
 import { turnOutcomeLine } from "./recent-work.ts";
 
 import { restoreAsideMessages } from "./colonie/chat/aside-queue.ts";
@@ -104,7 +105,7 @@ import { threadTitlePrompt, type ThreadTitleSource } from "./colonie/chat/thread
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {appendMemoryLog, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
 import {listMemoryTopics, memoryDate, readMemoryFile, readMemoryTopic, writeMemoryFile, writeMemoryTopic} from "./colonie/workspace/workspace.ts";
-import { endMemoryTurn, flushAllMemoryJournals, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
+import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
 import { writeSectionContext } from "./colonie/teams/section-context.ts";
 import { installOrgSkill, installSkill, resolveBotSkills, listSkills, listStagedSkillWrites, isSkillName, readSkillFile, rejectStagedSkillWrite, setSkillEnabled } from "./colonie/skills/skills.ts";
 
@@ -117,8 +118,6 @@ import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calenda
 import { browserEngineStatus } from "./colonie/computer/browser-engine.ts";
 import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
 import { directApply, type DirectApply } from "./direct-apply.ts";
-
-import {flushAllProfileHistory} from "./profile-versions.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
 import {OutboundCounts} from "./outbound-counts.ts";
@@ -135,7 +134,6 @@ import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/com
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
 import { PlaceUnavailableError, placeUnavailable, type PlaceSource, type Surface } from "./surface.ts";
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
-import {createGracefulShutdown} from "./runtime/graceful-shutdown.ts";
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, type WorkspaceAccess } from "./enterprise.ts";
 import {loadEnvironmentId} from "./runtime/environment.ts";
@@ -147,7 +145,7 @@ import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.t
 import {resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
-import {appendAdminAction, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor} from "./admin-activity.ts";
+import { appendAdminAction, configChangeRows, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor } from "./admin-activity.ts";
 import { frameForMember, noteSeen, VisibleSet, type FrameContext } from "./colonie/bots/bot-visibility.ts";
 import {describeBrand, loadBrand} from "./brand.ts";
 import {deliverSseFrame} from "./sse-fanout.ts";
@@ -3095,100 +3093,41 @@ restoreChannelMessages();
   if (movedAutoPins) console.log(`Works on: moved ${movedAutoPins} auto-pinned thread(s) to their bot's current Works on`);
 }
 
-server.listen(PORT, "127.0.0.1", async () => {
-  console.log(`Colonie server on http://127.0.0.1:${PORT}`);
-  // Words queued before the restart start first, ahead of anything sent from
-  // now on. Their turns wait for the engines read at start like every turn.
-  followupsReady = true;
-  drainQueuedSends();
-  // The work below wakes delegators, and a woken delegator keeps its session
-  // only on an engine that records what it was handed, which that read finds
-  // out: it starts once the read is done.
-  if (enginesRead) {
-    await enginesRead;
-    if (shuttingDown) return;
-  }
-  // Startup work uses the same turn dispatcher and local tool endpoint as
-  // ordinary chat. Start only once every registry is initialized and the
-  // endpoint is listening; earlier dispatch can hit uninitialized bindings.
-  routines!.start();
-  memoryUpkeep.start();
-  colonieMemory.start();
-  const leftover = pendingThreads();
-  if (leftover.length) console.log(`delegations: ${leftover.length} thread(s) with queued handoffs from a previous run — draining`);
-  for (const threadId of leftover) {
-    const run = routines!.runForThread(threadId);
-    // A person can reuse a completed run's task for unrelated work. Only
-    // discard the old run's handoffs, not a later user's persisted queue.
-    const reused = run?.finishedAt !== undefined && store.botByThread(threadId) &&
-      store.activePath(threadId).some((message) => message.role === "user" && message.at > run.finishedAt!);
-    if (run && !["running", "waiting"].includes(run.status) && !reused) discardDelegations(commsBus, threadId);
-    else drainThreadDelegations(threadId);
-  }
-  // After the boot drain, not before it: that drain already expires stale
-  // leftovers, and a sweep ahead of it would wake delegators of stopped
-  // routine runs whose handoffs the loop above discards instead.
-  setInterval(expireDelegationsNow, DELEGATION_SWEEP_MS).unref();
+createProcessLifecycle({
+  DELEGATION_SWEEP_MS,
+  PORT,
+  browserLive,
+  browserRuntime,
+  bus,
+  calendarCalls: () => calendarCalls,
+  colonieChief,
+  colonieMemory: () => colonieMemory,
+  commsBus,
+  connectedTools,
+  desktopViewer,
+  drainQueuedSends,
+  drainThreadDelegations,
+  enginesRead: () => enginesRead,
+  expireDelegationsNow,
+  setFollowupsReady: (value) => { followupsReady = value; },
+  forgetTemporaryBrowser,
+  liveCalls,
+  localVmIdles,
+  mcpOAuth,
+  memoryUpkeep,
+  registry,
+  releaseDataDirLeaseAtExit,
+  revokeAllInternalCapabilities,
+  routines: () => routines,
+  server,
+  sessions,
+  sharedComputerControl,
+  sharedComputers,
+  shuttingDown: () => shuttingDown,
+  setShuttingDown: (value) => { shuttingDown = value; },
+  store,
+  temporaryBrowserSessions,
+  watchdog,
+  webhookIngress: () => webhookIngress,
+  workspaceAccessTimer,
 });
-
-const gracefulShutdown = createGracefulShutdown({
-  cleanup: [
-    () => {
-      followupsReady = false;
-      shuttingDown = true;
-      if (workspaceAccessTimer) clearInterval(workspaceAccessTimer);
-      // Child MCP processes and the HTTP listener can remain alive while the
-      // asynchronous shutdown jobs drain. Invalidate their turn bearers before
-      // any cleanup function reaches an await.
-      revokeAllInternalCapabilities();
-      sharedComputers.close();
-      sharedComputerControl.close();
-      browserLive.closeAll();
-      desktopViewer.closeAll();
-      for (const idle of localVmIdles.values()) idle.cancel();
-          watchdog.stop();
-      routines?.stop();
-      calendarCalls?.stop();
-      memoryUpkeep.stop();
-      colonieMemory.stop();
-      colonieChief.dispose();
-      webhookIngress?.server.close();
-    },
-    async () => { await registry.disposeAll(); },
-    async () => {
-      await Promise.all([...temporaryBrowserSessions.keys()].map((botId) => forgetTemporaryBrowser(botId)));
-      await browserRuntime.closeAll();
-    },
-    () => liveCalls.shutdown(),
-    () => flushAllProfileHistory(),
-    () => flushAllMemoryJournals(),
-    () => colonieMemory.idle(),
-    () => flushUsageLedger(DATA_DIR),
-    () => flushDecisionLog(DATA_DIR),
-    () => flushAdminActivity(DATA_DIR),
-    () => closeMessageSearch(),
-  ],
-  // Cleanup jobs run concurrently. Release only after they settle (or reach
-  // the shutdown deadline), immediately before the process exits, so no new
-  // server can overlap with a still-mutating old one.
-  exit: (code) => {
-    // Streamed text the bus is still merging reaches the log and clients.
-    bus.flush();
-    try { sessions.close(); }
-    catch {
-      // An uncleared marker makes saved account sessions require sign-in on
-      // the next boot; never label failed persistence a clean shutdown.
-      console.error("Session persistence failed during shutdown; account sign-in will be required again.");
-      code = 1;
-    }
-    closeMessageDb();
-    mcpOAuth.dispose();
-    connectedTools.dispose();
-    releaseDataDirLeaseAtExit();
-    process.exit(code);
-  },
-});
-
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, gracefulShutdown);
-}
