@@ -203,7 +203,7 @@ import {clearSessionCookie, isLoopbackHost, isProxied, labelFromUserAgent, reque
 import {cookieMaxAgeSeconds, SessionRegistry, type SessionRecord} from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import {appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor} from "./admin-activity.ts";
-import {frameForMember, memberBody, memberBot, noteSeen, notFoundFor, pathSubject, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type StreamSeen, type ThreadOwner, type Viewer} from "./colonie/bots/bot-visibility.ts";
+import {frameForMember, memberBody, memberBot, noteSeen, notFoundFor, pathSubject, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type ThreadOwner, type Viewer} from "./colonie/bots/bot-visibility.ts";
 import {describeBrand, loadBrand} from "./brand.ts";
 import {deliverSseFrame} from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and
@@ -253,6 +253,7 @@ import {createThreadRespondRoutes} from "./routes/thread-respond.ts";
 import {createTeamsExportRoutes} from "./routes/teams-export.ts";
 import {createTeamsImportRoutes} from "./routes/teams-import.ts";
 import {createUploadRoutes} from "./routes/uploads.ts";
+import {createEventRoutes, type SseClient} from "./routes/events.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -3310,27 +3311,6 @@ function messageWindow(threadId: string, messageId: string, limit: number) {
 }
 
 // ── SSE fan-out to clients ─────────────────────────────────────────────
-/** One connected client, and what it asked to be sent. */
-interface SseClient {
-  res: ServerResponse;
-  admin: boolean;
-  /** Live screen frames carry a base64 desktop capture every few seconds
-   * while a bot works. A client that isn't showing the computer panel —
-   * a phone on cellular, most of all — should not pay for them. */
-  screens: boolean;
-  /** The paired session behind this stream, when there is one: revoking or
-   * expiring it must end the stream, not just future requests. */
-  sessionId?: string;
-  /** Set once this client's socket has signalled it can't keep up (write()
-   * returned false); cleared implicitly once it's disconnected. See
-   * ./sse-fanout.ts for what this does to fan-out. */
-  backpressured: boolean;
-  /** Who is watching, for bot visibility; a member's stream is narrowed to
-   * what that person may see once any bot is restricted. */
-  viewer: Viewer;
-  /** The bots and rooms this stream has been shown (bot-visibility.ts). */
-  seen: StreamSeen;
-}
 const sseClients = new Set<SseClient>();
 
 /** The frame at which a bot's audience last changed (see the SSE route). */
@@ -9765,6 +9745,21 @@ ROUTES.push(createTeamsImportRoutes({
   packageImportDeps,
 }));
 ROUTES.push(createUploadRoutes());
+ROUTES.push(createEventRoutes({
+  store,
+  sessions,
+  sseClients,
+  replayBuffer,
+  lastSeq: () => lastSeq,
+  audienceChangedAt: () => audienceChangedAt,
+  streamId: STREAM_ID,
+  heartbeatMs: SSE_HEARTBEAT_MS,
+  cursorSeq,
+  viewerFor,
+  visibleTo,
+  wants,
+  memberFrame,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -10270,97 +10265,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, await browserLive.action({ viewerId: body.viewerId, botId: bot.id, owner, body }));
       }
       return json(res, 405, { error: "method not allowed" });
-    }
-    if (method === "GET" && path === "/api/events") {
-      const viewer = viewerFor(auth);
-      const visibleNow = visibleTo(viewer);
-      const client: SseClient = {
-        res,
-        admin: auth.scopes.includes("admin"),
-        screens: url.searchParams.get("screens") !== "off",
-        backpressured: false,
-        viewer,
-        // What this person's hydration (GET /api/bots, narrowed the same way) showed them.
-        seen: viewer.kind === "all" ? { bots: new Set(), groups: new Set() } : {
-          bots: new Set(store.bots.filter((bot) => visibleNow.bot(bot.id)).map((bot) => bot.id)),
-          groups: new Set(store.groups.filter((group) => visibleNow.group(group.id)).map((group) => group.id)),
-        },
-      };
-      if (auth.kind === "session") client.sessionId = auth.session.id;
-      res.writeHead(200, {
-        "content-type": "text/event-stream",
-        "cache-control": "no-cache",
-        connection: "keep-alive",
-        // Honoured by nginx-compatible reverse proxies; harmless elsewhere.
-        // Remote clients need each frame now, not when a proxy buffer fills.
-        "x-accel-buffering": "no",
-      });
-
-      // Resume, if the client offered a cursor we can honour. `?since=` is
-      // for clients that read the stream by hand; Last-Event-ID is what a
-      // browser EventSource sends by itself.
-      // Once EventSource has received a numbered frame, its automatic
-      // reconnect carries a newer Last-Event-ID even though the original
-      // URL may still contain an older manual `since` cursor. Prefer the
-      // valid browser cursor or the stale query would replay forever.
-      const since =
-        cursorSeq(req.headers["last-event-id"]) ??
-        cursorSeq(url.searchParams.get("since") ?? undefined);
-      // The buffer only reaches so far back. If the client's cursor fell off
-      // the end, saying so is the only honest answer — a partial replay
-      // would leave a permanent hole in its state.
-      const resumed =
-        since !== null &&
-        since <= lastSeq &&
-        (replayBuffer.length === 0 ? since === lastSeq : replayBuffer[0].seq <= since + 1) &&
-        // A member whose cursor predates a bot's audience change gets a fresh
-        // snapshot: a replay is judged by today's audience and could neither
-        // withdraw what the change hid nor bring back whole what it showed.
-        !(viewer.kind === "member" && audienceChangedAt > 0 && since <= audienceChangedAt);
-      res.write(
-        `data: ${JSON.stringify({
-          kind: "hello",
-          cursor: `${STREAM_ID}:${lastSeq}`,
-          // false means "I could not give you what you missed — hydrate".
-          // A client that offered no cursor gets false too, which is exactly
-          // what a cold start should do.
-          resumed,
-        })}\n\n`,
-      );
-      if (resumed) {
-        for (const buffered of replayBuffer) {
-          if (buffered.seq <= since || !wants(client, buffered.kind)) continue;
-          const frame = client.admin
-            ? buffered.frame
-            : buffered.payload
-              ? memberFrame(client, buffered.seq, buffered.payload, buffered.clientFrame)
-              : buffered.clientFrame;
-          if (frame) res.write(frame);
-        }
-      }
-
-      sseClients.add(client);
-      // Keep this long-lived response out of socket idle-timeout handling
-      // without weakening timeouts for every other API request.
-      req.socket.setTimeout(0);
-      // A comment keeps intermediaries from idling the connection, while a
-      // data frame is visible to EventSource clients and resets their own
-      // liveness watchdog. Heartbeats carry no id and never advance replay.
-      const keepalive = setInterval(() => {
-        // an expired session's stream ends at the next heartbeat
-        if (client.sessionId && !sessions.isLive(client.sessionId)) {
-          res.end();
-          return;
-        }
-        try {
-          res.write(`: keepalive\n\ndata: ${JSON.stringify({ kind: "ping" })}\n\n`);
-        } catch {}
-      }, SSE_HEARTBEAT_MS);
-      req.on("close", () => {
-        clearInterval(keepalive);
-        sseClients.delete(client);
-      });
-      return;
     }
 
     // ── bots ──

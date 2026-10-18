@@ -146,10 +146,11 @@ started, and review.
   (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), thread-events (S3.22), saved command
   permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family), one bot's threads,
   `bot-task` (S3.25), creating a bot, `bot-create` (S3.26), answering a running thread,
-  `thread-respond` (S3.27), exporting a team, `teams-export` (S3.28), importing one, `teams-import` (S3.29), raw uploads, `uploads` (S3.30). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
+  `thread-respond` (S3.27), exporting a team, `teams-export` (S3.28), importing one, `teams-import` (S3.29), raw uploads, `uploads` (S3.30), the event stream, `events` (S3.31). Next biggest remaining: `/api/config` (~347, **blocked by shared mutable state**: the Local VM
   flags and `providerConfigBusy` — those need a holder object passed as a dep, and it is the last of the big ones on
   purpose), bot create (~161), thread respond (~134), teams export/import (~240 together), uploads (~117), the SSE
-  stream `/api/events` (~94). Route families are no longer taken smallest-first: the largest are the ones that move
+  stream moved at S3.31. The `/api/config` family is the last big route group and is **deliberately last**: the
+  Local VM flags and `providerConfigBusy` are mutable module state, so it needs a holder object passed as a dep. Route families are no longer taken smallest-first: the largest are the ones that move
   the number. After the routes: `startTurn` (1,371 lines) and `localVmInventoryPayload` (628). `.colonie-dev/carve.py`
   carves a block and lists the deps it needs; `.colonie-dev/route-smoke` style probes (a static-path sweep on a
   throwaway HOME) caught the S3.20 regression class and should be run after every extraction.

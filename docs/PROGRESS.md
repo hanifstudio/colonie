@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.31: the event stream out of `index.ts` (October 18).** `GET /api/events` (91 lines) becomes
+  `server/routes/events.ts`, and the `SseClient` interface moved with it: the module now owns the shape of a
+  connected stream and `index.ts` imports the type (the Set, the frame builders and the fan-out stay where they are,
+  because they serve every sender, not just this route). Two pieces of state are read **live** through getters
+  (`lastSeq`, `audienceChangedAt`) instead of being snapshotted at registration — a snapshot would freeze the
+  stream's idea of "how far the app has got" at boot, and the test would not have caught that. The `Set` and the
+  replay buffer are passed by reference, which is what makes this safe. Guard test (2): another route is left to the
+  next handler; opening a stream says hello exactly once with an honest `resumed:false` and joins the fan-out, and
+  closing the socket takes it out again. Live on a throwaway HOME: a stream opened and answered
+  `data: {"kind":"hello","cursor":"99d50774:0","resumed":false}` — and so did a stream that offered a stale cursor,
+  which is the correct answer when the buffer cannot honour it. `index.ts` 12,711 → **12,600 lines**; 250/250 pass,
+  typecheck 0, lint 0.
 - **S3.30: raw uploads out of `index.ts` (October 18).** The two adjacent families moved as one module,
   `server/routes/uploads.ts`: `POST /api/attachments` (a picture pasted into the composer) and `POST /api/files`
   (a document a companion app or the desktop sends as bytes), 101 lines together. They share one front door and one
