@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "note": "Structural import matrix. This is the machine-readable form of the boundaries in docs/COLONIE-BLUEPRINT.md section 7. Every deny rule here has zero or grandfathered violations today; the rules that earlier drafts proposed and this measurement rejected (features importing server/routes/table.ts and server/harness/http.ts) are recorded in docs/structure/README.md. A path entry matches the path itself or any path that starts with it; an empty entry matches everything.",
+  "deny": [
+    {
+      "id": "no-imports-of-index",
+      "from": [""],
+      "to": ["server/index.ts"],
+      "why": "index.ts is the composition root and the process entry point; anything importing it would make the boot order load-bearing again, which is what the restructure removed.",
+      "observed": 0
+    },
+    {
+      "id": "shared-is-portable",
+      "from": ["shared/"],
+      "to": ["server/", "src/", "electron/"],
+      "why": "shared/ is compiled into both the server and the renderer; reaching into either side makes it a two-sided module with a build dependency nobody declared.",
+      "observed": 0
+    },
+    {
+      "id": "no-server-to-ui",
+      "from": ["server/"],
+      "to": ["src/"],
+      "why": "the server does not run in the renderer; an import here would only ever work in the dev build where both trees exist on disk.",
+      "observed": 0
+    },
+    {
+      "id": "no-ui-to-server",
+      "from": ["src/"],
+      "to": ["server/"],
+      "why": "the renderer talks to the server over HTTP/SSE. Importing server internals would pull SQL, credentials and provider code into the browser bundle.",
+      "observed": 0
+    },
+    {
+      "id": "feature-not-to-composition",
+      "from": ["server/colonie/"],
+      "to": ["server/harness/", "server/routes/"],
+      "exceptTo": ["server/harness/http.ts", "server/routes/table.ts"],
+      "why": "harness/ is the composition and startup layer: a feature that imports it cannot be tested or read without booting the server. routes/ is the adapter layer that depends on features, never the reverse. Two modules are the sanctioned exception: routes/table.ts is the shared route contract the blueprint tells feature-owned adapters to reuse, and harness/http.ts is a shared request/response helper that carries no boot order.",
+      "observed": 2
+    }
+  ],
+  "baseline": [
+    {
+      "from": "server/colonie/memory/memory-upkeep-wiring.ts",
+      "to": "server/harness/registry.ts",
+      "reason": "The upkeep wiring reads the subscriber registry. The file is assembly that happens to live in the feature folder, so the import follows the file, not the feature.",
+      "since": "2026-10-18",
+      "target": "Move this wiring into server/harness/ (restructure S3 tail)",
+      "owner": "structure"
+    },
+    {
+      "from": "server/colonie/computer/desktop-viewer-targets.ts",
+      "to": "server/routes/desktop-viewer.ts",
+      "reason": "The computer feature resolves desktop-viewer targets through helpers exported by the route module.",
+      "since": "2026-10-18",
+      "target": "Move target resolution into the computer feature, or route it through routes/table.ts",
+      "owner": "structure"
+    }
+  ]
+}

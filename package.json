@@ -40,6 +40,8 @@
     "dev:desktop": "electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
+    "structure:check": "node scripts/structure/check-import-boundaries.mjs",
+    "structure:measure": "node scripts/structure/measure-history.mjs && node scripts/structure/measure-graph.mjs",
     "test": "vitest run",
     "test:electron": "node --test \"electron/*.node-test.mjs\"",
     "bench:observation": "node --experimental-strip-types scripts/bench-observation.ts",

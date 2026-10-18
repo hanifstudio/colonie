@@ -242,9 +242,22 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
 - Inherited breakage reported, not fixed: `electron/mac-updater.node-test.mjs` and
   `electron/vendor-updater.node-test.mjs` import `scripts/patch-mac-updater.mjs` and
   `scripts/patch-appimage-updater.mjs`, and neither script exists.
-- Next action (owner go-ahead given): E01.3 Phase 1–2 — the four zero-violation rules plus the corrected
-  pair as a machine-readable allow matrix, a checker in `scripts/testing/` exposed as
-  `pnpm structure:check`, and a merge-base-protected shrink-only baseline that cannot be raised quietly.
+- Phase 1 landed: `scripts/structure/import-boundaries.json` (five rules; the two sanctioned shared
+  modules `server/routes/table.ts` and `server/harness/http.ts` named as exceptions; two grandfathered
+  crossings with reason/target/since/owner), `scripts/structure/graph.mjs` as the single compiler-driven
+  resolver shared by the measurement and the guard, `pnpm structure:check` (exit 1 new crossing, 2 matrix
+  loosened, 3 stale grandfather), and `scripts/testing/import-boundaries.test.mjs` (16 tests, run by
+  `pnpm test` because `vite.config.ts` includes `scripts/**/*.test.mjs`). Falsification: a temporary
+  `server/harness/__falsify-boundary.ts` importing `src/lib/cn.ts` produced
+  `no-server-to-ui … exit 1`, and deleting the file restored exit 0.
+- Enforcement in CI is **blocked, not enabled**: `263666d9` ("clean slate") deleted `scripts/ci-scope.mjs`
+  and all of `scripts/testing/` while `.github/workflows/ci.yml` still runs them, so the static job cannot
+  pass and the vitest job behind it never starts. Until that is decided, `pnpm structure:check` and
+  `pnpm test` are the enforcement points; re-creating the scopes or dropping the steps is an owner choice.
+- Next actions: (a) the CI question above; (b) E01.3 Phase 2 — an independent tool
+  (`knip`/`ts-unused-exports`) for the dead-export figure, a differential graph run
+  (`dependency-cruiser`/`madge`) against `graph.mjs`, and a generated module index with a staleness check;
+  (c) a cleanup slice for the two grandfathered crossings, which also removes their baseline entries.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

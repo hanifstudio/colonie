@@ -8,11 +8,39 @@ rules that follow from them live in `scripts/testing/` once E01.3 lands.
 | File | Produced by | Contents |
 |---|---|---|
 | `history.json` | `node scripts/structure/measure-history.mjs` | Change locality and co-change pairs over the whole non-merge history. |
-| `graph.json` | `node scripts/structure/measure-graph.mjs` | Import graph from the TypeScript compiler: edges, cycles, direction-rule hits, exported-but-never-imported names, public surface sizes. |
+| `graph.json` | `node scripts/structure/measure-graph.mjs` | Import graph from the TypeScript compiler: edges, cycles, boundary-rule hits, exported-but-never-imported names, public surface sizes. |
+| `../scripts/structure/import-boundaries.json` | hand-written, ratcheted | The rules themselves. `pnpm structure:check` and `scripts/testing/import-boundaries.test.mjs` both read this file. |
 
-Both scripts are read-only and deterministic. They write the HEAD hash, not a
-timestamp, so an artifact reproduced at the same commit is byte-identical. Both ask
-`git` and the TypeScript compiler directly; neither is part of the test suite.
+The three `.mjs` tools are read-only and deterministic. `graph.mjs` is the single
+resolver: the measurement and the guard import it, so they can never disagree about
+what an edge is. The measurement scripts write the HEAD hash, not a timestamp, so an
+artifact reproduced at the same commit is byte-identical.
+
+## The check
+
+`pnpm structure:check` builds the compiler-derived graph, applies
+`scripts/structure/import-boundaries.json`, and exits non-zero when:
+
+1. an import crosses a boundary the matrix does not grandfather (exit 1 — the message
+   names the rule, the edge and the reason for the rule);
+2. the matrix was loosened relative to `--base <ref>` (exit 2): a new grandfather, a
+   path dropped from a deny rule, or a new exception. Loosening is still possible, but
+   only as a change to the base revision in its own commit, because a baseline anybody
+   can raise in the same change that violates it just freezes today's mess;
+3. a grandfathered entry became stale (exit 3): the violation was fixed, so the entry
+   must go, or the same edge can come back unremarked.
+
+`scripts/testing/import-boundaries.test.mjs` runs the same rules on every `pnpm test`
+(`vite.config.ts` includes `scripts/**/*.test.mjs`), so the check is not optional. It
+tests the shipped matrix rather than a copy, plus adversarial cases: `server/harness-extra/`
+must not inherit the `server/harness/` rule, `shared-utils/` must not inherit `shared/`,
+`server/index.ts.map` must not count as `server/index.ts`.
+
+Falsification evidence (the guard must be able to fail): a temporary file
+`server/harness/__falsify-boundary.ts` importing `src/lib/cn.ts` produced
+`no-server-to-ui: server/harness/__falsify-boundary.ts -> src/lib/cn.ts` and exit 1;
+deleting the file restored exit 0. The probe was removed in the same command.
+
 
 ## Why this exists
 
@@ -37,12 +65,14 @@ otherwise the rule encodes a taste instead of a fact.
   `server/index.ts ↔ src/state/store.tsx` (191), `server/index.ts ↔ server/store.ts`
   (145), `server/index.ts ↔ src/locales/en.json` (120).
 
-**Graph — 1,061 files, 3,710 edges (920 through the `@/*` alias), 2 unresolved.**
+**Graph — 1,061 files, 3,672 edges (920 through the `@/*` alias), 2 unresolved.**
 
 Four direction rules are already at zero violations, so they are cheap to enforce from
 day one: nothing imports `server/index.ts`; `shared/` reaches into neither `server/`,
 `src/` nor `electron/`; the server never imports renderer code; the renderer never
-imports server internals. Two more were tested and **are mis-specified**:
+imports server internals. Two more were tested and **are mis-specified** — the two were
+merged into the single `feature-not-to-composition` rule with the sanctioned modules
+named as exceptions:
 
 | Candidate rule | Hits | What the hits actually are |
 |---|---|---|
@@ -73,6 +103,11 @@ imports server internals. Two more were tested and **are mis-specified**:
 - Two electron test files import scripts that do not exist
   (`scripts/patch-mac-updater.mjs`, `scripts/patch-appimage-updater.mjs`). Inherited
   breakage, reported here, not fixed by this measurement.
+- The first artifact's edge count was wrong by 38: `shared/` files are pulled into two
+  programs, and the first version walked them once per program, double-counting their
+  outgoing edges. Deduplicating by path (now inside `graph.mjs`) corrected 3,710 → 3,672.
+  Having one resolver for both the measurement and the guard is what made that correction
+  reach both at once.
 
 ## Limits — read before quoting a number
 
@@ -92,3 +127,9 @@ imports server internals. Two more were tested and **are mis-specified**:
   of it.
 - These tools cannot see responsibility mixing inside one file, duplicated rules
   across features, or concept leakage. Those stay a periodic review artifact.
+- Enforcement in CI is **blocked, not enabled**: commit `263666d9` ("clean slate")
+  deleted `scripts/ci-scope.mjs` and the whole `scripts/testing/` tree, while
+  `.github/workflows/ci.yml` still runs them, so the static job cannot pass and the
+  vitest job it gates never starts. Until that is decided, `pnpm structure:check` and
+  `pnpm test` are the enforcement points. Re-creating those scopes or accepting that CI
+  no longer runs them is an owner decision, not a cleanup this measurement may make.

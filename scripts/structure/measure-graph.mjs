@@ -8,110 +8,24 @@
 // its cycles, exported-but-never-imported surface, and the direction rules written
 // down in docs/COLONIE-BLUEPRINT.md section 7.
 //
-// Three programs are built because the areas compile with different options (the
-// server imports `.ts` specifiers, the app is compiled by Vite, and `shared/` plus
-// `electron/` belong to neither): server/** under tsconfig.server.json, src/** and
-// vite.config.ts under tsconfig.json, and shared/** + electron/** under a readable
-// variant of tsconfig.json.
+// The graph comes from scripts/structure/graph.mjs - the same module the guard
+// (`pnpm structure:check`) uses - so this measurement and the boundary check can never
+// disagree about what an edge is.
 //
 // Run: node scripts/structure/measure-graph.mjs
 // Writes docs/structure/graph.json (HEAD hash, no timestamps, so it reproduces).
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join, normalize, relative } from "node:path";
+import { join } from "node:path";
 import ts from "typescript";
+import { buildGraph, label, relativePath, resolveSpec, sourceFiles } from "./graph.mjs";
+import { evaluate, loadMatrix } from "./import-boundaries.mjs";
 
 const ROOT = join(import.meta.dirname, "../..");
-const SKIP = /(^|\/)(node_modules|dist|dist-server|dist-electron|release|vendor)\//;
+const rel = (fileName) => relativePath(ROOT, fileName);
 
-function readConfig(configPath) {
-  const file = ts.readConfigFile(configPath, ts.sys.readFile);
-  if (file.error) throw new Error(ts.flattenDiagnosticMessageText(file.error.messageText, "\n"));
-  return ts.parseJsonConfigFileContent(file.config, ts.sys, dirname(configPath));
-}
-
-function programFrom(configPath, extraRoots = []) {
-  const parsed = readConfig(join(ROOT, configPath));
-  const rootNames = [...new Set([...parsed.fileNames, ...extraRoots.map((p) => join(ROOT, p))])];
-  return ts.createProgram({ rootNames, options: { ...parsed.options, allowJs: true, checkJs: false, noEmit: true } });
-}
-
-function collect(dir, extensions) {
-  const out = [];
-  for (const name of ts.sys.readDirectory(join(ROOT, dir), extensions)) {
-    if (!SKIP.test(name)) out.push(relative(ROOT, name).split("\\").join("/"));
-  }
-  return out;
-}
-
-const projects = [
-  { name: "server", program: programFrom("tsconfig.server.json") },
-  { name: "app", program: programFrom("tsconfig.json") },
-  { name: "portable", program: programFrom("tsconfig.json", [...collect("shared", [".ts"]), ...collect("electron", [".mjs", ".ts"])]) },
-];
-
-const rel = (fileName) => relative(ROOT, fileName).split("\\").join("/");
-
-function sourceFiles(program) {
-  return program.getSourceFiles().filter((f) => !f.isDeclarationFile && !f.fileName.includes("node_modules") && !SKIP.test(rel(f.fileName)));
-}
-
-// Resolve a specifier to a real file inside the repo. The compiler resolver is asked
-// first for every specifier, because it is the only thing that understands tsconfig
-// `paths` aliases (`@/*` -> `src/*`) and extension-less bundler resolution. Bailing out
-// on non-relative specifiers was a bug in the first version: it silently dropped
-// hundreds of alias imports and made thousands of live exports look dead.
-function resolveSpec(fromPath, spec, options) {
-  const resolved = ts.resolveModuleName(spec, join(ROOT, fromPath), options, ts.sys).resolvedModule;
-  if (resolved && !resolved.resolvedFileName.includes("node_modules")) {
-    const path = rel(resolved.resolvedFileName);
-    if (!path.startsWith("..")) return { kind: "file", path, via: spec.startsWith(".") ? "ts" : "ts-alias" };
-  }
-  if (!spec.startsWith(".")) return { kind: "external" };
-  const base = normalize(join(ROOT, dirname(fromPath), spec));
-  const candidates = [base, `${base}.ts`, `${base}.tsx`, `${base}.mjs`, `${base}.js`, join(base, "index.ts"), join(base, "index.tsx")];
-  if (spec.endsWith(".js")) candidates.unshift(base.replace(/\.js$/, ".ts"));
-  for (const candidate of candidates) if (ts.sys.fileExists(candidate)) return { kind: "file", path: rel(candidate), via: "probe" };
-  return { kind: "missing" };
-}
-
-const edges = [];
-const missing = [];
-const fallbacks = [];
-const viewed = new Set();
-
-for (const { program } of projects) {
-  const options = program.getCompilerOptions();
-  for (const file of sourceFiles(program)) {
-    const fromPath = rel(file.fileName);
-    if (viewed.has(fromPath + ":" + options.module)) continue;
-    viewed.add(fromPath + ":" + options.module);
-    const visit = (node, kind, spec) => {
-      const target = resolveSpec(fromPath, spec, options);
-      if (target.kind === "missing") missing.push({ from: fromPath, spec });
-      else if (target.kind === "file") {
-        if (target.via === "probe") fallbacks.push({ from: fromPath, spec, to: target.path });
-        edges.push({ from: fromPath, to: target.path, spec, kind, via: target.via });
-      }
-    };
-    const walk = (node) => {
-      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-        const spec = node.moduleSpecifier;
-        if (spec && ts.isStringLiteral(spec)) {
-          const typeOnly = ts.isImportDeclaration(node) ? node.importClause?.isTypeOnly === true : node.isTypeOnly;
-          visit(node, typeOnly ? "type" : ts.isExportDeclaration(node) ? "reexport" : "import", spec.text);
-        }
-      } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) {
-        visit(node, "dynamic", node.arguments[0].text);
-      } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "require" && node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0])) {
-        visit(node, "require", node.arguments[0].text);
-      }
-      ts.forEachChild(node, walk);
-    };
-    walk(file);
-  }
-}
+const { programs, sources, edges, missing, fallbacks } = buildGraph(ROOT);
 
 // Names used by other modules, resolved to the symbol's *declaring* file rather than
 // to the specifier's target. Keying by the raw import target was the second bug in
@@ -128,10 +42,10 @@ function originOf(checker, symbol) {
   return declaration ? { path: rel(declaration.getSourceFile().fileName), name: resolved.getName() } : undefined;
 }
 
-for (const { program } of projects) {
+for (const { program } of programs) {
   const checker = program.getTypeChecker();
   const options = program.getCompilerOptions();
-  for (const file of sourceFiles(program)) {
+  for (const file of sourceFiles(ROOT, program)) {
     const fromPath = rel(file.fileName);
     const markAll = (targetPath) => {
       const targetFile = program.getSourceFile(join(ROOT, targetPath));
@@ -146,7 +60,7 @@ for (const { program } of projects) {
       if (ts.isImportDeclaration(node) && node.importClause?.namedBindings) {
         const bindings = node.importClause.namedBindings;
         if (ts.isNamespaceImport(bindings)) {
-          const target = resolveSpec(fromPath, node.moduleSpecifier.text, options);
+          const target = resolveSpec(ROOT, fromPath, node.moduleSpecifier.text, options);
           if (target.kind === "file") markAll(target.path);
         } else {
           for (const element of bindings.elements) {
@@ -155,7 +69,7 @@ for (const { program } of projects) {
           }
         }
       } else if (ts.isExportDeclaration(node) && !node.exportClause && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-        const target = resolveSpec(fromPath, node.moduleSpecifier.text, options);
+        const target = resolveSpec(ROOT, fromPath, node.moduleSpecifier.text, options);
         if (target.kind === "file") markAll(target.path);
       }
       ts.forEachChild(node, walk);
@@ -165,9 +79,9 @@ for (const { program } of projects) {
 }
 
 const exportsByFile = new Map();
-for (const { program } of projects) {
+for (const { program } of programs) {
   const checker = program.getTypeChecker();
-  for (const file of sourceFiles(program)) {
+  for (const file of sourceFiles(ROOT, program)) {
     const symbol = checker.getSymbolAtLocation(file);
     if (!symbol) continue;
     const names = [];
@@ -187,21 +101,6 @@ for (const [path, names] of exportsByFile) {
   for (const name of names) if (!usedNames.has(path + "\u0000" + name)) deadExports.push({ path, name });
 }
 
-function label(path) {
-  const parts = path.split("/");
-  if (parts[0] === "server") {
-    if (parts.length === 2) return "server (root files)";
-    if (parts[1] === "colonie") return parts.length > 3 ? `server/colonie/${parts[2]}` : "server/colonie (root)";
-    return `server/${parts[1]}`;
-  }
-  if (parts[0] === "src") {
-    if (parts[1] === "features" && parts.length > 3) return `src/features/${parts[2]}`;
-    if (parts.length === 2) return "src (root files)";
-    return `src/${parts[1]}`;
-  }
-  return parts[0];
-}
-
 const labelEdges = new Map();
 for (const edge of edges) {
   if (edge.from === edge.to) continue;
@@ -209,19 +108,12 @@ for (const edge of edges) {
   labelEdges.set(key, (labelEdges.get(key) ?? 0) + 1);
 }
 
-const RULES = [
-  { id: "no-imports-of-index", why: "index.ts is the entry point; nothing may depend on it (blueprint section 7)", hit: (e) => e.to === "server/index.ts" },
-  { id: "shared-is-portable", why: "shared/ is imported by both sides and may not reach into server, UI or the shell", hit: (e) => label(e.from) === "shared" && ["server", "src", "electron"].includes(label(e.to).split("/")[0]) },
-  { id: "no-server-to-ui", why: "the server may not import renderer code", hit: (e) => label(e.from).startsWith("server") && label(e.to).startsWith("src") },
-  { id: "no-ui-to-server", why: "the UI may not reach into server internals (SQL, credentials, providers)", hit: (e) => label(e.from).startsWith("src") && label(e.to).startsWith("server") },
-  { id: "feature-not-to-harness", why: "a feature may not import the composition/startup layer", hit: (e) => label(e.from).startsWith("server/colonie/") && label(e.to) === "server/harness" },
-  { id: "feature-not-to-routes", why: "route adapters depend on features, never the reverse", hit: (e) => label(e.from).startsWith("server/colonie/") && label(e.to) === "server/routes" },
-];
-const violations = [];
-for (const edge of edges) {
-  const withLabels = { ...edge, fromLabel: label(edge.from), toLabel: label(edge.to) };
-  for (const rule of RULES) if (rule.hit(withLabels)) violations.push({ rule: rule.id, from: edge.from, to: edge.to, spec: edge.spec, kind: edge.kind });
-}
+// The rules come from the matrix the guard enforces, not from a copy kept here: a
+// measurement that reports a different rule set from the one that can fail a build is
+// how a boundary quietly stops meaning anything.
+const matrix = loadMatrix(ROOT);
+const result = evaluate(edges, matrix);
+const violations = result.violations;
 
 function stronglyConnected(nodes, adjacency) {
   const index = new Map();
@@ -312,16 +204,25 @@ for (const dead of deadExports) {
 
 const artifact = {
   head: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),
-  programs: projects.map((p, i) => ({ name: projects[i].name, files: sourceFiles(p.program).length })),
+  programs: programs.map((entry) => ({ name: entry.name, files: sourceFiles(ROOT, entry.program).length })),
   totals: {
     files: allFiles.size,
+    sourceFiles: sources.length,
     edges: edges.length,
     aliasEdges: edges.filter((e) => e.via === "ts-alias").length,
     unresolvedRelativeSpecs: missing.length,
     probeResolutions: fallbacks.length,
   },
-  rules: RULES.map((rule) => ({ id: rule.id, why: rule.why, violations: violations.filter((v) => v.rule === rule.id).length })),
+  ruleSource: "scripts/structure/import-boundaries.json",
+  rules: matrix.deny.map((rule) => ({
+    id: rule.id,
+    why: rule.why,
+    violations: result.violations.filter((v) => v.rule === rule.id).length,
+    grandfathered: result.known.filter((v) => v.rule === rule.id).length,
+  })),
   violations,
+  newViolations: result.unknown,
+  staleBaseline: result.stale,
   cycles: {
     fileLevel: { count: fileCycles.length, largest: fileCycles.slice(0, 15) },
     folderLevel: labelCycles.filter((c) => c.length > 2).map((c) => c),
@@ -340,9 +241,15 @@ writeFileSync(join(ROOT, "docs/structure/graph.json"), JSON.stringify(artifact, 
 
 const t = artifact.totals;
 console.log(`files ${t.files}  edges ${t.edges} (alias ${t.aliasEdges})  unresolved ${t.unresolvedRelativeSpecs}  probe-resolved ${t.probeResolutions}`);
-console.log("\ndirection rules:");
-for (const rule of artifact.rules) console.log(`  ${rule.violations === 0 ? "ok  " : "HIT "} ${String(rule.violations).padStart(3)}  ${rule.id} — ${rule.why}`);
-console.log("\nviolations:");
+console.log("\nboundary rules (from scripts/structure/import-boundaries.json):");
+for (const rule of artifact.rules) {
+  const state = rule.violations === 0 ? "ok  " : rule.grandfathered === rule.violations ? "BASE" : "FAIL";
+  console.log(`  ${state} ${String(rule.violations).padStart(3)} (${rule.grandfathered} grandfathered)  ${rule.id}`);
+}
+console.log(`\nnew violations (not in the baseline): ${artifact.newViolations.length}`);
+for (const v of artifact.newViolations.slice(0, 25)) console.log(`  ${v.rule}: ${v.from} -> ${v.to}  (${v.kind})`);
+console.log(`stale baseline entries: ${artifact.staleBaseline.length}`);
+console.log("\nall boundary hits:");
 for (const v of violations.slice(0, 25)) console.log(`  ${v.rule}: ${v.from} -> ${v.to}  (${v.kind})`);
 if (violations.length > 25) console.log(`  ... ${violations.length - 25} more`);
 console.log(`\nfile-level cycles (SCCs > 1): ${artifact.cycles.fileLevel.count}; largest:`);

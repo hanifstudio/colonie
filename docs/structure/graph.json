@@ -1,5 +1,5 @@
 {
-  "head": "69707a05a8618f36ca80adaa68c0f06bd10133b0",
+  "head": "f3c184fee27685621b58928cc813535f64dc3bba",
   "programs": [
     {
       "name": "server",
@@ -16,108 +16,63 @@
   ],
   "totals": {
     "files": 1061,
-    "edges": 3710,
+    "sourceFiles": 1061,
+    "edges": 3672,
     "aliasEdges": 920,
     "unresolvedRelativeSpecs": 2,
     "probeResolutions": 8
   },
+  "ruleSource": "scripts/structure/import-boundaries.json",
   "rules": [
     {
       "id": "no-imports-of-index",
-      "why": "index.ts is the entry point; nothing may depend on it (blueprint section 7)",
-      "violations": 0
+      "why": "index.ts is the composition root and the process entry point; anything importing it would make the boot order load-bearing again, which is what the restructure removed.",
+      "violations": 0,
+      "grandfathered": 0
     },
     {
       "id": "shared-is-portable",
-      "why": "shared/ is imported by both sides and may not reach into server, UI or the shell",
-      "violations": 0
+      "why": "shared/ is compiled into both the server and the renderer; reaching into either side makes it a two-sided module with a build dependency nobody declared.",
+      "violations": 0,
+      "grandfathered": 0
     },
     {
       "id": "no-server-to-ui",
-      "why": "the server may not import renderer code",
-      "violations": 0
+      "why": "the server does not run in the renderer; an import here would only ever work in the dev build where both trees exist on disk.",
+      "violations": 0,
+      "grandfathered": 0
     },
     {
       "id": "no-ui-to-server",
-      "why": "the UI may not reach into server internals (SQL, credentials, providers)",
-      "violations": 0
+      "why": "the renderer talks to the server over HTTP/SSE. Importing server internals would pull SQL, credentials and provider code into the browser bundle.",
+      "violations": 0,
+      "grandfathered": 0
     },
     {
-      "id": "feature-not-to-harness",
-      "why": "a feature may not import the composition/startup layer",
-      "violations": 3
-    },
-    {
-      "id": "feature-not-to-routes",
-      "why": "route adapters depend on features, never the reverse",
-      "violations": 6
+      "id": "feature-not-to-composition",
+      "why": "harness/ is the composition and startup layer: a feature that imports it cannot be tested or read without booting the server. routes/ is the adapter layer that depends on features, never the reverse. Two modules are the sanctioned exception: routes/table.ts is the shared route contract the blueprint tells feature-owned adapters to reuse, and harness/http.ts is a shared request/response helper that carries no boot order.",
+      "violations": 2,
+      "grandfathered": 2
     }
   ],
   "violations": [
     {
-      "rule": "feature-not-to-routes",
+      "rule": "feature-not-to-composition",
       "from": "server/colonie/computer/desktop-viewer-targets.ts",
       "to": "server/routes/desktop-viewer.ts",
       "spec": "../../routes/desktop-viewer.ts",
       "kind": "import"
     },
     {
-      "rule": "feature-not-to-harness",
+      "rule": "feature-not-to-composition",
       "from": "server/colonie/memory/memory-upkeep-wiring.ts",
       "to": "server/harness/registry.ts",
       "spec": "../../harness/registry.ts",
       "kind": "type"
-    },
-    {
-      "rule": "feature-not-to-routes",
-      "from": "server/colonie/chief/routes.ts",
-      "to": "server/routes/table.ts",
-      "spec": "../../routes/table.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-routes",
-      "from": "server/colonie/connections/credential-routes.ts",
-      "to": "server/routes/table.ts",
-      "spec": "../../routes/table.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-routes",
-      "from": "server/colonie/connections/routes.ts",
-      "to": "server/routes/table.ts",
-      "spec": "../../routes/table.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-routes",
-      "from": "server/colonie/memory/ledger/routes.ts",
-      "to": "server/routes/table.ts",
-      "spec": "../../../routes/table.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-routes",
-      "from": "server/colonie/skills/routes.ts",
-      "to": "server/routes/table.ts",
-      "spec": "../../routes/table.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-harness",
-      "from": "server/colonie/skills/skill-resolution.ts",
-      "to": "server/harness/http.ts",
-      "spec": "../../harness/http.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-harness",
-      "from": "server/colonie/chat/card-resolvers.ts",
-      "to": "server/harness/http.ts",
-      "spec": "../../harness/http.ts",
-      "kind": "import"
     }
   ],
+  "newViolations": [],
+  "staleBaseline": [],
   "cycles": {
     "fileLevel": {
       "count": 10,

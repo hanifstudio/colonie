@@ -3,6 +3,49 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — structure guard lands (E01.3 Phase 1)
+
+Single session, Node 24.13.1. Follows the measurement entry below; scope and acceptance
+are in HANDOVER "E01.3 Phase 0". No behaviour change: rules and checks only.
+
+- `scripts/structure/import-boundaries.json` is the rule set. Four rules have zero
+  violations today; the fifth, `feature-not-to-composition`, merges the two candidates
+  the measurement showed were mis-specified, with the two modules the blueprint
+  sanctions (`server/routes/table.ts`, `server/harness/http.ts`) named as exceptions.
+  Two real crossings are grandfathered with reason/since/target/owner.
+- `scripts/structure/graph.mjs` is now the single resolver (three compiler programs,
+  tsconfig `paths`, extension-less resolution, `import()`/`require()`), imported by both
+  `measure-graph.mjs` and the guard, so the measurement and the check cannot disagree.
+  Deduplicating `shared/` files that belong to two programs corrected the edge count
+  3,710 → 3,672 — a third bug the measurement found in itself.
+- `pnpm structure:check` (`scripts/structure/check-import-boundaries.mjs`): exit 1 on a
+  new crossing, 2 when the matrix was loosened relative to `--base`, 3 when a
+  grandfathered entry became stale. Unresolved relative imports print as a warning and
+  do not change the exit code (they are broken files, not boundaries).
+- Falsification, since a guard that cannot fail proves nothing: a temporary
+  `server/harness/__falsify-boundary.ts` importing `src/lib/cn.ts` made the check report
+  `no-server-to-ui: server/harness/__falsify-boundary.ts -> src/lib/cn.ts` and exit 1;
+  deleting it in the same command restored exit 0, and `git status --short server/` was
+  empty afterwards.
+- `scripts/testing/import-boundaries.test.mjs`: 16 tests, run by `pnpm test` because
+  `vite.config.ts` includes `scripts/**/*.test.mjs`. Cases include the adversarial
+  prefixes (`server/harness-extra/` must not inherit `server/harness/`, `shared-utils/`
+  must not inherit `shared/`, `server/index.ts.map` is not `server/index.ts`), the
+  ratchet (new grandfather, dropped path, dropped rule, new exception), and one
+  conformance test that rebuilds the graph from the compiler so it cannot pass by
+  reading a stale artifact.
+- `package.json`: `structure:check` and `structure:measure` added.
+- Blockers found and reported, not repaired: `263666d9` ("clean slate") deleted
+  `scripts/ci-scope.mjs` and the whole `scripts/testing/` tree while
+  `.github/workflows/ci.yml` still runs them, so the static job cannot pass and the
+  vitest job it gates never starts — CI enforcement is blocked until the owner decides
+  whether to re-create those scopes or drop the steps. Also inherited:
+  `electron/mac-updater.node-test.mjs` and `electron/vendor-updater.node-test.mjs` import
+  `../scripts/patch-mac-updater.mjs` and `../scripts/patch-appimage-updater.mjs`, neither
+  of which exists.
+- Checks: `pnpm lint` clean; `pnpm typecheck` 0 errors; `npx vitest run server scripts`
+  103 files / 503 tests pass. No live probe: no runtime path changed.
+
 ## 2026-10-18 — structure baseline measured (E01.3 Phase 0)
 
 Single session, Node 24.13.1 (`$HOME/.nvm/versions/node/v24.13.1/bin`), one heavy job at
