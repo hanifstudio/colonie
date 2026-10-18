@@ -10,7 +10,7 @@
 // same channel every other bridge input uses; whenever filtering cannot
 // run — no env var, malformed env, oversized payload — the bridge relays
 // the list untouched and the grants stay enforced at call time.
-import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../shared/wire.ts";
+import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../../../shared/wire.ts";
 import { serviceSlugFor, serviceSlugForCandidates } from "./connector-verdict.ts";
 
 /** The env var mcpIntegration sets and connector-proxy.ts reads. */

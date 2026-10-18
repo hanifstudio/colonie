@@ -44,7 +44,13 @@ const yamlEsmPlugin = {
   },
 };
 
-// Every file run as its own process. Keep in sync with the spawn sites above.
+// Every file run as its own process. Keep in sync with the spawn sites above:
+// the harness locates each spawned file through proxy-paths.ts `resolveProxy`,
+// which builds the path from SERVER_ROOT, so a spawned entry keeps its path
+// relative to server/ however its neighbours are filed. `container-mcp.ts`,
+// `connector-proxy.ts`, `mcp-gate.ts`, `mcp-remote-proxy.ts` and
+// `harness-mcp-proxy.ts` stay at the server root for that reason, while the MCP
+// libraries they import live in colonie/mcp/.
 const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",

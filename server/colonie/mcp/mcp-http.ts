@@ -8,7 +8,7 @@ import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
 
-import type { RemoteMcpSpec } from "./contracts.ts";
+import type { RemoteMcpSpec } from "../../contracts.ts";
 
 export type McpHttpFailure = "network" | "status" | "protocol";
 

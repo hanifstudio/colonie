@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { McpServerSpec, RemoteMcpSpec, StdioMcpSpec } from "./contracts.ts";
+import type { McpServerSpec, RemoteMcpSpec, StdioMcpSpec } from "../../contracts.ts";
 
 /** One server as kept in config.json `mcpServers`. The shape is the block
  * Claude Code, Cursor and Claude Desktop write, so a pasted entry is a

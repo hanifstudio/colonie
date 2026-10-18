@@ -1,11 +1,11 @@
 // A project API key (ak_…) creates/reuses one Composio Session. That
 // Session owns connection state, auth links and the MCP endpoint.
-import { saveConfig, type AppConfig } from "./config.ts";
+import { saveConfig, type AppConfig } from "../../config.ts";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { SPAWNED_PROXIES } from "./proxy-paths.ts";
-import { managedConnectorUnavailableReason } from "../shared/connector-availability.ts";
-import { CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../shared/wire.ts";
+import { SPAWNED_PROXIES } from "../../proxy-paths.ts";
+import { managedConnectorUnavailableReason } from "../../../shared/connector-availability.ts";
+import { CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../../../shared/wire.ts";
 import {
   CONNECTOR_ALLOWED_TOOLS_ENV,
   CONNECTOR_ALLOWED_TOOLS_MAX_BYTES,
@@ -15,7 +15,7 @@ import {
   serializeConnectorServiceSlugs,
 } from "./connector-advertisement.ts";
 import { serviceSlugFor, serviceSlugForCandidates } from "./connector-verdict.ts";
-import { composioKeyRejection } from "./colonie/connections/key-permissions.ts";
+import { composioKeyRejection } from "../connections/key-permissions.ts";
 
 const DEFAULT_BACKEND_ORIGIN = "https://backend.composio.dev";
 

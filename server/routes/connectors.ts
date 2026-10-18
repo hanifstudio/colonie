@@ -11,7 +11,7 @@ import { PASS, type RouteHandler } from "./table.ts";
 
 export interface ConnectorRouteDeps {
   cfg: ReturnType<typeof loadConfig>;
-  composio: typeof import("../composio.ts");
+  composio: typeof import("../colonie/mcp/composio.ts");
 }
 
 export function createConnectorRoutes(deps: ConnectorRouteDeps): RouteHandler {

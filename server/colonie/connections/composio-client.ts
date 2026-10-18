@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { RemoteMcpClient } from "../../mcp-http.ts";
+import { RemoteMcpClient } from "../mcp/mcp-http.ts";
 
 const sessionSchema = z.object({ session_id: z.string().min(1), mcp: z.object({ url: z.string().url(), type: z.enum(["http", "sse"]) }) });
 export type ComposioSession = z.infer<typeof sessionSchema>;

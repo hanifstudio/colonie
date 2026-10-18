@@ -1,6 +1,6 @@
 // Near-side gate for the host CUA process. The descriptor and turn token
 // travel in environment variables, never command-line arguments or logs.
-import { runMcpBridge } from "./mcp-bridge.ts";
+import { runMcpBridge } from "./colonie/mcp/mcp-bridge.ts";
 import { augmentedPath } from "./runtime/env-path.ts";
 
 const {

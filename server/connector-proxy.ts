@@ -17,7 +17,7 @@ import {
   filterToolsListFrame,
   parseConnectorAllowedToolsEnv,
   parseConnectorServiceSlugsEnv,
-} from "./connector-advertisement.ts";
+} from "./colonie/mcp/connector-advertisement.ts";
 
 type Json = Record<string, unknown>;
 

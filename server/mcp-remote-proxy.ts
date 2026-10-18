@@ -27,7 +27,7 @@ import {
   searchesCatalog,
   type CatalogTool,
   type DirectoryContext,
-} from "./mcp-directory.ts";
+} from "./colonie/mcp/mcp-directory.ts";
 import {
   MAX_REMOTE_MCP_BYTES,
   McpHttpError,
@@ -36,8 +36,8 @@ import {
   RemoteMcpClient,
   plainHttpProxyFetch,
   remoteMcpSpec,
-} from "./mcp-http.ts";
-import { lenientToolValidator, schemaProblems } from "./mcp-schema-validator.ts";
+} from "./colonie/mcp/mcp-http.ts";
+import { lenientToolValidator, schemaProblems } from "./colonie/mcp/mcp-schema-validator.ts";
 
 type Json = Record<string, unknown>;
 function isRecord(value: unknown): value is Json {

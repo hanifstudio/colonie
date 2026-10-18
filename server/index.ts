@@ -123,9 +123,9 @@ import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSend
 import { isPersistentQuestionCard, QUESTION_DISMISS_MESSAGE, shouldSettleRequestCard } from "../shared/ask-question.ts";
 import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import { liveCardKind, liveDecisionRefusal } from "../shared/live-approval.ts";
-import * as composio from "./composio.ts";
-import { connectorCallFromFrame, connectorRefusalText, connectorUnrecognizedText, evaluateConnectorTools } from "./connector-verdict.ts";
-import { connectorCardText } from "./connector-card-text.ts";
+import * as composio from "./colonie/mcp/composio.ts";
+import { connectorCallFromFrame, connectorRefusalText, connectorUnrecognizedText, evaluateConnectorTools } from "./colonie/mcp/connector-verdict.ts";
+import { connectorCardText } from "./colonie/mcp/connector-card-text.ts";
 import { chiefOfStaffSystemPrompt } from "./colonie/teams/chief-of-staff.ts";
 import { buildRecall } from "./colonie/memory/recall.ts";
 import { createMemoryUpkeep, upkeepEnabled } from "./colonie/memory/memory-upkeep.ts";
@@ -231,8 +231,8 @@ import {
   isRemoteMcpServer,
   mcpServerNameError,
   parseStoredMcpServer,
-} from "./mcp-registry.ts";
-import { MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn } from "./mcp-oauth.ts";
+} from "./colonie/mcp/mcp-registry.ts";
+import { MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
 import { mirrorExchange, type CommsBus } from "./colonie/peers/comms-visibility.ts";
 import { readMessageText, recallMessages, recentMessages, searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing } from "./persistence/message-db.ts";
@@ -550,7 +550,7 @@ import { createBotDefaultRoutes } from "./routes/bot-defaults.ts";
 import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { createTeamBriefRoutes } from "./routes/team-brief.ts";
 import { createBotProfileRoutes } from "./routes/bot-profile.ts";
-import { withScopeHint } from "./connector-scope-hint.ts";
+import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);

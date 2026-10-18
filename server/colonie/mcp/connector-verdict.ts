@@ -20,7 +20,7 @@
 // tools cannot be read is a call whose tools cannot be checked, and the
 // grants promise — "this bot may call exactly these tools" — must hold
 // even against a model that garbles the protocol.
-import { CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../shared/wire.ts";
+import { CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../../../shared/wire.ts";
 
 /** The executor meta-tool: the only meta-tool whose arguments name target
  * tools. Discovery and connection meta-tools keep their existing flows. */

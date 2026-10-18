@@ -15,7 +15,7 @@ import {
   parseMcpServerMutation,
   parseMcpServersImport,
   parseStoredMcpServer,
-} from "../mcp-registry.ts";
+} from "../colonie/mcp/mcp-registry.ts";
 import {
   McpOAuthError,
   McpSignInError,
@@ -23,8 +23,8 @@ import {
   mcpOAuthRedirectUri,
   withMcpSignIn,
   type McpOAuthManager,
-} from "../mcp-oauth.ts";
-import { probeMcpServer } from "../mcp-probe.ts";
+} from "../colonie/mcp/mcp-oauth.ts";
+import { probeMcpServer } from "../colonie/mcp/mcp-probe.ts";
 import type { SessionRegistry } from "../sessions.ts";
 import type { AppConfig } from "../config.ts";
 import { PASS, type RouteHandler } from "./table.ts";

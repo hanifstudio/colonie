@@ -20,7 +20,7 @@
 // A failure anywhere rolls back every record this import created.
 import { createHash, randomUUID } from "node:crypto";
 
-import { mcpServerNameError, MAX_MCP_SERVERS, parseStoredMcpServer } from "../../mcp-registry.ts";
+import { mcpServerNameError, MAX_MCP_SERVERS, parseStoredMcpServer } from "../mcp/mcp-registry.ts";
 import {
   AGENT_PARTS, agentReleaseValues, connectionLocalValue, connectionReleaseValue, pair, pairs, playbookValues,
   ROUTINE_PARTS, routineReleaseValues, scheduleValue, sha256Hex, TEAM_PARTS,

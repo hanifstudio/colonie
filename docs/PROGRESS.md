@@ -527,6 +527,28 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   bare "Your key was revoked") as a product observation for the owner, not a change. 140/140 pass,
   typecheck 0, lint 0. Live on a throwaway HOME: `/api/usage` and `/api/plan-usage` answer through the moved
   modules. `/api/keys/test` was deliberately not probed — it would send a key to a real provider.
+- **S12: MCP, connectors and Composio into `server/colonie/mcp/` (October 18).** Eighteen library files moved —
+  `composio.ts` (1,552 lines), `mcp-oauth.ts`, `mcp-registry.ts`, `mcp-directory.ts` (708), `mcp-http.ts`,
+  `mcp-bridge.ts`, `mcp-remote-proxy.ts`, `mcp-probe.ts`, `mcp-gate.ts`, `mcp-gate-config.ts`,
+  `mcp-schema-validator.ts`, `mcp-tool-schema.ts`, `mcp-tool-images.ts`, `mcp-trim.ts`,
+  `mcp-oauth-discovery.ts`, `mcp-oauth-store.ts`, `connector-advertisement.ts`, `connector-card-text.ts`,
+  `connector-scope-hint.ts`, `connector-verdict.ts` — 25 files repointed. Five files deliberately stayed at the
+  server root, all spawned as their own process: `container-mcp.ts`, `connector-proxy.ts`, `mcp-gate.ts`,
+  `mcp-remote-proxy.ts`, `harness-mcp-proxy.ts`. `proxy-paths.ts` locates every spawned file through
+  `SERVER_ROOT` (`resolveProxy`), so a spawned entry keeps its path relative to `server/` however its
+  neighbours are filed — the same rule as `proxy-paths.ts` and the two workers, now written into
+  `bundle-server.mjs` beside the entry list. Guard: `server/colonie/mcp/mcp-schema-validator.test.ts` — both
+  supported dialects compile and an unsupported one is refused by name, a schema is a contract so nothing is
+  coerced/defaulted/dropped, an unknown keyword is refused strictly and ignored leniently, the custom
+  `uint32`/`uint64` bounds hold, a complaint reads as a line a model can act on (with the real Ajv wording),
+  the forgiving copy drops `pattern`/`patternProperties`/`format` and opens a closed object only where a
+  pattern map or a composition branch did, a closed object stays closed, the forgiving check passes where the
+  server would refuse, and a schema too big or uncompilable is left to the server. Three failures while
+  writing it were mine: an error list I fabricated by hand did not match `ErrorObject`, and I had guessed
+  Ajv's first-error choice and wording. 149/149 pass, typecheck 0, lint 0, `build:server` green. Live on a
+  throwaway HOME: `/api/mcp/servers` lists and accepts a new stdio server, `/api/connectors` answers without
+  reaching Composio (`COMPOSIO_API_KEY` unset), and both answer the same from `dist-server/index.js`; all ten
+  `SPAWNED_PROXIES` files are emitted where `resolveProxy` looks for them.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

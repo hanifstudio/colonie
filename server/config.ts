@@ -16,7 +16,7 @@ import { EFFORT_LEVELS, type EffortLevel, type LiveSettings } from "../shared/wi
 import { isModelVariant, type InstanceConfigMap, type ModelSelection } from "./contracts.ts";
 import { PROVIDER_ICON_PRESETS, providerIconError } from "../shared/provider-icon.ts";
 import type { McpServerSpec } from "./contracts.ts";
-import { isRemoteMcpServer, parseStoredMcpServer } from "./mcp-registry.ts";
+import { isRemoteMcpServer, parseStoredMcpServer } from "./colonie/mcp/mcp-registry.ts";
 import { parseJson, schemaIssue, type JsonObject, type JsonValue } from "./schema.ts";
 
 const optionalText = z.string().optional();

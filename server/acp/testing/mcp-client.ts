@@ -2,7 +2,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { McpServer } from "@agentclientprotocol/sdk";
-import { RemoteMcpClient } from "../../mcp-http.ts";
+import { RemoteMcpClient } from "../../colonie/mcp/mcp-http.ts";
 
 export interface FixtureMcpClient { request(method: string, params: unknown, signal: AbortSignal): Promise<any>; close(): Promise<void> }
 export async function fixtureMcpClient(server: McpServer): Promise<FixtureMcpClient> {

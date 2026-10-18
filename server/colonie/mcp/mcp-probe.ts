@@ -1,13 +1,13 @@
-import { augmentedPath } from "./runtime/env-path.ts";
+import { augmentedPath } from "../../runtime/env-path.ts";
 import {
   PROVIDER_CREDENTIAL_ENV,
   stripWorkspaceCredentialEnv,
-} from "./config.ts";
+} from "../../config.ts";
 import { createLineSplitter } from "./mcp-bridge.ts";
 import { MAX_REMOTE_MCP_BYTES, McpHttpError, REMOTE_MCP_STARTUP_MS, RemoteMcpClient } from "./mcp-http.ts";
 import { discoverMcpAuth } from "./mcp-oauth-discovery.ts";
 import { isRemoteMcpServer, type StoredMcpServer, type StoredRemoteMcpServer, type StoredStdioMcpServer } from "./mcp-registry.ts";
-import { killCliTree, spawnCli } from "./runtime/procs.ts";
+import { killCliTree, spawnCli } from "../../runtime/procs.ts";
 
 export interface McpProbeTool {
   name: string;

@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 
 const tokensSchema = z.object({
   access: z.string().min(1),

@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
-import { mcpOAuthRedirectUri } from "../mcp-oauth.ts";
+import { mcpOAuthRedirectUri } from "../colonie/mcp/mcp-oauth.ts";
 
 /** Bind a port, then let it go. False when something already has it. */
 const isFree = (port: number): Promise<boolean> =>
