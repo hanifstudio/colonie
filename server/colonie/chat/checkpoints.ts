@@ -30,7 +30,7 @@ import { readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, parse, resolve } from "node:path";
 
-import { DATA_DIR } from "./config.ts";
+import { DATA_DIR } from "../../config.ts";
 
 export const CHECKPOINTS_DIR = join(DATA_DIR, "checkpoints");
 

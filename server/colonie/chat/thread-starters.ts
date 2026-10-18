@@ -9,7 +9,7 @@
 // and then anyone who may chat may answer, as before.
 import { readFileSync } from "node:fs";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 
 const KEY = /^p_[\w-]{22}$/;
 const THREAD = /^[\w-]{1,128}$/;

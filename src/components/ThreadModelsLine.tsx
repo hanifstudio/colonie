@@ -2,7 +2,7 @@
 // model of their own, and one button that moves them onto the bot's. A
 // one-time action, not a setting; nothing shows while every thread follows
 // the bot.
-import { threadsOnOwnModel } from "../../shared/thread-model";
+import { threadsOnOwnModel } from "../../shared/thread-model.ts";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { useStore, type Bot } from "@/state/store";

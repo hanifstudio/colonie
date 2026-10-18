@@ -28,7 +28,7 @@ import { useAdvancedMode } from "@/lib/interface-mode";
 import { friendlyEffort, simpleEffortLevels } from "@/lib/model-friendly";
 import { t } from "@/lib/i18n";
 import { COMPACT_SQUARE } from "@/lib/compact-chip";
-import { threadsOnOwnModel } from "../../shared/thread-model";
+import { threadsOnOwnModel } from "../../shared/thread-model.ts";
 import { ThreadModelsLine } from "./ThreadModelsLine";
 
 type ModelOption = InstanceInfo["models"]["options"][number];

@@ -9,9 +9,9 @@
 // free-form at the API boundary, and several engines run IDs their catalog
 // does not list (a 1M-context variant, a custom or local model) or learn
 // their catalog only once a turn starts. The turn tries the model as picked.
-import type { ModelSelection } from "./contracts.ts";
-import { readyToRun, signedOut, type SelectableInstance } from "./colonie/providers/default-model-selection.ts";
-import { sameModelSelection } from "../shared/thread-model.ts";
+import type { ModelSelection } from "../../contracts.ts";
+import { readyToRun, signedOut, type SelectableInstance } from "../providers/default-model-selection.ts";
+import { sameModelSelection } from "../../../shared/thread-model.ts";
 
 /** An engine as a turn's start sees it, without waiting on its CLI: whether
  * it is enabled, its catalog, and what its last read said. */

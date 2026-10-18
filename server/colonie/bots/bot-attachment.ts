@@ -11,8 +11,8 @@ import {
   IMAGE_MAX_BYTES,
   saveFile,
   saveImage,
-} from "../../attachments.ts";
-import { mimeFor, openMessageFile } from "../../message-file.ts";
+} from "../chat/attachments.ts";
+import { mimeFor, openMessageFile } from "../chat/message-file.ts";
 import type { Message } from "../../persistence/store.ts";
 
 export type BotAttachment = NonNullable<Message["attachments"]>[number];

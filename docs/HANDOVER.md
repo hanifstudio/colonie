@@ -99,32 +99,48 @@ started, and review.
   `git checkout main -- scripts/mcp-server.ts`. Still broken and known: `i18n:check`, `clean`,
   `check:contrast`, the packagers.
 - Done: `server/runtime/` (S1), `server/persistence/` (S2), `server/colonie/routines/` (S4),
-  `server/colonie/workspace/` (S5), and route groups out of `index.ts` (S3) — voice, connectors,
-  admin reads, bot activity/outbound, server info, team library and scout, skills library, team
-  sections, new-bot defaults, custom MCP servers, the team brief with team memory, and a bot's SOUL,
-  history and overview. `index.ts` 18,207 → 17,261 lines. Two files stay at the `server/` root, both
-  for path lookups that fail silently otherwise: `proxy-paths.ts` (the anchor every spawned proxy
-  resolves through; moving it broke every proxy path, S1 `0a0af8b4`) and the two spawned workers
-  `message-search.worker.ts` / `workspace-backup.worker.ts`. A worker launched as
-  `new URL("./x.worker.ts", import.meta.url)` from a module that is not itself a bundle entry point
-  is inlined into `dist-server/index.js`, so its `import.meta.url` is the bundle root and the worker
-  must be emitted beside `index.js`. S2 moved `message-search.worker.ts` into `persistence/` without
-  the bundler list, which broke `build:server` until S5 moved it back (`28f453bd`).
-- Each unit ships its own test, per `server/routes/README.md`: 18 files, 87 tests, all
-  green beside `pnpm typecheck` and `pnpm lint`. The old ratchet test is gone with the
-  clean slate, so route counts live in PROGRESS and the owner board
-  (`.colonie-dev/work-state.json`) instead of a test.
+  `server/colonie/workspace/` (S5), `server/colonie/peers/` (S6), `server/colonie/memory/` with the
+  ledger nested under `colonie/memory/ledger/` (S7), `server/colonie/skills/` (S8),
+  `server/colonie/bots/` (S9), `server/colonie/teams/` (S10), `server/colonie/providers/` (S11),
+  `server/colonie/mcp/` (S12), `server/colonie/computer/` (S13), `server/colonie/chat/` (S14), and
+  route groups out of `index.ts` (S3, still partial) — voice, connectors, admin reads, bot
+  activity/outbound, server info, team library and scout, skills library, team sections, new-bot
+  defaults, custom MCP servers, the team brief with team memory, and a bot's SOUL, history and
+  overview. `index.ts` 18,207 → 17,261 lines; roughly 67 inline non-internal route guards are still
+  in it.
+- Files that stay at the `server/` root, because a path lookup fails silently otherwise:
+  `proxy-paths.ts` (the anchor every spawned file resolves through; moving it broke every proxy path,
+  S1 `0a0af8b4`), the spawned workers `message-search.worker.ts` / `workspace-backup.worker.ts`, and
+  the spawned proxies (`container-mcp.ts`, `connector-proxy.ts`, `mcp-gate.ts`, `mcp-remote-proxy.ts`,
+  `harness-mcp-proxy.ts`, `local-computer.ts`, `local-computer-proxy.ts`, `permission-proxy.ts`).
+  The rule: a spawned file's path is built from `SERVER_ROOT` by `resolveProxy`, so it keeps its path
+  relative to `server/` however its neighbours are filed — and a spec written relative to the *starting*
+  module cannot satisfy both layouts, because that module is inlined into `index.js` in a package yet
+  sits in its own folder in dev. That is what broke dev message search between S5 and S14
+  (`eb1dab83`); the bundler header and `bundle-server.mjs`'s entry list both state the rule, and
+  `proxy-paths.test.ts` asserts every `SPAWNED_PROXIES` entry exists.
+- Each unit ships its own test, per `server/routes/README.md`: 29 files, 162 tests, all green beside
+  `pnpm typecheck`, `pnpm lint` and `pnpm build:server`. The old ratchet test is gone with the clean
+  slate, so route counts live in PROGRESS and the owner board (`.colonie-dev/work-state.json`).
 - Verification recipe, learned the hard way: `env -u COMPOSIO_API_KEY HOME=$(mktemp -d)
   COLONIE_PROFILE=1 node server/index.ts`. `COLONIE_DATA_DIR` alone is not isolation —
   `config.json` is read from `homedir()`, and the shell exports `COMPOSIO_API_KEY`,
   which every child inherits. Probe local routes only; never one that reaches a provider.
-- Next in this task: the remaining `index.ts` groups, smallest first — custom MCP servers
-  **done** (`server/routes/mcp-servers.ts`, S3.10) — then bot create/patch
+- Next in this task: **S3's remaining `index.ts` groups, smallest first** — bot create/patch
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
-  presence), tasks, Local VM, threads and messages, and last `GET/PATCH /api/config`
-  (~340 lines, dense: it reloads the provider fleet and applies pending restores, so it needs
-  a real check, not just typecheck). The dead native transport (`/api/internal/*` peer block and
-  friends, ~3,400 lines) stays untouched: it is owner-gated, not a default cleanup.
+  presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
+  (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last
+  `GET/PATCH /api/config` (~340 lines, dense: it reloads the provider fleet and applies pending
+  restores, so it needs a real check, not just typecheck). The feature-folder moves (S4–S14) are done,
+  so each group can pull its own helper modules along instead of leaving them for a later slice. The dead
+  native transport (`/api/internal/*` peer block and friends, ~3,400 lines) stays untouched: it is
+  owner-gated, not a default cleanup.
+- After S3: R1–R6 (`src/features/chat|bots|teams|settings|computer`, then `src/components` + `src/lib`),
+  X1 (`shared/`) and X2 (`electron/`). Each is a move plus a guard, same shape as S1–S14, and each needs
+  the same check the S-modules got: typecheck, lint, the suite, and a live probe on a throwaway HOME.
+- Two blockers recorded: the desktop window has never been opened on this branch (it uses the owner's
+  real data), and real Claude/Codex provider verification waits for next week's quota. A compiled tree is
+  not evidence of either.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

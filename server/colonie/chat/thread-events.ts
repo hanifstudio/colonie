@@ -13,12 +13,12 @@
 // thousands of native lines and the panel wants the recent ones first.
 import { closeSync, fstatSync, openSync, readSync, type Stats } from "node:fs";
 import { join } from "node:path";
-import type { RuntimeEvent } from "./contracts.ts";
-import type { InspectorEntry, InspectorPage, NativeRecord } from "../shared/inspector.ts";
+import type { RuntimeEvent } from "../../contracts.ts";
+import type { InspectorEntry, InspectorPage, NativeRecord } from "../../../shared/inspector.ts";
 
 // The inspector wire shapes live in shared/inspector.ts now (part of the
 // wire model); re-exported here so existing importers keep working.
-export type { InspectorEntry, InspectorPage, NativeRecord } from "../shared/inspector.ts";
+export type { InspectorEntry, InspectorPage, NativeRecord } from "../../../shared/inspector.ts";
 
 const DEFAULT_LIMIT = 300;
 const MAX_LIMIT = 2000;

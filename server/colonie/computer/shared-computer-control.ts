@@ -1,4 +1,4 @@
-import { TurnResources } from "../../turn-resources.ts";
+import { TurnResources } from "../chat/turn-resources.ts";
 
 /** A local desktop call competes with ordinary bot turns for the same screen.
  * Leases expire if Electron crashes; human takeover always wins renewal. */

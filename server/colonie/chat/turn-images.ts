@@ -11,7 +11,7 @@ import { dirname, extname, resolve } from "node:path";
 import { fromMarkdown } from "mdast-util-from-markdown";
 
 import { ATTACHMENTS_DIR, IMAGE_MAX_BYTES } from "./attachments.ts";
-import type { TurnImageInput } from "./contracts.ts";
+import type { TurnImageInput } from "../../contracts.ts";
 import { decodeAttachmentAttribute } from "./message-file.ts";
 
 /** Matches the companion composer policy. Four maximum-sized images are

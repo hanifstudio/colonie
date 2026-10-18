@@ -35,12 +35,12 @@ import { extname, join } from "node:path";
 import { authorizeExternalRuntime, externalRuntimeIsActive, type ExternalRuntimeGrant } from "./external-runtime.ts";
 
 import { z } from "zod";
-import { selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES } from "./context-rebuild.ts";
-import { draftSummary, foldPoint } from "./compaction-summary.ts";
-import { autoCompactWindow, compactBudget, contextWindowFor, shouldCompact } from "./context-budget.ts";
+import { selectReplay, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES } from "./colonie/chat/context-rebuild.ts";
+import { draftSummary, foldPoint } from "./colonie/chat/compaction-summary.ts";
+import { autoCompactWindow, compactBudget, contextWindowFor, shouldCompact } from "./colonie/chat/context-budget.ts";
 import { SharedComputers, sharedComputerOperation, sharedComputerRegistration, provenRequestPerson } from "./colonie/computer/shared-computers.ts";
 import { SharedComputerControl } from "./colonie/computer/shared-computer-control.ts";
-import { DirectHandoffs, type DirectHandoff } from "./direct-handoffs.ts";
+import { DirectHandoffs, type DirectHandoff } from "./colonie/chat/direct-handoffs.ts";
 import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard } from "./guarded-requests.ts";
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
@@ -75,9 +75,9 @@ import {
   type BrowserCleanupRequest,
   type BrowserCleanupWireRequest,
 } from "./colonie/computer/browser-lifecycle-cleanup.ts";
-import * as checkpoints from "./checkpoints.ts";
+import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import { commandReceipt } from "./commands.ts";
-import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./digest.ts";
+import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./colonie/chat/digest.ts";
 import { appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
 import { validateBotCwd } from "./colonie/bots/bot-cwd.ts";
 import {
@@ -96,7 +96,7 @@ import {
   saveImageUpload,
   type SavedAttachment,
   validateAttachmentUploadId,
-} from "./attachments.ts";
+} from "./colonie/chat/attachments.ts";
 import {
   messageFileDisposition,
   messageFileDownloadName,
@@ -108,7 +108,7 @@ import {
   messageFolderEntryName,
   openMessageFile,
   openMessageFolderEntry,
-} from "./message-file.ts";
+} from "./colonie/chat/message-file.ts";
 import {
   avatarGenerationRequestSchema,
   avatarGenerationStateMatches,
@@ -196,7 +196,7 @@ import {
   mergeOpenCodeProviderKeys,
   openCodeProviderKeys,
 } from "./config.ts";
-import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./thread-retention.ts";
+import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./colonie/chat/thread-retention.ts";
 import { ComputerControl } from "./colonie/computer/computer-control.ts";
 import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
 import { registerEnginesBinDir } from "./colonie/providers/engine-install.ts";
@@ -247,7 +247,7 @@ import {
   drainAsideMessages,
   queueAsideMessage,
   restoreAsideMessages,
-} from "./aside-queue.ts";
+} from "./colonie/chat/aside-queue.ts";
 import { promptWithReply, transcriptText } from "./replies.ts";
 import { admit } from "./admission.ts";
 import { _loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DELEGATION_TTL_MS, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, findDelegationReceipt, pendingDelegationInfo, pendingDelegationSnapshot, pendingThreads, queueDelegation, recordDelegationReceipt, releaseDelegationsWaitingOn, summarizeDelegatedActivity, type DelegationReceipt, type QueueResult } from "./colonie/peers/delegations.ts";
@@ -265,8 +265,8 @@ import {
   restoreHeldSteeredQueue,
   restoreSteeredMessages,
   settleHeldSteeredQueue,
-} from "./steer-queue.ts";
-import { restoreChannelMessages } from "./channel-queue.ts";
+} from "./colonie/chat/steer-queue.ts";
+import { restoreChannelMessages } from "./colonie/chat/channel-queue.ts";
 import {
   acceptedSendMatch,
   parseSendId,
@@ -277,7 +277,7 @@ import { EventBus } from "./harness/bus.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
 
 import { selectDefaultModelSelection, withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
-import { threadModelFallback, type ThreadEngine } from "./thread-model.ts";
+import { threadModelFallback, type ThreadEngine } from "./colonie/chat/thread-model.ts";
 import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./colonie/computer/computer-engine-removal.ts";
 import { cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, peerApprovalFailure, requestPeerApproval, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
 import { peerDeliveryReceipt } from "./colonie/peers/peer-delivery.ts";
@@ -300,14 +300,14 @@ import { createDecider, deciderSavePatch, describeDecider } from "./decider/inde
 import { createLiveSession, liveAttachUrl, LiveSessionError, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
 import { LiveCallController, LiveCallSignedOutError, type LiveSocket } from "./live-call-controller.ts";
 import { narrateTool, toUtterances } from "./tts/speech-text.ts";
-import { turnStartLogLine } from "./turn-log.ts";
-import { makeCapContinuationSubscriber } from "./turn-continuation.ts";
-import { buildRecoveryText, buildTurnContext, engineIsFresh, NATIVELY_REPLAYING_DRIVER_KINDS, peerMessageText } from "./turn-context.ts";
-import { Handoffs, handedStateUsable, recordHanded, renderUnseen, sessionStart, unseenMessages, withUnseenMessages, type ContextMessage } from "./delta-context.ts";
-import { extractTurnImages } from "./turn-images.ts";
-import { threadTitlePrompt, titleConversationExcerpt, type ThreadTitleSource } from "./thread-title.ts";
-import { TurnWatchdog } from "./turn-watchdog.ts";
-import { TurnResources, type TurnOwner } from "./turn-resources.ts";
+import { turnStartLogLine } from "./colonie/chat/turn-log.ts";
+import { makeCapContinuationSubscriber } from "./colonie/chat/turn-continuation.ts";
+import { buildRecoveryText, buildTurnContext, engineIsFresh, NATIVELY_REPLAYING_DRIVER_KINDS, peerMessageText } from "./colonie/chat/turn-context.ts";
+import { Handoffs, handedStateUsable, recordHanded, renderUnseen, sessionStart, unseenMessages, withUnseenMessages, type ContextMessage } from "./colonie/chat/delta-context.ts";
+import { extractTurnImages } from "./colonie/chat/turn-images.ts";
+import { threadTitlePrompt, titleConversationExcerpt, type ThreadTitleSource } from "./colonie/chat/thread-title.ts";
+import { TurnWatchdog } from "./colonie/chat/turn-watchdog.ts";
+import { TurnResources, type TurnOwner } from "./colonie/chat/turn-resources.ts";
 import {
   ensureWorkspace,
   ensureTaskWorkspace,
@@ -427,16 +427,16 @@ import { profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
 import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./colonie/bots/bot-package.ts";
 import { createTeamManifest, parseTeamManifest } from "./colonie/teams/team-manifest.ts";
-import { readThreadEvents } from "./thread-events.ts";
+import { readThreadEvents } from "./colonie/chat/thread-events.ts";
 import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./colonie/teams/team-memory.ts";
 import { describeTool } from "./activity.ts";
 import { OutboundCounts } from "./outbound-counts.ts";
 import { OutboundRequestService } from "./outbound-requests.ts";
 import { DEFAULT_OUTBOUND_POLICY, connectorCallsIn, normalizeOutboundPolicy, outboundCallsIn } from "../shared/outbound.ts";
 import { connectorAccessDecision, describeConnectorScopes, normalizeConnectorScopes } from "../shared/connector-scopes.ts";
-import { bindThreadLogCapProvider } from "./thread-log-rotation.ts";
+import { bindThreadLogCapProvider } from "./colonie/chat/thread-log-rotation.ts";
 import { listenWebhookIngress, webhookCredential, type WebhookIngress } from "./colonie/routines/webhook-ingress.ts";
-import { assertModelVariantSupported } from "./member-turn.ts";
+import { assertModelVariantSupported } from "./colonie/chat/member-turn.ts";
 import { WebhookManager } from "./colonie/routines/webhooks.ts";
 import type { WebhookTrigger } from "../shared/webhooks.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
@@ -472,7 +472,7 @@ import {
   guardTurnDispatch,
   isTurnAdmissionBlocked,
   isTurnEventQuarantined,
-} from "./turn-dispatch-guard.ts";
+} from "./colonie/chat/turn-dispatch-guard.ts";
 import { createGracefulShutdown } from "./runtime/graceful-shutdown.ts";
 import { acquireDataDirLeaseForProcess } from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, LICENSE_WARN_DAYS, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, workspaceMembership, type EditionStatus, type WorkspaceAccess } from "./enterprise.ts";
@@ -499,7 +499,7 @@ import {
   sessionCookieName,
 } from "./request-auth.ts";
 import { cookieMaxAgeSeconds, SessionRegistry, type SessionRecord } from "./sessions.ts";
-import { ThreadStarters } from "./thread-starters.ts";
+import { ThreadStarters } from "./colonie/chat/thread-starters.ts";
 import { appendAdminAction, botAuditSnapshot, botChangeRows, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActionRow, type AdminActor } from "./admin-activity.ts";
 import {
   frameForMember,

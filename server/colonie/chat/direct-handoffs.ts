@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { z } from "zod";
-import { writeFileAtomic } from "./persistence/atomic.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
 
 const nodeSchema = z.object({
   id: z.string(), rootId: z.string(), parentId: z.string().optional(),

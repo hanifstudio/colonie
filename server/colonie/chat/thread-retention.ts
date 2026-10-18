@@ -10,7 +10,7 @@
 // until they grow one.
 import { unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { EVENTS_DIR, NATIVE_DIR } from "./config.ts";
+import { EVENTS_DIR, NATIVE_DIR } from "../../config.ts";
 
 export interface ThreadLogRetentionCandidate {
   threadId: string;

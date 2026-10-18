@@ -19,12 +19,12 @@
 // be running, and running them twice is the one mistake this lane must
 // never make.
 
-import type { SteerOutcome } from "./contracts.ts";
-import { newId } from "./contracts.ts";
-import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persistence/message-db.ts";
-import { peerName } from "./colonie/peers/peer-roster.ts";
-import type { BotRecord, Message } from "./persistence/store.ts";
-import type { UsageTrigger } from "./colonie/providers/usage-ledger.ts";
+import type { SteerOutcome } from "../../contracts.ts";
+import { newId } from "../../contracts.ts";
+import { chatFollowups, saveChatFollowup, settleChatFollowups } from "../../persistence/message-db.ts";
+import { peerName } from "../peers/peer-roster.ts";
+import type { BotRecord, Message } from "../../persistence/store.ts";
+import type { UsageTrigger } from "../providers/usage-ledger.ts";
 
 /** The slice of Store this module needs — narrow so tests can fake it. */
 export interface AsideStore {

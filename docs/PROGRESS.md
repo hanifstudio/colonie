@@ -569,6 +569,34 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   typecheck 0, lint 0, `build:server` green with all ten `SPAWNED_PROXIES` files emitted. Live on a throwaway
   HOME: `/api/local-computer` and `/api/local-computer/instances` answer through the moved modules, and the
   same answer comes from `dist-server/index.js` (Docker not started, reported as designed).
+- **S14: chat, threads, turns and attachments into `server/colonie/chat/` (October 18).** Twenty-seven files
+  moved — `turn-context.ts`, `turn-continuation.ts`, `turn-dispatch-guard.ts`, `turn-images.ts`,
+  `turn-resources.ts`, `turn-watchdog.ts`, `turn-log.ts`, `member-turn.ts`, `thread-events.ts`,
+  `thread-log-rotation.ts`, `thread-model.ts`, `thread-retention.ts`, `thread-starters.ts`,
+  `thread-title.ts`, `steer-queue.ts`, `aside-queue.ts`, `channel-queue.ts`, `checkpoints.ts`,
+  `attachments.ts`, `message-file.ts`, `delta-context.ts`, `digest.ts`, `direct-handoffs.ts`,
+  `compaction-summary.ts`, `context-budget.ts`, `context-rebuild.ts`, `tool-summary.ts` — 30 files
+  repointed. `message-search.worker.ts` stayed at the server root (it is a spawned process). Guard:
+  `server/colonie/chat/context-budget.test.ts` — the window comes from the provider first, the catalog
+  next, the model id last, with unusable numbers ignored and unknown models getting no guess; the
+  compaction budget keeps headroom below 90% of the window and of the provider's own boundary, reads a
+  value under 1 as a fraction, and still yields a usable budget for a 1-token window; compaction triggers
+  on a measured token count when there is one and on estimated bytes otherwise, with a floor raising the
+  bar by a quarter yet never past the ceiling; and the CLI's own compaction window is the harness's choice,
+  clamped to what the CLI accepts rather than passed through, with a mistyped setting falling back instead
+  of failing every turn. One assertion was mine, not the code's: I had placed a floor so high that it
+  exceeded the ceiling it is capped by. 162/162 pass, typecheck 0, lint 0.
+- **A dev-path bug from S5, found by the S14 live check (October 18).** `GET /api/search` answered "Search
+  was interrupted. Try again shortly." in dev. S5 moved `message-search.worker.ts` back to the server root
+  for the packaged bundle but left `new URL("./message-search.worker.ts", import.meta.url)` in
+  `persistence/message-search-worker.ts`, so dev looked for the worker beside the module. The packaged app
+  only worked by accident, through the `.js` fallback landing at the bundle root. A spec relative to the
+  starting module cannot satisfy both layouts, because that module is inlined into `index.js` in a package
+  and sits in its own folder in dev. Both workers are now `SPAWNED_PROXIES` entries started through
+  `resolveProxy`, so there is one anchor; `proxy-paths.test.ts` already asserts every entry exists, so a
+  future move of either file fails a test rather than a turn. Verified after the fix on a throwaway HOME:
+  `GET /api/search` and a real workspace export both work from `server/index.ts` and from
+  `dist-server/index.js` (`eb1dab83`).
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

@@ -16,7 +16,7 @@ import { join } from "node:path";
 
 import { EVENTS_DIR } from "../config.ts";
 import { redactSecrets } from "../redact.ts";
-import { capThreadLog, currentThreadLogCap } from "../thread-log-rotation.ts";
+import { capThreadLog, currentThreadLogCap } from "../colonie/chat/thread-log-rotation.ts";
 import { newId, type ProviderInstance, type RuntimeEvent, type RuntimeEventListener } from "../contracts.ts";
 
 const INCOMPLETE_LOG_MESSAGE =

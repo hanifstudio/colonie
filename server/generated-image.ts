@@ -1,4 +1,4 @@
-import { IMAGE_MAX_BYTES } from "./attachments.ts";
+import { IMAGE_MAX_BYTES } from "./colonie/chat/attachments.ts";
 
 export interface DecodedGeneratedImage {
   bytes: Buffer;

@@ -14,13 +14,13 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import type { BotVisibility, CardAnswerer, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, SteerQueueReason } from "../../shared/wire";
-import type { TurnDigest } from "../../shared/digest";
+import type { TurnDigest } from "../../shared/digest.ts";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
 import type { MausColor, MausMotion } from "@/lib/mascot";
 import type { BotAvatarCrop } from "../../shared/bot-avatar";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
-import { sameModelSelection } from "../../shared/thread-model";
+import { sameModelSelection } from "../../shared/thread-model.ts";
 import type { MascotBodyId } from "../../shared/mascot-bodies";
 import type { QuestionRequestCardData } from "../../shared/ask-question";
 import type { ProfileRequestCardData } from "../../shared/profile-request";

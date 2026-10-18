@@ -29,7 +29,7 @@ import { REMOVED_COMPUTER_DRIVER, type ComputerEngineMove } from "../colonie/com
 import type { ProfileRequestChanges } from "../../shared/profile-request.ts";
 import type { TeamSetupRequest, TeamSetupResult } from "../../shared/team-setup.ts";
 import { isMentionBoundary, isMentionNameContinuation } from "../../shared/mention-boundary.ts";
-import type { HandedState } from "../delta-context.ts";
+import type { HandedState } from "../colonie/chat/delta-context.ts";
 import type { AgentPart, PartPair, RoomPart } from "../colonie/teams/package-parts.ts";
 import type {
   BotActivity, GroupDefaultResponder, GroupTask as GroupTaskRecord, MausColor,

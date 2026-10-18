@@ -14,12 +14,12 @@
 // activity at all in that turn.
 //
 // Pure functions only: no store, no bus, no I/O. The fold wires them.
-import type { MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
-import type { Message } from "./persistence/store.ts";
+import type { MemoryJournalEntry } from "../memory/memory-journal.ts";
+import type { Message } from "../../persistence/store.ts";
 
-import type { DigestFiles, DigestTool, HookCoverage, TurnDigest } from "../shared/digest.ts";
-import { toolIdentity } from "../shared/tool-name.ts";
-export type { DigestFiles, DigestTool, HookCoverage, TurnDigest } from "../shared/digest.ts";
+import type { DigestFiles, DigestTool, HookCoverage, TurnDigest } from "../../../shared/digest.ts";
+import { toolIdentity } from "../../../shared/tool-name.ts";
+export type { DigestFiles, DigestTool, HookCoverage, TurnDigest } from "../../../shared/digest.ts";
 
 /** Evidence is observed, not inferred from a provider's brand. In particular,
  * OpenAI-compatible and Grok turns now expose structured tool activity too. */

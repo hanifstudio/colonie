@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { link, open, unlink } from "node:fs/promises";
 import { join, extname } from "node:path";
-import { DATA_DIR } from "./config.ts";
+import { DATA_DIR } from "../../config.ts";
 
 export const ATTACHMENTS_DIR = join(DATA_DIR, "attachments");
 
