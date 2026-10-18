@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createTurnIntegrations} from "./harness/turn-integrations.ts";
 import {createBotSettingsView} from "./colonie/bots/settings-view.ts";
 import {createTurnDispatch, type DirectTurnDispatchClaim} from "./colonie/chat/turn-dispatch.ts";
 import {createInternalCapabilities} from "./harness/internal-capabilities.ts";
@@ -56,7 +57,7 @@ import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.
 import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { containerComputerStatus, perBotLocalVmTarget, poolLocalVmTarget, SHARED_LOCAL_VM_TARGET, type LocalVmTarget } from "./colonie/computer/container-computer.ts";
-import {cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, builtInBrowserEnabled, browserProfilePartitionTarget, browserEngineAttachCdpUrl, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved} from "./config.ts";
+import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, autoRecallEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, browserProfilePartitionTarget, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
 import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import { augmentedPath } from "./runtime/env-path.ts";
@@ -95,7 +96,6 @@ import { withNewBotEffort } from "./colonie/providers/default-model-selection.ts
 
 import { dismissStalePeerCards, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
 import { Store, titleFromLlm, type BotRecord, type Message } from "./persistence/store.ts";
-import * as tts from "./tts/index.ts";
 import { createDecider } from "./decider/index.ts";
 import {makeCapContinuationSubscriber} from "./colonie/chat/turn-continuation.ts";
 import { recordHanded } from "./colonie/chat/delta-context.ts";
@@ -116,7 +116,7 @@ import { RoutineManager, type RoutineRunTrigger } from "./colonie/routines/routi
 import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
 import {BrowserRuntime, browserRuntimeEnv} from "./colonie/computer/browser-runtime.ts";
 import {BrowserLive} from "./colonie/computer/browser-live.ts";
-import { agentBrowserIntegration, browserEngineEncryptionKey, prepareBrowserSessionState, clearBrowserSessionState, closeBrowserSession, browserEngineStatus, browserSessionId, describeBrowserEngine, setBrowserViewport } from "./colonie/computer/browser-engine.ts";
+import { browserEngineEncryptionKey, clearBrowserSessionState, closeBrowserSession, browserEngineStatus, browserSessionId, setBrowserViewport } from "./colonie/computer/browser-engine.ts";
 import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
 import { directApply, type DirectApply } from "./direct-apply.ts";
 
@@ -128,7 +128,6 @@ import {OutboundRequestService} from "./outbound-requests.ts";
 import {bindThreadLogCapProvider} from "./colonie/chat/thread-log-rotation.ts";
 import {listenWebhookIngress, type WebhookIngress} from "./colonie/routines/webhook-ingress.ts";
 import {WebhookManager} from "./colonie/routines/webhooks.ts";
-import {SPAWNED_PROXIES} from "./proxy-paths.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBootSweep} from "./colonie/skills/skills-library-migration.ts";
 import {picture as sharedPicture, type ExportablePackageSkill, type TeamExportSkip} from "./colonie/teams/package-export.ts";
@@ -624,78 +623,18 @@ const MAX_WORKSPACE_BOTS = 100;
 // Resolved from the server root — see server/proxy-paths.ts. This descending
 // path happened to survive bundling, but it goes through the same anchor so
 // there is exactly one way proxies are located.
-const agentsProxyPath = SPAWNED_PROXIES.agents;
-// in the packaged app process.execPath is Electron — run the proxy as node
-const AGENTS_NODE_FLAG = { ELECTRON_RUN_AS_NODE: "1" };
-
-function agentsIntegration(
-  botId: string,
-  threadId: string,
-  depth: number,
-  skillAuthoring: boolean,
-  generation: string,
-  roomCoordination = false,
-  ownThreadCreation = false,
-) {
-  const token = mintInternalCapability({
-    botId,
-    threadId,
-    generation,
-    depth,
-    kind: "agents",
-    skillAuthoring,
-    createdBots: 0,
-    openedThreads: 0,
-    roomCoordination,
-    ownThreadCreation,
-  });
-  return {
-    command: process.execPath,
-    args: [agentsProxyPath],
-    env: {
-      ...AGENTS_NODE_FLAG,
-      COLONIE_HARNESS_URL: `http://127.0.0.1:${PORT}`,
-      COLONIE_BOT_ID: botId,
-      COLONIE_THREAD_ID: threadId,
-      COLONIE_COMMS_TOKEN: token,
-      COLONIE_TURN_DEPTH: String(depth),
-      COLONIE_ROOM_TURN: roomCoordination ? "1" : "0",
-      COLONIE_OWN_THREAD_CREATION: ownThreadCreation ? "1" : "0",
-      COLONIE_SKILL_AUTHORING_ENABLED: skillAuthoring ? "1" : "0",
-      COLONIE_MEMORY_ENABLED: store.bot(botId)?.memoryEnabled === false ? "0" : "1",
-      // The shared-computer tools are advertised only while the workspace
-      // gate is on; the routes behind them refuse regardless.
-      COLONIE_SHARED_COMPUTERS_ENABLED: lendingEnabled() ? "1" : "0",
-      // Same capability rule for voice: the tool is offered only when this
-      // bot can actually speak, and the route re-checks on every call.
-      COLONIE_VOICE_NOTES: (() => {
-        const speaking = botForThread(botId, threadId) ?? store.bot(botId);
-        return tts.voiceReady(cfg, speaking?.voice) && speaking?.voiceNotes !== false ? "1" : "0";
-      })(),
-      // And for a role: team setup, bot creation and deletion, rooms and
-      // retries are shown only to a Chief of Staff, whom their routes require.
-      COLONIE_CHIEF_OF_STAFF: store.bot(botId)?.chiefOfStaff === true ? "1" : "0",
-    },
-  };
-}
-
-/** Engine lifecycle hooks (item 0.2): a turn-scoped bearer for the engine's
- * hook helper. An adapter must declare `hooks` for this to be mounted, and
- * COLONIE_HOOKS=0 turns the channel off. */
-const hooksEnabled = () => process.env.COLONIE_HOOKS !== "0";
-function hooksIntegration(botId: string, threadId: string, generation: string): { url: string; token: string } {
-  const token = mintInternalCapability({
-    botId,
-    threadId,
-    generation,
-    depth: 0,
-    kind: "hooks",
-    skillAuthoring: false,
-    createdBots: 0,
-    openedThreads: 0,
-  });
-  return { url: `http://127.0.0.1:${PORT}`, token };
-}
+const { agentsIntegration, browserIntegration, connectedAppsIntegration, controlIntegration, hooksEnabled, hooksIntegration } = createTurnIntegrations({
+  PORT,
+  botForThread: () => botForThread,
+  cfg,
+  lendingEnabled,
+  mintInternalCapability,
+  store: () => store,
+  activeInternalGenerationByThread,
+  currentBrowserSession: () => currentBrowserSession,
+  engineUnavailableLogged: () => engineUnavailableLogged,
+  setEngineUnavailableLogged: (value) => { engineUnavailableLogged = value; },
+});
 
 const { ComputerWaitParked, DirectTurnSetupCancelled, cancelDirectTurnDispatch, clearCancelledProviderHandshake, clearDirectTurnDispatch, compactionControllers, directTurnClaimExists, directTurnClaimIsCurrent, markDirectTurnDispatching, pendingCancelledProviderHandshakes, purgeTurnAttachmentsForThread, retireProviderTurn, shouldIgnoreProviderEvent, turnAttachmentKey, turnAttachmentsByTurn } = createTurnDispatch({
   cancelTeamSetupResumesForThread: () => cancelTeamSetupResumesForThread,
@@ -1033,42 +972,6 @@ async function forgetTemporaryBrowser(botId: string): Promise<void> {
   if (closed) await browserRuntime.close(session);
   else console.warn(`temporary browser ${session}: could not close its session; run agent-browser --session ${session} close on this server`);
 }
-async function browserIntegration(botId: string, profile: string | undefined, turn?: { threadId: string; generation: string }) {
-  const status = browserEngineStatus();
-  if (status.kind !== "ready") {
-    if (!engineUnavailableLogged) {
-      engineUnavailableLogged = true;
-      console.warn(`${describeBrowserEngine(status)}; bots get no browser tools until it is installed`);
-    }
-    return null;
-  }
-  // A profile that no longer exists falls back to the bot's own session.
-  const profileTarget = profile && profile !== "guest" ? browserProfilePartitionTarget(cfg, profile) : null;
-  const partitionId = profile === "guest" ? "guest" : (profileTarget?.partitionId ?? "");
-  const session = currentBrowserSession(botId, profile);
-  const spec = agentBrowserIntegration({
-      binaryPath: status.binaryPath,
-      session,
-      encryptionKey: browserEngineEncryptionKey(),
-      persistent: profile !== "guest",
-      env: { ...process.env, PATH: augmentedPath() },
-      attachCdpUrl: browserEngineAttachCdpUrl(cfg) ?? undefined,
-    });
-  await prepareBrowserSessionState(status.binaryPath, session, { env: spec.env, persistent: profile !== "guest", isCurrent: () => {
-    const current = store.bot(botId);
-    return !!current && current.browser !== false && builtInBrowserEnabled(cfg)
-      && currentBrowserSession(current.id, current.browserProfile) === session
-      && (!turn || activeInternalGenerationByThread.get(turn.threadId) === turn.generation);
-  } });
-  if (!turn) return { profile: partitionId, session, spec, integration: spec };
-  const token = mintInternalCapability({ botId, ...turn, browserSession: session,
-    kind: "browser", depth: 0, skillAuthoring: false, createdBots: 0, openedThreads: 0 });
-  return { profile: partitionId, session, spec, integration: {
-    command: process.execPath, args: [SPAWNED_PROXIES.harnessMcp, "browser"], env: {
-      ...AGENTS_NODE_FLAG, COLONIE_MCP_TOKEN: token, COLONIE_HARNESS_URL: `http://127.0.0.1:${PORT}`,
-    },
-  } };
-}
 let engineUnavailableLogged = false;
 
 let browserEngineInstall: Promise<void> | null = null;
@@ -1081,28 +984,6 @@ export function browserEngineSummary(): { kind: "engine" | "unavailable"; reason
     : { kind: "unavailable", reason: status.reason, installable: status.installable, ...progress };
 }
 
-function connectedAppsIntegration(bot: Pick<BotRecord, "id" | "connectorTools">, threadId: string, generation: string) {
-  const token = mintInternalCapability({
-    botId: bot.id,
-    threadId,
-    generation,
-    depth: 0,
-    kind: "connectors",
-    skillAuthoring: false,
-    createdBots: 0,
-    openedThreads: 0,
-  });
-  return composio.mcpIntegration(cfg, {
-    harnessUrl: `http://127.0.0.1:${PORT}`,
-    commsToken: token,
-    botId: bot.id,
-    threadId,
-    // Connector grants 3/5: the record (or its absence) rides along so
-    // the bridge can filter tools/list; the verdict on the relay endpoint
-    // stays the authority for every call.
-    connectorTools: bot.connectorTools,
-  });
-}
 
 // ── computer control (who is driving) ──────────────────────────────────
 // The person can take the wheel of a bot's computer from the panel; while
@@ -1124,32 +1005,6 @@ const computerControl = new ComputerControl((key, snapshot) => {
 });
 const controlLeaseIdSchema = z.string().min(16).max(120).regex(/^[A-Za-z0-9_-]+$/);
 
-/** The loopback endpoint a bot's computer proxy polls before acting. The
- * bridge is revoked when the turn ends. This computer runs as long as the
- * app does, so its bridge keeps the thread's bearer like every other
- * integration; any other machine (a Local VM) gets a new bearer each turn. */
-function controlIntegration(
-  botId: string,
-  threadId: string,
-  generation: string,
-  machine: "this computer" | { localVmTarget?: LocalVmTarget } = {},
-) {
-  const { localVmTarget } = machine === "this computer" ? {} : machine;
-  return {
-    url: `http://127.0.0.1:${PORT}/api/internal/computer-control?botId=${encodeURIComponent(botId)}`,
-    token: mintInternalCapability({
-      botId,
-      threadId,
-      generation,
-      depth: 0,
-      kind: "computer",
-      ...(localVmTarget ? { localVmTarget } : {}),
-      skillAuthoring: false,
-      createdBots: 0,
-      openedThreads: 0,
-    }, { perTurn: machine !== "this computer" }),
-  };
-}
 
 /** One Chief assignment: run the target's fresh conversation under its own
  * provider/tools/permissions and return the result text. Stop aborts exactly

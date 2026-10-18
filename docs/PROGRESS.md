@@ -629,6 +629,24 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.63: the per-turn integrations out of `index.ts` (October 18).**
+  `server/harness/turn-integrations.ts` (`createTurnIntegrations`): the five
+  adapters a turn's ACP session mounts — `agentsIntegration` (the agent-tools
+  proxy env and its capability flags), `hooksEnabled`/`hooksIntegration` (the
+  engine lifecycle hook channel), `browserIntegration` (the built-in browser
+  proxy), `connectedAppsIntegration` (the composio bridge) and
+  `controlIntegration` (the computer-control loopback endpoint). 156 lines
+  across four blocks (L627–698, 1036–1071, 1084–1105, 1127–1152). The block-local
+  `agentsProxyPath` and `AGENTS_NODE_FLAG` moved in; `engineUnavailableLogged`
+  (a `let` declared below the site) is a getter plus setter, and `botForThread`,
+  `currentBrowserSession` and `store` are getters. The `tts` namespace,
+  `SPAWNED_PROXIES` and the browser-engine imports left `index.ts`.
+  Guard: `turn-integrations.test.ts` (5) — the agent proxy env carries the turn
+  ids, depth and minted token, memory is disabled when the bot disables it, the
+  hook channel mints its own kind, computer control mints a per-turn bearer and
+  encodes the bot id, and `hooksEnabled` follows `COLONIE_HOOKS`.
+  `index.ts` 3,659 → 3,514. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 77 files / 361 tests pass, live probe green.
 - **S3.62: the two settings-derived bot views out of `index.ts` (October 18).**
   `server/colonie/bots/settings-view.ts` (`createBotSettingsView`):
   `previewSystemPrompt`, the developer preview of the prompt a new conversation
