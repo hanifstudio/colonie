@@ -629,6 +629,13 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.19: the shared client-thread rule gets its own home (October 18).** `requirePinnedClientThread` was an
+  in-handler arrow used by about eleven route groups, which blocked every one of them from moving. It is now
+  `server/routes/pinned-client.ts` (`pinnedClientThread({ auth, store })`), so a module can hold the rule without
+  reaching into the handler. `index.ts` keeps its call sites unchanged and just builds the function. Guard test (4)
+  pins the rule: a client session on a bot with several threads must name one (409 with the app-update wording),
+  one thread is unambiguous, an admin caller is not held to it, and a named thread or an explicit `null` is taken
+  as given. 201/201 pass, typecheck 0, lint 0.
 - **D2: the leftovers D1 exposed are gone (October 18).** `server/external-runtime.ts` (77 lines, no importer left
   after D1), the `externalRuntime` field and its type import in `index.ts`, the dead `/api/internal/` branch in
   `adminAuditPlan`, and the `/api/internal/` bypass in `server/request-auth.ts` (the test-capability clause stays).

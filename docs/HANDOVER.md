@@ -138,12 +138,11 @@ started, and review.
   `controlIntegration`, `mcpIntegration`) and the retired native agents driver cluster under `server/drivers/`.
   Both are unreachable with the current two ACP adapters, which declare none of those capabilities.
 - Next in this task: **S3's remaining `index.ts` groups, smallest first.** A read-only mapping pass
-  (October 18) ordered all 39 remaining live groups; the next few are auth-sessions revoke (`/api/auth/sessions`,
-  ~11024), bot-read and bot-profile-patch. **Prerequisite before the bot clusters:** `requirePinnedClientThread`
-  is an in-handler arrow at ~13201 used by about eleven groups, so it needs a shared home (module export or an
-  injected dep) before any of its consumers move. Groups sharing mutable `let` state — `events` (SSE fan-out),
-  the Local VM flags, `providerConfigBusy`, `browserEngineInstall` — must take that state as an explicit dep, not
-  be extracted independently. `/api/testing/internal-capability` stays with the internal block.
+  (October 18) ordered all 38 remaining live groups; the shared blockers named then are now resolved or scoped:
+  `requirePinnedClientThread` lives in `server/routes/pinned-client.ts` (S3.19), so the groups that used it can
+  move. Groups sharing mutable `let` state — `events` (SSE fan-out), the Local VM flags, `providerConfigBusy`,
+  `browserEngineInstall` — must take that state as an explicit dep, not be extracted independently.
+  `/api/testing/internal-capability` stays with what is left of the internal machinery.
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
   presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
   (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last

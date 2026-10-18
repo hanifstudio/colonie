@@ -248,6 +248,7 @@ import {createRoutineRoutes} from "./routes/routines.ts";
 import {createCalendarWebhookRoutes} from "./routes/calendar-webhooks.ts";
 import {createReactionRoutes} from "./routes/reactions.ts";
 import {createAuthSessionRoutes} from "./routes/auth-sessions.ts";
+import {pinnedClientThread} from "./routes/pinned-client.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -10252,13 +10253,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
 
     // ── bots ──
-    const requirePinnedClientThread = (botId: string, threadId: unknown): void => {
-      if (threadId === undefined &&
-        auth.kind === "session" &&
-        store.tasks(botId).length > 1) {
-        throw Object.assign(new Error("This bot has more than one thread. Update the Colonie app on this device, then choose a thread and try again."), { status: 409 });
-      }
-    };
+    const requirePinnedClientThread = pinnedClientThread({ auth, store });
     if (method === "GET" && path === "/api/bots") {
       const limit = pageSize(url.searchParams.get("messages"));
       if (limit === null) return json(res, 400, { error: "messages must be a non-negative whole number" });
