@@ -144,7 +144,11 @@ started, and review.
   `browserEngineInstall` — must take that state as an explicit dep, not be extracted independently.
   `/api/testing/internal-capability` stays with what is left of the internal machinery. Done since: bot-read
   (S3.20), the paired-safe profile edit, `bot-profile-patch` (S3.21), thread-events (S3.22), saved command
-  permissions (S3.23). Next: browser-engine-install, interrupt+bot-delete, always-allow.
+  permissions (S3.23), the broad bot edit, `bot-update` (S3.24, 566 lines — the largest family). Next biggest
+  remaining: `/api/config` (~347), a bot's tasks (~177), bot create (~161), thread respond (~134), teams
+  export/import (~240 together), uploads (~117), the SSE stream `/api/events` (~94). Route families are no longer
+  taken smallest-first: the largest are the ones that move the number. `startTurn` (1,371 lines) and
+  `localVmInventoryPayload` (628) are the next big moves after the routes.
   (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
   presence), bot messages/queue (`/api/bots/:id/messages`, `queue/:id`, `queue/:id/steer`), bot skills
   (`skills`, `skills/:name`, `skill-template`), tasks, Local VM, threads and messages, and last

@@ -629,6 +629,26 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.24: the broad bot edit out of `index.ts` — the largest route family so far (October 18).** `PATCH
+  /api/bots/:id` (566 lines: name, persona, model and effort, folder, approval level, visibility, audience, peers,
+  tool scope, MCP servers, connectors, browser, memory, sections, chief-of-staff) becomes
+  `server/routes/bot-update.ts`. It needed 21 deps — `store`, `cfg`, `registry`, `sessions`, the routines getter,
+  `memoryUpkeep`, `browserLive`, `browserRuntime`, `broadcast`, `wireBot`, `requestedTaskBot`, `threadBusy`,
+  `checkedModelSelection`, `supportsApprovalMode`, `audienceChanged`, `currentBrowserSession`,
+  `interruptAllDirectThreads`, `forgetTemporaryBrowser`, `storedAvatarExists` — plus the desktop flag and the
+  workspace bot cap. Everything else (validation, profile revisions, connector and tool-scope rules) is imported
+  by the module from where it already lives. Guard test (5): another route or verb is left to the next handler; an
+  unknown bot is a 404 and a body that is not an object a 400 with nothing stored; a rename is stored, answered
+  with the bot and **not** broadcast (the room hears about a new audience instead); a change of audience
+  re-announces the bot's teams and re-runs the audience fan-out; a field a phone session may not change is refused
+  (403) before anything is stored. Live on a throwaway HOME: rename 200, an unknown field 200 (the original
+  behaviour — only a session is held to the strict list), `visibility:"nonsense"` 400, a model without a model
+  name 400, an unknown bot 404, a non-object body 400. `index.ts` 14,003 → **13,449 lines**; 222/222 pass,
+  typecheck 0, lint 0.
+  **Method note:** the block was carved out of `index.ts` mechanically into the new module and wrapped, rather
+  than retyped, so the 566 lines of behaviour are byte-identical apart from the two `routines!` → `routines()!`
+  edits and the deps destructure. Check the frame with typecheck: the extracted body needed a trailing
+  `return PASS`.
 - **S3.23: saved command permissions out of `index.ts`, and a regression from S3.20 repaired (October 18).**
   `server/routes/command-allowlist.ts` takes `GET`/`POST`/`DELETE /api/bots/:id/command-allowlist(?/:ruleId)`.
   Deps: the allowlist store, the provider registry, `canManage`, `requestedTaskBot`, `commandAllowlistResponse`
