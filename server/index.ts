@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createIdentity} from "./harness/identity.ts";
 import {createVisibility} from "./harness/visibility.ts";
 import {createAdminAudit} from "./harness/admin-audit.ts";
 import {createResumeTables} from "./colonie/chat/resume-tables.ts";
@@ -22,7 +23,7 @@ import {ColonieChief} from "./colonie/chief/manager.ts";
 import type {ChiefBot} from "../shared/colonie-chief.ts";
 import {AsyncLocalStorage} from "node:async_hooks";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import {existsSync, realpathSync} from "node:fs";
+import {existsSync} from "node:fs";
 import {type IncomingMessage} from "node:http";
 import {join} from "node:path";
 
@@ -39,15 +40,15 @@ import {createApprovalModeSupport} from "./harness-capabilities.ts";
 
 import { approvalModeForOrigin } from "./auto-approve.ts";
 import { CommandAllowlistStore } from "./command-allowlist.ts";
-import type {CommandAllowlistCandidate, CommandAllowlistResponse} from "../shared/command-allowlist.ts";
+import type {CommandAllowlistCandidate} from "../shared/command-allowlist.ts";
 import { BrowserCleanupCoordinator, type BrowserCleanupWireRequest } from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import { buildTurnDigest, coverageForDriver, renderDigest, toolEvidence } from "./colonie/chat/digest.ts";
-import { bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
+import { bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions,  } from "./decision-log.ts";
 import { ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, deleteAttachment, saveImage } from "./colonie/chat/attachments.ts";
 import { messageFileRoots } from "./colonie/chat/message-file.ts";
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
-import { type CardAnswerer, type ResolvedSender, type WireBot, type WireTask } from "../shared/wire.ts";
+import { type ResolvedSender, type WireBot, type WireTask } from "../shared/wire.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
 import {chiefOfStaffSystemPrompt} from "./colonie/teams/chief-of-staff.ts";
@@ -154,7 +155,7 @@ import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} fro
 import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/providers/account-signin.ts";
 import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
 import {resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
-import { SessionRegistry, type SessionRecord } from "./sessions.ts";
+import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import {appendAdminAction, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor} from "./admin-activity.ts";
 import { frameForMember, noteSeen, VisibleSet, type FrameContext } from "./colonie/bots/bot-visibility.ts";
@@ -317,147 +318,13 @@ registerEnginesBinDir();
 // ask they continue; routine and peer turns are told apart before this is
 // consulted.
 const turnTriggers = new Map<string, UsageTrigger>();
-/** Who a user message is from, when that is someone other than the desktop
- * owner. Loopback is the owner by design, so it stays unstamped and reads as
- * the profile name; a paired or signed-in session names the person, by
- * account email where there is one and otherwise by the device label they
- */
-function messageSender(auth: RequestAuth): ResolvedSender | undefined {
-  if (auth.kind !== "session") return undefined;
-  const name = (auth.session.email ?? auth.session.label ?? "").trim();
-  return name ? { name, id: actorKey(auth) } : undefined;
-}
-
-/** An opaque, stable key for the person behind a session: their account
- * email when they signed in with one (a new device is still them), else the
- * paired session itself. Hashed, so a message or a thread can carry it
- * without handing other members a session id. */
-function personKey(session: Pick<SessionRecord, "id" | "email">): string {
-  const basis = session.email ? `email:${session.email.trim().toLowerCase()}` : `session:${session.id}`;
-  return `p_${createHash("sha256").update(basis).digest("base64url").slice(0, 22)}`;
-}
-
-/** More than one person uses this workspace: portal membership, or an email
- * sign-in list that names members. Only then does who-may-answer narrow. */
-function sharedMembership(): boolean {
-  return hostedWorkspaceConfiguration()?.portalMembership === true || signInAllowList().members.length > 0;
-}
-
-/** The person a user line came from, when a session sent it. A bot's line
- * (peerAsk), the owner, a service, a routine or a webhook names nobody. */
-function linePersonKey(message: Message | undefined): string | undefined {
-  return message?.role === "user" && !message.peerAsk ? message.sender?.id : undefined;
-}
-
-/** The opaque key of whoever sent the request a card belongs to: the
- * message the harness proved started the turn, else the last user line
- * before the card. */
-function cardRequesterKey(threadId: string, requestId: string): string | undefined {
-  const thread = store.messagesFor(threadId);
-  const index = thread.findIndex((message) => message.card?.requestId === requestId);
-  if (index < 0) return undefined;
-  const card = thread[index]!;
-  return linePersonKey(card.requestMessageId
-    ? thread.find((message) => message.id === card.requestMessageId)
-    : thread.slice(0, index).findLast((message) => message.role === "user"));
-}
-
-/** Whose lent computers a status reader may see: the person behind the
- * asking session. */
-function sessionLendingPrincipal(auth: RequestAuth): string | null {
-  return auth.kind === "session" ? personKey(auth.session) : null;
-}
-
-/** Who a session acts as, for lines, openers and answers. */
-function actorKey(auth: RequestAuth & { kind: "session" }): string {
-  return personKey(auth.session);
-}
-
-/** Whose session may answer a card. The provider CLI's own approval modes and
- * the harness's proposals stay exactly as they are; this adds no card, gate
- * or prompt, it only decides whose answer to an existing card counts.
- * - the owner on this machine, and admins: any card;
- * - a session-less caller on a shared server (service trust): decline only;
- * - where several people share the workspace and the card can be traced to
- *   a person (who sent its request, who the thread was opened for, followed
- *   back through threads bots opened for them): those people;
- * - otherwise (one person; or a routine, webhook, Slack, owner-sent or older
- *   thread that names nobody): anyone who may chat, as before. */
-function cardAnswerRefusal(auth: RequestAuth, threadId: string, requestId: string, behavior: string): string | null {
-  if (auth.kind === "loopback") {
-    return auth.trust === "service" && behavior !== "deny"
-      ? "A local service can only decline this request. Approve or answer it in Colonie while signed in."
-      : null;
-  }
-  if (!auth.scopes.includes("admin") && store.messagesFor(threadId).some(message =>
-    message.card?.requestId === requestId && message.card.teamMemoryRequest)) {
-    return "Only a workspace admin can review shared team memory.";
-  }
-  if (auth.scopes.includes("admin") || !sharedMembership()) return null;
-  const known = [threadStarters.get(threadId), cardRequesterKey(threadId, requestId)].filter((person): person is string => Boolean(person));
-  if (!known.length || known.includes(personKey(auth.session))) return null;
-  return "Only the person who started this conversation or sent this request, or a workspace admin, can answer this card.";
-}
-
-function canManageCommandAllowlist(auth: RequestAuth): boolean {
-  return auth.kind === "loopback" ? auth.trust !== "service" : auth.scopes.includes("admin");
-}
-
-const COMMAND_ALLOWLIST_DRIVERS = new Set([
-  "claudeAgent", "codex", "antigravityAgent", "grokAgent", "opencodeGo", "kimiAgent",
-  "droidAgent", "cursorAgent", "qwenAgent", "geminiAgent", "hermesAgent", "customAcp",
-]);
-
-function commandAllowlistResponse(bot: BotRecord): CommandAllowlistResponse {
-  const instance = registry.get(bot.modelSelection.instanceId);
-  const task = store.taskByThread(bot.id, bot.threadId);
-  let cwd = task?.cwd !== undefined ? task.cwd : bot.cwd ?? join(realpathSync(DATA_DIR), "task-workspaces", bot.id, bot.threadId);
-  if (cwd && existsSync(cwd)) cwd = realpathSync(cwd);
-  return {
-    rules: commandAllowlist.list(bot.id),
-    supported: COMMAND_ALLOWLIST_DRIVERS.has(instance?.driverKind ?? ""),
-    context: {
-      providerInstanceId: bot.modelSelection.instanceId,
-      cwd,
-    },
-  };
-}
-
-function decisionActorFor(auth: RequestAuth): DecisionActor {
-  if (auth.kind === "loopback") return auth.trust === "service" ? { kind: "worker" } : { kind: "loopback" };
-  const session = auth.session;
-  return {
-    kind: "session", sessionId: session.id, label: session.label,
-    ...(session.email ? { email: session.email } : {}),
-    // A portal session's id is its membership grant: never written down.
-    ...(session.userId && !session.userId.startsWith("portal:") ? { userId: session.userId } : {}),
-  };
-}
-
-function cardAnswererFor(auth: RequestAuth): CardAnswerer {
-  if (auth.kind === "loopback") return auth.trust === "service" ? { kind: "worker" } : { kind: "loopback" };
-  return { kind: "session", name: (auth.session.email ?? auth.session.label ?? "").trim() || "Signed-in user" };
-}
-
-/** Answer a card as `auth`: the decision rows written meanwhile name the
- * answerer, and a card this answer settled records who settled it (and
- * `via: "call"` when it was decided by voice on a Live call). A card that
- * was already settled keeps whatever it said. */
-async function answeringCardAs(auth: RequestAuth, threadId: string, requestId: string, work: () => Promise<unknown>, via?: "call"): Promise<void> {
-  const open = (() => {
-    const card = store.messagesFor(threadId).find((message) => message.card?.requestId === requestId)?.card;
-    return Boolean(card && !card.answered && !card.dismissed && !card.expired);
-  })();
-  try {
-    await withDecisionActor(decisionActorFor(auth), work, via);
-  } finally {
-    const message = open ? store.messagesFor(threadId).find((candidate) => candidate.card?.requestId === requestId) : undefined;
-    const card = message?.card;
-    if (message && card && !card.answeredBy && card.answered !== "unavailable" && (card.answered || card.dismissed)) {
-      store.patchMessage(threadId, message.id, { card: { ...card, answeredBy: { ...cardAnswererFor(auth), ...(via ? { via } : {}) } } });
-    }
-  }
-}
+const { COMMAND_ALLOWLIST_DRIVERS, messageSender, personKey, sessionLendingPrincipal, actorKey, cardAnswerRefusal, canManageCommandAllowlist, commandAllowlistResponse, decisionActorFor, answeringCardAs } = createIdentity({
+  commandAllowlist,
+  registry,
+  signInAllowList,
+  store: () => store,
+  threadStarters,
+});
 
 const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibility({
   routines: () => routines,
