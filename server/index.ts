@@ -96,11 +96,11 @@ import {ProviderRegistry} from "./harness/registry.ts";
 import { withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
 
 import { dismissStalePeerCards, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
-import { Store, titleFromLlm, type BotRecord, type Message } from "./persistence/store.ts";
+import { Store, type BotRecord, type Message } from "./persistence/store.ts";
 import { createDecider } from "./decider/index.ts";
 import {makeCapContinuationSubscriber} from "./colonie/chat/turn-continuation.ts";
 import {extractTurnImages} from "./colonie/chat/turn-images.ts";
-import { threadTitlePrompt, type ThreadTitleSource } from "./colonie/chat/thread-title.ts";
+import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import {appendMemoryLog, memorySourceLabel, workspaceDir} from "./colonie/workspace/workspace.ts";
 import { memoryDate } from "./colonie/workspace/workspace.ts";
@@ -1668,43 +1668,6 @@ const { startScreenPoller, pokeScreenPoller, stopScreenPoller, finalScreenFrame,
   turnResourceOwners,
   turnResources,
 });
-
-/** A short title for a fresh thread, from the provider's cheap one-shot
- * (generateText — Haiku on Claude, the chat completion endpoint's text
- * path on OpenAI-compatible engines). Null whenever that call cannot run,
- * runs long, or answers with something that is not a plain short title;
- * the caller keeps the snippet it already applied. "conversation" names an
- * existing thread from titleConversationExcerpt (Regenerate title). */
-async function generateThreadTitle(
-  provider: { generateText?: (prompt: string, options?: { signal?: AbortSignal }) => Promise<string> },
-  text: string,
-  source: ThreadTitleSource = "first-message",
-): Promise<string | null> {
-  const prompt = threadTitlePrompt(text, source);
-  const expiry = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    // the race caps the wait; the signal aborts the provider call itself,
-    // which every generateText driver that can honor it does
-    const reply = await Promise.race([
-      provider.generateText!(prompt, { signal: expiry.signal }),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          expiry.abort();
-          reject(new Error("thread title timed out"));
-        }, 10_000);
-      }),
-    ]);
-    return titleFromLlm(reply);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Threads whose Regenerate title one-shot is still running: one at a time. */
-const titleRegenerations = new Set<string>();
 
 // ── turn dispatch (upstream ProviderCommandReactor, miniature) ──────────
 /** Starting a bot turn, out of this file: see colonie/chat/turn-start.ts. The

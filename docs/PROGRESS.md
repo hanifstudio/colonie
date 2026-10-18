@@ -629,6 +629,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.77: the thread-title one-shot out of `index.ts` (October 18).**
+  `server/colonie/chat/title-generation.ts`: `generateThreadTitle` (the cheap
+  provider `generateText` one-shot behind a fresh thread's name and "Regenerate
+  title" — the prompt is built by `thread-title.ts`, this only runs it, races a
+  10s expiry that also aborts the provider call, and refuses anything that is not
+  a plain short title) and the `titleRegenerations` set that keeps Regenerate to
+  one one-shot per thread. That set is a `const Set` that is mutated but never
+  reassigned, so moving it is safe; both names are still handed to the turn and
+  request wirings as before. `index.ts` 2,628 → 2,591 lines.
+  Guard: `title-generation.test.ts` (6) — a plain short answer is accepted, the
+  conversation form is asked when regenerating, an over-long or blank answer is
+  refused, a provider with no text path yields nothing, a slow one-shot is
+  abandoned at the 10s cap, and the set starts empty. `pnpm typecheck` 0,
+  `pnpm lint` 0, `npx vitest run server` 91 files / 431 tests pass; live probe green.
 - **S3.76: the boot recovery out of `index.ts` (October 18).**
   `server/colonie/chat/boot-recovery.ts` (`createBootRecovery`): on a restart or
   workspace restore, walk the durable follow-up journal and, for every row whose
