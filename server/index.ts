@@ -103,7 +103,7 @@ import {drainAsideMessages, restoreAsideMessages} from "./colonie/chat/aside-que
 import {promptWithReply, transcriptText} from "./replies.ts";
 import {admit} from "./admission.ts";
 import {_loadPending, buildDelegationFailurePrompt, buildDelegationRevivalPrompt, DelegationWakeBudget, discardDelegations, drainDelegations, expireStaleDelegations, pendingDelegationSnapshot, pendingThreads, recordDelegationReceipt, releaseDelegationsWaitingOn, type DelegationReceipt} from "./colonie/peers/delegations.ts";
-import {cancelSteeredMessage, drainSteeredMessages, hasQueuedSteeredMessages, holdSteeredQueue, isSteeredMessageQueued, onSteeredQueueChange, queuedSteerSnapshot, queuedSteeredMessage, queueSteeredMessage, restoreHeldSteeredQueue, restoreSteeredMessages, settleHeldSteeredQueue} from "./colonie/chat/steer-queue.ts";
+import {cancelSteeredMessage, drainSteeredMessages, hasQueuedSteeredMessages, isSteeredMessageQueued, onSteeredQueueChange, queuedSteerSnapshot, queuedSteeredMessage, queueSteeredMessage, restoreSteeredMessages} from "./colonie/chat/steer-queue.ts";
 import {restoreChannelMessages} from "./colonie/chat/channel-queue.ts";
 import {acceptedSendMatch, parseSendId, sendFingerprint, SendSequencer} from "./send-idempotency.ts";
 import {EventBus} from "./harness/bus.ts";
@@ -255,6 +255,7 @@ import {createTeamsImportRoutes} from "./routes/teams-import.ts";
 import {createUploadRoutes} from "./routes/uploads.ts";
 import {createEventRoutes, type SseClient} from "./routes/events.ts";
 import {createBotMessagesRoutes} from "./routes/bot-messages.ts";
+import {createQueueSteerRoutes} from "./routes/queue-steer.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -9776,6 +9777,15 @@ ROUTES.push(createBotMessagesRoutes({
   threadBusy,
   DirectSendRefused,
 }));
+ROUTES.push(createQueueSteerRoutes({
+  store,
+  desktopManaged: DESKTOP_MANAGED,
+  handoffs,
+  requestedTaskBot,
+  runningTurnInstance,
+  clearUnattended,
+  drainQueuedSends,
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -10915,81 +10925,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
     // Steer a queued message into the RUNNING turn (no interrupt). Engines
     // without a live steer keep the queue; this never ends the current turn.
-    m = path.match(/^\/api\/bots\/([\w-]+)\/queue\/([\w-]+)\/steer$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body?.threadId);
-      // Pressing Steer folds the queued words into the running turn. It does
-      // not re-book that turn to whoever pressed it, and the words keep the
-      // sender they were queued with.
-      // Lift the whole queue atomically: a settle racing this request can
-      // drain it as a follow-up, or this request can steer it into the live
-      // turn — never both for the same words.
-      const held = holdSteeredQueue(bot.id, bot.threadId, m[2]);
-      if (!held) return json(res, 404, { error: "no such queued message" });
-      // A live steer has no image side channel. Attachment words wait for a
-      // real turn where central admission can hand the images to the engine.
-      if (held.items.some((item) => extractTurnImages(item.text).images.length > 0)) {
-        restoreHeldSteeredQueue(held);
-        return json(res, 200, { ok: true, queued: true, threadId: bot.threadId });
-      }
-      const currentAtStart = store.projectBotForTask(bot.id, bot.threadId);
-      const instance = currentAtStart?.busy ? runningTurnInstance(currentAtStart, bot.threadId) : undefined;
-      const prompt = held.items.map((item) => item.prompt).join("\n\n");
-      const steerTarget = handoffs.current(bot.threadId);
-      let steered: SteerOutcome = "refused";
-      if (currentAtStart?.busy && instance?.adapter.capabilities.queueing && instance.adapter.steer) {
-        steered = await instance.adapter
-          .steer(bot.threadId, prompt)
-          .catch((): SteerOutcome => "indeterminate");
-      }
-      // The steer was awaited adapter work: re-read every ownership
-      // invariant before writing anything, exactly like the live-send path.
-      const current = store.projectBotForTask(bot.id, bot.threadId);
-      // "indeterminate" never restores: the words may already be folded into
-      // the turn that was live when they were sent, and replaying them into
-      // a fresh follow-up turn would run them twice. Record them whenever
-      // the destination still exists, busy or not.
-      if (
-        (steered === "steered" && current?.busy ||
-          steered === "indeterminate" && current) &&
-        store.taskByThread(bot.id, bot.threadId)
-      ) {
-        if (auth.kind === "session" || DESKTOP_MANAGED) clearUnattended(bot.threadId);
-        const messages = held.items.map((item) => store.appendMessage(bot.threadId, {
-          role: "user",
-          kind: "text",
-          text: item.text,
-          replyToId: item.replyToId,
-          sendId: item.sendId,
-          queueId: item.messageId,
-          peerAsk: item.peerAsk,
-          steered: true,
-          sender: item.sender,
-          ...(item.via ? { via: item.via } : {}),
-        }));
-        // Offered to the next turn again unless the person stops this one.
-        for (const message of messages) handoffs.steered(bot.threadId, steerTarget, instance?.instanceId, message.id);
-        const queueIds = held.items.map((item) => item.messageId);
-        settleHeldSteeredQueue(held);
-        return json(res, 200, { ok: true, steered: true, threadId: bot.threadId, messages, queueIds });
-      }
-      if (steered === "indeterminate") {
-        // No destination is left: settle so a restart cannot replay words a
-        // dead turn may already have run.
-        settleHeldSteeredQueue(held);
-        if (!store.taskByThread(bot.id, bot.threadId)) {
-          throw Object.assign(new Error("the target task no longer exists"), { status: 409 });
-        }
-        throw Object.assign(new Error("no such bot"), { status: 404 });
-      }
-      restoreHeldSteeredQueue(held);
-      // The turn may have settled while the steer was refused; a queue that
-      // is now drainable must not strand behind a missed settle.
-      if (current && !current.busy) drainQueuedSends();
-      return json(res, 200, { ok: true, queued: true, threadId: bot.threadId });
-    }
 
     // Compaction shares normal turn admission and Stop, but never executes
     // an agent turn or provisions a computer. It preserves the full history.

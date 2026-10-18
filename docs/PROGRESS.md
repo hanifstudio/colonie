@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.34: steering a queued message out of `index.ts` (October 18).** `POST /api/bots/:id/queue/:queueId/steer`
+  (75 lines) becomes `server/routes/queue-steer.ts`: the whole queue is lifted atomically so that a settle racing this
+  request either drains it as a follow-up or this request folds it into the live turn, never both for the same words.
+  That atomicity is not testable with a fake — the queue is real state inside `colonie/chat/steer-queue.ts` — so the
+  tests drive the **real** queue and each test takes a thread of its own, because the queue is per-thread: that is
+  what made the first two attempts fail (a test that re-queued by hand left an extra item behind, and the next
+  test's steer lifted it too). Guard test (4): another route or verb is left to the next handler; a queued message
+  that is not there is a 404; words that cannot be steered go back to the queue (and are found again); words folded
+  into a live turn are booked as steered. Live on a throwaway HOME, which is also how the route was proved *wired*:
+  an unrouted path answers "no route: POST /api/nope/nope/steer" while the steer route answers `no such task` for a
+  thread it does not know and `no such bot` for a bot it does not know. `index.ts` 12,460 → **12,395 lines**;
+  263/263 pass, typecheck 0, lint 0.
 - **S3.33: the bot form of answering a request out of `index.ts` (October 18).** `POST /api/bots/:id/respond` (80
   lines) did not get a module of its own: it is the *same* ladder as `thread-respond` (S3.27) addressed by bot
   instead of by thread, because a request raised inside a room is answered where the member's turn runs. Folding it
