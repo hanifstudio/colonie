@@ -433,7 +433,7 @@ import { OutboundRequestService } from "./outbound-requests.ts";
 import { DEFAULT_OUTBOUND_POLICY, connectorCallsIn, normalizeOutboundPolicy, outboundCallsIn } from "../shared/outbound.ts";
 import { connectorAccessDecision, describeConnectorScopes, normalizeConnectorScopes } from "../shared/connector-scopes.ts";
 import { bindThreadLogCapProvider } from "./colonie/chat/thread-log-rotation.ts";
-import { listenWebhookIngress, webhookCredential, type WebhookIngress } from "./colonie/routines/webhook-ingress.ts";
+import { listenWebhookIngress, type WebhookIngress } from "./colonie/routines/webhook-ingress.ts";
 import { assertModelVariantSupported } from "./colonie/chat/member-turn.ts";
 import { WebhookManager } from "./colonie/routines/webhooks.ts";
 import type { WebhookTrigger } from "../shared/webhooks.ts";
@@ -551,6 +551,7 @@ import { createBotProfileRoutes } from "./routes/bot-profile.ts";
 import { cliProbeRoutes } from "./routes/cli-probe.ts";
 import { createTeamMapRoutes } from "./routes/team-map.ts";
 import { createRoutineRoutes } from "./routes/routines.ts";
+import { createCalendarWebhookRoutes } from "./routes/calendar-webhooks.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -987,30 +988,7 @@ function withRecalled(recalled: string, text: string): string {
   return recalled ? `${recalled}\n\n${text}` : text;
 }
 
-/** Bots in one room must be visible to the same people: a room is one
- * transcript, so otherwise a restricted bot's words would feed a teammate
- * everyone can see. Refuse a roster that adds such a bot (existing members
- * may stay while an admin sorts it out), naming the pair in plain words. */
-function roomAudienceConflict(memberIds: readonly string[], existing: readonly string[] = []): string | null {
-  const members = memberIds.flatMap((id) => {
-    const bot = store.bot(id);
-    return bot ? [bot] : [];
-  });
-  for (const added of members.filter((bot) => !existing.includes(bot.id))) {
-    const other = members.find((bot) => bot.id !== added.id && !sameAudience(bot.visibility, added.visibility));
-    if (other) {
-      return `Bots in one room must be visible to the same people. ${added.name} and ${other.name} are not: give them the same visibility first, or use separate rooms.`;
-    }
-  }
-  return null;
-}
 
-/** A scheduled call with several bots opens a room, so its bots keep one audience too. */
-function calendarAudienceConflict(body: unknown): string | null {
-  const botIds = body && typeof body === "object" ? (body as { botIds?: unknown }).botIds : undefined;
-  if (!Array.isArray(botIds) || botIds.length < 2 || botIds.some((id) => typeof id !== "string")) return null;
-  return roomAudienceConflict(botIds as string[]);
-}
 
 /** What a member's live stream needs to narrow a frame. */
 function memberFrameContext(visible: VisibleSet): FrameContext {
@@ -10616,6 +10594,13 @@ ROUTES.push(createRoutineRoutes({
   store,
   visibleFor: (auth) => visibleTo(viewerFor(auth)),
 }));
+ROUTES.push(createCalendarWebhookRoutes({
+  calendarCalls: () => calendarCalls!,
+  webhooks,
+  webhookIngressStatus,
+  store,
+  visibleFor: (auth) => visibleTo(viewerFor(auth)),
+}));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -13073,82 +13058,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, { messageIds });
       }
       return json(res, 404, { error: "unknown internal endpoint" });
-    }
-
-    // ── scheduled room sessions ────────────────────────────────────────
-    if (path === "/api/calendar-calls" && method === "GET") {
-      return json(res, 200, { calls: calendarCalls!.list() });
-    }
-    if (path === "/api/calendar-calls" && method === "POST") {
-      try {
-        const body = await readBody(req);
-        const conflict = calendarAudienceConflict(body);
-        if (conflict) return json(res, 400, { error: conflict });
-        return json(res, 201, { call: calendarCalls!.create(body) });
-      } catch (error) {
-        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { status: 400 });
-      }
-    }
-    const calendarCallMatch = path.match(/^\/api\/calendar-calls\/([\w-]+)$/);
-    if (calendarCallMatch && method === "PATCH") {
-      if (!calendarCalls!.get(calendarCallMatch[1])) return json(res, 404, { error: "no such scheduled call" });
-      try {
-        const body = await readBody(req);
-        const conflict = calendarAudienceConflict(body);
-        if (conflict) return json(res, 400, { error: conflict });
-        return json(res, 200, { call: calendarCalls!.update(calendarCallMatch[1], body) });
-      } catch (error) {
-        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { status: 400 });
-      }
-    }
-    if (calendarCallMatch && method === "DELETE") {
-      return calendarCalls!.remove(calendarCallMatch[1])
-        ? json(res, 200, { ok: true })
-        : json(res, 404, { error: "no such scheduled call" });
-    }
-
-    // ── independent webhook triggers ────────────────────────────────────
-    // Management stays on the app-only server. Actual deliveries land on a
-    // second, webhook-only loopback listener so Funnel or a future hosted
-    // relay never has to expose the rest of Colonie's control surface.
-    if (path === "/api/webhooks" && method === "GET") {
-      const shownHooks = webhooks.list().filter((webhook) => visible.bot(webhook.botId));
-      const shownIds = new Set(shownHooks.map((webhook) => webhook.id));
-      return json(res, 200, { webhooks: shownHooks, attempts: webhooks.listAttempts().filter((attempt) => visible.everything || shownIds.has(attempt.webhookId)), ingress: webhookIngressStatus() });
-    }
-    if (path === "/api/webhooks" && method === "POST") {
-      const created = webhooks.create(await readBody(req));
-      const ingress = webhookIngressStatus();
-      return json(res, 201, {
-        webhook: created.webhook,
-        ingress,
-        credential: webhookCredential(ingress.baseUrl, created.webhook.endpointId, created.secret),
-      });
-    }
-    let webhookMatch = path.match(/^\/api\/webhooks\/([\w-]+)\/(rotate|test)$/);
-    if (webhookMatch && method === "POST") {
-      if (webhookMatch[2] === "test") {
-        const result = webhooks.test(webhookMatch[1], await readBody(req));
-        return result ? json(res, 202, result) : json(res, 404, { error: "no such webhook" });
-      }
-      const rotated = webhooks.rotateSecret(webhookMatch[1]);
-      if (!rotated) return json(res, 404, { error: "no such webhook" });
-      const ingress = webhookIngressStatus();
-      return json(res, 200, {
-        webhook: rotated.webhook,
-        ingress,
-        credential: webhookCredential(ingress.baseUrl, rotated.webhook.endpointId, rotated.secret),
-      });
-    }
-    webhookMatch = path.match(/^\/api\/webhooks\/([\w-]+)$/);
-    if (webhookMatch && method === "PATCH") {
-      const webhook = webhooks.update(webhookMatch[1], await readBody(req));
-      return webhook ? json(res, 200, { webhook }) : json(res, 404, { error: "no such webhook" });
-    }
-    if (webhookMatch && method === "DELETE") {
-      return webhooks.remove(webhookMatch[1])
-        ? json(res, 200, { ok: true })
-        : json(res, 404, { error: "no such webhook" });
     }
 
     // ── events stream ──

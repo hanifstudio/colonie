@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.16: scheduled calls and webhook triggers out of `index.ts` (October 18).** `server/routes/
+  calendar-webhooks.ts` takes `GET/POST /api/calendar-calls`, `PATCH/DELETE /api/calendar-calls/:id`,
+  `GET/POST /api/webhooks`, `POST /api/webhooks/:id/(rotate|test)`, `PATCH/DELETE /api/webhooks/:id`, plus
+  `roomAudienceConflict` and `calendarAudienceConflict`, which only these routes used. `index.ts` 17,096 →
+  17,005 lines. The audience rule stays part of the route, not a screen's job: a call with several bots
+  opens a room, so those bots must already share one audience, and the refusal names the pair. A manager's
+  own validation error still reaches the caller as a 400 through the outer mapper — verified live, not
+  assumed. Guard: `server/routes/calendar-webhooks.test.ts` (8) — one bot or bots sharing an audience pass, a
+  mixed roster is refused with both names, what the manager refuses is a 400 rather than a crash, editing
+  and deleting answer for the call named, a webhook list shows only the hooks and attempts the viewer may
+  see, creating and rotating a hook hand back the URL a sender needs with the trailing slash on the ingress
+  base not doubled, and testing/editing/deleting answer for the hook named. Two mistakes of mine were caught
+  by the checks rather than shipped: fake bots with `{people: []}` visibility both normalised to "admins"
+  (so my first audience test proved nothing), and a hand-typed expectation tripped
+  `no-unsafe-optional-chaining` under `--deny-warnings`. 187/187 pass, typecheck 0, lint 0.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider
