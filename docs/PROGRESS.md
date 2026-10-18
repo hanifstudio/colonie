@@ -379,6 +379,20 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   entry is a 404, a person's own entry is trusted immediately, and an unknown kind is refused. 64/64 pass,
   typecheck 0, lint 0. Live on a throwaway HOME: General reads empty, an unknown team is 404, team memory
   lists empty, and a PUT stores the brief and reads it back.
+- **S3.12: a bot's SOUL, system-prompt preview and profile history left `index.ts` (October 18).** The soul
+  read, `soul/apply-file`, `soul/discard-file`, `system-prompt`, `overview`, `history` and
+  `history/rollback` became `server/routes/bot-profile.ts`
+  (`createBotProfileRoutes({ store, wireBot, broadcast, previewSystemPrompt, botOverview })`) — 130 inline
+  lines removed and four imports pruned (`index.ts` 17,390 → 17,260). The onboarding-card route that sat
+  next to them stayed behind: it is about messages, not the profile. Guard:
+  `server/routes/bot-profile.test.ts` — other paths decline, an unknown bot is a 404 on all four reads,
+  the soul read reports the record with its size and the limit, a stale revision is a 409 before anything
+  is written, a file text that is not what the read returned is refused, a rollback naming no soul entry
+  is a 400 and a rollback with a stale revision is a 409 first, and the system-prompt preview and overview
+  answer. One test was wrong twice before it was right: it passed `{}` where the method goes, and it
+  expected the "matches the record" answer that only exists once a SOUL.md mirror is on disk.
+  73/73 pass, typecheck 0, lint 0. Live on a throwaway HOME: `/api/bots/nope/soul`, `/history` and
+  `/overview` all answer `{"error":"no such bot"}` through the new module.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)

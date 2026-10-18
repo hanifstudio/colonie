@@ -43,7 +43,6 @@ import { SharedComputerControl } from "./shared-computer-control.ts";
 import { DirectHandoffs, type DirectHandoff } from "./direct-handoffs.ts";
 import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput, requestSourceForCard } from "./guarded-requests.ts";
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
-import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
 import {
   approvalModeFor,
@@ -362,7 +361,7 @@ import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefault
 import { expandLearnTurnText, learnSource } from "./skill-learn.ts";
 import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
 import type { SkillRequestCardData } from "../shared/skill-request.ts";
-import { checkSoulDrift, readSoulDrift, soulFile, writeSoulMirror } from "./bot-folder.ts";
+import { checkSoulDrift } from "./bot-folder.ts";
 import {
   buildSystemPrompt,
   userProfileSystemPrompt,
@@ -424,7 +423,7 @@ import { ProfileRequestService } from "./profile-requests.ts";
 import { ModelRequestService } from "./model-requests.ts";
 import { TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.ts";
 import type { TeamSetupRequest } from "../shared/team-setup.ts";
-import { profileRevision, profileSnapshot } from "./profile-revision.ts";
+import { profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
 import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./bot-package.ts";
 import { createTeamManifest, parseTeamManifest } from "./team-manifest.ts";
@@ -550,6 +549,7 @@ import { createTeamSectionRoutes } from "./routes/team-sections.ts";
 import { createBotDefaultRoutes } from "./routes/bot-defaults.ts";
 import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { createTeamBriefRoutes } from "./routes/team-brief.ts";
+import { createBotProfileRoutes } from "./routes/bot-profile.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10689,6 +10689,7 @@ ROUTES.push(createMcpServerRoutes({
   fallbackPublicUrl: FALLBACK_PUBLIC_URL,
 }));
 ROUTES.push(createTeamBriefRoutes({ store, teamMemory }));
+ROUTES.push(createBotProfileRoutes({ store, wireBot, broadcast, previewSystemPrompt, botOverview }));
 // The bot-memory panel's routes (MEMORY.md, memory/ topics, journal); the
 // store lookups — the 404 precheck and journal thread titles — stay explicit.
 ROUTES.push(createBotMemoryRoutes({
@@ -15112,136 +15113,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, { ok: true });
     }
 
-
-    m = path.match(/^\/api\/bots\/([\w-]+)\/soul$/);
-    if (m && method === "GET") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      const soul = bot.soul ?? "";
-      const drift = readSoulDrift(bot.id, soul, bot.soulHash ?? "");
-      return json(res, 200, {
-        soul,
-        revision: profileRevision(bot),
-        bytes: Buffer.byteLength(soul, "utf8"),
-        limit: BOT_PROFILE_LIMITS.soul,
-        file: soulFile(bot.id),
-        drift: drift.drift,
-        ...(drift.drift ? { fileText: drift.fileText } : {}),
-      });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/soul\/apply-file$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (body?.expectedRevision !== profileRevision(bot)) {
-        return json(res, 409, { error: "This bot's profile changed; reload and look again" });
-      }
-      const drift = readSoulDrift(bot.id, bot.soul ?? "", bot.soulHash ?? "");
-      if (!drift.drift) return json(res, 409, { error: "SOUL.md matches the record; nothing to apply" });
-      if (typeof body?.fileText !== "string" || body.fileText !== drift.fileText) {
-        return json(res, 409, { error: "SOUL.md changed since you read it; reload and look again" });
-      }
-      // The file is user input like any other: same cap, same error copy.
-      const parsed = parseBotProfilePatch({ soul: drift.fileText });
-      if (!parsed.ok) return json(res, 400, { error: parsed.error });
-      // store.bot() returns the live record and setSoul mutates it in place,
-      // so the snapshot must be taken before the call — after, `bot` and
-      // `updated` are the same object and the diff would always be empty.
-      const beforeProfile = profileSnapshot(bot);
-      const updated = store.setSoul(bot.id, parsed.patch.soul ?? "");
-      if (!updated) return json(res, 404, { error: "no such bot" });
-      recordProfileChange(bot.id, "file", "ui", beforeProfile, profileSnapshot(updated));
-      const visible = wireBot(updated);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 200, { bot: visible });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/soul\/discard-file$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (body?.expectedRevision !== profileRevision(bot)) {
-        return json(res, 409, { error: "This bot's profile changed; reload and look again" });
-      }
-      const drift = readSoulDrift(bot.id, bot.soul ?? "", bot.soulHash ?? "");
-      if (!drift.drift || typeof body?.fileText !== "string" || body.fileText !== drift.fileText) {
-        return json(res, 409, { error: "SOUL.md changed since you read it; reload and look again" });
-      }
-      writeSoulMirror(bot.id, bot.soul ?? "");
-      const updated = store.patchBot(bot.id, { soulDrift: false }) ?? bot;
-      const visible = wireBot(updated);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 200, { bot: visible });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/system-prompt$/);
-    if (m && method === "GET") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, previewSystemPrompt(bot));
-    }
-    
-    m = path.match(/^\/api\/bots\/([\w-]+)\/overview$/);
-    if (m && method === "GET") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, await botOverview(bot));
-    }
-
-    m = path.match(/^\/api\/bots\/([\w-]+)\/history$/);
-    if (m && method === "GET") {
-      if (!store.bot(m[1])) return json(res, 404, { error: "no such bot" });
-      // Writes queue in profile-versions.ts and land asynchronously; a client
-      // reading history right after causing a change must see its own row.
-      await flushProfileHistory(m[1]);
-      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 100));
-      // A soul row's full before/after can be the entire standing
-      // instructions (up to 24,000 bytes) — fine for a rollback, which
-      // reads the file server-side, but not for a client that only asked
-      // to see what changed. Strip the bodies (keep the byte-count
-      // summary) unless the caller explicitly wants them.
-      const full = url.searchParams.get("full") === "1";
-      const rows = readHistory(m[1], limit).map((row) => {
-        if (full || row.field !== "soul") return row;
-        const rest: typeof row = { ...row };
-        delete rest.before;
-        delete rest.after;
-        return rest;
-      });
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, { rows, revision: profileRevision(bot) });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/history\/rollback$/);
-    if (m && method === "POST") {
-      const body = await readBody(req);
-      // Same flush as the GET route: the row this rollback targets may have
-      // been recorded moments ago and not yet reached disk.
-      await flushProfileHistory(m[1]);
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (body?.expectedRevision !== profileRevision(bot)) {
-        return json(res, 409, { error: "This bot's profile changed; reload history before undoing" });
-      }
-      const row = typeof body?.id === "string"
-        ? readHistory(bot.id, Number.MAX_SAFE_INTEGER).find((r) => r.id === body.id && r.field === "soul")
-        : undefined;
-      if (!row || row.field !== "soul" || typeof row.before !== "string") {
-        return json(res, 400, { error: "rollback is available for SOUL.md entries only" });
-      }
-      if (!row.canRestore) {
-        return json(res, 400, { error: row.restoreUnavailableReason });
-      }
-      const parsed = parseBotProfilePatch({ soul: row.before });
-      if (!parsed.ok) return json(res, 400, { error: parsed.error });
-      const before = profileSnapshot(bot);
-      const updated = store.setSoul(bot.id, parsed.patch.soul ?? "");
-      if (!updated) return json(res, 404, { error: "no such bot" });
-      recordProfileChange(bot.id, "user", "rollback", before, profileSnapshot(updated));
-      const visible = wireBot(updated);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 200, { bot: visible });
-    }
 
     // onboarding/ask cards persist their answered/dismissed state
     m = path.match(/^\/api\/bots\/([\w-]+)\/cards\/([\w-]+)$/);
