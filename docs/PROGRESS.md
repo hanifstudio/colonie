@@ -629,6 +629,17 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.89: the routine-request receipt recovery out of `index.ts` (October 18).**
+  Added `reconcileRoutineRequestReceiptsAtBoot({ store, routines })` to
+  `server/colonie/routines/routine-requests.ts` — the boot-time reconciliation
+  that reads only the distinct threads named by a surviving receipt (so a normal
+  launch with no crash-gap receipts reads no transcript at all) and keeps only
+  those whose confirmation card is still open. `index.ts` 2,154 → 2,138 lines.
+  Guard: `routine-requests.test.ts` (+4) — a receipt-free launch reads nothing,
+  each receipt's thread is read once, an open card is kept while a vanished one
+  is dropped, and an answered or dismissed card is not a reachable receipt.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 102 files / 487
+  tests pass; live probe 8/8 green.
 - **S3.88: the skills-library boot sweep out of `index.ts` (October 18).**
   Added `runSkillsLibraryBoot({ cfg, store })` to
   `server/colonie/skills/skills-library-migration.ts` — the boot sweep with its

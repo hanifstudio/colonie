@@ -1735,3 +1735,29 @@ export class RoutineRequestService {
     }
   }
 }
+
+export interface ReconcileRoutineRequestReceiptsAtBootOptions {
+  store: RoutineRequestStore;
+  routines: RoutineManager;
+}
+
+/** A normal launch has no crash-gap receipts, so it must not eagerly load
+ * every historical transcript. Inspect only the distinct threads named by a
+ * surviving receipt; reconciliation then removes any whose card vanished. */
+export function reconcileRoutineRequestReceiptsAtBoot(
+  options: ReconcileRoutineRequestReceiptsAtBootOptions,
+): void {
+  const owners = options.routines.routineRequestReceiptOwners();
+  if (owners.length === 0) return;
+  const recoveryThreads = [...new Set(owners.map((owner) => owner.threadId))];
+  options.routines.reconcileRoutineRequestReceipts(
+    recoveryThreads.flatMap((threadId) =>
+      options.store.messagesFor(threadId).flatMap((message) => {
+        const request = message.card?.routineRequest;
+        return request && !message.card?.answered && !message.card?.dismissed
+          ? [{ requestId: request.requestId, messageId: message.id, botId: request.botId, threadId: request.threadId }]
+          : [];
+      }),
+    ),
+  );
+}

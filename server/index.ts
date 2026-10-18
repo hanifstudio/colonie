@@ -109,7 +109,7 @@ import {redactSecretsInText} from "./redact.ts";
 import { RoutineManager, type RoutineRunTrigger } from "./colonie/routines/routines.ts";
 import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
 import { browserEngineStatus } from "./colonie/computer/browser-engine.ts";
-import {RoutineRequestService} from "./colonie/routines/routine-requests.ts";
+import {RoutineRequestService, reconcileRoutineRequestReceiptsAtBoot} from "./colonie/routines/routine-requests.ts";
 
 import {TeamMemory} from "./colonie/teams/team-memory.ts";
 import {OutboundCounts} from "./outbound-counts.ts";
@@ -1585,23 +1585,7 @@ calendarCalls = new CalendarCallManager({
   botExists: (botId) => Boolean(store.bot(botId)),
   onDue: deliverCalendarCall,
 });
-const recoveryOwners = routines.routineRequestReceiptOwners();
-if (recoveryOwners.length > 0) {
-  // A normal launch has no crash-gap receipts, so it must not eagerly load
-  // every historical transcript. Inspect only the distinct threads named by
-  // a surviving receipt; reconciliation then removes any whose card vanished.
-  const recoveryThreads = [...new Set(recoveryOwners.map((owner) => owner.threadId))];
-  routines.reconcileRoutineRequestReceipts(
-    recoveryThreads.flatMap((threadId) =>
-      store.messagesFor(threadId).flatMap((message) => {
-        const request = message.card?.routineRequest;
-        return request && !message.card?.answered && !message.card?.dismissed
-          ? [{ requestId: request.requestId, messageId: message.id, botId: request.botId, threadId: request.threadId }]
-          : [];
-      }),
-    ),
-  );
-}
+reconcileRoutineRequestReceiptsAtBoot({ store, routines });
 
 // Chat tools can prepare routine changes, but the harness applies them only
 // after the user confirms a durable card. Keeping this beside the scheduler
