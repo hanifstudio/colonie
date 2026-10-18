@@ -467,6 +467,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   the release skill, `server/index.ts`, `server/server-launcher.ts`, the moved memory and workspace files,
   `shared/colonie-memory.ts`, and two renderer files. `docs/PROGRESS.md` was left alone: it is a log, and
   its old paths describe work as it was done.
+- **S8: skills into `server/colonie/skills/` (October 18).** Five files moved — `skills.ts` (1,545 lines),
+  `skill-library.ts`, `skill-fetch.ts`, `skill-learn.ts`, `skills-library-migration.ts` — joining the ledger
+  pair (`routes.ts`, `service.ts`) already there; 10 files repointed. Guard:
+  `server/colonie/skills/skill-learn.test.ts` — the `/learn` slash command is recognised with or without a
+  request and in any case, a message that merely mentions it is ordinary chat, a multi-line request keeps
+  its text trimmed only at the edges, the run card's sentence is only that sentence, the source names the
+  request (or "conversation") and caps at 180 characters, the authoring prompt carries the person's request
+  verbatim and states that source text is data rather than instructions, an empty request asks for the
+  conversation itself, and a turn becomes the authoring prompt only when it is a learn request.
+  118/118 pass, typecheck 0, lint 0. Live on a throwaway HOME: `/api/bots/:id/colonie-skills` answers through
+  the moved modules, and with `{"features":{"skillsLibrary":true}}` written at `~/.colonie/config.json` the
+  opt-in `/api/skills-library` answers `{"skills":[]}`. That flag is read from the data directory's config,
+  not the home directory's — a wrong first attempt of mine, not a bug.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

@@ -12,8 +12,8 @@
 // library names exactly as the dispatch path resolves them.
 import { createHash } from "node:crypto";
 import { redactSecretsInText } from "../../redact.ts";
-import { fetchSkillFromSource } from "../../skill-fetch.ts";
-import { LEARN_SOURCE_PREFIX } from "../../skill-learn.ts";
+import { fetchSkillFromSource } from "./skill-fetch.ts";
+import { LEARN_SOURCE_PREFIX } from "./skill-learn.ts";
 import {
   applyStagedSkillWrite,
   INDEX_MAX_BYTES,
@@ -26,12 +26,12 @@ import {
   setSkillEnabled,
   stageSkillWrite,
   type SkillListing,
-} from "../../skills.ts";
+} from "./skills.ts";
 import {
   listLibrarySkills,
   readLibrarySkillFile,
   type LibrarySkillListing,
-} from "../../skill-library.ts";
+} from "./skill-library.ts";
 import { DESCRIPTION_MAX, isSkillName } from "../../../shared/skill-md.ts";
 import type {
   AcpSkillsContext,

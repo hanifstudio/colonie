@@ -47,13 +47,13 @@ import {
 import { dirname, join, relative, resolve } from "node:path";
 import { z } from "zod";
 
-import { writeFileAtomic, writeFileAtomicIfChanged } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
-import { redactSecretsInText } from "./redact.ts";
+import { writeFileAtomic, writeFileAtomicIfChanged } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
+import { redactSecretsInText } from "../../redact.ts";
 import { LEARN_SOURCE_PREFIX } from "./skill-learn.ts";
 import { librarySkillFilePath, listLibrarySkills, type LibrarySkillListing } from "./skill-library.ts";
-import { workspaceDir } from "./colonie/workspace/workspace.ts";
-import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES, type ParsedSkill } from "../shared/skill-md.ts";
+import { workspaceDir } from "../workspace/workspace.ts";
+import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES, type ParsedSkill } from "../../../shared/skill-md.ts";
 
 // SKILL.md parsing and the static scan live in shared/ so the package
 // format (Admin and the renderer included) validates skills with the exact
@@ -66,7 +66,7 @@ export {
   SKILL_FILE_MAX_BYTES,
   SKILL_NAME_MAX,
   type ParsedSkill,
-} from "../shared/skill-md.ts";
+} from "../../../shared/skill-md.ts";
 
 /** Total skills prompt block budget. */
 export const INDEX_MAX_SKILLS = 30;

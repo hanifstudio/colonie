@@ -10,8 +10,8 @@ import {
   readLibrarySkillFile,
   readSkillLibraryIndex,
   setLibrarySkillReviewState,
-} from "../skill-library.ts";
-import { parseSkillMd, scanSkillText } from "../skills.ts";
+} from "../colonie/skills/skill-library.ts";
+import { parseSkillMd, scanSkillText } from "../colonie/skills/skills.ts";
 import type { SkillsLibrarySkillWire } from "../../shared/wire.ts";
 import type { Store } from "../persistence/store.ts";
 import { PASS, type RouteHandler } from "./table.ts";

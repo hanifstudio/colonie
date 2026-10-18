@@ -355,10 +355,10 @@ import {
   skillsSystemPrompt,
   stageSkillWrite,
   undoSkillWrite,
-} from "./skills.ts";
-import { fetchSkillFromSource } from "./skill-fetch.ts";
+} from "./colonie/skills/skills.ts";
+import { fetchSkillFromSource } from "./colonie/skills/skill-fetch.ts";
 import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults } from "./new-bot-defaults.ts";
-import { expandLearnTurnText, learnSource } from "./skill-learn.ts";
+import { expandLearnTurnText, learnSource } from "./colonie/skills/skill-learn.ts";
 import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
 import type { SkillRequestCardData } from "../shared/skill-request.ts";
 import { checkSoulDrift } from "./bot-folder.ts";
@@ -447,8 +447,8 @@ import {
   readLibrarySkillFile,
   renderSkillInstructions,
   selectBundledSkills,
-} from "./skill-library.ts";
-import { runSkillsLibraryBootSweep } from "./skills-library-migration.ts";
+} from "./colonie/skills/skill-library.ts";
+import { runSkillsLibraryBootSweep } from "./colonie/skills/skills-library-migration.ts";
 import { installedPlaybookInstructions } from "./installed-playbooks.ts";
 import { createBotPackageExport, createLibraryPackageExport, createTeamPackageExport, picture as sharedPicture, TeamExportError, type ExportablePackageSkill, type TeamExportSkip } from "./package-export.ts";
 import { importPackageDocument, importTeamManifest, PackageImportError, type PackageImportDeps, type PackageImportResult } from "./package-import.ts";

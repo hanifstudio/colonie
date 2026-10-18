@@ -7,8 +7,8 @@
 import { z } from "zod";
 import { newBotDefaultsSchema, botSkillTemplateSchema } from "../new-bot-defaults.ts";
 import { pickBotName } from "../names.ts";
-import { fetchSkillFromSource } from "../skill-fetch.ts";
-import { parseSkillMd, scanSkillText } from "../skills.ts";
+import { fetchSkillFromSource } from "../colonie/skills/skill-fetch.ts";
+import { parseSkillMd, scanSkillText } from "../colonie/skills/skills.ts";
 import { parseBotProfilePatch } from "../bot-profile.ts";
 import { avatarGenerationRequestSchema, generateAvatarImage } from "../avatar-image.ts";
 import type { AppConfig } from "../config.ts";
