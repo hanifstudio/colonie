@@ -629,6 +629,16 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.27: answering a running thread out of `index.ts` (October 18).** `POST /api/threads/:id/respond` (134
+  lines) becomes `server/routes/thread-respond.ts`: allow, always-allow, deny or answer the question a thread is
+  waiting on, whether that question is an approval, a persistent question card, a skill/routine/team-setup/profile/
+  model request, or a peer request on the bus. The insight the dep list records: the *ladder* is the route and the
+  *verdicts* are shared helpers, so the module routes intent and the refusals stay in one place each
+  (`cardAnswerRefusal`, `commandRememberRefusal`, `resolvePeerComms`). Guard test (4): another route or verb is left
+  to the next handler; a behavior that is not allow/deny/answer is refused; a card that may not be answered this way
+  is refused **before the card is touched**; remembering a command is checked on its own. Live on a throwaway HOME:
+  a bad behavior 400, answering a thread with no such request 200 `{ok:true,outcome:"unavailable"}`, an unknown
+  thread 404. `index.ts` 13,150 → **13,036 lines**; 234/234 pass, typecheck 0, lint 0.
 - **S3.26: creating a bot out of `index.ts` (October 18).** `POST /api/bots` (161 lines: profile fields, folder,
   engine, section, preset, the inheriting defaults, and the skills, routines and memory a bot is born with)
   becomes `server/routes/bot-create.ts`. Refusals that the creation dialog relies on stay exactly where they were:
