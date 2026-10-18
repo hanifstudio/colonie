@@ -9,6 +9,9 @@
 // legitimately run for an hour while events keep flowing, but a turn whose
 // thread has emitted nothing at all for `stallMs` is wedged. Turns parked
 // on a human approval are exempt — waiting on a person is not a stall.
+import type { RuntimeEvent } from "../../contracts.ts";
+import type { Store } from "../../persistence/store.ts";
+
 export interface WatchedTurn {
   threadId: string;
   botId: string;
@@ -103,4 +106,45 @@ export class TurnWatchdog {
       this.opts.onStall(turn);
     }
   }
+}
+
+export interface TurnWatchdogWiringDeps {
+  // ponytail: one permissive shape instead of hand-typed lines for each name;
+  // the store and the watchdog stay typed because the reply it reads must stay
+  // a message and the marks it sets are the class's own.
+  [name: string]: any;
+  store: Store;
+  watchdog: TurnWatchdog;
+}
+
+/** Start the watchdog's timer, then let the bus feed it: the waiting marks a
+ * room reads while it decides whether a busy teammate is stuck, the settle that
+ * frees a thread, and the direct-follow-up receipt that closes a turn's
+ * provider slot. */
+export function registerTurnWatchdog(deps: TurnWatchdogWiringDeps): void {
+  const {
+    bus, directFollowupTurns, revokeInternalCapabilityForProviderEvent, settleDirectFollowup,
+    shouldIgnoreProviderEvent, store, watchdog
+  } = deps;
+  watchdog.start();
+  bus.subscribe((event: RuntimeEvent) => {
+    if (shouldIgnoreProviderEvent(event)) return;
+    if (event.type === "request.opened") watchdog.setWaitingOnHuman(event.threadId, true);
+    else if (event.type === "request.resolved") watchdog.setWaitingOnHuman(event.threadId, false);
+    else if (event.type === "turn.wait_started") watchdog.setWaitingOnComputer(event.threadId, true);
+    else if (event.type === "turn.wait_ended") watchdog.setWaitingOnComputer(event.threadId, false);
+    else if (event.type === "turn.completed") {
+      watchdog.settle(event.threadId);
+      revokeInternalCapabilityForProviderEvent(event);
+      if (event.turnId && store.botByThread(event.threadId)) {
+        const reply = store.messagesFor(event.threadId).findLast(message =>
+          message.role === "bot" && message.kind === "text" && message.turnId === event.turnId);
+        const outcome = { ok: event.ok, text: (reply?.text || event.stopReason || "The bot finished without a text reply").slice(0, 12_000) };
+        const owner = directFollowupTurns.complete(event.threadId, event.turnId, outcome);
+        if (owner) {
+          settleDirectFollowup(owner.generation);
+        }
+      }
+    } else if (event.type !== "session.exited") watchdog.touch(event.threadId);
+  });
 }

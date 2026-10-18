@@ -95,6 +95,7 @@ import { registerCompletedTurnNotes } from "./colonie/chat/completed-turn-notes.
 import { createConversationSources } from "./colonie/chat/conversation-sources.ts";
 import { createThreadAdmission } from "./colonie/chat/thread-admission.ts";
 import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
+import { registerTurnWatchdog } from "./colonie/chat/turn-watchdog.ts";
 import { createTurnOrigins } from "./colonie/chat/turn-origins.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
 import { createColonieMemoryBoot } from "./colonie/memory/memory-boot.ts";
@@ -1035,27 +1036,14 @@ const { commandRememberRefusal, answerRequest, respondToCard, closeOpenApprovals
 const COMPUTER_WAIT_MAX_MS = Math.max(1_000, Number(process.env.COLONIE_COMPUTER_WAIT_MAX_MS) || 30 * 60_000);
 // Reassigning around a busy teammate is bounded too: after this many
 // exhausted waits in one run the team is blocked on availability, not stuck.
-watchdog.start();
-
-bus.subscribe((event: RuntimeEvent) => {
-  if (shouldIgnoreProviderEvent(event)) return;
-  if (event.type === "request.opened") watchdog.setWaitingOnHuman(event.threadId, true);
-  else if (event.type === "request.resolved") watchdog.setWaitingOnHuman(event.threadId, false);
-  else if (event.type === "turn.wait_started") watchdog.setWaitingOnComputer(event.threadId, true);
-  else if (event.type === "turn.wait_ended") watchdog.setWaitingOnComputer(event.threadId, false);
-  else if (event.type === "turn.completed") {
-    watchdog.settle(event.threadId);
-    revokeInternalCapabilityForProviderEvent(event);
-    if (event.turnId && store.botByThread(event.threadId)) {
-      const reply = store.messagesFor(event.threadId).findLast(message =>
-        message.role === "bot" && message.kind === "text" && message.turnId === event.turnId);
-      const outcome = { ok: event.ok, text: (reply?.text || event.stopReason || "The bot finished without a text reply").slice(0, 12_000) };
-      const owner = directFollowupTurns.complete(event.threadId, event.turnId, outcome);
-      if (owner) {
-        settleDirectFollowup(owner.generation);
-      }
-    }
-  } else if (event.type !== "session.exited") watchdog.touch(event.threadId);
+registerTurnWatchdog({
+  bus,
+  directFollowupTurns,
+  revokeInternalCapabilityForProviderEvent,
+  settleDirectFollowup,
+  shouldIgnoreProviderEvent,
+  store,
+  watchdog,
 });
 
 // Automatic continuity: a turn that died on its budget or on tool errors gets

@@ -629,6 +629,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.86: the turn-watchdog subscriber out of `index.ts` (October 18).**
+  Extended `server/colonie/chat/turn-watchdog.ts` — the watchdog's own domain —
+  with `registerTurnWatchdog(deps)`: start the watchdog's timer, then let the
+  bus feed it the waiting-on-human and waiting-on-computer marks a room reads
+  while it decides whether a busy teammate is stuck, the `turn.completed` settle
+  that also revokes the turn's internal capability and closes its direct-follow-up
+  receipt, and the activity `touch` that any other event is. `index.ts` supplies
+  the collaborators (`bus`, `directFollowupTurns`, `settleDirectFollowup`,
+  `revokeInternalCapabilityForProviderEvent`, `shouldIgnoreProviderEvent`,
+  `store`, `watchdog`). `index.ts` 2,200 → 2,188 lines. Guard: new
+  `turn-watchdog.test.ts` (5) — the marks in order, a completed turn settling
+  and closing its receipt, the stop-reason stand-in when there is no reply, an
+  ignored event changing nothing, and `session.exited` never counting as a
+  touch. `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 100 files /
+  475 tests pass; live probe green.
 - **S3.85: the memory-upkeep wiring out of `index.ts` (October 18).**
   `server/colonie/memory/memory-upkeep-wiring.ts` (`createMemoryUpkeepWiring`):
   the construction of the memory-upkeep pass — which bots may be captured, how
