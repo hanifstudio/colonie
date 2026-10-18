@@ -57,7 +57,7 @@ import { attachmentExists, cleanupStaleAttachmentPartials } from "./colonie/chat
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import {createMemoryUpkeep, upkeepEnabled} from "./colonie/memory/memory-upkeep.ts";
+import {createMemoryUpkeep} from "./colonie/memory/memory-upkeep.ts";
 import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";
@@ -80,7 +80,6 @@ import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registr
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
 import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
-import { turnOutcomeLine } from "./recent-work.ts";
 
 import {admit} from "./admission.ts";
 import {_loadPending, discardDelegations, pendingThreads} from "./colonie/peers/delegations.ts";
@@ -95,13 +94,13 @@ import { dismissStalePeerCards, type ApprovalBus } from "./colonie/peers/peer-ap
 import { Store, type BotRecord } from "./persistence/store.ts";
 import { createDecider } from "./decider/index.ts";
 import {makeCapContinuationSubscriber} from "./colonie/chat/turn-continuation.ts";
+import { registerCompletedTurnNotes } from "./colonie/chat/completed-turn-notes.ts";
 import { createConversationSources } from "./colonie/chat/conversation-sources.ts";
 import { createThreadAdmission } from "./colonie/chat/thread-admission.ts";
-import {extractTurnImages} from "./colonie/chat/turn-images.ts";
 import { generateThreadTitle, titleRegenerations } from "./colonie/chat/title-generation.ts";
 import { createTurnOrigins } from "./colonie/chat/turn-origins.ts";
 import {TurnResources, type TurnOwner} from "./colonie/chat/turn-resources.ts";
-import {appendMemoryLog, memorySourceLabel} from "./colonie/workspace/workspace.ts";
+import {memorySourceLabel} from "./colonie/workspace/workspace.ts";
 import { createColonieMemoryBoot } from "./colonie/memory/memory-boot.ts";
 import { memoryDate } from "./colonie/workspace/workspace.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
@@ -1226,61 +1225,6 @@ const memoryUpkeep = createMemoryUpkeep({
   log: (line) => console.log(line),
 });
 
-// A finished 1:1 turn of an upkeep bot waits for capture. Only the person's
-// own conversation: not a room, not a turn another bot or the harness
-// started (its "user" line is not the person), not a failed turn.
-bus.subscribe((event: RuntimeEvent) => {
-  if (shouldIgnoreProviderEvent(event)) return;
-  if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
-  try {
-    const bot = store.botByThread(event.threadId);
-    if (!bot || isColonieAcpDriver(event.provider) || !upkeepEnabled(bot) || isInternalTurn(event.threadId)
-      || isUnattended(bot.id, event.threadId) || routines?.runForThread(event.threadId)) return;
-    const path = store.activePath(event.threadId);
-    const replyAt = path.findLastIndex((message) => message.role === "bot" && message.kind === "text" && message.turnId === event.turnId);
-    if (replyAt < 0) return;
-    const asked = path.slice(0, replyAt).findLast((message) => message.role === "user" && message.kind === "text");
-    if (!asked || asked.peerAsk) return;
-    memoryUpkeep.noteTurn(bot.id, event.threadId, {
-      person: extractTurnImages(asked.text ?? "").text,
-      bot: path[replyAt]!.text ?? "",
-      owner: !asked.sender,
-    });
-  } catch (error) {
-    console.warn(`memory upkeep: could not queue a turn for capture: ${(error as Error).message}`);
-  }
-});
-
-// One line per finished turn in the bot's daily log (server/recent-work.ts):
-// what it said last, the tools it used, whether the turn failed. What a bot
-// did in one conversation was invisible from every other; the log is where
-// session_search finds it later, and it is never loaded whole into a
-// prompt. In a room the reply names its speaker; a room turn that never
-// replied has no one to credit and leaves no line.
-bus.subscribe((event: RuntimeEvent) => {
-  if (shouldIgnoreProviderEvent(event)) return;
-  if (event.type !== "turn.completed" || !event.turnId) return;
-  try {
-    const messages = store.messagesFor(event.threadId);
-    const reply = messages.findLast((message) => message.role === "bot" && message.kind === "text" && message.turnId === event.turnId);
-    const bot = store.botByThread(event.threadId) ?? (reply?.from ? store.bot(reply.from.botId) : undefined);
-    if (!bot || isColonieAcpDriver(event.provider) || bot.memoryEnabled === false) return;
-    const tools = messages
-      .filter((message) => message.kind === "activity" && message.turnId === event.turnId && message.tool?.name)
-      .map((message) => message.tool!.name);
-    const line = turnOutcomeLine({ ok: event.ok, reply: reply?.text, stopReason: event.stopReason, tools });
-    if (!line) return;
-    const writeLine = () => appendMemoryLog(bot.id, line, {
-      source: memorySourceLabel({
-        task: store.taskByThread(bot.id, event.threadId),
-        threadId: event.threadId,
-      }),
-    });
-    writeLine();
-  } catch {
-    // a missing note never fails a turn
-  }
-});
 const { turnStartedAt, turnCheckpoints, liveTurnByThread, clearTurnDigestState, forgetTurnCheckpoint, scheduleTurnDigest } = createTurnDigest({
   isContextMessage: () => isContextMessage,
   memoryRowsByThread,
@@ -1288,6 +1232,16 @@ const { turnStartedAt, turnCheckpoints, liveTurnByThread, clearTurnDigestState, 
 });
 const { markUnattended, clearUnattended, isUnattended, markInternalTurn, clearInternalTurn, isInternalTurn } = createTurnOrigins({
   threadBusy,
+});
+
+registerCompletedTurnNotes({
+  bus,
+  isInternalTurn,
+  isUnattended,
+  memoryUpkeep: () => memoryUpkeep,
+  routines: () => routines,
+  shouldIgnoreProviderEvent,
+  store,
 });
 let routines: RoutineManager | null = null;
 let calendarCalls: CalendarCallManager | null = null;

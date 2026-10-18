@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.83: the finished-turn notes out of `index.ts` (October 18).**
+  `server/colonie/chat/completed-turn-notes.ts` (`registerCompletedTurnNotes`):
+  the two `turn.completed` folds, in the order they have always run — the
+  memory-upkeep capture-queue entry (only the person's own 1:1 successful turn:
+  not a room, not a turn another bot or the harness started, not a failed turn)
+  and the bot's daily-log line (`recent-work.ts`'s `turnOutcomeLine`, written
+  through `appendMemoryLog`). Both share the same "person's own turn only" gate
+  and both swallow their own failure so a missing note never fails a turn.
+  `routines` and `memoryUpkeep` come in as getters, so those shared bindings stay
+  in `index.ts`. `index.ts` 2,346 → 2,300 lines. Guard: new
+  `completed-turn-notes.test.ts` (5) — the person's own turn queued with the
+  bot's text, the ignored/internal/unattended/failed skips, the peer-ask and
+  upkeep-off skips, a failing capture warning instead of throwing, and one
+  daily-log line (with tools and source) plus none for a silent turn.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 97 files / 463
+  tests pass; live probe green.
 - **S3.82: the turn-origin marks out of `index.ts` (October 18).**
   `server/colonie/chat/turn-origins.ts` (`createTurnOrigins`): the
   `unattendedThreads` mark (a webhook-driven turn, or one a webhook-driven bot
