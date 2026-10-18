@@ -109,11 +109,12 @@ started, and review.
   `config.json` is read from `homedir()`, and the shell exports `COMPOSIO_API_KEY`,
   which every child inherits. Probe local routes only; never one that reaches a provider.
 - Next in this task: the remaining `index.ts` groups, smallest first — custom MCP servers
-  (`GET/POST /api/mcp/servers`, `/import`, `/test`, sign-in flow; owns two busy counters
-  and needs `cfg`, `mcpOAuth`, `sessions`), then bot create/patch, tasks, Local VM,
-  threads and messages, and last `GET/PATCH /api/config` (~340 lines). The dead native
-  transport (`/api/internal/*` peer block and friends, ~3,400 lines) stays untouched:
-  it is owner-gated, not a default cleanup.
+  **done** (`server/routes/mcp-servers.ts`, S3.10) — then bot create/patch
+  (`POST /api/bots` and the ~600-line block after it: profile, SOUL, section context, avatar,
+  presence), tasks, Local VM, threads and messages, and last `GET/PATCH /api/config`
+  (~340 lines, dense: it reloads the provider fleet and applies pending restores, so it needs
+  a real check, not just typecheck). The dead native transport (`/api/internal/*` peer block and
+  friends, ~3,400 lines) stays untouched: it is owner-gated, not a default cleanup.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 
