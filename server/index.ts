@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createVisibility} from "./harness/visibility.ts";
 import {createAdminAudit} from "./harness/admin-audit.ts";
 import {createResumeTables} from "./colonie/chat/resume-tables.ts";
 import {createRoutineRunCards} from "./colonie/routines/run-cards.ts";
@@ -77,7 +78,7 @@ import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registr
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
 import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
-import { closeMessageSearch, closeMessageDb, chatFollowups, settleChatFollowups, threadsReferencing } from "./persistence/message-db.ts";
+import { closeMessageSearch, closeMessageDb, chatFollowups, settleChatFollowups } from "./persistence/message-db.ts";
 import { turnOutcomeLine } from "./recent-work.ts";
 
 import {drainAsideMessages, restoreAsideMessages} from "./colonie/chat/aside-queue.ts";
@@ -156,7 +157,7 @@ import {resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
 import { SessionRegistry, type SessionRecord } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import {appendAdminAction, configChangeRows, flushAdminActivity, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor} from "./admin-activity.ts";
-import { frameForMember, noteSeen, routineVisible, SEES_EVERYTHING, VisibleSet, type FrameContext, type PathSubject, type ThreadOwner, type Viewer } from "./colonie/bots/bot-visibility.ts";
+import { frameForMember, noteSeen, VisibleSet, type FrameContext } from "./colonie/bots/bot-visibility.ts";
 import {describeBrand, loadBrand} from "./brand.ts";
 import {deliverSseFrame} from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and
@@ -458,81 +459,10 @@ async function answeringCardAs(auth: RequestAuth, threadId: string, requestId: s
   }
 }
 
-// ── bot visibility (server/bot-visibility.ts) ──────────────────────────
-/** Who is looking. The owner, a session-less local service (the Slack
- * worker) and admin sessions see every bot; any other session is a member,
- * known by the email it signed in with. */
-function viewerFor(auth: RequestAuth): Viewer {
-  if (auth.kind === "loopback" || auth.scopes.includes("admin")) return SEES_EVERYTHING;
-  return { kind: "member", ...(auth.session.email ? { email: auth.session.email } : {}) };
-}
-
-/** Thread → the bot or room that owns it, and one VisibleSet per viewer,
- * both kept until the next bot, room or thread change (store.onChange
- * below), so a stream of live frames costs a map lookup each. */
-const threadOwners = new Map<string, ThreadOwner | null>();
-const visibleSets = new Map<string, VisibleSet>();
-function threadOwner(threadId: string): ThreadOwner | undefined {
-  let owner = threadOwners.get(threadId);
-  if (owner === undefined) {
-    const bot = store.botByThread(threadId);
-    const group = bot ? undefined : store.groupByThread(threadId);
-    owner = bot ? { bot: bot.id } : group ? { group: group.id } : null;
-    if (threadOwners.size >= 20_000) threadOwners.clear();
-    threadOwners.set(threadId, owner);
-  }
-  return owner ?? undefined;
-}
-function visibleTo(viewer: Viewer): VisibleSet {
-  const key = viewer.kind === "all" ? "*" : `member:${viewer.email?.trim().toLowerCase() ?? ""}`;
-  let set = visibleSets.get(key);
-  if (!set) {
-    set = new VisibleSet(store.bots, store.groups, viewer, threadOwner);
-    if (visibleSets.size >= 1_000) visibleSets.clear();
-    visibleSets.set(key, set);
-  }
-  return set;
-}
-function forgetVisibility(): void {
-  threadOwners.clear();
-  visibleSets.clear();
-}
-
-/** Which threads mention an attachment, for a member's file request while a
- * bot is restricted: a scan of the message store, so kept a minute. */
-const attachmentThreads = new Map<string, { at: number; threads: readonly string[] }>();
-function threadsUsingAttachment(name: string): readonly string[] {
-  const cached = attachmentThreads.get(name);
-  if (cached && Date.now() - cached.at < 60_000) return cached.threads;
-  const threads = threadsReferencing(name);
-  if (attachmentThreads.size >= 2_000) attachmentThreads.clear();
-  attachmentThreads.set(name, { at: Date.now(), threads });
-  return threads;
-}
-
-/** The one check every request naming a bot, thread, room, routine, run or
- * attachment passes through for a member. An id nobody knows goes on to its
- * handler, which answers "not found" itself. */
-function subjectVisible(subject: PathSubject, visible: VisibleSet): boolean {
-  switch (subject.kind) {
-    case "bot":
-      return !store.bot(subject.id) || visible.bot(subject.id);
-    case "thread":
-      return !threadOwner(subject.id) || visible.thread(subject.id);
-    case "group":
-      return !store.group(subject.id) || visible.group(subject.id);
-    case "routine": {
-      const routine = routines?.listRoutines().find((candidate) => candidate.id === subject.id);
-      return !routine || routineVisible(routine, visible);
-    }
-    case "routine-run": {
-      const run = routines?.listRuns().find((candidate) => candidate.id === subject.id);
-      return !run || routineVisible(run, visible);
-    }
-    case "attachment":
-      return visible.attachment(subject.name, threadsUsingAttachment);
-  }
-}
+const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibility({
+  routines: () => routines,
+  store: () => store,
+});
 
 /** A member may schedule a routine only for a bot or room they can see. */
 /** The conversations a bot's recent-work brief may draw on: its own. Rooms
