@@ -553,6 +553,7 @@ import { createTeamMapRoutes } from "./routes/team-map.ts";
 import { createRoutineRoutes } from "./routes/routines.ts";
 import { createCalendarWebhookRoutes } from "./routes/calendar-webhooks.ts";
 import { createReactionRoutes } from "./routes/reactions.ts";
+import { createAuthSessionRoutes } from "./routes/auth-sessions.ts";
 import { withScopeHint } from "./colonie/mcp/connector-scope-hint.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
@@ -10603,6 +10604,7 @@ ROUTES.push(createCalendarWebhookRoutes({
   visibleFor: (auth) => visibleTo(viewerFor(auth)),
 }));
 ROUTES.push(createReactionRoutes({ store }));
+ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
 ROUTES.push(createSkillsLibraryRoutes({ cfg, store }));
 ROUTES.push(createTeamSectionRoutes({ store, teamComputers, wireBot, maxWorkspaceBots: MAX_WORKSPACE_BOTS }));
 ROUTES.push(createBotDefaultRoutes({ cfg, store, defaultSelection: () => defaultSelection() }));
@@ -11022,15 +11024,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (action === "result") sharedComputers.complete(id, auth.session.id, secret, String(body?.jobId), body?.result);
       if (action === "disconnect") sharedComputers.disconnect(id, auth.session.id, secret);
       return json(res, 200, { ok: true });
-    }
-    if (method === "GET" && path === "/api/auth/sessions") {
-      return json(res, 200, { sessions: sessions.list(), current: auth.kind === "session" ? auth.session.id : null });
-    }
-    m = path.match(/^\/api\/auth\/sessions\/([\w-]+)$/);
-    if (m && method === "DELETE") {
-      const revoked = sessions.revoke(m[1]);
-      if (auth.kind === "session" && auth.session.id === m[1]) res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE));
-      return json(res, revoked ? 200 : 404, revoked ? { ok: true } : { error: "no such session" });
     }
     // Isolated integration fixtures cannot invoke an MCP tool before their
     // fake provider exits, so they mint an exact synthetic turn capability

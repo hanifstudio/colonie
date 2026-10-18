@@ -629,6 +629,13 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.18: signed-in devices out of `index.ts` (October 18).** `server/routes/auth-sessions.ts` takes `GET
+  /api/auth/sessions` and `DELETE /api/auth/sessions/:id` — `index.ts` 16,997 → 16,990 lines. The module gets
+  the session registry and the cookie name as deps and imports `clearSessionCookie` itself. Two rules are now
+  pinned by tests: revoking your *own* device clears the cookie that named it while revoking another device
+  leaves this browser's cookie alone, and the singular `/api/auth/session` block stays unclaimed. Live on a
+  throwaway HOME: the list answered `{"sessions":[],"current":null}` and an unknown id came back 404.
+  197/197 pass, typecheck 0, lint 0.
 - **S3.17: reactions out of `index.ts` (October 18).** `server/routes/reactions.ts` takes `POST
   /api/threads/:id/messages/:id/reactions` — `index.ts` 17,005 → 16,997 lines. The smallest self-contained
   guard in the file: it needs only the store, no per-request locals, no shared `let`. Its guard test (5) also
