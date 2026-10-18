@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.46: requests, cards and the stall watchdog out of `index.ts` (October 18).**
+  `server/colonie/chat/requests.ts` (`createChatRequests`): `commandRememberRefusal`,
+  `answerRequest`, `respondToCard`, `closeOpenApprovals`, `requestBehavior`,
+  `providerLabel`, `notify`, the stall `watchdog` (and `TURN_STALL_MS`), plus the
+  shared notice state (`lastReply`, `sessionModelByThread`, `nativeReviewNoticed`,
+  `turnUsage`, `turnContext`, `repeats`). 303 lines, L2793–3024 + L3043–3113;
+  `TURN_STALL_MS` moved with it after the live probe caught a TDZ
+  (`Cannot access 'TURN_STALL_MS' before initialization`) from the eager
+  `new TurnWatchdog`. Guard: `requests.test.ts` (4) — saved-command refusals,
+  accept path, `providerLabel`. `index.ts` 7,335 → 7,066. `pnpm typecheck` 0,
+  `pnpm lint` 0, `npx vitest run server` 60 files / 299 tests pass, live probe
+  green.
 - **S3.45: model/engine selection out of `index.ts` (October 18).** The engine
   choice cluster moved to `server/colonie/providers/model-selection.ts` as
   `createModelSelection(deps)`: `runColonieAssignment`, `defaultSelection`,
