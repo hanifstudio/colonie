@@ -629,6 +629,19 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.81: the event-log retention sweep out of `index.ts` (October 18).**
+  Extended `server/colonie/chat/thread-retention.ts` — the sweep's own domain —
+  with `sweepThreadEventLogsNow` (build the candidate list from the store, then
+  remove the idle threads' logs) and `scheduleThreadLogRetention` (sweep once at
+  boot, then daily on an unref'd timer; only the boot sweep is guarded, as
+  before). `index.ts` keeps only the source callbacks, so the store shape stays
+  out of the module and `retentionDays`/`threadBusy` stay live. `index.ts`
+  2,430 → 2,403 lines. Guard: new `thread-retention.test.ts` (5) — an idle
+  closed thread's logs go from both dirs, a fresh/busy/unread thread keeps its
+  logs, retention off never even reads the store, the schedule sweeps at boot
+  and again on the timer, and a failing store warns instead of crashing boot.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 95 files / 453 tests
+  pass; live probe green.
 - **S3.80: the memory boot and lifecycle out of `index.ts` (October 18).**
   `server/colonie/memory/memory-boot.ts` (`createColonieMemoryBoot`): the
   feature-not-a-boot-dependency boot (a readable ledger builds the service; an

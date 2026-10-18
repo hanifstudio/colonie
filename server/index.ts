@@ -62,7 +62,7 @@ import {appendAboutMe, LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";
 import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, captureQuietMs, tidyHour, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
-import {sweepThreadEventLogs, type ThreadLogRetentionCandidate} from "./colonie/chat/thread-retention.ts";
+import {scheduleThreadLogRetention} from "./colonie/chat/thread-retention.ts";
 import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
 import { type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
@@ -2341,38 +2341,11 @@ try {
   console.warn(`attachments: startup partial cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
 }
 
-// #1280: retention for per-thread event logs. Off unless configured, and
-// even then it only removes log files — transcripts, thread records, and
-// workspace state stay untouched. A thread qualifies only when its newest
-// close or archive stamp is older than the window and it is not busy,
-// unread, or carrying an open direct handoff.
-const THREAD_LOG_RETENTION_SWEEP_MS = 24 * 60 * 60 * 1000;
-
-function sweepThreadEventLogsNow(): void {
-  const retentionDays = threadEventLogRetentionDays(cfg);
-  if (retentionDays === null) return;
-  const candidates: ThreadLogRetentionCandidate[] = store.bots.flatMap((bot) =>
-    (bot.tasks ?? []).map((task) => ({
-      threadId: task.threadId,
-      closedAt: task.closedBy?.at ?? null,
-      archivedAt: task.archivedAt ?? null,
-      unread: task.unread === true,
-      busy: threadBusy(bot.id, task.threadId),
-      // Stored handoff trees load settled, so none holds a thread open.
-      openDirectHandoff: false,
-    })));
-  const swept = sweepThreadEventLogs(candidates, retentionDays);
-  if (swept > 0) console.log(`[retention] removed event logs for ${swept} idle thread(s) past ${retentionDays} day(s)`);
-}
-
-try {
-  sweepThreadEventLogsNow();
-} catch (error) {
-  console.warn(`thread event log retention sweep failed: ${error instanceof Error ? error.message : String(error)}`);
-}
-// A days-scale window needs no tighter cadence; unref so the timer never
-// holds the process open.
-setInterval(sweepThreadEventLogsNow, THREAD_LOG_RETENTION_SWEEP_MS).unref();
+scheduleThreadLogRetention({
+  bots: () => store.bots,
+  retentionDays: () => threadEventLogRetentionDays(cfg),
+  threadBusy,
+});
 
 createBootRecovery({
   isContextMessage,

@@ -23,6 +23,62 @@ export interface ThreadLogRetentionCandidate {
   openDirectHandoff: boolean;
 }
 
+/** The host facts one sweep reads: every bot's tasks as candidates, whether a
+ * thread is busy, and how long a thread must be idle (null when retention is
+ * off). Kept as callbacks so a sweep always sees the current config and store. */
+export interface ThreadLogRetentionSource {
+  bots(): Array<{
+    id: string;
+    tasks?: Array<{
+      threadId: string;
+      closedBy?: { at?: number } | null;
+      archivedAt?: number | null;
+      unread?: boolean;
+    }>;
+  }>;
+  threadBusy(botId: string, threadId: string): boolean;
+  retentionDays(): number | null;
+}
+
+/** One sweep over the current store. Throws if the store or the file checks
+ * do; the daily schedule wraps that, and a caller may sweep on its own. */
+export function sweepThreadEventLogsNow(source: ThreadLogRetentionSource): void {
+  const retentionDays = source.retentionDays();
+  if (retentionDays === null) return;
+  const candidates: ThreadLogRetentionCandidate[] = source.bots().flatMap((bot) =>
+    (bot.tasks ?? []).map((task) => ({
+      threadId: task.threadId,
+      closedAt: task.closedBy?.at ?? null,
+      archivedAt: task.archivedAt ?? null,
+      unread: task.unread === true,
+      busy: source.threadBusy(bot.id, task.threadId),
+      // Stored handoff trees load settled, so none holds a thread open.
+      openDirectHandoff: false,
+    })));
+  const swept = sweepThreadEventLogs(candidates, retentionDays);
+  if (swept > 0) console.log(`[retention] removed event logs for ${swept} idle thread(s) past ${retentionDays} day(s)`);
+}
+
+/** Sweep once at boot, then daily. Retention is off unless configured, and
+ * even then it only removes log files — transcripts, thread records and
+ * workspace state stay untouched. A thread qualifies only when its newest
+ * close or archive stamp is older than the window and it is not busy, unread,
+ * or carrying an open direct handoff. Only the boot sweep is guarded: a later
+ * failure is the timer's to report, as it always was. */
+export function scheduleThreadLogRetention(source: ThreadLogRetentionSource): void {
+  try {
+    sweepThreadEventLogsNow(source);
+  } catch (error) {
+    console.warn(`thread event log retention sweep failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  // A days-scale window needs no tighter cadence; unref so the timer never
+  // holds the process open.
+  setInterval(() => sweepThreadEventLogsNow(source), THREAD_LOG_RETENTION_SWEEP_MS).unref();
+}
+
+/** A days-scale sweep needs no tighter cadence. */
+export const THREAD_LOG_RETENTION_SWEEP_MS = 24 * 60 * 60 * 1000;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The newest close/archive stamp decides: a thread picked back up and
