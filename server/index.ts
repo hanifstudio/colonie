@@ -57,7 +57,7 @@ import {ATTACHMENTS_DIR, attachmentExists, cleanupStaleAttachmentPartials, delet
 import {messageFileDisposition, messageFileDownloadName, messageAttachmentName, messageFileRoots, messageImageTargetAt, messageReferencesFile, listMessageFolder, messageFolderEntryName, openMessageFile, openMessageFolderEntry} from "./colonie/chat/message-file.ts";
 import {avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, avatarImageStatus, snapshotAvatarGenerationState} from "./colonie/bots/avatar-image.ts";
 import {TeamComputers, teamComputerOwner, type TeamComputerRecord} from "./colonie/teams/team-computers.ts";
-import {isEffortLevel, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask} from "../shared/wire.ts";
+import {isEffortLevel, type CardAnswerer, type ResolvedSender, type WireBot, type WireTask} from "../shared/wire.ts";
 import {isPersistentQuestionCard, shouldSettleRequestCard} from "../shared/ask-question.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import {liveDecisionRefusal} from "../shared/live-approval.ts";
@@ -93,7 +93,7 @@ import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registr
 import {MCP_OAUTH_CALLBACK_PATH, McpOAuthManager, withMcpSignIn, withoutPendingSignIn} from "./colonie/mcp/mcp-oauth.ts";
 import {BUILT_IN_DRIVERS} from "./drivers/builtIn.ts";
 import {type CommsBus} from "./colonie/peers/comms-visibility.ts";
-import {searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing} from "./persistence/message-db.ts";
+import {searchMessagesAsync, closeMessageSearch, closeMessageDb, chatFollowups, settleChatFollowups, threadsReferencing} from "./persistence/message-db.ts";
 import {recentWork, recentWorkPrompt, turnOutcomeLine} from "./recent-work.ts";
 import {chiefForBot, INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incidentText, type Incident, type IncidentKind} from "./incidents.ts";
 import {drainAsideMessages, restoreAsideMessages} from "./colonie/chat/aside-queue.ts";
@@ -258,6 +258,7 @@ import {createConfigRoutes} from "./routes/config.ts";
 import {createSkillResolution} from "./colonie/skills/skill-resolution.ts";
 import {createDelegationWatch} from "./colonie/peers/delegation-watch.ts";
 import {createTrustedApprovalMessageHandler} from "./colonie/bots/trusted-approval-message.ts";
+import {createDirectSend, DirectSendRefused} from "./colonie/chat/direct-send.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -5368,181 +5369,17 @@ async function startOrQueueDirectMessage(botId: string, threadId: string, text: 
 }
 
 /** What a person's direct message became: a line in the transcript (a new
- * turn, or words steered into the running one), or a place in the queue. */
-type DirectSendReceipt =
-  | { ok: true; threadId: string; message: Message; steered?: true }
-  | { ok: true; queued: true; queueId: string; threadId: string; reason?: SteerQueueReason };
-
-/** Refusal from acceptDirectSend: the route turns it into its HTTP answer. */
-class DirectSendRefused extends Error {
-  readonly status: number;
-  readonly body: Record<string, unknown>;
-  constructor(status: number, body: Record<string, unknown>) {
-    super(typeof body.error === "string" ? body.error : "send refused");
-    this.status = status;
-    this.body = body;
-  }
-}
-
-/** The refusals a direct send meets before it is sequenced, or null. */
-function directSendRefusal(botId: string, threadId: string): DirectSendRefused | null {
-  // The send is acknowledged before the turn starts, so a workspace at its
-  // spend limit is refused here, where the person can see it.
-  try {
-    assertWithinBudget(cfg, DATA_DIR);
-  } catch (error) {
-    return new DirectSendRefused(409, { error: error instanceof Error ? error.message : String(error), code: "spend_cap" });
-  }
-  if (!store.taskByThread(botId, threadId)) {
-    return new DirectSendRefused(409, { error: "the bot switched tasks before it could receive the message" });
-  }
-  return null;
-}
-
-/** The one path a person's direct message takes into a bot turn: spend cap,
- * idempotency, steer into a running turn, queue, or start. Used by
- * POST /api/bots/:id/messages and by Live calls (via "call").
- * `guardedStart` is POST /api/bots/:id/messages/guarded's own start, in
- * place of steer, queue or start: it checks its preconditions against the
- * task as it stands, then starts a turn or refuses. */
-async function acceptDirectSend(
-  input: {
-    botId: string;
-    threadId: string;
-    text: string;
-    sendId?: string;
-    replyTo?: Message;
-    sender?: ResolvedSender;
-    trigger: UsageTrigger;
-    via?: "call";
-    /** A person is proven present (a paired session, or the desktop's owner
-     * capability): steering their words in clears the unattended mark. */
-    personPresent: boolean;
-  },
-  guardedStart?: (currentAtStart: BotRecord) => Promise<DirectSendReceipt>,
-): Promise<DirectSendReceipt> {
-  const { botId, threadId, text, sendId, replyTo, sender, trigger, via, personPresent } = input;
-  const refused = directSendRefusal(botId, threadId);
-  if (refused) throw refused;
-  return sendSequencer.run(
-    sendId ? `bot:${botId}:${threadId}:${sendId}` : undefined,
-    sendFingerprint(text, replyTo?.id),
-    async (): Promise<DirectSendReceipt> => {
-      if (sendId) {
-        if (cancelledChatFollowup("bot", botId, threadId, sendId)) {
-          throw Object.assign(new Error("this queued sendId was cancelled; send a new message to try again"), { status: 409 });
-        }
-        const accepted = acceptedSendMatch(store.messagesFor(threadId), sendId, text, replyTo?.id);
-        if (accepted.kind === "conflict") {
-          throw Object.assign(new Error("sendId already belongs to another message"), { status: 409 });
-        }
-        if (accepted.kind === "match") {
-          const canonical = {
-            ok: true as const,
-            threadId,
-            message: accepted.message,
-          };
-          return accepted.message.steered
-            ? { ...canonical, steered: true as const }
-            : canonical;
-        }
-        const queued = queuedSteeredMessage(botId, threadId, sendId);
-        if (queued) {
-          if (queued.text !== text || queued.replyToId !== replyTo?.id) {
-            throw Object.assign(new Error("sendId already belongs to another message"), { status: 409 });
-          }
-          return { ok: true as const, queued: true as const, queueId: queued.id, threadId, reason: queued.reason };
-        }
-      }
-
-      const currentAtStart = store.projectBotForTask(botId, threadId);
-      if (!currentAtStart) throw Object.assign(new Error("no such bot"), { status: 404 });
-      if (!store.taskByThread(currentAtStart.id, threadId)) {
-        throw Object.assign(new Error("the target task no longer exists"), { status: 409 });
-      }
-
-      if (guardedStart) return guardedStart(currentAtStart);
-
-      // Claude can accept the message inside its live turn. If the write
-      // loses a race with turn settlement, or the engine cannot steer, the
-      // existing server-side queue records it atomically for the next turn.
-      if (currentAtStart.busy) {
-        const instance = runningTurnInstance(currentAtStart, threadId);
-        let steered: SteerOutcome = "refused";
-        // A live text steer has no image side channel. Keep an attachment
-        // message intact for the next ordinary turn, where central image
-        // admission can hand it to the provider natively.
-        const carriesImages = extractTurnImages(text).images.length > 0;
-        const steerTarget = handoffs.current(threadId);
-        const busyAdmission = admit("direct-busy", {
-          carriesImages,
-          pendingComputerSelection: Boolean(computerSelectionTurns.get(threadId)?.selected),
-          engineCanSteer: Boolean(instance?.adapter.capabilities.queueing && instance.adapter.steer),
-        });
-        // steer was offered only when a live instance could take it;
-        // the second check carries that fact to the type system.
-        if (busyAdmission.action === "steer" && instance?.adapter.steer) {
-          steered = await instance.adapter
-            .steer(threadId, promptWithReply(text, replyTo, cfg.profile?.name?.trim() || "User"))
-            .catch((): SteerOutcome => "indeterminate");
-        }
-        // steer() is awaited adapter work. The turn can settle, the task can
-        // switch, or the whole bot can be deleted before its acknowledgement
-        // arrives. Re-read every ownership invariant before appending even a
-        // successful steer; otherwise that late acknowledgement writes a user
-        // message into a task the bot no longer owns. A conflict leaves the
-        // text in the client's composer/outbox to resend deliberately.
-        const current = store.projectBotForTask(botId, threadId);
-        if (!current) throw Object.assign(new Error("no such bot"), { status: 404 });
-        if (!store.taskByThread(botId, threadId)) {
-          throw Object.assign(new Error("the target task no longer exists"), { status: 409 });
-        }
-        const delivered = steered !== "refused";
-        if (delivered) {
-          if (steered === "steered" && !current.busy) {
-            throw Object.assign(
-              new Error("the running turn ended before the steered message could be recorded"),
-              { status: 409 },
-            );
-          }
-          // "indeterminate" falls through to the same record: the words
-          // may already be folded into a turn whose acknowledgement was
-          // lost, and handing them back for a resend could run them
-          // twice. Recording them once is the honest outcome.
-          // A person steering a webhook turn is present, and auto mode may
-          // follow them again; words that do not prove a person never lift it.
-          if (personPresent) clearUnattended(threadId);
-          const message = store.appendMessage(threadId, {
-            role: "user",
-            kind: "text",
-            text,
-            replyToId: replyTo?.id,
-            sendId,
-            steered: true,
-            sender,
-            ...(via ? { via } : {}),
-          });
-          // Offered to the next turn again unless the person stops this one.
-          handoffs.steered(threadId, steerTarget, instance?.instanceId, message.id);
-          return { ok: true as const, steered: true as const, threadId, message };
-        }
-        if (!current.busy) {
-          return startOrQueueDirectMessage(botId, threadId, text, replyTo, sendId, sender, trigger, via);
-        }
-        const queued = queueSteeredMessage(current.id, threadId, text, {
-          replyToId: replyTo?.id,
-          sendId,
-          prompt: promptWithReply(text, replyTo, cfg.profile?.name?.trim() || "User"),
-          sender,
-          trigger,
-          via,
-        });
-        return { ok: true as const, queued: true as const, queueId: queued.id, threadId };
-      }
-      return startOrQueueDirectMessage(botId, threadId, text, replyTo, sendId, sender, trigger, via);
-    },
-  );
-}
+ * still tell a refusal from an unexpected failure. */
+const { directSendRefusal, acceptDirectSend } = createDirectSend({
+  store,
+  cfg,
+  handoffs,
+  computerSelectionTurns,
+  sendSequencer,
+  startOrQueueDirectMessage,
+  clearUnattended,
+  runningTurnInstance,
+});
 
 /** A provider can finish its run before the owner answers. Persist that answer
  * as a normal reply and run/queue it against the original conversation. */

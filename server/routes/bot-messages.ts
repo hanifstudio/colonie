@@ -8,12 +8,10 @@ import { approvalModeFor } from "../../shared/approval-mode.ts";
 import { parseSendId } from "../send-idempotency.ts";
 import type { UsageTrigger } from "../colonie/providers/usage-ledger.ts";
 import type { BotRecord, Store } from "../persistence/store.ts";
+import type { DirectSendReceipt } from "../colonie/chat/direct-send.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { pinnedClientThread } from "./pinned-client.ts";
 import { PASS, type RouteHandler } from "./table.ts";
-
-/** The receipt a direct send answers with; the full union lives with the send. */
-export type DirectSendReceipt = { ok: true; threadId: string; message: unknown };
 
 /** Helpers whose own signatures are wide; the module only forwards to them. */
 type Helper = (...args: any[]) => any;

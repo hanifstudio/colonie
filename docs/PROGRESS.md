@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.40: refusing and accepting a direct send out of `index.ts` (October 18).** The whole direct-send cluster
+  moves together — `DirectSendReceipt` (the union of what a person's message became: a transcript line, steered words,
+  or a place in the queue), `DirectSendRefused`, `directSendRefusal` and `acceptDirectSend` (138 lines) — into
+  `server/colonie/chat/direct-send.ts`, behind `createDirectSend(deps)` with eight deps. Moving them *together* is the
+  point: the class is what the routes use to tell a refusal from an unexpected failure, and the receipt type is what
+  they promise, so splitting the three across files would have left the contract in two places. `server/routes/bot-messages.ts`
+  deletes its own narrow copy of `DirectSendReceipt` (`message: unknown`) and imports the real union instead — one
+  definition, the queued variant included. Two facts the carve made explicit: the module needs `DATA_DIR` and
+  `assertWithinBudget` (the spend cap is refused *here*, before the send is acknowledged, where the person can see
+  it), and the doc comment that used to sit above the type had to travel with it rather than being orphaned above the
+  new wiring. Guard test (3): a thread the bot already left is refused with its reason; a thread the bot still owns is
+  not refused; a refusal carries its status and body and stands in for its message. The spend check reads nothing from
+  disk in these tests because no budget is configured, which is what makes them honest *and* isolated. `index.ts`
+  11,202 → **11,039 lines**; 285/285 pass, typecheck 0, lint 0, and on a throwaway HOME the server boots, answers
+  `/api/health`, `/api/bots` and `/api/instances`, and `POST /api/bots/nope/messages` answers `{"error":"no such bot"}`
+  — the route's own answer, not `no route`, which is what proves the moved wiring is live.
 - **S3.39: the trusted-approval message handler out of `index.ts` (October 18).** `handleDesktopTrustedApprovalMessage`
   (402 lines — the biggest single move since `bot-update`) becomes
   `server/colonie/bots/trusted-approval-message.ts`, behind `createTrustedApprovalMessageHandler(deps)` with ten deps.
