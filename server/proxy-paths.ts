@@ -45,4 +45,10 @@ export const SPAWNED_PROXIES = {
   mcpGate: resolveProxy("mcp-gate"),
   mcpRemote: resolveProxy("mcp-remote-proxy"),
   hook: resolveProxy("hooks/colonie-hook"),
+  // Workers live at the server root for the same reason: the module that starts
+  // one is inlined into index.js, so `new URL("./x.worker.ts", import.meta.url)`
+  // points at the bundle root in a packaged app but at the module's own folder
+  // in dev — one of the two always misses. Both are resolved here instead.
+  messageSearch: resolveProxy("message-search.worker"),
+  workspaceBackup: resolveProxy("workspace-backup.worker"),
 } as const;

@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
 import { Worker } from "node:worker_threads";
+import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { SearchHit } from "./message-search-query.ts";
 
 export class SearchUnavailable extends Error {
@@ -28,8 +28,7 @@ export class MessageSearchWorker {
   search(query: string, limit: number, threadId?: string): Promise<SearchHit[]> {
     if (this.pending.size >= 8) return Promise.reject(new SearchUnavailable("Search is busy. Try again shortly."));
     if (!this.worker) {
-      const source = new URL("./message-search.worker.ts", import.meta.url);
-      const worker = new Worker(existsSync(source) ? source : new URL("./message-search.worker.js", import.meta.url), {
+      const worker = new Worker(SPAWNED_PROXIES.messageSearch, {
         workerData: { file: this.file },
         // Do not inherit test loaders or inspector ports into the worker.
         execArgv: [],

@@ -17,12 +17,12 @@
 // packaged tree. outbase keeps subdirectories nested; import.meta.url still
 // resolves to the same location, so that lookup is unaffected.
 //
-// The exception, and the one that breaks silently: a worker spawned as
-// `new URL("./x.worker.ts", import.meta.url)` from a module that is NOT itself
-// an entry point. That spawning module is inlined into index.js at the root, so
-// import.meta.url is dist-server/index.js and the worker has to be emitted BESIDE
-// it, not under its source subdirectory. message-search.worker.ts and
-// workspace-backup.worker.ts stay at the server root for that reason.
+// The exception, and the one that breaks silently: a spawned file addressed by a
+// spec written relative to the module that starts it. message-search.worker.ts and
+// workspace-backup.worker.ts sit beside index.js and are resolved through
+// proxy-paths.ts (SPAWNED_PROXIES), because each one's starting module is inlined
+// into index.js: a relative spec points at the bundle root in a packaged app but at
+// the module's own folder in dev, so one of the two always misses.
 import { build } from "esbuild";
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -55,9 +55,8 @@ const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",
   // Lives at the server root on purpose, not with the rest of the workspace
-  // code in colonie/workspace/: it is spawned by new URL("./…", import.meta.url)
-  // from workspace-backup.ts, which esbuild inlines into index.js — so the
-  // worker must be emitted beside index.js in the bundle.
+  // code in colonie/workspace/: it is a spawned process, so the harness locates
+  // it through proxy-paths.ts SPAWNED_PROXIES.workspaceBackup beside index.js.
   "workspace-backup.worker.ts",
   // the container image's entry point (Dockerfile, deploy/podman): it spawns
   // index.js beside it and starts it again on RESTART_EXIT_CODE

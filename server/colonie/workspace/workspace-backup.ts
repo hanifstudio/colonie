@@ -12,6 +12,7 @@ import { backup, DatabaseSync } from "node:sqlite";
 import { pipeline } from "node:stream/promises";
 import { Worker } from "node:worker_threads";
 import * as tar from "tar";
+import { SPAWNED_PROXIES } from "../../proxy-paths.ts";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { writeFileAtomic } from "../../persistence/atomic.ts";
 import { escapeAttribute, splitTranscriptAttachments } from "../../../shared/transcript-attachments.ts";
@@ -271,14 +272,14 @@ function databaseCounts(path: string): { threads: number; messages: number } {
 /** The existing maintenance gate owns exclusivity until this worker has exited.
  * Keep synchronous file validation/fsync intact, but off the request thread. */
 export async function createWorkspaceBackup(dataDir: string, options: CreateWorkspaceBackupOptions): Promise<CreatedWorkspaceBackup> {
-  const source = new URL("../../workspace-backup.worker.ts", import.meta.url);
+  const source = SPAWNED_PROXIES.workspaceBackup;
   // Assign ownership before the worker can create staging, including crashes
   // too early to send a job-created message back to this process.
   const jobId = randomUUID();
   let worker: Worker | undefined;
   let completed = false;
   try {
-    worker = new Worker(existsSync(source) ? source : new URL("./workspace-backup.worker.js", import.meta.url), {
+    worker = new Worker(source, {
       workerData: { dataDir, options, jobId }, execArgv: [],
     });
     const result = await new Promise<CreatedWorkspaceBackup>((resolveBackup, reject) => {
