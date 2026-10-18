@@ -157,9 +157,11 @@ started, and review.
   direct-send cluster, `colonie/chat/direct-send` (S3.40), the turn
   engine itself, `colonie/chat/turn-start` (S3.41), the bot teardown,
   `colonie/bots/delete-bot` (S3.42), and the HTTP front door itself,
-  `harness/request-handler` (S3.43). Every route group named
+  `harness/request-handler` (S3.43), the runtime event bus subscriber,
+  `colonie/runtime/event-subscriber` (S3.44), and the model/engine selection
+  cluster, `colonie/providers/model-selection` (S3.45). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 7,623 lines, and the target is under 3,000 (owner instruction). The largest remaining block is no longer a function: it is the runtime event bus subscriber, moved at S3.44.
+  `index.ts` is now 7,335 lines, and the target is under 3,000 (owner instruction). The largest remaining top-level function below that is `bindTurnComputer` at 105 lines.
 
   Every named giant is now out (S3.43 was the last: the 1,646-line `handleRequest`,
   carved whole into `harness/request-handler.ts`). The largest remaining top-level
@@ -175,7 +177,7 @@ started, and review.
   which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 7,623 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 7,335 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and

@@ -629,6 +629,18 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.45: model/engine selection out of `index.ts` (October 18).** The engine
+  choice cluster moved to `server/colonie/providers/model-selection.ts` as
+  `createModelSelection(deps)`: `runColonieAssignment`, `defaultSelection`,
+  `moveOffComputerEngine`, `checkedModelSelection`, `checkedTaskModelSwitch`,
+  `turnSelection`, `healThreadModel`, `checkedExportSkillNames`,
+  `collectExportSkills` (301 lines, L1856–1946 + L1961–2170; the `let
+  computerEngineMoveRunning` and `retryComputerEngineMove` that writes it stay in
+  index). Guard: `model-selection.test.ts` (5) — non-object, missing instanceId/
+  model, effort+variant together, busy+changed, unchanged while busy. `index.ts`
+  7,623 → 7,335 lines. `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server`
+  58 files / 295 tests pass, live probe green (health/brand/bots/local-computer
+  200, unrouted 404, seeded bot delete 1→0, no log errors).
 - **S3.44: the runtime event bus subscriber out of `index.ts` (October 18).** The
   largest block left was not a function but a `bus.subscribe(...)` call: 598 lines
   (L4118–4715) folding provider events into stored messages, live turn state, Local
