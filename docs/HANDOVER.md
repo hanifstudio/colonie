@@ -172,10 +172,11 @@ started, and review.
   `harness/admin-audit` (S3.55), bot visibility,
   `harness/visibility` (S3.56), identity/card answering,
   `harness/identity` (S3.57), the client read models,
-  `harness/read-model` (S3.58), and the turn-digest state,
-  `colonie/chat/turn-digest` (S3.59). Every route group named
+  `harness/read-model` (S3.58), the turn-digest state,
+  `colonie/chat/turn-digest` (S3.59), and the internal capability table,
+  `harness/internal-capabilities` (S3.60). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 4,085 lines, and the target is under 3,000 (owner instruction).
+  `index.ts` is now 3,933 lines, and the target is under 3,000 (owner instruction).
 
   Every named giant is now out (S3.43 was the last: the 1,646-line `handleRequest`,
   carved whole into `harness/request-handler.ts`). The largest remaining top-level
@@ -191,7 +192,7 @@ started, and review.
   which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 4,085 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 3,933 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and

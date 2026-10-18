@@ -629,6 +629,24 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.60: the internal capability table out of `index.ts` (October 18).**
+  `server/harness/internal-capabilities.ts` (`createInternalCapabilities`):
+  the `InternalCapability` record, the `sessionCredentials` bearer reuse keyed
+  by the grants it was minted for (`sessionGrants`, `sessionBearer`,
+  `mintInternalCapability`), generation minting/revoking
+  (`beginInternalCapabilityGeneration`,
+  `revokeInternalCapabilityGeneration`, `revokeEarlierTurnCapabilities`,
+  `revokeInternalCapabilitiesForThread`, `revokeAllInternalCapabilities`), the
+  provider-turn binding/revoke pair, and the parked `computerSelectionTurns`
+  cleared with them. 157 lines (L618–774), one wire site at 618. Only
+  `botForThread` (declared 1065, below) is a getter; `randomUUID`/`randomBytes`,
+  the registry and `approvalModeFor` are imported. Guard:
+  `internal-capabilities.test.ts` (5) — minting for an inactive generation
+  throws, one generation reuses one bearer for the same grants, a new generation
+  revokes the old bearer, revoking a thread drops its active generation, and a
+  `perTurn` bridge gets a fresh bearer each mint. `index.ts` 4,085 → 3,933.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 74 files / 346 tests
+  pass, live probe green.
 - **S3.59: the turn-digest state out of `index.ts` (October 18).**
   `server/colonie/chat/turn-digest.ts` (`createTurnDigest`): `turnStartedAt`,
   `turnCheckpoints`, `liveTurnByThread`, `forgetTurnCheckpoint`,
