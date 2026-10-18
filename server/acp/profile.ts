@@ -22,24 +22,34 @@ function isolationEnvironment(driver: string, nativeBase: string): Record<string
   return entry ? { [entry.env]: join(nativeBase, entry.dir) } : {};
 }
 
+/** The Colonie fleet's default pair: the two maintained ACP engines. */
+function defaultFleet(isolated: (entry: InstanceConfig) => InstanceConfig): InstanceConfigMap {
+  return {
+    "codex-acp": isolated({ driver: COLONIE_DRIVER, displayName: "Codex · ACP", icon: { kind: "preset", preset: "openai" } }),
+    "claude-acp": isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } }),
+  };
+}
+
 export function colonieInstances(configured: InstanceConfigMap | undefined, nativeBase: string): InstanceConfigMap {
   const isolated = (entry: InstanceConfig): InstanceConfig => ({
     ...entry,
     environment: { ...entry.environment, ...isolationEnvironment(entry.driver, nativeBase) },
   });
-  if (configured && Object.keys(configured).length) {
-    const result = Object.fromEntries(
-      Object.entries(configured)
-        .filter(([, entry]) => isColonieAcpDriver(entry.driver))
-        .map(([id, entry]) => [id, isolated(entry)]),
-    );
-    if (Object.keys(result).length && !Object.values(result).some((entry) => entry.driver === "claude-acp")) {
-      result["claude-acp"] = isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } });
-    }
-    return result;
+  const entries = Object.entries(configured ?? {});
+  const usable = entries.filter(([, entry]) => isColonieAcpDriver(entry.driver));
+  // Silence is what turns this into apparent data loss: the person configured an engine,
+  // the Colonie fleet runs only the maintained ACP adapters, and the engine is simply
+  // absent from the list with nothing said anywhere.
+  const leftOut = entries.filter(([, entry]) => !isColonieAcpDriver(entry.driver)).map(([id, entry]) => `${id} (${entry.driver})`);
+  if (leftOut.length) {
+    console.warn(`instances: not started in this profile because the fleet runs only the maintained ACP engines: ${leftOut.join(", ")}`);
   }
-  return {
-    "codex-acp": isolated({ driver: COLONIE_DRIVER, displayName: "Codex · ACP", icon: { kind: "preset", preset: "openai" } }),
-    "claude-acp": isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } }),
-  };
+  const result = Object.fromEntries(usable.map(([id, entry]) => [id, isolated(entry)]));
+  // A configured fleet whose engines cannot run here must not leave the person with no
+  // engines at all; the default pair is the floor.
+  if (!Object.keys(result).length) return defaultFleet(isolated);
+  if (!Object.values(result).some((entry) => entry.driver === "claude-acp")) {
+    result["claude-acp"] = isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } });
+  }
+  return result;
 }

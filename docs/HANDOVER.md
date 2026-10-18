@@ -25,6 +25,56 @@ The architecture audit is in blueprint section 6. The shared-rule extraction now
 has focused static/unit evidence; provider/browser/desktop/package behavior was not
 requalified. Exact commands and limits are in [PROGRESS](PROGRESS.md).
 
+## Active engineering task: the desktop app runs the Colonie engine system
+
+Owner decision, October 19: "Number 3 sounds like we have to adapt into the new system."
+The shipped app must run the Colonie profile (the maintained ACP engines and the Colonie
+identity), not the inherited legacy fleet, whichever way the app is started.
+
+- Scope: (1) the desktop app sets the profile for the server it starts, instead of relying
+  on the dev launcher's environment, so an app opened from the installer behaves like one
+  started by the launcher; (2) that profile never resolves to an empty engine list — a
+  configuration whose engines cannot run there falls back to the default pair and says in
+  the log which instances were left out.
+- Deliberately out of scope: the app's OS integration (updater, protocol registration,
+  dock), which currently reads the same flag in the app process. Those keep today's
+  behaviour, because switching them would remove the Windows updater path that the release
+  flow uses. Data location is unaffected either way: the desktop parent passes its own data
+  directory to the server, which wins over the profile's default.
+- Acceptance: a fresh throwaway instance boots with the default pair listed; a throwaway
+  instance whose only configured engine is a legacy one still lists the default pair and
+  names the dropped instance in its start log; unit tests cover the fallback and the
+  warning; typecheck, lint and the suite stay clean; no dark launch of the OS integration.
+- Checks: `npx vitest run server/acp`, `pnpm typecheck`, `pnpm lint`, `npx vitest run server
+  scripts`, and a boot probe with a throwaway `HOME` plus `COLONIE_PROFILE=1` and a
+  legacy-only `config.json`.
+
+Status: both parts are implemented and verified. The desktop parent sets
+`COLONIE_PROFILE` for the server it starts (`electron/main.mjs`, default `"1"`, an explicit
+value still wins); `colonieInstances` returns the default pair instead of an empty map and
+warns with the instance ids it left out (`server/acp/profile.ts`); `server/acp/profile.test.ts`
+covers the pair, the per-engine config directory, the fallback and the warning. Evidence:
+4 tests pass; `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` clean
+(exit 0); `npx vitest run server scripts` 105 files / 515 tests pass; throwaway boot with
+`COLONIE_PROFILE=1`, `COLONIE_DATA_DIR` and a `config.json` holding only
+`claude-named (claudeAgent)` logged the left-out instance and served
+`/api/instances` = codex-acp + claude-acp. `pnpm test:electron` fails two inherited
+tests (`mac-updater`, `vendor-updater`) because they import `scripts/patch-mac-updater.mjs`
+and `scripts/patch-appimage-updater.mjs`, which the clean-slate commit deleted — not
+from this change.
+
+Next action (needs an owner decision, because it changes what a person sees): the app's
+two "add account" screens still create legacy engines that this profile cannot start —
+`src/components/ClaudeAccountSettings.tsx` → `POST /api/instances/claude-accounts` →
+`driver: "claudeAgent"`, and `src/components/CodexAccountSettings.tsx` →
+`POST /api/instances/chatgpt-accounts` → `driver: "codex"`. Both are filtered out of the
+fleet, so a new user adds a second account, the request succeeds, and no engine appears.
+The fallback added here keeps that from taking the whole list down, but the account itself
+is still unusable. Adapt the two flows to create `claude-acp`/`codex-acp` instances with
+their own `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, which also needs the isolation default to stop
+overriding an explicitly configured directory (`server/acp/profile.ts:20-23`), or hide
+those screens in this profile.
+
 ## Active engineering stage: E01 — enforceable architecture checks
 
 Owner priority is deliberate improvement of architecture, folder/file organization,

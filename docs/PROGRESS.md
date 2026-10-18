@@ -3,6 +3,38 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — the app runs the Colonie engine system; the fleet no longer empties
+
+Single session, Node 24.13.1. Owner decision: "Number 3 sounds like we have to adapt into the
+new system." Two changes, then evidence.
+
+- The desktop parent now sets the profile for the server child: `electron/main.mjs` passes
+  `COLONIE_PROFILE: process.env.COLONIE_PROFILE ?? "1"`. The app's own OS integration
+  (updater, protocol registration, dock) still reads the variable in the app process and
+  keeps today's behaviour, because switching it would remove the Windows updater path.
+  Data location is untouched: the parent already passes `COLONIE_DATA_DIR`, which wins over
+  the profile's default under `~/`.
+- `server/acp/profile.ts` no longer returns an empty map when every configured instance uses
+  a driver the fleet does not run. It returns the default pair and logs
+  `instances: not started in this profile …: claude-named (claudeAgent)`. This closes the
+  defect recorded earlier today, where one named Claude account emptied the whole list.
+
+Evidence. `server/acp/profile.test.ts` (4 tests) covers the default pair, kept ACP engines
+with their config dir, the fallback plus its warning, and the Codex-only case.
+`pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0 (rules clean,
+29 folders named, no gone name); `npx vitest run server scripts` 105 files / 515 tests pass.
+Throwaway boot (`HOME=mktemp -d`, `COLONIE_PROFILE=1`, `COLONIE_DATA_DIR` with a
+`config.json` holding only `claude-named`/`claudeAgent`): the start log named the left-out
+instance, `/api/health` was 200, and `/api/instances` returned `codex-acp` (available,
+`codex-acp 2.1.1`) plus `claude-acp` — not an empty list. `pnpm test:electron` fails two
+inherited tests (`mac-updater`, `vendor-updater`): they import the deleted
+`scripts/patch-mac-updater.mjs` and `scripts/patch-appimage-updater.mjs`. Not from this change.
+
+Left open, and now user-visible: both "add account" screens still create engines this
+profile cannot start (`claude-accounts` → `claudeAgent`, `chatgpt-accounts` → `codex`), so a
+new user's new account is accepted and then absent from the list. Adapting those flows, or
+hiding them, is an owner decision recorded in HANDOVER.
+
 ## 2026-10-19 — the two "open product bugs" verified: one is a reproducible defect
 
 Single session, Node 24.13.1. No product code changed. This replaces two vague claims carried in

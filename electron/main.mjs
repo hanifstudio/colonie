@@ -616,6 +616,13 @@ async function startServerOn(port) {
     // owner; fallback-port children must not race to replace the parent lease.
     ...desktopDataDirLease.utilityServerLeaseEnvironment(),
     COLONIE_DATA_DIR: desktopDataDir(),
+    // The desktop app runs the Colonie engine system, not the inherited legacy fleet. Set
+    // here rather than inherited from the launching shell, so an app opened straight from
+    // the installer behaves like one started by the dev launcher; an explicit value still
+    // wins, which is what isolated test rigs rely on. The app's own OS integration
+    // (updater, protocol registration, dock) reads this variable in the app process and
+    // deliberately keeps its current behaviour.
+    COLONIE_PROFILE: process.env.COLONIE_PROFILE ?? "1",
     // A packaged utility child must never fall back to a descriptor inherited
     // from the launching shell. It starts fail-closed until this exact main
     // process sends the private in-memory connection after spawn.
