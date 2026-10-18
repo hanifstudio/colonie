@@ -629,6 +629,24 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.42: deleting a bot, and a runtime lesson about type imports (October 18).** `deleteBotWithLifecycle` (139
+  lines, 31 deps) moves to `server/colonie/bots/delete-bot.ts`. It is the last named giant and, by index-local count,
+  the most entangled of the small ones: it settles peer approvals, delegations, queued team-setup resumes, direct
+  turns, calendar calls, webhooks, the browser session and the Local VM lease, and five of those bindings are handed
+  over as getters because they are reassigned (or declared below the wiring). The interesting part is not the move but
+  what the live check caught that every static check had passed. `TeamSetupRequest` is a *type* in `shared/team-setup.ts`,
+  imported by `index.ts` with a whole-statement `import type { ... }`; the carve's import map only looked for inline
+  `type` markers, so the generated module imported it as a value. TypeScript accepts that (a type may be imported
+  without the keyword) and `pnpm typecheck` and lint both passed — the server then refused to start with
+  `SyntaxError: The requested module '../../../shared/team-setup.ts' does not provide an export named 'TeamSetupRequest'`.
+  Fixed by making it a type import, and the five earlier module extractions were audited for the same pattern
+  (`skills/skill-resolution`, `peers/delegation-watch`, `bots/trusted-approval-message`, `chat/direct-send`,
+  `chat/turn-start`): all clean, so S3.37–S3.41 were not affected. The lesson is worth keeping: a type-only import is
+  erased only if it says so, and no typecheck can tell the difference — on this codebase only starting the server can.
+  Guard evidence: 56 files / 285 tests pass, typecheck 0, lint 0; on a throwaway HOME the server boots, a direct send
+  answers 202 (the turn engine's path), a delete of a *busy* bot answers 409 with `stop this bot's work before deleting
+  it` (the teardown's own refusal), and a delete of an idle bot answers 200 with `{"ok":true}`, after which the bot
+  list is empty — the teardown ran for real. `index.ts` 9,794 → **9,689 lines**.
 - **S3.41: `startTurn` out of `index.ts` — the largest single move of the restructure (October 18).** The turn
   engine, 1,367 lines, becomes `server/colonie/chat/turn-start.ts` behind `createStartTurn(deps)`, wired at the point
   where it used to sit. `index.ts` goes 11,039 → **9,794 lines**. It closes over 121 pieces of the live state, so the

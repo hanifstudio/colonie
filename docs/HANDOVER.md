@@ -154,15 +154,17 @@ started, and review.
   `colonie/skills/skill-resolution` (S3.37), the delegation
   watch, `colonie/peers/delegation-watch` (S3.38), the trusted-approval
   message handler, `colonie/bots/trusted-approval-message` (S3.39), and the
-  direct-send cluster, `colonie/chat/direct-send` (S3.40), and the turn\n  engine itself, `colonie/chat/turn-start` (S3.41). Every route group named
+  direct-send cluster, `colonie/chat/direct-send` (S3.40), and the turn\n  engine itself, `colonie/chat/turn-start` (S3.41), and the bot teardown,\n  `colonie/bots/delete-bot` (S3.42). Every route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 9,794 lines.
+  `index.ts` is now 9,689 lines.
 
-  What remains, by measured size: `localVmInventoryPayload` (628),
-  `deleteBotWithLifecycle` (139, 32 index-locals — the most tightly bound of the small
-  ones: it drags the Local VM, browser and comms state with it), then the great
-  majority of the file — shared state and small declarations that no single feature
-  owns. `carve-range.py` now reports `startTurn` at 225 distinct names: nearly all of
+  Every named giant is now out (S3.42 was the last, `deleteBotWithLifecycle`). The
+  largest remaining top-level function is `bindTurnComputer` at 105 lines; everything
+  else of size is the shared state and small declarations that no single feature owns
+  (about 9,600 lines), which is the next job and a different kind of one: moving a
+  mutable binding to a module is safe only while every reader imports that same
+  binding, and the state reads `cfg`, so the groups have to be chosen by what they
+  close over, not by name. `carve-range.py` now reports `startTurn` at 225 distinct names: nearly all of
   the live state plus about forty imports to add. It is called from `index.ts` and
   from `bot-messages` (as a dep), so it needs either a deps object of that size or a
   move of the state it closes over. That is a decision, not a mechanical carve.

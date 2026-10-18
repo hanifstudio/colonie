@@ -27,7 +27,6 @@ import type {ChiefAssignment, ChiefBot} from "../shared/colonie-chief.ts";
 import {AsyncLocalStorage} from "node:async_hooks";
 import {createHash, randomBytes, randomUUID, timingSafeEqual} from "node:crypto";
 import {existsSync, readFileSync, realpathSync} from "node:fs";
-import {rm as removeDirectory} from "node:fs/promises";
 import {createServer, type IncomingMessage, type ServerResponse} from "node:http";
 import {extname, join} from "node:path";
 
@@ -49,7 +48,7 @@ import {approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict
 import {CommandAllowlistStore, commandAllowlistCandidate} from "./command-allowlist.ts";
 import type {CommandAllowlistCandidate, CommandAllowlistResponse} from "../shared/command-allowlist.ts";
 import {claudeAccountInfo} from "./colonie/providers/claude-accounts.ts";
-import {BrowserCleanupCoordinator, requireBrowserCleanupAcknowledged, type BrowserCleanupWireRequest} from "./colonie/computer/browser-lifecycle-cleanup.ts";
+import { BrowserCleanupCoordinator, type BrowserCleanupWireRequest } from "./colonie/computer/browser-lifecycle-cleanup.ts";
 import * as checkpoints from "./colonie/chat/checkpoints.ts";
 import {buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence} from "./colonie/chat/digest.ts";
 import {appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor} from "./decision-log.ts";
@@ -108,7 +107,7 @@ import {ProviderRegistry} from "./harness/registry.ts";
 import {selectDefaultModelSelection, withNewBotEffort} from "./colonie/providers/default-model-selection.ts";
 import {threadModelFallback, type ThreadEngine} from "./colonie/chat/thread-model.ts";
 import {computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines} from "./colonie/computer/computer-engine-removal.ts";
-import {cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, resolvePeerComms, type ApprovalBus} from "./colonie/peers/peer-approval.ts";
+import { cancelPeerApprovalsForThread, dismissStalePeerCards, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
 import {withPeerProvenance} from "./colonie/peers/peer-provenance.ts";
 import { isProjectEmoji, sectionKey, Store, threadTitleFrom, titleFromLlm, type BotRecord, type Message, type TaskRecord, toWireTask } from "./persistence/store.ts";
 import * as tts from "./tts/index.ts";
@@ -254,6 +253,7 @@ import {createDelegationWatch} from "./colonie/peers/delegation-watch.ts";
 import {createTrustedApprovalMessageHandler} from "./colonie/bots/trusted-approval-message.ts";
 import {createDirectSend, DirectSendRefused} from "./colonie/chat/direct-send.ts";
 import {createStartTurn} from "./colonie/chat/turn-start.ts";
+import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 
 const PORT = Number(process.env.COLONIE_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.COLONIE_WEBHOOK_PORT || PORT + 1);
@@ -6076,145 +6076,40 @@ const routineRequests = new RoutineRequestService({
     return null;
   },
 });
-async function deleteBotWithLifecycle(botId: string, revalidate: () => void = () => {}, setupRequest?: TeamSetupRequest) {
-  const deletionResponse = (status: number, body: { error?: string; ok?: boolean }) => ({ status, body });
-      revalidate();
-      const bot = store.bot(botId);
-      if (!bot) return deletionResponse( 404, { error: "no such bot" });
-      if (localVmFlags.modeChangeBusy) {
-        return deletionResponse(409, { error: "Local VM settings are being updated — wait before deleting this bot" });
-      }
-      const activeRoutine = routines!.activeRunForBot(bot.id);
-      if (activeRoutine) {
-        return deletionResponse( 409, {
-          error: "stop this bot's active routine before deleting the bot",
-        });
-      }
-      // A direct turn that has already claimed the bot can be setting up its
-      // Local VM in the background. Do not let deletion race that work; the
-      // person can stop the turn and retry.
-      if (bot.busy || hasDirectDispatch(bot.id)) {
-        return deletionResponse( 409, { error: "stop this bot's work before deleting it" });
-      }
-      let claimedLocalVmTarget: LocalVmTarget | null = null;
-      try {
-        let localVmCleanup: { target: LocalVmTarget; removeContainer: boolean } | null = null;
-        if (localVmMode(cfg) === "per-bot") {
-          const target = perBotLocalVmTarget(bot.id);
-          if (localVmActiveThreads.has(target.key) || localVmLifecycleBusy.has(target.key)) {
-            return deletionResponse( 409, { error: "stop this bot's Local VM turn or setup action before deleting the bot" });
-          }
-          if (localVmLeaseFor(target).current(localVmOwnerBusy)) {
-            return deletionResponse(409, { error: "stop this bot's Local VM turn before deleting the bot" });
-          }
-          // Hold the target from preflight through deletion. A simultaneous
-          // mode change or lifecycle route must not recreate the container
-          // after we checked it and before its bot owner disappears.
-          localVmLifecycleBusy.add(target.key);
-          claimedLocalVmTarget = target;
-          const vm = await containerComputerStatus(undefined, undefined, target);
-          if (!vm.daemonUp && existsSync(target.workspaceDir)) {
-            return deletionResponse( 409, {
-              error: "start the container runtime so Colonie can remove this bot's Local VM while deleting it",
-            });
-          }
-          if (vm.container !== "missing" && !vm.managed) {
-            return deletionResponse(409, {
-              error: `The container named ${vm.container_name} was not created by Colonie. Remove it manually before deleting this bot`,
-            });
-          }
-          localVmCleanup = {
-            target,
-            removeContainer: vm.container !== "missing",
-          };
-        }
-
-        // Revalidate a reviewed Chief-of-Staff request and establish the
-        // browser cleanup intent before the first irreversible local
-        // mutation. A stale review or damaged journal therefore leaves every
-        // resource intact.
-        revalidate();
-        const browserCleanupRequest = browserCleanup.prepare("bot", bot.id);
-        try {
-          if (localVmCleanup) {
-            if (localVmCleanup.removeContainer) {
-              await containerComputerAction("remove", undefined, undefined, localVmCleanup.target);
-            }
-            // Unlike the standalone "Delete VM" action, deleting the bot is
-            // a complete erasure: its now-ownerless desktop files and browser
-            // session must not remain hidden on disk or block the event loop.
-            await removeDirectory(localVmCleanup.target.workspaceDir, { recursive: true, force: true });
-            localVmSeen.delete(localVmCleanup.target.key);
-            localVmIdles.get(localVmCleanup.target.key)?.cancel();
-            localVmIdles.delete(localVmCleanup.target.key);
-            localVmLeases.forget(localVmCleanup.target.key);
-          }
-          // a running turn dies with its bot
-          // Invalidate every bot-callable bearer before the first asynchronous
-          // teardown step. A request that already passed its initial header
-          // check is revalidated after its body arrives and must fail closed.
-          for (const entry of pendingTeamSetupResumes.values()) {
-            if (entry.request.botId === bot.id) cancelTeamSetupResumesForThread(entry.request.threadId);
-          }
-          for (const task of store.tasks(bot.id)) {
-            cancelTeamSetupResumesForThread(task.threadId);
-            revokeInternalCapabilitiesForThread(task.threadId);
-          }
-          await interruptAllDirectThreads(bot.id);
-          // Deletion removes the thread before a late turn.completed can fold
-          // staged provider images into a message, so dispose them here.
-          for (const task of store.tasks(bot.id)) {
-            purgeTurnAttachmentsForThread(task.threadId);
-            clearTurnDigestState(task.threadId);
-            settleDirectFollowup(directTurnGenerationByThread.get(task.threadId));
-            directTurnGenerationByThread.delete(task.threadId);
-            directTurnBots.delete(task.threadId);
-          }
-          stopScreenPoller(bot.id);
-          lastReply.delete(bot.threadId);
-          // a peer approval naming this bot can never be meaningfully answered
-          // now, and its caller would otherwise wait out the 15-minute timeout
-          cancelPeerApprovalsFor(bot.id);
-          discardDelegations(commsBus, bot.threadId);
-          computerControl.forget(bot.id);
-          computerControlRevision.delete(bot.id);
-          const target = perBotLocalVmTarget(bot.id);
-          localVmIdles.get(target.key)?.cancel();
-          localVmIdles.delete(target.key);
-          // Provider and local-computer teardown above can await for an
-          // arbitrary amount of time. A reviewed Chief deletion is bound to
-          // the exact target profile it presented; re-check that receipt at
-          // the final durable mutation boundary so a concurrent profile edit
-          // cannot be erased under a stale approval.
-          revalidate();
-          store.deleteBot(bot.id, setupRequest);
-          // Removing schedules is not a security revocation. Keep them intact
-          // if the bot/receipt write fails, so a failed deletion is retryable.
-          routines!.disableForBot(bot.id);
-          webhooks.disableForBot(bot.id);
-          calendarCalls!.removeBot(bot.id);
-          browserLive.closeForBot(bot.id);
-          await forgetTemporaryBrowser(bot.id);
-        } catch (error) {
-          if (browserCleanupRequest) {
-            // Store removal is already durable once the in-memory owner is
-            // gone. A later cleanup error must retain its browser erasure
-            // intent for retry instead of aborting a completed deletion.
-            if (store.bot(bot.id)) browserCleanup.abort(browserCleanupRequest);
-            else browserCleanup.commit(browserCleanupRequest);
-          }
-          throw error;
-        }
-        if (browserCleanupRequest) {
-          const committedCleanup = browserCleanup.commit(browserCleanupRequest);
-          const acknowledged = await browserCleanup.ensure(committedCleanup);
-          requireBrowserCleanupAcknowledged(acknowledged, `Browser data for ${bot.name}`);
-        }
-        return deletionResponse( 200, { ok: true });
-      } finally {
-        if (claimedLocalVmTarget) localVmLifecycleBusy.delete(claimedLocalVmTarget.key);
-      }
-}
+/** Deleting a bot and everything it owns: see colonie/bots/delete-bot.ts. */
+const deleteBotWithLifecycle = createBotDeletion({
+  browserCleanup,
+  browserLive,
+  calendarCalls: () => calendarCalls,
+  cancelTeamSetupResumesForThread: () => cancelTeamSetupResumesForThread,
+  cfg,
+  clearTurnDigestState,
+  commsBus,
+  computerControl,
+  computerControlRevision,
+  directTurnBots,
+  directTurnGenerationByThread,
+  forgetTemporaryBrowser,
+  hasDirectDispatch,
+  interruptAllDirectThreads,
+  lastReply,
+  localVmActiveThreads,
+  localVmFlags,
+  localVmIdles,
+  localVmLeaseFor,
+  localVmLeases,
+  localVmLifecycleBusy,
+  localVmOwnerBusy,
+  localVmSeen,
+  pendingTeamSetupResumes: () => pendingTeamSetupResumes,
+  purgeTurnAttachmentsForThread,
+  revokeInternalCapabilitiesForThread,
+  routines: () => routines,
+  settleDirectFollowup,
+  stopScreenPoller,
+  store,
+  webhooks: () => webhooks,
+});
 
 /** Per-driver capability facts behind engine-switch warnings on proposal
  * cards. A live registry instance decides; a shadow or unknown instance
