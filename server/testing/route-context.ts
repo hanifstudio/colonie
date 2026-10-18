@@ -8,7 +8,7 @@ export interface SentResponse {
   body: unknown;
 }
 
-export function callRoute(path: string, method = "GET", body: unknown = {}) {
+export function callRoute(path: string, method = "GET", body: unknown = {}, headers: Record<string, string> = {}) {
   const sent: SentResponse[] = [];
   const url = new URL(`http://127.0.0.1${path}`);
   const res = {
@@ -20,7 +20,7 @@ export function callRoute(path: string, method = "GET", body: unknown = {}) {
     end: () => {},
   };
   const ctx = {
-    req: {},
+    req: { headers },
     res,
     url,
     path: url.pathname,

@@ -351,6 +351,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   a source is a 400, and a broken profile is refused before any image generation. 47/47 pass, typecheck 0,
   lint 0; the live server answers `{"defaults":{...},"modelSelection":{...},"suggestedName":"Skye"}` through
   the new module.
+- **S3.10: the custom MCP servers left `index.ts` (October 18).** List, add, paste-to-add import, edit,
+  delete, the connection test and the whole sign-in flow became
+  `server/routes/mcp-servers.ts` (`createMcpServerRoutes({ cfg, mcpOAuth, sessions, persistMcpServers,
+  mcpConfigLock, savedCustomDomain, fallbackPublicUrl })`) — 199 inline lines removed and seven now-unused
+  imports pruned (`index.ts` 17,704 → 17,490). Two pieces did not move as written: the busy flag is shared
+  with the legacy internal peer route that also edits `mcpServers`, so the module takes an
+  `mcpConfigLock` (one flag, still owned by `index.ts`) instead of growing a second one; the probe counter
+  and its limit did move, since nothing else used them. `mcpServerResponse` and `mcpServerBody` moved with
+  the routes that used them. Guard: `server/routes/mcp-servers.test.ts`, driven by a fixture that now
+  accepts request headers — other paths decline, the list answers an empty registry, a mutation without a
+  JSON content-type is a 415 and changes nothing, adding a command server stores and lists it, a duplicate
+  name is a 409, a mutation while the shared lock is held is a 409 and changes nothing, an unknown server
+  is a 404 on delete, a patch of anything but `enabled` is refused, and deleting forgets the sign-in.
+  56/56 pass, typecheck 0, lint 0. Live on a throwaway HOME: `{"servers":[]}`, 415 without the header,
+  201 with `{"name":"demo","enabled":false}`, then `{"servers":[]}` after DELETE.
 - Not yet run after the deletion: the full suite, desktop, real provider.
 
 ## 2026-10-17 — five-worker batch, iteration 3 (rooms retirement checks)
