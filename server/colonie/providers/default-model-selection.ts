@@ -1,4 +1,4 @@
-import type { EffortLevel, EngineAccess, ModelCatalog, ModelSelection, ProviderSnapshot } from "./contracts.ts";
+import type { EffortLevel, EngineAccess, ModelCatalog, ModelSelection, ProviderSnapshot } from "../../contracts.ts";
 
 export interface SelectableInstance {
   instanceId: string;

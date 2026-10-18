@@ -714,7 +714,7 @@ export interface InstanceInfo {
   displayName: string;
   /** Optional presentation override belonging to this instance, independent
    * of the driver that runs it. */
-  icon?: import("../../shared/provider-icon").ProviderIcon;
+  icon?: import("../../shared/provider-icon.ts").ProviderIcon;
   snapshot: {
     state: "available" | "unavailable";
     reason?: string;

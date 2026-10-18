@@ -21,7 +21,7 @@ import { basename, join } from "node:path";
 
 import { actorLabel, boundRetentionDays, pruneMonthFiles, type DecisionActor, type DecisionRow } from "./decision-log.ts";
 import { redactSecrets } from "./redact.ts";
-import { csvCell, monthKey } from "./usage-ledger.ts";
+import { csvCell, monthKey } from "./colonie/providers/usage-ledger.ts";
 
 export const ADMIN_ACTIVITY_CATEGORIES = ["config", "people", "session", "webhook", "mcp", "engine", "bot", "budget", "visibility"] as const;
 export type AdminActivityCategory = typeof ADMIN_ACTIVITY_CATEGORIES[number];

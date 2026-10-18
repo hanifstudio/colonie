@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { persistableInstanceConfigs, type AppConfig } from "./config.ts";
-import { PROVIDER_ICON_PRESETS, type ProviderIcon } from "../shared/provider-icon.ts";
+import { persistableInstanceConfigs, type AppConfig } from "../../config.ts";
+import { PROVIDER_ICON_PRESETS, type ProviderIcon } from "../../../shared/provider-icon.ts";
 
 const iconSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("preset"), preset: z.enum(PROVIDER_ICON_PRESETS) }).strict(),

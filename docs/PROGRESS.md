@@ -512,6 +512,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   Two probes reached out rather than staying local and are reported as such: `/api/team-library/catalog`
   fetches its catalogue from GitHub (`{"error":"GitHub returned HTTP 404"}` unauthenticated) and
   `/api/teams/scout` without a folder answers as designed.
+- **S11: providers, models, accounts and usage into `server/colonie/providers/` (October 18).** Sixteen files
+  moved — `account-signin.ts`, `claude-accounts.ts`, `claude-config.ts`, `cli-api-setup.ts`,
+  `default-model-selection.ts`, `engine-install.ts`, `key-rejections.ts`, `model-context-window.ts`,
+  `model-prices.ts`, `model-requests.ts`, `plan-usage.ts`, `provider-auth-sessions.ts`, `provider-icon.ts`,
+  `provider-key-check.ts`, `startup-model-catalog.ts`, `usage-ledger.ts` — 29 files repointed.
+  `thread-model.ts` stayed for S14 (chat). Guard: `server/colonie/providers/key-rejections.test.ts` — a
+  rejection is the key's fault only for the phrasings that say so, quota/billing/rate limits are never the
+  key's fault even on a 401 or 403, a saved key counts as working until a real use says otherwise, a mark
+  belongs to the key and the endpoint with a trailing slash ignored, a later accepted use clears it, saving
+  or clearing drops every mark, and listeners hear a change once and stop on unsubscribe. Three of my
+  expectations were wrong about the pattern and were corrected against the module rather than the other way
+  round; the test now records the two phrasings that are *not* recognised ("this api key has expired", a
+  bare "Your key was revoked") as a product observation for the owner, not a change. 140/140 pass,
+  typecheck 0, lint 0. Live on a throwaway HOME: `/api/usage` and `/api/plan-usage` answer through the moved
+  modules. `/api/keys/test` was deliberately not probed — it would send a key to a real provider.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

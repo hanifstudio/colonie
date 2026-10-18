@@ -7,10 +7,10 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import type { EngineInstall } from "./contracts.ts";
-import { DATA_DIR, stripWorkspaceCredentialEnv } from "./config.ts";
-import { augmentedPath, findCliCandidates, registerPathDir, resetPathCache } from "./runtime/env-path.ts";
-import { execCli, killCliTree, spawnCli } from "./runtime/procs.ts";
+import type { EngineInstall } from "../../contracts.ts";
+import { DATA_DIR, stripWorkspaceCredentialEnv } from "../../config.ts";
+import { augmentedPath, findCliCandidates, registerPathDir, resetPathCache } from "../../runtime/env-path.ts";
+import { execCli, killCliTree, spawnCli } from "../../runtime/procs.ts";
 
 const MAX_OUTPUT = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 10 * 60_000;

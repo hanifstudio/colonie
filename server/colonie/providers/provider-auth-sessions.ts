@@ -1,6 +1,6 @@
 // Provider credentials are server-wide, but an in-progress login belongs to
 // the admin session that started it. Never put its device code on global SSE.
-import type { ProviderAuthenticationStart, ProviderInstance } from "./contracts.ts";
+import type { ProviderAuthenticationStart, ProviderInstance } from "../../contracts.ts";
 
 type LoginInstance = Pick<ProviderInstance, "instanceId" | "startAuthentication" | "getAuthentication" | "completeAuthentication" | "cancelAuthentication" | "signOut">;
 type Flow = {

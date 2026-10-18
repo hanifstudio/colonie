@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { CostSource } from "./model-prices.ts";
-import { billableFor, type PriceList } from "./prices.ts";
+import { billableFor, type PriceList } from "../../prices.ts";
 
 /** Who asked for the turn. A person is named by the email they signed in
  * with when the server knows it (email sign-in), else by their device

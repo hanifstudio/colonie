@@ -34,7 +34,7 @@ import { basename, join } from "node:path";
 
 import type { AutoVerdictSource } from "./auto-approve.ts";
 import { redactSecrets } from "./redact.ts";
-import { csvCell, monthKey } from "./usage-ledger.ts";
+import { csvCell, monthKey } from "./colonie/providers/usage-ledger.ts";
 
 /** A verdict's outcome. auto-* rows came from a policy — connector grants,
  * auto-approve rules — with no card in front of a person; user-* rows

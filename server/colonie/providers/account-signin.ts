@@ -9,8 +9,8 @@
 // accounts.colonie.com. The exchange happens server-side, so a browser
 // only ever talks to this server, and a server with an empty allow-list does
 // not expose the routes.
-import { ControlPlaneError, createControlPlaneClient, normalizeAccountEmail, normalizeControlPlaneURL, type ControlPlaneClient } from "../electron/control-plane-client.mjs";
-import type { Scope } from "./sessions.ts";
+import { ControlPlaneError, createControlPlaneClient, normalizeAccountEmail, normalizeControlPlaneURL, type ControlPlaneClient } from "../../../electron/control-plane-client.mjs";
+import type { Scope } from "../../sessions.ts";
 
 /** The account service this server signs people in through. This fork ships no
  * hosted account service, so only an owner-set `COLONIE_CONTROL_PLANE_URL`

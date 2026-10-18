@@ -65,8 +65,8 @@ import {
 import { HELD_NOTE, approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, delegatedApprovalMode } from "./auto-approve.ts";
 import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
 import type { CommandAllowlistCandidate, CommandAllowlistResponse } from "../shared/command-allowlist.ts";
-import { configuredAccountDirectory, assertSeparateClaudeAccount, claudeAccountInfo, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount } from "./claude-accounts.ts";
-import { providerIconPatchSchema, withInstanceIcon } from "./provider-icon.ts";
+import { configuredAccountDirectory, assertSeparateClaudeAccount, claudeAccountInfo, createClaudeAccountSchema, instanceSettingsSchema, newClaudeAccount } from "./colonie/providers/claude-accounts.ts";
+import { providerIconPatchSchema, withInstanceIcon } from "./colonie/providers/provider-icon.ts";
 import { providerIconError } from "../shared/provider-icon.ts";
 import {
   BrowserCleanupCoordinator,
@@ -199,14 +199,14 @@ import {
 import { sweepThreadEventLogs, type ThreadLogRetentionCandidate } from "./thread-retention.ts";
 import { ComputerControl } from "./computer-control.ts";
 import { augmentedPath, findCliCandidates, resetPathCache } from "./runtime/env-path.ts";
-import { registerEnginesBinDir } from "./engine-install.ts";
-import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./usage-ledger.ts";
+import { registerEnginesBinDir } from "./colonie/providers/engine-install.ts";
+import { appendUsage, flushUsageLedger, type UsageRow, type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
-import { ledgerCost } from "./model-prices.ts";
+import { ledgerCost } from "./colonie/providers/model-prices.ts";
 import type { PriceList } from "./prices.ts";
 import type { RequestAuth } from "./request-auth.ts";
-import { PROVIDER_KEY_KINDS } from "./provider-key-check.ts";
-import { forgetKey, onKeyRejectionChange } from "./key-rejections.ts";
+import { PROVIDER_KEY_KINDS } from "./colonie/providers/provider-key-check.ts";
+import { forgetKey, onKeyRejectionChange } from "./colonie/providers/key-rejections.ts";
 import { assertWithinBudget, noteSpend, spendAlertText, spendState, takeSpendAlert } from "./spend.ts";
 
 import { entitled } from "./enterprise.ts";
@@ -276,7 +276,7 @@ import {
 import { EventBus } from "./harness/bus.ts";
 import { ProviderRegistry } from "./harness/registry.ts";
 
-import { selectDefaultModelSelection, withNewBotEffort } from "./default-model-selection.ts";
+import { selectDefaultModelSelection, withNewBotEffort } from "./colonie/providers/default-model-selection.ts";
 import { threadModelFallback, type ThreadEngine } from "./thread-model.ts";
 import { computerEngineMoveText, removedComputerInstanceIds, writeComputerEngineMoveLines } from "./computer-engine-removal.ts";
 import { cancelPeerApprovalsFor, cancelPeerApprovalsForThread, dismissStalePeerCards, peerApprovalFailure, requestPeerApproval, resolvePeerComms, type ApprovalBus } from "./colonie/peers/peer-approval.ts";
@@ -420,7 +420,7 @@ import { directApply, UNDO_STALE, type DirectApply } from "./direct-apply.ts";
 import { createOptionsCard } from "./options-card.ts";
 import { buildBotOverview, type BotOverview, connectedAppsFacts } from "./colonie/bots/bot-overview.ts";
 import { ProfileRequestService } from "./profile-requests.ts";
-import { ModelRequestService } from "./model-requests.ts";
+import { ModelRequestService } from "./colonie/providers/model-requests.ts";
 import { TeamSetupError, TeamSetupRequestService } from "./colonie/teams/team-setup-requests.ts";
 import type { TeamSetupRequest } from "../shared/team-setup.ts";
 import { profileSnapshot } from "./profile-revision.ts";
@@ -463,7 +463,7 @@ import { shouldMountLocalComputer } from "./local-routing.ts";
 import { autoLocalVmAttachable, type ContainerComputerStatus } from "./container-computer.ts";
 import { lazyClaimWaitMs, startAutoVmClaim, type AutoVmClaimTable } from "./auto-vm-claims.ts";
 import { computerFreeAfterText, computerParkedText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder } from "./computer-wait.ts";
-import { modelContextWindow } from "./model-context-window.ts";
+import { modelContextWindow } from "./colonie/providers/model-context-window.ts";
 import { computerToolsReason, parseSurface, PlaceUnavailableError, placeUnavailable, resolveSurface, surfaceLabel, surfaceOfComputerKind, surfacePrompt, type PlaceSource, type Surface } from "./surface.ts";
 import {
   PendingTurnCancellations,
@@ -481,8 +481,8 @@ import { WorkspaceBackupMaintenance } from "./colonie/workspace/workspace-backup
 import { createWorkspaceBackupRoutes, isWorkspaceBackupSessionControl } from "./colonie/workspace/workspace-backup-http.ts";
 import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult } from "./colonie/workspace/workspace-backup.ts";
 import { createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain } from "./custom-domain.ts";
-import { allowedScopes, createEmailSignIn, parseAllowList } from "./account-signin.ts";
-import { ProviderAuthSessions } from "./provider-auth-sessions.ts";
+import { allowedScopes, createEmailSignIn, parseAllowList } from "./colonie/providers/account-signin.ts";
+import { ProviderAuthSessions } from "./colonie/providers/provider-auth-sessions.ts";
 import {
   clearSessionCookie,
   clientBotPatchViolation,

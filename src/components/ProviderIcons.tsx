@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { HermesMark } from "./HermesMark";
 import { CursorMark } from "./CursorMark";
 import type { InstanceInfo } from "@/state/store";
-import type { ProviderIconPreset } from "../../shared/provider-icon";
+import type { ProviderIconPreset } from "../../shared/provider-icon.ts";
 
 export { HermesMark, CursorMark };
 

@@ -6,10 +6,10 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { InstanceConfigMap } from "./contracts.ts";
+import type { InstanceConfigMap } from "../../contracts.ts";
 import { resolveClaudeConfigDir } from "./claude-config.ts";
-import { codexHome } from "./drivers/codex-identity.ts";
-import { harnessHome } from "./runtime/env-path.ts";
+import { codexHome } from "../../drivers/codex-identity.ts";
+import { harnessHome } from "../../runtime/env-path.ts";
 
 export type PlanDriver = "claude" | "codex" | "grok";
 

@@ -10,7 +10,7 @@ import { newId } from "./contracts.ts";
 import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persistence/message-db.ts";
 import { drainCoalesceHead, DRAIN_COALESCE_MAX_ITEMS } from "./admission.ts";
 import type { ResolvedSender } from "../shared/wire.ts";
-import type { UsageTrigger } from "./usage-ledger.ts";
+import type { UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
 export interface ChannelQueueItem {
   id: string;

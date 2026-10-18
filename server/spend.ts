@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppConfig } from "./config.ts";
 import { entitled } from "./enterprise.ts";
-import { readUsage, usageRowKey } from "./usage-ledger.ts";
+import { readUsage, usageRowKey } from "./colonie/providers/usage-ledger.ts";
 
 export interface SpendState {
   month: string;

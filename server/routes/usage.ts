@@ -13,7 +13,7 @@ import {
   usageCsv,
   USAGE_GROUPINGS,
   type UsageGroupBy,
-} from "../usage-ledger.ts";
+} from "../colonie/providers/usage-ledger.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface UsageRouteDeps {

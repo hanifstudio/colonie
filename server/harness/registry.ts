@@ -5,7 +5,7 @@
 // compatible — do not remove it); dispose tears an instance down without
 // touching its siblings.
 import { findCliCandidates } from "../runtime/env-path.ts";
-import { installNpmEngine, npmAvailable, serverInstallFor } from "../engine-install.ts";
+import { installNpmEngine, npmAvailable, serverInstallFor } from "../colonie/providers/engine-install.ts";
 import type {
   AnyProviderDriver,
   EngineAccess,

@@ -22,7 +22,7 @@ import { chatFollowups, saveChatFollowup, settleChatFollowups } from "./persiste
 import { drainCoalesceHead } from "./admission.ts";
 import type { ResolvedSender, SteerQueueReason } from "../shared/wire.ts";
 import type { BotRecord, Message } from "./persistence/store.ts";
-import type { UsageTrigger } from "./usage-ledger.ts";
+import type { UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
 /** The slice of Store this module needs — narrow so tests can fake it. */
 export interface SteerStore {
