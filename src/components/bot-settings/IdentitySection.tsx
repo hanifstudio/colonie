@@ -10,7 +10,7 @@ import { HIcon } from "../HIcon";
 import { useStore, type Bot } from "@/state/store";
 import type { MausMotion, MausState } from "@/lib/mascot";
 import { cn } from "@/lib/cn";
-import { BOT_PROFILE_LIMITS } from "../../../shared/bot-profile";
+import { BOT_PROFILE_LIMITS } from "../../../shared/bot-profile.ts";
 import { BotProfileAvatarCard } from "../BotProfileAvatarCard";
 import { BotInstructionsDialog } from "../BotInstructionsDialog";
 import { Field, inputCls } from "./field";

@@ -4,7 +4,7 @@
 // caps, one sanitizer, and one reachability rule to audit rather than two
 // that drift.
 
-import { sameAudience } from "../../bot-visibility.ts";
+import { sameAudience } from "../bots/bot-visibility.ts";
 import type { BotActivity } from "../../persistence/store.ts";
 
 export interface RosterMember {

@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { visibilityFromForm, type VisibilityMode } from "./bot-settings/VisibilitySection";
-import type { NewBotDefaults } from "../../shared/new-bot-defaults";
+import type { NewBotDefaults } from "../../shared/new-bot-defaults.ts";
 import type { Routine } from "@/lib/routines";
 import { IdentitySection } from "./bot-settings/IdentitySection";
 import { SoulSection } from "./bot-settings/SoulSection";

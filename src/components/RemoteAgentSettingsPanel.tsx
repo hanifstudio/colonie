@@ -10,7 +10,7 @@ import { Switch } from "./SettingsPrimitives";
 import { BotAvatar } from "./Avatar";
 import { imageAttachmentFromFile } from "@/lib/composer-attachments";
 import { botAvatarUrlFromStoredPath } from "../../shared/bot-avatar";
-import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
+import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile.ts";
 
 type RemoteProfilePatch = Partial<
   Pick<Bot, "name" | "title" | "description" | "avatarUrl" | "avatarCrop" | "voice" | "speakReplies" | "notifications">

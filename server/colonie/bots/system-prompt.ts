@@ -6,8 +6,8 @@
 // The sentences that both the direct-turn and room-turn paths use live
 // here too, so neither path can drift from the other or from the preview.
 import { soulSystemPrompt } from "./bot-folder.ts";
-import { teammateAvailabilityPrompt, type RosterMember } from "./colonie/peers/peer-roster.ts";
-import type { ConnectorToolGrant } from "../shared/wire.ts";
+import { teammateAvailabilityPrompt, type RosterMember } from "../peers/peer-roster.ts";
+import type { ConnectorToolGrant } from "../../../shared/wire.ts";
 
 export type PromptPart = { id: string; label: string; text: string };
 export type PromptSection = PromptPart & { bytes: number };

@@ -1,5 +1,5 @@
-import { parseJson } from "./schema.ts";
-import type { ProjectProfile } from "./project-scout.ts";
+import { parseJson } from "../../schema.ts";
+import type { ProjectProfile } from "../../project-scout.ts";
 
 export const BOT_DIRECTORY_URL = "https://botdirectory.ai";
 export const BOT_DIRECTORY_API_URL = "https://api.botdirectory.ai/api/bots";

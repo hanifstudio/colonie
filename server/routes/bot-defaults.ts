@@ -5,12 +5,12 @@
 // image: the avatar comes back as a data URL for the form, and the skills as
 // unsaved templates the form submits with the create call.
 import { z } from "zod";
-import { newBotDefaultsSchema, botSkillTemplateSchema } from "../new-bot-defaults.ts";
+import { newBotDefaultsSchema, botSkillTemplateSchema } from "../colonie/bots/new-bot-defaults.ts";
 import { pickBotName } from "../names.ts";
 import { fetchSkillFromSource } from "../colonie/skills/skill-fetch.ts";
 import { parseSkillMd, scanSkillText } from "../colonie/skills/skills.ts";
-import { parseBotProfilePatch } from "../bot-profile.ts";
-import { avatarGenerationRequestSchema, generateAvatarImage } from "../avatar-image.ts";
+import { parseBotProfilePatch } from "../colonie/bots/bot-profile.ts";
+import { avatarGenerationRequestSchema, generateAvatarImage } from "../colonie/bots/avatar-image.ts";
 import type { AppConfig } from "../config.ts";
 import type { Store } from "../persistence/store.ts";
 import type { ModelSelection } from "../../shared/wire.ts";

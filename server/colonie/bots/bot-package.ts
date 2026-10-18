@@ -1,7 +1,7 @@
 import { stringify as stringifyYaml } from "yaml";
 
-import type { JsonValue } from "./schema.ts";
-import { cronScheduleLabel } from "../shared/cron-label.ts";
+import type { JsonValue } from "../../schema.ts";
+import { cronScheduleLabel } from "../../../shared/cron-label.ts";
 import {
   BOTMRR_MARKDOWN_VERSION,
   isPackageDocument,
@@ -9,7 +9,7 @@ import {
   parsePackageV1,
   utf8Bytes,
   type PackageDocumentV1,
-} from "../shared/package-format.ts";
+} from "../../../shared/package-format.ts";
 
 // The package file format (v1 and v2) lives in shared/package-format.ts: one
 // validation gate for the server, the renderer and Admin. This module keeps
@@ -30,7 +30,7 @@ export {
   upgradeV1,
   type PackageDocument,
   type PackageTrust,
-} from "../shared/package-format.ts";
+} from "../../../shared/package-format.ts";
 
 export const BOT_PACKAGE_MAX_SKILLS = PACKAGE_V1_MAX_SKILLS;
 const BOT_PACKAGE_MARKDOWN_MAX_BYTES = 1_000_000;

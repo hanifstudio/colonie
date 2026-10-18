@@ -9,8 +9,8 @@
 import type { Store } from "../persistence/store.ts";
 import type { BotRecord } from "../persistence/store.ts";
 import type { WireBot } from "../../shared/wire.ts";
-import { readSoulDrift, soulFile, writeSoulMirror } from "../bot-folder.ts";
-import { parseBotProfilePatch } from "../bot-profile.ts";
+import { readSoulDrift, soulFile, writeSoulMirror } from "../colonie/bots/bot-folder.ts";
+import { parseBotProfilePatch } from "../colonie/bots/bot-profile.ts";
 import { profileRevision, profileSnapshot } from "../profile-revision.ts";
 import { flushProfileHistory, readHistory, recordProfileChange } from "../profile-versions.ts";
 import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile.ts";

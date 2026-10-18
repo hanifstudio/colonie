@@ -5,7 +5,7 @@
 // besides (skills, starter notes, playbooks) the server adds when the bot is
 // created, switched on for an organization preset and off for a file's.
 import { t } from "@/lib/i18n";
-import type { BotDefaultsProfile } from "../../shared/new-bot-defaults";
+import type { BotDefaultsProfile } from "../../shared/new-bot-defaults.ts";
 
 /** GET /api/bot-presets, one entry (server/presets.ts WireBotPreset). */
 export interface BotPreset {

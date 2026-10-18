@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { profilePatchSchema, fitsOnOneLine } from "./bot-profile.ts";
-import { EFFORT_LEVELS } from "../shared/wire.ts";
-import { isModelVariant } from "./contracts.ts";
-import { normalizeCronSchedule } from "../shared/routine-schedule.ts";
-import { parseToolScope, type ToolScope } from "../shared/tool-scope.ts";
+import { EFFORT_LEVELS } from "../../../shared/wire.ts";
+import { isModelVariant } from "../../contracts.ts";
+import { normalizeCronSchedule } from "../../../shared/routine-schedule.ts";
+import { parseToolScope, type ToolScope } from "../../../shared/tool-scope.ts";
 
 const strings = (max: number, length: number) => z.array(z.string().max(length)).max(max);
 const clock = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);

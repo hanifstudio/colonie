@@ -79,7 +79,7 @@ import * as checkpoints from "./checkpoints.ts";
 import { commandReceipt } from "./commands.ts";
 import { buildTurnDigest, coverageForDriver, digestPromptLine, renderDigest, toolEvidence } from "./digest.ts";
 import { appendDecision, bindDecisionRetention, decisionRetentionDays, flushDecisionLog, pruneDecisions, withDecisionActor, type DecisionActor } from "./decision-log.ts";
-import { validateBotCwd } from "./bot-cwd.ts";
+import { validateBotCwd } from "./colonie/bots/bot-cwd.ts";
 import {
   ATTACHMENTS_DIR,
   attachmentExists,
@@ -115,8 +115,8 @@ import {
   generateAvatarImage,
   avatarImageStatus,
   snapshotAvatarGenerationState,
-} from "./avatar-image.ts";
-import { fitsOnOneLine, parseBotProfilePatch } from "./bot-profile.ts";
+} from "./colonie/bots/avatar-image.ts";
+import { fitsOnOneLine, parseBotProfilePatch } from "./colonie/bots/bot-profile.ts";
 import { pickComputer } from "./computer-selection.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
 import { isEffortLevel, type BotVisibility, type CardAnswerer, type ResolvedSender, type SteerQueueReason, type WireBot, type WireTask } from "../shared/wire.ts";
@@ -150,7 +150,7 @@ import {
   type LocalVmTarget,
   type Runtime,
 } from "./container-computer.ts";
-import { attachForTurn, saveBotAttachment } from "./bot-attachment.ts";
+import { attachForTurn, saveBotAttachment } from "./colonie/bots/bot-attachment.ts";
 import {
   cacheUntilConfigChanges,
   ensureDirs,
@@ -357,11 +357,11 @@ import {
   undoSkillWrite,
 } from "./colonie/skills/skills.ts";
 import { fetchSkillFromSource } from "./colonie/skills/skill-fetch.ts";
-import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults } from "./new-bot-defaults.ts";
+import { botSkillTemplateSchema, newBotDefaultsSchema, resolveBotCreationDefaults } from "./colonie/bots/new-bot-defaults.ts";
 import { expandLearnTurnText, learnSource } from "./colonie/skills/skill-learn.ts";
 import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "./setup-mode.ts";
 import type { SkillRequestCardData } from "../shared/skill-request.ts";
-import { checkSoulDrift } from "./bot-folder.ts";
+import { checkSoulDrift } from "./colonie/bots/bot-folder.ts";
 import {
   buildSystemPrompt,
   userProfileSystemPrompt,
@@ -379,7 +379,7 @@ import {
   WEBHOOK_PROMPT,
   resolveComputerPromptKind,
   teamAvailabilityPart,
-} from "./system-prompt.ts";
+} from "./colonie/bots/system-prompt.ts";
 import { readCuaConnection, readCuaUnavailableReason, gatedLocalComputer } from "./local-computer.ts";
 import {
   discoverExistingPerBotLocalVms,
@@ -418,14 +418,14 @@ import { screenFrameHash, screenSurfaceForTool, screenTouchingTool, settledFrame
 import { RoutineRequestService } from "./colonie/routines/routine-requests.ts";
 import { directApply, UNDO_STALE, type DirectApply } from "./direct-apply.ts";
 import { createOptionsCard } from "./options-card.ts";
-import { buildBotOverview, type BotOverview, connectedAppsFacts } from "./bot-overview.ts";
+import { buildBotOverview, type BotOverview, connectedAppsFacts } from "./colonie/bots/bot-overview.ts";
 import { ProfileRequestService } from "./profile-requests.ts";
 import { ModelRequestService } from "./model-requests.ts";
 import { TeamSetupError, TeamSetupRequestService } from "./team-setup-requests.ts";
 import type { TeamSetupRequest } from "../shared/team-setup.ts";
 import { profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange } from "./profile-versions.ts";
-import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./bot-package.ts";
+import { BOT_PACKAGE_MAX_SKILLS, isBotPackage, packageSummary, parsePackageDocument, renderBotPackageMarkdown, type PackageDocument } from "./colonie/bots/bot-package.ts";
 import { createTeamManifest, parseTeamManifest } from "./team-manifest.ts";
 import { readThreadEvents } from "./thread-events.ts";
 import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./team-memory.ts";
@@ -455,7 +455,7 @@ import { importPackageDocument, importTeamManifest, PackageImportError, type Pac
 import {
   applyPresetToBot, createPresetStore, DEFAULTS_PRESET_KEY, PRESET_UNAVAILABLE_MESSAGE,
   presetFromDefaults, readPublishedLibrary, writePublishedLibrary,
-} from "./presets.ts";
+} from "./colonie/bots/presets.ts";
 import { readPublishedTeam, writePublishedTeam } from "./published-teams.ts";
 import { createTeamBackup, importTeamBackup } from "./colonie/workspace/team-backup.ts";
 import { MAX_TEAM_BACKUP_BYTES } from "../shared/team-backup.ts";
@@ -518,7 +518,7 @@ import {
   type StreamSeen,
   type ThreadOwner,
   type Viewer,
-} from "./bot-visibility.ts";
+} from "./colonie/bots/bot-visibility.ts";
 import { describeBrand, loadBrand } from "./brand.ts";
 import { deliverSseFrame } from "./sse-fanout.ts";
 // Keep these two last: a route module may import any server module, and

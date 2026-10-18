@@ -5,8 +5,8 @@
 // enforced by the route split itself.
 import { fetchGithubTeam, fetchLibraryTeam, fetchTeamCatalog } from "../team-library.ts";
 import { scoutProject, suggestTeam } from "../project-scout.ts";
-import { fetchBotDirectory, matchDirectoryBots, type MatchedDirectoryBot } from "../bot-directory.ts";
-import { validateBotCwd } from "../bot-cwd.ts";
+import { fetchBotDirectory, matchDirectoryBots, type MatchedDirectoryBot } from "../colonie/bots/bot-directory.ts";
+import { validateBotCwd } from "../colonie/bots/bot-cwd.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export const teamLibraryRoutes: RouteHandler = async ({ req, res, url, path, method, json, readBody }) => {

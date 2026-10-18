@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { t, tFromServer } from "@/lib/i18n";
 import { describePart, describeSkip, preparePictures, saveShareFile, type ShareSkip } from "@/lib/team-share";
 import { api } from "@/state/store";
-import type { NewBotDefaults } from "../../shared/new-bot-defaults";
+import type { NewBotDefaults } from "../../shared/new-bot-defaults.ts";
 import type { PackageDocument, PackageSummary } from "../../shared/package-format";
 
 /** POST /api/teams/export with kind "library": a preset file. */

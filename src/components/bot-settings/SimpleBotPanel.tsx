@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { attachmentBasename } from "@/lib/composer-attachments";
 import { useStore, visibleMessages, type Bot } from "@/state/store";
-import { BOT_PROFILE_LIMITS } from "../../../shared/bot-profile";
+import { BOT_PROFILE_LIMITS } from "../../../shared/bot-profile.ts";
 import type { ApprovalMode } from "../../../shared/approval-mode";
 import { approvalModeOptionsFor } from "../ApprovalModeSelector";
 import { collectMessageFiles, splitMessageAttachments } from "../AttachmentGallery";

@@ -22,7 +22,7 @@ import {
   type ShareView,
 } from "@/lib/team-share";
 import { api, useStore } from "@/state/store";
-import type { NewBotDefaults } from "../../shared/new-bot-defaults";
+import type { NewBotDefaults } from "../../shared/new-bot-defaults.ts";
 
 /** What the file will hold, counted from the server's own dry run, so the
  * numbers are exactly what Save file writes. Pure, for tests. */

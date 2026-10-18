@@ -7,7 +7,7 @@ import { t } from "@/lib/i18n";
 
 import { nextRename } from "@/lib/rename";
 import { cn } from "@/lib/cn";
-import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
+import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile.ts";
 
 export function RenameTitle({
   value,

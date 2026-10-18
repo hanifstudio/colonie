@@ -11,7 +11,7 @@ import { writeFileAtomic } from "./persistence/atomic.ts";
 import { acpIsolationDirNames, colonieProfile, colonieInstances } from "./acp/profile.ts";
 import { colonieDataDir } from "../electron/colonie-config.mjs";
 import { withoutComputerEngine } from "./computer-engine-removal.ts";
-import { newBotDefaultsSchema, type NewBotDefaults } from "./new-bot-defaults.ts";
+import { newBotDefaultsSchema, type NewBotDefaults } from "./colonie/bots/new-bot-defaults.ts";
 import { EFFORT_LEVELS, type EffortLevel, type LiveSettings } from "../shared/wire.ts";
 import { isModelVariant, type InstanceConfigMap, type ModelSelection } from "./contracts.ts";
 import { PROVIDER_ICON_PRESETS, providerIconError } from "../shared/provider-icon.ts";

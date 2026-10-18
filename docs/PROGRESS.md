@@ -480,6 +480,21 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   the moved modules, and with `{"features":{"skillsLibrary":true}}` written at `~/.colonie/config.json` the
   opt-in `/api/skills-library` answers `{"skills":[]}`. That flag is read from the data directory's config,
   not the home directory's — a wrong first attempt of mine, not a bug.
+- **S9: bots into `server/colonie/bots/` (October 18).** Twelve files moved — `avatar-image.ts`,
+  `bot-attachment.ts`, `bot-cwd.ts`, `bot-directory.ts`, `bot-folder.ts`, `bot-overview.ts`,
+  `bot-package.ts`, `bot-profile.ts`, `bot-visibility.ts`, `new-bot-defaults.ts`, `presets.ts`,
+  `system-prompt.ts` — 36 files repointed. Three basenames are ambiguous in the repo (`bot-profile`,
+  `new-bot-defaults`, `presets`, the last two also under `shared/`), so the mover's explicit `old|name` form
+  was used for them rather than trusting the first match. Guard: `server/colonie/bots/bot-visibility.test.ts`
+  — an admin's input reads as everyone, admins or a list of people; a list that names nobody means admins
+  only and never everyone; an entry that is not an address is refused with the offending value and the
+  maximum is enforced; a damaged value read back from disk fails closed to admins while an absent one is
+  everyone; who may see a bot, including the `@domain` suffix rule and an unusable email; an audience is
+  inside another only when nobody new can see it; the people who can see both sides, where an empty
+  intersection is admins only; the narrowest of several audiences; and two readings naming the same
+  audience. 126/126 pass, typecheck 0, lint 0. Live on a throwaway HOME: `/api/bot-presets`,
+  `/api/bot-defaults`, `/api/bots/:id/overview` and `/api/bots/:id/system-prompt` all answer through the
+  moved modules.
 - **The whole suite ran (October 18).** `pnpm test` is `vitest run` over `server/` only — 20 files, 99 tests,
   all green in ~3.5 s, plus `pnpm typecheck` 0, `pnpm lint` 0 and `pnpm build:server` green. It does not run
   the renderer or the Electron `*.node-test.mjs` files, and neither the desktop window nor a real provider

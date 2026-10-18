@@ -18,7 +18,7 @@ import { writeFileAtomic } from "./persistence/atomic.ts";
 import { DATA_DIR } from "./config.ts";
 import { browserBundlePaths } from "./browser-bundle-release.ts";
 import { BROWSER_VIEWPORT_ARGS, browserRuntimeEnv, ownsBrowserViewport } from "./browser-runtime.ts";
-import { SIGN_IN_PROMPT } from "./system-prompt.ts";
+import { SIGN_IN_PROMPT } from "./colonie/bots/system-prompt.ts";
 import {
   AGENT_BROWSER_VERSION,
   agentBrowserReleaseUrl,

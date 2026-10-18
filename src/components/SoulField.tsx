@@ -5,7 +5,7 @@
 // and is never sent, so the counter is the only thing that turns red.
 import { useEffect, useState } from "react";
 
-import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
+import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile.ts";
 import { cn } from "@/lib/cn";
 import { firstSentence, soulPatchFor, utf8Bytes } from "@/lib/soul";
 import { useStore, type Bot } from "@/state/store";

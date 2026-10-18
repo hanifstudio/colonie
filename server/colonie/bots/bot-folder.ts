@@ -12,9 +12,9 @@ import { createHash } from "node:crypto";
 import { closeSync, mkdirSync, openSync, readSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import { writeFileAtomic } from "./persistence/atomic.ts";
-import { DATA_DIR } from "./config.ts";
-import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
+import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { DATA_DIR } from "../../config.ts";
+import { BOT_PROFILE_LIMITS } from "../../../shared/bot-profile.ts";
 
 export const BOTS_DIR = join(DATA_DIR, "bots");
 export const SOUL_FILE = "SOUL.md";

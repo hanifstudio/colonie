@@ -26,7 +26,7 @@
 // Pure: no store, no server. server/index.ts supplies the records.
 import { z } from "zod";
 
-import type { BotVisibility } from "../shared/wire.ts";
+import type { BotVisibility } from "../../../shared/wire.ts";
 
 export type { BotVisibility };
 

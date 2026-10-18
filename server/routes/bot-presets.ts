@@ -5,7 +5,7 @@
 // presets are Admin's to remove. Both are admin-scoped by default in
 // server/request-auth.ts, like the New bot defaults: a preset adds skills
 // and starter notes to the bot made from it.
-import { listBotPresets, ORG_PRESET_REMOVE_MESSAGE, PRESET_UNAVAILABLE_MESSAGE, type PresetStore } from "../presets.ts";
+import { listBotPresets, ORG_PRESET_REMOVE_MESSAGE, PRESET_UNAVAILABLE_MESSAGE, type PresetStore } from "../colonie/bots/presets.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface BotPresetRouteDeps {

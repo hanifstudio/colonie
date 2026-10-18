@@ -6,15 +6,15 @@ import {
   BOT_AVATAR_CROPS,
   botAvatarCropSchema,
   botAvatarUrlSchema,
-} from "../shared/bot-avatar.ts";
-import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "../shared/bot-profile.ts";
-import { MASCOT_BODY_IDS, mascotBodySchema } from "../shared/mascot-bodies.ts";
+} from "../../../shared/bot-avatar.ts";
+import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "../../../shared/bot-profile.ts";
+import { MASCOT_BODY_IDS, mascotBodySchema } from "../../../shared/mascot-bodies.ts";
 
-import type { BotRecord } from "./persistence/store.ts";
+import type { BotRecord } from "../../persistence/store.ts";
 
 // Shared with the package format, which checks the same rule on names it
 // carries; re-exported under its historical path.
-export { fitsOnOneLine } from "../shared/bot-profile.ts";
+export { fitsOnOneLine } from "../../../shared/bot-profile.ts";
 
 export const BOT_PROFILE_PATCH_FIELDS = [
   "name",

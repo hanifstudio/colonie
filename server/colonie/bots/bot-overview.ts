@@ -3,11 +3,11 @@
 // route in index.ts (botOverview()) is the only place that reads server-only
 // state (engine capabilities, connected-apps inventory, history); everything
 // here is pure and takes that state already gathered as OverviewFacts.
-import type { BotRecord } from "./persistence/store.ts";
-import type { Routine } from "./colonie/routines/routines.ts";
-import type { RoutineRequestSchedule } from "../shared/routine-request.ts";
-import { approvalModeFor } from "../shared/approval-mode.ts";
-import { cronScheduleLabel } from "../shared/cron-label.ts";
+import type { BotRecord } from "../../persistence/store.ts";
+import type { Routine } from "../routines/routines.ts";
+import type { RoutineRequestSchedule } from "../../../shared/routine-request.ts";
+import { approvalModeFor } from "../../../shared/approval-mode.ts";
+import { cronScheduleLabel } from "../../../shared/cron-label.ts";
 
 export interface BotOverview {
   who: { name: string; title: string; blurb: string; soulLead: string };
