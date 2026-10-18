@@ -58,3 +58,8 @@ and URLs. The docs guide execution; they do not schedule or wake agents.
 Respond to the owner in natural Bahasa Indonesia and explain status/evidence for
 a nontechnical reader. Product UI, app-authored context, built-in personas/SOUL,
 help, and project docs use English (US); preserve user language and provider output.
+
+Explain a feature as the person using it experiences it: what they see, what they
+can now do, what changes for them — a few plain sentences, before any
+implementation detail. The owner is an engineer, but a feature explanation is not a
+code tour: leave file, module and function names out unless a name is the point.
