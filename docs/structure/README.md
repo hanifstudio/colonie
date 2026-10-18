@@ -83,7 +83,7 @@ otherwise the rule encodes a taste instead of a fact.
   `server/index.ts ↔ src/state/store.tsx` (191), `server/index.ts ↔ server/store.ts`
   (145), `server/index.ts ↔ src/locales/en.json` (120).
 
-**Graph — 1,077 source files, 3,682 edges (920 through the `@/*` alias), 4 unresolved.**
+**Graph — 1,078 source files, 3,683 edges (920 through the `@/*` alias), 4 unresolved.**
 
 Four direction rules are already at zero violations, so they are cheap to enforce from
 day one: nothing imports `server/index.ts`; `shared/` reaches into neither `server/`,
@@ -96,6 +96,16 @@ named as exceptions:
 |---|---|---|
 | features may not import `server/routes/` | 6 | Five import `routes/table.ts`, the shared route contract that the blueprint explicitly sanctions for feature-owned adapters. One real hit: `colonie/computer/desktop-viewer-targets.ts → routes/desktop-viewer.ts`. |
 | features may not import `server/harness/` | 3 | Two import `harness/http.ts` (shared request/response helpers), one imports a type from `harness/registry.ts`. The intended prohibition is the composition/startup layer, not shared helpers. |
+
+All five rules now hold at zero violations with an empty `baseline`, so no crossing is
+grandfathered anymore. The one real hit in the first row above was fixed rather than
+suppressed: the viewer contract moved into the feature
+(`colonie/computer/desktop-viewer-contract.ts`) and `routes/desktop-viewer.ts` imports it
+from there, which is the direction the blueprint asks for. The type import behind the one
+real hit in the second row was fixed by moving that file — the memory-upkeep wiring, which
+its own header describes as assembly `index.ts` supplies — to `server/harness/`, where the
+rest of the startup wiring lives. Both baseline entries were then deleted; the guard exits
+3 if one is left unused, so a grandfather that stops being needed cannot quietly stay.
 
 - 10 file-level cycles (SCC > 1). Largest: 14 files around `server/commands.ts`,
   `colonie/workspace/workspace.ts` and the memory store/journal. Then a 3-file

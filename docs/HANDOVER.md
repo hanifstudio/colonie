@@ -243,10 +243,9 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   `electron/vendor-updater.node-test.mjs` import `scripts/patch-mac-updater.mjs` and
   `scripts/patch-appimage-updater.mjs`, and neither script exists.
 - Phase 1 landed: `scripts/structure/import-boundaries.json` (five rules; the two sanctioned shared
-  modules `server/routes/table.ts` and `server/harness/http.ts` named as exceptions; two grandfathered
-  crossings with reason/target/since/owner), `scripts/structure/graph.mjs` as the single compiler-driven
+  modules `server/routes/table.ts` and `server/harness/http.ts` named as exceptions), `scripts/structure/graph.mjs` as the single compiler-driven
   resolver shared by the measurement and the guard, `pnpm structure:check` (exit 1 new crossing, 2 matrix
-  loosened, 3 stale grandfather), and `scripts/testing/import-boundaries.test.mjs` (16 tests, run by
+  loosened, 3 stale grandfather), and `scripts/testing/import-boundaries.test.mjs` (run by
   `pnpm test` because `vite.config.ts` includes `scripts/**/*.test.mjs`). Falsification: a temporary
   `server/harness/__falsify-boundary.ts` importing `src/lib/cn.ts` produced
   `no-server-to-ui … exit 1`, and deleting the file restored exit 0.
@@ -259,13 +258,20 @@ the measurement touches neither `server/` nor `src/`, so no live probe applies.
   defects that would have let rules pass silently — `server/testing/*.mjs` was invisible because a
   tsconfig `include` collects only the extensions that config enables, and `./x.mjs` could resolve to the
   type stub `x.d.mts` instead of the file that runs — both fixed in `scripts/structure/graph.mjs`; the
-  graph is now 1,077 files / 3,682 edges. It also surfaced
+  graph is now 1,078 files / 3,683 edges. It also surfaced
   `electron/fixtures/browser-closed-shadow.cjs` requiring `electron/browser-surface.cjs`, which does not
   exist (inherited breakage, reported, not fixed).
+- Phase 2b landed: both grandfathered crossings are fixed, not suppressed, so the matrix is now five rules
+  with zero violations and an **empty baseline**. The memory-upkeep wiring moved to `server/harness/` (it
+  is assembly that `index.ts` supplies collaborators to), and the desktop-viewer contract moved into
+  `colonie/computer/desktop-viewer-contract.ts` so the route adapter imports the feature, not the reverse.
+  Verified with a live probe of a throwaway instance (boot clean; `/api/health`, `/api/bots`,
+  `/api/local-computer` all 200, no error in the start log).
 - Next actions: (a) the CI question above; (b) the remaining Phase 2 item — an independent tool
   (`knip`/`ts-unused-exports`; neither is installed, so adding the dependency is a decision) for the
-  dead-export figure, plus a generated module index with a staleness check; (c) a cleanup slice for the two
-  grandfathered crossings, which also removes their baseline entries.
+  dead-export figure, plus a generated module index with a staleness check; (c) the restructure long tail
+  toward the ~1,000–1,500 line target for `server/index.ts` (now 2,138 lines), moving whole coherent
+  clusters only.
 
 ## Done engineering task: E02.1 — connected-apps storage owned at bootstrap
 

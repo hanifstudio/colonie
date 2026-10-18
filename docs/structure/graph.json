@@ -1,9 +1,9 @@
 {
-  "head": "6264eab21024c535cd5a64e26a5afd8b125c8a4a",
+  "head": "e55fb8e5babc5e2d167044219a39a96d559d00ef",
   "programs": [
     {
       "name": "server",
-      "files": 570
+      "files": 571
     },
     {
       "name": "app",
@@ -15,9 +15,9 @@
     }
   ],
   "totals": {
-    "files": 1065,
-    "sourceFiles": 1077,
-    "edges": 3682,
+    "files": 1066,
+    "sourceFiles": 1078,
+    "edges": 3683,
     "aliasEdges": 920,
     "unresolvedRelativeSpecs": 4,
     "probeResolutions": 8
@@ -51,26 +51,11 @@
     {
       "id": "feature-not-to-composition",
       "why": "harness/ is the composition and startup layer: a feature that imports it cannot be tested or read without booting the server. routes/ is the adapter layer that depends on features, never the reverse. Two modules are the sanctioned exception: routes/table.ts is the shared route contract the blueprint tells feature-owned adapters to reuse, and harness/http.ts is a shared request/response helper that carries no boot order.",
-      "violations": 2,
-      "grandfathered": 2
+      "violations": 0,
+      "grandfathered": 0
     }
   ],
-  "violations": [
-    {
-      "rule": "feature-not-to-composition",
-      "from": "server/colonie/computer/desktop-viewer-targets.ts",
-      "to": "server/routes/desktop-viewer.ts",
-      "spec": "../../routes/desktop-viewer.ts",
-      "kind": "import"
-    },
-    {
-      "rule": "feature-not-to-composition",
-      "from": "server/colonie/memory/memory-upkeep-wiring.ts",
-      "to": "server/harness/registry.ts",
-      "spec": "../../harness/registry.ts",
-      "kind": "type"
-    }
-  ],
+  "violations": [],
   "newViolations": [],
   "staleBaseline": [],
   "cycles": {
@@ -167,12 +152,12 @@
         "server/decider",
         "server/colonie/chief",
         "server/colonie/skills",
-        "server/colonie/chat",
         "server/tts",
-        "server/colonie/workspace",
-        "server/colonie/memory",
         "server/harness",
         "server/routes",
+        "server/colonie/workspace",
+        "server/colonie/memory",
+        "server/colonie/chat",
         "server/colonie/computer",
         "server/colonie/mcp",
         "server/colonie/routines",
@@ -211,8 +196,8 @@
       {
         "a": "server (root files)",
         "b": "server/harness",
-        "aToB": 15,
-        "bToA": 47
+        "aToB": 16,
+        "bToA": 50
       },
       {
         "a": "server/harness",
@@ -264,15 +249,15 @@
       },
       {
         "a": "server (root files)",
-        "b": "server/colonie/memory",
-        "aToB": 7,
-        "bToA": 15
-      },
-      {
-        "a": "server (root files)",
         "b": "server/colonie/mcp",
         "aToB": 12,
         "bToA": 8
+      },
+      {
+        "a": "server (root files)",
+        "b": "server/colonie/memory",
+        "aToB": 6,
+        "bToA": 12
       },
       {
         "a": "server (root files)",
@@ -377,12 +362,6 @@
         "bToA": 4
       },
       {
-        "a": "server/colonie/memory",
-        "b": "server/persistence",
-        "aToB": 6,
-        "bToA": 1
-      },
-      {
         "a": "server/colonie/skills",
         "b": "server/routes",
         "aToB": 1,
@@ -402,9 +381,9 @@
       },
       {
         "a": "server/colonie/memory",
-        "b": "server/colonie/workspace",
-        "aToB": 4,
-        "bToA": 2
+        "b": "server/persistence",
+        "aToB": 5,
+        "bToA": 1
       },
       {
         "a": "server/colonie/connections",
@@ -417,6 +396,12 @@
         "b": "server/colonie/teams",
         "aToB": 4,
         "bToA": 1
+      },
+      {
+        "a": "server/colonie/memory",
+        "b": "server/colonie/workspace",
+        "aToB": 3,
+        "bToA": 2
       },
       {
         "a": "server/colonie/memory",
@@ -467,12 +452,6 @@
         "bToA": 2
       },
       {
-        "a": "server/colonie/memory",
-        "b": "server/harness",
-        "aToB": 1,
-        "bToA": 3
-      },
-      {
         "a": "server/colonie/connections",
         "b": "server/routes",
         "aToB": 2,
@@ -497,12 +476,6 @@
         "bToA": 1
       },
       {
-        "a": "server/colonie/computer",
-        "b": "server/routes",
-        "aToB": 1,
-        "bToA": 2
-      },
-      {
         "a": "server/colonie/routines",
         "b": "server/colonie/teams",
         "aToB": 1,
@@ -521,7 +494,7 @@
         "bToA": 1
       }
     ],
-    "mutualPairCount": 54
+    "mutualPairCount": 52
   },
   "unresolvedRelativeSpecs": [
     {
@@ -584,7 +557,7 @@
     }
   ],
   "deadExports": {
-    "count": 1998,
+    "count": 1997,
     "byArea": {
       "shared/outbound.ts": 4,
       "shared/tool-scope.ts": 1,
@@ -606,7 +579,7 @@
       "server/contracts.ts": 6,
       "server/auto-approve.ts": 4,
       "server/prices.ts": 1,
-      "server/colonie": 666,
+      "server/colonie": 665,
       "server/decision-log.ts": 4,
       "server/activity.ts": 1,
       "server/admin-activity.ts": 11,
@@ -633,10 +606,9 @@
       "server/harness-capabilities.ts": 2,
       "server/harness-mcp-proxy.ts": 2,
       "server/incidents.ts": 5,
-      "server/harness": 16,
+      "server/harness": 17,
       "server/notify.ts": 4,
       "server/spend.ts": 4,
-      "server/routes": 25,
       "server/sse-fanout.ts": 3,
       "shared/failed-turn.ts": 2,
       "server/profile-versions.ts": 3,
@@ -656,6 +628,7 @@
       "server/local-computer.ts": 5,
       "shared/composio-credential.ts": 1,
       "server/drivers": 24,
+      "server/routes": 24,
       "shared/live-approval.ts": 2,
       "shared/live-call.ts": 3,
       "server/live-call.ts": 9,

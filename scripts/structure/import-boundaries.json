@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Structural import matrix. This is the machine-readable form of the boundaries in docs/COLONIE-BLUEPRINT.md section 7. Every deny rule here has zero or grandfathered violations today; the rules that earlier drafts proposed and this measurement rejected (features importing server/routes/table.ts and server/harness/http.ts) are recorded in docs/structure/README.md. A path entry matches the path itself or any path that starts with it; an empty entry matches everything.",
+  "note": "Structural import matrix. This is the machine-readable form of the boundaries in docs/COLONIE-BLUEPRINT.md section 7. Every deny rule here has zero violations today and the baseline is empty, so any crossing is a new one; the rules that earlier drafts proposed and this measurement rejected (features importing server/routes/table.ts and server/harness/http.ts) are recorded in docs/structure/README.md. A path entry matches the path itself or any path that starts with it; an empty entry matches everything.",
   "deny": [
     {
       "id": "no-imports-of-index",
@@ -36,25 +36,8 @@
       "to": ["server/harness/", "server/routes/"],
       "exceptTo": ["server/harness/http.ts", "server/routes/table.ts"],
       "why": "harness/ is the composition and startup layer: a feature that imports it cannot be tested or read without booting the server. routes/ is the adapter layer that depends on features, never the reverse. Two modules are the sanctioned exception: routes/table.ts is the shared route contract the blueprint tells feature-owned adapters to reuse, and harness/http.ts is a shared request/response helper that carries no boot order.",
-      "observed": 2
+      "observed": 0
     }
   ],
-  "baseline": [
-    {
-      "from": "server/colonie/memory/memory-upkeep-wiring.ts",
-      "to": "server/harness/registry.ts",
-      "reason": "The upkeep wiring reads the subscriber registry. The file is assembly that happens to live in the feature folder, so the import follows the file, not the feature.",
-      "since": "2026-10-18",
-      "target": "Move this wiring into server/harness/ (restructure S3 tail)",
-      "owner": "structure"
-    },
-    {
-      "from": "server/colonie/computer/desktop-viewer-targets.ts",
-      "to": "server/routes/desktop-viewer.ts",
-      "reason": "The computer feature resolves desktop-viewer targets through helpers exported by the route module.",
-      "since": "2026-10-18",
-      "target": "Move target resolution into the computer feature, or route it through routes/table.ts",
-      "owner": "structure"
-    }
-  ]
+  "baseline": []
 }

@@ -3,6 +3,35 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-18 — the two grandfathered crossings are cleaned up (E01.3 Phase 2b)
+
+Single session, Node 24.13.1. Follows the entry above. The matrix is now five rules, zero
+violations, empty baseline.
+
+- `memory-upkeep-wiring.ts` (and its test) moved from `server/colonie/memory/` to
+  `server/harness/`. It builds the memory-upkeep pass out of collaborators that `index.ts`
+  supplies — assembly, not feature logic — and it read the live registry. Moved, not
+  retyped: only its relative imports changed. `server/index.ts` imports it from its new
+  home.
+- The desktop-viewer contract moved into `computer`:
+  `server/colonie/computer/desktop-viewer-contract.ts` now owns `DesktopConnection`,
+  `DesktopTarget` and `desktopViewerUrl`. `routes/desktop-viewer.ts` imports the two types
+  from there and no longer exports them, so the dependency runs adapter → feature as the
+  blueprint asks. Nothing outside that pair used those names, which is also why the URL
+  builder could move without touching callers.
+- Both `baseline` entries were deleted, and `scripts/structure/import-boundaries.json` now
+  says so in its note. Two guard tests changed with it, because one of them read
+  `matrix.baseline[0]` from the shipped matrix: the grandfather/stale behaviour is now
+  pinned on a synthetic matrix, and a new test asserts the shipped baseline stays empty.
+- Checks: `pnpm structure:check` exit 0, all five rules 0 violations, 0 stale entries;
+  `.colonie-dev/type-import-audit.py` flagged 0 value imports of type-only names across 572
+  files (the move would crash the boot otherwise, not the typecheck); `pnpm lint` clean;
+  `pnpm typecheck` 0 errors; `npx vitest run server scripts` 103 files / 505 tests pass.
+- Live probe (`zsh /tmp/probe-hr.sh`, throwaway `HOME`, `COLONIE_PROFILE=1`): boot clean,
+  `/api/health` 200, `/api/bots` 200 (the moved wiring runs during boot),
+  `/api/local-computer` 200 (the moved contract feeds the viewer status),
+  `/api/nope` and `/` 404 as expected, no error line in the start log.
+
 ## 2026-10-18 — the graph the guard runs on is verified (E01.3 Phase 2)
 
 Single session, Node 24.13.1. Follows the two entries below. No product code changed: this

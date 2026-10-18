@@ -55,7 +55,7 @@ import { attachmentExists, cleanupStaleAttachmentPartials } from "./colonie/chat
 import { TeamComputers } from "./colonie/teams/team-computers.ts";
 import {parseToolScope} from "../shared/tool-scope.ts";
 import * as composio from "./colonie/mcp/composio.ts";
-import {createMemoryUpkeepWiring} from "./colonie/memory/memory-upkeep-wiring.ts";
+import {createMemoryUpkeepWiring} from "./harness/memory-upkeep-wiring.ts";
 import {LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
 import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";

@@ -6,6 +6,7 @@ import { request, ServerResponse, type IncomingMessage, type Server } from "node
 import { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import { isSameOrigin, type RequestAuth } from "../request-auth.ts";
+import type { DesktopConnection, DesktopTarget } from "../colonie/computer/desktop-viewer-contract.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 const ROUTE = /^\/api\/desktop-viewer\/(local\/(?:shared|bot-[a-f0-9]{64}|pool-\d+)|vps\/[\w-]+)(\/websockify)?$/;
@@ -14,25 +15,6 @@ const RECHECK_MS = 5_000;
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const BOT_ID = /^[\w-]+$/;
 const CONTROL_LEASE = /^[A-Za-z0-9_-]{16,120}$/;
-
-/** Providers resolve a managed loopback endpoint, never a browser-supplied URL. */
-export interface DesktopConnection {
-  port: number;
-  password: string | null;
-  live?: () => boolean;
-  touch?: () => void;
-  /** Acquired only by WebSockets; release must not close other viewers. */
-  retain?: () => () => void;
-}
-export interface DesktopTarget {
-  key: string;
-  resolve: () => Promise<DesktopConnection>;
-}
-
-export function desktopViewerUrl(target: string, threadId?: string): string {
-  const params = new URLSearchParams({ target, ...(threadId ? { threadId } : {}) });
-  return `/desktop-viewer#${params}`;
-}
 
 interface Upgrade { socket: Socket; head: Buffer; release: () => void; close: () => void; owner?: string; botId?: string }
 

@@ -87,16 +87,25 @@ describe("the shipped rules", () => {
   });
 
   it("reports a grandfathered crossing separately from a new one", () => {
-    const grandfathered = matrix.baseline[0];
-    const { violations, known, unknown } = evaluate([edge(grandfathered.from, grandfathered.to)], matrix);
-    expect(violations).toHaveLength(1);
+    // The shipped baseline is empty today, so the behaviour is pinned on a matrix that has
+    // one: an entry explains a crossing, it does not remove it from the violation list.
+    const withBaseline = { ...matrix, baseline: [{ from: "server/colonie/chat/chat.ts", to: "server/harness/registry.ts" }] };
+    const { violations, known, unknown } = evaluate([
+      edge("server/colonie/chat/chat.ts", "server/harness/registry.ts"),
+      edge("server/colonie/chat/chat.ts", "server/routes/bots.ts"),
+    ], withBaseline);
+    expect(violations).toHaveLength(2);
     expect(known).toHaveLength(1);
-    expect(unknown).toEqual([]);
+    expect(unknown).toHaveLength(1);
   });
 
-  it("calls a baseline entry stale once its crossing is gone", () => {
-    const { stale } = evaluate([], matrix);
-    expect(stale.map((entry) => `${entry.from} -> ${entry.to}`)).toEqual(matrix.baseline.map((entry) => `${entry.from} -> ${entry.to}`));
+  it("ships no grandfathered entry, and calls one stale once its crossing is gone", () => {
+    // The last two crossings were cleaned up rather than left here, so the list has to stay
+    // empty: re-adding an entry means a crossing is back, and the guard exits 3 on an entry
+    // nobody needs anymore.
+    expect(matrix.baseline).toEqual([]);
+    const withBaseline = { ...matrix, baseline: [{ from: "a.ts", to: "b.ts" }] };
+    expect(evaluate([], withBaseline).stale.map((entry) => `${entry.from} -> ${entry.to}`)).toEqual(["a.ts -> b.ts"]);
   });
 });
 

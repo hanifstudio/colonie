@@ -4,14 +4,14 @@
 // written back. `index.ts` supplies the shared collaborators — the store, the
 // live registry, the config, the usage ledger and the learned-facts planner.
 import { randomUUID } from "node:crypto";
-import { isColonieAcpDriver } from "../../../shared/acp.ts";
-import { captureQuietMs, DATA_DIR, loadConfig, saveConfig, tidyHour } from "../../config.ts";
-import type { ProviderRegistry } from "../../harness/registry.ts";
-import type { Store } from "../../persistence/store.ts";
-import { appendAboutMe, type LearnedFacts } from "../../profile-learned.ts";
-import { assertWithinBudget } from "../../spend.ts";
-import { createMemoryUpkeep } from "./memory-upkeep.ts";
-import { memoryDate, memorySourceLabel } from "../workspace/workspace.ts";
+import { isColonieAcpDriver } from "../../shared/acp.ts";
+import { captureQuietMs, DATA_DIR, loadConfig, saveConfig, tidyHour } from "../config.ts";
+import type { ProviderRegistry } from "./registry.ts";
+import type { Store } from "../persistence/store.ts";
+import { appendAboutMe, type LearnedFacts } from "../profile-learned.ts";
+import { assertWithinBudget } from "../spend.ts";
+import { createMemoryUpkeep } from "../colonie/memory/memory-upkeep.ts";
+import { memoryDate, memorySourceLabel } from "../colonie/workspace/workspace.ts";
 
 export interface MemoryUpkeepWiringDeps {
   // ponytail: one permissive shape instead of hand-typed lines for each name;
