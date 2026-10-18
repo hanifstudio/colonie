@@ -185,13 +185,16 @@ started, and review.
   client push, `harness/client-streams` (S3.68). Every
   route group named
   in S3 is out of `index.ts`, and the non-route helpers have started moving (S3.37).
-  `index.ts` is now 2,965 lines — **under the owner's 3,000 target**.
+  `index.ts` is now 2,920 lines — **under the owner's 3,000 target**. The owner
+  asked for it pushed further, toward the older still-open ~1,000–1,500 target, by
+  keeping whole coherent clusters (a domain module, never a catch-all) coming out;
+  S3.69+ is that long tail.
 
   Every named giant is now out (S3.43 was the last: the 1,646-line `handleRequest`,
   carved whole into `harness/request-handler.ts`). The largest remaining top-level
   function in `index.ts` is `collectTeamSkills` at 40 lines; everything
-  else of size is the shared state and small declarations that no single feature owns
-  (about 8,100 lines), which is the next job and a different kind of one: moving a
+  else of size is the shared state and small declarations that no single feature owns,
+  which is the next job and a different kind of one: moving a
   mutable binding to a module is safe only while every reader imports that same
   binding, and the state reads `cfg`, so the groups have to be chosen by what they
   close over, not by name. The body reached 108 deps; eight of them are reassigned
@@ -201,7 +204,7 @@ started, and review.
   which keeps the readers in the already-moved route modules untouched.
 
   The 1,000-1,500 line target is **not** reachable by moving route groups and named
-  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 2,965 lines is state and small
+  giants alone — `handleRequest` moved at S3.43, the last of them. What is left below 2,920 lines is state and small
   declarations, a separate and larger job than S3. Say so before starting it. `.colonie-dev/carve.py`
   carves a block and lists the deps; the static-path sweep on a throwaway HOME runs
   after every extraction. The dead native transport (`/api/internal/*` peer block and

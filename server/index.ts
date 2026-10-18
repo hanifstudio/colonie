@@ -2,6 +2,7 @@
 // (upstream rule): the React app dispatches typed commands over HTTP and
 // folds one SSE event stream; every provider process runs here.
 import {isColonieAcpDriver} from "../shared/acp.ts";
+import {createChatInterrupts} from "./colonie/chat/interrupts.ts";
 import {createClientStreams} from "./harness/client-streams.ts";
 import {createProcessLifecycle} from "./harness/process-lifecycle.ts";
 import {createBrowserSessions} from "./colonie/computer/browser-sessions.ts";
@@ -752,45 +753,25 @@ function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
   return task;
 }
 
-async function interruptDirectThread(botId: string, threadId: string, options?: { preserveComputerResume?: boolean }): Promise<void> {
-  connectedTools.cancel(threadId);
-  colonieChief.cancelSource(threadId);
-  colonieTurnByThread.delete(threadId);
-  if (isColonieAcpDriver(registry.get(store.bot(botId)?.modelSelection.instanceId ?? "")?.driverKind)) {
-    try { colonieMemory.cancelThread(botId, threadId); }
-    catch { console.warn("Colonie memory could not persist its cancelled capture queue."); }
-    if (colonieMemorySources.get(threadId)?.botId === botId) colonieMemorySources.delete(threadId);
-  }
-  // A parked turn has settled its provider but still owns a future resume.
-  // Stop cancels that work too. The parking teardown itself preserves it.
-  if (!options?.preserveComputerResume && pendingComputerResumes.delete(threadId)
-      && store.taskByThread(botId, threadId)?.activity === "parked.computer") {
-    store.setTaskActivity(botId, threadId, "idle");
-  }
-  const requestOwner = directRequestOwners.get(threadId);
-  if (requestOwner) {
-    requestOwner.stopped = true;
-    if (requestOwner.messageId) store.patchMessage(threadId, requestOwner.messageId, { requestCancelled: true });
-  }
-  const owner = botForThread(botId, threadId);
-  const generation = directTurnGenerationByThread.get(threadId);
-  cancelDirectTurnDispatch(botId, threadId);
-  revokeInternalCapabilitiesForThread(threadId);
-  // Main routes Stop to the engine that started the turn; keep this branch's
-  // generation fence so a replacement turn's approvals are never closed here.
-  await (owner ? runningTurnInstance(owner, threadId) : null)?.adapter.interruptTurn(threadId);
-  if (directTurnGenerationByThread.get(threadId) === generation) closeOpenApprovals(threadId);
-}
-
-async function interruptAllDirectThreads(botId: string): Promise<void> {
-  const threads = store.tasks(botId).filter((task) => task.busy || directTurnDispatchClaims.has(task.threadId) || pendingComputerResumes.has(task.threadId));
-  // Revoke every sibling before yielding to any provider teardown.
-  for (const task of threads) {
-    cancelDirectTurnDispatch(botId, task.threadId);
-    revokeInternalCapabilitiesForThread(task.threadId);
-  }
-  await Promise.all(threads.map((task) => interruptDirectThread(botId, task.threadId)));
-}
+const { interruptDirectThread, interruptAllDirectThreads, stopBotForEmergencyApprovalDowngrade } = createChatInterrupts({
+  botForThread,
+  cancelDirectTurnDispatch,
+  closeOpenApprovals: () => closeOpenApprovals,
+  colonieChief: () => colonieChief,
+  colonieMemory: () => colonieMemory,
+  colonieMemorySources: () => colonieMemorySources,
+  colonieTurnByThread: () => colonieTurnByThread,
+  connectedTools: () => connectedTools,
+  directRequestOwners,
+  directTurnDispatchClaims,
+  directTurnGenerationByThread,
+  pendingComputerResumes: () => pendingComputerResumes,
+  registry,
+  revokeInternalCapabilitiesForThread,
+  runningTurnInstance: () => runningTurnInstance,
+  store: () => store,
+  routines: () => routines,
+});
 
 let engineUnavailableLogged = false;
 
@@ -2057,32 +2038,6 @@ const { routineSourceOwner, botMainThread, legacyResultsThread, routineSourceThr
   store,
 });
 
-/** Stop work that may have captured Full/Custom before a fail-closed Ask
- * compensation arrived over Electron's private channel. Cancellation flags
- * are flipped synchronously; the awaited work only drains capabilities and
- * interrupts the already-started provider process. */
-async function stopBotForEmergencyApprovalDowngrade(botId: string): Promise<void> {
-  const bot = store.bot(botId);
-  if (!bot) return;
-  for (const task of store.tasks(botId)) {
-    if (task.approvalMode === "full" || task.approvalMode === "custom") {
-      store.patchTask(botId, task.threadId, { approvalMode: "ask", autoApprove: false, alwaysAllow: [] });
-    }
-  }
-  const directStop = interruptAllDirectThreads(botId);
-
-  const routineRun = routines?.activeBotRunForBot(bot.id);
-  if (routineRun) {
-    if (routineRun.threadId) revokeInternalCapabilitiesForThread(routineRun.threadId);
-    cancelDirectTurnDispatch(bot.id, routineRun.threadId);
-    await routines!.cancelRun(routineRun.id);
-    if (routineRun.threadId) closeOpenApprovals(routineRun.threadId);
-    await directStop;
-    return;
-  }
-
-  await directStop;
-}
 
 // Load queued handoffs before scheduler recovery can fail an interrupted
 // run. Its failure callback can then durably drop that work immediately;

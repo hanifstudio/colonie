@@ -629,6 +629,28 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.69: the direct-interrupt and emergency-stop cluster out of `index.ts` (October 18).**
+  `server/colonie/chat/interrupts.ts` (`createChatInterrupts`): stopping one
+  conversation's work (`interruptDirectThread` revokes the thread's connected
+  tools, chief lease, memory capture queue, dispatch claim and internal
+  capabilities, then asks the running adapter to interrupt behind a generation
+  fence so a replacement turn's approvals are never closed) and a bot's whole
+  fan-out (`interruptAllDirectThreads`, which revokes every busy sibling before
+  yielding to any provider teardown), plus `stopBotForEmergencyApprovalDowngrade`
+  — the fail-closed compensation Electron's private channel asks for, which
+  forces every full/custom task back to Ask before it stops the direct turn and
+  any routine run that may already have captured the wider permissions. Two
+  blocks (L755–793, L2060–2085), 65 lines. `colonieMemory`, `colonieChief`,
+  `connectedTools`, `routines`, `closeOpenApprovals`, `runningTurnInstance`,
+  `pendingComputerResumes` and `colonieMemorySources` all live below the wire site
+  and go over as getters. Guard: `interrupts.test.ts` (6) — the revoke pass runs
+  before the adapter is asked, a turn replaced mid-interrupt keeps its approvals,
+  Stop records the cancelled request on its message, a parked computer resume is
+  cancelled unless the parking teardown preserves it, a whole-bot interrupt
+  revokes each sibling then interrupts only the busy/claimed threads, and the
+  emergency downgrade rewrites exactly the full/custom tasks and cancels the
+  active run. `index.ts` 2,965 → 2,920 lines. `pnpm typecheck` 0, `pnpm lint` 0,
+  `npx vitest run server` 83 files / 394 tests pass; live probe green.
 - **S3.68: the server-side client push out of `index.ts` (October 18).**
   `server/harness/client-streams.ts` (`createClientStreams`): what a store change
   broadcasts (which also pages a bot whose active thread moved), the SSE frame
