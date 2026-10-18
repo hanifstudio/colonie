@@ -629,6 +629,22 @@ one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
   on a throwaway HOME: create (`{"type":"daily","time":"09:00"}` — the schedule key is `type`, not `kind`),
   list, wake, run, patch and delete all answered, and `/api/routine-runs/seen-all` returned an empty list.
   179/179 pass, typecheck 0, lint 0.
+- **S3.64: the direct-message flow out of `index.ts` (October 18).**
+  `server/colonie/chat/direct-flow.ts` (`createDirectFlow`): the queued-send
+  drain (`drainQueuedSends`, which starts each waiting group and then runs the
+  aside lane), the aside lane's boundary pass (`drainAsideLane`), and the two
+  entry points that reuse the path — `startOrQueueDirectMessage` for a new
+  direct message and `deliverLateQuestionAnswer` for a late answer to a mid-turn
+  question. 160 lines across two blocks (L2192–2299, 2314–2365). `followupsReady`
+  (a `let` reassigned at boot) and `startTurn` (declared below the site) are
+  getters; `store`, `threadBusy`, `messageSender`, `sendSequencer` and
+  `usageTriggerFor` are plain. The five names above the site's wire are reached
+  only from lazy getters or event callbacks. Guard: `direct-flow.test.ts` (5) —
+  a full thread queues instead of starting, an idle one starts directly, the
+  drain is a no-op before follow-ups are ready, and a late answer refuses a
+  retired room and an unknown conversation. `index.ts` 3,514 → 3,366.
+  `pnpm typecheck` 0, `pnpm lint` 0, `npx vitest run server` 78 files / 366
+  tests pass, live probe green.
 - **S3.63: the per-turn integrations out of `index.ts` (October 18).**
   `server/harness/turn-integrations.ts` (`createTurnIntegrations`): the five
   adapters a turn's ACP session mounts — `agentsIntegration` (the agent-tools
