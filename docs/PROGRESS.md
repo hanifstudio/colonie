@@ -3,6 +3,26 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — no second workspace can run yet (found while answering the owner)
+
+The owner asked how to create a new workspace. Answering it honestly required checking what actually
+runs today, and nothing can run a second workspace yet:
+
+- The installed app (`/Applications/Colonie.app`) is 0.2.0, built October 15 — four days before the
+  workspace foundation (E02.1–E02.3, October 19), so it does not know workspaces exist. Its
+  `~/Library/Application Support/Colonie` (and the dev `.../colonie`) hold no `workspaces.json`.
+- Running from source does not help: `scripts/colonie/start.ts` sets `COLONIE_DATA_DIR` (computed by
+  `colonieDataDir(homedir())`) in the environment it gives both the server child and the Electron
+  process, and `readWorkspaces` deliberately reads that override as "run the default workspace here,
+  never a listed one". The workspace list is therefore ignored, and the dev server is pinned to one
+  directory.
+- The list is genuinely read by the app path (`electron/main.mjs: desktopDataDir()` →
+  `activeWorkspace({home, userData})`), so the foundation is wired — it is the launcher override and
+  the stale installed build that stop it from mattering.
+
+Recorded in HANDOVER's E02.4b2 scope, which grows accordingly: the app, not the launcher, must own
+the data directory, and the feature can only be proven in a packaged build. No code changed here.
+
 ## 2026-10-19 — E02.5: the welcome flow offers the workspace kind
 
 Owner request, refining the earlier "leave the welcome flow alone": add one step to the existing

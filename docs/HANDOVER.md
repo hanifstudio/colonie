@@ -288,6 +288,15 @@ E02.4b — the switcher, in two halves.
   honest "preparing" state while it happens. That needs `electron/main.mjs` to stop owning one
   `SERVER_PORT` and one data directory for the whole process lifetime, plus IPC and preload
   exposure.
+  Found on October 19 while answering "how do I create a workspace", and it widens this unit: no
+  second workspace can actually run today. The installed app (`/Applications/Colonie.app`, 0.2.0,
+  built October 15) predates the workspace foundation, and the source launcher (`pnpm colonie`,
+  `scripts/colonie/start.ts`) exports `COLONIE_DATA_DIR` for both the server child and the Electron
+  process — which `readWorkspaces` deliberately reads as "run the default workspace here", so the
+  list is ignored and the dev server is pinned to one directory. This unit must therefore let the
+  app own the data directory: keep the explicit override as the developer/rig escape it is, and make
+  the source launcher stop pinning it. Proof of the whole feature needs a packaged build, because the
+  installed app is older than the foundation it would have to read.
 
 Owner decisions, October 19, that bound this unit: the current welcome/onboarding flow is not
 edited at all — not its beats, layout or copy, including text about capabilities since retired —
