@@ -361,6 +361,16 @@ E02.4b — the switcher, in two halves.
   - E02.4b2b not verified: how it looks and feels. No browser or Electron window was launched here, so
     the visual pass is the owner's; and the main-window wiring — the IPC calls, the restart — needs a
     packaged build to be exercised end to end.
+  - E02.4b2c — the form stays open on the click that opens it (done). The owner's first click in a
+    running app: "New workspace…" appeared to do nothing. The row opened the name form and closed the
+    menu in the same click, and the menu's close is what puts a half-filled form away
+    (`SidebarLocalWorkspaces` clears `creating` when `menuOpen` goes false) — so the form was never
+    drawn. Marking the row `keepOpen` fixes it; that is what the update row already does for its own
+    in-place progress. Scope: one item in `src/components/SidebarLocalWorkspaces.tsx`. Acceptance:
+    clicking "New workspace…" leaves the menu open with the name field focused; closing the menu and
+    returning still starts from the list. Checks: `pnpm typecheck` 0 errors, `pnpm lint` clean. Not
+    verified: the click itself, which needs a window — the owner's own next look at the menu is the
+    check.
 
 Owner decisions, October 19, that bound this unit: the current welcome/onboarding flow is not
 edited at all — not its beats, layout or copy, including text about capabilities since retired —
@@ -441,6 +451,38 @@ in the built bundle, `pnpm test` 109 files / 531 tests pass (including the new r
 `pnpm test:electron` 275 tests with 272 passing and the same two inherited failures. Not verified:
 how it looks — this session has no browser or Electron window, so the visual check belongs to the
 owner through the dev preview page, and the beat's appearance in the real first run was not observed.
+
+## Queued task, not started: a native session the engine no longer has
+
+Found in the owner's own data on October 19 while answering "why did the Codex setup fail". A
+conversation whose saved engine session is gone does not fail politely: `AcpRuntime.open` asks the
+adapter to load the stored cursor, Codex answers `-32603 Internal error` with no message at all, and
+the catch in `open` reports `Codex ACP setup failed: Internal error. Check 'codex login' or start a
+new conversation.` — sign-in advice for a problem that is not sign-in. The thread stays dead until
+the person starts another one. `server/resume-recovery.ts` already holds the rule and the rebuilt
+prompt ("a rejected resume before the provider saw the prompt may be sent once, on one fresh
+session"), turn-start already builds that `recoveryText`, and the ACP path deliberately keeps a child
+that cannot load — but nothing calls the module outside its own test, so the fallback the comments
+promise never runs.
+
+Evidence: the owner's `Motion` (`791cc3b0…`) and `Biscuit` (`9fb4528f…`) held cursors
+`01a152a2-ccb5…` and `01a152a2-3278…`; both sessions exist under `~/.codex/sessions/2026/10/19/` and
+their rollouts carry the Colonie app prompt and Colonie task-workspace cwds, so a Colonie start at
+12:28–12:29 ran the engines unisolated (`server/config.ts` returns the configured instances without
+an isolated `CODEX_HOME` unless `COLONIE_PROFILE=1`). `pnpm colonie` at 13:34 sets the profile, so the
+engines run in `<workspace>/native/codex`, where those sessions do not exist. This is also an upgrade
+path: the instance ids are unchanged by isolation, so conversations saved before it point at the
+other home.
+
+- Proposed outcome: a rejected resume costs the engine's context, not the conversation — one fresh
+  engine session, the turn sent with the transcript the harness already rebuilt, the new session
+  recorded, and one plain sentence saying the engine session was rebuilt.
+- Proposed acceptance: such a conversation answers the message instead of reporting "Internal
+  error"; a cursor that is merely idle but loadable is still resumed; a failure after the prompt was
+  submitted is never replayed; the `codex login` advice no longer appears for this case.
+- Checks: `npx vitest run server/acp server`, `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`,
+  and an isolated probe with a cursor the engine does not have.
+- Open: the words for the one report, and whether the person should be able to decline the rebuild.
 
 ## Active engineering stage: E01 — enforceable architecture checks
 

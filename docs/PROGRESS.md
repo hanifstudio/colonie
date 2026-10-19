@@ -3,6 +3,31 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — the first click in the running app, and why the Codex engine answered "Internal error"
+
+The owner ran the app for the first time with the new workspace surface (`pnpm colonie`, Vite on a
+picked port, server 62722, data `~/.colonie`) and reported two things: "New workspace…" did nothing,
+and a conversation failed with `Codex ACP setup failed: Internal error. Check 'codex login' or start
+a new conversation.`
+
+The click: the row opened the name form and closed the profile menu in the same click, and the menu's
+close is exactly what puts a half-filled form away (`menuOpen` false clears `creating`), so the form
+was cleared before it was drawn. One item now carries `keepOpen`, the way the update row already does
+for its in-place progress. `pnpm typecheck` 0 errors, `pnpm lint` clean; the click itself needs a
+window, so the owner's next look is the check.
+
+The error: the engine's own answer was the bare `-32603 Internal error`, and the reason travelled in
+the error's `data`, which Colonie's message drops. The cursor behind it says where it came from —
+`Motion` (`791cc3b0…`) held engine session `01a152a2-ccb5…` and `Biscuit` (`9fb4528f…`)
+`01a152a2-3278…`, and both sessions live in the owner's own `~/.codex/sessions/2026/10/19/`, with
+Colonie's app prompt and Colonie task-workspace cwd inside them. So a Colonie start at 12:28–12:29
+ran the engines unisolated — `server/config.ts` only applies the per-engine `CODEX_HOME` when
+`COLONIE_PROFILE=1`, which `pnpm colonie` sets and a bare `pnpm dev:server` does not — and the run at
+13:34 could not load them. Reading only: the codex logs in the old home show no error, one turn there
+succeeded, and `git status` was clean before the click fix. Recorded in HANDOVER as the next task: the
+resume-recovery module that would rebuild the conversation on one fresh session exists but is not
+called from anywhere, so a cursor the engine no longer honours bricks the thread with sign-in advice.
+
 ## 2026-10-19 — E02.4b2: the app runs the workspace the person chose
 
 Asked to finish the workspace switcher, and the first honest finding was that no choice could ever
