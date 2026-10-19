@@ -15,6 +15,7 @@ import {
   activeWorkspace,
   createLocalWorkspace,
   readWorkspaces,
+  setActiveWorkspace,
   workspacesFilePath,
 } from "./local-workspaces.mjs";
 
@@ -201,4 +202,65 @@ test("a list that cannot be read is refused instead of replaced", () => {
 
   assert.equal(readFileSync(workspacesFilePath(userData), "utf8"), "{ this is not json");
   assert.ok(!existsSync(path.join(home, ".colonie-workspaces", "design")), "no directory was created");
+});
+
+test("switching makes another workspace the one that runs and keeps every record", () => {
+  const { home, userData } = installation();
+  const first = createLocalWorkspace({ home, userData, env: {}, name: "Design lab" });
+  const second = createLocalWorkspace({ home, userData, env: {}, name: "Client work" });
+
+  assert.equal(activeWorkspace({ home, userData, env: {} }).id, DEFAULT_WORKSPACE_ID);
+
+  const active = setActiveWorkspace({ home, userData, env: {}, id: second.id });
+  assert.equal(active.id, "client-work");
+  assert.equal(activeWorkspace({ home, userData, env: {} }).id, "client-work");
+  assert.equal(activeWorkspace({ home, userData, env: {} }).dir, second.dir);
+  assert.deepEqual(
+    readWorkspaces({ home, userData, env: {} }).workspaces.map((workspace) => workspace.id),
+    [DEFAULT_WORKSPACE_ID, "design-lab", "client-work"],
+  );
+
+  // Back to the first workspace, which is the historical directory.
+  setActiveWorkspace({ home, userData, env: {}, id: DEFAULT_WORKSPACE_ID });
+  assert.equal(activeWorkspace({ home, userData, env: {} }).dir, path.join(home, ".colonie"));
+
+  // Switching moves the choice, never the data: the records point where they did.
+  assert.equal(
+    readWorkspaces({ home, userData, env: {} }).workspaces.find((workspace) => workspace.id === first.id).dir,
+    first.dir,
+  );
+});
+
+test("switching to an id nobody listed is refused and changes nothing", () => {
+  const { home, userData } = installation();
+  createLocalWorkspace({ home, userData, env: {}, name: "Design lab" });
+  const before = readFileSync(workspacesFilePath(userData), "utf8");
+
+  assert.throws(() => setActiveWorkspace({ home, userData, env: {}, id: "ghost" }), /no workspace is listed as ghost/);
+  assert.throws(() => setActiveWorkspace({ home, userData, env: {}, id: "   " }), /needs an id/);
+
+  assert.equal(readFileSync(workspacesFilePath(userData), "utf8"), before);
+  assert.equal(activeWorkspace({ home, userData, env: {} }).id, DEFAULT_WORKSPACE_ID);
+});
+
+test("an explicit data directory still wins over the recorded choice", () => {
+  const { home, userData } = installation();
+  const created = createLocalWorkspace({ home, userData, env: {}, name: "Design lab" });
+  setActiveWorkspace({ home, userData, env: {}, id: created.id });
+
+  const rig = activeWorkspace({ home, userData, env: { COLONIE_DATA_DIR: "/tmp/rig" } });
+  assert.equal(rig.id, DEFAULT_WORKSPACE_ID);
+  assert.equal(rig.dir, "/tmp/rig");
+});
+
+test("switching refuses a list it cannot read too", () => {
+  const { home, userData } = installation();
+  writeList(userData, "{ this is not json");
+
+  assert.throws(
+    () => setActiveWorkspace({ home, userData, env: {}, id: DEFAULT_WORKSPACE_ID }),
+    /could not be read/,
+  );
+
+  assert.equal(readFileSync(workspacesFilePath(userData), "utf8"), "{ this is not json");
 });

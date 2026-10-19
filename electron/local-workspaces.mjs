@@ -129,6 +129,16 @@ function storedList(userData) {
   }
 }
 
+/** Store the list, never writing the implicit default record down. */
+function writeList({ userData, activeId, workspaces }) {
+  // The default workspace stays implicit: its directory is derived from the
+  // environment, so writing it down would freeze the wrong path.
+  const listed = workspaces
+    .filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID)
+    .map((workspace) => ({ id: workspace.id, name: workspace.name, dir: workspace.dir }));
+  writeFileSync(workspacesFilePath(userData), `${JSON.stringify({ activeId, workspaces: listed }, null, 2)}\n`);
+}
+
 /**
  * Create a Local workspace. The workspace that is running is not touched:
  * creation only adds a record, and making the new one active is the switcher's
@@ -146,14 +156,23 @@ export function createLocalWorkspace({ home, userData, env = process.env, name }
   const id = freeId(home, idFor(wanted), known);
   const dir = workspaceDirFor(home, id);
   mkdirSync(dir, { recursive: true });
-  // The default workspace stays implicit: its directory is derived from the
-  // environment, so writing it down would freeze the wrong path.
-  const listed = workspaces
-    .filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID)
-    .map((workspace) => ({ id: workspace.id, name: workspace.name, dir: workspace.dir }));
-  writeFileSync(
-    workspacesFilePath(userData),
-    `${JSON.stringify({ activeId, workspaces: [...listed, { id, name: wanted, dir }] }, null, 2)}\n`,
-  );
+  writeList({ userData, activeId, workspaces: [...workspaces, { id, name: wanted, dir }] });
   return { id, name: wanted, dir };
+}
+
+/**
+ * Make one of the listed workspaces the one that runs. Nothing is moved or
+ * copied — the next server the app starts uses that workspace's directory. An id
+ * nobody listed is refused, so a mistake cannot point the app at a directory
+ * that no record describes.
+ */
+export function setActiveWorkspace({ home, userData, env = process.env, id }) {
+  const wanted = field(id);
+  if (!wanted) throw new Error("a workspace needs an id");
+  storedList(userData);
+  const { workspaces } = readWorkspaces({ home, userData, env });
+  const target = workspaces.find((workspace) => workspace.id === wanted);
+  if (!target) throw new Error(`no workspace is listed as ${wanted}`);
+  writeList({ userData, activeId: target.id, workspaces });
+  return target;
 }

@@ -3,6 +3,35 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.4b1: the list can change which workspace runs
+
+Second half of the workspace foundation, split into the module half (this entry) and the visible
+half (the sidebar switcher, not started). The owner also chose where the switcher lives: the
+sidebar's profile row, recorded in the blueprint decision log.
+
+- `electron/local-workspaces.mjs` gains `setActiveWorkspace`: it writes the chosen id into
+  `workspaces.json` and resolves it, so the next server the app starts uses that workspace's
+  directory. Nothing is moved or copied; every other record is preserved and the implicit default
+  workspace is still never written down. An id nobody listed is refused, as is a list file that
+  cannot be read, so the stored choice cannot point the app at an undocumented directory. The
+  existing write in `createLocalWorkspace` now shares one small writer with it.
+- Evidence: `node --test electron/local-workspaces.node-test.mjs` — 15 tests pass, 4 new: switching
+  makes another workspace active and keeps every record while moving no data; an unlisted id and a
+  blank id are refused with the file byte-identical; an explicit `COLONIE_DATA_DIR` still wins over
+  the recorded choice (rig behaviour, unchanged); switching refuses a corrupt list.
+  `pnpm test:electron` 275 tests with 272 passing and the same two inherited
+  `mac-updater`/`vendor-updater` failures; `pnpm typecheck` 0 errors; `pnpm lint` clean;
+  `pnpm structure:check` exit 0.
+- Engine evidence: a throwaway home with two workspaces created by the module; the active record was
+  switched to each in turn and a server booted against the directory the module resolved — both
+  healthy (`/api/health` 200), each keeping its own setting (`true` in "Design lab", `false` in
+  "Client work"), with the second switch leaving the first workspace's setting intact.
+
+Not proven: the app does not call either function yet — no IPC, no UI, no server restart — so
+nothing visible changes. Next is the visible half: the sidebar profile row shows the active
+workspace and its menu lists the workspaces with "New workspace" (Local enabled, Server disabled),
+and switching stops the current server, starts the target one and moves the window.
+
 ## 2026-10-19 — owner decisions on the first-run flow
 
 Asked to think through the flow from download to first chat, the owner decided two things that bound

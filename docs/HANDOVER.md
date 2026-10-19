@@ -1,6 +1,6 @@
 # Colonie handover
 
-Updated: October 18, 2026. Current state and active work only.
+Updated: October 19, 2026. Current state and active work only.
 Working rules live in [AGENTS](../AGENTS.md); product plans live in the
 [blueprint](COLONIE-BLUEPRINT.md), read only when relevant.
 
@@ -274,28 +274,47 @@ E02.4a — create a Local workspace (this unit).
   module created (server healthy, its own `config.json` and lease, and nothing written into the
   workspace that was already there).
 
-E02.4b — the switcher (next unit, not started): the app lists the workspaces, creates one, and
-changes which one runs by stopping the current server and starting one for the target directory,
-then moving the window to it. That needs `electron/main.mjs` to stop owning one `SERVER_PORT` and
-one data directory for the whole process lifetime.
+E02.4b — the switcher, in two halves.
+- E02.4b1 — the list can change which workspace runs (done). `setActiveWorkspace` in
+  `electron/local-workspaces.mjs` writes the chosen id into `workspaces.json` and resolves it, so
+  the next server the app starts uses that workspace's directory. Nothing is moved or copied, an id
+  nobody listed is refused, and a list that cannot be read is refused rather than overwritten.
+  Scope limit: the app does not call it yet — no IPC and no UI — so this half changes nothing the
+  person sees. Highlighting the active workspace was done in E02.3 (it already resolves).
+- E02.4b2 — the visible half (next, not started): the sidebar's profile row shows the active
+  workspace name and its menu lists the workspaces with a "New workspace" entry (the Local/Server
+  choice appears there, with Server disabled until hosting exists); choosing one makes the app stop
+  the current server, start the server for the target directory and move the window, showing the
+  honest "preparing" state while it happens. That needs `electron/main.mjs` to stop owning one
+  `SERVER_PORT` and one data directory for the whole process lifetime, plus IPC and preload
+  exposure.
 
 Owner decisions, October 19, that bound this unit: the current welcome/onboarding flow is not
 edited at all — not its beats, layout or copy, including text about capabilities since retired —
 so the first workspace is still the one the app creates for the person and no Local/Server question
 is added to onboarding. The Local/Server choice belongs to the workspace surface, with **Server
-shown disabled** until hosting exists, never as available. Recorded in the blueprint (J01 note and
-the decision log).
+shown disabled** until hosting exists, never as available. The switcher lives in the **sidebar's
+profile row**. Recorded in the blueprint (J01 note and decision log).
 
-Status: E02.4a implemented and verified. `createLocalWorkspace` lives in
-`electron/local-workspaces.mjs` with six new tests in `electron/local-workspaces.node-test.mjs`
-(11 tests pass in that file). `pnpm test:electron` 271 tests with 268 passing and the same two
-inherited `mac-updater`/`vendor-updater` failures; `pnpm typecheck` 0 errors; `pnpm lint` clean;
-`pnpm structure:check` exit 0. Engine evidence: a throwaway home where the module created
-"Design lab", then a server started against that directory (its own free port,
-`COLONIE_PROFILE=1`) answered `/api/health` 200, wrote and read back its own
-`features.showToolCalls=true`, and held its own lease — while the workspace that already existed
-kept its own setting and gained no new files. Not verified: the app does not call it yet (no IPC,
-no UI, no switching), so nothing visible changes. E02.4b not started.
+Status: E02.4a and E02.4b1 implemented and verified; E02.4b2 not started. `createLocalWorkspace`
+and `setActiveWorkspace` live in `electron/local-workspaces.mjs` with ten new tests in
+`electron/local-workspaces.node-test.mjs` (15 tests pass in that file). `pnpm test:electron` 275
+tests with 272 passing and the same two inherited `mac-updater`/`vendor-updater` failures;
+`pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0.
+
+Engine evidence, E02.4a: a throwaway home where the module created "Design lab", then a server
+started against that directory (its own free port, `COLONIE_PROFILE=1`) answered `/api/health` 200,
+wrote and read back its own `features.showToolCalls=true`, and held its own lease — while the
+workspace that already existed kept its own setting and gained no new files.
+
+Engine evidence, E02.4b1: the same throwaway home with two workspaces created by the module; the
+recorded active workspace was switched to each in turn, and a server booted against the directory
+the module resolved answered `/api/health` 200 and kept its own setting — `true` in "Design lab",
+`false` in "Client work" — with both directories and both records intact afterwards. Switching the
+record moved no data.
+
+Not verified: the app does not call either function yet (no IPC, no UI, no server restart), so
+nothing visible changes in the app. E02.4b2 (the sidebar switcher and the restart) is not started.
 
 ## Active engineering stage: E01 — enforceable architecture checks
 

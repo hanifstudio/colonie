@@ -815,6 +815,7 @@ inspection, external writes, or a repository-wide rewrite.
 
 | Date | Entry | Status |
 |---|---|---|
+| 2026-10-19 | Owner chose where the workspace switcher lives: the sidebar's profile row (the "You" area) shows the active workspace and its menu holds the workspace list and "New workspace". | UI placement for the switcher (E02.4b); the welcome flow and the rest of the working screen stay untouched. |
 | 2026-10-19 | Owner decisions on the first-run flow: the welcome/onboarding UI is kept exactly as it is for now, including the copy that mentions capabilities since retired, because the owner likes it and wants it preserved; the Local/Server choice may be shown with Server disabled, never as available. | The welcome flow is out of scope for edits; the workspace choice and workspace management live in the workspace surface (see the J01 note). |
 | 2026-10-17 | Owner answered the Q01–Q11 product questions after a plain-language review (section 10). | Recorded as decided or as machine research; P0's remaining open item is closed. |
 | 2026-10-17 | Owner settled the three non-blocking room questions: remove the Settings "Decision model" section while `server/decider/` stays for a future real job; a read-only view or export of old room conversations may come later at low priority; retire the native agents delegation tools (`delegate_bot`, native `ask_bot`, pair DM channels) instead of rebuilding them for ACP until a demonstrated need appears. | Renderer may drop the section; HANDOVER no longer lists these as open. |
