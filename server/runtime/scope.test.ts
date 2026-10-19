@@ -13,6 +13,8 @@ test("a workspace's paths are derived from its own directory", () => {
   expect(scope.dataDir).toBe("/tmp/colonie-workspace-a");
   expect(scope.botsFile).toBe(join("/tmp/colonie-workspace-a", "bots.json"));
   expect(scope.groupsFile).toBe(join("/tmp/colonie-workspace-a", "groups.json"));
+  expect(scope.configFile).toBe(join("/tmp/colonie-workspace-a", "config.json"));
+  expect(scope.messageDbFile).toBe(join("/tmp/colonie-workspace-a", "messages.db"));
   expect(scope.nativeDir).toBe(join("/tmp/colonie-workspace-a", "native"));
   expect(scope.eventsDir).toBe(join("/tmp/colonie-workspace-a", "events"));
   expect(scope.legacyThreadFile("t1")).toBe(join("/tmp/colonie-workspace-a", "messages-t1.json"));
@@ -23,6 +25,8 @@ test("two workspaces share no path", () => {
     scope.dataDir,
     scope.nativeDir,
     scope.eventsDir,
+    scope.configFile,
+    scope.messageDbFile,
     scope.botsFile,
     scope.groupsFile,
     scope.threadModelCopiesCleared,
@@ -38,6 +42,8 @@ test("the process's own workspace is the data directory it was started with", ()
   const active = activeWorkspaceScope();
 
   expect(active.dataDir).toBe(DATA_DIR);
+  expect(active.configFile).toBe(join(DATA_DIR, "config.json"));
+  expect(active.messageDbFile).toBe(join(DATA_DIR, "messages.db"));
   expect(active.botsFile).toBe(join(DATA_DIR, "bots.json"));
   expect(active.nativeDir).toBe(join(DATA_DIR, "native"));
 });

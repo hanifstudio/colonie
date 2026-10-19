@@ -125,11 +125,12 @@ first, bounded slice.
   `groups.json`, the thread-model-copies marker and the pre-database thread files; the
   process's active scope is still the data directory the process was started with, so the
   Local path is unchanged; `Store` takes a scope (defaulting to the active one).
-- Out of scope, and still reading the process directory directly: the message database,
-  the events writers, bot folders and SOUL mirrors, `config.json` (including engine
-  configuration), attachments, checkpoints, skill state, routines/webhooks/calendar files,
-  provider account directories, MCP tool results and the memory journal. With one active
-  scope today the behavior is identical; the remainder is what E02 continues with.
+- Out of scope in this slice, and still reading the process directory directly at the time:
+  the message database, the events writers, bot folders and SOUL mirrors, `config.json`
+  (including engine configuration), attachments, checkpoints, skill state,
+  routines/webhooks/calendar files, provider account directories, MCP tool results and the
+  memory journal. With one active scope today the behavior is identical. E02.2 (below)
+  migrated the settings file and the message database; the rest is the remainder.
 - Acceptance: two disposable scopes share no path; a store built for a workspace reads that
   workspace's bots and reads them again on restart; a store built without a scope uses the
   process's data directory; the running app still reads and writes the same data directory.
@@ -147,6 +148,54 @@ workspaces whose stores see only their own bots and see them again after a resta
 fresh workspace's default bot), `/api/instances` 200 (the default pair), and `bots.json`,
 `bots/`, `events/`, `native/` and `messages.db` all appeared inside that data directory with
 no error in the start log. The two inherited `pnpm test:electron` failures are unchanged.
+
+## Active engineering task: E02.2 — the settings and the conversations belong to the workspace
+
+Owner decision, October 19: continue with the parts that hold history and sign-ins. Those
+are the settings file (`config.json`: engine setup, keys, features) and the conversation
+database (`messages.db`), the two boundaries that decide whether a second workspace is
+really its own.
+
+- Outcome: the data-directory resolution itself moved into the workspace scope, so the paths
+  a workspace owns have one owner and nothing has to reach back; the settings file and the
+  conversation database now come from the workspace instead of the process.
+- Scope: `server/runtime/scope.ts` owns `DATA_DIR`/`EVENTS_DIR`/`NATIVE_DIR` and the scope
+  names `configFile` and `messageDbFile`; `server/config.ts` reads and writes the settings
+  through the active workspace's `configFile` (six call sites) and re-exports the directory
+  constants it always exported, so nothing else changed; `server/persistence/message-db.ts`
+  opens the workspace's `messageDbFile` and creates the workspace directory.
+- Still one workspace per process: `loadConfig()` and the database handle stay singletons,
+  which is correct while there is one active scope. Two workspaces running at the same time
+  is a later step (a scope per runtime instance), not this one.
+- Out of scope: the events writers, bot folders and SOUL mirrors, attachments, checkpoints,
+  skill state, routines/webhooks/calendar files, provider account directories, MCP tool
+  results and the memory journal. These still build their own path from the process's data
+  directory constant, which the scope now owns — so they follow the directory the process
+  was started with, but they are what a per-workspace runtime still has to hand a scope to.
+  Engine account directories are already inside the workspace, because they are built under
+  the data directory.
+- Acceptance: a workspace's settings file and conversation database are its own paths and
+  two scopes share none of them; the running app writes a setting that lands in the active
+  workspace's `config.json` and reads it back; the conversation database is created and
+  opened inside that workspace; typecheck, lint, structure check and the suite stay clean.
+- Checks: `npx vitest run server/runtime/scope.test.ts server/persistence/store.test.ts`,
+  `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `npx vitest run server src scripts`,
+  and a throwaway boot that writes a setting over HTTP and inspects the workspace folder.
+
+Status: implemented and verified. Evidence: `server/runtime/scope.ts` now resolves the data
+directory and owns `configFile`/`messageDbFile`; `server/config.ts` and
+`server/persistence/message-db.ts` read through the active scope (no `join(DATA_DIR,
+"config.json")` or `join(DATA_DIR, "messages.db")` remains in `server/` outside the scope
+module). `server/runtime/scope.test.ts` (3 tests) now also pins the settings file and the
+conversation database, including that two workspaces share none of them. `pnpm typecheck` 0
+errors; `pnpm lint` clean; `pnpm structure:check` exit 0; `npx vitest run server src scripts`
+108 files / 529 tests pass. Throwaway boot (`COLONIE_PROFILE=1`, temp `COLONIE_DATA_DIR`):
+`/api/config` reported `features.showToolCalls = false`, `PUT /api/config
+{"features":{"showToolCalls":true}}` answered 200 and read back `true`; `config.json`
+contained `{"showToolCalls":true}` inside that data directory; `messages.db` was created
+there and held the conversation tables (`messages`, `thread_state`, `memory_files`,
+`command_receipts`, `chat_followups` and the search indexes); no error in the start log. The
+two inherited `pnpm test:electron` failures are unchanged.
 
 ## Active engineering stage: E01 — enforceable architecture checks
 

@@ -11,10 +11,9 @@
 // no rows pulls the old file in, after which the DB is the source of
 // truth (the JSON file is left behind as a one-time backup).
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync } from "node:fs";
-import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { DATA_DIR } from "../config.ts";
+import { activeWorkspaceScope } from "../runtime/scope.ts";
 import { peerProvenanceAuthor } from "../colonie/peers/peer-provenance.ts";
 import type { ResolvedSender, SteerQueueReason } from "../../shared/wire.ts";
 import type { Message } from "./store.ts";
@@ -23,7 +22,7 @@ import { MessageSearchWorker } from "./message-search-worker.ts";
 import { searchMessagesInDatabase, type SearchHit } from "./message-search-query.ts";
 export type { SearchHit } from "./message-search-query.ts";
 
-const DB_FILE = () => join(DATA_DIR, "messages.db");
+const DB_FILE = () => activeWorkspaceScope().messageDbFile;
 
 let handle: DatabaseSync | null = null;
 let handlePath: string | null = null;
@@ -31,7 +30,7 @@ let searchWorker: MessageSearchWorker | null = null;
 let closingSearch: Promise<void> = Promise.resolve();
 
 function open(): DatabaseSync {
-  mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+  mkdirSync(activeWorkspaceScope().dataDir, { recursive: true, mode: 0o700 });
   const file = DB_FILE();
   // Transcripts can contain private conversations and tool output. Create
   // the database with owner-only permissions and also repair an existing

@@ -3,6 +3,41 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.2: the settings and the conversations belong to the workspace
+
+Owner decision: continue with the parts that hold history and sign-ins — the settings file
+(`config.json`, engine setup and keys) and the conversation database (`messages.db`). Single
+session, Node 24.13.1.
+
+- The data-directory resolution moved into `server/runtime/scope.ts` (`DATA_DIR`,
+  `EVENTS_DIR`, `NATIVE_DIR`), so the workspace scope is the one owner of the paths and
+  `config.ts` no longer has to be imported by the module that names them. `config.ts`
+  re-exports the three constants it always exported, so its 41 importers are untouched.
+- The scope names `configFile` and `messageDbFile`. `server/config.ts` uses the active
+  workspace's `configFile` at all six `config.json` call sites (read, migration, write,
+  mtime, warning); `server/persistence/message-db.ts` opens the active workspace's
+  `messageDbFile` and creates the workspace directory it belongs to. No other module in
+  `server/` builds those two paths any more.
+- Still one workspace per process: `loadConfig()` and the database handle stay singletons,
+  which is right while there is one active scope. A scope per runtime instance is the step
+  that lets two workspaces run at once, and is not this slice.
+
+Evidence. `server/runtime/scope.test.ts` (3 tests) now pins the settings file and the
+conversation database, and that two workspaces share none of the nine paths. `pnpm typecheck`
+0 errors, `pnpm lint` clean, `pnpm structure:check` exit 0, `npx vitest run server src
+scripts` 108 files / 529 tests pass. Throwaway boot (`COLONIE_PROFILE=1`, temp
+`COLONIE_DATA_DIR`): `/api/config` showed `features.showToolCalls = false`;
+`PUT /api/config {"features":{"showToolCalls":true}}` answered 200 and read back `true`;
+`config.json` appeared inside that data directory with `features = {"showToolCalls":true}`;
+`messages.db` was created there and held the conversation tables (`messages`,
+`thread_state`, `memory_files`, `command_receipts`, `chat_followups`, the search indexes);
+the start log had no error. A first attempt at the DB listing printed nothing because the
+warning on stderr hid the line; re-run separately, the tables are there.
+
+Not proven: two workspaces running at once, and the modules that still build their own path
+from the data directory constant (events writers, bot folders, attachments, checkpoints,
+routines, MCP results, memory journal). No visible UI change yet.
+
 ## 2026-10-19 — E02.1: the workspace owns its paths (first slice)
 
 Owner decision: start the workspace foundation. Single session, Node 24.13.1. The blueprint's

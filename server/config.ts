@@ -9,7 +9,7 @@ import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shar
 
 import { writeFileAtomic } from "./persistence/atomic.ts";
 import { acpIsolationDirNames, colonieProfile, colonieInstances } from "./acp/profile.ts";
-import { colonieDataDir } from "../electron/colonie-config.mjs";
+import { activeWorkspaceScope, DATA_DIR, EVENTS_DIR, NATIVE_DIR } from "./runtime/scope.ts";
 import { withoutComputerEngine } from "./colonie/computer/computer-engine-removal.ts";
 import { newBotDefaultsSchema, type NewBotDefaults } from "./colonie/bots/new-bot-defaults.ts";
 import { EFFORT_LEVELS, type EffortLevel, type LiveSettings } from "../shared/wire.ts";
@@ -700,7 +700,7 @@ export function parseStoredConfig(value: JsonValue): AppConfig {
 export function loadBrowserProfileIdAliases(): ReadonlyMap<string, string> {
   try {
     const document = z.object({ browserProfiles: legacyBrowserProfilesSchema.optional() }).safeParse(
-      parseJson(readFileSync(join(DATA_DIR, "config.json"), "utf8")),
+      parseJson(readFileSync(activeWorkspaceScope().configFile, "utf8")),
     );
     if (!document.success || !document.data.browserProfiles) return new Map();
     return migrateStoredBrowserProfiles(document.data.browserProfiles).aliases;
@@ -881,14 +881,14 @@ export function providerReloadKeys(patch: object): string[] {
   return Object.keys(patch).filter((key) => !FLEET_NEUTRAL_KEYS.has(key));
 }
 
-// COLONIE_DATA_DIR isolates test/soak rigs from the user's real fleet.
-export const DATA_DIR = process.env.COLONIE_DATA_DIR ?? (colonieProfile() ? colonieDataDir(homedir()) : join(homedir(), ".colonie"));
+// The workspace scope owns the data directory and the paths under it
+// (server/runtime/scope.ts); re-exported here because this module has always
+// been where the rest of the server reads them from.
+export { DATA_DIR, EVENTS_DIR, NATIVE_DIR };
 // The pre-rename data dir. The one-time rename in `ensureDirs` carries an
 // upgrade's bots, transcripts and config keys over; the name stays because it
 // is the directory an installed build actually wrote.
 const LEGACY_DATA_DIR = join(homedir(), ".openmausbot");
-export const EVENTS_DIR = join(DATA_DIR, "events");
-export const NATIVE_DIR = join(DATA_DIR, "native");
 
 export function ensureDirs() {
   // one-time migration from the pre-rename data dir — bots, transcripts,
@@ -912,7 +912,7 @@ export function ensureDirs() {
  * explicit `skillAuthoring` already on disk wins over the legacy key, and a
  * file without the legacy key is left untouched. */
 function migrateLegacyFeatureFlags(): void {
-  const p = join(DATA_DIR, "config.json");
+  const p = activeWorkspaceScope().configFile;
   try {
     if (!existsSync(p)) return;
     const disk = jsonObjectSchema.safeParse(parseJson(readFileSync(p, "utf8")));
@@ -938,7 +938,7 @@ let lastIgnoredConfigWarning = "";
 export function loadConfig(): AppConfig {
   let cfg: AppConfig = {};
   try {
-    cfg = parseStoredConfig(parseJson(readFileSync(join(DATA_DIR, "config.json"), "utf8")));
+    cfg = parseStoredConfig(parseJson(readFileSync(activeWorkspaceScope().configFile, "utf8")));
     lastIgnoredConfigWarning = "";
   } catch (error) {
     // No file yet is a normal first run: env fallbacks below. Any other failure
@@ -952,7 +952,7 @@ export function loadConfig(): AppConfig {
       // A malformed credential must never be copied into the server log.
       const reason = error instanceof SyntaxError ? "invalid JSON"
         : error instanceof Error ? error.message : "unable to read configuration";
-      const warning = `config: ignoring ${join(DATA_DIR, "config.json")} and using defaults: ${reason}`;
+      const warning = `config: ignoring ${activeWorkspaceScope().configFile} and using defaults: ${reason}`;
       if (warning !== lastIgnoredConfigWarning) console.warn(warning);
       lastIgnoredConfigWarning = warning;
     } else {
@@ -1032,7 +1032,7 @@ export function cacheUntilConfigChanges<T>(derive: (config: AppConfig) => T): ()
   return () => {
     let stamp: string | null = null;
     try {
-      const file = statSync(join(DATA_DIR, "config.json"), { bigint: true });
+      const file = statSync(activeWorkspaceScope().configFile, { bigint: true });
       if (Date.now() - Number(file.mtimeMs) >= 2_000) stamp = `${file.ino}:${file.size}:${file.mtimeNs}:${file.ctimeNs}`;
     } catch {
       // Missing or out of reach: read it the way loadConfig() always has.
@@ -1278,7 +1278,7 @@ export function saveConfig(
   },
   options: { replaceInstances?: boolean } = {},
 ): void {
-  const p = join(DATA_DIR, "config.json");
+  const p = activeWorkspaceScope().configFile;
   let disk: JsonObject = {};
   try {
     const parsed = jsonObjectSchema.safeParse(parseJson(readFileSync(p, "utf8")));
