@@ -3,6 +3,33 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.5: the welcome flow offers the workspace kind
+
+Owner request, refining the earlier "leave the welcome flow alone": add one step to the existing
+first-run flow where the person picks the kind of workspace, built to look like the rest of it.
+
+- New beat `src/components/onboarding/beats/WorkspaceBeat.tsx`: two rows in the same card style the
+  other beats use — Local chosen (accent border, tick, "On this computer. Free, and no account
+  needed.") and Server disabled ("Runs on a server you pay for, so other people can join.", pill
+  "Coming later", `cursor-not-allowed`), then the shared Continue button. The rows carry
+  `role="radio"`/`aria-checked` inside a radiogroup, so the state is not only visual.
+- Wired through the four places a beat needs: `BeatId`, `beatsFor` (right after the greeting and
+  before the reel and the engines, because the engines and the bot belong to the workspace), the
+  `MASCOT_FOR_BEAT` table ("thinking") and `beatTitle` in `WelcomeFlow.tsx`. English strings only
+  (`onboarding.workspace.*` in `src/locales/en.json`); the other packs fall back by design. Nothing
+  else in the flow was touched, and `WELCOME_VERSION` stays 1, so people who already finished the
+  flow are not shown it again. The choice is not persisted — Local is the only kind the app can
+  create today, so no config schema change was needed.
+- Evidence: `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0; `pnpm build`
+  succeeded and the built bundle contains the new strings; `pnpm test` 109 files / 531 tests pass,
+  including the new render check `WorkspaceBeat.test.ts` (Local checked and not disabled, Server
+  `aria-checked="false"` + `disabled` + "Coming later", Continue present); `pnpm test:electron` 275
+  tests with 272 passing and the same two inherited failures.
+- Not proven: how it looks. There is no browser or component-render environment in this session and
+  no Electron window was launched, so the visual confirmation is the owner's, through `pnpm dev` →
+  `http://127.0.0.1:5199/onboarding-preview.html?beat=workspace` (the preview page picks a new beat
+  up from `beatsFor` without an edit of its own).
+
 ## 2026-10-19 — E02.4b1: the list can change which workspace runs
 
 Second half of the workspace foundation, split into the module half (this entry) and the visible

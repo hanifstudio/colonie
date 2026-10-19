@@ -35,6 +35,7 @@ import { HelloBeat } from "./beats/HelloBeat";
 import { MeetYourBotBeat } from "./beats/MeetYourBotBeat";
 import { PermissionsBeat } from "./beats/PermissionsBeat";
 import { QuietButton } from "./beats/shared";
+import { WorkspaceBeat } from "./beats/WorkspaceBeat";
 import { withViewTransition } from "./view-transition";
 import { ProgressDots } from "./ProgressDots";
 import { FeatureReel } from "./reel/FeatureReel";
@@ -43,6 +44,7 @@ import { FeatureReel } from "./reel/FeatureReel";
  * more (the engines beat looks proud or curious once the harness answers). */
 const MASCOT_FOR_BEAT: Record<BeatId, MausState> = {
   hello: "happy",
+  workspace: "thinking",
   reel: "curious",
   engines: "searching",
   permissions: "listening",
@@ -53,6 +55,8 @@ function beatTitle(beat: BeatId): string | null {
   switch (beat) {
     case "hello":
       return t("onboarding.welcome", { app: brand().name });
+    case "workspace":
+      return t("onboarding.workspace.title");
     case "engines":
       return t("onboarding.engines.title");
     case "permissions":
@@ -260,6 +264,7 @@ export function WelcomeFlow({
             beats keep their height and the card scrolls instead. */}
         <div key={beat} className={cn("flex flex-col", beat === "engines" ? "min-h-0" : "shrink-0")}>
           {beat === "hello" && <HelloBeat {...beatProps} hosted={hosted} />}
+          {beat === "workspace" && <WorkspaceBeat {...beatProps} />}
           {beat === "reel" && <FeatureReel {...beatProps} />}
           {beat === "engines" && <EnginesBeat {...beatProps} />}
           {beat === "permissions" && <PermissionsBeat {...beatProps} />}

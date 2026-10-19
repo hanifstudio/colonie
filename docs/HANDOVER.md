@@ -316,6 +316,44 @@ record moved no data.
 Not verified: the app does not call either function yet (no IPC, no UI, no server restart), so
 nothing visible changes in the app. E02.4b2 (the sidebar switcher and the restart) is not started.
 
+## Active engineering task: E02.5 — the welcome flow asks which kind of workspace
+
+Owner request, October 19, refining the earlier "leave the welcome flow alone": add one step to the
+existing first-run flow where the person picks the kind of workspace, built to look like it belongs
+there. Nothing existing is removed or restyled.
+
+- Outcome: after the greeting and before the rest of setup, the flow says that bots, conversations
+  and connections live together in one workspace, that this one is Local, and that a Server
+  workspace exists but is not available yet — shown disabled, never offered as if it worked.
+- Scope: a new beat component beside the existing ones, the four places the flow machine requires
+  for a beat (`BeatId`, `beatsFor`, the mascot table and the title switch in `WelcomeFlow.tsx`), and
+  English strings only (other packs fall back). The flow's existing beats, copy, layout and
+  animations are untouched. Nothing is persisted: Local is the only kind the app can create today,
+  so the choice needs no record, the workspace config schema is not extended, and `WELCOME_VERSION`
+  stays 1 so people who already finished the flow are not shown it again. A hosted workspace still
+  gets its short greeting + bot flow instead of this step.
+- Acceptance: the beat appears in the flow's order with a card title and the default width, reads as
+  one surface with the other beats (same rise-in stagger, row and button styling, same "Continue"),
+  Server is visibly disabled and cannot be clicked, and Continue advances the flow. The flow must
+  still be escapable: Escape and "Skip tour" behave exactly as before.
+- Checks: `pnpm typecheck` (the typed beat tables force the update), `pnpm lint`,
+  `pnpm structure:check`, `pnpm test:electron`, and `pnpm build` so the renderer bundle includes the
+  beat. Visual confirmation is the owner's, through the dev-only preview page
+  `http://127.0.0.1:5199/onboarding-preview.html?beat=workspace` with `pnpm dev` running; there is no
+  component-test environment (vitest runs in node) and the beat is presentational.
+- Inherited failures in this area, not caused by this change: `pnpm i18n:check` cannot run because
+  the script it calls (`scripts/generate-locale.mjs`) was deleted in the clean-slate commit, and the
+  two Electron tests (`mac-updater`, `vendor-updater`) import deleted scripts.
+
+Status: implemented and verified as far as this machine allows. Evidence: `pnpm typecheck` 0 errors,
+`pnpm lint` clean, `pnpm structure:check` exit 0, `pnpm build` succeeded with the new strings present
+in the built bundle, `pnpm test` 109 files / 531 tests pass (including the new render check
+`src/components/onboarding/beats/WorkspaceBeat.test.ts`: Local is checked and not disabled, Server is
+`aria-checked="false"` + `disabled` + "Coming later", and Continue is present), and
+`pnpm test:electron` 275 tests with 272 passing and the same two inherited failures. Not verified:
+how it looks — this session has no browser or Electron window, so the visual check belongs to the
+owner through the dev preview page, and the beat's appearance in the real first run was not observed.
+
 ## Active engineering stage: E01 — enforceable architecture checks
 
 Owner priority is deliberate improvement of architecture, folder/file organization,

@@ -110,7 +110,7 @@ export function hintSeenPatch(
 
 // ── beats ──────────────────────────────────────────────────────────────
 
-export type BeatId = "hello" | "reel" | "engines" | "permissions" | "bot";
+export type BeatId = "hello" | "workspace" | "reel" | "engines" | "permissions" | "bot";
 
 export interface BeatOptions {
   /** The desktop app can ask for the microphone; a browser cannot. */
@@ -130,7 +130,9 @@ export interface BeatOptions {
  * computer, which a hosted workspace is not. */
 export function beatsFor(options: BeatOptions): BeatId[] {
   if (options.hosted) return ["hello", "bot"];
-  const beats: BeatId[] = ["hello"];
+  // The workspace comes first: it is what the engines, the bot and everything
+  // after it belong to.
+  const beats: BeatId[] = ["hello", "workspace"];
   if (options.reel) beats.push("reel");
   beats.push("engines");
   if (options.dictation) beats.push("permissions");
