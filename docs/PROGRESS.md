@@ -21,9 +21,8 @@ hot; they asked whether running dev servers could be killed. Single session, Nod
   was a milestone finished on October 18.
 - Kept, deliberately: the raw run logs that PROGRESS cites as evidence, the working tools
   (`type-import-audit.py`, the index and database analysis scripts), and the batch launchers
-  (`claude-autopilot.py`, `claude-team.py`), because the 35 worktrees under
-  `.worktrees/claude-team-20261017-192725/` hold uncommitted changes (26 to 223 files each): the
-  interrupted batch's WIP. Removing those is a decision about what is already integrated.
+  (`claude-autopilot.py`, `claude-team.py`). The 35 worktrees under
+  `.worktrees/claude-team-20261017-192725/` each hold uncommitted changes and are handled below.
 - Cleaned 264 leftover fixture directories from the system temporary folder (all named `colonie-*`):
   the temporary folder went from 19 GB to 508 MB. Finding, corrected while checking: the test
   setup does remove its throwaway home (`server/testing/setup.ts` `afterAll`), and one run of a
@@ -49,17 +48,49 @@ Applied to the leftovers while keeping every worktree of the 17 October batch:
 - Stayed, because they are from 17 October or later: the `.colonie-dev/team/` lane files, both
   launchers, and the run logs.
 
-Evidence: `ls`/`du` before and after (264 fixture directories 19 GB to 508 MB, `.colonie-dev` 660 MB
-to 46 MB, the removed worktree 419 MB and 12 MB of scratch), `ps` showing no node or server process
-and no process holding a workspace data directory, a single-file test run leaving no fixture behind
-after the cleanup above, `git merge-base --is-ancestor` proving `fb1f0e86` is in `main`,
-`git status` inside every worktree showing its uncommitted file count (why they stay), and the
-per-citation check of the `/tmp` paths. Documents updated so nothing points at a deleted file: the
-owner-board reference, the monitor paragraph and the batch-record sentence in HANDOVER, and the
-worktree mention below.
+The 35 batch worktrees (all created 17 October, 19:27–23:30) were then audited rather than kept
+unexamined — the owner delegated that decision. A script classified every dirty file of every lane
+by whether its exact content is reachable in this repository: identical to the main branch,
+identical to the integration commit `842da736` ("Retire rooms from the server, renderer, and
+tests", 226 files, 23:37 on 17 October, seven minutes after the last lane), present in some other
+commit, or unique to the lane. Of 4,463 dirty entries, 584 matched the branch, 1,492 matched the
+integration commit, 37 existed elsewhere in history, 1,322 were deletions the integration commit
+had already made, and 1,028 were unique to a lane. Sampling those showed intermediate drafts, not
+lost results: `server/store.ts` in `server-1` differed from the branch by two lines and
+`src/components/SettingsModal.tsx` in `renderer-1` by four, and the branch has since carried that
+work further (`76732e6a` moved persistence into `server/persistence/`).
 
-Not proven: whether the worktree WIP is already integrated. No user-visible change: these
-artifacts are local development scratch, never shipped and never read by the app.
+Before removing anything, every lane's full change was written to
+`.colonie-dev/batch-wip-20261017.tar.gz` (10 MB: one `git diff HEAD` per lane, the classifier's
+JSON, and a README with the base and integration commits and how to apply a patch). Completeness
+was verified lane by lane against `git status`: after accounting for renames, no dirty file of any
+lane is missing from its patch. Applying them exposed one defect in the archive, fixed
+before finishing: 23 lanes touch `src/components/ThreadRefs.tsx`, a source file that carries raw NUL
+bytes (a delimiter inside a template literal) and is therefore binary to git, so its change cannot
+be a text hunk and `git apply` refused those whole patches. The tarball was rewritten without that
+hunk, with `NON-TEXT-FILE.md` recording the blob ids of the base, integration and branch versions;
+the classifier had already shown the lanes' version of it is reachable in history, so nothing was
+lost. Re-checked afterwards: all 35 patches apply cleanly onto a fresh checkout of the base commit,
+and applying `server-1.diff` for real produced the expected 27 path changes. Finding, not fixed:
+that same raw NUL makes `src/components/ThreadRefs.tsx` binary to git, so no diff of it is
+reviewable; writing the delimiter as `\u0000` keeps the identical runtime string and makes the file
+text again. The 35 worktrees were then removed with `git worktree remove
+--force` and `git worktree prune`; `.worktrees/` no longer exists and `git worktree list` shows
+only this repository.
+
+Evidence: `ls`/`du` before and after (264 fixture directories 19 GB to 508 MB, `.colonie-dev` 660 MB
+to 56 MB including the preserved bundle, the removed worktree 419 MB and 12 MB of scratch, the 35
+worktrees 1.1 GB), `ps` showing no node or server process and no process holding a workspace data
+directory, a single-file test run leaving no fixture behind after the cleanup above,
+`git merge-base --is-ancestor` proving `fb1f0e86` and `842da736` are in `main`, the classifier's
+per-file verdicts with the lane-by-lane completeness check described above, and the per-citation
+check of the `/tmp` paths. Documents updated so nothing points at a removed file: the owner-board
+reference, the monitor paragraph and the worktree mentions in HANDOVER, and the worktree mention
+below.
+
+Not proven: that a specific lane draft is worthless — the archive answers that, one patch per lane.
+No user-visible change: these artifacts are local development scratch, never shipped and never read
+by the app.
 
 ## 2026-10-19 — E02.3: the app knows which workspaces exist
 

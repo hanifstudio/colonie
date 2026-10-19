@@ -707,13 +707,19 @@ sweeping WIP into commits. Retained follow-ups: `steer-queue` item 7 (gate the
 (`team-lifecycle-ui`, `thinking-timer-ui`); ACP reports no adapter cost
 (`acp-runtime.ts` `turnUsage`/`finish`), so spend-cap cost assertions need a
 runtime decision. Lane task files stay in `.colonie-dev/team/tasks/` and
-`python3 .colonie-dev/claude-autopilot.py status` reports the stopped state. The
-batch's progress page was deleted on October 19 with the other stale monitor
-artifacts; the batch's record is PROGRESS. The 35 worktrees under
-`.worktrees/claude-team-20261017-192725/` stay: each holds uncommitted changes and
-is the interrupted batch's WIP, so what is already integrated has to be decided
-before they are removed. The older `/private/tmp/colonie-base` worktree was removed
-on October 19 under the owner's before-17-October rule; its commit is in `main`.
+`python3 .colonie-dev/claude-autopilot.py status` reports the stopped state (its
+`state.json` still names worktree paths that no longer exist). The batch's progress
+page was deleted on October 19 with the other stale monitor artifacts; the batch's
+record is PROGRESS. The 35 worktrees under `.worktrees/claude-team-20261017-192725/`
+were audited on October 19 and removed, together with the older
+`/private/tmp/colonie-base` worktree (its commit is in `main`): every uncommitted
+change of every lane, including renames, is preserved in
+`.colonie-dev/batch-wip-20261017.tar.gz`, every patch verified to apply onto the
+base commit, and the lanes turned out to be intermediate drafts of work the history
+already carries — the samples differed from the integrated result by a few lines.
+One follow-up found while doing that: `src/components/ThreadRefs.tsx` is binary to
+git because its template literal contains raw NUL bytes, so no diff of it can be
+reviewed; the `\u0000` escape gives the same string and makes the file text again.
 These ignored local tools do not change application ACP.
 
 CI evidence that justifies doing this now: after the static job went green,
