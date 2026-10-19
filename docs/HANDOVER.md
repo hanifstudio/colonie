@@ -245,6 +245,51 @@ log showed an error or a refusal. Not verified: a desktop launch with the module
 isolated desktop launch was run; the resolved data directory matching the previous value is
 asserted by tests, not observed in a packaged shell), and nothing visible in the UI changes.
 
+## Active engineering task: E02.4 — a person can create a workspace and switch between them
+
+Owner decision, October 19: take the workspace foundation to the part that is visible. E02.3 gave
+the app a list of workspaces and the directory each one owns; nothing could create a workspace and
+nothing could change which one runs. Split so each half is verifiable on its own.
+
+E02.4a — create a Local workspace (this unit).
+- Outcome: the app can create a Local workspace — a name, an id of its own, a data directory beside
+  the first one, and a record in the list — without touching the workspace that is running.
+- Scope: `createLocalWorkspace` in `electron/local-workspaces.mjs`. It validates and trims the name,
+  derives a filesystem-safe id that neither repeats a listed id nor adopts a directory that already
+  exists on disk, creates the directory, and appends the record to `workspaces.json`. The stored
+  file never names the default workspace's directory, because that path comes from the environment
+  (an explicit `COLONIE_DATA_DIR` wins) and writing it down would freeze the wrong one. A list file
+  that exists but cannot be read stops the whole operation, so a recoverable list is never
+  silently replaced.
+- Not in this slice: IPC, any UI, engine onboarding for the new workspace (journey J01's next step)
+  and starting a server for it — all of that is E02.4b.
+- Acceptance: creating a workspace leaves the running workspace's directory, settings and list
+  position untouched; the new record survives a re-read and resolves by id; ids are unique against
+  the existing list; a name is required, trimmed, and bounded in length; an unreadable list is
+  refused rather than overwritten; an existing directory is never adopted; no two workspaces
+  resolve to the same directory; `node --test`, the Electron suite, typecheck, lint and the
+  structure check stay clean.
+- Checks: `node --test electron/local-workspaces.node-test.mjs`, `pnpm test:electron`,
+  `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, and a boot probe against a directory the
+  module created (server healthy, its own `config.json` and lease, and nothing written into the
+  workspace that was already there).
+
+E02.4b — the switcher (next unit, not started): the app lists the workspaces, creates one, and
+changes which one runs by stopping the current server and starting one for the target directory,
+then moving the window to it. That needs `electron/main.mjs` to stop owning one `SERVER_PORT` and
+one data directory for the whole process lifetime.
+
+Status: E02.4a implemented and verified. `createLocalWorkspace` lives in
+`electron/local-workspaces.mjs` with six new tests in `electron/local-workspaces.node-test.mjs`
+(11 tests pass in that file). `pnpm test:electron` 271 tests with 268 passing and the same two
+inherited `mac-updater`/`vendor-updater` failures; `pnpm typecheck` 0 errors; `pnpm lint` clean;
+`pnpm structure:check` exit 0. Engine evidence: a throwaway home where the module created
+"Design lab", then a server started against that directory (its own free port,
+`COLONIE_PROFILE=1`) answered `/api/health` 200, wrote and read back its own
+`features.showToolCalls=true`, and held its own lease — while the workspace that already existed
+kept its own setting and gained no new files. Not verified: the app does not call it yet (no IPC,
+no UI, no switching), so nothing visible changes. E02.4b not started.
+
 ## Active engineering stage: E01 — enforceable architecture checks
 
 Owner priority is deliberate improvement of architecture, folder/file organization,

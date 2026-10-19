@@ -3,6 +3,38 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.4a: the app can create a workspace
+
+Owner decision: take the workspace foundation to the part that is visible. Split into E02.4a
+(create a workspace) and E02.4b (the switcher); this is the first half, recorded in HANDOVER before
+editing.
+
+- `electron/local-workspaces.mjs` gains `createLocalWorkspace`: it trims the name and bounds it
+  (`WORKSPACE_NAME_MAX` 60), derives a filesystem-safe id, skips an id whose directory already
+  exists on disk, creates the directory, and appends the record to `workspaces.json`. The stored
+  file never contains the default workspace's directory, because that path is derived from the
+  environment (`COLONIE_DATA_DIR` wins) and storing it would freeze the wrong one. A list file that
+  exists but cannot be read stops the whole operation, so a recoverable list is never replaced.
+- Creating does not change which workspace runs: the recorded `activeId` and every other record are
+  preserved, and the first workspace's directory is not touched.
+- Evidence: `node --test electron/local-workspaces.node-test.mjs` — 11 tests pass, 6 of them new:
+  a trimmed name gets its own directory while the running workspace is untouched and the default
+  directory is never stored; a created workspace resolves as the active one; the same name twice
+  gives `project` and `project-2`; a directory already on disk is not adopted (`project-2` instead);
+  an empty and an over-long name are refused with nothing created; a corrupt list is left
+  byte-identical. `pnpm test:electron` 271 tests with 268 passing and the same two inherited
+  `mac-updater`/`vendor-updater` failures; `pnpm typecheck` 0 errors; `pnpm lint` clean;
+  `pnpm structure:check` exit 0.
+- Engine evidence: a throwaway home where the module created "Design lab", then a server booted with
+  `COLONIE_DATA_DIR` pointing at that directory (its own free port, `COLONIE_PROFILE=1`) answered
+  `/api/health` 200, wrote and read back `features.showToolCalls=true` in its own `config.json`, and
+  held its own `colonie-server.lease` with its own pid — while the workspace that already existed
+  kept `features.showToolCalls=false` and gained no new files.
+
+Not proven: the app does not call this yet — no IPC, no UI, no switching — so nothing visible in the
+app changes with this entry. E02.4b is the switcher: list the workspaces, create one, stop the
+current server, start the one for the target directory and move the window to it.
+
 ## 2026-10-19 — housekeeping: the stale monitor is gone, and 18 GB of test leftovers
 
 Owner instruction: remove the old monitoring and planning artifacts, and check why the machine was

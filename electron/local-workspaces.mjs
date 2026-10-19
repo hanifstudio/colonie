@@ -10,7 +10,7 @@
 // way: each data directory carries its own lease, so two workspaces are two
 // processes that cannot collide, and a second process on the same directory is
 // refused rather than sharing it.
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const WORKSPACES_FILE = "workspaces.json";
@@ -81,4 +81,79 @@ export function readWorkspaces({ home, userData, env = process.env }) {
 export function activeWorkspace(options) {
   const { activeId, workspaces } = readWorkspaces(options);
   return workspaces.find((workspace) => workspace.id === activeId) ?? workspaces[0];
+}
+
+/** The longest name a workspace may have. The UI should not offer more. */
+export const WORKSPACE_NAME_MAX = 60;
+
+/** A filesystem-safe id derived from the name. */
+function idFor(name) {
+  const id = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+  return id || "workspace";
+}
+
+/**
+ * An id that neither repeats a listed one nor lands on a directory that already
+ * exists: adopting a directory would run a new workspace inside data that
+ * belongs to something else.
+ */
+function freeId(home, base, known) {
+  for (let n = 1; ; n += 1) {
+    const candidate = n === 1 ? base : `${base}-${n}`;
+    if (!known.has(candidate) && !existsSync(workspaceDirFor(home, candidate))) return candidate;
+  }
+}
+
+/**
+ * The list as stored, or null when there is none. Throwing rather than
+ * returning null when the file exists but cannot be read is the point: creating
+ * a workspace must not overwrite a list the person can still recover by hand.
+ */
+function storedList(userData) {
+  let text;
+  try {
+    text = readFileSync(workspacesFilePath(userData), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw new Error(`the workspace list could not be read (${error?.code ?? error?.message})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("the workspace list could not be read, so it was left as it is");
+  }
+}
+
+/**
+ * Create a Local workspace. The workspace that is running is not touched:
+ * creation only adds a record, and making the new one active is the switcher's
+ * job. Nothing is created unless the name and the existing list both pass.
+ */
+export function createLocalWorkspace({ home, userData, env = process.env, name }) {
+  const wanted = field(name);
+  if (!wanted) throw new Error("a workspace needs a name");
+  if (wanted.length > WORKSPACE_NAME_MAX) {
+    throw new Error(`a workspace name is at most ${WORKSPACE_NAME_MAX} characters`);
+  }
+  storedList(userData);
+  const { activeId, workspaces } = readWorkspaces({ home, userData, env });
+  const known = new Set(workspaces.map((workspace) => workspace.id));
+  const id = freeId(home, idFor(wanted), known);
+  const dir = workspaceDirFor(home, id);
+  mkdirSync(dir, { recursive: true });
+  // The default workspace stays implicit: its directory is derived from the
+  // environment, so writing it down would freeze the wrong path.
+  const listed = workspaces
+    .filter((workspace) => workspace.id !== DEFAULT_WORKSPACE_ID)
+    .map((workspace) => ({ id: workspace.id, name: workspace.name, dir: workspace.dir }));
+  writeFileSync(
+    workspacesFilePath(userData),
+    `${JSON.stringify({ activeId, workspaces: [...listed, { id, name: wanted, dir }] }, null, 2)}\n`,
+  );
+  return { id, name: wanted, dir };
 }
