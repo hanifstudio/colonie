@@ -932,7 +932,8 @@ Measured by the OpenCode session on October 17–18: shard 1 of the CI split
 tests in 1,637 s, so the version was not the cause. Shards 2–4 are not measured.
 
 The baseline comparisons were wrong twice over and are superseded. The pre-batch
-worktree (`fb1f0e86` at `/private/tmp/colonie-base`) had lost `@hpke/core`,
+worktree (`fb1f0e86` at `/private/tmp/colonie-base`, since removed under the
+owner's before-17-October rule; the commit is in `main`) had lost `@hpke/core`,
 which the batch removed from `package.json` while the old source still imports
 it through `server/phone-secret.ts`. Every file touching that module died in
 `beforeAll` and looked greener than it was — vitest reports a `beforeAll` failure
