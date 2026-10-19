@@ -452,20 +452,14 @@ in the built bundle, `pnpm test` 109 files / 531 tests pass (including the new r
 how it looks — this session has no browser or Electron window, so the visual check belongs to the
 owner through the dev preview page, and the beat's appearance in the real first run was not observed.
 
-## Queued task, not started: a native session the engine no longer has
+## Done task: a native session the engine no longer has
 
 Found in the owner's own data on October 19 while answering "why did the Codex setup fail". A
-conversation whose saved engine session is gone does not fail politely: `AcpRuntime.open` asks the
-adapter to load the stored cursor, Codex answers `-32603 Internal error` with no message at all, and
-the catch in `open` reports `Codex ACP setup failed: Internal error. Check 'codex login' or start a
-new conversation.` — sign-in advice for a problem that is not sign-in. The thread stays dead until
-the person starts another one. `server/resume-recovery.ts` already holds the rule and the rebuilt
-prompt ("a rejected resume before the provider saw the prompt may be sent once, on one fresh
-session"), turn-start already builds that `recoveryText`, and the ACP path deliberately keeps a child
-that cannot load — but nothing calls the module outside its own test, so the fallback the comments
-promise never runs.
+conversation whose saved engine session is gone used to fail with `Codex ACP setup failed: Internal
+error. Check 'codex login' or start a new conversation.` — sign-in advice for a problem that is not
+sign-in — and the thread stayed dead until the person started another one.
 
-Evidence: the owner's `Motion` (`791cc3b0…`) and `Biscuit` (`9fb4528f…`) held cursors
+Evidence for the finding: the owner's `Motion` (`791cc3b0…`) and `Biscuit` (`9fb4528f…`) held cursors
 `01a152a2-ccb5…` and `01a152a2-3278…`; both sessions exist under `~/.codex/sessions/2026/10/19/` and
 their rollouts carry the Colonie app prompt and Colonie task-workspace cwds, so a Colonie start at
 12:28–12:29 ran the engines unisolated (`server/config.ts` returns the configured instances without
@@ -474,15 +468,31 @@ engines run in `<workspace>/native/codex`, where those sessions do not exist. Th
 path: the instance ids are unchanged by isolation, so conversations saved before it point at the
 other home.
 
-- Proposed outcome: a rejected resume costs the engine's context, not the conversation — one fresh
-  engine session, the turn sent with the transcript the harness already rebuilt, the new session
-  recorded, and one plain sentence saying the engine session was rebuilt.
-- Proposed acceptance: such a conversation answers the message instead of reporting "Internal
-  error"; a cursor that is merely idle but loadable is still resumed; a failure after the prompt was
-  submitted is never replayed; the `codex login` advice no longer appears for this case.
-- Checks: `npx vitest run server/acp server`, `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`,
-  and an isolated probe with a cursor the engine does not have.
-- Open: the words for the one report, and whether the person should be able to decline the rebuild.
+- Outcome: a rejected resume costs the engine's context, not the conversation. `AcpRuntime.open`
+  catches a refused `session/load` — the rejection IS the resume request, so nothing has reached the
+  model and the turn is still before the accept boundary — and starts one fresh session on the same
+  already-initialized connection. The turn is then sent with the transcript the harness rebuilt
+  (`recoveryText` through `server/resume-recovery.ts`, the module that existed for this and was called
+  from nowhere), `session.started` carries `rebuilt: true` for the harness's own bookkeeping, and the
+  thread shows one line saying the session was rebuilt from the thread's history. If the fresh session
+  cannot start either, both facts are reported, not just the second.
+- Scope: `server/acp/acp-runtime.ts` (the load branch in `open`, the turn's text and the two events in
+  `sendTurn`, and the flag cleared in the settings-discovery path so it belongs to one turn), plus
+  `server/acp/resume-rebuild.test.ts`, which drives the real runtime against the deterministic ACP
+  fixture (`server/acp/testing/fake-agent.ts`) that refuses a session it does not have.
+- Acceptance: such a conversation answers the message and says it was rebuilt; the transcript is not
+  replayed again on the following turn; a rejected cursor with no rebuild text still answers the
+  message; the `codex login` advice no longer appears for a session the engine simply does not have.
+- Checks: `npx vitest run server/acp/resume-rebuild.test.ts` 2 tests pass (both fail with the same
+  `ACP setup failed … Unknown saved session` when the runtime change is stashed, so the test covers
+  it); `pnpm test` 111 files / 541 tests pass; `pnpm typecheck` 0 errors; `pnpm lint` clean;
+  `pnpm structure:check` exit 0.
+- Not verified: the harness-level consequences of `rebuilt: true` — the delta-context bookkeeping that
+  consumes it has no test today (its suite is part of the ACP-fixture migration backlog) — and a real
+  Codex session that is genuinely gone, which needs provider auth this machine does not have. The
+  person's own stuck conversations (`Motion`, `Biscuit`) were not re-run: their cursors still point
+  into the other home, so the next message in them is the real check.
+- Not decided: whether the person may decline the rebuild (today it is one attempt, once).
 
 ## Active engineering stage: E01 — enforceable architecture checks
 

@@ -3,6 +3,30 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — a conversation whose engine session is gone stops dying
+
+The fix for the second half of the same report. A refused `session/load` was the end of the
+conversation: the engine answered only `-32603 Internal error`, and Colonie turned that into
+`Codex ACP setup failed: Internal error. Check 'codex login' or start a new conversation.` — sign-in
+advice for a session the engine simply does not have. `server/resume-recovery.ts` held exactly this
+rule (a resume rejected before the provider sees the prompt may be sent once, on one fresh session),
+`turn-start` already built the rebuilt transcript it needs, and nothing called the module.
+
+Now the refused load starts one fresh session on the same already-initialized connection, the turn
+carries the rebuilt transcript, `session.started` says `rebuilt`, and the thread shows one line
+saying the session was rebuilt from its history. The flag is spent by the turn that caused it, so the
+next turn resumes the live session without replaying anything, and the settings-discovery path clears
+it rather than inheriting it.
+
+`server/acp/resume-rebuild.test.ts` drives the real runtime against the deterministic ACP fixture,
+which refuses a session it does not have the way a real adapter does: 2 tests pass, and both fail with
+`ACP setup failed … Unknown saved session` when the runtime change is stashed — so the test covers the
+change rather than the fixture. `pnpm test` 111 files / 541 tests pass; `pnpm typecheck` 0 errors;
+`pnpm lint` clean; `pnpm structure:check` exit 0. Not verified: the harness bookkeeping that consumes
+`rebuilt` (its suite is in the ACP-fixture backlog) and a real Codex session that is genuinely gone.
+Not run on the person's own stuck conversations: they were left as they are, so the next message there
+is the real check.
+
 ## 2026-10-19 — the first click in the running app, and why the Codex engine answered "Internal error"
 
 The owner ran the app for the first time with the new workspace surface (`pnpm colonie`, Vite on a
