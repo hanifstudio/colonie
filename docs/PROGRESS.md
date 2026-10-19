@@ -71,10 +71,12 @@ be a text hunk and `git apply` refused those whole patches. The tarball was rewr
 hunk, with `NON-TEXT-FILE.md` recording the blob ids of the base, integration and branch versions;
 the classifier had already shown the lanes' version of it is reachable in history, so nothing was
 lost. Re-checked afterwards: all 35 patches apply cleanly onto a fresh checkout of the base commit,
-and applying `server-1.diff` for real produced the expected 27 path changes. Finding, not fixed:
-that same raw NUL makes `src/components/ThreadRefs.tsx` binary to git, so no diff of it is
-reviewable; writing the delimiter as `\u0000` keeps the identical runtime string and makes the file
-text again. The 35 worktrees were then removed with `git worktree remove
+and applying `server-1.diff` for real produced the expected 27 path changes. Fixed the same day with
+the owner's agreement: that raw NUL (and a 0x01 in the same function) made
+`src/components/ThreadRefs.tsx` binary to git, so no diff of it could be reviewed. The five control
+bytes are now the escapes `\u0000` and `\u0001`. Equivalence was proved by evaluating the separator
+expression from the committed version and from the new one on the same two refs: identical strings,
+identical bytes. `pnpm typecheck` and `pnpm lint` are green, and git diffs the file as text again. The 35 worktrees were then removed with `git worktree remove
 --force` and `git worktree prune`; `.worktrees/` no longer exists and `git worktree list` shows
 only this repository.
 

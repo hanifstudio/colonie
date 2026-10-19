@@ -717,9 +717,9 @@ change of every lane, including renames, is preserved in
 `.colonie-dev/batch-wip-20261017.tar.gz`, every patch verified to apply onto the
 base commit, and the lanes turned out to be intermediate drafts of work the history
 already carries — the samples differed from the integrated result by a few lines.
-One follow-up found while doing that: `src/components/ThreadRefs.tsx` is binary to
-git because its template literal contains raw NUL bytes, so no diff of it can be
-reviewed; the `\u0000` escape gives the same string and makes the file text again.
+One follow-up from that work was closed: `src/components/ThreadRefs.tsx` was binary to git because
+its template literal held raw NUL bytes, so no diff of it could be reviewed; it now writes those
+separators as `\u0000`/`\u0001` instead, with the same strings proved and the file text again.
 These ignored local tools do not change application ACP.
 
 CI evidence that justifies doing this now: after the static job went green,
