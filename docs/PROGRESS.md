@@ -3,6 +3,28 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — the launch board, and what stands between this tree and a public release
+
+Owner asked for the roadmap, where we are, and a way to monitor what is done. `docs/LAUNCH.md`
+now holds the gate-by-gate view (ship path, the floor a person meets, publishing) with the rule
+that a row moves only with the evidence named in it; HANDOVER keeps the task records. Read-only
+inspection behind it:
+
+- `git log main..HEAD | wc -l` = 152, `main` tip `dd6cca5e` (2026-10-18), nothing pushed. `main` is
+  where `ci.yml` and `release.yml` run.
+- `release.yml` refuses a release whose commit has no passing CI verdict ("a red or missing verdict
+  stops the release before any draft exists"), and `ci.yml` runs `i18n:check`, `check:electron`,
+  `test:packaged-server`, `build:cua:win`, `smoke:cua-win`, the Linux CUA/package smokes, and three
+  `scripts/testing/*.test.ts` by name — all present on `main` (`git cat-file -e main:<path>`), all
+  absent here. So the first ship-path gate is blocked by CI, not by the app.
+- `package.json` is `0.2.0`; `/Applications/Colonie.app` is `0.2.0` dated 2026-10-15; `release/` and
+  `dist-colonie/` do not exist, so this tree has never been packaged here.
+- Nearest milestone L1: `pnpm colonie:dist`, then one person on a clean Mac completes the first-run
+  journey. Recorded in HANDOVER as the active task.
+
+No builds were run for this entry: it is documentation plus read-only commands (`git`, `node -e`,
+`defaults read`).
+
 ## 2026-10-19 — a conversation whose engine session is gone stops dying
 
 The fix for the second half of the same report. A refused `session/load` was the end of the

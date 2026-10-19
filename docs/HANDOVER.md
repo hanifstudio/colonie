@@ -25,6 +25,29 @@ The architecture audit is in blueprint section 6. The shared-rule extraction now
 has focused static/unit evidence; provider/browser/desktop/package behavior was not
 requalified. Exact commands and limits are in [PROGRESS](PROGRESS.md).
 
+The distance to a public release is tracked gate by gate in the
+[launch board](LAUNCH.md): the nearest milestone is L1 (one person installs the
+current tree and completes the first-run journey), and its first blocker is S2
+(CI on the release commit calls files this tree no longer has, and Release refuses
+a commit without a passing CI verdict).
+
+## Active engineering task: L1 — a person installs the current tree and completes the first-run journey
+
+Owner question, October 19: "can we start to continue the development so that we can launch
+Colonie to the public?" The board ([LAUNCH](LAUNCH.md)) is the map; this task is the first row.
+
+- Outcome: one Mac that never had Colonie installs an artifact built from this tree, and a
+  person completes the first-run journey — welcome, engine sign-in inside the app, a bot
+  answering a real message, create and switch a workspace, quit, reopen.
+- Scope (in order): the build itself (`pnpm colonie:dist`), then the journey, then whatever
+  the journey breaks. S1/S2 (how this tree reaches `main`, and CI calling files it no longer
+  has) are the ship-path conditions this task exposes; they are not silently assumed.
+- Acceptance: each journey step either works as the board's F-rows describe, or the failure is
+  recorded in the board row it belongs to with the evidence that showed it.
+- Not in scope: a published release, Server workspaces, and the deferred platform work.
+- Checks: `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `pnpm test` as always; the
+  artifact and the journey are verified by hand and recorded in the board.
+
 ## Active engineering task: the desktop app runs the Colonie engine system
 
 Owner decision, October 19: "Number 3 sounds like we have to adapt into the new system."

@@ -6,6 +6,7 @@ for a specific question; do not load this entire directory.
 | Question | Active document |
 |---|---|
 | What is implemented now, and what is next? | [HANDOVER](HANDOVER.md) |
+| How far is the public launch, gate by gate? | [Launch board](LAUNCH.md) |
 | What product are we aiming for? | [Colonie blueprint](COLONIE-BLUEPRINT.md), a provisional target |
 | How will architecture, organization, and consistency improve? | [Engineering roadmap](COLONIE-BLUEPRINT.md#engineering-roadmap-architecture-and-consistency) and [acceptance standards](COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance), read for relevant implementation work |
 | What working rules and development loop apply? | [AGENTS.md](../AGENTS.md) |
