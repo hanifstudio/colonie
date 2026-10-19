@@ -32,6 +32,7 @@ import { DATA_DIR } from "../config.ts";
 import { SHELL_TOOL } from "../../shared/tool-name.ts";
 import { ASK_USER_QUESTION_TOOL, askQuestionSummary, questionChoices } from "../../shared/ask-question.ts";
 import { elicitationAnswerContent, parseElicitationAsk, type ElicitationAsk } from "./elicitation.ts";
+import { recoveryPromptFor } from "../resume-recovery.ts";
 
 const require = createRequire(import.meta.url);
 const configSchema = z.object({
@@ -148,6 +149,9 @@ type LiveSession = {
   defaultModel?: string;
   modeEpoch: number;
   applicationSelection?: string;
+  /** the engine refused the saved session and this one was started from the
+   * turn's recovery text; belongs to the turn that caused it */
+  rebuilt?: boolean;
 };
 
 function choices(option: SessionConfigOption): Array<{ value: string; name: string }> {
@@ -628,8 +632,29 @@ export class AcpRuntime implements ProviderAdapter {
       if (cursor) {
         if (!session.initialization.agentCapabilities?.loadSession) throw new Error("Agent cannot load this saved session. Start a new conversation explicitly.");
         session.id = cursor;
-        session.state = await this.setup(session, session.connection.agent.request(methods.agent.session.load,
-          { sessionId: cursor, cwd, mcpServers }));
+        try {
+          session.state = await this.setup(session, session.connection.agent.request(methods.agent.session.load,
+            { sessionId: cursor, cwd, mcpServers }));
+        } catch (error) {
+          // The engine does not have this session any more — a config home it
+          // no longer reads, a session it has pruned or expired. The rejection
+          // IS the resume request, so nothing has reached the model and the turn
+          // is still before the accept boundary (server/resume-recovery.ts): it
+          // may run once in one fresh session, carrying the transcript the
+          // harness rebuilt, instead of dying on an opaque setup error that
+          // tells the person to sign in. If that fresh session cannot start
+          // either, both facts are reported rather than only the second.
+          session.id = undefined;
+          session.rebuilt = true;
+          try {
+            const state = await this.setup(session, session.connection.agent.request(methods.agent.session.new,
+              { cwd, mcpServers }));
+            session.state = state;
+            session.id = state.sessionId;
+          } catch (fresh) {
+            throw new Error(`This conversation's engine session is gone: ${(error as Error).message}. A new one could not be started either: ${(fresh as Error).message}`, { cause: fresh });
+          }
+        }
       } else {
         const state = await this.setup(session, session.connection.agent.request(methods.agent.session.new,
           { cwd, mcpServers }));
@@ -659,6 +684,16 @@ export class AcpRuntime implements ProviderAdapter {
     this.starting.add(input.threadId);
     try {
       const session = await this.open(input);
+      // A session this turn had to build because the engine no longer had the
+      // saved one holds none of the conversation, so the first thing it sees is
+      // the transcript the harness rebuilt, not just the new message
+      // (server/resume-recovery.ts). Cleared here: the next turn resumes this
+      // session like any other.
+      const rebuilt = session.rebuilt === true;
+      session.rebuilt = false;
+      const turnText = rebuilt
+        ? recoveryPromptFor({ recoveryText: input.recoveryText, currentText: input.text, failure: "before-accept" }).text
+        : input.text;
       const preferences = nativePreferences(input.threadId, this.instanceId);
       await this.selectConfiguredModel(session, input.model);
       session.applicationSelection = selectionKey(input);
@@ -681,7 +716,7 @@ export class AcpRuntime implements ProviderAdapter {
       }
       const pin = input.acpContext ? pinContext(input.threadId, input.acpContext) : null;
       const combinedReceipt = this.combinedReceipt(session.mounts);
-      const composed = composeContext(pin, input.text, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: combinedReceipt, memory: input.acpMemory, skills: input.acpSkills, chief: input.acpChief, assignment: input.acpAssignment });
+      const composed = composeContext(pin, turnText, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: combinedReceipt, memory: input.acpMemory, skills: input.acpSkills, chief: input.acpChief, assignment: input.acpAssignment });
       const prompt = composed.prompt;
       for (const image of input.images ?? []) {
         prompt.push({ type: "image", mimeType: image.mime, data: readFileSync(image.path).toString("base64") });
@@ -694,7 +729,8 @@ export class AcpRuntime implements ProviderAdapter {
       // Persist exact authored bytes BEFORE sending a request to the agent.
       saveInputReceipt(turn.receipt);
       for (const mount of session.mounts) mount.activate();
-      this.emit(session, { type: "session.started", sessionId: session.id!, model: effectiveModel });
+      this.emit(session, { type: "session.started", sessionId: session.id!, model: effectiveModel, ...(rebuilt ? { rebuilt: true } : {}) });
+      if (rebuilt) this.emit(session, { type: "runtime.notice", message: "The engine no longer had this conversation's session, so it was rebuilt from this thread's history." });
       this.emit(session, { type: "turn.started" });
       void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
         .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason, undefined, turnUsage(result)))
@@ -859,6 +895,9 @@ export class AcpRuntime implements ProviderAdapter {
     this.starting.add(input.threadId);
     try {
       const session = await this.open(input);
+      // Looking at native settings may also have built a session the engine no
+      // longer had; it belongs to no turn, so nothing here rewrites the prompt.
+      session.rebuilt = false;
       const preferences = nativePreferences(input.threadId, this.instanceId);
       const warnings: string[] = [];
       session.applicationSelection = selectionKey(input);
