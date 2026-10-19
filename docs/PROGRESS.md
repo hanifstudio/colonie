@@ -3,6 +3,16 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — owner decisions on the first-run flow
+
+Asked to think through the flow from download to first chat, the owner decided two things that bound
+the workspace work: the current welcome/onboarding flow stays exactly as it is, including the copy
+that mentions capabilities since retired (he likes it and wants it preserved), and the Local/Server
+choice may be shown with Server disabled, never as available. Recorded in the blueprint (a note in
+J01 and a row in the decision log) and in HANDOVER's E02.4 block. Consequence for the next unit: the
+first workspace stays implicit during onboarding, and the create/switch surface is where Local and a
+disabled Server appear.
+
 ## 2026-10-19 — E02.4a: the app can create a workspace
 
 Owner decision: take the workspace foundation to the part that is visible. Split into E02.4a

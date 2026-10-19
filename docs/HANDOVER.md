@@ -279,6 +279,13 @@ changes which one runs by stopping the current server and starting one for the t
 then moving the window to it. That needs `electron/main.mjs` to stop owning one `SERVER_PORT` and
 one data directory for the whole process lifetime.
 
+Owner decisions, October 19, that bound this unit: the current welcome/onboarding flow is not
+edited at all — not its beats, layout or copy, including text about capabilities since retired —
+so the first workspace is still the one the app creates for the person and no Local/Server question
+is added to onboarding. The Local/Server choice belongs to the workspace surface, with **Server
+shown disabled** until hosting exists, never as available. Recorded in the blueprint (J01 note and
+the decision log).
+
 Status: E02.4a implemented and verified. `createLocalWorkspace` lives in
 `electron/local-workspaces.mjs` with six new tests in `electron/local-workspaces.node-test.mjs`
 (11 tests pass in that file). `pnpm test:electron` 271 tests with 268 passing and the same two

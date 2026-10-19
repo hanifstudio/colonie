@@ -186,6 +186,12 @@ flowchart LR
 
 No Colonie account or payment is required. Secrets should use protected setup fields or provider-owned authentication, rather than chat messages.
 
+Owner decision, October 19: the current welcome flow stays exactly as it is, including text that
+mentions capabilities since retired, so the Local/Server choice does not appear during first-run
+onboarding; Colonie creates the first Local workspace for the person. The choice belongs to the
+workspace surface, where Server is shown disabled until hosting exists — shown, never offered as
+available.
+
 Every new Local workspace follows this same journey, whether it is the person's first workspace or they already own or belong to other workspaces. Membership elsewhere does not create a different onboarding flow. Configure the new workspace's own engine access and any integrations it needs; another workspace's credentials and history are not automatically imported. Personal automation is one possible use of a Local workspace, not a separate workspace type or journey.
 
 ### Journey J02: owner creates a Server workspace
@@ -809,6 +815,7 @@ inspection, external writes, or a repository-wide rewrite.
 
 | Date | Entry | Status |
 |---|---|---|
+| 2026-10-19 | Owner decisions on the first-run flow: the welcome/onboarding UI is kept exactly as it is for now, including the copy that mentions capabilities since retired, because the owner likes it and wants it preserved; the Local/Server choice may be shown with Server disabled, never as available. | The welcome flow is out of scope for edits; the workspace choice and workspace management live in the workspace surface (see the J01 note). |
 | 2026-10-17 | Owner answered the Q01–Q11 product questions after a plain-language review (section 10). | Recorded as decided or as machine research; P0's remaining open item is closed. |
 | 2026-10-17 | Owner settled the three non-blocking room questions: remove the Settings "Decision model" section while `server/decider/` stays for a future real job; a read-only view or export of old room conversations may come later at low priority; retire the native agents delegation tools (`delegate_bot`, native `ask_bot`, pair DM channels) instead of rebuilding them for ACP until a demonstrated need appears. | Renderer may drop the section; HANDOVER no longer lists these as open. |
 | 2026-10-17 | Owner settled the proposals in the W01 walkthrough (B01–B07): directed requests name the bot, Stop scopes to the selected task and its descendants, conflicting screen work queues, and each workspace owns its data. | Product direction recorded; remaining work is reference research and measurement. |
