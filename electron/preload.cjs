@@ -234,6 +234,18 @@ const bridge = {
     },
   },
   confirm: message => ipcRenderer.invoke("dialog:confirm", message),
+
+  /** The Local workspaces on this computer — a name and a data folder each —
+   * and which one this app runs. Not the Server menu's saved servers, which is
+   * `environments` above. Local-shell only: where this app's data lives is not
+   * a remote page's to change. `switch` resolves
+   * `{ ok: true, mode: "already-open" | "restart-app" | "reopen-colonie" }` or
+   * `{ ok: false, code: "not-named" | "not-listed" | "in-use" }`. */
+  localWorkspaces: {
+    list: () => ipcRenderer.invoke("local-workspaces:list"),
+    create: (name) => ipcRenderer.invoke("local-workspaces:create", name),
+    switch: (id) => ipcRenderer.invoke("local-workspaces:switch", id),
+  },
 };
 
 contextBridge.exposeInMainWorld(

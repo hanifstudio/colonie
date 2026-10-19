@@ -4,6 +4,11 @@ declare global {
 /** The package.json version, inlined by Vite's define at build time. */
 const __APP_VERSION__: string;
 
+/** One Local workspace: a name and the data folder the app runs in. */
+type LocalWorkspace = { id: string; name: string; dir: string };
+/** The list as the app reads it, with the workspace a start would run. */
+type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[] };
+
 
   type DesktopCapabilities = {
     host: {
@@ -111,6 +116,20 @@ const __APP_VERSION__: string;
         forget: (id: string) => Promise<void>;
         /** `panel` "copy": that server's Copy this computer here panel; otherwise its Computer access. */
         onOpenSettings?: (callback: (computerId?: string | null, panel?: "copy") => void) => () => void;
+      };
+      /** The Local workspaces on this computer — a name and a data folder each —
+       * and which one this app runs. Absent unless this app's own page in the main
+       * window asks; a remote server's page sees nothing here. */
+      localWorkspaces?: {
+        list(): Promise<LocalWorkspaceState>;
+        /** A record is added; which workspace runs is unchanged until a switch. */
+        create(name: string): Promise<{ ok: true; workspace: LocalWorkspace; state: LocalWorkspaceState } | { ok: false; message: string }>;
+        /** `mode` is what the change takes: nothing, a restart of this app, or
+         * reopening Colonie from the terminal in a source checkout. */
+        switch(id: string): Promise<
+          | { ok: true; mode: "already-open" | "restart-app" | "reopen-colonie"; target: LocalWorkspace; state?: LocalWorkspaceState }
+          | { ok: false; code: "not-named" | "not-listed" | "in-use" | "unwritable"; message?: string; target?: LocalWorkspace }
+        >;
       };
       confirm(message: string): Promise<boolean>;
       getCapabilities(): Promise<DesktopCapabilities>;

@@ -63,6 +63,21 @@ test("copyText forwards only the text over the explicit clipboard:write-text cha
   assert.equal("ipcRenderer" in exposed.api, false);
 });
 
+test("localWorkspaces forwards to its own channels with the argument it was given", async () => {
+  // These channels decide which folder this app's data lives in. A typo on
+  // either side would leave the workspace menu inert while everything else
+  // still passed, so pin the literal channel names.
+  const before = invocations.length;
+  await exposed.api.localWorkspaces.list();
+  await exposed.api.localWorkspaces.create("Design lab");
+  await exposed.api.localWorkspaces.switch("design-lab");
+  assert.deepEqual(invocations.slice(before), [
+    ["local-workspaces:list"],
+    ["local-workspaces:create", "Design lab"],
+    ["local-workspaces:switch", "design-lab"],
+  ]);
+});
+
 test("onOpenAppSettings subscribes to the exact app:open-settings channel, forwards every emit, and unsubscribes cleanly", () => {
   // Channel contract: electron/main.mjs answers the Preferences… item with
   // webContents.send("app:open-settings"). Listening on any other name would

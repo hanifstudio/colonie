@@ -44,7 +44,8 @@ import environmentsModule from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { acquireDataDirLease } from "./data-dir-lease.mjs";
-import { activeWorkspace } from "./local-workspaces.mjs";
+import { activeWorkspace, createLocalWorkspace, readWorkspaces, setActiveWorkspace } from "./local-workspaces.mjs";
+import { planWorkspaceSwitch } from "./workspace-switch.mjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
 const nativeActions = nativeDesktopActions(process.platform);
@@ -1712,9 +1713,22 @@ ipcMain.handle("perm:open-settings", localOnly("perm:open-settings", (_event, pa
   return shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${anchor}`);
 }));
 
+/** Leave through the normal shutdown path and start again: the lease is
+ * released, the owned server stops, and the next start resolves the workspace
+ * list the same way every start does.
+ *
+ * The relaunch spawns this binary with the arguments it was given. In a source
+ * checkout that binary is Electron alone — the launcher that owns the dev server
+ * has already gone — so the copy would open against nothing. There, quitting is
+ * the whole job and the person opens Colonie from the terminal again. */
+function relaunchColonie() {
+  if (app.isPackaged) app.relaunch();
+  app.quit();
+}
+
 ipcMain.handle("desktop:relaunch", localOnly("desktop:relaunch", (event) => {
   requireMainWindowSender(event);
-  relaunchAfterDesktopRemoteChange();
+  relaunchColonie();
   return true;
 }));
 
@@ -1784,6 +1798,78 @@ ipcMain.handle("environments:add-from-link", localWorkspaceOnly("environments:ad
   return connectHostedWorkspace(link, typeof name === "string" ? name : undefined);
 }));
 ipcMain.handle("environments:forget", localWorkspaceOnly("environments:forget", (_event, id) => forgetEnvironment(typeof id === "string" ? id : "")));
+
+// ── Local workspaces: the folders this app runs in ──
+// A Local workspace is a name and a data directory on this computer, not a
+// saved server: `environments` above owns servers. The list lives in the app's
+// own folder and is what a start reads; changing it never moves data, it
+// changes which directory the next start uses.
+function localWorkspaceOptions() {
+  return {
+    home: app.getPath("home"),
+    userData: process.env.COLONIE_USER_DATA || app.getPath("userData"),
+  };
+}
+
+/** Whether a server could start in that directory right now. This takes and
+ * gives back the same lease a server takes, so the answer is the one the next
+ * start would get — asking any other way could promise a directory the app then
+ * cannot run in. */
+function workspaceDirectoryAvailable(dir) {
+  try {
+    acquireDataDirLease(dir).release();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function localWorkspaceMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Point the app at one of its workspaces. The choice is recorded only after
+ * the decision module has accepted the target, and the app then comes back in
+ * that workspace rather than moving its own server mid-life. */
+function switchLocalWorkspace(id) {
+  const options = localWorkspaceOptions();
+  const { activeId, workspaces } = readWorkspaces(options);
+  const plan = planWorkspaceSwitch({
+    id,
+    workspaces,
+    activeId,
+    directoryAvailable: workspaceDirectoryAvailable,
+    packaged: app.isPackaged,
+  });
+  if (!plan.ok) return plan;
+  if (plan.mode === "already-open") return { ok: true, mode: plan.mode, target: plan.target };
+  try {
+    setActiveWorkspace({ ...options, id: plan.target.id });
+  } catch (error) {
+    return { ok: false, code: "unwritable", message: localWorkspaceMessage(error) };
+  }
+  if (plan.mode === "restart-app") {
+    // Reply first: the window is about to close, so the page says what is
+    // happening from the answer, not from a load that will never arrive.
+    setTimeout(relaunchColonie, 250);
+    return { ok: true, mode: plan.mode, target: plan.target };
+  }
+  return { ok: true, mode: plan.mode, target: plan.target, state: readWorkspaces(options) };
+}
+
+ipcMain.handle("local-workspaces:list", localWorkspaceOnly("local-workspaces:list", () => readWorkspaces(localWorkspaceOptions())));
+
+ipcMain.handle("local-workspaces:create", localWorkspaceOnly("local-workspaces:create", (_event, name) => {
+  const options = localWorkspaceOptions();
+  try {
+    const workspace = createLocalWorkspace({ ...options, name });
+    return { ok: true, workspace, state: readWorkspaces(options) };
+  } catch (error) {
+    return { ok: false, message: localWorkspaceMessage(error) };
+  }
+}));
+
+ipcMain.handle("local-workspaces:switch", localWorkspaceOnly("local-workspaces:switch", (_event, id) => switchLocalWorkspace(id)));
 
 // A server's page can ask for the native chooser, not choose a destination or
 // mutate the desktop's saved list. Only native menu clicks perform those acts.
