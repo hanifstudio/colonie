@@ -14,7 +14,8 @@ import type { TeamComputers } from "../colonie/teams/team-computers.ts";
 import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "../colonie/bots/bot-folder.ts";
 import type { BotProfilePatch } from "../colonie/bots/bot-profile.ts";
 import { peerAllowKey, type PeerAction } from "../colonie/peers/peer-approval-key.ts";
-import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "../config.ts";
+import { loadBrowserProfileIdAliases } from "../config.ts";
+import { activeWorkspaceScope, type WorkspaceScope } from "../runtime/scope.ts";
 import * as mdb from "./message-db.ts";
 import { forgetBotMemoryJournal, journalFile } from "../colonie/memory/memory-journal.ts";
 import { runCommand, type Command } from "../commands.ts";
@@ -503,12 +504,6 @@ export function parseConnectorTools(value: unknown): { ok: true; grants: Record<
   return { ok: true, grants };
 }
 
-const BOTS_FILE = join(DATA_DIR, "bots.json");
-const GROUPS_FILE = join(DATA_DIR, "groups.json");
-/** Written once the copies older builds made of a bot's model on its threads
- * are cleared (Store load), so that cleanup runs once per data directory. */
-const THREAD_MODEL_COPIES_CLEARED = join(DATA_DIR, "thread-model-copies-cleared");
-
 /** The registries carry souls, project paths and per-bot settings, so they are
  * owner-only like the other data-dir stores. A file written by an older
  * release (or loosened by hand) is tightened on load. Best effort: failing to
@@ -522,7 +517,6 @@ function tightenRegistryFile(file: string): void {
     /* absent, or not ours to change */
   }
 }
-const messagesFile = (threadId: string) => join(DATA_DIR, `messages-${threadId}.json`);
 
 const COLORS: MausColor[] = [
   "green",
@@ -624,6 +618,8 @@ export class Store {
   /** Room turns and old callers have their own activity slot. Clearing
    * that slot must not clear a concurrently running independent task. */
   private legacyActivities = new Map<string, BotActivity>();
+  /** The workspace this store reads and writes. */
+  private readonly scope: WorkspaceScope;
 
   constructor(
     defaultSelection: () => ModelSelection,
@@ -634,17 +630,21 @@ export class Store {
      * its engine changes (modelSwitchNeedsAsk). Unknown counts as another
      * driver, so Full and Custom fall back to Ask. */
     driverKindOf: (instanceId: string) => string | undefined = () => undefined,
+    /** The workspace this store belongs to. Defaults to the workspace the
+     * process runs in; another workspace is another scope. */
+    scope: WorkspaceScope = activeWorkspaceScope(),
   ) {
     this.defaultSelection = defaultSelection;
     this.completeNewBotSelection = completeNewBotSelection;
     this.driverKindOf = driverKindOf;
-    mkdirSync(DATA_DIR, { recursive: true });
-    for (const file of [BOTS_FILE, GROUPS_FILE]) tightenRegistryFile(file);
+    this.scope = scope;
+    mkdirSync(this.scope.dataDir, { recursive: true });
+    for (const file of [this.scope.botsFile, this.scope.groupsFile]) tightenRegistryFile(file);
     // Whether the bot list is the real one; an unreadable file must never
     // read as "every bot was deleted".
     let botsLoaded = false;
     try {
-      this.bots = JSON.parse(readFileSync(BOTS_FILE, "utf8"));
+      this.bots = JSON.parse(readFileSync(this.scope.botsFile, "utf8"));
       botsLoaded = Array.isArray(this.bots);
     } catch {
       this.bots = [];
@@ -653,7 +653,7 @@ export class Store {
     // older build or a backup still finds it byte-for-byte as it was saved.
     // A room's stored team name is not a team; only bots register sections.
     try {
-      const groups: unknown = JSON.parse(readFileSync(GROUPS_FILE, "utf8"));
+      const groups: unknown = JSON.parse(readFileSync(this.scope.groupsFile, "utf8"));
       this.groups = Array.isArray(groups) ? groups : [];
     } catch {
       this.groups = [];
@@ -828,7 +828,7 @@ export class Store {
     // per data directory it is cleared and the thread follows its bot. A
     // different model can't be told apart from a pick and stays. Only over a
     // bot list this load could read, so an unreadable file is not skipped.
-    const clearModelCopies = !existsSync(THREAD_MODEL_COPIES_CLEARED) && (botsLoaded || !existsSync(BOTS_FILE));
+    const clearModelCopies = !existsSync(this.scope.threadModelCopiesCleared) && (botsLoaded || !existsSync(this.scope.botsFile));
     // bots saved before tasks existed have one endless thread; adopt it as
     // their first task so nothing is lost and nothing special-cases it
     for (const b of this.bots) {
@@ -905,7 +905,7 @@ export class Store {
       b.unread = b.tasks.some(taskCountsAsBotUnread);
     }
     if (botsMigrated) this.saveBots();
-    if (clearModelCopies) writeFileAtomic(THREAD_MODEL_COPIES_CLEARED, "Threads follow their bot's model; the copies older builds made are cleared.\n", { mode: 0o600 });
+    if (clearModelCopies) writeFileAtomic(this.scope.threadModelCopiesCleared, "Threads follow their bot's model; the copies older builds made are cleared.\n", { mode: 0o600 });
     // Search reads SQLite directly, so migrate every known legacy transcript
     // at startup rather than waiting until the user happens to open it. Only
     // pending JSON files are touched; already-migrated threads stay lazy.
@@ -914,7 +914,7 @@ export class Store {
       ...this.groups.flatMap((group) => [group.threadId, ...(group.tasks ?? []).map((task) => task.threadId)]),
     ]);
     for (const threadId of knownThreads) {
-      const legacyFile = messagesFile(threadId);
+      const legacyFile = this.scope.legacyThreadFile(threadId);
       if (existsSync(legacyFile)) mdb.readThread(threadId, legacyFile);
     }
     // After legacy transcripts are in SQLite, so the first boot sees their
@@ -1021,7 +1021,7 @@ export class Store {
   // Events are still emitted by the callers either way.
   private saveBots(bots: BotRecord[] = this.bots, registerSections = true) {
     if (registerSections) this.rememberSections([...this.bots, ...bots].map((bot) => bot.section));
-    writeFileAtomicIfChanged(BOTS_FILE, JSON.stringify(bots.map(({ busy: _busy, activity: _activity, ...bot }) => ({
+    writeFileAtomicIfChanged(this.scope.botsFile, JSON.stringify(bots.map(({ busy: _busy, activity: _activity, ...bot }) => ({
       ...bot,
       tasks: bot.tasks?.map(({ busy: _taskBusy, activity: _taskActivity, turnStartedAt: _taskTurnStarted, ...task }) => persistedPin(task)),
     })), null, 2), { mode: 0o600 });
@@ -1165,10 +1165,10 @@ export class Store {
     this.threads.delete(threadId);
     mdb.deleteThread(threadId);
     for (const file of [
-      messagesFile(threadId),
-      `${messagesFile(threadId)}.imported`,
-      join(EVENTS_DIR, `${threadId}.ndjson`),
-      join(NATIVE_DIR, `${threadId}.ndjson`),
+      this.scope.legacyThreadFile(threadId),
+      `${this.scope.legacyThreadFile(threadId)}.imported`,
+      join(this.scope.eventsDir, `${threadId}.ndjson`),
+      join(this.scope.nativeDir, `${threadId}.ndjson`),
     ]) {
       try {
         unlinkSync(file);
@@ -1199,7 +1199,7 @@ export class Store {
     if (t) return t;
     // SQLite is the source of truth; a thread with no rows imports its
     // legacy messages-<threadId>.json once, inside readThread
-    return this.cacheThread(threadId, mdb.readThread(threadId, messagesFile(threadId)));
+    return this.cacheThread(threadId, mdb.readThread(threadId, this.scope.legacyThreadFile(threadId)));
   }
 
   /** Finish hydrating a full set of thread rows into the cache: chain any
@@ -1240,10 +1240,10 @@ export class Store {
   messagesTail(threadId: string, limit: number): { messages: Message[]; hasMore: boolean; activeLeafId: string | null } {
     let state = this.threads.get(threadId);
     if (!state) {
-      const tail = mdb.readThreadTail(threadId, messagesFile(threadId), limit);
+      const tail = mdb.readThreadTail(threadId, this.scope.legacyThreadFile(threadId), limit);
       const legacyRows = tail.hasMore !== undefined && tail.messages.some((m) => m.parentId === undefined);
       if (tail.hasMore !== true || legacyRows) {
-        state = this.cacheThread(threadId, legacyRows ? mdb.readThread(threadId, messagesFile(threadId)) : tail);
+        state = this.cacheThread(threadId, legacyRows ? mdb.readThread(threadId, this.scope.legacyThreadFile(threadId)) : tail);
       } else {
         return {
           messages: tail.messages,
@@ -1692,7 +1692,7 @@ export class Store {
     // It still belongs to the bot, so deleting the bot must remove staged
     // proposals, manifests, and native-link ownership records with it.
     try {
-      rmSync(join(DATA_DIR, "skill-state", id), { recursive: true, force: true });
+      rmSync(join(this.scope.dataDir, "skill-state", id), { recursive: true, force: true });
     } catch {}
     // The bot folder (SOUL.md mirror) is the bot's too.
     removeBotFolder(id);

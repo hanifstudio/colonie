@@ -111,6 +111,43 @@ recognise both drivers. Evidence: `server/colonie/providers/claude-accounts.test
 in both `environment.CLAUDE_CONFIG_DIR` and `config.configDir`; no error in the start log.
 The two inherited `pnpm test:electron` failures are unchanged.
 
+## Active engineering task: E02.1 — the workspace owns its paths
+
+Owner decision, October 19: start the workspace foundation. The blueprint's E02 asks for
+"workspace paths, configuration, credential references, repository construction, and
+shutdown ownership at bootstrap", with one existing boundary migrated first. This is that
+first, bounded slice.
+
+- Outcome: a workspace scope exists in the runtime and names every path a workspace owns
+  (`server/runtime/scope.ts`), and one real boundary — the bot/thread store — reads and
+  writes through it instead of joining the process's data directory itself.
+- Scope: the scope owns the data directory and its `native`, `events`, `bots.json`,
+  `groups.json`, the thread-model-copies marker and the pre-database thread files; the
+  process's active scope is still the data directory the process was started with, so the
+  Local path is unchanged; `Store` takes a scope (defaulting to the active one).
+- Out of scope, and still reading the process directory directly: the message database,
+  the events writers, bot folders and SOUL mirrors, `config.json` (including engine
+  configuration), attachments, checkpoints, skill state, routines/webhooks/calendar files,
+  provider account directories, MCP tool results and the memory journal. With one active
+  scope today the behavior is identical; the remainder is what E02 continues with.
+- Acceptance: two disposable scopes share no path; a store built for a workspace reads that
+  workspace's bots and reads them again on restart; a store built without a scope uses the
+  process's data directory; the running app still reads and writes the same data directory.
+- Checks: `npx vitest run server/runtime/scope.test.ts server/persistence/store.test.ts`,
+  `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `npx vitest run server src scripts`,
+  and a throwaway boot reading bots/config back over HTTP.
+
+Status: implemented and verified. Evidence: `server/runtime/scope.test.ts` (3 tests: paths
+derived from a directory, two scopes share nothing, the active scope equals the process data
+directory) and `server/persistence/store.test.ts` (now 3 tests, including two disposable
+workspaces whose stores see only their own bots and see them again after a restart);
+`pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0 (29 folders);
+`npx vitest run server src scripts` 108 files / 529 tests pass. Throwaway boot with
+`COLONIE_PROFILE=1` and a temp `COLONIE_DATA_DIR`: `/api/health` 200, `/api/bots` 200 (the
+fresh workspace's default bot), `/api/instances` 200 (the default pair), and `bots.json`,
+`bots/`, `events/`, `native/` and `messages.db` all appeared inside that data directory with
+no error in the start log. The two inherited `pnpm test:electron` failures are unchanged.
+
 ## Active engineering stage: E01 — enforceable architecture checks
 
 Owner priority is deliberate improvement of architecture, folder/file organization,

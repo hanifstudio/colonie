@@ -19,8 +19,9 @@ one-line change here.
   pipeline, SSE client streams, the provider registry, the bus, config status, permission
   and approval resolution, the desktop channel, screen polling, process lifecycle, and the
   memory-upkeep wiring that `index.ts` supplies collaborators to.
-- `server/runtime/` — Process environment: data/config paths and the data-dir lease,
-  graceful shutdown and restart, child-process bookkeeping, exit.
+- `server/runtime/` — Process environment: the workspace scope that owns a workspace's
+  paths (data, native, events, registry files), the data-dir lease, graceful shutdown and
+  restart, child-process bookkeeping, exit.
 - `server/routes/` — HTTP adapters, one module per resource (`bots`, `thread-respond`,
   `teams-export`, `desktop-viewer`, …), plus the shared route contract `table.ts`. Route
   modules depend on features, never the reverse.

@@ -3,6 +3,44 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.1: the workspace owns its paths (first slice)
+
+Owner decision: start the workspace foundation. Single session, Node 24.13.1. The blueprint's
+E02 asks for workspace paths, configuration, credential references, repository construction
+and shutdown ownership at bootstrap, migrating one existing boundary first.
+
+- New `server/runtime/scope.ts`: a `WorkspaceScope` names every path a workspace owns
+  (`dataDir`, `nativeDir`, `eventsDir`, `bots.json`, `groups.json`, the thread-model-copies
+  marker, the pre-database thread files). `activeWorkspaceScope()` is the workspace the
+  process runs in, derived from the data directory it was started with, so the Local path is
+  unchanged.
+- `server/persistence/store.ts` is the first migrated boundary: the module no longer joins
+  the process data directory itself; the registry files, thread files, events/native thread
+  logs and the skill-state deletion all come from `this.scope`, and the constructor takes a
+  scope (default: the active one). `server/index.ts` is untouched, so the running app builds
+  the same store it did before.
+- Still reading the process directory (recorded in HANDOVER as the E02 remainder): the
+  message database, events writers, bot folders/SOUL mirrors, `config.json` and engine
+  configuration, attachments, checkpoints, routines/webhooks/calendar files, provider
+  account directories, MCP tool results, the memory journal.
+
+Evidence. `server/runtime/scope.test.ts` (3 tests: paths derived from a directory, two
+workspaces sharing no path, the active scope equal to the process data directory) and
+`server/persistence/store.test.ts` (3 tests; the new one builds two disposable workspaces
+whose stores see only their own bots, and sees them again in a new store on the same
+workspace = restart). The first attempt failed honestly: a minimal bot fixture lacked the
+thread the loader reads a task title from, so `readThread` got `undefined`; the fixture now
+carries the thread and the test passes for the right reason. `pnpm typecheck` 0 errors,
+`pnpm lint` clean, `pnpm structure:check` exit 0 (29 folders, map line updated for
+`server/runtime/`), `npx vitest run server src scripts` 108 files / 529 tests pass. Throwaway
+boot (`COLONIE_PROFILE=1`, temp `COLONIE_DATA_DIR`): `/api/health` 200, `/api/bots` 200 (the
+fresh workspace's default bot), `/api/instances` 200 (the default pair), `bots.json`,
+`bots/`, `events/`, `native/`, `messages.db` created inside that data directory, no error in
+the log.
+
+Not proven: two workspaces running at once (the scope is a value, but the app still builds
+one), and every boundary in the remainder above. No visible UI change yet.
+
 ## 2026-10-19 — a named account is now an engine of the system the app runs
 
 Owner decision: adapt the two "add account" screens instead of hiding them. Single session,
