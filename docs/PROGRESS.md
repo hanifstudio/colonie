@@ -20,11 +20,10 @@ hot; they asked whether running dev servers could be killed. Single session, Nod
   authority) and had gone misleading: their headline still said "rooms retirement" and their focus
   was a milestone finished on October 18.
 - Kept, deliberately: the raw run logs that PROGRESS cites as evidence, the working tools
-  (`type-import-audit.py`, the index/db analysis scripts, the patch and carve helpers), and the
-  batch launchers (`claude-autopilot.py`, `claude-team.py`) — because 35 worktrees under
-  `.worktrees/claude-team-20261017-192725/` and `/private/tmp/colonie-base` each hold uncommitted
-  changes (26 to 223 files), which is the interrupted batch's WIP. Removing those is a decision
-  about what is already integrated, not housekeeping.
+  (`type-import-audit.py`, the index and database analysis scripts), and the batch launchers
+  (`claude-autopilot.py`, `claude-team.py`), because the 35 worktrees under
+  `.worktrees/claude-team-20261017-192725/` hold uncommitted changes (26 to 223 files each): the
+  interrupted batch's WIP. Removing those is a decision about what is already integrated.
 - Cleaned 264 leftover fixture directories from the system temporary folder (all named `colonie-*`):
   the temporary folder went from 19 GB to 508 MB. Finding, corrected while checking: the test
   setup does remove its throwaway home (`server/testing/setup.ts` `afterAll`), and one run of a
@@ -32,11 +31,32 @@ hot; they asked whether running dev servers could be killed. Single session, Nod
   before their cleanup ran — accumulating until they were removed by hand, which is what happened
   here. Not fixed: nothing reclaims them automatically.
 
-Evidence: `ls`/`du` before and after (264 directories, 19 GB → 508 MB), `ps` showing no node or
-server process and no process holding a workspace data directory, a single-file test run leaving
-no fixture behind after the cleanup above, and `git status` inside every worktree showing its
-uncommitted file count (the reason they stay). Documents updated so nothing points at a deleted
-file: the owner-board reference, the monitor paragraph and the batch-record sentence in HANDOVER.
+Owner rule for the rest (same day): look at the date and delete anything from before 17 October.
+Applied to the leftovers while keeping every worktree of the 17 October batch:
+
+- `/private/tmp/colonie-base` (created 16 October) removed as a real worktree with
+  `git worktree remove --force`: 419 MB. Its commit `fb1f0e86` is reachable from `main` and
+  `restructure`, so no commit was lost; its only untracked content was two scratch folders
+  (`.devone/evidence`, `.omb-scratch/verify-tools`).
+- 127 `/private/tmp/colonie-*` entries from 14–16 October removed, 12 MB. Checked first that this
+  breaks no citation: every `/tmp/colonie-*` path named in this log is from 17 October or later and
+  still present (each mention was resolved; the two apparent misses were the deleted worktree and a
+  wildcard prefix, not files).
+- `.colonie-dev` entries from before 17 October removed (660 MB to 46 MB): the Playwright browser
+  cache, the check-evidence folder, the UI preview build, generated art, and the small patch, cad
+  and probe helpers. Nothing in the current tree referenced the cache, and the documents cite none
+  of them.
+- Stayed, because they are from 17 October or later: the `.colonie-dev/team/` lane files, both
+  launchers, and the run logs.
+
+Evidence: `ls`/`du` before and after (264 fixture directories 19 GB to 508 MB, `.colonie-dev` 660 MB
+to 46 MB, the removed worktree 419 MB and 12 MB of scratch), `ps` showing no node or server process
+and no process holding a workspace data directory, a single-file test run leaving no fixture behind
+after the cleanup above, `git merge-base --is-ancestor` proving `fb1f0e86` is in `main`,
+`git status` inside every worktree showing its uncommitted file count (why they stay), and the
+per-citation check of the `/tmp` paths. Documents updated so nothing points at a deleted file: the
+owner-board reference, the monitor paragraph and the batch-record sentence in HANDOVER, and the
+worktree mention below.
 
 Not proven: whether the worktree WIP is already integrated. No user-visible change: these
 artifacts are local development scratch, never shipped and never read by the app.
@@ -463,7 +483,8 @@ Single OpenCode session, Node 24.13.1 (`$HOME/.nvm/versions/node/v24.13.1/bin`),
 one heavy job at a time. Raw logs stay in `.colonie-dev/` (untracked).
 
 - **The first regression count was wrong.** `vitest run <27 red files>` in the
-  pre-batch worktree `/private/tmp/colonie-base` (`fb1f0e86`) reported failures
+  pre-batch worktree `/private/tmp/colonie-base` (`fb1f0e86`; the worktree was removed on
+  19 October by the owner's date rule, the commit is still in `main`) reported failures
   for 7 files that all died with `Cannot find package '@hpke/core'`: the batch
   removed that dependency from `package.json` while the old source still imports
   it (`server/phone-secret.ts`), and the worktree's `node_modules` symlink had no

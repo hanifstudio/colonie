@@ -709,10 +709,12 @@ sweeping WIP into commits. Retained follow-ups: `steer-queue` item 7 (gate the
 runtime decision. Lane task files stay in `.colonie-dev/team/tasks/` and
 `python3 .colonie-dev/claude-autopilot.py status` reports the stopped state. The
 batch's progress page was deleted on October 19 with the other stale monitor
-artifacts; the batch's record is PROGRESS. Its worktree WIP is still on disk —
-35 worktrees under `.worktrees/` plus `/private/tmp/colonie-base`, each with
-uncommitted changes — and must not be removed before deciding what in it is
-already integrated. These ignored local tools do not change application ACP.
+artifacts; the batch's record is PROGRESS. The 35 worktrees under
+`.worktrees/claude-team-20261017-192725/` stay: each holds uncommitted changes and
+is the interrupted batch's WIP, so what is already integrated has to be decided
+before they are removed. The older `/private/tmp/colonie-base` worktree was removed
+on October 19 under the owner's before-17-October rule; its commit is in `main`.
+These ignored local tools do not change application ACP.
 
 CI evidence that justifies doing this now: after the static job went green,
 the remaining red vitest shards are dominated by `server/index.test.ts` (68
