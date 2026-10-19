@@ -44,6 +44,7 @@ import environmentsModule from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { acquireDataDirLease } from "./data-dir-lease.mjs";
+import { activeWorkspace } from "./local-workspaces.mjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
 const nativeActions = nativeDesktopActions(process.platform);
@@ -271,11 +272,16 @@ const serverSupervisor = createServerSupervisor({
 });
 
 function desktopDataDir() {
-  // Match the historical desktop fallback for an unset or empty override,
-  // then pass this exact resolved path to the utility child. server/config.ts
-  // intentionally treats an empty COLONIE_DATA_DIR differently, so inheriting it
-  // without normalization would lease one directory and write another.
-  return process.env.COLONIE_DATA_DIR || path.join(app.getPath("home"), ".colonie");
+  // The workspace this app runs owns this directory, and two workspaces are two
+  // directories, never one. An override wins even when it is set but empty: the
+  // server (server/config.ts) intentionally treats an empty COLONIE_DATA_DIR
+  // differently, so inheriting it without normalization would lease one
+  // directory and write another. With no list of extra workspaces — every
+  // installation today — this resolves to the historical fallback.
+  return activeWorkspace({
+    home: app.getPath("home"),
+    userData: process.env.COLONIE_USER_DATA || app.getPath("userData"),
+  }).dir;
 }
 
 async function stopUtilityServer(proc, timeoutMs = UTILITY_SERVER_STOP_TIMEOUT_MS) {

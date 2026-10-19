@@ -3,6 +3,48 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.3: the app knows which workspaces exist
+
+Owner decision: continue to the part that lets two workspaces run together. Single session,
+Node 24.13.1. Investigated first, coded second: the engine side already runs two workspaces
+at once, which a probe confirmed before any code changed — two throwaway servers on two data
+directories and two ports, both healthy, each writing and reading back its own `features` in
+its own `config.json`, each holding its own `colonie-server.lease` with its own pid, no error
+or refusal in either log. The lease module is per data directory by design and refuses a
+second process on one directory, so "two workspaces" is two processes with nothing in common
+until something points them at the same directory.
+
+- New `electron/local-workspaces.mjs` (Electron-free, so it is testable): the workspace list
+  (`workspaces.json`, in the app's own data folder — never inside a workspace, since the list
+  is what points at workspaces), the default workspace at the historical directory, and the
+  rule that an explicit `COLONIE_DATA_DIR` always means the default workspace, so isolated
+  rigs and second-instance development keep working.
+- Records that would make two workspaces share state are dropped, not trusted: a copy aimed
+  at the default directory, a repeated id, a nameless record, a record without a directory.
+  This is the same harm the data-directory lease exists to prevent, caught one layer earlier.
+- `electron/main.mjs` resolves its data directory through the active workspace record. With
+  no list on disk that is exactly the historical `COLONIE_DATA_DIR || ~/.colonie`, which the
+  tests assert rather than assume.
+- Deliberately not in this slice: creating a workspace (journey J01, with its own engine
+  onboarding), stopping and starting a server when the active workspace changes, and the
+  visible switcher. The list reader's production consumer is that switcher; today only the
+  active-workspace resolution is on the live path.
+
+Evidence. `electron/local-workspaces.node-test.mjs` 5 tests pass, two of them about the
+safety rule above; the 5 run inside `pnpm test:electron` (265 tests, 262 passing, the same
+two inherited `mac-updater`/`vendor-updater` failures). `node --check electron/main.mjs`
+clean; `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0. First
+test run failed honestly: the fixture wrote the list into a directory that did not exist yet,
+so the test created it — the module itself stays read-only.
+
+Not proven: a desktop launch with the module wired (no isolated desktop launch was run), and
+nothing visible changes in the app yet. Also found while looking, and not touched: the
+verification guide and `package.json` still name check tooling that the clean-slate commit
+removed — `scripts/control-colonie.ts`, `scripts/mcp-server.ts`, the `scripts/colonie/
+{ui,package,provider}-check.ts` launchers, and the `scripts/testing/verification-docs.test.ts`,
+`content-boundaries.test.ts` and `index-route-ratchet.test.ts` files the guide points at — and
+`.github/workflows/ci.yml` still runs the removed `scripts/ci-scope.mjs`.
+
 ## 2026-10-19 — E02.2: the settings and the conversations belong to the workspace
 
 Owner decision: continue with the parts that hold history and sign-ins — the settings file

@@ -197,6 +197,54 @@ there and held the conversation tables (`messages`, `thread_state`, `memory_file
 `command_receipts`, `chat_followups` and the search indexes); no error in the start log. The
 two inherited `pnpm test:electron` failures are unchanged.
 
+## Active engineering task: E02.3 — the app knows which workspaces exist
+
+Owner decision, October 19: continue to the part that lets two workspaces run together. The
+engine side already does: two servers with two data directories run at once with nothing in
+common (each data directory carries its own lease, and a second process on the same
+directory is refused), which this task verified before writing any code. What the app itself
+still lacks is knowing which workspaces exist and where each one lives.
+
+- Outcome: the desktop can name the workspaces it knows about and resolve the directory each
+  one owns; the workspace it runs now is a record, not a path the app composes inline.
+- Scope: a new Electron-free module (`electron/local-workspaces.mjs`) holding the workspace
+  list (`workspaces.json` in the app's own data folder, never inside a workspace — the list
+  is what points at the workspaces), the default workspace at the historical directory, and
+  the rule that an explicit `COLONIE_DATA_DIR` always means the default workspace, so
+  isolated rigs keep working. `electron/main.mjs` resolves its data directory through the
+  active workspace record; with one workspace the resolved directory is exactly what it was
+  (this is asserted, not assumed).
+- Not in this slice: creating a workspace (that is journey J01, with its own engine
+  onboarding), stopping and starting a server when the active workspace changes, and the
+  visible switcher. The module's consumer for the list is that switcher; today only the
+  active-workspace resolution is on the live path.
+- Acceptance: the default workspace is the directory the app has always used for an unset,
+  empty and explicit `COLONIE_DATA_DIR`; a listed workspace keeps its own directory; no two
+  workspaces resolve to the same directory and a malformed or unknown list degrades to the
+  default rather than failing; the desktop's data directory resolves to the same value as
+  before; syntax, unit tests, lint and the structure check stay clean.
+- Checks: `node --test electron/local-workspaces.node-test.mjs`, `node --check
+  electron/main.mjs`, `pnpm test:electron` (the two inherited `mac-updater`/`vendor-updater`
+  failures stay explicit), `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, and a
+  throwaway two-workspace boot as the engine-side evidence this rests on.
+
+Status: implemented and verified. Evidence: `electron/local-workspaces.mjs` with
+`electron/local-workspaces.node-test.mjs` (5 tests: the default directory for unset/empty/
+explicit override, a listed workspace keeping its own directory, an explicit override always
+resolving to the default workspace, no two workspaces sharing a directory — a listed copy of
+the default directory, a repeated id, a nameless record and a record without a directory are
+all dropped — and a missing, unreadable or unknown list leaving the default workspace).
+`electron/main.mjs` resolves its data directory through the active workspace record.
+`node --check electron/main.mjs` clean; `pnpm test:electron` 265 tests with 262 passing and
+the same two inherited `mac-updater`/`vendor-updater` failures, the 5 new tests among the
+passing; `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0.
+Engine-side probe before writing any of this: two throwaway servers (two data directories,
+two ports) both answered `/api/health` 200, each wrote and read back its own `features` in
+its own `config.json`, each held its own `colonie-server.lease` with its own pid, and neither
+log showed an error or a refusal. Not verified: a desktop launch with the module wired (no
+isolated desktop launch was run; the resolved data directory matching the previous value is
+asserted by tests, not observed in a packaged shell), and nothing visible in the UI changes.
+
 ## Active engineering stage: E01 — enforceable architecture checks
 
 Owner priority is deliberate improvement of architecture, folder/file organization,
