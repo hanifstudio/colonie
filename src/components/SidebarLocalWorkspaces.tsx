@@ -217,6 +217,9 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
     label: t("sidebar.workspace.new"),
     icon: <HIcon icon={PlusSignIcon} size={18} />,
     disabled: busy !== "",
+    // Opening the name form is the start of something, not a choice: closing
+    // the menu here would put the form away again before it was drawn.
+    keepOpen: true,
     onSelect: () => { setCreating(true); setError(""); setNotice(""); },
   });
   if (notice) {
