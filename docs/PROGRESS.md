@@ -3,6 +3,44 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — housekeeping: the stale monitor is gone, and 18 GB of test leftovers
+
+Owner instruction: remove the old monitoring and planning artifacts, and check why the machine was
+hot; they asked whether running dev servers could be killed. Single session, Node 24.13.1.
+
+- Nothing to kill. No dev server, test runner, Electron or bundler process was running, and no
+  process held a workspace data directory: every probe from the previous sessions was already
+  stopped. The heat at the time came from macOS itself and unrelated apps — `duetexpertd` at 84%
+  CPU, `WindowServer`, Ghostty, Arc and the agent processes — which is not this repository's doing
+  and was left alone.
+- Deleted from the git-ignored `.colonie-dev/` (19 files, 1.9 MB): the roadmap snapshot and its two
+  images, the roadmap-monitor dispatch/result/stderr files, the `claude-progress` page, JSON, image
+  and template, the `work-monitor` script with its output, pid, page and state, the work-reds data,
+  and the `claude-last-*` dispatch results. They were derived views (the documents are the
+  authority) and had gone misleading: their headline still said "rooms retirement" and their focus
+  was a milestone finished on October 18.
+- Kept, deliberately: the raw run logs that PROGRESS cites as evidence, the working tools
+  (`type-import-audit.py`, the index/db analysis scripts, the patch and carve helpers), and the
+  batch launchers (`claude-autopilot.py`, `claude-team.py`) — because 35 worktrees under
+  `.worktrees/claude-team-20261017-192725/` and `/private/tmp/colonie-base` each hold uncommitted
+  changes (26 to 223 files), which is the interrupted batch's WIP. Removing those is a decision
+  about what is already integrated, not housekeeping.
+- Cleaned 264 leftover fixture directories from the system temporary folder (all named `colonie-*`):
+  the temporary folder went from 19 GB to 508 MB. Finding, corrected while checking: the test
+  setup does remove its throwaway home (`server/testing/setup.ts` `afterAll`), and one run of a
+  single test file left nothing behind. So these came from runs that were interrupted or killed
+  before their cleanup ran — accumulating until they were removed by hand, which is what happened
+  here. Not fixed: nothing reclaims them automatically.
+
+Evidence: `ls`/`du` before and after (264 directories, 19 GB → 508 MB), `ps` showing no node or
+server process and no process holding a workspace data directory, a single-file test run leaving
+no fixture behind after the cleanup above, and `git status` inside every worktree showing its
+uncommitted file count (the reason they stay). Documents updated so nothing points at a deleted
+file: the owner-board reference, the monitor paragraph and the batch-record sentence in HANDOVER.
+
+Not proven: whether the worktree WIP is already integrated. No user-visible change: these
+artifacts are local development scratch, never shipped and never read by the app.
+
 ## 2026-10-19 — E02.3: the app knows which workspaces exist
 
 Owner decision: continue to the part that lets two workspaces run together. Single session,

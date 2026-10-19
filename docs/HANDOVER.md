@@ -346,7 +346,7 @@ started, and review.
   `proxy-paths.test.ts` asserts every `SPAWNED_PROXIES` entry exists.
 - Each unit ships its own test, per `server/routes/README.md`: 29 files, 162 tests, all green beside
   `pnpm typecheck`, `pnpm lint` and `pnpm build:server`. The old ratchet test is gone with the clean
-  slate, so route counts live in PROGRESS and the owner board (`.colonie-dev/work-state.json`).
+  slate, so route counts live in PROGRESS.
 - Verification recipe, learned the hard way: `env -u COMPOSIO_API_KEY HOME=$(mktemp -d)
   COLONIE_PROFILE=1 node server/index.ts`. `COLONIE_DATA_DIR` alone is not isolation —
   `config.json` is read from `homedir()`, and the shell exports `COMPOSIO_API_KEY`,
@@ -636,12 +636,14 @@ each checkpoint; it is a view of these docs, not a second planning authority.
 The first autonomous verification run was interrupted to replace the monitor;
 source WIP is preserved and no final verification checkpoint was returned. Resume
 the same source verification after this tooling correction; do not mark it done.
-The replacement uses `.colonie-dev/claude-roadmap.json` as a derived snapshot.
-Each autonomous checkpoint must return updates for its stable roadmap IDs with
-completed outcomes, remaining acceptance and source references; the launcher
-merges them and regenerates the HTML. A finished slice cannot mark an entire
-P/E stage done. The Done view includes completed parts of open milestones;
-Remaining includes deferred future work, which remains outside the active scope.
+The replacement derived its snapshot from these documents. Owner decision
+(October 19): those local monitor artifacts were deleted as stale — the roadmap
+snapshot, the progress pages, the monitor script and its state, and the dispatch
+files. A derived view is produced from these documents on request and never
+replaces them. The rules the monitor carried stay in force: a checkpoint returns
+outcomes, remaining acceptance and references for its stable roadmap IDs, a
+finished slice cannot mark an entire P/E stage done, and deferred future work
+stays deferred.
 
 Owner workflow update (October 17, superseding the parent-review trial): Claude
 runs the authorized work itself through `claude -p` (task selection, checks,
@@ -704,10 +706,13 @@ sweeping WIP into commits. Retained follow-ups: `steer-queue` item 7 (gate the
 `dispatching` receipt, not the turn); UI e2e files still reading removed `groups`
 (`team-lifecycle-ui`, `thinking-timer-ui`); ACP reports no adapter cost
 (`acp-runtime.ts` `turnUsage`/`finish`), so spend-cap cost assertions need a
-runtime decision. Lane task files stay in `.colonie-dev/team/tasks/`;
-`python3 .colonie-dev/claude-autopilot.py status` reports the stopped state and
-`.colonie-dev/claude-progress.html` remains the batch's own record. These ignored
-local tools do not change application ACP.
+runtime decision. Lane task files stay in `.colonie-dev/team/tasks/` and
+`python3 .colonie-dev/claude-autopilot.py status` reports the stopped state. The
+batch's progress page was deleted on October 19 with the other stale monitor
+artifacts; the batch's record is PROGRESS. Its worktree WIP is still on disk —
+35 worktrees under `.worktrees/` plus `/private/tmp/colonie-base`, each with
+uncommitted changes — and must not be removed before deciding what in it is
+already integrated. These ignored local tools do not change application ACP.
 
 CI evidence that justifies doing this now: after the static job went green,
 the remaining red vitest shards are dominated by `server/index.test.ts` (68
