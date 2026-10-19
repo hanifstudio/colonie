@@ -815,6 +815,7 @@ inspection, external writes, or a repository-wide rewrite.
 
 | Date | Entry | Status |
 |---|---|---|
+| 2026-10-19 | Changing the running workspace reopens the app: the choice is recorded, and the app goes through its normal shutdown and starts again in the chosen workspace. | User-visible behavior: the window closes and reopens, and the workspace surface says so before it happens, because unsent drafts in the old workspace are lost. In a source checkout the person opens Colonie again instead, since the launcher owns that server. Implemented as E02.4b2a. |
 | 2026-10-19 | Owner chose where the workspace switcher lives: the sidebar's profile row (the "You" area) shows the active workspace and its menu holds the workspace list and "New workspace". | UI placement for the switcher (E02.4b); the welcome flow and the rest of the working screen stay untouched. |
 | 2026-10-19 | Owner decisions on the first-run flow: the welcome/onboarding UI is kept exactly as it is for now, including the copy that mentions capabilities since retired, because the owner likes it and wants it preserved; the Local/Server choice may be shown with Server disabled, never as available. | The welcome flow is out of scope for edits; the workspace choice and workspace management live in the workspace surface (see the J01 note). |
 | 2026-10-17 | Owner answered the Q01–Q11 product questions after a plain-language review (section 10). | Recorded as decided or as machine research; P0's remaining open item is closed. |

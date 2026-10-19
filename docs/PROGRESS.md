@@ -3,6 +3,69 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-19 — E02.4b2: the app runs the workspace the person chose
+
+Asked to finish the workspace switcher, and the first honest finding was that no choice could ever
+take effect: `electron/colonie.mjs` wrote `COLONIE_DATA_DIR` into its own environment on every start,
+and `readWorkspaces` reads that value as "run the default workspace here, never a listed one". Two
+slices, both committed on `restructure`.
+
+**E02.4b2a (a705e67b) — the app owns its data directory.**
+- `electron/colonie.mjs` settles `userData` first, then resolves the workspace itself
+  (`activeWorkspace`, the same call `main.mjs` makes) and seeds that directory. It no longer writes
+  `COLONIE_DATA_DIR`, so the list can change which directory a start uses; an explicit value in the
+  environment still wins and still means the default workspace in that directory (the rig escape).
+- `electron/workspace-switch.mjs` (new, pure): the decision to change workspace — an unnamed id, an
+  id no longer listed, a record with no runnable directory, and a directory another Colonie owns are
+  each refused with their own code, and the last is refused *before* the choice is recorded. The
+  probe is the same data-directory lease a server takes, taken and given back; the running workspace
+  is answered without probing it (the app holds that lease, so a probe would report it busy).
+- `electron/main.mjs` exposes `local-workspaces:list|create|switch` through the same
+  `localWorkspaceOnly` wrapper the `environments` channels use (local sender, main window). Accepted
+  changes restart the app (`app.relaunch()` through the normal shutdown path) rather than moving the
+  lease and the server mid-life; a source checkout records the choice and asks the person to open
+  Colonie again.
+- `scripts/colonie/start.ts` resolves the active workspace for the dev server child only, and no
+  longer hands `COLONIE_DATA_DIR` to the Electron process; `colonieAppData` in
+  `electron/colonie-config.mjs` is the launcher's mirror of `app.getPath("appData")`, so both read
+  one list.
+- Repaired: `desktop:relaunch` called `relaunchAfterDesktopRemoteChange`, deleted with the companion
+  app (5eff19bc), so the macOS permission recovery's "Relaunch Colonie" button threw a
+  ReferenceError; it now calls the `relaunchColonie()` the switch uses.
+- Evidence: `pnpm test:electron` 288 tests / 285 pass (the same two inherited `mac-updater` /
+  `vendor-updater` failures); 8 new tests in `workspace-switch.node-test.mjs`, 4 in
+  `colonie-config.node-test.mjs`, 1 channel-pinning test in `preload.node-test.mjs`; `pnpm typecheck`
+  0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0; `pnpm test` 109 files / 531 tests pass.
+  Probe `.colonie-dev/probe-e02-4b2a.mjs` in a throwaway home: fresh installation → `~/.colonie`;
+  after creating "Design lab" and choosing it, the resolution the app and launcher now perform
+  returns `~/.colonie-workspaces/design-lab`; a server booted there answered `/api/health` 200, kept
+  its own `showToolCalls=true` and its own lease, while the workspace that was already there gained
+  no files; with `COLONIE_DATA_DIR` set, the resolution returns the default workspace in that
+  directory.
+
+**E02.4b2b (f3654e88) — the workspace list is in the profile menu.**
+- `src/components/SidebarLocalWorkspaces.tsx`: the profile row's menu now starts with the workspaces
+  — each by name, the running one with the accent row, a tick and "Open now" — then "New workspace…",
+  which opens an in-menu form (name field, the kind rows the first-run step uses with Server disabled
+  and "Coming later", Create and Cancel). Create opens the new workspace right away; if the switch
+  half fails, the creation still stands and both facts are said.
+- The marked row is the workspace *this session runs*, and the answers describe the next start
+  ("{app} will close and open {name}" / "Open Colonie again to use {name}"), because in a source
+  checkout the recorded choice does not move the launcher's server.
+- `src/lib/local-workspaces.ts`: the name rule (bounded by the app's own `nameMax`, carried with the
+  list), the notices and the four refusals, kept out of the component so they can be tested.
+- `SidebarPopoverMenu` gained a `custom` row (a form field or an explanation) and `onOpenChange` (a
+  half-filled form and a restart note belong to the visit); the "above" menu takes a max height and
+  scrolls. Settings gains a hairline when the section is present.
+- Evidence: `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0; `pnpm test`
+  110 files / 539 tests pass, including the 8 new tests in `src/lib/local-workspaces.test.ts`;
+  `pnpm build` succeeded and the built bundle carries the new strings.
+
+Not verified for either slice: the Electron wiring (IPC handlers, preload bridge, `app.relaunch()`)
+and how the sidebar section looks and feels — both need a real window, so a packaged build carries
+that proof. The installed `/Applications/Colonie.app` is still 0.2.0 (October 15) and predates all of
+this.
+
 ## 2026-10-19 — no second workspace can run yet (found while answering the owner)
 
 The owner asked how to create a new workspace. Answering it honestly required checking what actually

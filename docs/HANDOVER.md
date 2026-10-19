@@ -281,13 +281,10 @@ E02.4b — the switcher, in two halves.
   nobody listed is refused, and a list that cannot be read is refused rather than overwritten.
   Scope limit: the app does not call it yet — no IPC and no UI — so this half changes nothing the
   person sees. Highlighting the active workspace was done in E02.3 (it already resolves).
-- E02.4b2 — the visible half (next, not started): the sidebar's profile row shows the active
-  workspace name and its menu lists the workspaces with a "New workspace" entry (the Local/Server
-  choice appears there, with Server disabled until hosting exists); choosing one makes the app stop
-  the current server, start the server for the target directory and move the window, showing the
-  honest "preparing" state while it happens. That needs `electron/main.mjs` to stop owning one
-  `SERVER_PORT` and one data directory for the whole process lifetime, plus IPC and preload
-  exposure.
+- E02.4b2 — the visible half, in two slices: the sidebar's profile row shows the active workspace
+  and its menu lists the workspaces with a "New workspace" entry (the Local/Server choice appears
+  there, with Server disabled until hosting exists); choosing one makes the app run in that
+  workspace's directory, showing the honest state while it happens.
   Found on October 19 while answering "how do I create a workspace", and it widens this unit: no
   second workspace can actually run today. The installed app (`/Applications/Colonie.app`, 0.2.0,
   built October 15) predates the workspace foundation, and the source launcher (`pnpm colonie`,
@@ -297,19 +294,92 @@ E02.4b — the switcher, in two halves.
   app own the data directory: keep the explicit override as the developer/rig escape it is, and make
   the source launcher stop pinning it. Proof of the whole feature needs a packaged build, because the
   installed app is older than the foundation it would have to read.
+  - E02.4b2a — the app owns the data directory, and the list can change it (done).
+  - E02.4b2b — the sidebar surface: the profile menu lists the workspaces, marks the running one,
+    creates one, and reports what changing it takes (done).
+  - Decision (October 19), taken while implementing E02.4b2a: changing the workspace **restarts the
+    app** through its normal shutdown path (`app.relaunch()`), rather than stopping the running
+    server, moving the data-directory lease and starting a second one mid-life. The restart reuses
+    the paths that already exist and are exercised — lease acquired once at startup, server started
+    once, window loaded once — where an in-place move would put the lease, the supervisor and the
+    window's origin in a state nothing tests. The person sees the window close and reopen; unsent
+    drafts in the old workspace are lost, which is why the restart is never silent. The source
+    checkout cannot restart into another workspace from inside the app (the launcher owns the dev
+    server), so there the app records the choice and asks the person to open Colonie again — and the
+    launcher, now list-aware, lands in the chosen workspace.
+  - E02.4b2a outcome (this slice): the app runs the workspace it last used, and the workspace list
+    can change it. `electron/colonie.mjs` stops writing `COLONIE_DATA_DIR` into its own environment —
+    that write is what pinned every start to the default directory — and seeds the directory it
+    resolves instead; `electron/main.mjs` exposes `local-workspaces:list|create|switch` to this app's
+    own page only, and switching validates the target, proves the target directory is free with the
+    same lease a server takes, records the choice, and restarts the app.
+    `scripts/colonie/start.ts` resolves the active workspace for the dev server child while leaving
+    the Electron process unpinned, so a source checkout lands where the list says.
+  - E02.4b2a acceptance: an installation with no list still runs `~/.colonie`; no running directory
+    changes without a restart; a switch to an id nobody listed, to the already-running workspace, or
+    to a directory another Colonie owns is refused — the last one without recording anything, so the
+    app can never restart into a directory it cannot lease; a second workspace is never pointed at
+    `~/.colonie`; and a developer's explicit `COLONIE_DATA_DIR` still wins and still means "the
+    default workspace here".
+  - E02.4b2a checks: `pnpm test:electron` (the new `workspace-switch` tests beside the fifteen list
+    tests), `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `pnpm test`, and an engine probe
+    in a throwaway home: two workspaces, the recorded choice changed, and a server started in the
+    directory the app's own resolution returns.
+  - E02.4b2a not verified here: the Electron bridge and the restart need a real window, so the IPC
+    handlers and `app.relaunch()` are covered by the pure switch decision and by review, not by a
+    run; the packaged build carries that proof, and the launcher's platform app-data path is mirrored
+    from Electron (`colonieAppData`) behind a unit test rather than launched.
+  - Repaired while here: `desktop:relaunch` called `relaunchAfterDesktopRemoteChange`, which the
+    companion-app removal (5eff19bc) deleted, so the macOS permission recovery's "Relaunch Colonie"
+    button threw a ReferenceError. The handler now calls the `relaunchColonie()` the switch uses.
+  - E02.4b2b outcome: the profile row's menu starts with the workspaces on this computer — each one
+    by name, the running one marked (accent row, tick, "Open now") — then "New workspace…", which
+    opens an in-menu form: a name field and the same kind rows the first-run step uses (Local chosen,
+    Server disabled with "Coming later"), then Create and Cancel. Create opens the new workspace right
+    away; if that half fails, the creation still stands and both facts are said. The menu reports what
+    a change takes ("{app} will close and open {name}" / "Open Colonie again to use {name}"), and the
+    marked row is the workspace *this session runs*, not the recorded choice — the two differ in a
+    source checkout until Colonie is opened again.
+  - E02.4b2b scope: `src/components/SidebarLocalWorkspaces.tsx` (the section and its answers),
+    `src/lib/local-workspaces.ts` (the name rule, the notices and the four refusals, so each answer is
+    testable without a bridge), `src/components/SidebarProfileMenu.tsx` (the section leads the menu;
+    Settings gains a hairline when it is present) and two small additions to
+    `src/components/SidebarPopoverMenu.tsx`: a `custom` row (a form field or an explanation with the
+    menu's own padding) and `onOpenChange` (so a half-filled form and a note about a restart belong to
+    the visit). The menu also takes a max height and scrolls, because a list of workspaces has no
+    natural end. English strings only; other packs fall back. The app's name bound travels with the
+    list (`LocalWorkspaceState.nameMax`), so the field refuses exactly what the workspace module
+    refuses instead of a second rule that drifts.
+  - E02.4b2b acceptance: the running workspace is marked and named; another one can be chosen, and the
+    menu says what happens next rather than going quiet; a new workspace can be created and is opened;
+    Server is visibly disabled and cannot be clicked; a name that is empty refuses with a reason; the
+    menu stays honest in a source checkout, where the marked workspace does not move until Colonie is
+    opened again.
+  - E02.4b2b checks: `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `pnpm test` (including the
+    eight new tests in `src/lib/local-workspaces.test.ts`) and `pnpm build`, with the new strings
+    confirmed in the built bundle.
+  - E02.4b2b not verified: how it looks and feels. No browser or Electron window was launched here, so
+    the visual pass is the owner's; and the main-window wiring — the IPC calls, the restart — needs a
+    packaged build to be exercised end to end.
 
 Owner decisions, October 19, that bound this unit: the current welcome/onboarding flow is not
 edited at all — not its beats, layout or copy, including text about capabilities since retired —
 so the first workspace is still the one the app creates for the person and no Local/Server question
 is added to onboarding. The Local/Server choice belongs to the workspace surface, with **Server
 shown disabled** until hosting exists, never as available. The switcher lives in the **sidebar's
-profile row**. Recorded in the blueprint (J01 note and decision log).
+profile row**. Recorded in the blueprint (J01 note and decision log). The owner refined the
+onboarding half the same day: E02.5 adds the workspace-kind step to that flow.
 
-Status: E02.4a and E02.4b1 implemented and verified; E02.4b2 not started. `createLocalWorkspace`
-and `setActiveWorkspace` live in `electron/local-workspaces.mjs` with ten new tests in
-`electron/local-workspaces.node-test.mjs` (15 tests pass in that file). `pnpm test:electron` 275
-tests with 272 passing and the same two inherited `mac-updater`/`vendor-updater` failures;
-`pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0.
+Status: E02.4a, E02.4b1, E02.4b2a and E02.4b2b implemented and verified as far as this machine can
+verify them. `createLocalWorkspace`, `setActiveWorkspace` and `readWorkspaces` live in
+`electron/local-workspaces.mjs` (15 tests in its node-test file); the switch decision is
+`electron/workspace-switch.mjs` (8 tests); the launcher's app-data mirror is `colonieAppData` in
+`electron/colonie-config.mjs` (4 tests); the preload's channel names are pinned in
+`electron/preload.node-test.mjs`; the sidebar's words are `src/lib/local-workspaces.ts` (8 vitest
+tests). `pnpm typecheck` 0 errors; `pnpm lint` clean; `pnpm structure:check` exit 0; `pnpm test` 110
+files / 539 tests pass; `pnpm build` succeeded with the new strings in the bundle;
+`pnpm test:electron` 288 tests with 285 passing and the same two inherited
+`mac-updater`/`vendor-updater` failures.
 
 Engine evidence, E02.4a: a throwaway home where the module created "Design lab", then a server
 started against that directory (its own free port, `COLONIE_PROFILE=1`) answered `/api/health` 200,
@@ -322,8 +392,17 @@ the module resolved answered `/api/health` 200 and kept its own setting — `tru
 `false` in "Client work" — with both directories and both records intact afterwards. Switching the
 record moved no data.
 
-Not verified: the app does not call either function yet (no IPC, no UI, no server restart), so
-nothing visible changes in the app. E02.4b2 (the sidebar switcher and the restart) is not started.
+Engine evidence, E02.4b2a (`.colonie-dev/probe-e02-4b2a.mjs`, throwaway home): a fresh installation
+resolves `~/.colonie`; after creating "Design lab" and choosing it, the same `activeWorkspace()` call
+`electron/colonie.mjs` and `scripts/colonie/start.ts` now make returns that directory, with both
+records intact on disk; a server booted in it answered `/api/health` 200, kept its own
+`features.showToolCalls=true` and its own lease, while the workspace that was already there gained no
+files and has no `config.json`; with `COLONIE_DATA_DIR` set the resolution returns the default
+workspace in that directory, as before.
+
+Not verified: the app's own wiring — the IPC handlers, the preload bridge and `app.relaunch()` — and
+how the sidebar section looks and feels. Both need a real window, so a packaged build carries that
+proof; everything above is module, engine and build evidence. Nothing was pushed.
 
 ## Active engineering task: E02.5 — the welcome flow asks which kind of workspace
 
