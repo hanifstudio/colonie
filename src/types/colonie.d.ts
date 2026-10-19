@@ -6,8 +6,9 @@ const __APP_VERSION__: string;
 
 /** One Local workspace: a name and the data folder the app runs in. */
 type LocalWorkspace = { id: string; name: string; dir: string };
-/** The list as the app reads it, with the workspace a start would run. */
-type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[] };
+/** The list as the app reads it, with the workspace a start would run, and the
+ * longest name the app accepts — so a field refuses what the app would refuse. */
+type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nameMax: number };
 
 
   type DesktopCapabilities = {

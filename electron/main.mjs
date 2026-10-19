@@ -44,7 +44,7 @@ import environmentsModule from "./environments.cjs";
 import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { acquireDataDirLease } from "./data-dir-lease.mjs";
-import { activeWorkspace, createLocalWorkspace, readWorkspaces, setActiveWorkspace } from "./local-workspaces.mjs";
+import { activeWorkspace, createLocalWorkspace, readWorkspaces, setActiveWorkspace, WORKSPACE_NAME_MAX } from "./local-workspaces.mjs";
 import { planWorkspaceSwitch } from "./workspace-switch.mjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
@@ -1828,6 +1828,13 @@ function localWorkspaceMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** The list as the page reads it. The name bound travels with it so the field
+ * refuses what the workspace module would refuse, instead of a second rule that
+ * drifts from it. */
+function localWorkspaceState() {
+  return { ...readWorkspaces(localWorkspaceOptions()), nameMax: WORKSPACE_NAME_MAX };
+}
+
 /** Point the app at one of its workspaces. The choice is recorded only after
  * the decision module has accepted the target, and the app then comes back in
  * that workspace rather than moving its own server mid-life. */
@@ -1854,16 +1861,16 @@ function switchLocalWorkspace(id) {
     setTimeout(relaunchColonie, 250);
     return { ok: true, mode: plan.mode, target: plan.target };
   }
-  return { ok: true, mode: plan.mode, target: plan.target, state: readWorkspaces(options) };
+  return { ok: true, mode: plan.mode, target: plan.target, state: localWorkspaceState() };
 }
 
-ipcMain.handle("local-workspaces:list", localWorkspaceOnly("local-workspaces:list", () => readWorkspaces(localWorkspaceOptions())));
+ipcMain.handle("local-workspaces:list", localWorkspaceOnly("local-workspaces:list", () => localWorkspaceState()));
 
 ipcMain.handle("local-workspaces:create", localWorkspaceOnly("local-workspaces:create", (_event, name) => {
   const options = localWorkspaceOptions();
   try {
     const workspace = createLocalWorkspace({ ...options, name });
-    return { ok: true, workspace, state: readWorkspaces(options) };
+    return { ok: true, workspace, state: localWorkspaceState() };
   } catch (error) {
     return { ok: false, message: localWorkspaceMessage(error) };
   }

@@ -13,7 +13,8 @@ import { usePopoverDismiss } from "@/hooks/use-popover-dismiss";
 
 export interface SidebarMenuItem {
   key: string;
-  label: string;
+  /** absent only on a `custom` row, which draws its own content */
+  label?: string;
   /** a second, quieter line under the label (where "Connect your phone" connects to) */
   subtitle?: string;
   /** a third, quieter line still: a short note (why something is not offered yet) */
@@ -34,6 +35,10 @@ export interface SidebarMenuItem {
   heading?: string;
   /** rendered at the trailing edge (a spinner, a status dot) */
   trailing?: React.ReactNode;
+  /** a row that is not an action: a form field, or an explanation belonging to
+   * the rows around it. Drawn with the menu's own padding, and `heading` still
+   * draws above it. The row takes no clicks of its own. */
+  custom?: React.ReactNode;
   /** the menu normally closes on select; an item that reports progress in
    * place (the update check) keeps it open */
   keepOpen?: boolean;
@@ -52,6 +57,7 @@ export function SidebarPopoverMenu({
   ariaLabel,
   openOnHover = false,
   placement = "above",
+  onOpenChange,
   renderTrigger,
 }: {
   /** "above" stretches over the trigger's width and opens upward (the
@@ -61,6 +67,9 @@ export function SidebarPopoverMenu({
   items: SidebarMenuItem[];
   ariaLabel: string;
   openOnHover?: boolean;
+  /** told whenever the menu opens or closes, so a caller can load what the menu
+   * shows and drop what only mattered while it was open */
+  onOpenChange?: (open: boolean) => void;
   renderTrigger: (state: { open: boolean }) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -70,6 +79,9 @@ export function SidebarPopoverMenu({
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const menuId = useId();
   const motion = useMenuMotion(open);
+  const openChangeRef = useRef(onOpenChange);
+  openChangeRef.current = onOpenChange;
+  useEffect(() => { openChangeRef.current?.(open); }, [open]);
 
   const clearTimers = () => {
     if (openTimer.current) clearTimeout(openTimer.current);
@@ -137,7 +149,7 @@ export function SidebarPopoverMenu({
           {...motion.exitProps}
           className={cn(
             "absolute z-40 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1.5 shadow-2xl shadow-black/50",
-            placement === "below" ? "top-full right-0 mt-1 w-72 max-w-[calc(100vw-2rem)]" : "bottom-full left-0 right-0 mb-1",
+            placement === "below" ? "top-full right-0 mt-1 w-72 max-w-[calc(100vw-2rem)]" : "bottom-full left-0 right-0 mb-1 max-h-[70vh] overflow-y-auto",
             motion.className,
           )}
         >
@@ -145,49 +157,53 @@ export function SidebarPopoverMenu({
             <div key={item.key}>
               {item.separatorBefore && <div className="my-1.5 h-px bg-hairline/50" />}
               {item.heading && <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">{item.heading}</div>}
-              <button
-                type="button"
-                role="menuitem"
-                data-tour={item.tourId}
-                disabled={item.disabled}
-                onClick={() => {
-                  item.onSelect();
-                  if (!item.keepOpen) close();
-                }}
-                className={cn(
-                  "flex w-full cursor-pointer items-center gap-3 px-3.5 py-2 text-left text-[14px] disabled:opacity-60",
-                  item.active ? "bg-raised text-ink" : "text-ink hover:bg-raised/70",
-                )}
-              >
-                {item.icon && (
-                  <span
-                    className={cn(
-                      "flex size-5 shrink-0 items-center justify-center",
-                      item.active ? "text-accent" : "text-ink-secondary",
-                    )}
-                  >
-                    {item.icon}
-                  </span>
-                )}
-                {item.subtitle || item.note ? (
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">{item.label}</span>
-                    {item.subtitle && <span className="truncate text-[12px] text-ink-secondary">{item.subtitle}</span>}
-                    {item.note && <span className="text-[11.5px] leading-snug text-ink-tertiary">{item.note}</span>}
-                  </span>
-                ) : (
-                  <span className="flex-1 truncate">{item.label}</span>
-                )}
-                {item.trailing}
-                {item.attention && (
-                  <span
-                    className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      item.attentionTone === "accent" ? "bg-accent" : "bg-danger",
-                    )}
-                  />
-                )}
-              </button>
+              {item.custom ? (
+                <div className="px-3.5">{item.custom}</div>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-tour={item.tourId}
+                  disabled={item.disabled}
+                  onClick={() => {
+                    item.onSelect();
+                    if (!item.keepOpen) close();
+                  }}
+                  className={cn(
+                    "flex w-full cursor-pointer items-center gap-3 px-3.5 py-2 text-left text-[14px] disabled:opacity-60",
+                    item.active ? "bg-raised text-ink" : "text-ink hover:bg-raised/70",
+                  )}
+                >
+                  {item.icon && (
+                    <span
+                      className={cn(
+                        "flex size-5 shrink-0 items-center justify-center",
+                        item.active ? "text-accent" : "text-ink-secondary",
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+                  {item.subtitle || item.note ? (
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{item.label}</span>
+                      {item.subtitle && <span className="truncate text-[12px] text-ink-secondary">{item.subtitle}</span>}
+                      {item.note && <span className="text-[11.5px] leading-snug text-ink-tertiary">{item.note}</span>}
+                    </span>
+                  ) : (
+                    <span className="flex-1 truncate">{item.label}</span>
+                  )}
+                  {item.trailing}
+                  {item.attention && (
+                    <span
+                      className={cn(
+                        "size-2 shrink-0 rounded-full",
+                        item.attentionTone === "accent" ? "bg-accent" : "bg-danger",
+                      )}
+                    />
+                  )}
+                </button>
+              )}
             </div>
           ))}
         </div>
