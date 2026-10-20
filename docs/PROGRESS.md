@@ -3,6 +3,27 @@
 Product direction is in [the blueprint](COLONIE-BLUEPRINT.md). Current implementation
 and the next action are in [HANDOVER](HANDOVER.md). Keep this evidence log concise.
 
+## 2026-10-21 — the app could not be built at all; now it exists and boots
+
+Starting L1. `pnpm colonie:build` opens with `node scripts/colonie/icons.ts` and closes with
+`node scripts/colonie/stage-runtime.mjs`; neither file is in this tree (`git cat-file -e
+main:<path>` says they exist on `main`), so no artifact could be produced. Both are restored.
+`icons.ts` also required a Playwright browser the machine does not have
+(`chromium_headless_shell-1248` missing; the cache stops at 1243), so it now reuses the committed
+`electron/resources/colonie-icon.png` and `build/colonie.icns` and only renders with `--force`.
+
+`pnpm build` + `pnpm build:server` + `stage-runtime.mjs` ran clean: codex-acp 2.1.1 with Codex
+0.159.3, claude-acp 0.88.0 with SDK 0.3.293. `electron-builder --config electron-builder.colonie.yml
+--mac --dir --publish never` produced `release/colonie/mac-arm64/Colonie.app` (855 MB, ad-hoc
+signed, `0.2.0`).
+
+Three bounded smoke launches with a throwaway `COLONIE_DATA_DIR` and picked ports: health
+`{"app":"colonie","static":true,…}` in about two seconds, `GET /` returns the built UI, the seeded
+workspace has `codex-acp` + `claude-acp` and zero bots, and the process exits when asked. The
+window was not clicked (nothing here clicks); a dmg and a clean-Mac install were not done. Board
+rows S4 (partial) and U1 (blocked: no Apple Developer account, ad-hoc signing, quarantine on
+download) updated from the same evidence.
+
 ## 2026-10-19 — the launch board, and what stands between this tree and a public release
 
 Owner asked for the roadmap, where we are, and a way to monitor what is done. `docs/LAUNCH.md`

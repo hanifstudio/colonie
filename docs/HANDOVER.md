@@ -48,6 +48,25 @@ Colonie to the public?" The board ([LAUNCH](LAUNCH.md)) is the map; this task is
 - Checks: `pnpm typecheck`, `pnpm lint`, `pnpm structure:check`, `pnpm test` as always; the
   artifact and the journey are verified by hand and recorded in the board.
 
+Status, October 21. The first thing the milestone found was that the app could not be built at
+all: `package.json` and `electron-builder.colonie.yml` still expect `scripts/colonie/icons.ts`,
+`scripts/colonie/stage-runtime.mjs` and `dist-colonie/`, and the first two were absent in this
+tree (present on `main`). Both are restored; the icon step now reuses the committed
+`electron/resources/colonie-icon.png` and `build/colonie.icns` unless `--force` asks for a render,
+so an offline build no longer needs a Playwright browser download. Then `pnpm build`,
+`pnpm build:server` and `stage-runtime.mjs` ran clean (codex-acp 2.1.1 with Codex 0.159.3,
+claude-acp 0.88.0 with SDK 0.3.293), and electron-builder produced
+`release/colonie/mac-arm64/Colonie.app` — 855 MB, ad-hoc signed, version 0.2.0.
+
+Smoke evidence (three bounded launches, each with `COLONIE_DATA_DIR` at a throwaway directory and
+picked ports, killed afterwards): the process boots and spawns its helpers; `GET /api/health`
+answers `{"app":"colonie","static":true,…}` after about two seconds; `GET /` on the same port
+returns the built UI (`<title>Colonie</title>`); the seeded workspace holds `codex-acp` and
+`claude-acp` and zero bots; the app exits when asked. Not verified: the window itself (nothing here
+clicks), a `.dmg`, and an install on a Mac that never had Colonie. The dev-data directory and the
+real `~/.colonie` were not used by these launches; the app's own userData folder was opened
+read-only by the packaged process.
+
 ## Active engineering task: the desktop app runs the Colonie engine system
 
 Owner decision, October 19: "Number 3 sounds like we have to adapt into the new system."
