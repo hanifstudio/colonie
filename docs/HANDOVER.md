@@ -5,24 +5,7 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: any model, even a cheaper one, can work here without harm
-
-Owner priority, October 21. Rules that were only written down become checks
-that block. Three steps, in order:
-
-1. `pnpm check` runs typecheck, lint, tests, and the structure check. A git
-   hook refuses a commit that fails it, deletes a test file, or breaks the doc
-   rules (HANDOVER over 100 lines, invented codes, new files in `docs/`).
-2. `pnpm colonie` uses its own development data by default, never
-   `~/.colonie`. Real data only with `--real-data`.
-3. Claude Code, OpenCode, and Codex each get project settings that deny
-   reading app data and credentials, pushing, and skipping the hook.
-
-- **Proof:** each blocked case is tried once and refused; a clean commit passes;
-  `pnpm colonie --web` starts in the development folder.
-- **Out of scope:** fixing CI on GitHub (next in the queue).
-
-## Paused: a person installs Colonie from this code and completes the first run
+## Now: a person installs Colonie from this code and completes the first run
 
 The first step toward a public release. On a Mac that never had Colonie, a
 person installs an app built from this branch, then: goes through the welcome,
@@ -71,6 +54,12 @@ switches a workspace, quits, and reopens.
   areas have no tests now.
 
 ## Not yet checked by a person
+
+- The OpenCode rules (`opencode.json`) load, but no live session has tried
+  them: the DeepSeek model through 9router returned nothing on October 21,
+  even for a one-word prompt, and the default model was out of quota.
+- Codex asks each person to trust the project hook once (and after it
+  changes) before it runs; until then only the Codex rules and sandbox apply.
 
 - The workspace switcher and the new welcome step have never been seen in a
   real window. The app's restart into another workspace has never been run.

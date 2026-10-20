@@ -1,0 +1,31 @@
+# Colonie guardrails for Codex. Loads only when this project is trusted.
+# The sandbox profile blocks reading and writing the owner's real data and
+# credentials at the OS level; the hook runs the same shell guard Claude Code
+# uses (scripts/agent-guard.mjs). Codex asks each person to trust the hook once,
+# and again after it changes.
+default_permissions = "colonie"
+
+[permissions.colonie]
+description = "Workspace edits; the owner's Colonie data and credentials unreadable."
+extends = ":workspace"
+
+[permissions.colonie.filesystem]
+"~/.colonie" = "deny"
+"~/.colonie-workspaces" = "deny"
+"~/.codex/auth.json" = "deny"
+"~/.claude/.credentials.json" = "deny"
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+
+[permissions.colonie.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = 'node "$(git rev-parse --show-toplevel)/scripts/agent-guard.mjs"'
+timeout = 30
+statusMessage = "Checking the command against the repo guard"

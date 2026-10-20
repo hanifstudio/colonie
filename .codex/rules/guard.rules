@@ -1,0 +1,46 @@
+# Colonie guardrails for Codex. Prefix rules only: a flag placed later in the
+# command (git commit -m x --no-verify) is not seen here; the PreToolUse hook
+# in .codex/config.toml (scripts/agent-guard.mjs) is the second net.
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "forbidden",
+    justification = "git push is the owner's step.",
+    match = ["git push", "git push --force origin main"],
+)
+
+prefix_rule(
+    pattern = ["git", ["-C", "-c", "--git-dir", "--work-tree", "--exec-path"]],
+    decision = "prompt",
+    justification = "Global git options can hide push, hook skipping or a core.hooksPath change.",
+    match = ["git -C . push", "git -c core.hooksPath=/dev/null commit -m x"],
+)
+
+prefix_rule(
+    pattern = ["git", ["commit", "merge", "push", "am", "rebase", "cherry-pick", "revert", "pull"], ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "Skipping the commit hook is not allowed; fix what it reports.",
+    match = ["git commit --no-verify -m x", "git commit -n -m x"],
+)
+
+prefix_rule(
+    pattern = ["git", "config", ["core.hooksPath", "core.hookspath", "core.HooksPath"]],
+    decision = "forbidden",
+    justification = "The commit hook location is fixed (scripts/git-hooks).",
+    match = ["git config core.hooksPath /dev/null"],
+)
+
+prefix_rule(
+    pattern = ["git", "config", ["--local", "--global", "--system", "--worktree", "--add", "--replace-all", "--unset", "--unset-all"], ["core.hooksPath", "core.hookspath", "core.HooksPath"]],
+    decision = "forbidden",
+    justification = "The commit hook location is fixed (scripts/git-hooks).",
+    match = ["git config --unset core.hooksPath", "git config --local core.hooksPath x"],
+    not_match = ["git config --unset user.name"],
+)
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr", "-r", "-R", "-Rf", "-fR", "-rfv", "--recursive"]],
+    decision = "prompt",
+    justification = "Recursive delete needs approval; the sandbox already blocks writes outside the repo and temp folders.",
+    match = ["rm -rf /", "rm -r build"],
+)
