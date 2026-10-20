@@ -45,6 +45,7 @@ import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { acquireDataDirLease } from "./data-dir-lease.mjs";
 import { activeWorkspace, createLocalWorkspace, readWorkspaces, setActiveWorkspace, WORKSPACE_NAME_MAX } from "./local-workspaces.mjs";
+import { colonieHome } from "./colonie-config.mjs";
 import { planWorkspaceSwitch } from "./workspace-switch.mjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
@@ -280,7 +281,7 @@ function desktopDataDir() {
   // directory and write another. With no list of extra workspaces — every
   // installation today — this resolves to the historical fallback.
   return activeWorkspace({
-    home: app.getPath("home"),
+    home: colonieHome(app.getPath("home")),
     userData: process.env.COLONIE_USER_DATA || app.getPath("userData"),
   }).dir;
 }
@@ -1806,7 +1807,7 @@ ipcMain.handle("environments:forget", localWorkspaceOnly("environments:forget", 
 // changes which directory the next start uses.
 function localWorkspaceOptions() {
   return {
-    home: app.getPath("home"),
+    home: colonieHome(app.getPath("home")),
     userData: process.env.COLONIE_USER_DATA || app.getPath("userData"),
   };
 }

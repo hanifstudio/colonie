@@ -34,8 +34,9 @@ app-level fixture engine is `server/testing/fake-acp-cli.ts`.
 
 ## Never
 
-- Never test against the owner's running app, `~/.colonie`, or the normal
-  development instance (`pnpm colonie` uses real data).
+- Never test against the owner's running app or `~/.colonie`. Never run
+  `pnpm colonie --real-data`. Plain `pnpm colonie` uses `~/.colonie-dev-data`,
+  which is the owner's development data: still not a throwaway.
 - Never read credential or token contents.
 - Never kill processes by name. Stop only what you started.
 

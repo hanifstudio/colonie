@@ -29,9 +29,11 @@ pnpm colonie:web   # harness server and web preview on loopback
 pnpm colonie       # same server behind the Electron desktop window
 ```
 
-These regular launches use the app's own data, not an isolated verification
-fixture. Real provider requests may consume your own provider allowance, so run
-them only when intended.
+These launches keep their own development data in `~/.colonie-dev-data`, so
+working on the source never touches your real workspaces. Add `--real-data`
+(`pnpm colonie --real-data`) to open your own `~/.colonie` instead. Engines
+signed in there are separate, so sign in once in development too. Real provider
+requests consume your own provider allowance, so run them only when intended.
 
 ## Building macOS artifacts
 

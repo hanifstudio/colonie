@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import { colonieAppData, colonieDataDir, colonieUserData } from "./colonie-config.mjs";
+import { colonieAppData, colonieDataDir, colonieHome, colonieUserData, developmentData } from "./colonie-config.mjs";
 
 const HOME = path.join(path.sep, "home", "you");
 
@@ -32,4 +32,17 @@ test("the launcher and the app resolve the same workspace list folder on this pl
   // hands Electron, or a switch made in the app would land somewhere else.
   const userData = colonieUserData(colonieAppData(HOME, {}, "darwin"));
   assert.equal(userData, path.join(HOME, "Library", "Application Support", "Colonie"));
+});
+
+test("a development run gets its own data unless real data is asked for", () => {
+  const dev = path.join(HOME, ".colonie-dev-data");
+  assert.deepEqual(developmentData(HOME, ["start.ts"], {}), { COLONIE_HOME: dev, COLONIE_USER_DATA: path.join(dev, "app") });
+  assert.deepEqual(developmentData(HOME, ["start.ts", "--real-data"], {}), {});
+  assert.deepEqual(developmentData(HOME, ["start.ts"], { COLONIE_DATA_DIR: "/rig" }), {});
+  assert.deepEqual(developmentData(HOME, ["start.ts"], { COLONIE_HOME: "/h", COLONIE_USER_DATA: "/u" }), { COLONIE_HOME: "/h", COLONIE_USER_DATA: "/u" });
+});
+
+test("workspaces sit under the development home when one is set, the real home otherwise", () => {
+  assert.equal(colonieHome(HOME, {}), HOME);
+  assert.equal(colonieHome(HOME, { COLONIE_HOME: "/dev" }), "/dev");
 });

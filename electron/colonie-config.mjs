@@ -6,6 +6,26 @@ export function colonieDataDir(home, env = process.env) {
   return env.COLONIE_DATA_DIR || join(home, ".colonie");
 }
 
+/**
+ * The folder workspaces are placed under: the person's home, unless the source
+ * launcher moved development onto its own data (see developmentData).
+ */
+export function colonieHome(home, env = process.env) {
+  return env.COLONIE_HOME || home;
+}
+
+/**
+ * Where `pnpm colonie` keeps its data. By default a development run gets its
+ * own home and app folder, so a source checkout never opens the person's real
+ * workspaces. `--real-data`, or a COLONIE_DATA_DIR already chosen in the shell,
+ * keeps the normal locations. Returns the variables to add to the environment.
+ */
+export function developmentData(home, argv, env = process.env) {
+  if (argv.includes("--real-data") || env.COLONIE_DATA_DIR) return {};
+  const root = env.COLONIE_HOME || join(home, ".colonie-dev-data");
+  return { COLONIE_HOME: root, COLONIE_USER_DATA: env.COLONIE_USER_DATA || join(root, "app") };
+}
+
 export function colonieUserData(appData, env = process.env) {
   return env.COLONIE_USER_DATA || join(appData, "Colonie");
 }

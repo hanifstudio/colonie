@@ -1,7 +1,7 @@
 import { app } from "electron";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { colonieUserData, initializeColonieData } from "./colonie-config.mjs";
+import { colonieHome, colonieUserData, initializeColonieData } from "./colonie-config.mjs";
 import { activeWorkspace } from "./local-workspaces.mjs";
 
 // Only isolated deterministic checks enable this flag. Normal diagnostic
@@ -23,7 +23,7 @@ app.setAppLogsPath(join(app.getPath("userData"), "logs"));
 // The resolved directory is deliberately not written back into the environment.
 // A value written there is read as that same override, so every start would
 // fall back to the first workspace and the list could never change anything.
-const dataDir = activeWorkspace({ home: homedir(), userData: app.getPath("userData") }).dir;
+const dataDir = activeWorkspace({ home: colonieHome(homedir()), userData: app.getPath("userData") }).dir;
 initializeColonieData(dataDir);
 if (app.isPackaged && process.env.COLONIE_TEST_ACP_FIXTURE !== "1") process.env.COLONIE_ACP_ENTRY = join(process.resourcesPath, "codex-acp", "dist", "index.js");
 if (app.isPackaged && process.env.COLONIE_TEST_ACP_FIXTURE !== "1") process.env.COLONIE_CLAUDE_ACP_ENTRY = join(process.resourcesPath, "claude-acp", "index.js");

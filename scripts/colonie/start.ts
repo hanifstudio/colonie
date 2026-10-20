@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { initializeColonieData, colonieAppData, colonieUserData } from "../../electron/colonie-config.mjs";
+import { initializeColonieData, colonieAppData, colonieHome, colonieUserData, developmentData } from "../../electron/colonie-config.mjs";
 import { activeWorkspace } from "../../electron/local-workspaces.mjs";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
@@ -12,8 +12,12 @@ const root = join(import.meta.dirname, "../..");
 // folder Electron computes for itself — electron/colonie.mjs hands Electron the
 // same one — and it is read here because the server child has to start in the
 // right directory before the app could ask it to move.
+//
+// A development run keeps its own data (~/.colonie-dev-data) unless started
+// with --real-data, so working on the source cannot touch real workspaces.
+Object.assign(process.env, developmentData(homedir(), process.argv));
 const userData = colonieUserData(colonieAppData(homedir()));
-const dataDir = activeWorkspace({ home: homedir(), userData }).dir;
+const dataDir = activeWorkspace({ home: colonieHome(homedir()), userData }).dir;
 initializeColonieData(dataDir);
 
 async function freePort(): Promise<number> {
@@ -61,7 +65,7 @@ async function waitFor(url: string) {
 }
 try {
   await Promise.all([waitFor(`http://127.0.0.1:${port}/api/health`), waitFor(env.ELECTRON_START_URL)]);
-  console.log(`Colonie: ${env.ELECTRON_START_URL} · ACP agents · data ${dataDir}`);
+  console.log(`Colonie: ${env.ELECTRON_START_URL} · ACP agents · data ${dataDir}${process.env.COLONIE_HOME ? " (development data; --real-data for your own)" : ""}`);
   if (!process.argv.includes("--web")) {
     const require = createRequire(import.meta.url);
     launch(require("electron") as string, [root]);
