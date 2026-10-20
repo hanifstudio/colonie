@@ -13,11 +13,11 @@ signs in to an engine inside the app, gets an answer from a bot, creates and
 switches a workspace, quits, and reopens.
 
 - **Done:** the app builds again. Two build scripts missing from this branch
-  were restored (`scripts/colonie/icons.ts`, `scripts/colonie/stage-runtime.mjs`,
-  staged but not committed yet). `pnpm colonie:package` produced
+  were restored (`scripts/colonie/icons.ts`, `scripts/colonie/stage-runtime.mjs`).
+  `pnpm colonie:package` produced
   `release/colonie/mac-arm64/Colonie.app`, which starts, serves the interface,
   creates a workspace with both engines, and quits cleanly.
-- **Next:** commit the two restored scripts. Then build a `.dmg`
+- **Next:** build a `.dmg`
   (`pnpm colonie:dist`) and walk the journey in a real window, using a
   throwaway macOS user or a throwaway data folder, never the owner's
   `~/.colonie`. Note each step that fails, then fix them in order.
