@@ -27,7 +27,6 @@ external side effects are revoked dynamically; that behavior is not verified.
 
 ## References
 
-- [`COLONIE-BLUEPRINT.md`](COLONIE-BLUEPRINT.md) — the target design
-- [`verification/colonie-acp.md`](verification/colonie-acp.md) — how this is verified
+- [`COLONIE-BLUEPRINT.md`](COLONIE-BLUEPRINT.md) — where the product is going
 - [`../server/colonie/connections/policy.ts`](../server/colonie/connections/policy.ts) — connection policy
 - [`../server/colonie/connections/manager.ts`](../server/colonie/connections/manager.ts) — connection manager

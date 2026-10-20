@@ -1,70 +1,52 @@
 # Verifying Colonie
 
-This is the active verification policy for the current macOS ACP application.
-A recipe describes a method, not a claim that its last run passed. Select checks
-for the changed boundary and report their actual result.
+How to check a change without touching real data. Pick the smallest check that
+covers what changed, and report what actually ran.
 
-## Choose the smallest appropriate check
+## Which check
 
-| Change | Appropriate starting evidence |
+| What changed | Check |
 |---|---|
-| Documentation only | Links, paths, and whitespace; no automatic build/runtime tests |
-| ACP session, context, permissions, or connected tools | [ACP verification](colonie-acp.md), focused on the affected contract |
-| Colonie memory | [Memory verification](colonie-memory.md) |
-| UI interaction | Relevant isolated renderer check, followed by desktop evidence if the shell matters |
-| Native-provider behavior | A separate bounded real-provider task after fixture evidence, with stated prerequisites and limits |
-| Packaging/startup | A separately scoped artifact build and isolated launch on the advertised platform |
+| Docs only | Links and paths. No build. |
+| Server or engine code | The focused test files, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm structure:check`. Then a throwaway server (below) when behavior matters. |
+| Electron shell | `pnpm test:electron` and `node --check` on the changed file. |
+| Interface | `pnpm build`, plus a look in a real window, which is usually the owner's step. |
+| Packaging | `pnpm colonie:package`, then launch the app with throwaway data. |
+| Real engine behavior | A small, bounded task in a throwaway workspace, only after the simulated check passes. |
 
-Run one heavy job at a time locally. Target test files rather than starting the
-full suite after every change. Test-runner concurrency alone does not limit
-browser, Electron, native adapter, or VM child processes. Bound the fixture's
-duration/processes and stop its owned work if the budget is reached.
+Run one heavy job at a time (builds, the full suite, Electron, real engines).
 
-## Isolate every mutation
+## A throwaway server
 
-- Never verify writes against the user's live app, normal development server, installed workspace, or credential files.
-- Allocate disposable application data, working files, ports, and renderer/Electron profiles. Use the fixture's printed URL/handle explicitly; do not discover a live port for mutations.
-- For maintained ACP tests, use the repository's SDK fake agent and the `colonie` fixture option in `launchVerificationServer` from `scripts/control-colonie.ts`.
-- Do not assume a generic legacy fake-engine recipe exercises the selected maintained adapter. Confirm the actual driver, session, and tool payload in evidence.
-- Never inspect credential contents. Real-provider checks may inherit supported native authentication, use disposable workspaces, and have a bounded task. Do not copy/extract tokens or switch billing to make a check pass.
+```sh
+env -u COMPOSIO_API_KEY HOME=$(mktemp -d) COLONIE_PROFILE=1 \
+  COLONIE_DATA_DIR=$(mktemp -d) COLONIE_PORT=<free port> node server/index.ts
+```
 
-`pnpm colonie` and `pnpm colonie:web` are regular development launches using app
-data. They are not disposable verification fixtures. Use the existing fixture
-entry points described in the relevant recipe instead.
+Setting only `COLONIE_DATA_DIR` does not isolate it: some settings are read
+from `HOME`, and the shell exports `COMPOSIO_API_KEY` to every child. Call only
+local routes such as `/api/health`, `/api/bots`, `/api/instances`, and
+`/api/config`. Never call a route that reaches a real engine. Stop the process
+and delete the folders afterward.
 
-## Shared control surface
+The simulated engine for tests is `server/acp/testing/fake-agent.ts`. The
+app-level fixture engine is `server/testing/fake-acp-cli.ts`.
 
-`scripts/control-colonie.ts` and `scripts/mcp-server.ts` provide shared control
-operations. Their source and help define accepted commands. Pass the isolated
-fixture URL explicitly to commands that inspect or mutate work; do not manufacture
-a URL, bot ID, approval ID, or success result.
+## Never
 
-Foreground launchers must receive interruption directly so they can clean up
-their children. Do not wrap one in a command that swallows Ctrl-C. Stop only the
-process tree/temporary directory owned by the check; never kill by process name
-or remove a broad temporary root.
+- Never test against the owner's running app, `~/.colonie`, or the normal
+  development instance (`pnpm colonie` uses real data).
+- Never read credential or token contents.
+- Never kill processes by name. Stop only what you started.
 
-## Evidence categories
+## Saying what was proven
 
-Keep these distinct in [PROGRESS](../PROGRESS.md):
+Name the kind of evidence. Each proves only its own layer:
 
-- **Static/unit:** source, schema, or local logic checks; not proof of a complete workflow.
-- **Simulated provider:** real application boundaries with scripted agents/services; not real AI/tool execution.
-- **Real provider:** exact bounded native-provider request, observed actions, and result; not automatically renderer/desktop evidence.
-- **Renderer:** real UI interaction in an isolated browser; not automatically Electron packaging evidence.
-- **Desktop/package:** actual shell/artifact with an isolated profile; does not establish provider success if the provider was simulated.
+- **Code checks:** typecheck, lint, unit tests.
+- **Simulated engine:** the real app with a fake engine. Not real AI behavior.
+- **Real engine:** a bounded request to Claude or Codex. Not proof the UI works.
+- **Real window:** someone clicked through the interface or the packaged app.
 
-Record commands, outcome, action/result evidence, cleanup, remaining limitations,
-and next step. Compilation alone is not workflow proof. An inherited failure,
-timeout, quota error, or unavailable capability remains such; do not relabel it
-as a pass. Redact evidence before saving it.
-
-## Keeping these methods current
-
-Only maintained ACP and memory methods remain here. Add a recipe when it has a
-current owner, an isolated control path, and observable action/result evidence.
-Do not copy a removed driver or hosting recipe back into this directory.
-
-`scripts/testing/verification-docs.test.ts` checks document links, headings,
-referenced source files, and package commands without launching the application.
-A documentation check is not runtime workflow evidence.
+A passing build is not proof that a feature works. Report failures and
+unchecked parts plainly in the commit message.

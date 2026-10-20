@@ -4,8 +4,7 @@
 // here. All are admin-scoped by default in server/request-auth.ts. The phone
 // companion that once vouched for a paired phone is gone (2026-10-17), so the
 // `device-revoked` notice below has no legitimate sender left; it and the
-// companion device binding are recorded as remaining dead surface in
-// docs/PROGRESS.md.
+// companion device binding are remaining dead surface.
 import type { IncomingMessage } from "node:http";
 import { z } from "zod";
 import type { LiveSettings } from "../../shared/wire.ts";

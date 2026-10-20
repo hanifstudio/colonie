@@ -1,65 +1,65 @@
 # Colonie agent notes
 
-## Read for the task
+The owner's latest instruction comes first. Start every session by reading
+[HANDOVER](docs/HANDOVER.md). Read other files only when the task needs them.
 
-The owner's latest instruction takes priority. For project continuation, start
-with [HANDOVER](docs/HANDOVER.md): current state, active task, and next action.
-For a focused question, inspect its relevant source directly. Read other context
-only when needed:
+## Where things live
 
-- [Blueprint](docs/COLONIE-BLUEPRINT.md): relevant product/architecture sections when scope or intended behavior matters. It is provisional, not implementation evidence.
-- [Verification](docs/verification/README.md): before choosing or running checks.
-- [Progress](docs/PROGRESS.md): the relevant recent entry when previous evidence matters.
-- [Docs index](docs/README.md): to locate a specific guide, not to load every document.
+Each kind of information has exactly one home:
 
-More specific directory AGENTS.md files apply within their directories.
+- **[Blueprint](docs/COLONIE-BLUEPRINT.md)**: where the product is going, and the owner's decisions.
+- **[HANDOVER](docs/HANDOVER.md)**: what is being worked on now, and what comes next.
+- **Commit messages**: what was done and how it was checked.
+- **The code**: how things work.
 
-## Development loop
+Do not create new documents. If something needs writing down, it belongs in one
+of the four places above. Git history is the record of the past; do not keep
+history, done tasks, or evidence logs in any document.
 
-1. Keep one milestone and one task active. For planned implementation, record the outcome, scope, acceptance, and bounded checks in HANDOVER before editing.
-2. Inspect current source and WIP. Preserve unrelated changes and third-party attribution; never sweep them into a commit, revert, or cleanup.
-3. Decide reversible technical details within authorized scope. Investigate technical questions before asking the owner. Existing permission persists; escalate unresolved product choices or actions beyond it.
-4. Implement a small unit, verify it, and review its diff against behavior and [structural/consistency acceptance](docs/COLONIE-BLUEPRINT.md#code-and-design-consistency-acceptance). Diagnose failures before retrying; do not weaken checks or requirements to claim success. Choose a bounded repair budget for the task and checkpoint if exhausted.
-5. Update HANDOVER and recent PROGRESS at milestones and before ending work: actual commands/results, material decisions, missing evidence, blockers, and next action. Keep both short; resume unfinished work rather than repeating completed tasks.
-6. Continue the next ready task within the authorized milestone without routine approval prompts. Capture new ideas separately; explicit reprioritization overrides the queue and requires a recoverable checkpoint. A question or new topic alone is not cancellation.
+## How to work
+
+1. Take the task at the top of HANDOVER, or the one the owner gives you.
+2. Before editing, write the task in HANDOVER in a few lines: what the person
+   using Colonie can do afterward, how you will prove it, and what is out of scope.
+3. Work in small steps. Each step is one commit that changes code; its message
+   says what you checked, the result, and what you did not check.
+4. When the task is done, **delete it from HANDOVER** and move the next one up.
+   Rewrite HANDOVER as it stands now; never append a log to it.
+5. Decide technical questions yourself. Ask the owner only about product choices.
+
+## Writing rules
+
+- Name things in plain words that say what a person can do, for example
+  "Create and switch workspaces". Never invent codes or numbered IDs
+  (no `E02.4b`, `L1`, `S3`). Order is shown by position in a list.
+- HANDOVER stays under 100 lines with one active task. The blueprint stays short
+  enough for the owner to read in one sitting.
+- Docs, UI text, and app-authored context use English (US). Preserve user
+  language and provider output.
+- Talk to the owner in natural Bahasa Indonesia, for a nontechnical reader.
+  Explain a feature as the person using it experiences it, before any detail.
 
 ## Product boundaries
 
-- Today's foundation is a local macOS app. Server workspaces, invitations, and companion capabilities are future targets. Do not reactivate retired hosting or integrations from historical instructions.
-- Use the upstream ACP SDK and maintained `@agentclientprotocol/*-acp` Claude/Codex adapters. Keep that boundary clear; do not restore the retired legacy ACP client or native Codex driver.
-- Preserve useful native UI, persistence, HTTP/SSE, and Electron infrastructure.
-- Preserve user message text. Default app awareness and bot persona/SOUL follow the scoped Colonie profile/context contract; do not restore unrelated inherited persona, memory, team, recall, or automation prompt pipelines.
-- Provider/project instructions remain agent-owned. Record exact application-authored input before dispatch with protected values redacted; do not claim access to provider-internal prompts.
-- Normal bot profile configuration must suffice. ACP context is an opt-in developer inspector; transport, receipt, and hash details stay out of default UX.
+- Today Colonie is a local macOS app. Server workspaces and invitations are
+  future work. Do not bring back retired hosting, pairing, or integrations.
+- Use the upstream ACP SDK and the maintained `@agentclientprotocol/*-acp`
+  Claude/Codex adapters. Do not restore the legacy ACP client or native Codex driver.
+- Preserve user message text. Provider and project instructions belong to the
+  agent; record what the app sends, with secrets redacted.
+- Normal bot settings must be enough. The ACP context inspector is a developer
+  tool; transport details stay out of the normal UI.
 
-## Verification boundaries
+## Safety and checks
 
-Use isolated fixtures for server/conversation checks, never the live app, installed
-data, or normal development instance. Never read credential contents. Real-provider
-checks require disposable workspaces, supported inherited CLI authentication, and
-a bounded task. Follow the verification guide for methods and evidence categories.
-
-Structural edits also run `pnpm structure:check` — the import boundaries and the
-`server/` module map — and add a line to that map when a folder appears; method,
-exit codes and limits are in [structure](docs/structure/README.md).
-
-Run one heavy local job at a time, including child processes; set duration/process
-limits and clean up owned fixtures. Documentation edits need document checks, not
-builds or E2E. Report inherited failures and missing evidence; compilation or a
-simulated provider is not proof of a complete real-provider/desktop workflow.
-
-## Documentation and communication
-
-Keep product planning in the blueprint, current work in HANDOVER, and evidence in
-PROGRESS. Avoid duplicate rules/specifications, archives, and redirect-only files;
-use Git history only for a specific historical question. Preserve external names
-and URLs. The docs guide execution; they do not schedule or wake agents.
-
-Respond to the owner in natural Bahasa Indonesia and explain status/evidence for
-a nontechnical reader. Product UI, app-authored context, built-in personas/SOUL,
-help, and project docs use English (US); preserve user language and provider output.
-
-Explain a feature as the person using it experiences it: what they see, what they
-can now do, what changes for them — a few plain sentences, before any
-implementation detail. The owner is an engineer, but a feature explanation is not a
-code tour: leave file, module and function names out unless a name is the point.
+- Never read credential contents. Check server and conversation changes against
+  an isolated fixture (the `verify-colonie` skill), never the live app or real data.
+  Methods are in [verification](docs/verification/README.md).
+- Real-provider checks need a disposable workspace and a bounded task.
+- Run one heavy job at a time and clean up what you start.
+- Code changes run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and
+  `pnpm structure:check` (see [structure](docs/structure/README.md)). Doc-only
+  changes need no build.
+- Report failures and unchecked parts plainly. A passing compile or a simulated
+  provider does not prove a real workflow works.
+- Preserve unrelated changes and third-party attribution.

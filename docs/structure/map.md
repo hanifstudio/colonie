@@ -2,7 +2,7 @@
 
 What each folder under `server/` owns, so a reader — or an agent picking up a task — can
 find the right home before searching. The blueprint's
-[folder responsibilities](COLONIE-BLUEPRINT.md#folder-responsibilities-for-the-engineering-track)
+[code structure](../COLONIE-BLUEPRINT.md#code-structure)
 describe the target shape; this file describes the current one.
 
 The list is checked, not just written. `pnpm structure:check` (and the test suite) fails

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Structural import matrix. This is the machine-readable form of the boundaries in docs/COLONIE-BLUEPRINT.md section 7. Every deny rule here has zero violations today and the baseline is empty, so any crossing is a new one; the rules that earlier drafts proposed and this measurement rejected (features importing server/routes/table.ts and server/harness/http.ts) are recorded in docs/structure/README.md. A path entry matches the path itself or any path that starts with it; an empty entry matches everything.",
+  "note": "Structural import matrix. This is the machine-readable form of the boundaries in the Code structure section of docs/COLONIE-BLUEPRINT.md. Every deny rule here has zero violations today and the baseline is empty, so any crossing is a new one; the rules that earlier drafts proposed and this measurement rejected (features importing server/routes/table.ts and server/harness/http.ts) are recorded in docs/structure/README.md. A path entry matches the path itself or any path that starts with it; an empty entry matches everything.",
   "deny": [
     {
       "id": "no-imports-of-index",

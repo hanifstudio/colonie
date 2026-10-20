@@ -6,7 +6,7 @@
 // type-only imports. This script asks the TypeScript compiler instead, so an
 // import edge is a resolved module, not a string match. It reports the module graph,
 // its cycles, exported-but-never-imported surface, and the direction rules written
-// down in docs/COLONIE-BLUEPRINT.md section 7.
+// down in the "Code structure" section of docs/COLONIE-BLUEPRINT.md.
 //
 // The graph comes from scripts/structure/graph.mjs - the same module the guard
 // (`pnpm structure:check`) uses - so this measurement and the boundary check can never

@@ -1,9 +1,7 @@
-# Structure baseline (E01 evidence)
+# Structure checks
 
-Raw measurements behind the enforceable-architecture-checks stage
-([blueprint](../COLONIE-BLUEPRINT.md#engineering-roadmap-architecture-and-consistency),
-handover "Active engineering stage: E01"). These files are evidence, not rules: the
-rules that follow from them live in `scripts/testing/` once E01.3 lands.
+The measurements and rules behind `pnpm structure:check`, which enforces the
+[code structure](../COLONIE-BLUEPRINT.md#code-structure) in the blueprint.
 
 | File | Produced by | Contents |
 |---|---|---|
