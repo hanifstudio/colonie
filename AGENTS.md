@@ -61,8 +61,11 @@ history, done tasks, or evidence logs in any document.
   runs it and also refuses deleted test files, new documents, invented codes,
   and a HANDOVER over 100 lines. Fix the cause; never use `--no-verify`, never
   weaken or delete a test to get a pass. Only the owner bypasses the hook.
-- If `git config core.hooksPath` is not `scripts/git-hooks`, set it before
-  committing.
+- `pnpm install` turns the commit hook on. The agent settings for Claude Code,
+  OpenCode, and Codex block pushing, skipping the hook, touching the owner's
+  real data or credentials, and recursive deletes outside the repo or temp
+  folders (`scripts/agent-guard.mjs`). A blocked command is a stop sign, not a
+  puzzle: do not look for a workaround; say what was blocked.
 - Report failures and unchecked parts plainly. A passing compile or a simulated
   provider does not prove a real workflow works.
 - Preserve unrelated changes and third-party attribution.

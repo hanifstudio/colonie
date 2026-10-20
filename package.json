@@ -40,6 +40,7 @@
     "dev:desktop": "electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "check": "pnpm typecheck && pnpm lint && pnpm structure:check && pnpm test",
+    "prepare": "git config core.hooksPath scripts/git-hooks",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "structure:check": "node scripts/structure/check-structure.mjs",
     "structure:measure": "node scripts/structure/measure-history.mjs && node scripts/structure/measure-graph.mjs",

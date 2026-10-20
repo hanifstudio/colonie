@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(~/.colonie/**)",
+      "Read(~/.colonie-workspaces/**)",
+      "Edit(~/.colonie/**)",
+      "Edit(~/.colonie-workspaces/**)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.codex/auth.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Bash(git push *)",
+      "Bash(git * push *)"
+    ],
+    "ask": [
+      "Edit(/scripts/commit-guard.mjs)",
+      "Edit(/scripts/agent-guard.mjs)",
+      "Edit(/scripts/git-hooks/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/opencode.json)",
+      "Edit(/.opencode/**)",
+      "Edit(/.codex/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/agent-guard.mjs\"" }]
+      }
+    ]
+  }
+}
