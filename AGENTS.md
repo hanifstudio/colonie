@@ -30,8 +30,8 @@ history, done tasks, or evidence logs in any document.
 ## Writing rules
 
 - Name things in plain words that say what a person can do, for example
-  "Create and switch workspaces". Never invent codes or numbered IDs
-  (no `E02.4b`, `L1`, `S3`). Order is shown by position in a list.
+  "Create and switch workspaces". Never invent codes or numbered IDs for
+  tasks, stages, or questions. Order is shown by position in a list.
 - HANDOVER stays under 100 lines with one active task. The blueprint stays short
   enough for the owner to read in one sitting.
 - Docs, UI text, and app-authored context use English (US). Preserve user
@@ -57,9 +57,12 @@ history, done tasks, or evidence logs in any document.
   Methods are in [verification](docs/verification/README.md).
 - Real-provider checks need a disposable workspace and a bounded task.
 - Run one heavy job at a time and clean up what you start.
-- Code changes run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and
-  `pnpm structure:check` (see [structure](docs/structure/README.md)). Doc-only
-  changes need no build.
+- `pnpm check` (typecheck, lint, tests, structure) must pass. The commit hook
+  runs it and also refuses deleted test files, new documents, invented codes,
+  and a HANDOVER over 100 lines. Fix the cause; never use `--no-verify`, never
+  weaken or delete a test to get a pass. Only the owner bypasses the hook.
+- If `git config core.hooksPath` is not `scripts/git-hooks`, set it before
+  committing.
 - Report failures and unchecked parts plainly. A passing compile or a simulated
   provider does not prove a real workflow works.
 - Preserve unrelated changes and third-party attribution.

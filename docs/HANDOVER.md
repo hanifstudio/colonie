@@ -5,7 +5,24 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: a person installs Colonie from this code and completes the first run
+## Now: any model, even a cheaper one, can work here without harm
+
+Owner priority, October 21. Rules that were only written down become checks
+that block. Three steps, in order:
+
+1. `pnpm check` runs typecheck, lint, tests, and the structure check. A git
+   hook refuses a commit that fails it, deletes a test file, or breaks the doc
+   rules (HANDOVER over 100 lines, invented codes, new files in `docs/`).
+2. `pnpm colonie` uses its own development data by default, never
+   `~/.colonie`. Real data only with `--real-data`.
+3. Claude Code, OpenCode, and Codex each get project settings that deny
+   reading app data and credentials, pushing, and skipping the hook.
+
+- **Proof:** each blocked case is tried once and refused; a clean commit passes;
+  `pnpm colonie --web` starts in the development folder.
+- **Out of scope:** fixing CI on GitHub (next in the queue).
+
+## Paused: a person installs Colonie from this code and completes the first run
 
 The first step toward a public release. On a Mac that never had Colonie, a
 person installs an app built from this branch, then: goes through the welcome,

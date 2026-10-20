@@ -1,0 +1,3 @@
+#!/bin/sh
+# Every commit passes the commit guard. See scripts/commit-guard.mjs.
+exec node "$(git rev-parse --show-toplevel)/scripts/commit-guard.mjs"
