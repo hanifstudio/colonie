@@ -5,7 +5,19 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: a person installs Colonie from this code and completes the first run
+## Now: the check commands that point at deleted scripts are gone
+
+`package.json` offers four checks whose scripts the owner removed on October 18:
+`colonie:ui-check`, `colonie:desktop-check`, `colonie:package-check`, and
+`colonie:provider-check`. Each one fails with "Cannot find module".
+
+- **After:** nobody can start a check that cannot work.
+- **Proof:** `pnpm run` does not list the four; asking for one says the command
+  is not found; `pnpm check` still passes.
+- **Out of scope:** other commands that call deleted scripts
+  (`test:electron`, `i18n:check`, `clean`, `check:contrast`) and rebuilding these.
+
+## Next: a person installs Colonie from this code and completes the first run
 
 The first step toward a public release. On a Mac that never had Colonie, a
 person installs an app built from this branch, then: goes through the welcome,
