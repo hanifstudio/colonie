@@ -15,8 +15,12 @@ today. Steps, in order:
 3. Done: own conversation per bot; every bot route acting on a thread uses
    the person's own and answers 404 for anyone else's.
 4. Done: live updates and their replay, admins included.
-5. Search, exports, and backups: search covers only your own conversations;
-   whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)
+5. **Current card.** In a Shared workspace: search scans only the person's
+   own threads (pass the allowed thread ids into the search worker, not a
+   filter after it, which loses their hits); workspace backup routes and
+   `POST /api/teams/export` with `format: "backup"` answer 403 to sessions; a
+   bot's activity and the decision log list only the person's own threads.
+   Tests (do not edit): `server/colonie/chat/shared-search-backup.e2e.test.ts`.
 6. Recall never quotes another conversation with different people; the bot's
    memory stays shared (owner decision). (Strong.)
 7. Only a conversation's participants answer its approval cards. (Strong.)
