@@ -39,6 +39,7 @@ const bridge = {
   workspaces: {
     state: () => ipcRenderer.invoke("workspaces:state"),
     menu: () => ipcRenderer.invoke("workspaces:menu"),
+    thisComputer: () => ipcRenderer.invoke("workspaces:this-computer"),
   },
   getCapabilities: () => ipcRenderer.invoke("desktop:capabilities"),
   onCapabilitiesChanged: (cb) => {

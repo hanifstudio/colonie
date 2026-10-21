@@ -11,11 +11,16 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current, waits on the owner:** publishing the server image where a
+1. **Current: the app is never a black screen with no way out.** When the
+   page fails, the person sees what happened with Reload and, on a Shared
+   workspace in the desktop app, Back to this computer. Proof: a test that a
+   failing screen shows the way out, and the real app showing it. Then: the
+   owner's whole journey as a permanent test in CI.
+2. **Waits on the owner:** publishing the server image where a
    server can pull it (push, run the Server image workflow, make the package
    public), then one real Shared workspace on the owner's Akamai server.
-2. A lifetime license for Shared, bought once (owner decision); later.
-3. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
+3. A lifetime license for Shared, bought once (owner decision); later.
+4. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
 Done: one click on DigitalOcean (stand-in tests; never with a real account);
 self-hosting with one pasted command (script run with recorded tools).

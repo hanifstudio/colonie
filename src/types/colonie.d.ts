@@ -102,6 +102,9 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
       workspaces?: {
         state: () => Promise<{ local: boolean; name: string; origin?: string }>;
         menu: () => Promise<void>;
+        /** Leave a Shared workspace for this computer's own (also from a
+         * Shared workspace's page, so a broken one cannot trap the person). */
+        thisComputer?: () => Promise<void>;
       };
       /** Saved servers and the active one (desktop Server menu). Present on
        * the local server's UI; a remote server's page sees a reduced bridge. */

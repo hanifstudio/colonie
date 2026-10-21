@@ -1939,6 +1939,9 @@ ipcMain.handle("local-workspaces:switch", localWorkspaceOnly("local-workspaces:s
 // mutate the desktop's saved list. Only native menu clicks perform those acts.
 ipcMain.handle("workspaces:state", workspaceOnly(() => workspaceSummary(environmentsState)));
 let workspaceMenuOpen = false;
+// Back to this computer: the one move a Shared workspace's page may ask for,
+// so a broken one never traps the person (src/components/AppErrorBoundary.tsx).
+ipcMain.handle("workspaces:this-computer", workspaceOnly(() => switchEnvironment(LOCAL_ID)));
 ipcMain.handle("workspaces:menu", workspaceOnly(async () => {
   if (workspaceMenuOpen) return;
   workspaceMenuOpen = true;

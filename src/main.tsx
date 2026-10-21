@@ -1,4 +1,5 @@
 import { StrictMode } from "react";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { createRoot } from "react-dom/client";
 import { bootstrapBrand } from "./lib/brand";
 import { applySkin, readSkin } from "./lib/skins";
@@ -46,5 +47,12 @@ async function chooseRoot(): Promise<React.ReactNode> {
 }
 
 void Promise.all([bootstrapBrand(), chooseRoot()]).then(([, root]) => {
-  createRoot(document.getElementById("root")!).render(<StrictMode>{root}</StrictMode>);
+  createRoot(document.getElementById("root")!).render(<StrictMode><AppErrorBoundary>{root}</AppErrorBoundary></StrictMode>);
+}).catch((error: unknown) => {
+  // The app's code could not even load: still never a black screen.
+  createRoot(document.getElementById("root")!).render(<AppErrorBoundary><Thrown error={error} /></AppErrorBoundary>);
 });
+
+function Thrown({ error }: { error: unknown }): never {
+  throw error;
+}
