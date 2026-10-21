@@ -1,11 +1,17 @@
 // Colonie Cloud's web surface: plain pages for signing up, signing in and out,
 // and the signed-in home. A fetch handler, so the same code runs in a
 // Cloudflare Worker and in a test.
-import { closeSession, createAccount, openSession, sessionAccount, SESSION_DAYS, signIn, signUpProblem, type Account } from "./accounts.ts";
+import {
+  closeSession, createAccount, finishPasswordReset, LOCK_MINUTES, openSession, passwordProblem,
+  resetAccount, sessionAccount, SESSION_DAYS, signIn, signUpProblem, startPasswordReset, type Account,
+} from "./accounts.ts";
 import type { Db } from "./db.ts";
 import { findClient, issueCode, redeemCode, redirectProblem, registerClient, type Client, type Signer } from "./oauth.ts";
 
 export const SESSION_COOKIE = "__Host-colonie_session";
+
+export interface Mail { to: string; subject: string; text: string }
+export interface Mailer { send(mail: Mail): Promise<void> }
 
 export interface AppOptions {
   db: Db;
@@ -13,6 +19,9 @@ export interface AppOptions {
   issuer: string;
   /** Signs ID tokens for Sign in with Colonie. */
   signer: Signer;
+  /** Sends the password-reset link. Without one, the page still answers the
+   * same, but no email leaves this service. */
+  mailer?: Mailer;
   now?: () => Date;
 }
 
@@ -104,7 +113,35 @@ function signInPage(next: string, error: string | null = null, email = "", statu
 <p>New to Colonie? <a href="/signup${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}">Create an account</a></p>`, status);
 }
 
-export function createApp({ db, issuer, signer, now = () => new Date() }: AppOptions) {
+function forgotPage(error: string | null = null, status = 200) {
+  return page("Reset your password", `${problem(error)}
+<p>Enter the email you signed up with. If it has a Colonie account, we will send a link to choose a new password.</p>
+<form method="post" action="/forgot">
+<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required>
+<button type="submit">Send reset link</button></form>
+<p><a href="/signin">Back to sign in</a></p>`, status);
+}
+
+/** The answer to every reset request, whether or not the address has an
+ * account and whether or not a mail left the service. */
+function resetSentPage() {
+  return page("Check your email", `<p>If that address has a Colonie account, a reset link is on its way. It works once, within thirty minutes.</p>
+<p><a href="/signin">Back to sign in</a></p>`);
+}
+
+function resetPage(token: string, error: string | null = null, status = 200) {
+  return page("Choose a new password", `${problem(error)}
+<form method="post" action="/reset">
+<input type="hidden" name="token" value="${escape(token)}">
+<label for="password">New password</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="10">
+<button type="submit">Set new password</button></form>`, status);
+}
+
+const invalidResetPage = () =>
+  page("Reset link not valid", `<p>This reset link has expired or was already used. Ask for a new one.</p>
+<p><a href="/forgot">Ask for a new link</a></p>`, 400);
+
+export function createApp({ db, issuer, signer, mailer, now = () => new Date() }: AppOptions) {
   /** The workspace asking, checked before anything is sent back to it: an
    * unknown client or an address that is not exactly its own gets an error
    * page here, never a redirect. Then the request itself: a problem with it
@@ -169,9 +206,47 @@ export function createApp({ db, issuer, signer, now = () => new Date() }: AppOpt
       if (url.pathname === "/signin" && method === "GET") return signInPage(next);
       if (url.pathname === "/signin" && method === "POST") {
         const email = form!.get("email") ?? "";
-        const account = await signIn(db, email, form!.get("password") ?? "");
+        const account = await signIn(db, email, form!.get("password") ?? "", now());
+        if (account === "locked") return signInPage(next, `Too many wrong passwords. Try again in ${LOCK_MINUTES} minutes.`, email, 429);
         if (!account) return signInPage(next, "That email and password do not match an account.", email, 401);
         return signedIn(account, next);
+      }
+
+      if (url.pathname === "/forgot" && method === "GET") return forgotPage();
+      if (url.pathname === "/forgot" && method === "POST") {
+        const started = await startPasswordReset(db, form!.get("email") ?? "", now());
+        if (started && mailer) {
+          const link = `${issuer}/reset?token=${started.token}`;
+          try {
+            await mailer.send({
+              to: started.account.email,
+              subject: "Reset your Colonie password",
+              text: `Someone asked to reset the password for your Colonie account.\n\nIf it was you, choose a new one here within thirty minutes:\n\n${link}\n\nIf it was not you, ignore this message. Your password has not changed.\n`,
+            });
+          } catch (error) {
+            // Say nothing different to the person asking; the mail is the only
+            // place the link exists, so an operator must see the failure.
+            console.error("reset email failed", error);
+          }
+        }
+        return resetSentPage();
+      }
+
+      if (url.pathname === "/reset" && method === "GET") {
+        const token = url.searchParams.get("token") ?? "";
+        if (!token || !(await resetAccount(db, token, now()))) return invalidResetPage();
+        return resetPage(token);
+      }
+      if (url.pathname === "/reset" && method === "POST") {
+        const token = form!.get("token") ?? "";
+        const password = form!.get("password") ?? "";
+        const invalid = passwordProblem(password);
+        // Check the link before naming the password problem, so a spent link
+        // does not look like a usable one.
+        if (!token || !(await resetAccount(db, token, now()))) return invalidResetPage();
+        if (invalid) return resetPage(token, invalid, 400);
+        if (!(await finishPasswordReset(db, { token, password, now: now() }))) return invalidResetPage();
+        return redirect("/signin");
       }
 
       if (url.pathname === "/signout" && method === "POST") {

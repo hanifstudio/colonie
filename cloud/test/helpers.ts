@@ -19,7 +19,7 @@ export async function testDb(): Promise<Db & { close(): Promise<void> }> {
   return db;
 }
 
-export async function testCloud(options: { now?: () => Date } = {}) {
+export async function testCloud(options: { now?: () => Date; mailer?: { send(mail: { to: string; subject: string; text: string }): Promise<void> } } = {}) {
   const db = await testDb();
   const signer = await createSigner(await generateSigningJwk("test-key"), ORIGIN);
   const app = createApp({ db, issuer: ORIGIN, signer, ...options });

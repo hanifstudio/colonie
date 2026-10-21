@@ -41,6 +41,23 @@ export const MIGRATIONS: readonly string[] = [
      expires_at timestamptz not null,
      used_at timestamptz
    );`,
+  // Password resets: a link by email, stored only as a hash, good for thirty
+  // minutes and once. Sign-in failures: a count per email, so a lock answers
+  // the same whether or not that address has an account.
+  `create table password_resets (
+     token_hash text primary key,
+     account_id text not null references accounts(id) on delete cascade,
+     created_at timestamptz not null default now(),
+     expires_at timestamptz not null,
+     used_at timestamptz
+   );
+   create index password_resets_account on password_resets(account_id);
+   create table sign_in_failures (
+     email text primary key,
+     count integer not null,
+     window_started_at timestamptz not null,
+     locked_until timestamptz
+   );`,
 ];
 
 /** Bring the schema up to date. Safe to run on every start. */
