@@ -56,7 +56,10 @@ const escape = (value: string) =>
 const SECURITY_HEADERS = {
   "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   "x-content-type-options": "nosniff",
-  "referrer-policy": "no-referrer",
+  // Not "no-referrer": with it a browser sends its own forms with Origin
+  // "null", which the form check below refuses. "same-origin" still keeps
+  // every address off other sites.
+  "referrer-policy": "same-origin",
   "cache-control": "no-store",
 };
 

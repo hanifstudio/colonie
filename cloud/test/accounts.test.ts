@@ -134,3 +134,10 @@ test("several isolates may migrate at the same time", async () => {
   await migrate(db);
   expect((await db.query("select count(*)::int as n from colonie_cloud.schema_migrations"))[0]).toEqual({ n: MIGRATIONS.length });
 });
+
+test("pages let a browser name their own origin on their forms, so a real sign-up is not refused", async () => {
+  // Browsers send Origin "null" on a form from a no-referrer page.
+  const { request } = await cloud();
+  const { response } = await request("/signup");
+  expect(response.headers.get("referrer-policy")).toBe("same-origin");
+});
