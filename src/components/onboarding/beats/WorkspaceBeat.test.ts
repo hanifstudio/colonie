@@ -23,7 +23,7 @@ function rows(html: string): string[] {
 }
 
 describe("the workspace step", () => {
-  it("offers Local as the chosen kind and Shared as not yet available", () => {
+  it("offers Local as the chosen kind and Shared for later", () => {
     const [local, server, next] = rows(render());
 
     expect(local).toContain("Local");
@@ -32,7 +32,7 @@ describe("the workspace step", () => {
     expect(local).not.toContain("disabled");
 
     expect(server).toContain("Shared");
-    expect(server).toContain("Coming later");
+    expect(server).toContain("Later, from the workspace menu");
     expect(server).toContain('aria-checked="false"');
     expect(server).toContain("disabled");
     expect(server).toContain("cursor-not-allowed");
