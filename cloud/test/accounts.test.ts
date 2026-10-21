@@ -18,7 +18,7 @@ test("the schema migrates once and again without harm", async () => {
   const db = await testDb();
   closers.push(() => db.close());
   await migrate(db);
-  const versions = (await db.query<{ version: number }>("select version from schema_migrations order by version")).map((row) => row.version);
+  const versions = (await db.query<{ version: number }>("select version from colonie_cloud.schema_migrations order by version")).map((row) => row.version);
   expect(versions).toEqual(MIGRATIONS.map((_, index) => index + 1));
 });
 
@@ -38,7 +38,7 @@ test("signing up creates the account, signs the person in, and stores no passwor
   expect(response.status).toBe(303);
   expect(response.headers.get("location")).toBe("/");
   expect(response.headers.get("set-cookie")).toMatch(/^__Host-colonie_session=[\w-]{43}; Path=\/; HttpOnly; Secure; SameSite=Lax/);
-  const [row] = await db.query<{ email: string; password_hash: string }>("select email, password_hash from accounts");
+  const [row] = await db.query<{ email: string; password_hash: string }>("select email, password_hash from colonie_cloud.accounts");
   expect(row!.email).toBe("ada@example.com");
   expect(row!.password_hash).not.toContain(ADA.password);
   const home = await request("/", { cookie: cookieFrom(response) });
@@ -102,4 +102,24 @@ test("after signing in, the person goes only to a page on this site", async () =
     const outside = await request("/signup", { form: { ...ADA, email: `${Math.random()}@example.com`, next } });
     expect(outside.response.headers.get("location"), next).toBe("/");
   }
+});
+
+test("a database another app already uses is left alone: our tables live in their own schema", async () => {
+  // October 21: the first database offered held a WhatsApp bot's tables named
+  // accounts, sessions and schema_migrations. Migrating must neither fail on
+  // them nor touch them.
+  const { PGlite } = await import("@electric-sql/pglite");
+  const pg = new PGlite();
+  closers.push(() => pg.close());
+  const db = { query: async <T>(sql: string, params: unknown[] = []) => (await pg.query<T>(sql, params)).rows };
+  await db.query("create table accounts (jid text primary key, phone text)");
+  await db.query("create table sessions (id text primary key, jid text)");
+  await db.query("create table schema_migrations (version bigint primary key, dirty boolean)");
+  await db.query("insert into accounts values ('123@s.whatsapp.net', '+62')");
+  await migrate(db);
+  await migrate(db);
+  expect(await db.query("select * from public.accounts")).toEqual([{ jid: "123@s.whatsapp.net", phone: "+62" }]);
+  expect(await db.query("select count(*)::int as n from public.schema_migrations")).toEqual([{ n: 0 }]);
+  const ours = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'colonie_cloud' order by 1");
+  expect(ours.map((row) => row.table_name)).toEqual(["accounts", "auth_codes", "clients", "password_resets", "schema_migrations", "sessions", "sign_in_failures"]);
 });

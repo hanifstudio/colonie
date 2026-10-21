@@ -51,7 +51,7 @@ test("a reset link expires after thirty minutes and is stored only as a hash", a
   const s = await setup();
   await s.request("/forgot", { form: { email: ADA.email } });
   const token = linkIn(s.sent[0]!.text).searchParams.get("token")!;
-  const stored = JSON.stringify(await s.db.query("select * from password_resets"));
+  const stored = JSON.stringify(await s.db.query("select * from colonie_cloud.password_resets"));
   expect(stored).not.toContain(token);
   s.clock.now = new Date(s.clock.now.getTime() + 31 * 60_000);
   expect((await s.request(`/reset?token=${token}`)).response.status).toBe(400);

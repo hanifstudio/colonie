@@ -10,9 +10,12 @@
   // node:crypto scrypt, randomBytes and createHash
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    // Replaced by the real address (workers.dev, then the bought domain).
-    "ISSUER": "http://localhost:8787"
-  }
-  // After the owner creates the Neon project and a Hyperdrive config:
-  // "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<hyperdrive id>" }]
+    // The public address; changes to the bought domain before release.
+    "ISSUER": "https://colonie-cloud.hanifyaskur.workers.dev"
+  },
+  // Neon (Singapore) through Hyperdrive. `wrangler dev` uses DATABASE_URL
+  // from .dev.vars instead.
+  // Disconnected on October 21: that Neon database belongs to another app.
+  // Point a new Hyperdrive config at Colonie Cloud's own database.
+  "hyperdrive": []
 }

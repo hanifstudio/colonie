@@ -28,12 +28,12 @@ export function redirectProblem(raw: string): string | null {
 
 export async function registerClient(db: Db, input: { name: string; redirect_uri: string }): Promise<Client> {
   const client: Client = { id: `ws_${randomUUID()}`, name: input.name.trim().slice(0, 100), redirect_uri: input.redirect_uri };
-  await db.query("insert into clients (id, name, redirect_uri) values ($1, $2, $3)", [client.id, client.name, client.redirect_uri]);
+  await db.query("insert into colonie_cloud.clients (id, name, redirect_uri) values ($1, $2, $3)", [client.id, client.name, client.redirect_uri]);
   return client;
 }
 
 export async function findClient(db: Db, id: string): Promise<Client | null> {
-  const [row] = await db.query<Client>("select id, name, redirect_uri from clients where id = $1", [id]);
+  const [row] = await db.query<Client>("select id, name, redirect_uri from colonie_cloud.clients where id = $1", [id]);
   return row ?? null;
 }
 
@@ -41,7 +41,7 @@ export async function issueCode(db: Db, input: { client: Client; account: Accoun
   const code = randomBytes(32).toString("base64url");
   const expires = new Date(input.now.getTime() + CODE_SECONDS * 1000);
   await db.query(
-    "insert into auth_codes (code_hash, client_id, account_id, redirect_uri, code_challenge, nonce, expires_at) values ($1, $2, $3, $4, $5, $6, $7)",
+    "insert into colonie_cloud.auth_codes (code_hash, client_id, account_id, redirect_uri, code_challenge, nonce, expires_at) values ($1, $2, $3, $4, $5, $6, $7)",
     [sha256(code), input.client.id, input.account.id, input.client.redirect_uri, input.challenge, input.nonce, expires.toISOString()],
   );
   return code;
@@ -55,7 +55,7 @@ export async function redeemCode(db: Db, input: { code: string; clientId: string
   // Mark it used in the same statement that reads it, so two racing
   // exchanges cannot both succeed.
   const [row] = await db.query<{ client_id: string; redirect_uri: string; code_challenge: string; nonce: string | null; expired: boolean; id: string; email: string; name: string }>(
-    `update auth_codes c set used_at = $2 from accounts a
+    `update colonie_cloud.auth_codes c set used_at = $2 from colonie_cloud.accounts a
      where c.code_hash = $1 and c.used_at is null and a.id = c.account_id
      returning c.client_id, c.redirect_uri, c.code_challenge, c.nonce, c.expires_at <= $2 as expired, a.id, a.email, a.name`,
     [sha256(input.code), input.now.toISOString()],
