@@ -59,3 +59,26 @@ test("a way back with a forged or reused state is refused", async () => {
 test("a Shared workspace server has no desktop account", async () => {
   expect((await fetch(`${shared.url}/api/colonie-account`)).status).not.toBe(200);
 });
+
+test("in development, where the window's page comes from another server, the way back is still this server", async () => {
+  // The UI server forwards /api here, and nothing else (vite.config.ts),
+  // keeping the page's own Host, as vite's proxy does.
+  const { createServer, request } = await import("node:http");
+  const target = new URL(desktop.url);
+  const proxy = createServer((req, res) => {
+    const forward = request({ host: target.hostname, port: target.port, path: req.url, method: req.method, headers: req.headers }, (answer) => {
+      res.writeHead(answer.statusCode ?? 502, answer.headers);
+      answer.pipe(res);
+    });
+    req.pipe(forward);
+  });
+  await new Promise<void>((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = proxy.address();
+    const started = await (await fetch(`http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/api/colonie-account/start`, { method: "POST" })).json() as { authorizationUrl: string };
+    const back = new URL(new URL(started.authorizationUrl).searchParams.get("redirect_uri")!);
+    expect(back.port).toBe(new URL(desktop.url).port);
+  } finally {
+    proxy.close();
+  }
+});

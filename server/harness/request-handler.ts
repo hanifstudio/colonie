@@ -95,6 +95,10 @@ export function createRequestHandler(deps: RequestHandlerDeps) {
   const sharedServers: SharedServers | undefined = deps.sharedServers;
   const desktopAccount: DesktopAccount | undefined = deps.desktopAccount;
   /** Where people reach this server (COLONIE_PUBLIC_URL), else the request's own address. */
+  /** This server itself, for a browser's way back from a sign-in elsewhere.
+   * Never the page's own address: in development that is the UI server,
+   * which forwards only /api here. */
+  const ownOrigin = `http://127.0.0.1:${PORT}`;
   const publicUrlFor = (req: IncomingMessage): string => deps.publicUrl ?? `http://${req.headers.host ?? "127.0.0.1"}`;
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
   let url: URL;
@@ -522,8 +526,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       try {
         if (method === "GET" && path === "/api/colonie-account") return json(res, 200, { required: true, account: desktopAccount.account() });
         if (method === "POST" && path === "/api/colonie-account/start") {
-          const port = new URL(`http://${req.headers.host ?? "127.0.0.1"}`).port;
-          return json(res, 200, await desktopAccount.start(`http://127.0.0.1${port ? `:${port}` : ""}${DESKTOP_CALLBACK}`));
+          return json(res, 200, await desktopAccount.start(`${ownOrigin}${DESKTOP_CALLBACK}`));
         }
         if (method === "POST" && path === "/api/colonie-account/sign-out") { desktopAccount.signOut(); return json(res, 200, { ok: true }); }
       } catch (error) {
@@ -538,8 +541,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           return json(res, 200, { digitalOcean: await sharedServers.status(), servers: sharedServers.list() });
         }
         if (method === "POST" && path === "/api/shared-servers/digitalocean/connect") {
-          const port = new URL(`http://${req.headers.host ?? "127.0.0.1"}`).port;
-          return json(res, 200, await sharedServers.connect(`http://127.0.0.1${port ? `:${port}` : ""}${DIGITALOCEAN_CALLBACK}`));
+          return json(res, 200, await sharedServers.connect(`${ownOrigin}${DIGITALOCEAN_CALLBACK}`));
         }
         if (method === "POST" && path === "/api/shared-servers/digitalocean/disconnect") {
           await sharedServers.disconnect();
