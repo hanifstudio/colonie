@@ -10,6 +10,8 @@ import type { UsageTrigger } from "../colonie/providers/usage-ledger.ts";
 import type { BotRecord, Store } from "../persistence/store.ts";
 import type { DirectSendReceipt } from "../colonie/chat/direct-send.ts";
 import type { RequestAuth } from "../request-auth.ts";
+import type { OwnThreads } from "../colonie/chat/own-threads.ts";
+import type { VisibleSet } from "../colonie/bots/bot-visibility.ts";
 import { pinnedClientThread } from "./pinned-client.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -17,6 +19,10 @@ import { PASS, type RouteHandler } from "./table.ts";
 type Helper = (...args: any[]) => any;
 
 export interface BotMessagesRouteDeps {
+  /** Each person's own conversations in a Shared workspace; absent is Local. */
+  ownThreads?: OwnThreads;
+  personOf?: (auth: RequestAuth) => string | null;
+  visibleFor?: (auth: RequestAuth) => VisibleSet;
   store: Store;
   desktopManaged: boolean;
   /** A zod schema whose safeParse outcome the block reads directly. */
@@ -63,14 +69,26 @@ export function createBotMessagesRoutes(deps: BotMessagesRouteDeps): RouteHandle
       if (!text) return json(res, 400, { error: "text required" });
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      requirePinnedClientThread(bot.id, body.threadId);
+      const shared = deps.ownThreads?.shared() ?? false;
+      // In a Shared workspace a message with no thread goes to the sender's own
+      // conversation, so there is nothing ambiguous to pin.
+      if (!shared) requirePinnedClientThread(bot.id, body.threadId);
       if (body.threadId !== undefined && (typeof body.threadId !== "string" || !/^[\w-]+$/.test(body.threadId))) {
         return json(res, 400, { error: "threadId must be a task id" });
       }
+      // A person posts only into their own conversations; another person's
+      // answers exactly as a thread that does not exist.
+      if (shared && body.threadId !== undefined && !deps.visibleFor!(auth).thread(body.threadId)) {
+        return json(res, 404, { error: "no such task" });
+      }
+      const person = deps.personOf?.(auth) ?? null;
+      if (shared && body.threadId === undefined && !person) return json(res, 403, { error: "sign in to send a message" });
       // A retry carries its original task. That lets us return the canonical
       // receipt after a task switch, while a genuinely new send still has to
-      // target the task that is active now.
-      const threadId = body.threadId ?? bot.threadId;
+      // target the task that is active now. In a Shared workspace the active
+      // task is the sender's own, opened by their first message.
+      const threadId = body.threadId ?? (shared ? deps.ownThreads!.openThread(person!, bot) : bot.threadId);
+      if (!threadId) return json(res, 500, { error: "couldn't open a conversation" });
       // Who this message is from, for the ledger. It is captured here and
       // travels with the message: into the turn it starts, or into the queue
       // until it drains. A message steered into someone else's running turn

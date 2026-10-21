@@ -146,6 +146,7 @@ import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 import {createServerAssembly} from "./harness/server-assembly.ts";
 import {createConfigStatus} from "./harness/config-status.ts";
 import {createWorkspaceKind} from "./runtime/workspace-kind.ts";
+import {createOwnThreads} from "./colonie/chat/own-threads.ts";
 import {announceWhenModelsLand} from "./harness/model-catalogs.ts";
 import {createCardResolvers} from "./colonie/chat/card-resolvers.ts";
 import {createLocalVmState} from "./colonie/computer/local-vm-state.ts";
@@ -308,6 +309,13 @@ const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibil
   store: () => store,
   sharedWorkspace: () => workspaceKind.shared(),
 });
+// Each person's own conversation with each bot, in a Shared workspace.
+const ownThreads = createOwnThreads({ store: () => store, sharedWorkspace: () => workspaceKind.shared(), file: join(DATA_DIR, "person-threads.json") });
+/** The caller as a person in a Shared workspace; null otherwise. */
+const personOf = (auth: RequestAuth): string | null => {
+  const viewer = viewerFor(auth);
+  return viewer.kind === "person" && viewer.key ? viewer.key : null;
+};
 
 /** A member may schedule a routine only for a bot or room they can see. */
 /** The conversations a bot's recent-work brief may draw on: its own. Rooms
@@ -1833,6 +1841,8 @@ const mcpConfigLock = {
 };
 
 const { server, liveCalls } = createServerAssembly({
+  ownThreads,
+  personOf,
   COMMAND_ALLOWLIST_DRIVERS,
   DEFAULT_PAGE,
   DESKTOP_MANAGED,

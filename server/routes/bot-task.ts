@@ -6,9 +6,14 @@ import type { ModelSelection, WireBot, WireTask } from "../../shared/wire.ts";
 import type { RoutineManager } from "../colonie/routines/routines.ts";
 import type { BotRecord, Store, TaskRecord } from "../persistence/store.ts";
 import { parseSurface } from "../surface.ts";
+import type { OwnThreads } from "../colonie/chat/own-threads.ts";
+import type { RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface BotTaskRouteDeps {
+  /** Each person's own conversations in a Shared workspace; absent is Local. */
+  ownThreads?: OwnThreads;
+  personOf?: (auth: RequestAuth) => string | null;
   store: Store;
   desktopManaged: boolean;
   handoffs: { forget: (threadId: string) => void };
@@ -60,6 +65,15 @@ export function createBotTaskRoutes(deps: BotTaskRouteDeps): RouteHandler {
       const requestedMessages = url.searchParams.get("messages");
       const switchLimit = pageSize(requestedMessages);
       if (switchLimit === null) return json(res, 400, { error: "messages must be a non-negative whole number" });
+      // In a Shared workspace switching is personal: it moves the person's own
+      // current conversation, never the bot's shared pointer, and only to a
+      // conversation they take part in.
+      if (deps.ownThreads?.shared()) {
+        const person = deps.personOf?.(auth) ?? null;
+        if (!person || !deps.ownThreads.choose(person, bot.id, m[2])) return json(res, 404, { error: "no such task" });
+        const own = { ...wireBot(bot), threadId: m[2], tasks: store.tasks(bot.id).map((task) => wireTask(task, bot.modelSelection)) };
+        return json(res, 200, { bot: requestedMessages === "0" ? own : { ...own, ...messagePage(m[2], switchLimit) } });
+      }
       const switched = store.switchTask(bot.id, m[2]);
       if (!switched) return json(res, 404, { error: "no such task" });
       const switchedSettings = { ...wireBot(switched), tasks: store.tasks(switched.id).map((task) => wireTask(task, switched.modelSelection)) };

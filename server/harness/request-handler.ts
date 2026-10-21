@@ -4,6 +4,7 @@
 // file hands it the state it needs: as getters where a value is reassigned while
 // the server runs (a plain pass would freeze the first value), and as setters
 // where this module is the one that changes it.
+import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -32,7 +33,7 @@ import { assertRequestTarget, requestConflict } from "../guarded-requests.ts";
 import { onJsonBody, json, readBody} from "../harness/http.ts";
 import { searchMessagesAsync } from "../persistence/message-db.ts";
 import { isProjectEmoji } from "../persistence/store.ts";
-import { clearSessionCookie, isLoopbackHost, isProxied, labelFromUserAgent, parseCookies, requestOrigin, requestSource, resolveRequestAuth, serializeSessionCookie } from "../request-auth.ts";
+import { clearSessionCookie, isLoopbackHost, isProxied, labelFromUserAgent, parseCookies, requestOrigin, requestSource, resolveRequestAuth, serializeSessionCookie, type RequestAuth } from "../request-auth.ts";
 import { pinnedClientThread } from "../routes/pinned-client.ts";
 import { ROUTES, dispatchRoutes } from "../routes/table.ts";
 import { environmentDescriptor } from "../runtime/environment.ts";
@@ -82,6 +83,10 @@ export function createRequestHandler(deps: RequestHandlerDeps) {
     setBrowserEngineInstallError, setLocalVmProvisionBusy,
     setCustomDomainRevision,
   } = deps;
+  /** Each person's own conversations in a Shared workspace, and who the
+   * caller is as a person (null in a Local workspace or for a non-person). */
+  const ownThreads: OwnThreads = deps.ownThreads;
+  const personOf: (auth: RequestAuth) => string | null = deps.personOf;
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
   let url: URL;
   try {
@@ -216,6 +221,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (!visible.everything) {
       const subject = pathSubject(path);
       if (subject && !subjectVisible(subject, visible)) return json(res, 404, { error: notFoundFor(subject) });
+      // A bot route can name one of the bot's threads in its path or query; a
+      // person reaches only their own (bot-visibility.ts).
+      const namedThread = /^\/api\/bots\/[\w-]+\/tasks\/([\w-]+)/.exec(path)?.[1] ?? url.searchParams.get("threadId");
+      if (visible.personal && namedThread && !visible.thread(namedThread)) return json(res, 404, { error: "no such task" });
       // Every bot a member is sent (a read receipt, a profile or display
       // edit, a new or switched task) comes without its audience list or
       // the teammates they cannot see, whichever route answers.
@@ -457,11 +466,16 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       // see (bot-visibility.ts); for everyone else these filters keep all.
       const shownBots = store.bots.filter((bot: any) => visible.bot(bot.id));
       const queued = publicBotQueuedMessages();
+      // In a Shared workspace each person's current conversation with a bot is
+      // their own (colonie/chat/own-threads.ts), not the bot's shared pointer.
+      const person = personOf(auth);
+      const shownThread = (bot: any) => ownThreads.currentThread(person, bot) ?? "";
       return json(res, 200, {
         bots: shownBots.map((bot: any) => memberBot({
           ...wireBot(bot),
           tasks: store.tasks(bot.id).map((task: any) => wireTask(task, bot.modelSelection)),
-          ...messagePage(bot.threadId, limit),
+          threadId: shownThread(bot),
+          ...(shownThread(bot) ? messagePage(shownThread(bot), limit) : { messages: [] }),
         }, visible)),
         botQueuedMessages: visible.everything ? queued : Object.fromEntries(Object.entries(queued).filter(([threadId]) => visible.thread(threadId))),
         sections: visible.sections(store.sections),

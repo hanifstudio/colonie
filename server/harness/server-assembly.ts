@@ -414,6 +414,8 @@ ROUTES.push(createBotUpdateRoutes({
   storedAvatarExists,
 }));
 ROUTES.push(createBotTaskRoutes({
+  ownThreads: deps.ownThreads,
+  personOf: deps.personOf,
   store,
   desktopManaged: DESKTOP_MANAGED,
   handoffs,
@@ -502,6 +504,9 @@ ROUTES.push(createEventRoutes({
   memberFrame,
 }));
 ROUTES.push(createBotMessagesRoutes({
+  ownThreads: deps.ownThreads,
+  personOf: deps.personOf,
+  visibleFor: (auth: any) => visibleTo(viewerFor(auth)),
   store,
   desktopManaged: DESKTOP_MANAGED,
   guardedSendSchema,
@@ -719,6 +724,8 @@ ROUTES.push(createLiveRoutes({
 /** The HTTP front door: see harness/request-handler.ts. Reassigned bindings
  * go over as getters and setters so the module always sees the current one. */
 const handleRequest = createRequestHandler({
+  ownThreads: deps.ownThreads,
+  personOf: deps.personOf,
   DEFAULT_PAGE,
   DESKTOP_MANAGED,
   ENVIRONMENT_ID,

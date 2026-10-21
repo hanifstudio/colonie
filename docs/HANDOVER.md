@@ -12,11 +12,13 @@ two people on one bot see each other's chats. A Shared workspace is new, never
 converted from Local, so Local must behave exactly as today. Steps, in order:
 
 1. Done: a Shared workspace shows each person only threads naming them.
-2. Done: conversations store their participants (server-private), set by a
-   signed-in person's task or copied from the source thread; visibility reads it.
-3. **Current card.** A person's first message to a bot opens their own current
-   conversation, and every route goes through it. Prove it with two signed-in
-   people on a throwaway server and tests; live updates and search are later.
+2. Done: conversations store their participants (server-private).
+3. Half done: each person has their own current conversation per bot
+   (`colonie/chat/own-threads.ts`); sending, the bot list, switching, and any
+   thread named in a path or query respect it. Next: about 40 places that act
+   on the bot's shared current thread when no thread is named (cards, queue,
+   edit, interrupt, compact, respond, ACP settings) must use the person's own.
+   Two-person harness: `server/testing/shared-workspace.ts`.
 4. Live updates and their replay carry only a person's own conversations. (Strong.)
 5. Search, exports, and backups: search covers only your own conversations;
    whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)

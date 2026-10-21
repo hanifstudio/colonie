@@ -229,6 +229,11 @@ export class VisibleSet {
     return this.everything;
   }
 
+  /** A person in a Shared workspace: every thread asks whether they take part. */
+  get personal(): boolean {
+    return this.viewer.kind === "person";
+  }
+
   /** The bot or room that owns the thread is visible. An unknown thread is not.
    * A person in a Shared workspace must also be among the thread's
    * participants; a thread that names nobody is visible to nobody. */
@@ -356,7 +361,21 @@ export function memberBot<T extends object>(bot: T, visible: VisibleSet): T {
   if (visible.everything) return bot;
   const { visibility: _visibility, ...rest } = bot as T & { visibility?: unknown; peers?: unknown };
   const peers = Array.isArray(rest.peers) ? (rest.peers as unknown[]).filter((id): id is string => typeof id === "string" && visible.bot(id)) : undefined;
-  return { ...rest, ...(peers ? { peers } : {}) } as T;
+  const narrowed = { ...rest, ...(peers ? { peers } : {}) } as Record<string, unknown>;
+  if (visible.personal) {
+    // A person sees only their own conversations of this bot. When the bot's
+    // current thread is someone else's, nothing of it travels: not its page,
+    // its branch, its pin, or its id.
+    if (Array.isArray(narrowed.tasks)) {
+      narrowed.tasks = (narrowed.tasks as Array<{ threadId?: unknown }>)
+        .filter((task) => typeof task?.threadId === "string" && visible.thread(task.threadId));
+    }
+    if (typeof narrowed.threadId === "string" && !visible.thread(narrowed.threadId)) {
+      for (const key of ["messages", "hasMore", "activeLeafId", "pinnedMessageId", "rewound"]) delete narrowed[key];
+      narrowed.threadId = "";
+    }
+  }
+  return narrowed as T;
 }
 
 /** A room as a member receives it: without its audience floor. */
