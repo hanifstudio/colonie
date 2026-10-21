@@ -168,3 +168,17 @@ test("native window identity distinguishes hosted HTML and the local workspace",
   assert.equal(env.workspaceWindowTitle(state), "Colonie — Hosted: Old team (old.example)");
   assert.equal(env.workspaceWindowTitle(env.withActive(state, "local")), "Colonie");
 });
+
+test("the Colonie account window goes only to Colonie Cloud and back to this computer", () => {
+  const cloud = "https://colonie-cloud.example";
+  const allowed = (url) => env.accountWindowNavigationAllowed(url, [cloud]);
+  assert.equal(allowed(`${cloud}/authorize?client_id=x`), true);
+  assert.equal(allowed(`${cloud}/signup?next=%2Fauthorize`), true);
+  assert.equal(allowed("http://127.0.0.1:18799/auth/colonie/desktop-callback?code=a&state=b"), true);
+  for (const url of ["http://127.0.0.1:18799/", "http://127.0.0.1:18799/api/config", "https://evil.example/authorize", "http://localhost:18799/auth/colonie/desktop-callback", "javascript:alert(1)", `http://${cloud.slice(8)}/authorize`]) {
+    assert.equal(allowed(url), false, url);
+  }
+  // It opens only on Colonie Cloud.
+  assert.equal(env.accountWindowStartAllowed(`${cloud}/authorize`, [cloud]), true);
+  assert.equal(env.accountWindowStartAllowed("http://127.0.0.1:18799/auth/colonie/desktop-callback", [cloud]), false);
+});

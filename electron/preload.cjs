@@ -235,6 +235,13 @@ const bridge = {
   },
   confirm: message => ipcRenderer.invoke("dialog:confirm", message),
 
+  /** Sign up or in to Colonie (on first opening the app) in a small window
+   * of this app. Local-shell only; it opens Colonie Cloud's pages and
+   * nothing else (electron/environments.cjs). */
+  account: {
+    openWindow: (url) => ipcRenderer.invoke("account:open-window", url),
+  },
+
   /** The Local workspaces on this computer — a name and a data folder each —
    * and which one this app runs. Not the Server menu's saved servers, which is
    * `environments` above. Local-shell only: where this app's data lives is not

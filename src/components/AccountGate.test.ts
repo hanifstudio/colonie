@@ -24,10 +24,10 @@ test("the screen says why and offers one button", () => {
   expect(html).toMatch(/Colonie account/);
   expect(html).toMatch(/every Shared workspace/);
   expect(html).toContain("Sign up or sign in");
-  expect(html).not.toMatch(/Finish in your browser/);
+  expect(html).not.toMatch(/Finish in the Colonie account window/);
 });
 
 test("while the browser is open it says so, and a failure says why", () => {
-  expect(view({ waiting: true })).toMatch(/Finish in your browser/);
+  expect(view({ waiting: true })).toMatch(/Finish in the Colonie account window/);
   expect(view({ error: "Colonie accounts cannot be reached right now." })).toContain("cannot be reached");
 });

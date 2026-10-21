@@ -97,6 +97,28 @@ function workspaceNavigationAllowed(url, state, localOrigin, signInOrigins = [])
   }
 }
 
+/** The Colonie account window (sign up or in, on first opening the app)
+ * opens on Colonie Cloud only... */
+function accountWindowStartAllowed(url, signInOrigins) {
+  try {
+    return signInOrigins.includes(new URL(url).origin);
+  } catch {
+    return false;
+  }
+}
+
+/** ...and goes nowhere but Colonie Cloud and its way back to this computer's
+ * server (server/colonie/accounts/desktop-account.ts). */
+function accountWindowNavigationAllowed(url, signInOrigins) {
+  try {
+    const target = new URL(url);
+    if (signInOrigins.includes(target.origin)) return true;
+    return target.protocol === "http:" && target.hostname === "127.0.0.1" && target.pathname === "/auth/colonie/desktop-callback";
+  } catch {
+    return false;
+  }
+}
+
 /** Only the main window's main frame may request this deliberately small
  * shell surface. Being embedded in a saved server grants no host authority. */
 function workspaceSenderAllowed(event, contents, state, localOrigin) {
@@ -200,6 +222,8 @@ function allowedOrigins(state, localOrigin) {
 
 module.exports = {
   LOCAL_ID,
+  accountWindowNavigationAllowed,
+  accountWindowStartAllowed,
   activeEnvironment,
   allowedOrigins,
   normalizeOrigin,

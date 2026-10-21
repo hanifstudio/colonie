@@ -133,6 +133,8 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
         >;
       };
       confirm(message: string): Promise<boolean>;
+      /** Colonie Cloud's sign-up and sign-in in a small window of this app. */
+      account?: { openWindow(url: string): Promise<boolean> };
       getCapabilities(): Promise<DesktopCapabilities>;
       onCapabilitiesChanged(cb: (capabilities: DesktopCapabilities) => void): () => void;
       remoteClient?: {

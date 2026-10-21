@@ -1018,7 +1018,7 @@ ipcMain.on("desktop:unread-count", (event, value) => {
 // The app switches by loading the chosen server's own UI (electron/menu.mjs).
 // Only {id, name, origin} is stored here; the session credential is the
 // HttpOnly cookie /pair set for that origin, kept by Chromium's cookie jar.
-const { LOCAL_ID, activeEnvironment, allowedOrigins, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, withActive, withEnvironment, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
+const { LOCAL_ID, accountWindowNavigationAllowed, accountWindowStartAllowed, activeEnvironment, allowedOrigins, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, withActive, withEnvironment, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
 /** Where people sign in to a Shared workspace with their Colonie account. */
 const COLONIE_SIGN_IN_ORIGINS = [environmentsModule.normalizeOrigin(process.env.COLONIE_CLOUD_ISSUER || "https://colonie-cloud.hanifyaskur.workers.dev")].filter(Boolean);
 let environmentsState = { environments: [], activeId: LOCAL_ID };
@@ -1801,6 +1801,59 @@ ipcMain.handle("environments:switch", localWorkspaceOnly("environments:switch", 
 ipcMain.handle("environments:add-from-link", localWorkspaceOnly("environments:add-from-link", (_event, link, name) => {
   return connectHostedWorkspace(link, typeof name === "string" ? name : undefined);
 }));
+// ── the Colonie account window: sign up or in once, inside the app ──
+// Colonie Cloud's own pages in a small window of this app, on the same
+// session as the main window, so the sign-in it keeps also opens Shared
+// workspaces later without signing in again. No preload: it is a web page.
+// It goes only to Colonie Cloud and back to this computer, and closes itself
+// once back.
+let accountWindow = null;
+function openAccountWindow(url) {
+  if (!accountWindowStartAllowed(url, COLONIE_SIGN_IN_ORIGINS)) throw new Error("Only Colonie accounts can open here.");
+  if (accountWindow && !accountWindow.isDestroyed()) {
+    void accountWindow.loadURL(url).catch(() => {});
+    accountWindow.focus();
+    return true;
+  }
+  const win = new BrowserWindow({
+    width: 480,
+    height: 720,
+    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    modal: false,
+    title: "Colonie account",
+    icon: APP_ICON,
+    backgroundColor: "#080808",
+    autoHideMenuBar: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+  });
+  accountWindow = win;
+  win.on("closed", () => { if (accountWindow === win) accountWindow = null; });
+  // Links out of the pages (none today) open in the system browser.
+  win.webContents.setWindowOpenHandler(({ url: target }) => {
+    try { void shell.openExternal(externalWebUrl(target)).catch(() => {}); } catch { /* not a web link */ }
+    return { action: "deny" };
+  });
+  const guard = (event, target) => {
+    if (accountWindowNavigationAllowed(target, COLONIE_SIGN_IN_ORIGINS)) return;
+    event.preventDefault();
+    slog("account window: blocked navigation");
+  };
+  win.webContents.on("will-navigate", guard);
+  win.webContents.on("will-redirect", guard);
+  // Back on this computer: the page says so; the window goes a moment later.
+  win.webContents.on("did-finish-load", () => {
+    try {
+      if (new URL(win.webContents.getURL()).pathname === "/auth/colonie/desktop-callback") {
+        setTimeout(() => { if (!win.isDestroyed()) win.close(); }, 1500);
+      }
+    } catch { /* no URL yet */ }
+  });
+  void win.loadURL(url).catch(() => {});
+  return true;
+}
+ipcMain.handle("account:open-window", localWorkspaceOnly("account:open-window", (_event, url) => openAccountWindow(typeof url === "string" ? url : "")));
+// ── end the Colonie account window ──
+
 ipcMain.handle("environments:forget", localWorkspaceOnly("environments:forget", (_event, id) => forgetEnvironment(typeof id === "string" ? id : "")));
 
 // ── Local workspaces: the folders this app runs in ──

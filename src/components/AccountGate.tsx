@@ -39,7 +39,7 @@ export function AccountGateView({ waiting, busy, error, onStart }: { waiting: bo
         </button>
         {waiting && (
           <p className="mt-3 text-[12.5px] leading-relaxed text-ink-secondary">
-            Finish in your browser. This window continues by itself when you are done.
+            Finish in the Colonie account window. This window continues by itself when you are done.
           </p>
         )}
         {error && <p role="alert" className="mt-3 text-[12.5px] text-danger">{error}</p>}
@@ -69,8 +69,10 @@ export function AccountGate({ children }: { children: ReactNode }) {
       const res = await fetch("/api/colonie-account/start", { method: "POST", credentials: "same-origin" });
       const body = await res.json().catch(() => null) as { authorizationUrl?: string; error?: string } | null;
       if (!res.ok || !body?.authorizationUrl) throw new Error(body?.error ?? "Colonie accounts cannot be reached right now. Try again.");
-      // The window hands web links to the system browser.
-      window.open(body.authorizationUrl, "_blank", "noopener");
+      // In a window of this app, so the sign-in it keeps also opens Shared
+      // workspaces later; elsewhere the system browser.
+      if (window.colonie?.account) await window.colonie.account.openWindow(body.authorizationUrl);
+      else window.open(body.authorizationUrl, "_blank", "noopener");
       setWaiting(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

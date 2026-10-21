@@ -21,7 +21,9 @@ Done: one click on DigitalOcean (stand-in tests; never with a real account);
 self-hosting with one pasted command (script run with recorded tools).
 Seen in a real window: Join a Shared workspace, Create a Shared workspace
 with both choices and the command to paste; the first run's three choices;
-the Colonie account screen (signed up through a local Colonie Cloud).
+the Colonie account screen; the owner's whole journey with a local Colonie
+Cloud and Shared workspace: sign up in the account window, open the Shared
+workspace by its owner invite with only Continue, the workspace welcome.
 Not yet seen: Settings, People; a join through Colonie Cloud.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
