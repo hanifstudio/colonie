@@ -126,7 +126,7 @@ import { PlaceUnavailableError, placeUnavailable, type PlaceSource, type Surface
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, type WorkspaceAccess } from "./enterprise.ts";
-import {loadEnvironmentId} from "./runtime/environment.ts";
+import {loadEnvironmentId, serverVersion} from "./runtime/environment.ts";
 import {WorkspaceBackupMaintenance} from "./colonie/workspace/workspace-backup-maintenance.ts";
 import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult} from "./colonie/workspace/workspace-backup.ts";
 import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
@@ -134,6 +134,7 @@ import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/provid
 import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
 import {requestOrigin, resolveLoopbackTrust, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
 import {createColonieSignIn} from "./colonie/accounts/colonie-signin.ts";
+import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deploy/shared-servers.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
@@ -260,6 +261,18 @@ const LOOPBACK = resolveLoopbackTrust({
   desktopManaged: DESKTOP_MANAGED, hostedWorkspace: HOSTED_WORKSPACE,
   sharedWorkspace: process.env.COLONIE_WORKSPACE_KIND === "shared" || existsSync(join(DATA_DIR, SHARED_WORKSPACE_MARKER)),
 });
+// Creating Shared workspaces on DigitalOcean is the desktop owner's, never a
+// Shared workspace server's or a hosted one's.
+const sharedServers = LOOPBACK.trust === "owner" && !HOSTED_WORKSPACE
+  ? createSharedServers({
+    dataDir: DATA_DIR,
+    image: process.env.COLONIE_SERVER_IMAGE?.trim() || serverImage(serverVersion()),
+    issuer: process.env.COLONIE_CLOUD_ISSUER?.trim() || COLONIE_CLOUD,
+    // stand-ins for tests; unset, DigitalOcean's own addresses
+    oauthBase: process.env.COLONIE_DIGITALOCEAN_OAUTH?.trim() || undefined,
+    apiBase: process.env.COLONIE_DIGITALOCEAN_API?.trim() || undefined,
+  })
+  : undefined;
 // Empty is deliberately a deny-all bootstrap state. Only Electron's private
 // utility-process port can replace it with the per-launch owner capability.
 let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
@@ -1894,6 +1907,7 @@ const mcpConfigLock = {
 
 const { server, liveCalls } = createServerAssembly({
   colonieSignIn,
+  sharedServers,
   ownThreads,
   personOf,
   COMMAND_ALLOWLIST_DRIVERS,

@@ -732,6 +732,7 @@ ROUTES.push(createLiveRoutes({
  * go over as getters and setters so the module always sees the current one. */
 const handleRequest = createRequestHandler({
   colonieSignIn: deps.colonieSignIn,
+  sharedServers: deps.sharedServers,
   publicUrl: FALLBACK_PUBLIC_URL,
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,

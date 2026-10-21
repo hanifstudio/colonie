@@ -6,6 +6,7 @@
 // where this module is the one that changes it.
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
+import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -90,6 +91,7 @@ export function createRequestHandler(deps: RequestHandlerDeps) {
   const personOf: (auth: RequestAuth) => string | null = deps.personOf;
   /** Joining and signing in with a Colonie account (colonie/accounts/). */
   const colonieSignIn: ColonieSignIn | undefined = deps.colonieSignIn;
+  const sharedServers: SharedServers | undefined = deps.sharedServers;
   /** Where people reach this server (COLONIE_PUBLIC_URL), else the request's own address. */
   const publicUrlFor = (req: IncomingMessage): string => deps.publicUrl ?? `http://${req.headers.host ?? "127.0.0.1"}`;
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
@@ -135,6 +137,14 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // has no session yet. Each is a browser page, GET only, answered before
     // the web app's pages so their fallback page never swallows them.
     if (colonieSignIn && await colonieSignIn.handle(req, res, path, method, deps.publicUrl ?? null)) return;
+    // The owner's browser coming back from DigitalOcean's sign-in. Public
+    // like the MCP way back above: the state is the credential, used once.
+    if (sharedServers && method === "GET" && path === DIGITALOCEAN_CALLBACK) {
+      const answer = await sharedServers.callback(url.search);
+      res.writeHead(answer.status, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
+      res.end(answer.text);
+      return;
+    }
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
     if (method === "GET" && path === "/.well-known/colonie/environment") {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && emailSignIn.enabled(), sharedComputers: lendingEnabled(), colonieSignIn: Boolean(colonieSignIn?.link()) }));
@@ -483,6 +493,35 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const body = await readBody(req);
       const role: MemberRole = body?.role === "admin" ? "admin" : "member";
       return json(res, 201, colonieSignIn.createInvite(role, publicUrlFor(req)));
+    }
+
+    // ── Shared workspaces on the owner's DigitalOcean account (desktop owner) ──
+    if (sharedServers && path.startsWith("/api/shared-servers")) {
+      try {
+        if (method === "GET" && path === "/api/shared-servers") {
+          return json(res, 200, { digitalOcean: await sharedServers.status(), servers: sharedServers.list() });
+        }
+        if (method === "POST" && path === "/api/shared-servers/digitalocean/connect") {
+          const port = new URL(`http://${req.headers.host ?? "127.0.0.1"}`).port;
+          return json(res, 200, await sharedServers.connect(`http://127.0.0.1${port ? `:${port}` : ""}${DIGITALOCEAN_CALLBACK}`));
+        }
+        if (method === "POST" && path === "/api/shared-servers/digitalocean/disconnect") {
+          await sharedServers.disconnect();
+          return json(res, 200, { ok: true });
+        }
+        if (method === "POST" && path === "/api/shared-servers") {
+          const body = await readBody(req);
+          const name = typeof body?.name === "string" ? body.name : "";
+          if (!name.trim()) return json(res, 400, { error: "Give the workspace a name." });
+          return json(res, 202, await sharedServers.create(name));
+        }
+        if (method === "DELETE" && (m = path.match(/^\/api\/shared-servers\/([\w-]{1,64})$/))) {
+          await sharedServers.remove(m[1]);
+          return json(res, 200, { ok: true });
+        }
+      } catch (error) {
+        return json(res, (error as { status?: number }).status ?? 502, { error: (error as Error).message });
+      }
     }
 
     // ── bots ──
