@@ -4,7 +4,8 @@
 # which the server never trusts as its owner.
 services:
   colonie:
-    image: colonie-workspace:${COLONIE_IMAGE_TAG:-latest}
+    # COLONIE_IMAGE: a published image (a droplet pulls it), or this local build
+    image: ${COLONIE_IMAGE:-colonie-workspace:latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile

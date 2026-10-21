@@ -11,14 +11,25 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current.** In the app: an invite panel with a copy button, the Shared
-   option, and opening a Shared workspace from the desktop app.
-2. One-click deployment to DigitalOcean from the app (tested against a
-   stand-in DigitalOcean API first).
-3. Publishing the server image where a droplet can pull it.
-4. Group conversations with people and bots.
-5. Bot memory learns from every member (today only unsigned messages).
-6. Release: CI on this branch, a `.dmg`, the Colonie Cloud domain.
+1. **Current: one-click deployment to DigitalOcean.** From the new-workspace
+   form, the owner picks Shared, connects DigitalOcean in the browser (OAuth
+   with PKCE, the app registers itself, no secret), sees the monthly price
+   from DigitalOcean, and creates the workspace: one droplet in Singapore,
+   tagged, behind a firewall (80 and 443), set up on first boot to run the
+   server image with Caddy on `<ip>.sslip.io`. When it answers, the app opens
+   its owner invite, and they sign in as its first admin. Deleting removes
+   the droplet and firewall by tag. Proof: tests against a stand-in
+   DigitalOcean API (OAuth, account limits, price, create, wait, delete) and
+   the generated first-boot script checked against `deploy/`. Out of scope
+   here: publishing the image (next), a custom domain, backups.
+2. Publishing the server image where a droplet can pull it.
+3. Group conversations with people and bots.
+4. Bot memory learns from every member (today only unsigned messages).
+5. Release: CI on this branch, a `.dmg`, the Colonie Cloud domain.
+
+Done and unchecked in a real window: Settings, People invite links; Join a
+Shared workspace (profile menu and workspace menu), passing through Colonie
+Cloud. Missing: removing a member.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
@@ -26,13 +37,6 @@ owner resets the Neon password: `wrangler hyperdrive update
 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`. Before outside users:
 a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 The server image is about 3 GB.
-
-## Next: a person installs Colonie from this code and completes the first run
-
-On a Mac that never had Colonie: install, welcome, engine sign-in, a bot
-answers, create and switch a workspace, quit, reopen. The unpacked app builds
-and boots (`pnpm colonie:package`). Next: a `.dmg` and the journey in a real
-window with a throwaway user or data folder, never `~/.colonie`.
 
 ## Before a public release
 
@@ -73,9 +77,9 @@ window with a throwaway user or data folder, never `~/.colonie`.
 
 ## Queue after the current task
 
-1. Fix CI so it runs what this branch actually has.
-2. The rest of the release table above.
-3. Gaps in the engine connection, each needing a decision before code:
+1. A person installs Colonie on a clean Mac from a `.dmg` and completes the
+   first run in a real window, with throwaway data.
+2. Gaps in the engine connection, each needing a decision before code:
    - A message cannot be sent into a turn that is already running (no steering
      on the ACP engines).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
@@ -85,8 +89,8 @@ window with a throwaway user or data folder, never `~/.colonie`.
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-4. Small fix: email sign-in answers 502 saying the accounts-service address
+3. Small fix: email sign-in answers 502 saying the accounts-service address
    "is set" when it is not set at all.
-5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
+4. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
-6. Tidy the interface code into feature folders, one feature at a time.
+5. Tidy the interface code into feature folders, one feature at a time.

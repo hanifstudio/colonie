@@ -33,6 +33,8 @@ one-line change here.
 
 ## Features (`server/colonie/<feature>/`)
 
+- `server/colonie/deploy/` — Creating a Shared workspace on the owner's DigitalOcean account:
+  the droplet, its firewall, its first-boot script, and deleting it again.
 - `server/colonie/accounts/` — Joining a Shared workspace with a Colonie account: the link to
   Colonie Cloud, invite links, members bound to their account id, and signing in again.
 - `server/colonie/bots/` — Bot lifecycle and configuration: creation and defaults, profile,
