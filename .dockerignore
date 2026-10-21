@@ -1,0 +1,15 @@
+# The workspace server image (deploy/Dockerfile) builds from source.
+.git
+.colonie-dev
+.worktrees
+node_modules
+**/node_modules
+dist
+dist-colonie
+dist-server
+release
+build
+cloud/.wrangler
+cloud/.dev.vars
+*.log
+.colonie-scratch

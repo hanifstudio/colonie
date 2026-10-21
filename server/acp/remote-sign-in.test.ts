@@ -16,11 +16,13 @@ function script(name: string, body: string) {
   return () => spawn(process.execPath, [file], { stdio: ["pipe", "pipe", "pipe"] });
 }
 
-// Codex: page and code, then success once approved (here, after a moment).
+// Codex: page and code (coloured, as the real CLI prints them even with
+// NO_COLOR), then success once approved (here, after a moment).
 const codexApproves = script("codex.mjs", `
-process.stderr.write("Follow these steps to sign in with ChatGPT using device code authorization:\\n");
-process.stderr.write("1. Open this link in your browser and sign in to your account\\n   https://auth.openai.com/codex/device\\n");
-process.stderr.write("2. Enter this one-time code (expires in 15 minutes)\\n   ABCD-12345\\n");
+const blue = (s) => "\\u001b[94m" + s + "\\u001b[0m";
+process.stdout.write("Follow these steps to sign in with ChatGPT using device code authorization:\\n");
+process.stdout.write("1. Open this link in your browser and sign in to your account\\n   " + blue("https://auth.openai.com/codex/device") + "\\n");
+process.stdout.write("2. Enter this one-time code \\u001b[90m(expires in 15 minutes)\\u001b[0m\\n   " + blue("ABCD-12345") + "\\n");
 setTimeout(() => { process.stderr.write("Successfully logged in\\n"); process.exit(0); }, 300);
 `);
 // Claude: a page, then a pasted code on stdin; only "good#state" works.

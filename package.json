@@ -36,7 +36,7 @@
     "dev:desktop": "electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "check": "pnpm typecheck && pnpm lint && pnpm structure:check && pnpm test && pnpm --filter colonie-cloud check",
-    "prepare": "git config core.hooksPath scripts/git-hooks",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath scripts/git-hooks || true",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "structure:check": "node scripts/structure/check-structure.mjs",
     "structure:measure": "node scripts/structure/measure-history.mjs && node scripts/structure/measure-graph.mjs",

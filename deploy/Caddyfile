@@ -1,0 +1,9 @@
+# HTTPS in front of the workspace server. SITE_ADDRESS is the server's public
+# address, for example https://203-0-113-5.sslip.io (a certificate is fetched
+# automatically) or https://localhost:8443 on a test machine (a local one).
+{$SITE_ADDRESS} {
+	reverse_proxy 127.0.0.1:8799 {
+		# live updates are a long-lived event stream: pass each frame at once
+		flush_interval -1
+	}
+}

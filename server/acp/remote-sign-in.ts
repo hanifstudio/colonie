@@ -34,6 +34,11 @@ export function claudeSignInUrl(text: string): string | null {
   return null;
 }
 
+/** Terminal colours, which Codex prints even with NO_COLOR set. */
+const ESCAPE = String.fromCharCode(27);
+const COLOUR = new RegExp(`${ESCAPE}\\[[0-9;]*[A-Za-z]`, "g");
+const plain = (text: string) => text.replace(COLOUR, "");
+
 const failure = (message: string, status: number) => Object.assign(new Error(message), { status });
 
 interface Flow {
@@ -79,7 +84,7 @@ export function createRemoteSignIn(input: { kind: RemoteSignInKind; spawn: () =>
       const found = await new Promise<{ authorizationUrl: string; userCode?: string } | null>((resolve) => {
         const timer = setTimeout(() => resolve(null), PROMPT_WAIT_MS);
         const read = (chunk: Buffer) => {
-          output = (output + chunk.toString()).slice(-16_000);
+          output = (output + plain(chunk.toString())).slice(-16_000);
           const seen = prompt(output);
           if (seen) { clearTimeout(timer); resolve(seen); }
         };

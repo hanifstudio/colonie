@@ -1,0 +1,34 @@
+# A Shared workspace on one machine: the Colonie server and Caddy for HTTPS.
+# Caddy shares the server's network, so the server keeps listening on
+# loopback only, and every outside request reaches it through the proxy,
+# which the server never trusts as its owner.
+services:
+  colonie:
+    image: colonie-workspace:${COLONIE_IMAGE_TAG:-latest}
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      # where people reach it; differs from SITE_ADDRESS only behind a port mapping
+      COLONIE_PUBLIC_URL: ${PUBLIC_URL:-${SITE_ADDRESS}}
+      COLONIE_CLOUD_ISSUER: ${COLONIE_CLOUD_ISSUER}
+      COLONIE_WORKSPACE_NAME: ${COLONIE_WORKSPACE_NAME:-Colonie workspace}
+      COLONIE_OWNER_INVITE_CODE: ${COLONIE_OWNER_INVITE_CODE:-}
+    volumes:
+      - colonie-data:/data
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+  caddy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    network_mode: "service:colonie"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+volumes:
+  colonie-data:
+  caddy-data:
