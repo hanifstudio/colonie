@@ -11,19 +11,16 @@ Step two of "Plan: inviting people" (blueprint, "Colonie Cloud: accounts
 design"). Built and tested on this machine; nothing is deployed until the
 owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
 
-1. Done: accounts (scrypt passwords, sign up, sign in, sessions).
-2. Done: Sign in with Colonie (workspace registration, code plus PKCE, ES256
-   ID token, published key). 17 tests on in-process Postgres (PGlite).
-3. Done: `/forgot` gives the same answer whether or not an account exists and
-   emails a link only to a real one; `/reset` works once within 30 minutes,
-   stores only a hash, keeps the password rules, does not spend the link on a
-   refused password, and ends every session. Ten wrong passwords lock an
-   address for 15 minutes, account or not, and a success clears the count.
-   7 tests in `cloud/test/reset-and-lockout.test.ts`.
-4. **Current card.** Workspace side: an admin creates a one-time invite link;
-   the person signs in or up at Colonie Cloud and comes back with their own
-   identity; the privacy tests hold for them. End to end on this machine.
-5. Wrangler config and a local `wrangler dev` run in the real Workers runtime.
+1. Done: accounts, Sign in with Colonie (code plus PKCE, ES256), password
+   reset, and a lock after ten wrong passwords. 24 tests in `cloud/test/`.
+2. Done: invite by link. An admin connects the workspace
+   (`POST /api/colonie-cloud/connect`) and makes one-time links
+   (`POST /api/invites`); the person signs in or up at Colonie Cloud and lands
+   signed in. Membership is bound to the Colonie account id, not the email
+   (emails are unverified). `server/colonie/accounts/`, 5 end-to-end tests.
+   Before deploying: Turnstile and per-IP limits (a lock can be triggered on
+   purpose against someone else), and `/forgot` timing.
+3. **Next.** Wrangler config and a local `wrangler dev` run in the real Workers runtime.
 
 Privacy by person (step one) is done and guarded by
 `server/colonie/chat/shared-*.e2e.test.ts`. Gaps: bot memory learns nothing in

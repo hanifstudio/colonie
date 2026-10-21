@@ -731,6 +731,8 @@ ROUTES.push(createLiveRoutes({
 /** The HTTP front door: see harness/request-handler.ts. Reassigned bindings
  * go over as getters and setters so the module always sees the current one. */
 const handleRequest = createRequestHandler({
+  colonieSignIn: deps.colonieSignIn,
+  publicUrl: FALLBACK_PUBLIC_URL,
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,
   personOf: deps.personOf,

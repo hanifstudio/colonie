@@ -132,7 +132,9 @@ import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRe
 import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
 import {allowedScopes, createEmailSignIn, parseAllowList} from "./colonie/providers/account-signin.ts";
 import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.ts";
-import {resolveLoopbackTrust, sessionCookieName} from "./request-auth.ts";
+import {requestOrigin, resolveLoopbackTrust, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
+import {createColonieSignIn} from "./colonie/accounts/colonie-signin.ts";
+import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
 import { appendAdminAction, configChangeRows, pruneAdminActivity, sharedSignIn, signInListsOf, type AdminActor } from "./admin-activity.ts";
@@ -227,6 +229,23 @@ const lendingEnabled = () => sharedComputersEnabled(cfg);
 const threadStarters = new ThreadStarters(join(DATA_DIR, "thread-starters.json"));
 const commandAllowlist = new CommandAllowlistStore(join(DATA_DIR, "command-allowlist.json"));
 const SESSION_COOKIE = sessionCookieName(PORT, ENVIRONMENT_ID);
+// Joining a Shared workspace with a Colonie account (colonie/accounts/).
+const colonieSignIn = createColonieSignIn({
+  dataDir: DATA_DIR,
+  allowEmail: (email, role) => {
+    const current = loadConfig().signIn ?? {};
+    const key = role === "admin" ? "admins" : "members";
+    const list = [...new Set([...(current[key] ?? []), email])];
+    saveConfig({ signIn: { ...current, [key]: list } });
+    cfg.signIn = { ...current, [key]: list };
+  },
+  openSession: (member, label) => {
+    const issued = sessions.issue({ label, email: member.email, userId: `colonie:${member.sub}`, scopes: member.role === "admin" ? ["admin", "client"] : ["client"] });
+    return { token: issued.token, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) };
+  },
+  sessionCookie: (req, token, maxAgeSeconds) =>
+    serializeSessionCookie(SESSION_COOKIE, token, { secure: requestOrigin(req)?.startsWith("https://") === true, maxAgeSeconds }),
+});
 const HOSTED_WORKSPACE = hostedWorkspaceConfigured();
 let workspaceAccess: WorkspaceAccess | null = null;
 const DESKTOP_MANAGED = process.env.COLONIE_DESKTOP_PARENT === "1";
@@ -1848,6 +1867,7 @@ const mcpConfigLock = {
 };
 
 const { server, liveCalls } = createServerAssembly({
+  colonieSignIn,
   ownThreads,
   personOf,
   COMMAND_ALLOWLIST_DRIVERS,

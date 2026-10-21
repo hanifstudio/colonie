@@ -33,6 +33,8 @@ one-line change here.
 
 ## Features (`server/colonie/<feature>/`)
 
+- `server/colonie/accounts/` — Joining a Shared workspace with a Colonie account: the link to
+  Colonie Cloud, invite links, members bound to their account id, and signing in again.
 - `server/colonie/bots/` — Bot lifecycle and configuration: creation and defaults, profile,
   avatar and directory, visibility, packages, proposals, presets, system prompt.
 - `server/colonie/chat/` — Conversations: turn dispatch and thread admission, streaming,

@@ -5,6 +5,7 @@
 // the server runs (a plain pass would freeze the first value), and as setters
 // where this module is the one that changes it.
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
+import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -87,6 +88,10 @@ export function createRequestHandler(deps: RequestHandlerDeps) {
    * caller is as a person (null in a Local workspace or for a non-person). */
   const ownThreads: OwnThreads = deps.ownThreads;
   const personOf: (auth: RequestAuth) => string | null = deps.personOf;
+  /** Joining and signing in with a Colonie account (colonie/accounts/). */
+  const colonieSignIn: ColonieSignIn | undefined = deps.colonieSignIn;
+  /** Where people reach this server (COLONIE_PUBLIC_URL), else the request's own address. */
+  const publicUrlFor = (req: IncomingMessage): string => deps.publicUrl ?? `http://${req.headers.host ?? "127.0.0.1"}`;
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
   let url: URL;
   try {
@@ -172,6 +177,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       res.setHeader("set-cookie", serializeSessionCookie(SESSION_COOKIE, issued.token, { secure, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) }));
       return json(res, 200, { session: issued.session, environment });
     }
+    // Invite links and the way back from Colonie Cloud are public: the person
+    // has no session yet. Each is a browser page, GET only.
+    if (colonieSignIn && await colonieSignIn.handle(req, res, path, method, deps.publicUrl ?? null)) return;
     const gate = resolveRequestAuth(req, {
       sessions,
       cookieName: SESSION_COOKIE,
@@ -451,6 +459,29 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, await browserLive.action({ viewerId: body.viewerId, botId: bot.id, owner, body }));
       }
       return json(res, 405, { error: "method not allowed" });
+    }
+
+    // ── Colonie accounts: connect this workspace, invite people (admins) ──
+    // Admin scope by default (request-auth.ts lists no client access here).
+    if (colonieSignIn && method === "GET" && path === "/api/colonie-cloud") {
+      return json(res, 200, { link: colonieSignIn.link(), members: colonieSignIn.members().map(({ email, name, role, joinedAt }) => ({ email, name, role, joinedAt })) });
+    }
+    if (colonieSignIn && method === "POST" && path === "/api/colonie-cloud/connect") {
+      const body = await readBody(req);
+      const issuer = typeof body?.issuer === "string" ? body.issuer.trim() : "";
+      const name = typeof body?.name === "string" && body.name.trim() ? body.name.trim() : "Colonie workspace";
+      if (!/^https?:\/\/\S+$/.test(issuer)) return json(res, 400, { error: "issuer must be the Colonie Cloud address" });
+      try {
+        return json(res, 200, { link: await colonieSignIn.connect(issuer, name, publicUrlFor(req)) });
+      } catch (error) {
+        return json(res, (error as { status?: number }).status ?? 502, { error: (error as Error).message });
+      }
+    }
+    if (colonieSignIn && method === "POST" && path === "/api/invites") {
+      if (!colonieSignIn.link()) return json(res, 409, { error: "connect this workspace to Colonie accounts first" });
+      const body = await readBody(req);
+      const role: MemberRole = body?.role === "admin" ? "admin" : "member";
+      return json(res, 201, colonieSignIn.createInvite(role, publicUrlFor(req)));
     }
 
     // ── bots ──
