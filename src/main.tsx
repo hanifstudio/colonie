@@ -26,6 +26,16 @@ async function chooseRoot(): Promise<React.ReactNode> {
     const { DesktopViewer } = await import("./components/DesktopViewer");
     return <DesktopViewer />;
   }
+  // A browser that the server does not know (a Shared workspace opened
+  // without signing in) gets the sign-in page instead of an app that cannot
+  // load. The desktop app's own window is the owner and skips the question.
+  if (!window.colonie) {
+    const { firstScreen, readEnvironment, readSessionState } = await import("./lib/session");
+    if (firstScreen(await readSessionState()) === "sign-in") {
+      const [{ SignInPage }, environment] = await Promise.all([import("./components/SignInPage"), readEnvironment()]);
+      return <SignInPage colonieSignIn={environment?.capabilities.colonieSignIn === true} workspace={environment?.label || "this workspace"} />;
+    }
+  }
   const { default: App } = await import("./App");
   return <App />;
 }

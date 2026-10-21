@@ -26,6 +26,9 @@ export interface EnvironmentDescriptor {
   capabilities: {
     /** Pairing and sessions are available (this build). */
     remoteSessions: true;
+    /** People sign in here with a Colonie account (a Shared workspace
+     * connected to Colonie Cloud): the web app offers that sign-in. */
+    colonieSignIn?: true;
     /** This server accepts computer sharing. Present only while the
      * maintainer flag `features.sharedComputers` is on: a server with it off
      * advertises nothing, exactly like a build that predates the feature. */
@@ -119,7 +122,7 @@ export function serverVersion(): string {
   return "unknown";
 }
 
-export function environmentDescriptor(input: { environmentId: string; desktopManaged: boolean; emailSignIn?: boolean; sharedComputers?: boolean }): EnvironmentDescriptor {
+export function environmentDescriptor(input: { environmentId: string; desktopManaged: boolean; emailSignIn?: boolean; sharedComputers?: boolean; colonieSignIn?: boolean }): EnvironmentDescriptor {
   return {
     environmentId: input.environmentId,
     label: process.env.COLONIE_ENVIRONMENT_LABEL?.trim() || hostname(),
@@ -127,6 +130,7 @@ export function environmentDescriptor(input: { environmentId: string; desktopMan
     version: serverVersion(),
     capabilities: {
       remoteSessions: true,
+      ...(input.colonieSignIn === true ? { colonieSignIn: true as const } : {}),
       // Never advertise a protocol this server would refuse: the routes are
       // gone unless features.sharedComputers is on, so the capability is too.
       ...(input.sharedComputers === true ? { sharedComputers: true as const } : {}),

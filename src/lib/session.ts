@@ -6,7 +6,7 @@ export interface EnvironmentDescriptor {
   label: string;
   platform: string;
   version: string;
-  capabilities: { remoteSessions: true; selfUpdate: "desktop-managed" | "operator"; emailSignIn?: boolean; sharedComputers?: true };
+  capabilities: { remoteSessions: true; selfUpdate: "desktop-managed" | "operator"; emailSignIn?: boolean; sharedComputers?: true; colonieSignIn?: true };
 }
 
 export type SessionState =
@@ -41,6 +41,23 @@ export async function readSessionState(fetchImpl: typeof fetch = fetch): Promise
     };
   }
   return record.trust === "service" ? { kind: "loopback", trust: "service" } : { kind: "loopback" };
+}
+
+/** What a browser page shows first: the app, or the sign-in page for someone
+ * the server does not know. An unreachable server still gets the app, which
+ * reports that itself, as before. */
+export function firstScreen(state: SessionState): "app" | "sign-in" {
+  return state.kind === "unauthenticated" ? "sign-in" : "app";
+}
+
+/** The workspace's sign-in options, from its public description. */
+export async function readEnvironment(fetchImpl: typeof fetch = fetch): Promise<EnvironmentDescriptor | null> {
+  try {
+    const res = await fetchImpl("/.well-known/colonie/environment", { credentials: "same-origin" });
+    return res.ok ? await res.json() as EnvironmentDescriptor : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A connection that can use the app: a session, or the owner on this machine. */

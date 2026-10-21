@@ -11,7 +11,11 @@ Step three of "Plan: inviting people" (blueprint). Done before it: privacy by
 person (`server/colonie/chat/shared-*.e2e.test.ts`) and Colonie Cloud with
 invite by link (`cloud/`, 24 tests; `server/colonie/accounts/`, 5 end-to-end
 tests; also run in the real Workers runtime). Next: the workspace server
-reachable over HTTPS behind a proxy, its engines signed in on that machine.
+reachable over HTTPS behind a proxy, its engines signed in on that machine:
+(1) done: a browser with no session gets a "Sign in with Colonie" page;
+(2) the first owner: a new server connects to Colonie Cloud and makes an admin
+invite for its owner; (3) a Linux install (Node, Caddy HTTPS, systemd),
+tried in Docker; (4) engine sign-in on a server with no browser (research).
 
 **Colonie Cloud goes live when the owner:** creates Cloudflare (Workers Paid),
 Neon (Singapore) with a Hyperdrive config, and Resend; stores the output of
