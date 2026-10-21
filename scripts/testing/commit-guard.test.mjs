@@ -27,6 +27,11 @@ describe("the commit guard", () => {
     expect(commitProblems([{ status: "M", path: "server/x.ts" }], text({ "server/x.ts": "// E02.4" }))).toEqual([]);
   });
 
+  it("counts a HANDOVER of exactly 100 lines, ending in a newline, as 100", () => {
+    const full = { "docs/HANDOVER.md": "line\n".repeat(100) };
+    expect(commitProblems([{ status: "M", path: "docs/HANDOVER.md" }], text(full))).toEqual([]);
+  });
+
   it("refuses a HANDOVER over 100 lines", () => {
     const long = { "docs/HANDOVER.md": "line\n".repeat(120) };
     expect(commitProblems([{ status: "M", path: "docs/HANDOVER.md" }], text(long))[0]).toMatch(/limit 100/);

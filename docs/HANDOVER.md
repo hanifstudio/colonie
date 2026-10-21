@@ -5,29 +5,27 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: one-click deployment to DigitalOcean
+## Now: everything a first public release with Shared workspaces needs
 
-Step six of "Plan: inviting people" (blueprint, "One-click deployment"), done
-before steps four and five because a server is needed to use either. Done so
-far: privacy by person; Colonie Cloud and invite by link; a server image
-(`deploy/`: the server and web app, Caddy for HTTPS on the same network so
-loopback stays private) tried end to end in Docker against the live Colonie
-Cloud: the owner's link, signing up, landing as admin, making an invite, the
-owner code refused a second time, and the real Codex and Claude CLIs offering
-their sign-in pages. Loopback is never the owner on a Shared server.
-Next: from the app, connect DigitalOcean, create a droplet that runs this
-image with the owner code, and open the workspace. Then: the app's Shared
-option and an invite panel with a copy button.
+Owner, October 21: keep going until release. Done: privacy by person, Colonie
+Cloud with invite by link, the server image (`deploy/`, tried in Docker
+against the live cloud), engine sign-in from the admin's browser. In order:
+
+1. **Current.** In the app: an invite panel with a copy button, the Shared
+   option, and opening a Shared workspace from the desktop app.
+2. One-click deployment to DigitalOcean from the app (tested against a
+   stand-in DigitalOcean API first).
+3. Publishing the server image where a droplet can pull it.
+4. Group conversations with people and bots.
+5. Bot memory learns from every member (today only unsigned messages).
+6. Release: CI on this branch, a `.dmg`, the Colonie Cloud domain.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
 owner resets the Neon password: `wrangler hyperdrive update
 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`. Before outside users:
 a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
-Gaps: bot memory learns nothing in a Shared workspace; the image is about
-3 GB; the agent guards need the owner's go-ahead to fix three false alarms
-(a final newline counted as a line, `rm` inside a heredoc body, `git stash
-push` read as a push).
+The server image is about 3 GB.
 
 ## Next: a person installs Colonie from this code and completes the first run
 

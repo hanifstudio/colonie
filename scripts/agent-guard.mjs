@@ -8,7 +8,7 @@ const SEP = String.raw`[^;&|\n]*`;
 const TEMP_ROOTS = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
 
 const RULES = [
-  [new RegExp(String.raw`\bgit\b${SEP}\bpush\b`), "git push is the owner's step."],
+  [new RegExp(String.raw`\bgit\b${SEP}(?<!\bstash\s+)\bpush\b`), "git push is the owner's step."],
   [/\bgh\s+(pr\s+(create|merge)|release\s+create|repo\s+(edit|delete|create))\b/, "publishing to GitHub is the owner's step."],
   [/--no-verify\b/, "skipping the commit hook is not allowed; fix what it reports."],
   [new RegExp(String.raw`\bgit\b${SEP}\bcommit\b${SEP}\s-[a-zA-Z]*n`), "git commit -n skips the commit hook; fix what it reports."],
@@ -41,12 +41,14 @@ export function commandProblem(command) {
   // Flags are read with quoted text blanked out, so a commit message that
   // mentions "-n" is not a flag; paths are read in full, quotes included.
   // The body of a heredoc is text, not a command; a commit message fed with
-  // `git commit -F -` is read by neither kind of rule.
-  const unheredoc = command.replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*\n)[\s\S]*?\n\2[ \t]*(?=\n|$)/g, "$1$2");
+  // `git commit -F -` is read by neither kind of rule. A heredoc fed to a
+  // shell is commands, so it is read in full.
+  const toShell = /\b(ba|z|da|k)?sh\b[^\n|;&]*<</.test(command);
+  const unheredoc = toShell ? command : command.replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*\n)[\s\S]*?\n\2[ \t]*(?=\n|$)/g, "$1$2");
   const full = /\bgit\b[^\n]*\bcommit\b[^\n]*-F\s*-/.test(command) ? unheredoc : command;
   const bare = unheredoc.replace(/'[^']*'|"[^"]*"/g, "''");
   for (const [pattern, reason, quoted] of RULES) if (pattern.test(quoted ? full : bare)) return reason;
-  return recursiveRemoveProblem(command);
+  return recursiveRemoveProblem(unheredoc);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

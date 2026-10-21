@@ -36,7 +36,7 @@ export function commitProblems(changes, staged) {
     const codes = [...new Set(text.match(CODE) ?? [])];
     if (codes.length) problems.push(`${path}: invented codes ${codes.join(", ")}. Name things in plain words.`);
     if (path === HANDOVER) {
-      const lines = text.split("\n").length;
+      const lines = text.replace(/\n$/, "").split("\n").length;
       if (lines > HANDOVER_MAX_LINES) {
         problems.push(`${HANDOVER}: ${lines} lines, limit ${HANDOVER_MAX_LINES}. Delete finished work; history is in Git.`);
       }

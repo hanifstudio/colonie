@@ -13,6 +13,8 @@ describe("the agent guard", () => {
     blocked("gh pr create --fill");
     allowed("git status && git log --oneline -3");
     allowed("gh pr view 12");
+    allowed("git stash push -m wip && git stash pop");
+    blocked("git stash push -m wip && git push");
   });
 
   it("refuses skipping or moving the commit hook", () => {
@@ -31,6 +33,9 @@ describe("the agent guard", () => {
     allowed("git commit -q -F - <<'EOF'\nDeny git push and --no-verify; never touch ~/.colonie.\nEOF\ngit log -1");
     blocked("git commit -F - <<'EOF'\nmessage\nEOF\ngit push");
     blocked("python3 - <<'EOF'\nopen('/Users/x/.colonie/config.json').read()\nEOF");
+    allowed("cat > deploy/Dockerfile <<'EOF'\nRUN rm -rf /var/lib/apt/lists/*\nEOF");
+    blocked("bash <<'EOF'\nrm -rf ~/Documents\nEOF");
+    blocked("sh -s <<EOF\ngit push\nEOF");
   });
 
   it("refuses the owner's real data and credentials", () => {
