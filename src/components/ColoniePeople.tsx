@@ -38,12 +38,13 @@ function InviteLink({ invite }: { invite: Invite }) {
   );
 }
 
-export function ColoniePeopleView({ members, invite, busy, error, onCreate }: {
+export function ColoniePeopleView({ members, invite, busy, error, onCreate, onRemove }: {
   members: ColonieMember[];
   invite: Invite | null;
   busy: boolean;
   error: string | null;
   onCreate: (role: Role) => void;
+  onRemove: (member: ColonieMember) => void;
 }) {
   const [role, setRole] = useState<Role>("member");
   return (
@@ -68,7 +69,7 @@ export function ColoniePeopleView({ members, invite, busy, error, onCreate }: {
         {members.length === 0
           ? <p className="text-[13px] text-ink-secondary">Nobody has joined yet.</p>
           : members.map((member) => (
-            <div key={member.email} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-b border-hairline/20 py-2 text-[13px]">
+            <div key={member.email} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 border-b border-hairline/20 py-2 text-[13px]">
               <span className="min-w-0">
                 <span className="block truncate text-ink">{member.name || member.email}</span>
                 <span className="block truncate text-[11.5px] text-ink-secondary">{member.email}</span>
@@ -77,6 +78,7 @@ export function ColoniePeopleView({ members, invite, busy, error, onCreate }: {
                 {member.role === "admin" ? "Admin" : "Member"}
               </span>
               <span className="text-right tabular-nums text-ink-secondary">{member.joinedAt.slice(0, 10)}</span>
+              <button type="button" disabled={busy} onClick={() => onRemove(member)} className="text-[12px] text-danger hover:underline disabled:opacity-50">Remove</button>
             </div>
           ))}
       </div>
@@ -109,5 +111,21 @@ export function ColoniePeople() {
       setBusy(false);
     }
   };
-  return <ColoniePeopleView members={members} invite={invite} busy={busy} error={error} onCreate={(role) => void create(role)} />;
+  const remove = async (member: ColonieMember) => {
+    const sure = await (window.colonie?.confirm ?? (async (message: string) => window.confirm(message)))(
+      `Remove ${member.name || member.email} from this workspace? They are signed out at once and need a new invite to come back.`,
+    );
+    if (!sure) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/colonie-cloud/members/${encodeURIComponent(member.email)}`, { method: "DELETE" });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <ColoniePeopleView members={members} invite={invite} busy={busy} error={error} onCreate={(role) => void create(role)} onRemove={(member) => void remove(member)} />;
 }

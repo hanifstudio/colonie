@@ -90,7 +90,7 @@ export async function joinAs(cloudUrl: string, inviteUrl: string, person: { name
   if (!signIn.url.startsWith(`${cloudUrl}/signin`)) throw new Error(`invite did not lead to Colonie sign-in: ${signIn.status} ${signIn.url}`);
   const next = new URL(signIn.url).searchParams.get("next")!;
   const consent = await b.go(`${cloudUrl}/signup`, { form: { ...person, next } });
-  if (!consent.text.includes("Continue to the workspace")) throw new Error(`no consent page: ${consent.text.slice(0, 300)}`);
+  if (!consent.text.includes("Continue to the workspace")) throw new Error(`no consent page (${consent.status}): ${consent.text.replace(/<style>[\s\S]*?<\/style>/, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 400)}`);
   const landed = await b.go(`${cloudUrl}/authorize`, { form: b.formFields(consent.text) });
   return { b, landed };
 }

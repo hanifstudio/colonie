@@ -12,7 +12,7 @@ const members = [
 ];
 
 const view = (props: Partial<Parameters<typeof ColoniePeopleView>[0]>) => renderToStaticMarkup(createElement(ColoniePeopleView, {
-  members, invite: null, busy: false, error: null, onCreate: () => {}, ...props,
+  members, invite: null, busy: false, error: null, onCreate: () => {}, onRemove: () => {}, ...props,
 }));
 
 test("the admin sees everyone who joined, with name, address and role", () => {
@@ -23,6 +23,7 @@ test("the admin sees everyone who joined, with name, address and role", () => {
   expect(html).toContain("Admin");
   expect(html).toContain("Member");
   expect(html).toContain("Create invite link");
+  expect(html.match(/>Remove</g)?.length).toBe(2);
 });
 
 test("a new invite link is shown with a copy button and says how it works", () => {

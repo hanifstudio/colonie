@@ -488,6 +488,17 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, (error as { status?: number }).status ?? 502, { error: (error as Error).message });
       }
     }
+    if (colonieSignIn && method === "DELETE" && (m = path.match(/^\/api\/colonie-cloud\/members\/([^/]+)$/))) {
+      const email = decodeURIComponent(m[1]).trim().toLowerCase();
+      const admins = (cfg.signIn?.admins ?? []).map((entry: string) => entry.trim().toLowerCase());
+      if (admins.includes(email) && admins.filter((entry: string) => entry !== email && !entry.startsWith("@")).length === 0) {
+        return json(res, 409, { error: "This is the last admin. Make someone else an admin first." });
+      }
+      if (!colonieSignIn.removeMember(email) && !admins.includes(email) && !(cfg.signIn?.members ?? []).some((entry: string) => entry.trim().toLowerCase() === email)) {
+        return json(res, 404, { error: "No such person in this workspace." });
+      }
+      return json(res, 200, { ok: true });
+    }
     if (colonieSignIn && method === "POST" && path === "/api/invites") {
       if (!colonieSignIn.link()) return json(res, 409, { error: "connect this workspace to Colonie accounts first" });
       const body = await readBody(req);

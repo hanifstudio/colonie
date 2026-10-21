@@ -241,6 +241,14 @@ const colonieSignIn = createColonieSignIn({
     saveConfig({ signIn: { ...current, [key]: list } });
     cfg.signIn = { ...current, [key]: list };
   },
+  forgetEmail: (email) => {
+    const current = loadConfig().signIn ?? {};
+    const without = (list?: string[]) => (list ?? []).filter((entry) => entry.trim().toLowerCase() !== email);
+    const next = { ...current, admins: without(current.admins), members: without(current.members) };
+    saveConfig({ signIn: next });
+    cfg.signIn = next;
+    sessions.revalidateEmailSessions();
+  },
   openSession: (member, label) => {
     const issued = sessions.issue({ label, email: member.email, userId: `colonie:${member.sub}`, scopes: member.role === "admin" ? ["admin", "client"] : ["client"] });
     return { token: issued.token, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) };

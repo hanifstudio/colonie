@@ -28,7 +28,7 @@ against the live cloud), engine sign-in from the admin's browser. In order:
 Done and unchecked in a real window: Settings, People invite links; Join a
 Shared workspace (profile menu and workspace menu), passing through Colonie
 Cloud. Conversations with several people (header: people, add, leave).
-Missing: removing a member from the workspace.
+Admins remove people from Settings, People.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the

@@ -32,6 +32,8 @@ export interface ColonieSignInDeps {
   dataDir: string;
   /** Put an email on the workspace's sign-in list with this role. */
   allowEmail: (email: string, role: MemberRole) => void;
+  /** Take an email off the sign-in list; its sessions end with it. */
+  forgetEmail: (email: string) => void;
   /** Open a session for a member; returns the token for the session cookie. */
   openSession: (member: Member, label: string) => { token: string; maxAgeSeconds: number };
   /** Serialize the workspace's session cookie for this request. */
@@ -121,6 +123,18 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
     },
 
     /** A one-time invite link. Only its hash is kept. */
+    /** Remove a person from the workspace: off the member list and the
+     * sign-in list, which ends their sessions. Their Colonie account stays;
+     * coming back takes a new invite. */
+    removeMember(email: string): boolean {
+      const address = email.trim().toLowerCase();
+      const current = book();
+      const kept = current.members.filter((member) => member.email.toLowerCase() !== address);
+      if (kept.length !== current.members.length) saveBook({ ...current, members: kept });
+      deps.forgetEmail(address);
+      return kept.length !== current.members.length;
+    },
+
     createInvite(role: MemberRole, publicUrl: string): { url: string; expiresAt: string } {
       const code = randomBytes(24).toString("base64url");
       const expiresAt = new Date(now().getTime() + INVITE_DAYS * 24 * 60 * 60_000).toISOString();

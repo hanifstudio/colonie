@@ -90,3 +90,29 @@ test("a member signs in again later without an invite", async () => {
   const sent = await api(later, `/api/bots/${botId}/messages`, { method: "POST", body: { text: "fay-again" } });
   expect(sent.status).toBe(202);
 });
+
+test("an admin removes a member: their session stops at once and they cannot come back without a new invite", async () => {
+  const invite = await ws.as(ADA, "/api/invites", { method: "POST", body: {} });
+  const person = { name: "Gus", email: "gus@x.com", password: "a strong password" };
+  const { b } = await joinAs(invite.body.url, person);
+  expect((await api(b, "/api/bots")).status).toBe(200);
+
+  const removed = await ws.as(ADA, `/api/colonie-cloud/members/${encodeURIComponent("gus@x.com")}`, { method: "DELETE" });
+  expect(removed.status, JSON.stringify(removed.body)).toBe(200);
+  expect((await ws.as(ADA, "/api/colonie-cloud")).body.members.map((member: any) => member.email)).not.toContain("gus@x.com");
+  expect([401, 403]).toContain((await api(b, "/api/bots")).status);
+  // Signing in again with the same Colonie account is refused.
+  const consent = await b.go(`${ws.url}/auth/colonie/signin`);
+  expect(consent.text).toContain("Continue to the workspace");
+  const again = await b.go(`${cloudUrl}/authorize`, { form: b.formFields(consent.text) });
+  expect(again.status).toBe(403);
+});
+
+test("a member cannot remove anyone, and the last admin cannot be removed", async () => {
+  const invite = await ws.as(ADA, "/api/invites", { method: "POST", body: {} });
+  const { b } = await joinAs(invite.body.url, { name: "Hal", email: "hal@x.com", password: "a strong password" });
+  expect((await api(b, `/api/colonie-cloud/members/${encodeURIComponent("bob@x.com")}`, { method: "DELETE" })).status).toBe(403);
+  const last = await ws.as(ADA, `/api/colonie-cloud/members/${encodeURIComponent(ADA)}`, { method: "DELETE" });
+  expect(last.status).toBe(409);
+  expect(last.body.error).toMatch(/last admin/);
+});
