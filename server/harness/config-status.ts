@@ -16,6 +16,7 @@ import { decisionRetentionDays } from "../decision-log.ts";
 import { LICENSE_WARN_DAYS, editionStatus, workspaceMembership, type EditionStatus } from "../enterprise.ts";
 import { type RequestAuth } from "../request-auth.ts";
 import { resetPathCache } from "../runtime/env-path.ts";
+import { announceWhenModelsLand } from "./model-catalogs.ts";
 import { existsSync } from "node:fs";
 
 /** Everything this cluster reaches in the server; see the header. */
@@ -315,7 +316,12 @@ async function persistProviderInstance(instanceId: string, instances: NonNullabl
   if (Object.hasOwn(instances, instanceId)) {
     await registry.load({ [instanceId]: instanceConfigs(cfg)[instanceId] });
     const live = registry.get(instanceId);
-    if (live) bus.attach([live]);
+    if (live) {
+      bus.attach([live]);
+      // A replaced engine learns its models in the background; tell the open
+      // picker when its new list lands.
+      void announceWhenModelsLand([live], () => broadcast({ kind: "config", ...configStatus() }));
+    }
   } else {
     await registry.dispose(instanceId);
   }
@@ -339,7 +345,11 @@ async function reloadProviders() {
   try {
     await registry.disposeAll();
     await registry.load(providerConfigs());
-    bus.attach(registry.instances());
+    const instances = registry.instances();
+    bus.attach(instances);
+    // Every rebuilt engine learns its models in the background; tell the open
+    // picker once, as each list lands.
+    void announceWhenModelsLand(instances, () => broadcast({ kind: "config", ...configStatus() }));
   } finally {
     // Settle every exact conversation, not whichever one is selected now.
     // Teardown can swallow terminal events; no task may remain busy forever.

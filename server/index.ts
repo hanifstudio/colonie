@@ -145,6 +145,7 @@ import {createStartTurn} from "./colonie/chat/turn-start.ts";
 import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 import {createServerAssembly} from "./harness/server-assembly.ts";
 import {createConfigStatus} from "./harness/config-status.ts";
+import {announceWhenModelsLand} from "./harness/model-catalogs.ts";
 import {createCardResolvers} from "./colonie/chat/card-resolvers.ts";
 import {createLocalVmState} from "./colonie/computer/local-vm-state.ts";
 import {createDelegationLifecycle} from "./colonie/peers/delegation-lifecycle.ts";
@@ -1795,13 +1796,10 @@ const { localVmPayload, readyLocalVmForTurn, existingPerBotLocalVmCount, perBotL
 // so a bot created this session sees the discovered model. This runs after
 // configStatus exists: discovery can settle while the server is still setting
 // up, and the notification reads it.
-const startupCatalogs = registry.instances().flatMap((instance) =>
-  instance.startupModelRefresh ? [instance.startupModelRefresh] : []);
-for (const pending of startupCatalogs) {
-  void pending.then(() => broadcast({ kind: "config", ...configStatus() }), () => {});
-}
-if (startupCatalogs.length) {
-  void Promise.all(startupCatalogs).then(async () => {
+const startupInstances = registry.instances();
+const startupCatalogs = announceWhenModelsLand(startupInstances, () => broadcast({ kind: "config", ...configStatus() }));
+if (startupInstances.some((instance) => instance.startupModelRefresh)) {
+  void startupCatalogs.then(async () => {
     if (store.needsSeed()) return;
     try {
       bootSelection = await defaultSelection();

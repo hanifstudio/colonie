@@ -5,24 +5,7 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: the model picker hears when a new model list lands
-
-Second step of the cheaper-model feature trial. Engines learn models in the
-background, but only the start-up list tells the app; after settings rebuild
-the engines (all of them, or one engine or account) the picker keeps the
-default model until reopened. Measured: after `PATCH /api/instances/codex-acp`,
-zero `config` events in six seconds.
-
-- **After:** start-up, whole-fleet reload, and one-engine replacement all
-  announce (a `config` event) when each new list lands, through one helper.
-- **Proof:** `server/harness/model-catalogs.test.ts` (five tests, written first,
-  do not edit) passes; `pnpm check` passes; a throwaway server whose
-  `config.json` points `codex-acp` at `server/acp/testing/fake-agent.ts` (cli:
-  node, args: `--experimental-strip-types` and that path) sends a `config` event
-  on `/api/events` within a few seconds of that PATCH.
-- **Touch:** the new helper, `server/index.ts`, `server/harness/config-status.ts`.
-
-## Next: a person installs Colonie from this code and completes the first run
+## Now: a person installs Colonie from this code and completes the first run
 
 The first step toward a public release. On a Mac that never had Colonie, a
 person installs an app built from this branch, then: goes through the welcome,
