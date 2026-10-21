@@ -77,6 +77,9 @@ switches a workspace, quits, and reopens.
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-4. Remove the leftover brand word `maus`: first the unused `runOn` setting on
+4. Inviting people: the plan is in the blueprint and waits on three owner
+   decisions there. Small fix found on the way: email sign-in answers 502
+   saying the accounts-service address "is set" when it is not set at all.
+5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
-5. Tidy the interface code into feature folders, one feature at a time.
+6. Tidy the interface code into feature folders, one feature at a time.

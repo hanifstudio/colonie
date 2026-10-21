@@ -54,6 +54,40 @@ person clicking through a real install. HANDOVER says what is proven.
    direct messages, permissions.
 6. **Later.** Mobile companion, voice conversation, bot email addresses.
 
+## Plan: inviting people
+
+Checked October 21. Nobody can be invited today. Inherited code from the
+retired hosted product covers part of it: sign-in sessions with admin and
+member roles, an allow-list of emails, recording who wrote a message and who
+started a conversation, spend per person, and a desktop window that can point
+at another server. What is missing:
+
+- **Privacy.** Visibility is decided per bot, not per conversation. Two people
+  using the same bot would see each other's chats live, and the bot's recall
+  and memory could carry one person's chat into another person's answer. The
+  owner and admins see everything, which conflicts with "nobody reads someone
+  else's DMs."
+- **A way in.** The emailed sign-in code went through the retired accounts
+  service, the invite link points to a page that no longer exists, and there
+  is no sign-in screen.
+- **Reach.** The server only listens on its own computer, and the app has no
+  screen to add or switch to another server.
+
+Steps, in order. Each one is safe on its own:
+
+1. **Private by person.** Every conversation knows its participants. A person
+   sees only conversations they are in; recall, memory, and search never cross
+   from one person's conversations into another's. Proven with two signed-in
+   test people on a throwaway server, before anyone real can join.
+2. **Invite by link.** The owner creates a one-time invite link; opening it
+   signs that person in. No email service needed. Email codes can come later.
+3. **Reach the workspace.** Start with the owner's own computer on a private
+   network (for example Tailscale), with HTTPS. Paid servers come later.
+4. **Open it from the app.** The sidebar's Server option connects to an
+   invited workspace.
+5. **Group conversations** with people and bots, where a bot answers when named.
+6. **Hosted Server workspaces** on a server the owner pays for.
+
 ## Decisions
 
 ### Product and business
@@ -141,6 +175,11 @@ scripts/               Build, launch, and checks
 
 ## Waiting on the owner
 
+- Whether inviting people comes before the public release of the Local app.
+- Whether the owner and admins may read members' direct conversations. The
+  decision so far says nobody reads someone else's DMs; the code lets admins.
+- Whether the first shared workspace may run on the owner's own computer over
+  a private network, before paid servers exist.
 - First release: Mac (Apple silicon) only, or more platforms?
 - How this branch (`restructure`) reaches `main`. It is local only and must not be
   pushed until the owner says so.
