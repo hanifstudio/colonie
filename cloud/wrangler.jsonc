@@ -15,7 +15,7 @@
   },
   // Neon (Singapore) through Hyperdrive. `wrangler dev` uses DATABASE_URL
   // from .dev.vars instead.
-  // Disconnected on October 21: that Neon database belongs to another app.
-  // Point a new Hyperdrive config at Colonie Cloud's own database.
-  "hyperdrive": []
+  // Neon (Singapore) through Hyperdrive; Colonie Cloud's tables live in the
+  // colonie_cloud schema. `wrangler dev` uses DATABASE_URL from .dev.vars.
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "9cadf41ef5894f3eafbf22df42ef749c" }]
 }

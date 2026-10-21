@@ -20,14 +20,13 @@ SIGNING_JWK` (and `RESEND_API_KEY`); sets `ISSUER` and the Hyperdrive id in
 `cloud/wrangler.jsonc`; runs `wrangler deploy`. A domain before any outside
 user. Before then: per-IP limits (a lock can be set off on purpose against
 someone) and `/forgot` timing; Turnstile is deferred.
-**Status, October 21:** deployed to https://colonie-cloud.hanifyaskur.workers.dev
-with its signing key, but **disconnected** (answers 503): the Neon database
-given (owner's, password to be reset tonight) belongs to a WhatsApp bot app.
-Before stopping, the first request created two empty tables there
-(`public.accounts`, `public.schema_migrations`); nothing of that app was
-changed. Tables now live in their own schema, `colonie_cloud`. Needed: a
-database of its own (new Neon project or database), then
-`wrangler hyperdrive create`, its id in `cloud/wrangler.jsonc`, deploy.
+**Live, October 21:** https://colonie-cloud.hanifyaskur.workers.dev on Neon
+through Hyperdrive `9cadf41e…`, tables in schema `colonie_cloud`; sign up,
+sign in, and the Sign in with Colonie exchange checked live. That database
+is now Colonie's only (owner); the old WhatsApp-bot tables in `public` and a
+`colonie_cloud_v1` schema are still there (a reset was refused by the agent
+guard; the owner runs it). After the owner resets the Neon password:
+`wrangler hyperdrive update 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`.
 Gaps: bot memory learns nothing in a Shared workspace; the commit guard
 counts a final newline as a line.
 

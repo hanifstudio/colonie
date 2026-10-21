@@ -123,3 +123,14 @@ test("a database another app already uses is left alone: our tables live in thei
   const ours = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'colonie_cloud' order by 1");
   expect(ours.map((row) => row.table_name)).toEqual(["accounts", "auth_codes", "clients", "password_resets", "schema_migrations", "sessions", "sign_in_failures"]);
 });
+
+test("several isolates may migrate at the same time", async () => {
+  const db = await testDb();
+  closers.push(() => db.close());
+  // fresh schema raced by three migrations, then a half-done one finished
+  await db.query("drop schema colonie_cloud cascade");
+  await Promise.all([migrate(db), migrate(db), migrate(db)]);
+  await db.query("delete from colonie_cloud.schema_migrations");
+  await migrate(db);
+  expect((await db.query("select count(*)::int as n from colonie_cloud.schema_migrations"))[0]).toEqual({ n: MIGRATIONS.length });
+});
