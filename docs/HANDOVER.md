@@ -15,8 +15,9 @@ bot see each other's chats, and recall can carry one person's chat into
 another's answer.
 
 - **After:** every conversation has participants; reads, search, exports, and
-  live updates show a person only their own; recall, memory, and search never
-  cross between people.
+  live updates show a person only their own; recall and message search never
+  quote one conversation inside another with different people. The bot's
+  memory stays shared across people (owner decision).
 - **Proof:** two signed-in test people on a throwaway server cannot see or
   reach each other's conversations by any route, live stream, or bot answer.
 

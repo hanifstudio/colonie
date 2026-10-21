@@ -16,9 +16,9 @@ connected apps, and engine sign-ins. There are two kinds:
 - **Local**: runs on the person's own Mac. Personal: nobody can be invited.
   Free, no Colonie account.
 - **Shared**: runs on a server the owner pays for, set up with one click from
-  Colonie. The owner invites people, and people and bots work together. How
-  members' bots get AI access is waiting on the owner (see below): provider
-  terms forbid serving them from the owner's personal subscription. Not built yet.
+  Colonie. The owner invites people, and people and bots work together. Bots
+  run on the Claude or Codex subscription signed in on that server, through
+  ACP. Not built yet.
 
 The product reference is [Grok Bot](https://cursor.com/docs/grok-bot): when a
 behavior is unclear, copy what Grok Bot does, then extend it where Colonie's
@@ -77,9 +77,10 @@ Steps, in order. Each one is safe on its own:
 
 1. **Private by person.** Every conversation knows its participants. A person
    sees only conversations they are in, and that holds for the owner and admins
-   too; recall, memory, and search never cross from one person's conversations
-   into another's. Proven with two signed-in test people on a throwaway server,
-   before anyone real can join.
+   too; searching or quoting past messages never crosses into a conversation
+   with different people. The bot's memory stays shared, by decision. Proven
+   with two signed-in test people on a throwaway server, before anyone real
+   can join.
 2. **Invite by link.** The owner creates a one-time invite link; opening it
    signs that person in. No email service needed. Email codes can come later.
 3. **Run as a server.** A workspace runs on a server reachable over HTTPS, with
@@ -141,7 +142,17 @@ Steps, in order. Each one is safe on its own:
 
 - Members are people and bots. A group is visible only to its members; a direct
   conversation only to its participants. Nobody else reads it, including the
-  owner and admins.
+  owner and admins, and a bot never quotes or searches one conversation's
+  messages inside another conversation with different people.
+- A bot's memory belongs to the bot, not to each person: like a colleague, it
+  remembers what it learned and can use it with anyone it works with.
+- Bots in a Shared workspace run on the Claude or Codex subscription signed in
+  on the server, through ACP (owner decision, October 21). Known risk, recorded
+  so it is a choice and not a surprise: both providers' terms forbid letting
+  other people use one person's subscription (Anthropic consumer terms and
+  Claude Code legal page; OpenAI terms and Codex auth docs, checked October 21),
+  so the owner's account could be limited or closed. The engines also accept an
+  API key, which is the compliant fallback.
 - The owner controls membership, workspace credentials, and risky approvals.
 - To get a bot's attention, name it. Stop applies to the selected task and
   everything it handed off. Bots wanting the same screen or browser wait in line.
@@ -180,17 +191,6 @@ scripts/               Build, launch, and checks
 
 ## Waiting on the owner
 
-- **How bots in a Shared workspace get AI access.** Anthropic and OpenAI both
-  forbid letting other people use one person's Claude or ChatGPT subscription,
-  and Anthropic forbids apps from routing plan credentials on users' behalf.
-  Allowed options: the owner enters an API key billed to the owner (recommended
-  default; whether invited outsiders count as the owner's "authorized users"
-  is not settled); each member connects their own account; or team seats per
-  member. Checked October 21 against code.claude.com legal-and-compliance and
-  learn.chatgpt.com/docs/auth.
-- Whether a bot remembers what it learned from one person when it talks to
-  another. Recommended: no; memory stays with each person, and knowledge
-  meant for everyone is added on purpose.
 - Confirm with Anthropic that the Local app's in-app Claude sign-in is
   permitted: its Agent SDK docs say apps may not offer Claude login "unless
   previously approved", while its help center allows third-party apps.
@@ -206,8 +206,8 @@ scripts/               Build, launch, and checks
 
 ## One-click deployment: DigitalOcean first
 
-Researched October 21 (docs.digitalocean.com). It needs no Colonie-run
-service:
+Researched October 21 (docs.digitalocean.com); the owner agreed. It needs no
+Colonie-run service:
 
 - **Connect:** the app signs in to the owner's DigitalOcean account in the
   browser (OAuth for desktop apps, no secret), asking only for droplet,
