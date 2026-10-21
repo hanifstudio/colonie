@@ -135,6 +135,7 @@ import {ProviderAuthSessions} from "./colonie/providers/provider-auth-sessions.t
 import {requestOrigin, resolveLoopbackTrust, serializeSessionCookie, sessionCookieName} from "./request-auth.ts";
 import {createColonieSignIn} from "./colonie/accounts/colonie-signin.ts";
 import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deploy/shared-servers.ts";
+import { createThreadPeople } from "./colonie/chat/thread-people.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
@@ -379,6 +380,19 @@ const personOf = (auth: RequestAuth): string | null => {
   const viewer = viewerFor(auth);
   return viewer.kind === "person" && viewer.key ? viewer.key : null;
 };
+
+// Who takes part in a conversation, in a Shared workspace.
+const threadPeople = createThreadPeople({
+  store: () => store,
+  directory: () => {
+    const names = new Map(colonieSignIn.members().map((member) => [member.email.toLowerCase(), member.name]));
+    const lists = signInAllowList();
+    return [...new Set([...lists.admins, ...lists.members].filter((entry) => !entry.startsWith("@")))]
+      .map((email) => ({ email, name: names.get(email) }));
+  },
+  isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
+  keyOf: (email) => personKey({ id: "", email }),
+});
 
 /** A member may schedule a routine only for a bot or room they can see. */
 /** The conversations a bot's recent-work brief may draw on: its own. Rooms
@@ -1908,6 +1922,7 @@ const mcpConfigLock = {
 const { server, liveCalls } = createServerAssembly({
   colonieSignIn,
   sharedServers,
+  threadPeople,
   ownThreads,
   personOf,
   COMMAND_ALLOWLIST_DRIVERS,

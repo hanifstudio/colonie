@@ -23,13 +23,13 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    the generated first-boot script checked against `deploy/`. Out of scope
    here: publishing the image (next), a custom domain, backups.
 2. Publishing the server image where a droplet can pull it.
-3. Group conversations with people and bots.
-4. Bot memory learns from every member (today only unsigned messages).
-5. Release: CI on this branch, a `.dmg`, the Colonie Cloud domain.
+3. Bot memory learns from every member (today only unsigned messages).
+4. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
 Done and unchecked in a real window: Settings, People invite links; Join a
 Shared workspace (profile menu and workspace menu), passing through Colonie
-Cloud. Missing: removing a member.
+Cloud. Conversations with several people (header: people, add, leave).
+Missing: removing a member from the workspace.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the

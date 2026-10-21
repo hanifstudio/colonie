@@ -733,6 +733,7 @@ ROUTES.push(createLiveRoutes({
 const handleRequest = createRequestHandler({
   colonieSignIn: deps.colonieSignIn,
   sharedServers: deps.sharedServers,
+  threadPeople: deps.threadPeople,
   publicUrl: FALLBACK_PUBLIC_URL,
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,

@@ -1,4 +1,5 @@
 import { Component, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { ConversationPeople } from "./ConversationPeople";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useDeveloperTools } from "@/lib/developer-tools";
 import { useCopyFeedback } from "@/lib/copy-text";
@@ -518,7 +519,9 @@ const Bubble = memo(function Bubble({
 
   return (
     <div className={cn("group flex w-full flex-col", user ? "animate-msg-in items-end" : "items-start")}>
-      {message.sender && !user && <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}{message.sender.kind === "bot" ? " · Bot" : ""}</span>}
+      {/* who wrote it: a signed-in person's own words carry their name too, so a
+          conversation with several people reads like one */}
+      {message.sender && <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}{!user && message.sender.kind === "bot" ? " · Bot" : ""}</span>}
       {peer && <PeerLabel peer={peer} />}
       <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
         {user && (
@@ -1428,6 +1431,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
             </button>
           )}
           {accountConversation ? <>{accountConversation.actions}<ChatHeaderMenu bot={bot} messages={messages} findOpen={findOpen} onFind={() => setFindOpen((open) => !open)} accountWorkspace /></> : <>
+          <ConversationPeople key={`people:${bot.threadId}`} threadId={bot.threadId} />
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
           {codexAcp && <button aria-label="Open native settings" disabled={bot.busy} onClick={() => setAcpSettingsOpen(true)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-40">Agent options</button>}
           {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}

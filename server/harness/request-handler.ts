@@ -563,6 +563,17 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       });
     }
 
+    // the people in a conversation (Shared workspace): list, add, leave
+    m = path.match(/^\/api\/threads\/([\w-]+)\/people(\/me)?$/);
+    if (m && deps.threadPeople) {
+      const me = personOf(auth);
+      const answer = method === "GET" && !m[2] ? deps.threadPeople.list(me, m[1])
+        : method === "POST" && !m[2] ? deps.threadPeople.add(me, m[1], (await readBody(req))?.email)
+        : method === "DELETE" && m[2] ? deps.threadPeople.leave(me, m[1])
+        : { status: 405, body: { error: "method not allowed" } };
+      return json(res, answer.status, answer.body);
+    }
+
     // scrollback: the page before a message the client already holds
     m = path.match(/^\/api\/threads\/([\w-]+)\/messages$/);
     if (m && method === "GET") {

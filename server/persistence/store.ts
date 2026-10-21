@@ -2276,6 +2276,18 @@ export class Store {
     return [...(task.participants ?? [])];
   }
 
+  /** Replace who takes part in a conversation (people of a Shared workspace,
+   * by person key). False for an unknown thread. */
+  setThreadParticipants(threadId: string, participants: readonly string[]): boolean {
+    const bot = this.botByThread(threadId);
+    const task = bot?.tasks?.find((t) => t.threadId === threadId);
+    if (!bot || !task) return false;
+    task.participants = [...new Set(participants)];
+    this.saveBots();
+    this.emit({ type: "bot", botId: bot.id });
+    return true;
+  }
+
   /** A turn gets an independent snapshot without changing the selected task
    * or mutating the bot's defaults while another turn is running. */
   projectBotForTask(botId: string, threadId: string): BotRecord | null {
