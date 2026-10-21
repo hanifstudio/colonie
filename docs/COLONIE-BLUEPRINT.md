@@ -233,6 +233,30 @@ Colonie-run service:
   make; mail ports are blocked; bots must not scrape or crawl in ways
   DigitalOcean's acceptable use policy forbids.
 
+## Colonie Cloud: accounts design
+
+Researched October 21 (developers.cloudflare.com, neon.com, resend.com):
+
+- **How a person joins:** they open an invite link from a Shared workspace;
+  it sends them to Colonie Cloud to sign in or sign up (email and password);
+  Colonie Cloud sends them back with a one-time code; the workspace swaps the
+  code for a signed proof of who they are and signs them in. The workspace
+  never sees the password. (Standard sign-in-with flow: code plus PKCE.)
+- **Stack:** one Cloudflare Worker (TypeScript) on Workers Paid, $5 a month,
+  needed for safe password hashing time and for email to anyone; Neon Postgres
+  (free plan) through Hyperdrive; `jose` for signed tokens (ES256), with a
+  published public key that workspaces verify against.
+- **Passwords:** scrypt (N=2^15, r=8, p=3), never PBKDF2 (Workers caps it far
+  below safe strength). Generic errors, rate limits, lockout after failures,
+  Turnstile on sign-up and reset.
+- **Email:** password reset needs a domain we own to send to anyone. Until it
+  is bought, reset emails reach only the owner's own address (for testing).
+- **Address:** starts on a `*.workers.dev` address; the issuer address is a
+  setting, because buying the domain changes it. Buy the domain before any
+  outside beta.
+- **The owner creates** the Cloudflare, Neon, and Resend accounts and holds
+  every secret; engineering never reads them.
+
 ## Still to research
 
 - Measure the default droplet size on a real browser-and-computer workload.
