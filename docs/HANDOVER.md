@@ -14,7 +14,12 @@ owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
 1. Done: accounts (scrypt passwords, sign up, sign in, sessions).
 2. Done: Sign in with Colonie (workspace registration, code plus PKCE, ES256
    ID token, published key). 17 tests on in-process Postgres (PGlite).
-3. **Current.** Password reset by email (sender behind an interface), rate limits, lockout.
+3. **Current card.** In `cloud/`: `/forgot` (same answer whether or not the
+   account exists; emails a link only to a real one through `mailer` in the
+   app options), `/reset` (30 minutes, once, stored as a hash, password rules
+   kept, a refused try does not spend it, all sessions end), and a lock after
+   ten wrong passwords for an email (15 minutes, any address, cleared by a
+   success). Tests (do not edit): `cloud/test/reset-and-lockout.test.ts`.
 4. Workspace side: an admin creates a one-time invite link; the person signs
    in or up at Colonie Cloud and comes back with their own identity; the
    privacy tests hold for them. End to end on this machine.
