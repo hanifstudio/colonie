@@ -14,15 +14,15 @@ owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
 1. Done: accounts (scrypt passwords, sign up, sign in, sessions).
 2. Done: Sign in with Colonie (workspace registration, code plus PKCE, ES256
    ID token, published key). 17 tests on in-process Postgres (PGlite).
-3. **Current card.** In `cloud/`: `/forgot` (same answer whether or not the
-   account exists; emails a link only to a real one through `mailer` in the
-   app options), `/reset` (30 minutes, once, stored as a hash, password rules
-   kept, a refused try does not spend it, all sessions end), and a lock after
-   ten wrong passwords for an email (15 minutes, any address, cleared by a
-   success). Tests (do not edit): `cloud/test/reset-and-lockout.test.ts`.
-4. Workspace side: an admin creates a one-time invite link; the person signs
-   in or up at Colonie Cloud and comes back with their own identity; the
-   privacy tests hold for them. End to end on this machine.
+3. Done: `/forgot` gives the same answer whether or not an account exists and
+   emails a link only to a real one; `/reset` works once within 30 minutes,
+   stores only a hash, keeps the password rules, does not spend the link on a
+   refused password, and ends every session. Ten wrong passwords lock an
+   address for 15 minutes, account or not, and a success clears the count.
+   7 tests in `cloud/test/reset-and-lockout.test.ts`.
+4. **Current card.** Workspace side: an admin creates a one-time invite link;
+   the person signs in or up at Colonie Cloud and comes back with their own
+   identity; the privacy tests hold for them. End to end on this machine.
 5. Wrangler config and a local `wrangler dev` run in the real Workers runtime.
 
 Privacy by person (step one) is done and guarded by
@@ -66,6 +66,7 @@ window with a throwaway user or data folder, never `~/.colonie`.
 
 ## Not yet checked by a person
 
+- No reset email has gone through Resend; the reset pages were never opened in a browser.
 - The OpenCode rules (`opencode.json`) load, but no live session has tried
   them: the DeepSeek model through 9router returned nothing on October 21,
   even for a one-word prompt, and the default model was out of quota.
