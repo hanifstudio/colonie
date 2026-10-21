@@ -9,30 +9,22 @@ Updated October 21, 2026.
 
 Step three of "Plan: inviting people" (blueprint). Done before it: privacy by
 person (`server/colonie/chat/shared-*.e2e.test.ts`) and Colonie Cloud with
-invite by link (`cloud/`, 24 tests; `server/colonie/accounts/`, 5 end-to-end
-tests; also run in the real Workers runtime). Next: the workspace server
-reachable over HTTPS behind a proxy, its engines signed in on that machine:
-(1) done: a browser with no session gets a "Sign in with Colonie" page;
-(2) done: started with `COLONIE_CLOUD_ISSUER`, `COLONIE_PUBLIC_URL`, and
-`COLONIE_OWNER_INVITE_CODE` (made by whoever creates the server), a new server
-connects before listening and lets the owner in once as the first admin; (3) a Linux install (Node, Caddy HTTPS, systemd),
-tried in Docker; (4) engine sign-in on a server with no browser (research).
+invite by link (`cloud/`; `server/colonie/accounts/`). Done in this step: a
+"Sign in with Colonie" page for browsers with no session; a new server started
+with `COLONIE_CLOUD_ISSUER`, `COLONIE_PUBLIC_URL`, `COLONIE_OWNER_INVITE_CODE`
+connects before listening and lets its owner in once as first admin; loopback
+is never the owner on a Shared server (bots' shells are loopback); engines
+sign in from the admin's own browser (Codex device code, which must be
+enabled in ChatGPT security settings; Claude pasted code). **Current:** the
+server image and Caddy HTTPS (`deploy/`), tried in Docker end to end.
 
-**Colonie Cloud goes live when the owner:** creates Cloudflare (Workers Paid),
-Neon (Singapore) with a Hyperdrive config, and Resend; stores the output of
-`pnpm --filter colonie-cloud new-signing-key` with `wrangler secret put
-SIGNING_JWK` (and `RESEND_API_KEY`); sets `ISSUER` and the Hyperdrive id in
-`cloud/wrangler.jsonc`; runs `wrangler deploy`. A domain before any outside
-user. Before then: per-IP limits (a lock can be set off on purpose against
-someone) and `/forgot` timing; Turnstile is deferred.
-**Live, October 21:** https://colonie-cloud.hanifyaskur.workers.dev on Neon
-through Hyperdrive `9cadf41e…`, tables in schema `colonie_cloud`; sign up,
-sign in, and the Sign in with Colonie exchange checked live. That database
-is Colonie's only; the owner cleared the old tables (`public`,
-`colonie_cloud_v1`) on October 21. After the owner resets the Neon password:
-`wrangler hyperdrive update 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`.
+**Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
+(Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
+owner resets the Neon password: `wrangler hyperdrive update
+9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`. Before outside users:
+a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 Gaps: bot memory learns nothing in a Shared workspace; the commit guard
-counts a final newline as a line.
+counts a final newline as a line, and its rm check reads heredoc bodies.
 
 ## Next: a person installs Colonie from this code and completes the first run
 

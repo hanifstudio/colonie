@@ -527,8 +527,9 @@ export function EngineSetup({
   const deviceSignIn = signInOnly && instance.authentication?.method === "device-code";
   const browserSignIn = signInOnly && instance.authentication?.method === "browser-pkce";
   const pasteSignIn = signInOnly && instance.authentication?.method === "paste-code";
-  // Colonie's ACP engines sign in through the adapter's own browser flow.
-  const acpSignIn = signInOnly && isColonieAcpDriver(instance.driverKind);
+  // Colonie's ACP engines sign in through the adapter's own browser flow on
+  // this machine; on a Shared workspace server they offer a code instead.
+  const acpSignIn = signInOnly && isColonieAcpDriver(instance.driverKind) && !instance.authentication;
   const provider = deviceSignInProvider(instance.driverKind);
   const command = signInOnly ? signInCommand : installCommand;
   const title = signInOnly

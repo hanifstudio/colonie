@@ -6,4 +6,8 @@ export const ClaudeAcpDriver = createAcpProvider({
   // Claude's own modes, as the adapter advertises them: "Accept edits" and
   // "Auto — Claude handles permission decisions".
   editsMode: "acceptEdits", autoMode: "auto",
+  // `claude auth login --claudeai` through the adapter (`--cli` runs the
+  // bundled Claude Code): it prints Anthropic's page, then reads the code
+  // that page shows from stdin.
+  remoteSignIn: { kind: "paste-code", args: ["--cli", "auth", "login", "--claudeai"] },
 });

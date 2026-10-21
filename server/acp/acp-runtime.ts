@@ -1,4 +1,5 @@
 /** New ACP boundary. No imports from the legacy drivers/acp client or Codex driver. */
+import { createRemoteSignIn, type RemoteSignInKind } from "./remote-sign-in.ts";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -59,6 +60,10 @@ export interface AcpProvider {
    * decisions"; `agent` — Codex "Auto review: only ask for actions detected as
    * potentially unsafe"). Optional, same rule. */
   autoMode?: string;
+  /** Signing in from a browser on another computer (a Shared workspace
+   * server): how, and the adapter arguments that run the engine's own CLI
+   * for it (server/acp/remote-sign-in.ts). */
+  remoteSignIn: { kind: RemoteSignInKind; args: string[] };
 }
 /** Whether this connection is signed in, plus its offered sign-in methods. */
 export interface AcpAuthStatus {
@@ -442,7 +447,13 @@ export class AcpRuntime implements ProviderAdapter {
     finally { clearTimeout(timer); }
   }
 
-  private spawnAdapter(cwd: string): ChildProcessWithoutNullStreams {
+  /** The engine's own CLI, run through the adapter with this instance's
+   * environment (its own CODEX_HOME / CLAUDE_CONFIG_DIR), for signing in. */
+  spawnSignIn(): ChildProcessWithoutNullStreams {
+    return this.spawnAdapter(tmpdir(), this.flavor.remoteSignIn.args);
+  }
+
+  private spawnAdapter(cwd: string, extraArgs: string[] = []): ChildProcessWithoutNullStreams {
     const env = { ...process.env, ...this.environment };
     env.ELECTRON_RUN_AS_NODE = "1";
     // Existing CLI auth is inherited. Ambient API keys must not silently change billing.
@@ -456,7 +467,9 @@ export class AcpRuntime implements ProviderAdapter {
     delete env.COLONIE_COMPOSIO_API_KEY;
     const command = this.config.cli ?? process.execPath;
     const args = this.config.cli ? this.config.args ?? [] : [process.env[this.flavor.entryEnvironment] ?? require.resolve(this.flavor.packageEntry)];
-    return spawn(command, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    // Signing in from another computer: no browser on this machine to open.
+    if (extraArgs.length) Object.assign(env, { BROWSER: "true", NO_COLOR: "1" });
+    return spawn(command, [...args, ...extraArgs], { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
   }
 
   /** A short-lived adapter connection for auth, outside the session map. */
@@ -1026,6 +1039,9 @@ export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> {
   async create(input) {
     const models = structuredClone(this.models);
     const adapter = new AcpRuntime(input.instanceId, input.config, input.environment, models, flavor);
+    const remoteSignIn = process.env.COLONIE_WORKSPACE_KIND === "shared"
+      ? createRemoteSignIn({ kind: flavor.remoteSignIn.kind, spawn: () => adapter.spawnSignIn() })
+      : null;
     return {
       instanceId: input.instanceId, driverKind: flavor.kind, displayName: input.displayName,
       enabled: input.enabled, models, adapter,
@@ -1033,6 +1049,14 @@ export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> {
       // background: the server listens first and waits for this later, so a bot
       // created any other way can still choose a real model.
       ...(input.enabled ? { startupModelRefresh: adapter.discoverModels() } : {}),
+      // On a Shared workspace server the admin signs the engine in from a
+      // browser elsewhere: a code to enter (Codex) or to paste back (Claude).
+      ...(remoteSignIn ? {
+        startAuthentication: () => remoteSignIn.start(),
+        getAuthentication: (flowId: string) => remoteSignIn.status(flowId),
+        ...(flavor.remoteSignIn.kind === "paste-code" ? { completeAuthentication: (flowId: string, code: string) => remoteSignIn.complete(flowId, code) } : {}),
+        cancelAuthentication: () => remoteSignIn.cancel(),
+      } : {}),
       // Open a throwaway session on demand so the model picker is complete
       // before the first message (the adapter only reports models in-session).
       refreshModels: async () => { await adapter.discoverModels(); },
