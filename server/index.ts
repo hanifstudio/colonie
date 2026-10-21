@@ -309,7 +309,7 @@ const workspaceKind = createWorkspaceKind({
   dataDir: DATA_DIR,
   namesMembers: () => sharedMembership() || signInAllowList().admins.length > 0,
 });
-const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibility({
+const { viewerFor, visibleTo, ownThreadIds, forgetVisibility, subjectVisible } = createVisibility({
   routines: () => routines,
   store: () => store,
   sharedWorkspace: () => workspaceKind.shared(),
@@ -2008,6 +2008,7 @@ const { server, liveCalls } = createServerAssembly({
   usageTriggerFor,
   viewerFor,
   visibleTo,
+  ownThreadIds,
   wants,
   webhookIngressStatus,
   webhooks,

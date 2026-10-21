@@ -86,6 +86,26 @@ function threadsUsingAttachment(name: string): readonly string[] {
   return threads;
 }
 
+/** The conversations a signed-in person takes part in, for routes that scan
+ * or list across threads. null means no per-person narrowing: Local, the
+ * owner, or a local service. An empty list means a person who takes part in
+ * none yet, so a scan must find nothing. */
+function ownThreadIds(auth: RequestAuth): string[] | null {
+  if (!sharedWorkspace()) return null;
+  const viewer = viewerFor(auth);
+  if (viewer.kind !== "person") return null;
+  if (!viewer.key) return [];
+  const visible = visibleTo(viewer);
+  const ids = new Set<string>();
+  for (const bot of store().bots) {
+    if (!visible.bot(bot.id)) continue;
+    for (const task of bot.tasks ?? []) {
+      if ((task.participants ?? []).includes(viewer.key)) ids.add(task.threadId);
+    }
+  }
+  return [...ids];
+}
+
 /** The one check every request naming a bot, thread, room, routine, run or
  * attachment passes through for a member. An id nobody knows goes on to its
  * handler, which answers "not found" itself. */
@@ -113,6 +133,7 @@ function subjectVisible(subject: PathSubject, visible: VisibleSet): boolean {
   return {
     viewerFor,
     visibleTo,
+    ownThreadIds,
     forgetVisibility,
     subjectVisible,
   };

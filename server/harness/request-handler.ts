@@ -725,8 +725,16 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return ids.has(messageId);
       };
       // A member who may not see every bot: look further, then keep only
-      // hits in conversations they can open.
-      const found = await searchMessagesAsync(q, visible.everything ? limit : Math.min(limit * 10, 1_000), threadId);
+      // hits in conversations they can open. A person in a Shared workspace
+      // has the scan itself limited to their own conversations, so someone
+      // else's many matches can never crowd theirs out of the page.
+      const allowedThreads = deps.ownThreadIds?.(auth) ?? null;
+      const found = await searchMessagesAsync(
+        q,
+        allowedThreads || visible.everything ? limit : Math.min(limit * 10, 1_000),
+        threadId,
+        allowedThreads ?? undefined,
+      );
       // A scan may outlive a revocation or audience edit. Authorize again
       // after the await, and resolve visibility from current store state.
       if (HOSTED_WORKSPACE && auth.kind === "session") {

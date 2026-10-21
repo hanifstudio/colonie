@@ -136,7 +136,7 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     sharedComputerControl, sharedComputers, sharedWorkspaceFullAccessEnabled, sseClients,
     stagedSkillCleanupsForThread, stagedSkillListing, startTurn, starterNotes, store,
     storedAvatarExists, subjectVisible, supportsApprovalMode, teamComputers, teamMemory,
-    threadBusy, threadStarters, titleRegenerations, usageTriggerFor, viewerFor, visibleTo, wants,
+    threadBusy, threadStarters, titleRegenerations, usageTriggerFor, viewerFor, visibleTo, ownThreadIds, wants,
     webhookIngressStatus, webhooks, wireBot, wireTask, workspaceAccess, workspaceMaintenance,
     workspaceRestore, setBrowserEngineInstall, setBrowserEngineInstallError,
     setCustomDomainRevision, setLocalVmProvisionBusy,
@@ -276,6 +276,7 @@ const workspaceBackupRoutes = createWorkspaceBackupRoutes({
   appVersion: serverVersion(),
   readBody,
   restored: workspaceRestore(),
+  shared: () => deps.ownThreads.shared(),
   ...workspaceBackupAccess,
 });
 // Route modules (server/routes/README.md). `workspaceAccess` is assigned at
@@ -354,8 +355,8 @@ ROUTES.push(createAcpSettingsRoutes({
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
-ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording }));
-ROUTES.push(createBotActivityRoutes({ store, outboundCounts }));
+ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording, ownThreadIds }));
+ROUTES.push(createBotActivityRoutes({ store, outboundCounts, ownThreadIds }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
 ROUTES.push(teamLibraryRoutes);
 ROUTES.push(cliProbeRoutes);
@@ -475,6 +476,7 @@ ROUTES.push(createThreadRespondRoutes({
 ROUTES.push(createTeamsExportRoutes({
   store,
   cfg,
+  shared: () => deps.ownThreads.shared(),
   routines: () => routines(),
   defaultsPresetFor,
   starterNotes,
@@ -732,6 +734,7 @@ const handleRequest = createRequestHandler({
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,
   personOf: deps.personOf,
+  ownThreadIds,
   DEFAULT_PAGE,
   DESKTOP_MANAGED,
   ENVIRONMENT_ID,

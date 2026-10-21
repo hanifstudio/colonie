@@ -21,6 +21,9 @@ type Helper = (...args: any[]) => any;
 export interface TeamsExportRouteDeps {
   store: Store;
   cfg: AppConfig;
+  /** True where several people share the workspace: a whole-workspace backup
+   * carries every transcript, so signed-in sessions may not export it. */
+  shared?: () => boolean;
   routines: () => RoutineManager | null;
   defaultsPresetFor: Helper;
   starterNotes: (botId: string) => Array<{ path: string; text: string }>;
@@ -30,7 +33,7 @@ export interface TeamsExportRouteDeps {
 }
 
 export function createTeamsExportRoutes(deps: TeamsExportRouteDeps): RouteHandler {
-  return async ({ req, res, path, method, json, readBody }) => {
+  return async ({ req, res, path, method, auth, json, readBody }) => {
     const {
       store, cfg, routines, defaultsPresetFor, starterNotes, checkedExportSkillNames,
       collectExportSkills, collectTeamSkills,
@@ -39,6 +42,12 @@ export function createTeamsExportRoutes(deps: TeamsExportRouteDeps): RouteHandle
       // Pictures the Share dialog prepared ride this body, so it is larger
       // than the default JSON limit (the document itself is capped at 4 MB).
       const body = await readBody(req, 8 * 1024 * 1024);
+      // A backup carries every conversation, so a Shared workspace refuses it
+      // to a signed-in person, admins included. The owner on this machine
+      // still reaches it through loopback.
+      if (body.format === "backup" && deps.shared?.() === true && auth.kind === "session") {
+        return json(res, 403, { error: "A backup of the whole workspace is not available while several people share it." });
+      }
       const profileName = cfg.profile?.name?.trim();
       if (body.format === "package" && body.version === 2 && body.kind === "library") {
         // Preset bots and their skills, no team: my New bot defaults as a

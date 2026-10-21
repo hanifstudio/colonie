@@ -25,7 +25,7 @@ export class MessageSearchWorker {
     this.timeoutMs = timeoutMs;
   }
 
-  search(query: string, limit: number, threadId?: string): Promise<SearchHit[]> {
+  search(query: string, limit: number, threadId?: string, allowedThreadIds?: readonly string[]): Promise<SearchHit[]> {
     if (this.pending.size >= 8) return Promise.reject(new SearchUnavailable("Search is busy. Try again shortly."));
     if (!this.worker) {
       const worker = new Worker(SPAWNED_PROXIES.messageSearch, {
@@ -57,7 +57,7 @@ export class MessageSearchWorker {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { void this.close(); }, this.timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
-      try { worker.postMessage({ id, query, limit, threadId }); }
+      try { worker.postMessage({ id, query, limit, threadId, allowedThreadIds }); }
       catch { void this.close(); }
     });
   }

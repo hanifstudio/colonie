@@ -9,16 +9,20 @@ import { DATA_DIR, EVENTS_DIR } from "../config.ts";
 import { readBotActivity } from "../activity.ts";
 import type { Store } from "../persistence/store.ts";
 import type { OutboundCounts } from "../outbound-counts.ts";
+import type { RequestAuth } from "../request-auth.ts";
 import { DEFAULT_OUTBOUND_POLICY } from "../../shared/outbound.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface BotActivityRouteDeps {
   store: Store;
   outboundCounts: OutboundCounts;
+  /** The conversations the asking person takes part in, or null when no
+   * per-person narrowing applies (Local, the owner, a local service). */
+  ownThreadIds?: (auth: RequestAuth) => string[] | null;
 }
 
 export function createBotActivityRoutes(deps: BotActivityRouteDeps): RouteHandler {
-  return async ({ res, url, path, method, json }) => {
+  return async ({ res, url, path, method, auth, json }) => {
     const activity = path.match(/^\/api\/bots\/([\w-]+)\/activity$/);
     if (activity && method === "GET") {
       const bot = deps.store.bot(activity[1]);
@@ -28,9 +32,15 @@ export function createBotActivityRoutes(deps: BotActivityRouteDeps): RouteHandle
       if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
         return json(res, 400, { error: "limit must be a positive whole number" });
       }
-      const threadIds = [...new Set([bot.threadId, ...deps.store.tasks(bot.id).map((task) => task.threadId)])];
+      const own = deps.ownThreadIds?.(auth) ?? null;
+      const threadIds = [...new Set([bot.threadId, ...deps.store.tasks(bot.id).map((task) => task.threadId)])]
+        .filter((threadId) => !own || own.includes(threadId));
       return json(res, 200, {
-        rows: readBotActivity({ dataDir: DATA_DIR, eventsDir: EVENTS_DIR, botId: bot.id, threadIds, limit: parsedLimit ?? 300 }),
+        rows: readBotActivity({
+          dataDir: DATA_DIR, eventsDir: EVENTS_DIR, botId: bot.id, threadIds,
+          limit: parsedLimit ?? 300,
+          ...(own ? { decisionThreadIds: own } : {}),
+        }),
       });
     }
 

@@ -4,11 +4,11 @@ import { searchMessagesInDatabase } from "./persistence/message-search-query.ts"
 
 // Each request reads the latest committed WAL state. Closing after the scan
 // avoids keeping an old database inode open across a workspace restore.
-parentPort!.on("message", (request: { id: number; query: string; limit: number; threadId?: string }) => {
+parentPort!.on("message", (request: { id: number; query: string; limit: number; threadId?: string; allowedThreadIds?: string[] }) => {
   let db: DatabaseSync | undefined;
   try {
     db = new DatabaseSync(workerData.file, { readOnly: true });
-    const hits = searchMessagesInDatabase(db, request.query, request.limit, request.threadId);
+    const hits = searchMessagesInDatabase(db, request.query, request.limit, request.threadId, request.allowedThreadIds);
     parentPort!.postMessage({ id: request.id, hits });
   } catch {
     // Database errors can contain private paths or query text. The server

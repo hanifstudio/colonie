@@ -39,6 +39,10 @@ export function createWorkspaceBackupRoutes(options: {
   readBody: (req: IncomingMessage, limit?: number) => Promise<unknown>;
   exclusive: <T>(work: () => Promise<T>, keepLocked?: boolean) => Promise<T>;
   authorized: (req: IncomingMessage, auth: RequestAuth) => boolean;
+  /** True where several people share the workspace. A whole-workspace backup
+   * holds every person's transcript, so signed-in sessions are refused;
+   * the owner on this machine may still manage backups. */
+  shared: () => boolean;
   status: () => { busy: boolean; pendingRestore: boolean };
   restored: RestoreResult;
 }) {
@@ -51,6 +55,9 @@ export function createWorkspaceBackupRoutes(options: {
   };
   const owner = (auth: RequestAuth) => auth.kind === "session" ? auth.session.id : "local-owner";
   const check = (req: IncomingMessage, auth: RequestAuth) => {
+    if (options.shared() && auth.kind === "session") {
+      throw failure("A backup of the whole workspace is not available while several people share it.", 403);
+    }
     if (!options.authorized(req, auth)) throw failure("Your session changed. Reopen Backups and try again.", 403);
   };
   function remove(id: string, artifact: Artifact) {

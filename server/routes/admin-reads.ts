@@ -26,16 +26,20 @@ import {
   readAdminActivityRange,
 } from "../admin-activity.ts";
 import { DATA_DIR, instanceConfigs, type loadConfig } from "../config.ts";
+import type { RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface AdminReadRouteDeps {
   cfg: ReturnType<typeof loadConfig>;
   /** True where several people share the workspace; index.ts owns the rule. */
   adminActivityRecording: () => boolean;
+  /** The conversations the asking person takes part in, or null when no
+   * per-person narrowing applies (Local, the owner, a local service). */
+  ownThreadIds?: (auth: RequestAuth) => string[] | null;
 }
 
 export function createAdminReadRoutes(deps: AdminReadRouteDeps): RouteHandler {
-  return async ({ req, res, url, path, method, json, readBody }) => {
+  return async ({ req, res, url, path, method, auth, json, readBody }) => {
     // Subscription windows (5-hour and weekly), not the token ledger.
     // Same admin gate as /api/usage: this route is unlisted, so it stays admin.
     if (method === "GET" && path === "/api/plan-usage") {
@@ -83,7 +87,12 @@ export function createAdminReadRoutes(deps: AdminReadRouteDeps): RouteHandler {
       if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
         return json(res, 400, { error: "limit must be a positive whole number" });
       }
-      return json(res, 200, { decisions: readDecisions(DATA_DIR, parsedLimit ?? 200) });
+      const own = deps.ownThreadIds?.(auth) ?? null;
+      const wanted = parsedLimit ?? 200;
+      const ownRows = own
+        ? readDecisions(DATA_DIR, Math.min(wanted * 20, 10_000)).filter((row) => own.includes(row.threadId)).slice(-wanted)
+        : readDecisions(DATA_DIR, wanted);
+      return json(res, 200, { decisions: ownRows });
     }
     // Settings → Activity: admin actions and approvals together, filtered by
     // who, what and when; the same list as CSV. Admin scope by default.
@@ -93,10 +102,13 @@ export function createAdminReadRoutes(deps: AdminReadRouteDeps): RouteHandler {
       if (!range) return json(res, 400, { error: "from and to must be dates (YYYY-MM-DD), from no later than to, at most a year apart" });
       const what = parseActivityWhat(url.searchParams.get("what"));
       if (!what) return json(res, 400, { error: "what must be all, approvals, decisions, config, people, session, webhook, mcp, engine, bot, budget or visibility" });
-      const entries = activityEntries(readDecisionRange(DATA_DIR, range), readAdminActivityRange(DATA_DIR, range), {
-        what,
-        who: (url.searchParams.get("who") ?? "").slice(0, 200),
-      });
+      const own = deps.ownThreadIds?.(auth) ?? null;
+      const decisions = readDecisionRange(DATA_DIR, range);
+      const entries = activityEntries(
+        own ? decisions.filter((row) => own.includes(row.threadId)) : decisions,
+        readAdminActivityRange(DATA_DIR, range),
+        { what, who: (url.searchParams.get("who") ?? "").slice(0, 200) },
+      );
       if (path.endsWith(".csv")) {
         const stamp = (date: Date) => date.toISOString().slice(0, 10);
         res.writeHead(200, {
@@ -130,7 +142,9 @@ export function createAdminReadRoutes(deps: AdminReadRouteDeps): RouteHandler {
         "content-disposition": `attachment; filename="decisions-${stamp(range.from)}-${stamp(range.to)}.csv"`,
         "cache-control": "no-store",
       });
-      res.end(decisionsCsv(readDecisionRange(DATA_DIR, range)));
+      const own = deps.ownThreadIds?.(auth) ?? null;
+      const decisions = readDecisionRange(DATA_DIR, range);
+      res.end(decisionsCsv(own ? decisions.filter((row) => own.includes(row.threadId)) : decisions));
       return;
     }
     return PASS;

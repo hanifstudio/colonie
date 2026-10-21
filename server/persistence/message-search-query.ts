@@ -15,25 +15,40 @@ export interface SearchHit {
   from?: string;
 }
 
-/** Shared query and snippet logic; the worker never calls the write-side open(). */
-export function searchMessagesInDatabase(database: DatabaseSync, query: string, limit = 40, threadId?: string): SearchHit[] {
+/** Shared query and snippet logic; the worker never calls the write-side open().
+ * `allowedThreadIds` is applied inside the scan, not after it: a person in a
+ * Shared workspace gets their own hits even when other conversations hold
+ * many more matches. An empty list means they may see no conversation. */
+export function searchMessagesInDatabase(
+  database: DatabaseSync,
+  query: string,
+  limit = 40,
+  threadId?: string,
+  allowedThreadIds?: readonly string[],
+): SearchHit[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
+  if (allowedThreadIds && !allowedThreadIds.length) return [];
   // escape LIKE wildcards so a literal % or _ in the query stays literal
   const pattern = `%${needle.replace(/([\\%_])/g, "\\$1")}%`;
   // text messages by their text; activity chips by the tool name — "which
   // bot ran that migration" is a tool-name question. The chip's name lives
   // in the row's json; a JSON1 extract keeps this one query.
-  const scope = threadId ? "thread_id = ? AND " : "";
+  const scopes: string[] = [];
+  const scopeArgs: string[] = [];
+  if (threadId) { scopes.push("thread_id = ?"); scopeArgs.push(threadId); }
+  if (allowedThreadIds) {
+    scopes.push(`thread_id IN (${allowedThreadIds.map(() => "?").join(", ")})`);
+    scopeArgs.push(...allowedThreadIds);
+  }
+  const scope = scopes.length ? `${scopes.join(" AND ")} AND ` : "";
   const statement = database.prepare(
     "SELECT thread_id, id, at, role, kind, text, json_extract(json, '$.tool.name') AS tool_name, json_extract(json, '$.from.name') AS from_name FROM messages " +
       `WHERE ${scope}((kind = 'text' AND text IS NOT NULL AND lower(text) LIKE ? ESCAPE '\\') ` +
       "   OR (kind = 'activity' AND tool_name IS NOT NULL AND lower(tool_name) LIKE ? ESCAPE '\\')) " +
       "ORDER BY at DESC LIMIT ?",
   );
-  const rows = (threadId
-    ? statement.all(threadId, pattern, pattern, limit)
-    : statement.all(pattern, pattern, limit)) as Array<{
+  const rows = statement.all(...scopeArgs, pattern, pattern, limit) as Array<{
     thread_id: string;
     id: string;
     at: number;

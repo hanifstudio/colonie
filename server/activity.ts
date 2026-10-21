@@ -187,11 +187,16 @@ export function readBotActivity(input: {
   botId: string;
   threadIds: string[];
   limit: number;
+  /** When set, only decisions in these conversations are listed. A person in
+   * a Shared workspace gets their own, not a teammate's. Absent means every
+   * decision naming the bot, as on the owner's own machine. */
+  decisionThreadIds?: readonly string[];
 }): ActivityRow[] {
-  const { dataDir, eventsDir, botId, threadIds, limit } = input;
+  const { dataDir, eventsDir, botId, threadIds, limit, decisionThreadIds } = input;
 
   const runs = threadIds.flatMap((threadId) => readToolRuns(eventsDir, threadId));
-  const decisions = foldDecisions(readDecisions(dataDir, DECISION_SCAN).filter((row) => row.botId === botId));
+  const decisions = foldDecisions(readDecisions(dataDir, DECISION_SCAN).filter((row) =>
+    row.botId === botId && (!decisionThreadIds || decisionThreadIds.includes(row.threadId))));
 
   const matched = new Set<ActivityRow>();
   const rows: ActivityRow[] = [...runs];
