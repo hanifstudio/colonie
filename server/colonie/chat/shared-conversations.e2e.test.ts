@@ -93,3 +93,18 @@ test("a person who has not talked to a bot can still change the bot itself", asy
     await fresh.stop();
   }
 }, 60_000);
+
+test("a workspace whose sign-in list names only admins is Shared too", async () => {
+  // Found while writing the search checks: with no member on the list the
+  // workspace stayed Local, and every privacy rule was off.
+  const admins = await startSharedWorkspace([{ email: "dee@x.com", admin: true }, { email: "eve@x.com", admin: true }]);
+  try {
+    const id = (await admins.as("dee@x.com", "/api/bots")).body.bots[0].id;
+    const sent = await admins.as("dee@x.com", `/api/bots/${id}/messages`, { method: "POST", body: { text: "dee-secret" } });
+    expect(sent.status).toBe(202);
+    expect((await admins.as("eve@x.com", `/api/threads/${sent.body.threadId}/messages`)).status).toBe(404);
+    expect(JSON.stringify((await admins.as("eve@x.com", "/api/bots")).body)).not.toContain("dee-secret");
+  } finally {
+    await admins.stop();
+  }
+}, 60_000);

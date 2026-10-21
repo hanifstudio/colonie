@@ -303,7 +303,12 @@ const { COMMAND_ALLOWLIST_DRIVERS, messageSender, personKey, sharedMembership, s
 
 // Local or Shared: a Shared workspace keeps every conversation private to its
 // participants (server/runtime/workspace-kind.ts).
-const workspaceKind = createWorkspaceKind({ dataDir: DATA_DIR, namesMembers: sharedMembership });
+// Anyone on the sign-in list, an admin as much as a member, means people sign
+// in here: the workspace is Shared.
+const workspaceKind = createWorkspaceKind({
+  dataDir: DATA_DIR,
+  namesMembers: () => sharedMembership() || signInAllowList().admins.length > 0,
+});
 const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibility({
   routines: () => routines,
   store: () => store,

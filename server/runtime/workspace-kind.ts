@@ -13,7 +13,7 @@ export const SHARED_WORKSPACE_MARKER = "shared-workspace";
 
 export interface WorkspaceKindInput {
   dataDir: string;
-  /** True once the workspace names members (sign-in list or membership). */
+  /** True once anyone may sign in to the workspace (admins or members). */
   namesMembers: () => boolean;
   env?: NodeJS.ProcessEnv;
 }
