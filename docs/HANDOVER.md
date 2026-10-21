@@ -25,9 +25,10 @@ against the live cloud), engine sign-in from the admin's browser. In order:
 2. Publishing the server image where a droplet can pull it.
 3. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
-Done and unchecked in a real window: Settings, People invite links; Join a
-Shared workspace (profile menu and workspace menu), passing through Colonie
-Cloud. Conversations with several people (header: people, add, leave).
+Seen in a real window (throwaway data): the profile menu's Join a Shared
+workspace, its dialog refusing a bad link, the Shared choice opening Create
+a Shared workspace. Not yet seen: Settings, People; a join through Colonie
+Cloud; a real DigitalOcean sign-in and droplet. Conversations with several people (header: people, add, leave).
 Admins remove people from Settings, People.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
