@@ -49,6 +49,8 @@ export interface EventRouteDeps {
   visibleTo: (viewer: Viewer) => VisibleSet;
   wants: (client: SseClient, kind: string) => boolean;
   memberFrame: (client: SseClient, seq: number, payload: Record<string, unknown>, clientFrame: string | null) => string | null;
+  /** The frame one stream gets (harness/client-streams.ts); absent: the older admin-or-member split. */
+  streamFrame?: (client: SseClient, seq: number, payload: Record<string, unknown> | null, frame: string | null, clientFrame: string | null) => string | null;
 }
 
 export function createEventRoutes(deps: EventRouteDeps): RouteHandler {
@@ -102,7 +104,7 @@ export function createEventRoutes(deps: EventRouteDeps): RouteHandler {
         // A member whose cursor predates a bot's audience change gets a fresh
         // snapshot: a replay is judged by today's audience and could neither
         // withdraw what the change hid nor bring back whole what it showed.
-        !(viewer.kind === "member" && audienceChangedAt() > 0 && since <= audienceChangedAt());
+        !(viewer.kind !== "all" && audienceChangedAt() > 0 && since <= audienceChangedAt());
       res.write(
         `data: ${JSON.stringify({
           kind: "hello",
@@ -116,11 +118,13 @@ export function createEventRoutes(deps: EventRouteDeps): RouteHandler {
       if (resumed) {
         for (const buffered of replayBuffer) {
           if (buffered.seq <= since || !wants(client, buffered.kind)) continue;
-          const frame = client.admin
-            ? buffered.frame
-            : buffered.payload
-              ? memberFrame(client, buffered.seq, buffered.payload, buffered.clientFrame)
-              : buffered.clientFrame;
+          const frame = deps.streamFrame
+            ? deps.streamFrame(client, buffered.seq, buffered.payload, buffered.frame, buffered.clientFrame)
+            : client.admin
+              ? buffered.frame
+              : buffered.payload
+                ? memberFrame(client, buffered.seq, buffered.payload, buffered.clientFrame)
+                : buffered.clientFrame;
           if (frame) res.write(frame);
         }
       }

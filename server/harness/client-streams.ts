@@ -84,7 +84,7 @@ const sseClients = new Set<SseClient>();
 function audienceChanged(): void {
   setAudienceChangedAt(lastSeq());
   for (const client of sseClients) {
-    if (client.viewer.kind !== "member") continue;
+    if (client.viewer.kind === "all") continue;
     sseClients.delete(client);
     try {
       client.res.end();
@@ -190,7 +190,7 @@ function broadcast(payload: Record<string, unknown>, options: { adminOnly?: bool
   for (const client of Array.from(sseClients)) {
     if (!wants(client, kind)) continue;
     // Admin-only frames (clientFrame null) never reach members, and a member never falls back to the admin frame.
-    const out = client.admin ? frame : clientFrame === null ? null : memberFrame(client, seq, payload, clientFrame);
+    const out = streamFrame(client, seq, payload, frame, clientFrame);
     if (out === null) continue;
     // Screen frames are replaceable and durable events are not: see
     // ./sse-fanout.ts for the backpressure/bound decision this makes.
@@ -198,6 +198,21 @@ function broadcast(payload: Record<string, unknown>, options: { adminOnly?: bool
       sseClients.delete(client);
     }
   }
+}
+
+/** The frame one stream gets. The owner, a local service and, in a Local
+ * workspace, an admin get the admin frame unchanged. In a Shared workspace an
+ * admin is a person too: they get the admin projection (full settings, spend
+ * notices) narrowed to their own conversations like everyone else. */
+function streamFrame(client: SseClient, seq: number, payload: Record<string, unknown> | null, frame: string | null, clientFrame: string | null): string | null {
+  if (client.viewer.kind === "person") {
+    const base = client.admin ? frame : clientFrame;
+    // A frame kept without its payload (a screen) cannot be narrowed: a person
+    // gets it only when it was never theirs to lose — never, here.
+    return payload ? memberFrame(client, seq, payload, base) : null;
+  }
+  if (client.admin) return frame;
+  return clientFrame === null ? null : payload ? memberFrame(client, seq, payload, clientFrame) : clientFrame;
 }
 
 /** The frame a non-admin stream gets: the shared client frame, unless a bot
@@ -228,6 +243,7 @@ function memberFrame(client: SseClient, seq: number, payload: Record<string, unk
     wants,
     cursorSeq,
     memberFrame,
+    streamFrame,
     replayBuffer,
   };
 }

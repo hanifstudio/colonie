@@ -505,6 +505,7 @@ ROUTES.push(createEventRoutes({
   visibleTo,
   wants,
   memberFrame,
+  streamFrame: deps.streamFrame,
 }));
 ROUTES.push(createBotMessagesRoutes({
   ownThreads: deps.ownThreads,

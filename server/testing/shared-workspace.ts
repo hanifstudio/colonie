@@ -18,11 +18,21 @@ import { freePortBlock } from "./ports.ts";
 
 export interface SharedPerson { email: string; admin?: boolean }
 
+export interface LiveStream {
+  /** Everything received so far. */
+  text(): string;
+  /** The cursor from the stream's hello frame. */
+  cursor(): string | undefined;
+  close(): void;
+}
+
 export interface SharedWorkspace {
   url: string;
   dataDir: string;
   /** A fetch as this person (by email). JSON bodies are encoded. */
   as(email: string, path: string, init?: { method?: string; body?: unknown }): Promise<{ status: number; body: any }>;
+  /** Open the live event stream as this person; `since` resumes from a cursor. */
+  stream(email: string, since?: string): Promise<LiveStream>;
   /** The server log so far, for a failing assertion's message. */
   log(): string;
   stop(): Promise<void>;
@@ -90,6 +100,35 @@ export async function startSharedWorkspace(people: SharedPerson[]): Promise<Shar
   return {
     url, dataDir, stop,
     log: () => output,
+    async stream(email, since) {
+      const token = tokens.get(email);
+      if (!token) throw new Error(`no session for ${email}`);
+      const abort = new AbortController();
+      const response = await fetch(`${url}/api/events${since ? `?since=${encodeURIComponent(since)}` : ""}`, {
+        headers: { authorization: `Bearer ${token}` }, signal: abort.signal,
+      });
+      if (!response.ok || !response.body) throw new Error(`stream refused: ${response.status}`);
+      let received = "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      void (async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += decoder.decode(value, { stream: true });
+          }
+        } catch { /* closed */ }
+      })();
+      // the hello frame arrives at once; wait for it so callers can rely on it
+      const until = Date.now() + 5_000;
+      while (!received.includes('"hello"') && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 20));
+      return {
+        text: () => received,
+        cursor: () => /"cursor":"([^"]+)"/.exec(received)?.[1],
+        close: () => abort.abort(),
+      };
+    },
     async as(email, path, init = {}) {
       const token = tokens.get(email);
       if (!token) throw new Error(`no session for ${email}`);

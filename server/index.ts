@@ -917,7 +917,7 @@ const directHandoffs = new DirectHandoffs(join(DATA_DIR, "room-handoffs.json"));
 // on exactly those frames (one whose open thread was deleted keeps its
 // composer locked until a page arrives). Every other frame stays slim, and
 // clients keep the transcript they hold when a frame carries none.
-const { sseClients, audienceChanged, desktopViewer, closeSessionStreams, STREAM_ID, SSE_HEARTBEAT_MS, broadcast, wants, cursorSeq, memberFrame, replayBuffer } = createClientStreams({
+const { sseClients, audienceChanged, desktopViewer, closeSessionStreams, STREAM_ID, SSE_HEARTBEAT_MS, broadcast, wants, cursorSeq, memberFrame, streamFrame, replayBuffer } = createClientStreams({
   DEFAULT_PAGE,
   commandAllowlist,
   directRequestOwners,
@@ -1947,6 +1947,7 @@ const { server, liveCalls } = createServerAssembly({
   mcpConfigLock,
   mcpOAuth,
   memberFrame,
+  streamFrame,
   memoryUpkeep,
   messageFileRootsForThread,
   messagePage,
