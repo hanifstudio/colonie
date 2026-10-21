@@ -46,7 +46,8 @@ export function capturePrompt(job: MemoryJob, snapshot: MemorySnapshot): string 
   const query = new Set(tokenize(job.text));
   const score = (entry: typeof snapshot.entries[number]) => tokenize(`${entry.key} ${entry.text}`).filter((word) => query.has(word)).length;
   let remaining = MAX_CAPTURE_CONTEXT_CHARS;
-  const currentEntries = [...snapshot.entries].sort((a, b) => score(b) - score(a)
+  // Another person's message may not touch the owner's profile, so it is not shown.
+  const currentEntries = [...snapshot.entries].filter((entry) => !job.speaker || entry.scope === "bot").sort((a, b) => score(b) - score(a)
     || Number(b.kind === "preference") - Number(a.kind === "preference") || b.updatedAt.localeCompare(a.updatedAt))
     .flatMap((entry) => {
       const value = { id: entry.id, scope: entry.scope, kind: entry.kind, key: entry.key, text: entry.text };
@@ -72,6 +73,10 @@ export function capturePrompt(job: MemoryJob, snapshot: MemorySnapshot): string 
     "- shared scope only for durable facts about the user; project facts and decisions stay bot.",
     "- evidence must be an exact verbatim substring of the user message.",
     "- confidence must be at least 0.8. Correct a known entry by its existing key/id with replaces.",
+    ...(job.speaker ? [
+      `- This message is from ${JSON.stringify(job.speaker)}, one of several people who use this bot, not its owner.`,
+      "- Use bot scope only. Write each fact naming that person (\"<name> prefers ...\"), or as a fact about the shared work.",
+    ] : []),
     "",
     "JSON input:",
     JSON.stringify(input, null, 2),
@@ -108,7 +113,7 @@ export function parseCapture(answer: string, job: MemoryJob, snapshot: MemorySna
       // a model need not restate them. Unknown target: dropped.
       const replaces = typeof record.replaces === "string" && record.replaces.trim() ? record.replaces.trim() : "";
       const target = action === "forget" ? known.get(replaces) : undefined;
-      if (!target) continue;
+      if (!target || job.speaker && target.scope !== "bot") continue;
       const dedupe = `forget:${target.scope}:${target.botId ?? ""}:${target.id}`;
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
@@ -129,6 +134,7 @@ export function parseCapture(answer: string, job: MemoryJob, snapshot: MemorySna
     const kind = kindSchema.safeParse(record.kind);
     if (!scope.success || !kind.success) continue;
     if (scope.data === "shared" && kind.data === "decision") continue;
+    if (job.speaker && scope.data !== "bot") continue;
     // A correction or upsert targets only an entry the snapshot already holds
     // (shared, or this bot's own). A supplied key never reaches across bots.
     const replaces = typeof record.replaces === "string" && record.replaces.trim() ? record.replaces.trim() : undefined;

@@ -403,8 +403,11 @@ async function startTurn(
         const acpMemory = colonieMemory().recall(bot.id, providerText) ?? undefined;
         const acpSkills = colonieSkills.context(bot.id);
         const acpAssignment = opts?.colonieAssignment ?? undefined;
-        if (!userMessage.sender && !userMessage.peerAsk && !acpAssignment) colonieMemorySources.set(threadId, {
+        // Bot memory learns from every person; a signed message teaches this
+        // bot only, under the sender's name (memory/ledger/capture.ts).
+        if (!userMessage.peerAsk && !acpAssignment) colonieMemorySources.set(threadId, {
           botId: bot.id, threadId, messageId: userMessage.id, text: providerText, at: new Date(userMessage.at).toISOString(),
+          ...(userMessage.sender?.name ? { speaker: userMessage.sender.name } : {}),
         });
         // Wait immediately before dispatch: resources are already claimed, but
         // the engine cannot edit the project until the snapshot has settled.

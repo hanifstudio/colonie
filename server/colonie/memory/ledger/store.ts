@@ -43,6 +43,9 @@ export const MAX_SUPPRESSIONS = 5000;
 const MAX_LEDGER_BYTES = 16 * 1024 * 1024;
 
 export interface MemoryJob {
+  /** Who wrote the message, when that is not the owner (a person of a Shared
+   * workspace): their facts teach this bot only, under their name. */
+  speaker?: string;
   id: string;
   botId: string;
   threadId: string;
@@ -123,6 +126,7 @@ const jobSchema = z
     attempts: z.number().int().min(0).max(10),
     ownerGeneration: z.number().int().min(0),
     revision: z.string().min(1).max(64),
+    speaker: z.string().min(1).max(200).optional(),
   })
   .strict();
 
@@ -517,7 +521,7 @@ export class ColonieMemoryStore {
 
   // ── capture queue ────────────────────────────────────────────────────
 
-  enqueue(input: { botId: string; threadId: string; messageId: string; text: string; at: string }): boolean {
+  enqueue(input: { botId: string; threadId: string; messageId: string; text: string; at: string; speaker?: string }): boolean {
     return this.commit(() => {
       const record = this.botLedger(input.botId, true)!;
       const sourceId = `${input.botId}|${input.threadId}|${input.messageId}`;
@@ -538,6 +542,7 @@ export class ColonieMemoryStore {
         attempts: 0,
         ownerGeneration: this.state.ownerGeneration,
         revision: String(this.state.revision),
+        ...(input.speaker ? { speaker: input.speaker.slice(0, 200) } : {}),
       });
       this.state.lastError = undefined;
       return true;

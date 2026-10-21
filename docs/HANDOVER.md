@@ -23,8 +23,7 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    the generated first-boot script checked against `deploy/`. Out of scope
    here: publishing the image (next), a custom domain, backups.
 2. Publishing the server image where a droplet can pull it.
-3. Bot memory learns from every member (today only unsigned messages).
-4. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
+3. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
 Done and unchecked in a real window: Settings, People invite links; Join a
 Shared workspace (profile menu and workspace menu), passing through Colonie

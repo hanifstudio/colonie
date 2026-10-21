@@ -91,4 +91,6 @@ export interface CompletedMemoryTurn {
   text: string;
   /** ISO timestamp. */
   at: string;
+  /** Who wrote it, when not the owner (see MemoryJob.speaker). */
+  speaker?: string;
 }
