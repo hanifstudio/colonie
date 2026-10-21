@@ -43,7 +43,7 @@ The server image is about 3 GB.
 | What must be true | Status |
 |---|---|
 | The release is built from code that reaches `main` | Waiting on the owner (see blueprint) |
-| CI passes on that code | Broken: CI still calls scripts deleted from this branch |
+| CI passes on that code | Rewritten to run `pnpm check`; never run on GitHub |
 | A version number and an update path for people on 0.2.0 | Not decided |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |

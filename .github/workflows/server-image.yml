@@ -1,0 +1,43 @@
+name: Server image
+
+# Builds the Shared workspace server image (deploy/Dockerfile) and publishes
+# it to GitHub's container registry as
+# ghcr.io/hanifstudio/colonie-workspace:<package.json version> and :latest.
+# A droplet created from the app pulls the version that matches the app.
+# The package must be public for droplets to pull it without signing in.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build
+        run: |
+          version=$(node -p "require('./package.json').version")
+          image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/colonie-workspace
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 -f deploy/Dockerfile -t "$image:$version" -t "$image:latest" .
+      - name: the image starts and answers
+        run: |
+          docker run -d --name probe "$IMAGE:$VERSION"
+          for i in $(seq 1 60); do
+            if docker exec probe node -e "fetch('http://127.0.0.1:8799/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; then exit 0; fi
+            sleep 2
+          done
+          docker logs probe
+          exit 1
+      - name: publish
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
