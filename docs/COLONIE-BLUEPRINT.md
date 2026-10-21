@@ -16,8 +16,9 @@ connected apps, and engine sign-ins. There are two kinds:
 - **Local**: runs on the person's own Mac. Personal: nobody can be invited.
   Free, no Colonie account.
 - **Shared**: runs on a server the owner pays for, set up with one click from
-  Colonie. The owner invites people, and people and bots work together; members
-  use the workspace's bots without their own AI subscription. Not built yet.
+  Colonie. The owner invites people, and people and bots work together. How
+  members' bots get AI access is waiting on the owner (see below): provider
+  terms forbid serving them from the owner's personal subscription. Not built yet.
 
 The product reference is [Grok Bot](https://cursor.com/docs/grok-bot): when a
 behavior is unclear, copy what Grok Bot does, then extend it where Colonie's
@@ -179,7 +180,20 @@ scripts/               Build, launch, and checks
 
 ## Waiting on the owner
 
-- Which hosting provider the one-click deployment supports first.
+- **How bots in a Shared workspace get AI access.** Anthropic and OpenAI both
+  forbid letting other people use one person's Claude or ChatGPT subscription,
+  and Anthropic forbids apps from routing plan credentials on users' behalf.
+  Allowed options: the owner enters an API key billed to the owner (recommended
+  default; whether invited outsiders count as the owner's "authorized users"
+  is not settled); each member connects their own account; or team seats per
+  member. Checked October 21 against code.claude.com legal-and-compliance and
+  learn.chatgpt.com/docs/auth.
+- Whether a bot remembers what it learned from one person when it talks to
+  another. Recommended: no; memory stays with each person, and knowledge
+  meant for everyone is added on purpose.
+- Confirm with Anthropic that the Local app's in-app Claude sign-in is
+  permitted: its Agent SDK docs say apps may not offer Claude login "unless
+  previously approved", while its help center allows third-party apps.
 - First release: Mac (Apple silicon) only, or more platforms?
 - How this branch (`restructure`) reaches `main`. It is local only and must not be
   pushed until the owner says so.
@@ -190,12 +204,28 @@ scripts/               Build, launch, and checks
 - Deleting the old `colonie-vps` server from the Linode console (it is empty
   but still billed). Do not reconnect or redeploy it.
 
+## One-click deployment: DigitalOcean first
+
+Researched October 21 (docs.digitalocean.com). It needs no Colonie-run
+service:
+
+- **Connect:** the app signs in to the owner's DigitalOcean account in the
+  browser (OAuth for desktop apps, no secret), asking only for droplet,
+  firewall, tag, and read permissions. Pasting a token is the fallback.
+- **Create:** one Ubuntu droplet in Singapore with a firewall (ports 80 and
+  443), set up on first boot by a small script that installs a pinned, checked
+  Colonie server release. Everything is tagged so deleting is exact.
+- **HTTPS without a domain:** Caddy with an automatic certificate on an
+  `<ip>.sslip.io` name; the owner's own domain later.
+- **Cost shown first:** 2 vCPU / 4 GB at $24 a month by default (live price from
+  DigitalOcean), $48 for heavy browser use, weekly backups +20%. Billed by
+  DigitalOcean to the owner, also while powered off; delete to stop.
+- **Watch for:** new accounts may be limited in how many droplets they can
+  make; mail ports are blocked; bots must not scrape or crawl in ways
+  DigitalOcean's acceptable use policy forbids.
+
 ## Still to research
 
-- **Blocks the release:** whether provider terms allow one owner's Claude or
-  Codex subscription to serve invited members, and how engines sign in on a
-  server without a browser.
-- Which hosting setup to recommend, measured on a real browser-and-computer
-  workload, with its cost.
+- Measure the default droplet size on a real browser-and-computer workload.
 - How Grok Bot behaves where its documentation is silent (who replies in a
   group, what Stop cancels, how a shared screen is shared).
