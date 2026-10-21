@@ -106,8 +106,11 @@ Steps, in order. Each one is safe on its own:
   The one Colonie-run service is Colonie Accounts (below).
 - **Colonie Accounts** (owner decision, October 21): everyone invited to a
   Shared workspace must have a Colonie account, one identity across every
-  workspace, signed up with email and password. Colonie runs this service.
+  workspace, signed up with email and password, with password reset by email.
   Local workspaces still need no account.
+- **Colonie Cloud** is the one Colonie-run backend: Cloudflare Workers with a
+  Neon Postgres database. Accounts are its first service; later Colonie
+  services live there too. No domain yet; one is bought before release.
 - Accounts, invitations, purchases, and updates are central Colonie services
   for Shared workspaces only. Bots, files, memory, credentials, and runs stay on
   the owner's own server.
