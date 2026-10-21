@@ -7,18 +7,19 @@ Updated October 21, 2026.
 
 ## Now: a person sees only the conversations they are in
 
-Step one of "Plan: inviting people" (blueprint). Today privacy is per bot, so
-two people on one bot see each other's chats. A Shared workspace is new, never
-converted from Local, so Local must behave exactly as today. Steps, in order:
+Step one of "Plan: inviting people" (blueprint). Local must behave exactly as
+today. Steps, in order:
 
 1. Done: a Shared workspace shows each person only threads naming them.
 2. Done: conversations store their participants (server-private).
-3. Half done: each person has their own current conversation per bot
-   (`colonie/chat/own-threads.ts`); sending, the bot list, switching, and any
-   thread named in a path or query respect it. Next: about 40 places that act
-   on the bot's shared current thread when no thread is named (cards, queue,
-   edit, interrupt, compact, respond, ACP settings) must use the person's own.
-   Two-person harness: `server/testing/shared-workspace.ts`.
+3. **Current card.** Half done: own conversation per bot, sends, bot list,
+   switching. Now: bot routes that act on a thread (compact, edit, active
+   branch, cards, queue, interrupt, respond, always-allow, ACP inputs/live)
+   take the person's own conversation when none is named, and 404 when the
+   named one (body, query, or a message in it) is not theirs. Mostly through
+   `requestedTaskBot` and `pinnedClientThread` (no pin rule when Shared), with
+   `ownThreads`/`personOf` wired. Tests (do not edit):
+   `server/colonie/chat/shared-thread-actions.e2e.test.ts`.
 4. Live updates and their replay carry only a person's own conversations. (Strong.)
 5. Search, exports, and backups: search covers only your own conversations;
    whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)
@@ -26,10 +27,9 @@ converted from Local, so Local must behave exactly as today. Steps, in order:
    memory stays shared (owner decision). (Strong.)
 7. Only a conversation's participants answer its approval cards. (Strong.)
 
-Decided here, reversible: routines and webhooks record who created them, and
-their threads belong to that person; a bot being busy stays visible to all.
-**Proof:** two signed-in test people on a throwaway server; each step adds checks
-that one never sees, reaches, searches, or is quoted the other's conversation.
+Decided, reversible: routine and webhook threads belong to their creator; a
+busy bot stays visible to all. Fix: the commit guard counts a final newline.
+**Proof:** each step adds two-person checks (`server/testing/shared-workspace.ts`).
 
 ## Next: a person installs Colonie from this code and completes the first run
 
