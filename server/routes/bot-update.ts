@@ -39,6 +39,8 @@ export interface BotUpdateRouteDeps {
   broadcast: (payload: Record<string, unknown>) => void;
   wireBot: (bot: BotRecord) => WireBot;
   requestedTaskBot: (botId: string, rawThreadId: unknown, auth: RequestAuth) => BotRecord;
+  /** The conversation a bot-wide change also applies to; null when none. */
+  selectedTaskBot?: (botId: string, auth: RequestAuth) => BotRecord | null;
   threadBusy: (botId: string, threadId: string) => boolean;
   checkedModelSelection: (
     raw: unknown,
@@ -78,7 +80,8 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
         if (field) return json(res, 403, { error: `forbidden: this session may change how a bot looks, not "${field}" (needs the admin scope)` });
       }
       const existingBot = store.bot(m[1]);
-      const selectedTask = existingBot ? requestedTaskBot(existingBot.id, undefined, auth) : null;
+      const selectedTask = !existingBot ? null
+        : deps.selectedTaskBot ? deps.selectedTaskBot(existingBot.id, auth) : requestedTaskBot(existingBot.id, undefined, auth);
       const beforeProfile = existingBot ? profileSnapshot(existingBot) : undefined;
       const beforeVisibility = existingBot?.visibility;
       if (body.requireAvailableModel !== undefined && typeof body.requireAvailableModel !== "boolean") {

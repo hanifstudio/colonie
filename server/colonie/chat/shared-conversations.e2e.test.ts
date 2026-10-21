@@ -78,3 +78,18 @@ test("another person's conversation cannot be posted into", async () => {
   const adas = await ws.as(ADA, `/api/threads/${adaThread}/messages`);
   expect(JSON.stringify(adas.body)).not.toContain("bob-intrudes");
 });
+
+test("a person who has not talked to a bot can still change the bot itself", async () => {
+  // Bot-wide settings are about the bot, not a conversation: an admin with no
+  // conversation of their own renames it and changes its model.
+  const fresh = await startSharedWorkspace([{ email: "cy@x.com", admin: true }]);
+  try {
+    const id = (await fresh.as("cy@x.com", "/api/bots")).body.bots[0].id;
+    const renamed = await fresh.as("cy@x.com", `/api/bots/${id}`, { method: "PATCH", body: { name: "Renamed" } });
+    expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+    const model = await fresh.as("cy@x.com", `/api/bots/${id}/model`, { method: "PATCH", body: { instanceId: "codex-acp", model: "agent-default" } });
+    expect(model.status, JSON.stringify(model.body)).toBe(200);
+  } finally {
+    await fresh.stop();
+  }
+}, 60_000);

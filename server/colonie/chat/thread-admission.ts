@@ -98,5 +98,17 @@ function requestedTaskBot(botId: string, rawThreadId: unknown, auth?: RequestAut
   if (!task) throw Object.assign(new Error("no such task"), { status: 404 });
   return task;
 }
-return { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot };
+/** The conversation a bot-wide change also applies to (a new model, an
+ * approval level): the bot's current one in a Local workspace, the person's
+ * own in a Shared one, or null when they have none yet. A settings change is
+ * about the bot, so a person who has not talked to it may still make it; only
+ * the per-conversation part is skipped. */
+function selectedTaskBot(botId: string, auth: RequestAuth): BotRecord | null {
+  if (ownThreads?.shared()) {
+    const profile = store().bot(botId);
+    if (!profile || !ownThreads.currentThread(personOf?.(auth) ?? null, profile)) return null;
+  }
+  return requestedTaskBot(botId, undefined, auth);
+}
+return { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot, selectedTaskBot };
 }

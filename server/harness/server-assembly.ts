@@ -392,6 +392,7 @@ ROUTES.push(createCommandAllowlistRoutes({
   drivers: COMMAND_ALLOWLIST_DRIVERS,
 }));
 ROUTES.push(createBotUpdateRoutes({
+  selectedTaskBot: deps.selectedTaskBot,
   store,
   cfg,
   registry,
@@ -727,6 +728,7 @@ ROUTES.push(createLiveRoutes({
 /** The HTTP front door: see harness/request-handler.ts. Reassigned bindings
  * go over as getters and setters so the module always sees the current one. */
 const handleRequest = createRequestHandler({
+  selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,
   personOf: deps.personOf,
   DEFAULT_PAGE,

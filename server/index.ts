@@ -577,7 +577,7 @@ const { bindTurnComputer } = createTurnComputerBinding({
   turnResources,
 });
 
-const { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot } = createThreadAdmission({
+const { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot, selectedTaskBot } = createThreadAdmission({
   admit,
   directTurnBots,
   directTurnDispatchClaims,
@@ -1971,6 +1971,7 @@ const { server, liveCalls } = createServerAssembly({
   rejectDeletedThreadSkillStages,
   replayBuffer,
   requestedTaskBot,
+  selectedTaskBot,
   resolveReplyTarget,
   resumeSecretCard,
   revokeAllInternalCapabilities,

@@ -858,17 +858,19 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const existing = store.bot(m[1]);
       if (!existing) return json(res, 404, { error: "no such bot" });
       requirePinnedClientThread(existing.id, undefined);
-      const selected = requestedTaskBot(existing.id, undefined, auth);
+      // The bot's model is the bot's; the caller's selected conversation, when
+      // they have one, follows it too (deps.selectedTaskBot, null when none).
+      const selected = deps.selectedTaskBot ? deps.selectedTaskBot(existing.id, auth) : requestedTaskBot(existing.id, undefined, auth);
       if (existing.approvalGrant) {
         return json(res, 409, { error: "wait for the approval-level change to finish before changing models" });
       }
       const checked = checkedModelSelection(
         body,
-        { selection: selected.modelSelection, busy: threadBusy(selected.id, selected.threadId) },
+        selected ? { selection: selected.modelSelection, busy: threadBusy(selected.id, selected.threadId) } : { selection: existing.modelSelection, busy: false },
         true,
       );
       if (!checked.ok) return json(res, checked.status, { error: checked.error });
-      if ([existing, selected].some((owner) => {
+      if ([existing, ...(selected ? [selected] : [])].some((owner) => {
         const mode = approvalModeFor(owner);
         return (mode === "full" || mode === "custom") &&
           (!supportsApprovalMode(checked.selection, mode) ||
@@ -884,7 +886,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       // follows it from now on too, as if picked there.
       const bot = store.patchBot(existing.id, { modelSelection: checked.selection });
       if (!bot) return json(res, 404, { error: "no such bot" });
-      store.patchTask(bot.id, selected.threadId, { modelSelection: undefined });
+      if (selected) store.patchTask(bot.id, selected.threadId, { modelSelection: undefined });
       return json(res, 200, { bot: wireBot(bot) });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/always-allow$/);
