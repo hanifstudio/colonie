@@ -2,6 +2,7 @@
 import { SEES_EVERYTHING, VisibleSet, routineVisible, type PathSubject, type ThreadOwner, type Viewer } from "../colonie/bots/bot-visibility.ts";
 import { threadsReferencing } from "../persistence/message-db.ts";
 import { type RequestAuth } from "../request-auth.ts";
+import { personKey } from "./identity.ts";
 
 /** Everything this cluster reaches in the server; see the header. */
 export interface VisibilityDeps {
@@ -14,13 +15,26 @@ export function createVisibility(deps: VisibilityDeps) {
   const {
     routines, store
   } = deps;
+  /** Whether this is a Shared workspace (server/runtime/workspace-kind.ts),
+   * and who takes part in a thread. Both absent means Local. */
+  const sharedWorkspace: () => boolean = deps.sharedWorkspace ?? (() => false);
+  const participantsOf: (threadId: string) => readonly string[] | undefined = deps.participantsOf ?? (() => undefined);
 
 
 // ── bot visibility (server/bot-visibility.ts) ──────────────────────────
 /** Who is looking. The owner, a session-less local service (the Slack
  * worker) and admin sessions see every bot; any other session is a member,
- * known by the email it signed in with. */
+ * known by the email it signed in with. In a Shared workspace everyone is a
+ * person who sees only their own conversations, admins included; a loopback
+ * caller there is no person and sees none. */
 function viewerFor(auth: RequestAuth): Viewer {
+  if (sharedWorkspace()) {
+    if (auth.kind === "loopback") return { kind: "person", key: "", admin: true };
+    return {
+      kind: "person", key: personKey(auth.session), admin: auth.scopes.includes("admin"),
+      ...(auth.session.email ? { email: auth.session.email } : {}),
+    };
+  }
   if (auth.kind === "loopback" || auth.scopes.includes("admin")) return SEES_EVERYTHING;
   return { kind: "member", ...(auth.session.email ? { email: auth.session.email } : {}) };
 }
@@ -42,10 +56,13 @@ function threadOwner(threadId: string): ThreadOwner | undefined {
   return owner ?? undefined;
 }
 function visibleTo(viewer: Viewer): VisibleSet {
-  const key = viewer.kind === "all" ? "*" : `member:${viewer.email?.trim().toLowerCase() ?? ""}`;
+  const email = viewer.kind === "all" ? "" : viewer.email?.trim().toLowerCase() ?? "";
+  const key = viewer.kind === "all" ? "*"
+    : viewer.kind === "person" ? `person:${viewer.key}:${viewer.admin ? "admin" : ""}:${email}`
+    : `member:${email}`;
   let set = visibleSets.get(key);
   if (!set) {
-    set = new VisibleSet(store().bots, store().groups, viewer, threadOwner);
+    set = new VisibleSet(store().bots, store().groups, viewer, threadOwner, participantsOf);
     if (visibleSets.size >= 1_000) visibleSets.clear();
     visibleSets.set(key, set);
   }

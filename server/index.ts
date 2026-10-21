@@ -145,6 +145,7 @@ import {createStartTurn} from "./colonie/chat/turn-start.ts";
 import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 import {createServerAssembly} from "./harness/server-assembly.ts";
 import {createConfigStatus} from "./harness/config-status.ts";
+import {createWorkspaceKind} from "./runtime/workspace-kind.ts";
 import {announceWhenModelsLand} from "./harness/model-catalogs.ts";
 import {createCardResolvers} from "./colonie/chat/card-resolvers.ts";
 import {createLocalVmState} from "./colonie/computer/local-vm-state.ts";
@@ -291,7 +292,7 @@ registerEnginesBinDir();
 // ask they continue; routine and peer turns are told apart before this is
 // consulted.
 const turnTriggers = new Map<string, UsageTrigger>();
-const { COMMAND_ALLOWLIST_DRIVERS, messageSender, personKey, sessionLendingPrincipal, actorKey, cardAnswerRefusal, canManageCommandAllowlist, commandAllowlistResponse, decisionActorFor, answeringCardAs } = createIdentity({
+const { COMMAND_ALLOWLIST_DRIVERS, messageSender, personKey, sharedMembership, sessionLendingPrincipal, actorKey, cardAnswerRefusal, canManageCommandAllowlist, commandAllowlistResponse, decisionActorFor, answeringCardAs } = createIdentity({
   commandAllowlist,
   registry,
   signInAllowList,
@@ -299,9 +300,13 @@ const { COMMAND_ALLOWLIST_DRIVERS, messageSender, personKey, sessionLendingPrinc
   threadStarters,
 });
 
+// Local or Shared: a Shared workspace keeps every conversation private to its
+// participants (server/runtime/workspace-kind.ts).
+const workspaceKind = createWorkspaceKind({ dataDir: DATA_DIR, namesMembers: sharedMembership });
 const { viewerFor, visibleTo, forgetVisibility, subjectVisible } = createVisibility({
   routines: () => routines,
   store: () => store,
+  sharedWorkspace: () => workspaceKind.shared(),
 });
 
 /** A member may schedule a routine only for a bot or room they can see. */

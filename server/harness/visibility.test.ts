@@ -18,3 +18,15 @@ test("another session is a member, named by the email it signed in with", () => 
   expect(viewerFor({ kind: "session", scopes: [], session: {} } as never))
     .toEqual({ kind: "member" });
 });
+test("in a Shared workspace everyone is a person, admins included, and loopback is nobody", () => {
+  const { viewerFor } = createVisibility({ sharedWorkspace: () => true } as never);
+  const member = viewerFor({ kind: "session", scopes: ["client"], session: { id: "s1", email: "Ada@X.com" } } as never);
+  const admin = viewerFor({ kind: "session", scopes: ["admin", "client"], session: { id: "s2", email: "bob@x.com" } } as never);
+  expect(member).toMatchObject({ kind: "person", admin: false, email: "Ada@X.com" });
+  expect(admin).toMatchObject({ kind: "person", admin: true });
+  expect((member as { key: string }).key).toMatch(/^p_[\w-]{22}$/);
+  // the same person on another device is the same key
+  const otherDevice = viewerFor({ kind: "session", scopes: ["client"], session: { id: "s9", email: "ada@x.com" } } as never);
+  expect((otherDevice as { key: string }).key).toBe((member as { key: string }).key);
+  expect(viewerFor({ kind: "loopback", trust: "owner" } as never)).toEqual({ kind: "person", key: "", admin: true });
+});

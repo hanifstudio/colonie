@@ -32,8 +32,15 @@ export type { BotVisibility };
 
 /** The person looking, reduced to what visibility needs. `all` is the owner,
  * a local service or an admin session; `member` is any other session, with
- * the email it signed in with when it has one. */
-export type Viewer = { kind: "all" } | { kind: "member"; email?: string };
+ * the email it signed in with when it has one. In a Shared workspace every
+ * viewer is a `person` instead: known by an opaque person key, seeing every
+ * bot when an admin, and seeing a thread only when among its participants —
+ * an admin included. A local service there has an empty key and so sees no
+ * thread at all. */
+export type Viewer =
+  | { kind: "all" }
+  | { kind: "member"; email?: string }
+  | { kind: "person"; key: string; admin: boolean; email?: string };
 
 export const SEES_EVERYTHING: Viewer = { kind: "all" };
 
@@ -83,7 +90,7 @@ function entryMatches(entry: string, email: string): boolean {
 }
 
 export function viewerSees(viewer: Viewer, visibility: unknown): boolean {
-  if (viewer.kind === "all") return true;
+  if (viewer.kind === "all" || (viewer.kind === "person" && viewer.admin)) return true;
   const stored = storedVisibility(visibility);
   if (stored === "everyone") return true;
   if (stored === "admins") return false;
@@ -181,6 +188,7 @@ export class VisibleSet {
   private readonly groups = new Map<string, VisibilityGroup>();
   private readonly viewer: Viewer;
   private readonly ownerOf: (threadId: string) => ThreadOwner | undefined;
+  private readonly participantsOf: (threadId: string) => readonly string[] | undefined;
   private threads: Map<string, ThreadOwner> | null = null;
   private readonly botMemo = new Map<string, boolean>();
 
@@ -189,11 +197,15 @@ export class VisibleSet {
     groups: readonly VisibilityGroup[],
     viewer: Viewer,
     ownerOf?: (threadId: string) => ThreadOwner | undefined,
+    participantsOf: (threadId: string) => readonly string[] | undefined = () => undefined,
   ) {
     this.viewer = viewer;
-    this.everything = viewer.kind === "all" ||
-      (!bots.some((bot) => isRestricted(bot.visibility)) && !groups.some((group) => isRestricted(group.audienceFloor)));
+    // A person in a Shared workspace never sees everything: even with every
+    // bot open to them, each thread still asks whether they take part in it.
+    this.everything = viewer.kind === "all" || (viewer.kind === "member" &&
+      !bots.some((bot) => isRestricted(bot.visibility)) && !groups.some((group) => isRestricted(group.audienceFloor)));
     this.ownerOf = ownerOf ?? ((threadId) => this.indexedOwner(threadId));
+    this.participantsOf = participantsOf;
     if (this.everything) return;
     for (const bot of bots) this.bots.set(bot.id, bot);
     for (const group of groups) this.groups.set(group.id, group);
@@ -217,12 +229,17 @@ export class VisibleSet {
     return this.everything;
   }
 
-  /** The bot or room that owns the thread is visible. An unknown thread is not. */
+  /** The bot or room that owns the thread is visible. An unknown thread is not.
+   * A person in a Shared workspace must also be among the thread's
+   * participants; a thread that names nobody is visible to nobody. */
   thread(threadId: string): boolean {
     if (this.everything) return true;
     const owner = this.ownerOf(threadId);
     if (!owner) return false;
-    return owner.bot !== undefined ? this.bot(owner.bot) : this.group(owner.group);
+    const reachable = owner.bot !== undefined ? this.bot(owner.bot) : this.group(owner.group);
+    if (!reachable || this.viewer.kind !== "person") return reachable;
+    const key = this.viewer.key;
+    return key !== "" && (this.participantsOf(threadId) ?? []).includes(key);
   }
 
   private indexedOwner(threadId: string): ThreadOwner | undefined {

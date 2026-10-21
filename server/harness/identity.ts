@@ -18,6 +18,15 @@ export interface IdentityDeps {
   [name: string]: any;
 }
 
+/** An opaque, stable key for the person behind a session: their account
+ * email when they signed in with one (a new device is still them), else the
+ * paired session itself. Hashed, so a message or a thread can carry it
+ * without handing other members a session id. */
+export function personKey(session: Pick<SessionRecord, "id" | "email">): string {
+  const basis = session.email ? `email:${session.email.trim().toLowerCase()}` : `session:${session.id}`;
+  return `p_${createHash("sha256").update(basis).digest("base64url").slice(0, 22)}`;
+}
+
 export function createIdentity(deps: IdentityDeps) {
   const {
     commandAllowlist, registry, signInAllowList, store, threadStarters
@@ -31,15 +40,6 @@ function messageSender(auth: RequestAuth): ResolvedSender | undefined {
   if (auth.kind !== "session") return undefined;
   const name = (auth.session.email ?? auth.session.label ?? "").trim();
   return name ? { name, id: actorKey(auth) } : undefined;
-}
-
-/** An opaque, stable key for the person behind a session: their account
- * email when they signed in with one (a new device is still them), else the
- * paired session itself. Hashed, so a message or a thread can carry it
- * without handing other members a session id. */
-function personKey(session: Pick<SessionRecord, "id" | "email">): string {
-  const basis = session.email ? `email:${session.email.trim().toLowerCase()}` : `session:${session.id}`;
-  return `p_${createHash("sha256").update(basis).digest("base64url").slice(0, 22)}`;
 }
 
 /** More than one person uses this workspace: portal membership, or an email
@@ -168,6 +168,7 @@ async function answeringCardAs(auth: RequestAuth, threadId: string, requestId: s
     COMMAND_ALLOWLIST_DRIVERS,
     messageSender,
     personKey,
+    sharedMembership,
     sessionLendingPrincipal,
     actorKey,
     cardAnswerRefusal,
