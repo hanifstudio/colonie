@@ -48,6 +48,8 @@ export interface SharedServer {
   dropletId?: number;
   address?: string;
   inviteUrl?: string;
+  /** The owner has opened it once: their invite is spent; open the address. */
+  opened?: boolean;
   error?: string;
 }
 interface Stored extends SharedServer { ownerCode: string }
@@ -221,6 +223,11 @@ export function createSharedServers(deps: {
       saveRecords();
       void finish(id);
       return shown(record);
+    },
+
+    markOpened(id: string) {
+      if (!records.some((entry) => entry.id === id)) throw Object.assign(new Error("No such Shared workspace."), { status: 404 });
+      update(id, { opened: true });
     },
 
     async remove(id: string) {

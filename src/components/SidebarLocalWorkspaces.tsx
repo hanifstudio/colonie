@@ -20,6 +20,7 @@ import {
 import { HIcon } from "./HIcon";
 import type { SidebarMenuItem } from "./SidebarPopoverMenu";
 import { OPEN_JOIN_SHARED } from "./JoinSharedWorkspace";
+import { OPEN_CREATE_SHARED } from "./CreateSharedWorkspace";
 import { t } from "@/lib/i18n";
 import {
   nameIssueMessage,
@@ -156,13 +157,12 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
         label: t("onboarding.workspace.server"),
         note: t("sidebar.workspace.serverNote"),
         icon: <HIcon icon={CloudServerIcon} size={18} />,
-        disabled: true,
-        onSelect: () => {},
-        trailing: (
-          <span className="shrink-0 rounded-full bg-control px-2 py-0.5 text-[10.5px] font-medium text-ink-secondary">
-            {t("onboarding.workspace.soon")}
-          </span>
-        ),
+        disabled: busy !== "" || !window.colonie?.environments,
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent(OPEN_CREATE_SHARED, { detail: { name: name.trim() } }));
+          setCreating(false);
+          setName("");
+        },
       },
       {
         key: "workspace-create",

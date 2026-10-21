@@ -604,7 +604,7 @@
   "sidebar.workspace.nameLabel": "Workspace name",
   "sidebar.workspace.namePlaceholder": "Work",
   "sidebar.workspace.localNote": "Bots, files and conversations stay on this computer.",
-  "sidebar.workspace.serverNote": "Runs on a server; people you invite join it. Setting one up from the app comes next.",
+  "sidebar.workspace.serverNote": "On a server in your DigitalOcean account; people you invite join it.",
   "sidebar.workspace.openNow": "Open now",
   "sidebar.workspace.switching": "Opening {name}…",
   "sidebar.workspace.create": "Create",

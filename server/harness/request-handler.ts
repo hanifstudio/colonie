@@ -515,6 +515,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           if (!name.trim()) return json(res, 400, { error: "Give the workspace a name." });
           return json(res, 202, await sharedServers.create(name));
         }
+        if (method === "POST" && (m = path.match(/^\/api\/shared-servers\/([\w-]{1,64})\/opened$/))) {
+          sharedServers.markOpened(m[1]);
+          return json(res, 200, { ok: true });
+        }
         if (method === "DELETE" && (m = path.match(/^\/api\/shared-servers\/([\w-]{1,64})$/))) {
           await sharedServers.remove(m[1]);
           return json(res, 200, { ok: true });

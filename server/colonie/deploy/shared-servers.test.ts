@@ -138,6 +138,8 @@ test("creating a workspace: the server is made, waited for, and the owner gets i
   const droplet = seen.filter((request) => request.method === "POST" && request.path === "/v2/droplets").at(-1)!;
   expect(droplet.body.user_data).toContain(`COLONIE_OWNER_INVITE_CODE="${ready.inviteUrl!.split("/").pop()}"`);
   expect(droplet.body.tags).toContain(ready.tag);
+  shared.markOpened(ready.id);
+  expect(shared.list()[0].opened).toBe(true);
   // The list survives a restart of the app.
   expect(servers(dir).list()[0]).toMatchObject({ id: ready.id, state: "ready" });
 });
