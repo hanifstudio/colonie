@@ -130,12 +130,17 @@ export interface TaskRecord extends Omit<WireTask, TaskWireDerivedKeys> {
    * so only positively identified auto pins yield to Works on changes.
    * Clients see only whether a pin is an auto pin (WireTask.surfaceAuto). */
   surfaceSource?: "user" | "auto";
+  /** The people this conversation belongs to, by person key
+   * (server/harness/identity.ts). Server-private: in a Shared workspace it
+   * decides who may see the thread. Absent names nobody — a routine, a
+   * webhook, or the desktop owner at the keyboard. */
+  participants?: string[];
 }
 
 /** TaskRecord fields no client may see. Everything else must be on WireTask:
  * the exactness assertion below fails to compile when either side drifts,
  * so a new server field forces a decision — wire-visible or private here. */
-export type TaskWirePrivateKeys = "resumeCursors" | "lastInstanceId" | "handedMessages" | "appliedCompactionId" | "contextFloor" | "lastContextModel" | "surfaceSource";
+export type TaskWirePrivateKeys = "resumeCursors" | "lastInstanceId" | "handedMessages" | "appliedCompactionId" | "contextFloor" | "lastContextModel" | "surfaceSource" | "participants";
 /** WireTask fields computed by toWireTask and never stored on a TaskRecord. */
 export type TaskWireDerivedKeys = "surfaceAuto" | "followsBotModel" | "preview";
 export type TaskWireProjection = Pick<TaskRecord, Exclude<keyof TaskRecord, TaskWirePrivateKeys>> & Pick<WireTask, TaskWireDerivedKeys>;
@@ -153,7 +158,7 @@ export const taskWireProjectionIsExact: TaskWireProjectionIsExact = true;
 export function toWireTask(task: TaskRecord, botModel: ModelSelection): WireTask {
   const { resumeCursors: _resumeCursors, lastInstanceId: _lastInstanceId, handedMessages: _handedMessages,
     appliedCompactionId: _appliedCompactionId, contextFloor: _contextFloor, lastContextModel: _lastContextModel,
-    surfaceSource, ...stored } = task;
+    surfaceSource, participants: _participants, ...stored } = task;
   const wire: WireTask = { ...stored, modelSelection: structuredClone(task.modelSelection ?? botModel), followsBotModel: task.modelSelection === undefined };
   // Who pinned stays private. A client learns only whether the pin is the
   // machine's own record, so it never presents one as the person's choice.
@@ -2262,6 +2267,15 @@ export class Store {
     return this.bot(botId)?.tasks?.find((t) => t.threadId === threadId);
   }
 
+  /** Who a conversation belongs to, by person key. A known thread with no
+   * participants answers an empty list; an unknown thread answers nothing, so
+   * a caller can tell "nobody named" from "no such conversation". */
+  threadParticipants(threadId: string): string[] | undefined {
+    const task = this.botByThread(threadId)?.tasks?.find((t) => t.threadId === threadId);
+    if (!task) return undefined;
+    return [...(task.participants ?? [])];
+  }
+
   /** A turn gets an independent snapshot without changing the selected task
    * or mutating the bot's defaults while another turn is running. */
   projectBotForTask(botId: string, threadId: string): BotRecord | null {
@@ -2424,9 +2438,11 @@ export class Store {
   /** A fresh context on the same bot: new thread, new session, same
    * persona/tools/computer. Becomes the active task. It follows the bot's
    * model unless the caller hands it another one: a thread opened from
-   * another of this bot's threads keeps the model a person picked there. */
+   * another of this bot's threads keeps the model a person picked there.
+   * `participants` names the people this conversation belongs to; the copy
+   * is stored, so a caller's later change cannot rewrite it. */
   createTask(botId: string, title?: string, activate = true, projectId?: string, openedBy?: TaskOpenedBy, approvalMode?: "ask" | "full",
-    modelSelection?: ModelSelection): TaskRecord | null {
+    modelSelection?: ModelSelection, participants?: readonly string[]): TaskRecord | null {
     const bot = this.bot(botId);
     if (!bot) return null;
     if (projectId !== undefined && !this.project(botId, projectId)) return null;
@@ -2438,6 +2454,7 @@ export class Store {
       updatedAt: createdAt,
       ...(projectId ? { projectId } : {}),
       ...(openedBy ? { openedBy: structuredClone(openedBy) } : {}),
+      ...(participants?.length ? { participants: [...participants] } : {}),
       resumeCursors: {},
       ...(modelSelection && !sameModelSelection(modelSelection, bot.modelSelection) ? { modelSelection: structuredClone(modelSelection) } : {}),
       approvalMode: approvalMode ?? approvalModeFor(bot),

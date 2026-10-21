@@ -12,13 +12,11 @@ two people on one bot see each other's chats. A Shared workspace is new, never
 converted from Local, so Local must behave exactly as today. Steps, in order:
 
 1. Done: a Shared workspace shows each person only threads naming them.
-2. **Current card.** Tasks store `participants` (server-private, never on the
-   wire), `store.threadParticipants(threadId)`, and visibility reads it. Set
-   where created: a session's new task names that person; the Chief's
-   assignment and a continuation copy their source thread's list.
-   Tests: `server/persistence/thread-participants.test.ts` (do not edit).
-3. Each person has their own current conversation with each bot; a first
-   message to a bot opens one. Every route goes through that. (Strong model.)
+2. Done: conversations store their participants (server-private), set by a
+   signed-in person's task or copied from the source thread; visibility reads it.
+3. **Current card.** A person's first message to a bot opens their own current
+   conversation, and every route goes through it. Prove it with two signed-in
+   people on a throwaway server and tests; live updates and search are later.
 4. Live updates and their replay carry only a person's own conversations. (Strong.)
 5. Search, exports, and backups: search covers only your own conversations;
    whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)

@@ -149,7 +149,7 @@ export function makeCapContinuationSubscriber(deps: CapContinuationDeps): (event
         // Not activated: the person's open thread stays theirs, and their next
         // message goes where they were, not into the continuation.
         bot.id, `Continue: ${(deadTask.title ?? "task").slice(0, 90)}`, false,
-        deadTask.projectId, undefined, approvalMode, deadTask.modelSelection,
+        deadTask.projectId, undefined, approvalMode, deadTask.modelSelection, deadTask.participants,
       );
       if (!contTask) return;
       rec.count += 1;

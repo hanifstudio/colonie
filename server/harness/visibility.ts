@@ -18,7 +18,8 @@ export function createVisibility(deps: VisibilityDeps) {
   /** Whether this is a Shared workspace (server/runtime/workspace-kind.ts),
    * and who takes part in a thread. Both absent means Local. */
   const sharedWorkspace: () => boolean = deps.sharedWorkspace ?? (() => false);
-  const participantsOf: (threadId: string) => readonly string[] | undefined = deps.participantsOf ?? (() => undefined);
+  const participantsOf: (threadId: string) => readonly string[] | undefined = deps.participantsOf
+    ?? ((threadId: string) => store().threadParticipants(threadId));
 
 
 // ── bot visibility (server/bot-visibility.ts) ──────────────────────────

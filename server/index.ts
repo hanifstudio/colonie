@@ -732,7 +732,10 @@ const colonieChief = new ColonieChief({
   },
   deleteBot: async (botId) => { const result = await deleteBotWithLifecycle(botId); if (result.status >= 400) throw new Error(result.body?.error ?? "The bot could not be deleted."); },
   createAssignmentThread: (job) => {
-    const task = store.createTask(job.targetBotId, undefined, false);
+    // The assignment belongs to the same people as the Chief's conversation
+    // it came from.
+    const task = store.createTask(job.targetBotId, undefined, false, undefined, undefined, undefined, undefined,
+      store.threadParticipants(job.sourceThreadId));
     if (!task) throw new Error("Could not start a conversation for that bot.");
     return task.threadId;
   },
