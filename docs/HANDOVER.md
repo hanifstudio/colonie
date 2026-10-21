@@ -5,27 +5,23 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: Colonie Cloud accounts, and invite by link
+## Now: a Shared workspace runs as a server
 
-Step two of "Plan: inviting people" (blueprint, "Colonie Cloud: accounts
-design"). Built and tested on this machine; nothing is deployed until the
-owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
+Step three of "Plan: inviting people" (blueprint). Done before it: privacy by
+person (`server/colonie/chat/shared-*.e2e.test.ts`) and Colonie Cloud with
+invite by link (`cloud/`, 24 tests; `server/colonie/accounts/`, 5 end-to-end
+tests; also run in the real Workers runtime). Next: the workspace server
+reachable over HTTPS behind a proxy, its engines signed in on that machine.
 
-1. Done: accounts, Sign in with Colonie (code plus PKCE, ES256), password
-   reset, and a lock after ten wrong passwords. 24 tests in `cloud/test/`.
-2. Done: invite by link. An admin connects the workspace
-   (`POST /api/colonie-cloud/connect`) and makes one-time links
-   (`POST /api/invites`); the person signs in or up at Colonie Cloud and lands
-   signed in. Membership is bound to the Colonie account id, not the email
-   (emails are unverified). `server/colonie/accounts/`, 5 end-to-end tests.
-   Before deploying: Turnstile and per-IP limits (a lock can be triggered on
-   purpose against someone else), and `/forgot` timing.
-3. **Next.** Wrangler config and a local `wrangler dev` run in the real Workers runtime.
-
-Privacy by person (step one) is done and guarded by
-`server/colonie/chat/shared-*.e2e.test.ts`. Gaps: bot memory learns nothing in
-a Shared workspace (only unsigned messages feed it); the commit guard counts a
-final newline as a line.
+**Colonie Cloud goes live when the owner:** creates Cloudflare (Workers Paid),
+Neon (Singapore) with a Hyperdrive config, and Resend; stores the output of
+`pnpm --filter colonie-cloud new-signing-key` with `wrangler secret put
+SIGNING_JWK` (and `RESEND_API_KEY`); sets `ISSUER` and the Hyperdrive id in
+`cloud/wrangler.jsonc`; runs `wrangler deploy`. A domain before any outside
+user. Before then: Turnstile and per-IP limits (a lock can be set off on
+purpose against someone), and `/forgot` timing.
+Gaps: bot memory learns nothing in a Shared workspace; the commit guard
+counts a final newline as a line.
 
 ## Next: a person installs Colonie from this code and completes the first run
 
@@ -50,7 +46,7 @@ window with a throwaway user or data folder, never `~/.colonie`.
 | The download is signed and notarized | Blocked: no Apple Developer account |
 | The download page points to the new build | Not started |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
-| A Shared workspace: one-click server, invite by link, people and bots together | Not started; plan in the blueprint |
+| A Shared workspace: one-click server, invite by link, people and bots together | Privacy and invites done; server, app, groups, deploy to do |
 
 ## Known broken
 
@@ -64,12 +60,8 @@ window with a throwaway user or data folder, never `~/.colonie`.
 ## Not yet checked by a person
 
 - No reset email has gone through Resend; the reset pages were never opened in a browser.
-- The OpenCode rules (`opencode.json`) load, but no live session has tried
-  them: the DeepSeek model through 9router returned nothing on October 21,
-  even for a one-word prompt, and the default model was out of quota.
-- Codex asks each person to trust the project hook once (and after it
-  changes) before it runs; until then only the Codex rules and sandbox apply.
-
+- OpenCode's project rules load but were never seen blocking in a live
+  session; Codex runs the project hook only after each person trusts it.
 - The workspace switcher and the new welcome step have never been seen in a
   real window. The app's restart into another workspace has never been run.
 - The owner's two stuck conversations, "Motion" and "Biscuit", should now

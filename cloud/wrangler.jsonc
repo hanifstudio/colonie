@@ -1,0 +1,18 @@
+// Colonie Cloud on Cloudflare Workers. Secrets are not here: the owner sets
+// SIGNING_JWK and RESEND_API_KEY with `wrangler secret put`. Local
+// development reads DATABASE_URL, ISSUER and SIGNING_JWK from .dev.vars
+// (never committed).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "colonie-cloud",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  // node:crypto scrypt, randomBytes and createHash
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // Replaced by the real address (workers.dev, then the bought domain).
+    "ISSUER": "http://localhost:8787"
+  }
+  // After the owner creates the Neon project and a Hyperdrive config:
+  // "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<hyperdrive id>" }]
+}

@@ -6,15 +6,20 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test",
+    "dev": "wrangler dev",
+    "new-signing-key": "node scripts/new-signing-key.ts"
   },
   "dependencies": {
-    "jose": "6.2.13"
+    "jose": "6.2.13",
+    "postgres": "3.4.9"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
     "@types/node": "^26.2.0",
     "typescript": "^5.8.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "wrangler": "4.148.0",
+    "@cloudflare/workers-types": "5.20261006.1"
   }
 }
