@@ -125,7 +125,9 @@ export function serverVersion(): string {
 export function environmentDescriptor(input: { environmentId: string; desktopManaged: boolean; emailSignIn?: boolean; sharedComputers?: boolean; colonieSignIn?: boolean }): EnvironmentDescriptor {
   return {
     environmentId: input.environmentId,
-    label: process.env.COLONIE_ENVIRONMENT_LABEL?.trim() || hostname(),
+    // A Shared workspace server is named by its workspace, not its machine
+    // (in a container that is a random id).
+    label: process.env.COLONIE_ENVIRONMENT_LABEL?.trim() || process.env.COLONIE_WORKSPACE_NAME?.trim() || hostname(),
     platform: process.platform,
     version: serverVersion(),
     capabilities: {

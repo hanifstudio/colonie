@@ -37,8 +37,10 @@ afterAll(async () => {
 });
 
 test("a new server is connected to Colonie and offers its sign-in from the start", async () => {
-  const environment = await (await fetch(`${ws.url}/.well-known/colonie/environment`)).json() as { capabilities: { colonieSignIn?: boolean } };
+  const environment = await (await fetch(`${ws.url}/.well-known/colonie/environment`)).json() as { label: string; capabilities: { colonieSignIn?: boolean } };
   expect(environment.capabilities.colonieSignIn).toBe(true);
+  // Its sign-in page names the workspace, not the machine.
+  expect(environment.label).toBe("Launch Team");
 });
 
 test("the owner's code makes them the first admin, who can then invite others", async () => {
