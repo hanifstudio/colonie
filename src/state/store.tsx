@@ -534,10 +534,13 @@ function rewindThreadUpdatedAt(state: AppState, threadId: string, messages: { at
 /** The visible conversation: walk parentId links from the active leaf back
  * to the root. Falls back to the flat list for pre-branching payloads. */
 export function visibleMessages(bot: Pick<Bot, "messages" | "activeLeafId">): Message[] {
+  // A bot can arrive without its page (another person's thread on a Shared
+  // workspace); read it as empty rather than fail the whole app.
+  const messages = bot.messages ?? [];
   const leafId = bot.activeLeafId;
-  if (!leafId) return bot.messages;
-  const byId = new Map(bot.messages.map((m) => [m.id, m]));
-  if (!byId.has(leafId)) return bot.messages;
+  if (!leafId) return messages;
+  const byId = new Map(messages.map((m) => [m.id, m]));
+  if (!byId.has(leafId)) return messages;
   const path: Message[] = [];
   let cur = byId.get(leafId);
   while (cur) {

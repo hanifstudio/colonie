@@ -56,6 +56,14 @@ test("they add another person of the workspace, who then sees and writes in it",
   expect(bobsMessage.sender?.name).toBe(BOB);
 });
 
+test("someone with no conversation with the bot gets an empty one, not a missing one", async () => {
+  // A missing message list blanked the whole app for a person who had never
+  // talked to a bot (the sidebar reads each bot's last message).
+  const bot = (await ws.as(CICI, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);
+  expect(bot.messages).toEqual([]);
+  expect(bot.threadId).toBe("");
+});
+
 test("someone not in it still cannot see it, list its people, or add themselves", async () => {
   expect((await ws.as(CICI, `/api/threads/${thread}/messages`)).status).toBe(404);
   expect((await people(CICI)).status).toBe(404);

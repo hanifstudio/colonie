@@ -299,9 +299,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
               ...(auth.session.email ? { email: auth.session.email } : {}),
               // whose COLONIE Cloud a browser sign-in signed in to
               ...(auth.session.owner ? { owner: auth.session.owner } : {}),
-              // a hosted team workspace: the web UI's first run skips the
-              // desktop-only beats there. Absent everywhere else.
-              ...(HOSTED_WORKSPACE ? { hosted: true } : {}),
+              // a hosted team workspace or a Shared one: the web UI's first
+              // run skips the beats about this computer there (and a member
+              // gets a note instead). Absent everywhere else.
+              ...(HOSTED_WORKSPACE || ownThreads.shared() ? { hosted: true } : {}),
             },
       );
     }

@@ -1249,7 +1249,7 @@
   "onboarding.bot.saving": "Saving…",
   "onboarding.bot.error": "The bot could not be saved. Finish anyway and edit it later from its settings.",
   "onboarding.bot.finishAnyway": "Finish anyway",
-  "onboarding.hosted.intro": "This is your team's shared Colonie. Everyone who joins sees the same bots, chats and files. Your organization provides the AI models, so there is nothing to install.",
+  "onboarding.hosted.intro": "This is your team's Shared workspace. Everyone who joins works with the same bots. Your conversations are your own until you add someone to one. The AI is connected on the server, so there is nothing to install.",
   "onboarding.shared.title": "Your team's shared Colonie",
   "onboarding.shared.body": "Bots, chats and files here are shared with your team. Your administrator sets up the AI models and settings, so you can start chatting right away.",
   "settings.welcome.title": "Welcome tour",

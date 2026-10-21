@@ -372,6 +372,9 @@ export function memberBot<T extends object>(bot: T, visible: VisibleSet): T {
     }
     if (typeof narrowed.threadId === "string" && !visible.thread(narrowed.threadId)) {
       for (const key of ["messages", "hasMore", "activeLeafId", "pinnedMessageId", "rewound"]) delete narrowed[key];
+      // An empty conversation, not a missing one: the app reads every bot's
+      // messages, and a missing list blanked it for a person with none yet.
+      if ("messages" in rest) { narrowed.messages = []; narrowed.hasMore = false; }
       narrowed.threadId = "";
     }
   }

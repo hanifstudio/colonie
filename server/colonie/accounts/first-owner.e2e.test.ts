@@ -47,6 +47,8 @@ test("the owner's code makes them the first admin, who can then invite others", 
   expect(b.cookieHeader(ws.url)).toMatch(/^colonie_session_/);
   const session = await b.api(ws.url, "/api/auth/session");
   expect(session.body.scopes).toContain("admin");
+  // The first run there is the workspace one, not this computer's.
+  expect(session.body.hosted).toBe(true);
   const invite = await b.api(ws.url, "/api/invites", { method: "POST", body: {} });
   expect(invite.status).toBe(201);
   expect(invite.body.url).toContain(`${ws.url}/invite/`);

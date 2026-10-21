@@ -60,6 +60,7 @@ export function ConversationPeople({ threadId, onLeft }: { threadId: string; onL
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
+    if (!threadId) { setPeople(null); return; } // no conversation yet
     try {
       const res = await fetch(`/api/threads/${encodeURIComponent(threadId)}/people`, { credentials: "same-origin" });
       setPeople(res.ok ? ((await res.json()) as { people: ConversationPerson[] }).people : null);
