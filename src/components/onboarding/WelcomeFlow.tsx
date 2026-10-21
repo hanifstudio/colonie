@@ -36,6 +36,8 @@ import { MeetYourBotBeat } from "./beats/MeetYourBotBeat";
 import { PermissionsBeat } from "./beats/PermissionsBeat";
 import { QuietButton } from "./beats/shared";
 import { WorkspaceBeat } from "./beats/WorkspaceBeat";
+import { OPEN_CREATE_SHARED } from "../CreateSharedWorkspace";
+import { OPEN_JOIN_SHARED } from "../JoinSharedWorkspace";
 import { withViewTransition } from "./view-transition";
 import { ProgressDots } from "./ProgressDots";
 import { FeatureReel } from "./reel/FeatureReel";
@@ -208,6 +210,12 @@ export function WelcomeFlow({
   const title = beatTitle(beat);
   const logo = hello ? brand().logo : undefined;
   const beatProps = { onNext: advance, onSkip: advance, setMascot, bump };
+  // Setting up or joining a Shared workspace ends the welcome and opens that
+  // path; nothing else here is needed for it (engines sign in on the server).
+  const openShared = (choice: "create" | "join") => {
+    void finish("completed");
+    window.dispatchEvent(new Event(choice === "create" ? OPEN_CREATE_SHARED : OPEN_JOIN_SHARED));
+  };
   const current = beats.indexOf(beat) + 1;
 
   return (
@@ -264,7 +272,7 @@ export function WelcomeFlow({
             beats keep their height and the card scrolls instead. */}
         <div key={beat} className={cn("flex flex-col", beat === "engines" ? "min-h-0" : "shrink-0")}>
           {beat === "hello" && <HelloBeat {...beatProps} hosted={hosted} />}
-          {beat === "workspace" && <WorkspaceBeat {...beatProps} />}
+          {beat === "workspace" && <WorkspaceBeat {...beatProps} onShared={window.colonie?.environments ? openShared : undefined} />}
           {beat === "reel" && <FeatureReel {...beatProps} />}
           {beat === "engines" && <EnginesBeat {...beatProps} />}
           {beat === "permissions" && <PermissionsBeat {...beatProps} />}

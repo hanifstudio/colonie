@@ -35,7 +35,8 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
   /** The workspace this session actually started with. A choice made here is
    * what the next start uses, which is not the same thing until it restarts. */
   const [runningId, setRunningId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  /** The new-workspace form: first the kind, then (Local) its name. */
+  const [creating, setCreating] = useState<false | "choose" | "local">(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
@@ -124,12 +125,44 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
   const items: SidebarMenuItem[] = [];
   if (!bridge || !state) return items;
 
-  if (creating) {
+  if (creating === "choose") {
+    items.push(
+      {
+        key: "workspace-kind-local",
+        heading: t("sidebar.workspace.newHeading"),
+        label: "Local",
+        note: t("sidebar.workspace.localNote"),
+        icon: <HIcon icon={ComputerIcon} size={18} />,
+        keepOpen: true,
+        onSelect: () => { setCreating("local"); setError(""); },
+      },
+      {
+        key: "workspace-kind-server",
+        label: "Shared",
+        note: t("sidebar.workspace.serverNote"),
+        icon: <HIcon icon={CloudServerIcon} size={18} />,
+        disabled: !window.colonie?.environments,
+        onSelect: () => {
+          window.dispatchEvent(new Event(OPEN_CREATE_SHARED));
+          setCreating(false);
+        },
+      },
+      {
+        key: "workspace-cancel",
+        label: t("common.cancel"),
+        separatorBefore: true,
+        onSelect: () => { setCreating(false); setName(""); setError(""); },
+      },
+    );
+    return items;
+  }
+
+  if (creating === "local") {
     const issue = workspaceNameIssue(name, state.nameMax);
     items.push(
       {
         key: "workspace-name",
-        heading: t("sidebar.workspace.newHeading"),
+        heading: "New Local workspace",
         custom: (
           <input
             autoFocus
@@ -142,27 +175,6 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
           />
         ),
         onSelect: () => {},
-      },
-      {
-        key: "workspace-kind-local",
-        label: t("onboarding.workspace.local"),
-        note: t("sidebar.workspace.localNote"),
-        icon: <HIcon icon={ComputerIcon} size={18} />,
-        active: true,
-        disabled: true,
-        onSelect: () => {},
-      },
-      {
-        key: "workspace-kind-server",
-        label: t("onboarding.workspace.server"),
-        note: t("sidebar.workspace.serverNote"),
-        icon: <HIcon icon={CloudServerIcon} size={18} />,
-        disabled: busy !== "" || !window.colonie?.environments,
-        onSelect: () => {
-          window.dispatchEvent(new CustomEvent(OPEN_CREATE_SHARED, { detail: { name: name.trim() } }));
-          setCreating(false);
-          setName("");
-        },
       },
       {
         key: "workspace-create",
@@ -222,7 +234,7 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
     // Opening the name form is the start of something, not a choice: closing
     // the menu here would put the form away again before it was drawn.
     keepOpen: true,
-    onSelect: () => { setCreating(true); setError(""); setNotice(""); },
+    onSelect: () => { setCreating("choose"); setError(""); setNotice(""); },
   });
   if (window.colonie?.environments) {
     items.push({
