@@ -40,7 +40,7 @@ export interface SharedWorkspace {
 
 const ROOT = join(import.meta.dirname, "..", "..");
 
-export async function startSharedWorkspace(people: SharedPerson[]): Promise<SharedWorkspace> {
+export async function startSharedWorkspace(people: SharedPerson[], extraConfig: Record<string, unknown> = {}): Promise<SharedWorkspace> {
   const home = mkdtempSync(join(tmpdir(), "colonie-shared-home-"));
   const dataDir = mkdtempSync(join(tmpdir(), "colonie-shared-data-"));
   const admins = people.filter((person) => person.admin).map((person) => person.email);
@@ -55,6 +55,7 @@ export async function startSharedWorkspace(people: SharedPerson[]): Promise<Shar
       },
     },
     defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" },
+    ...extraConfig,
   }));
 
   const membership = { admins: parseAllowList(admins.join(",")), members: parseAllowList(members.join(",")) };

@@ -18,9 +18,10 @@ today. Steps, in order:
 5. Done: search scans only the person's own threads; workspace backups and
    team backups answer 403 to sessions; a bot's activity and the decision log
    list only the person's own threads.
-6. **Current card.** Recall never quotes another conversation with different
-   people; the bot's memory stays shared (owner decision). (Strong.)
-7. Only a conversation's participants answer its approval cards. (Strong.)
+6. Done, no change needed: ACP turns quote no other conversation (recall and
+   recent work exist only on the retired path); a test guards it. Gap: bot
+   memory learns only from unsigned messages, so in Shared it learns nothing.
+7. **Current card.** Only a conversation's participants answer its approval cards.
 
 Decided, reversible: routine and webhook threads belong to their creator; a
 busy bot stays visible to all. Fix: the commit guard counts a final newline.
