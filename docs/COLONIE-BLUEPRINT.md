@@ -13,10 +13,11 @@ web, use a computer, and run on a schedule.
 Work happens in a **workspace**. A workspace holds its bots, conversations,
 connected apps, and engine sign-ins. There are two kinds:
 
-- **Local**: runs on the person's own Mac. Free, no Colonie account.
-- **Server**: runs on a server the owner pays for. The owner invites people,
-  and they use the workspace's bots without their own AI subscription.
-  Not built yet.
+- **Local**: runs on the person's own Mac. Personal: nobody can be invited.
+  Free, no Colonie account.
+- **Shared**: runs on a server the owner pays for, set up with one click from
+  Colonie. The owner invites people, and people and bots work together; members
+  use the workspace's bots without their own AI subscription. Not built yet.
 
 The product reference is [Grok Bot](https://cursor.com/docs/grok-bot): when a
 behavior is unclear, copy what Grok Bot does, then extend it where Colonie's
@@ -40,19 +41,17 @@ person clicking through a real install. HANDOVER says what is proven.
 
 ## What comes next, in order
 
-1. **Public release of the Local app.** A stranger downloads Colonie, installs
-   it, signs in, and a bot answers. Mac only at first, unless the owner decides
-   otherwise.
+1. **The first public release: Local and Shared workspaces.** A stranger
+   installs Colonie, signs in, and a bot answers; an owner creates a Shared
+   workspace in one click, invites people, and people and bots work together.
+   Mac only at first, unless the owner decides otherwise. The steps are in
+   "Plan: inviting people" below.
 2. **A dependable working assistant.** Browser use, computer use, connected
    apps, approvals, and memory each proven with a real engine.
 3. **Work that runs on its own.** Routines, webhooks, bots handing work to each
    other, Stop, and recovery after a restart, all working together without
    repeating a side effect (like sending an email twice).
-4. **Server workspaces.** A nontechnical owner deploys to their own server in a
-   guided flow, signs in the engines there, and sees what it costs.
-5. **Working together.** Invitations, people and bots in group conversations,
-   direct messages, permissions.
-6. **Later.** Mobile companion, voice conversation, bot email addresses.
+4. **Later.** Mobile companion, voice conversation, bot email addresses.
 
 ## Plan: inviting people
 
@@ -76,17 +75,19 @@ at another server. What is missing:
 Steps, in order. Each one is safe on its own:
 
 1. **Private by person.** Every conversation knows its participants. A person
-   sees only conversations they are in; recall, memory, and search never cross
-   from one person's conversations into another's. Proven with two signed-in
-   test people on a throwaway server, before anyone real can join.
+   sees only conversations they are in, and that holds for the owner and admins
+   too; recall, memory, and search never cross from one person's conversations
+   into another's. Proven with two signed-in test people on a throwaway server,
+   before anyone real can join.
 2. **Invite by link.** The owner creates a one-time invite link; opening it
    signs that person in. No email service needed. Email codes can come later.
-3. **Reach the workspace.** Start with the owner's own computer on a private
-   network (for example Tailscale), with HTTPS. Paid servers come later.
-4. **Open it from the app.** The sidebar's Server option connects to an
-   invited workspace.
+3. **Run as a server.** A workspace runs on a server reachable over HTTPS, with
+   its engines signed in there, not on anyone's Mac.
+4. **Open it from the app.** The sidebar's Shared option connects to a
+   workspace you were invited to.
 5. **Group conversations** with people and bots, where a bot answers when named.
-6. **Hosted Server workspaces** on a server the owner pays for.
+6. **One-click deployment.** Colonie sets up the server in the owner's own
+   hosting account, shows the monthly cost first, and can remove it cleanly.
 
 ## Decisions
 
@@ -94,30 +95,32 @@ Steps, in order. Each one is safe on its own:
 
 - The name is Colonie. It is independent of the project it was forked from.
 - Keep the current desktop look and feel; the owner likes it.
-- Local workspaces are free. A Server workspace is a one-time purchase per
+- Local workspaces are free. A Shared workspace is a one-time purchase per
   workspace; the price follows the server cost and is set after hosting is
   benchmarked. Invited members pay nothing.
 - People bring their own keys for paid services (AI, Composio, speech, email).
   The first version runs no Colonie-paid service.
 - Accounts, invitations, purchases, and updates are central Colonie services
-  for Server workspaces only. Bots, files, memory, credentials, and runs stay on
+  for Shared workspaces only. Bots, files, memory, credentials, and runs stay on
   the owner's own server.
 - Each workspace's data lives on its own computer or server, owned and backed
   up by its owner. Deletion is real deletion. Logs are pruned after 180 days by
-  default. A workspace is created Local or Server and is never converted.
+  default. A workspace is created Local or Shared and is never converted.
 
 ### Workspaces
 
+- Two kinds, named Local and Shared in the app. Only a Shared workspace can
+  invite people. The first public release has both.
 - Every new Local workspace gets its own engine sign-in and connections. It
   never borrows another workspace's credentials or history.
 - The first-run welcome flow stays as it is. One step was added: it explains
-  workspaces, with Local selected and Server shown but disabled ("Coming later").
-- The workspace switcher lives in the sidebar's profile menu. Server is shown
-  there too, disabled, until hosting exists. Never offer it as working.
+  workspaces, with Local selected and Shared shown but disabled ("Coming later").
+- The workspace switcher lives in the sidebar's profile menu. Shared is shown
+  there too, disabled, until it works. Never offer it as working.
 - Switching workspaces restarts the app, and says so first, because unsent
   drafts are lost.
 - Profile: a name is required and email is optional for Local; both are
-  required for Server. Email is never used to log in.
+  required for Shared. Email is never used to log in.
 
 ### Bots and engines
 
@@ -133,10 +136,11 @@ Steps, in order. Each one is safe on its own:
 - Approval levels map straight onto each engine's own modes. If an engine
   lacks a level, the app falls back to Ask, never to more access.
 
-### Working together (for Server workspaces)
+### Working together (for Shared workspaces)
 
 - Members are people and bots. A group is visible only to its members; a direct
-  conversation only to its two participants. Nobody reads someone else's DMs.
+  conversation only to its participants. Nobody else reads it, including the
+  owner and admins.
 - The owner controls membership, workspace credentials, and risky approvals.
 - To get a bot's attention, name it. Stop applies to the selected task and
   everything it handed off. Bots wanting the same screen or browser wait in line.
@@ -175,11 +179,7 @@ scripts/               Build, launch, and checks
 
 ## Waiting on the owner
 
-- Whether inviting people comes before the public release of the Local app.
-- Whether the owner and admins may read members' direct conversations. The
-  decision so far says nobody reads someone else's DMs; the code lets admins.
-- Whether the first shared workspace may run on the owner's own computer over
-  a private network, before paid servers exist.
+- Which hosting provider the one-click deployment supports first.
 - First release: Mac (Apple silicon) only, or more platforms?
 - How this branch (`restructure`) reaches `main`. It is local only and must not be
   pushed until the owner says so.
@@ -192,8 +192,9 @@ scripts/               Build, launch, and checks
 
 ## Still to research
 
-- Whether provider terms allow one owner's Claude or Codex subscription to
-  serve invited members.
+- **Blocks the release:** whether provider terms allow one owner's Claude or
+  Codex subscription to serve invited members, and how engines sign in on a
+  server without a browser.
 - Which hosting setup to recommend, measured on a real browser-and-computer
   workload, with its cost.
 - How Grok Bot behaves where its documentation is silent (who replies in a

@@ -5,24 +5,27 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: a person installs Colonie from this code and completes the first run
+## Now: a person sees only the conversations they are in
 
-The first step toward a public release. On a Mac that never had Colonie, a
-person installs an app built from this branch, then: goes through the welcome,
-signs in to an engine inside the app, gets an answer from a bot, creates and
-switches a workspace, quits, and reopens.
+Owner decision, October 21: the first release has Shared workspaces with
+invitations, and a conversation is readable only by its participants, the
+owner and admins included. This is step one of "Plan: inviting people" in the
+blueprint, for a strong model: today privacy is per bot, so two people on one
+bot see each other's chats, and recall can carry one person's chat into
+another's answer.
 
-- **Done:** the app builds again. Two build scripts missing from this branch
-  were restored (`scripts/colonie/icons.ts`, `scripts/colonie/stage-runtime.mjs`).
-  `pnpm colonie:package` produced
-  `release/colonie/mac-arm64/Colonie.app`, which starts, serves the interface,
-  creates a workspace with both engines, and quits cleanly.
-- **Next:** build a `.dmg`
-  (`pnpm colonie:dist`) and walk the journey in a real window, using a
-  throwaway macOS user or a throwaway data folder, never the owner's
-  `~/.colonie`. Note each step that fails, then fix them in order.
-- **Proof:** the owner, or a recording, shows each step of the journey working.
-- **Out of scope:** publishing, Server workspaces.
+- **After:** every conversation has participants; reads, search, exports, and
+  live updates show a person only their own; recall, memory, and search never
+  cross between people.
+- **Proof:** two signed-in test people on a throwaway server cannot see or
+  reach each other's conversations by any route, live stream, or bot answer.
+
+## Next: a person installs Colonie from this code and completes the first run
+
+On a Mac that never had Colonie: install, welcome, engine sign-in, a bot
+answers, create and switch a workspace, quit, reopen. The unpacked app builds
+and boots (`pnpm colonie:package`). Next: a `.dmg` and the journey in a real
+window with a throwaway user or data folder, never `~/.colonie`.
 
 ## Before a public release
 
@@ -40,6 +43,7 @@ switches a workspace, quits, and reopens.
 | The download is signed and notarized | Blocked: no Apple Developer account |
 | The download page points to the new build | Not started |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
+| A Shared workspace: one-click server, invite by link, people and bots together | Not started; plan in the blueprint |
 
 ## Known broken
 
@@ -77,9 +81,8 @@ switches a workspace, quits, and reopens.
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-4. Inviting people: the plan is in the blueprint and waits on three owner
-   decisions there. Small fix found on the way: email sign-in answers 502
-   saying the accounts-service address "is set" when it is not set at all.
+4. Small fix: email sign-in answers 502 saying the accounts-service address
+   "is set" when it is not set at all.
 5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
 6. Tidy the interface code into feature folders, one feature at a time.
