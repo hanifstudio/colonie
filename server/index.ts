@@ -768,24 +768,6 @@ else enginesRead = defaultSelection().then(
   (selection) => { bootSelection = selection; },
   (error) => console.warn(`[engines] reading the engines at start failed: ${error instanceof Error ? error.message : String(error)}`),
 ).finally(() => { enginesRead = null; });
-// Model lists served from the last run refresh behind listen. Each one
-// notifies the picker when it lands, then the new-bot default is read again
-// so a bot created this session sees the discovered model.
-const startupCatalogs = registry.instances().flatMap((instance) =>
-  instance.startupModelRefresh ? [instance.startupModelRefresh] : []);
-for (const pending of startupCatalogs) {
-  void pending.then(() => broadcast({ kind: "config", ...configStatus() }), () => {});
-}
-if (startupCatalogs.length) {
-  void Promise.all(startupCatalogs).then(async () => {
-    if (store.needsSeed()) return;
-    try {
-      bootSelection = await defaultSelection();
-    } catch (error) {
-      console.warn(`[engines] refreshing the new-bot default after model discovery failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  });
-}
 store.seedIfEmpty();
 // Colonie's first bot is the workspace Chief; an upgraded workspace without one
 // elects its oldest bot. Non-Colonie workspaces keep their section Chiefs.
@@ -1808,6 +1790,26 @@ const { localVmPayload, readyLocalVmForTurn, existingPerBotLocalVmCount, perBotL
   retryDelegationsWaitingOn,
   drainTeamSetupResumes,
 });
+// Model lists served from the last run refresh behind listen. Each one
+// notifies the picker when it lands, then the new-bot default is read again
+// so a bot created this session sees the discovered model. This runs after
+// configStatus exists: discovery can settle while the server is still setting
+// up, and the notification reads it.
+const startupCatalogs = registry.instances().flatMap((instance) =>
+  instance.startupModelRefresh ? [instance.startupModelRefresh] : []);
+for (const pending of startupCatalogs) {
+  void pending.then(() => broadcast({ kind: "config", ...configStatus() }), () => {});
+}
+if (startupCatalogs.length) {
+  void Promise.all(startupCatalogs).then(async () => {
+    if (store.needsSeed()) return;
+    try {
+      bootSelection = await defaultSelection();
+    } catch (error) {
+      console.warn(`[engines] refreshing the new-bot default after model discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+}
 let shuttingDown = false;
 // Config writes rebuild the whole provider registry. Keep the read-modify-write
 // and reload sequence single-flight so two settings requests cannot drop one

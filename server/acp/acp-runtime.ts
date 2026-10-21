@@ -543,12 +543,13 @@ export class AcpRuntime implements ProviderAdapter {
   }
 
   /** Create a throwaway session to learn the engine's model list, so the picker
-   * is complete before the first message. Best effort. */
+   * is complete before the first message. Best effort. The session closes as
+   * soon as the list is read, so no engine process sits idle. */
   async discoverModels(): Promise<void> {
     const cwd = this.environment.CLAUDE_CONFIG_DIR ?? this.environment.CODEX_HOME;
     const input = { threadId: "__models__", botId: "__models__", text: "", cwd, model: "agent-default" } as SendTurnInput;
     try {
-      await this.prepareSettings(input);
+      await this.prepareSettings(input, true);
       this.authCache = null;
     } catch {
       // The catalog keeps whatever it last knew.
@@ -878,23 +879,25 @@ export class AcpRuntime implements ProviderAdapter {
     return { sessionId: session.id, instanceId: this.instanceId, threadId: session.threadId, cwd: session.cwd, revision, modes: publicModes, options, warnings: [...new Set([...warnings, ...stale])] };
   }
 
-  prepareSettings(input: SendTurnInput): Promise<NativeSettings> {
-    const key = JSON.stringify([input.cwd, input.model, input.resumeCursor, input.approvalMode, this.mountRevision(this.mountsOf(input))]);
+  prepareSettings(input: SendTurnInput, closeAfterRead = false): Promise<NativeSettings> {
+    const key = JSON.stringify([input.cwd, input.model, input.resumeCursor, input.approvalMode, this.mountRevision(this.mountsOf(input)), closeAfterRead]);
     const pending = this.discoveries.get(input.threadId);
     if (pending?.key === key) return pending.promise;
     if (pending) return Promise.reject(Object.assign(new Error("Another native-settings discovery is active for this thread"), { status: 409 }));
-    const promise = this.discoverSettings(input).finally(() => {
+    const promise = this.discoverSettings(input, closeAfterRead).finally(() => {
       if (this.discoveries.get(input.threadId)?.promise === promise) this.discoveries.delete(input.threadId);
     });
     this.discoveries.set(input.threadId, { key, promise });
     return promise;
   }
 
-  private async discoverSettings(input: SendTurnInput): Promise<NativeSettings> {
+  private async discoverSettings(input: SendTurnInput, closeAfterRead = false): Promise<NativeSettings> {
     if (this.disposed || this.starting.has(input.threadId) || this.sessions.get(input.threadId)?.turn && !this.sessions.get(input.threadId)!.turn!.finished) throw Object.assign(new Error("The native conversation is busy"), { status: 409 });
     this.starting.add(input.threadId);
+    let opened: LiveSession | undefined;
     try {
       const session = await this.open(input);
+      opened = session;
       // Looking at native settings may also have built a session the engine no
       // longer had; it belongs to no turn, so nothing here rewrites the prompt.
       session.rebuilt = false;
@@ -908,7 +911,12 @@ export class AcpRuntime implements ProviderAdapter {
       try { await this.setMode(session, mode); } catch (error) { warnings.push((error as Error).message); }
       session.idleTimer = setTimeout(() => { void this.close(session); }, 5 * 60_000).unref();
       return this.settingsSnapshot(session, warnings);
-    } finally { this.starting.delete(input.threadId); }
+    } finally {
+      this.starting.delete(input.threadId);
+      // Model discovery needs the catalog, not a live session: close it before
+      // the promise settles so the next refresh opens a fresh one.
+      if (closeAfterRead && opened) await this.close(opened);
+    }
   }
 
   async changeSettings(input: SendTurnInput, change: NativeSettingChange): Promise<NativeSettings> {
@@ -1021,6 +1029,10 @@ export function createAcpProvider(flavor: AcpProvider): ProviderDriver<Config> {
     return {
       instanceId: input.instanceId, driverKind: flavor.kind, displayName: input.displayName,
       enabled: input.enabled, models, adapter,
+      // An enabled engine learns its models as it is created, in the
+      // background: the server listens first and waits for this later, so a bot
+      // created any other way can still choose a real model.
+      ...(input.enabled ? { startupModelRefresh: adapter.discoverModels() } : {}),
       // Open a throwaway session on demand so the model picker is complete
       // before the first message (the adapter only reports models in-session).
       refreshModels: async () => { await adapter.discoverModels(); },

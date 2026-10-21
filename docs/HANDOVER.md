@@ -5,22 +5,7 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: the model list is there when the app starts
-
-Trial of a cheaper model on a real feature (owner, October 21). Today an
-engine's models are learned only when someone opens the model picker, so a bot
-created any other way can only use the default model.
-
-- **After:** each enabled engine learns its models when the app starts, in the
-  background; the discovery session closes as soon as the list is read, so no
-  engine process sits idle.
-- **Proof:** `server/acp/startup-models.test.ts` (six tests, written first) all
-  pass without editing that file; `pnpm check` passes; a throwaway server still
-  answers `/api/health` within a few seconds of starting.
-- **Touch only:** `server/acp/acp-runtime.ts`, and this card.
-- **Out of scope:** the picker's interface, saving the list between runs.
-
-## Next: a person installs Colonie from this code and completes the first run
+## Now: a person installs Colonie from this code and completes the first run
 
 The first step toward a public release. On a Mac that never had Colonie, a
 person installs an app built from this branch, then: goes through the welcome,
@@ -83,8 +68,6 @@ switches a workspace, quits, and reopens.
 1. Fix CI so it runs what this branch actually has.
 2. The rest of the release table above.
 3. Gaps in the engine connection, each needing a decision before code:
-   - The model list fills only when someone opens the model picker, so a bot
-     created another way can only use the default model.
    - A message cannot be sent into a turn that is already running (no steering
      on the ACP engines).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
