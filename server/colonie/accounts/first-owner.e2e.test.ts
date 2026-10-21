@@ -48,3 +48,15 @@ test("the owner's code works once", async () => {
   const again = await browser().go(`${ws.url}/invite/${OWNER_CODE}`);
   expect(again.status).toBe(410);
 });
+
+test("a caller on the server itself, such as a bot's shell, is not the owner", async () => {
+  // Every bot runs its commands on this machine, so a request from loopback
+  // with no session must not be able to invite people or read the settings.
+  const noSession = async (path: string, method = "GET") =>
+    (await fetch(`${ws.url}${path}`, { method, ...(method === "POST" ? { headers: { "content-type": "application/json" }, body: "{}" } : {}) })).status;
+  expect(await noSession("/api/invites", "POST")).toBe(403);
+  expect(await noSession("/api/config")).toBe(403);
+  expect(await noSession("/api/colonie-cloud")).toBe(403);
+  const session = await (await fetch(`${ws.url}/api/auth/session`)).json() as { trust?: string };
+  expect(session.trust).toBe("service");
+});

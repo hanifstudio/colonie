@@ -99,6 +99,9 @@ export function resolveLoopbackTrust(input: {
   env?: NodeJS.ProcessEnv;
   desktopManaged: boolean;
   hostedWorkspace: boolean;
+  /** A Shared workspace (server/runtime/workspace-kind.ts): its bots' shells
+   * are loopback callers too, so loopback must not be the owner there. */
+  sharedWorkspace?: boolean;
 }): { trust: LoopbackTrust; reason: string; warning?: string } {
   const raw = (input.env ?? process.env).COLONIE_LOOPBACK_TRUST;
   const requested = raw?.trim().toLowerCase();
@@ -109,7 +112,7 @@ export function resolveLoopbackTrust(input: {
     return {
       trust: requested,
       reason: "COLONIE_LOOPBACK_TRUST",
-      ...(requested === "owner" && input.hostedWorkspace
+      ...(requested === "owner" && (input.hostedWorkspace || input.sharedWorkspace)
         ? { warning: "COLONIE_LOOPBACK_TRUST=owner on a shared workspace: every bot's shell can change settings and approve cards as the owner" }
         : {}),
     };
@@ -118,6 +121,7 @@ export function resolveLoopbackTrust(input: {
     return { trust: "service", reason: "COLONIE_LOOPBACK_TRUST", warning: `COLONIE_LOOPBACK_TRUST="${raw.replace(/[^\w.-]/g, "").slice(0, 40)}" is not owner or service; using service` };
   }
   if (input.hostedWorkspace) return { trust: "service", reason: "hosted workspace" };
+  if (input.sharedWorkspace) return { trust: "service", reason: "shared workspace" };
   return { trust: "owner", reason: "self-hosted default" };
 }
 

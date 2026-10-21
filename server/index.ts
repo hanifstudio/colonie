@@ -147,7 +147,7 @@ import {createStartTurn} from "./colonie/chat/turn-start.ts";
 import {createBotDeletion} from "./colonie/bots/delete-bot.ts";
 import {createServerAssembly} from "./harness/server-assembly.ts";
 import {createConfigStatus} from "./harness/config-status.ts";
-import {createWorkspaceKind} from "./runtime/workspace-kind.ts";
+import {createWorkspaceKind, SHARED_WORKSPACE_MARKER} from "./runtime/workspace-kind.ts";
 import {createOwnThreads} from "./colonie/chat/own-threads.ts";
 import {announceWhenModelsLand} from "./harness/model-catalogs.ts";
 import {createCardResolvers} from "./colonie/chat/card-resolvers.ts";
@@ -254,7 +254,12 @@ const sharedWorkspaceFullAccessEnabled = () => SHARED_WORKSPACE_FULL_ACCESS && B
 // Who a loopback request without a session is (server/request-auth.ts
 // LoopbackTrust): the owner on a desktop or a one-person server; a service on
 // a shared workspace, where every bot's shell is a loopback caller too.
-const LOOPBACK = resolveLoopbackTrust({ desktopManaged: DESKTOP_MANAGED, hostedWorkspace: HOSTED_WORKSPACE });
+// A Shared workspace's bots run shell commands on this machine, so loopback
+// there is a service, never the owner (the owner signs in like everyone else).
+const LOOPBACK = resolveLoopbackTrust({
+  desktopManaged: DESKTOP_MANAGED, hostedWorkspace: HOSTED_WORKSPACE,
+  sharedWorkspace: process.env.COLONIE_WORKSPACE_KIND === "shared" || existsSync(join(DATA_DIR, SHARED_WORKSPACE_MARKER)),
+});
 // Empty is deliberately a deny-all bootstrap state. Only Electron's private
 // utility-process port can replace it with the per-launch owner capability.
 let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
