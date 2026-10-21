@@ -18,7 +18,7 @@ export async function createInviteLink(request: (path: string, init: RequestInit
   return request("/api/invites", { method: "POST", body: JSON.stringify({ role }) });
 }
 
-function InviteLink({ invite }: { invite: Invite }) {
+export function InviteLink({ invite }: { invite: Invite }) {
   const { state, copy } = useCopyFeedback(invite.url);
   return (
     <div className="mt-3 rounded-lg border border-hairline/40 bg-inset p-3 text-[12.5px]">

@@ -1,5 +1,6 @@
 import { JoinSharedWorkspace } from "./components/JoinSharedWorkspace";
 import { CreateSharedWorkspace } from "./components/CreateSharedWorkspace";
+import { SharedOnboarding } from "./components/onboarding/SharedOnboarding";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
@@ -292,6 +293,7 @@ export function Shell() {
       {state.appSettingsOpen && <SettingsModal />}
       <JoinSharedWorkspace />
       <CreateSharedWorkspace />
+      <SharedOnboarding />
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}

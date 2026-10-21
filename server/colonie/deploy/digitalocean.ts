@@ -89,7 +89,8 @@ export function siteAddress(input: string): string | null {
  * env file. Running it again keeps the data and restarts with these values. */
 export function firstBootScript(input: { image: string; issuer: string; workspaceName: string; ownerCode: string; site?: string }): string {
   if (!/^[\w.\-/:@]+$/.test(input.image)) throw new Error("image reference has characters a script cannot carry");
-  if (!/^https:\/\/[\w.\-:]+$/.test(input.issuer)) throw new Error("the Colonie Cloud address must be a bare https origin");
+  // https, or a Colonie Cloud on this machine during development
+  if (!/^(https:\/\/[\w.\-:]+|http:\/\/(127\.0\.0\.1|localhost)(:\d+)?)$/.test(input.issuer)) throw new Error("the Colonie Cloud address must be a bare https origin");
   if (!/^[\w-]{24,128}$/.test(input.ownerCode)) throw new Error("the owner invite code must be 24 to 128 letters, digits, - or _");
   if (input.site !== undefined && !/^https:\/\/[a-z0-9.-]+$/.test(input.site)) throw new Error("the site address must be an https origin");
   const name = input.workspaceName.replace(/[^\p{L}\p{N} .,'&()-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Colonie workspace";

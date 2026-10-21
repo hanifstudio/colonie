@@ -110,11 +110,14 @@ export function hintSeenPatch(
 
 // ── beats ──────────────────────────────────────────────────────────────
 
-export type BeatId = "hello" | "workspace" | "reel" | "engines" | "permissions" | "bot";
+export type BeatId = "hello" | "workspace" | "reel" | "engines" | "permissions" | "bot"
+  | "sharedName" | "sharedWhere" | "sharedReady" | "invite";
 
 export interface BeatOptions {
   /** This computer has a Colonie account (components/AccountGate.tsx). */
   signedIn?: boolean;
+  /** Making a Shared workspace: its own onboarding, on the first run or later. */
+  shared?: boolean;
   /** The desktop app can ask for the microphone; a browser cannot. */
   dictation: boolean;
   /** The feature reel ships in a later phase; it is a beat the machine
@@ -131,7 +134,9 @@ export interface BeatOptions {
  * and the reel, engines and microphone beats all describe this
  * computer, which a hosted workspace is not. */
 export function beatsFor(options: BeatOptions): BeatId[] {
-  if (options.hosted) return ["hello", "bot"];
+  if (options.shared) return ["sharedName", "sharedWhere", "sharedReady"];
+  // Inside a Shared workspace its admin goes on: AI on the server, people, the bot.
+  if (options.hosted) return ["hello", "engines", "invite", "bot"];
   // The workspace comes first: it is what the engines, the bot and everything
   // after it belong to. Signed in to a Colonie account, the person already
   // said who they are, so the hello beat's name and email are not asked again.
@@ -166,6 +171,9 @@ export function beatWidth(beat: BeatId): number {
       return 720;
     case "bot":
       return 520;
+    case "sharedWhere":
+    case "sharedReady":
+      return 560;
     default:
       return 460;
   }

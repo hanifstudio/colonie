@@ -20,7 +20,7 @@ import {
 import { HIcon } from "./HIcon";
 import type { SidebarMenuItem } from "./SidebarPopoverMenu";
 import { OPEN_JOIN_SHARED } from "./JoinSharedWorkspace";
-import { OPEN_CREATE_SHARED } from "./CreateSharedWorkspace";
+import { OPEN_CREATE_SHARED, OPEN_SHARED_SERVERS } from "./CreateSharedWorkspace";
 import { t } from "@/lib/i18n";
 import {
   nameIssueMessage,
@@ -237,6 +237,13 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
     onSelect: () => { setCreating("choose"); setError(""); setNotice(""); },
   });
   if (window.colonie?.environments) {
+    items.push({
+      key: "workspace-shared-servers",
+      label: "Shared workspace servers",
+      icon: <HIcon icon={CloudServerIcon} size={18} />,
+      disabled: busy !== "",
+      onSelect: () => window.dispatchEvent(new Event(OPEN_SHARED_SERVERS)),
+    });
     items.push({
       key: "workspace-join-shared",
       label: "Join a Shared workspace",

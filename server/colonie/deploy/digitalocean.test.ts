@@ -130,6 +130,9 @@ test("a workspace name cannot smuggle shell or settings into the script", () => 
   expect(script).not.toContain("\nEVIL=1");
   expect(() => firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "short" })).toThrow();
   expect(() => firstBootScript({ image: "img;reboot", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd" })).toThrow();
+  expect(() => firstBootScript({ image: "img:1", issuer: "http://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd" })).toThrow();
+  // a Colonie Cloud on this machine, during development
+  expect(firstBootScript({ image: "img:1", issuer: "http://127.0.0.1:8787", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd" })).toContain('COLONIE_CLOUD_ISSUER="http://127.0.0.1:8787"');
 });
 
 test("on the owner's own server the address is given, not read from DigitalOcean", () => {

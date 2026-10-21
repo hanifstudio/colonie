@@ -12,7 +12,10 @@ import { api } from "@/state/store";
 import { useCopyFeedback } from "@/lib/copy-text";
 import { cn } from "@/lib/cn";
 
+/** Opens the Shared workspace onboarding (components/onboarding/SharedOnboarding.tsx). */
 export const OPEN_CREATE_SHARED = "colonie:create-shared";
+/** Opens this list of the owner's Shared workspace servers. */
+export const OPEN_SHARED_SERVERS = "colonie:shared-servers";
 
 const REGIONS: Record<string, string> = { sgp1: "Singapore" };
 const SIZES: Record<string, string> = { "s-2vcpu-4gb": "2 CPUs, 4 GB memory" };
@@ -48,7 +51,7 @@ export async function openShared(
 export type SetupMode = "digitalocean" | "self";
 
 /** The one line to paste into the owner's own server, with a Copy button. */
-function PasteCommand({ command }: { command: string }) {
+export function PasteCommand({ command }: { command: string }) {
   const { state, copy } = useCopyFeedback(command);
   return (
     <div className="mt-2 rounded-lg border border-hairline/40 bg-inset p-2.5">
@@ -232,8 +235,8 @@ export function CreateSharedWorkspace() {
       const suggested = (event as CustomEvent<{ name?: string }>).detail?.name;
       if (suggested) setName(suggested);
     };
-    window.addEventListener(OPEN_CREATE_SHARED, show);
-    return () => window.removeEventListener(OPEN_CREATE_SHARED, show);
+    window.addEventListener(OPEN_SHARED_SERVERS, show);
+    return () => window.removeEventListener(OPEN_SHARED_SERVERS, show);
   }, [bridge]);
 
   // While open: refresh now, then every few seconds while something is in progress.

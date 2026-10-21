@@ -11,11 +11,12 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current: the app is never a black screen with no way out.** When the
-   page fails, the person sees what happened with Reload and, on a Shared
-   workspace in the desktop app, Back to this computer. Proof: a test that a
-   failing screen shows the way out, and the real app showing it. Then: the
-   owner's whole journey as a permanent test in CI.
+1. **Current: every new workspace is a guided onboarding, ready to use at
+   the end** (owner, October 22). Done: Shared, on the first run or as New
+   workspace → Shared (name, its server, the wait, Open; inside, AI on the
+   server, invite people, the bot). Next: one list of workspaces at the top
+   left; New workspace → Local through its onboarding; the journey as a
+   permanent test in CI.
 2. **Waits on the owner:** publishing the server image where a
    server can pull it (push, run the Server image workflow, make the package
    public), then one real Shared workspace on the owner's Akamai server.

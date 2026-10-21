@@ -36,7 +36,7 @@ import { MeetYourBotBeat } from "./beats/MeetYourBotBeat";
 import { PermissionsBeat } from "./beats/PermissionsBeat";
 import { QuietButton } from "./beats/shared";
 import { WorkspaceBeat } from "./beats/WorkspaceBeat";
-import { OPEN_CREATE_SHARED } from "../CreateSharedWorkspace";
+import { InviteBeat, SharedNameBeat, SharedReadyBeat, SharedWhereBeat } from "./beats/SharedBeats";
 import { OPEN_JOIN_SHARED } from "../JoinSharedWorkspace";
 import { withViewTransition } from "./view-transition";
 import { ProgressDots } from "./ProgressDots";
@@ -51,6 +51,10 @@ const MASCOT_FOR_BEAT: Record<BeatId, MausState> = {
   engines: "searching",
   permissions: "listening",
   bot: "celebrate",
+  sharedName: "thinking",
+  sharedWhere: "thinking",
+  sharedReady: "searching",
+  invite: "happy",
 };
 
 function beatTitle(beat: BeatId): string | null {
@@ -67,6 +71,14 @@ function beatTitle(beat: BeatId): string | null {
       return t("onboarding.bot.title");
     case "reel":
       return t("onboarding.reel.title");
+    case "sharedName":
+      return "A Shared workspace";
+    case "sharedWhere":
+      return "Its server";
+    case "sharedReady":
+      return "Setting it up";
+    case "invite":
+      return "Invite people";
   }
 }
 
@@ -82,6 +94,7 @@ export function WelcomeFlow({
   dictation,
   entrance = "arrive",
   hosted = false,
+  sharedOnly = false,
 }: {
   /** The seeded bot the exit beat names; null when the roster is empty. */
   bot: Bot | null;
@@ -100,11 +113,22 @@ export function WelcomeFlow({
   entrance?: Motion;
   /** A hosted team workspace: the hosted beat set, no email field. */
   hosted?: boolean;
+  /** Making a Shared workspace (New workspace → Shared): only its onboarding. */
+  sharedOnly?: boolean;
 }) {
   const { state: storeState, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const signedIn = Boolean(window.colonie?.localWorkspaces && storeState.config?.profile?.email);
-  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted, signedIn });
+  const options = { dictation: dictation ?? capabilities.dictation.available, reel, hosted, signedIn };
+  // Choosing "Set up a Shared workspace" on the workspace step turns the rest
+  // of the flow into the Shared workspace onboarding.
+  const [sharedPath, setSharedPath] = useState(sharedOnly);
+  const sharedBeats = beatsFor({ ...options, shared: true });
+  const beats = sharedOnly ? sharedBeats
+    : sharedPath ? [...beatsFor(options).slice(0, beatsFor(options).indexOf("workspace") + 1), ...sharedBeats]
+    : beatsFor(options);
+  const [sharedName, setSharedName] = useState("");
+  const [sharedServerId, setSharedServerId] = useState("");
   const [beat, setBeat] = useState<BeatId>(() => (initialBeat && beats.includes(initialBeat) ? initialBeat : beats[0] ?? "hello"));
   const [mascot, setMascot] = useState<MausState>(MASCOT_FOR_BEAT[beat]);
   const [motion, setMotion] = useState<{ kind: Motion; key: number }>({ kind: "blink", key: 0 });
@@ -146,6 +170,8 @@ export function WelcomeFlow({
       if (finishing.current) return;
       finishing.current = true;
       track("onboarding_completed", { reason, at: beat, replay });
+      // Making a Shared workspace later is not this computer's first run.
+      if (sharedOnly) { onDone(); return; }
       // one release of the old browser-side gate, so a downgrade stays quiet
       setEmailGateDone("submitted");
       // A slow/offline server must not trap the user behind the welcome card.
@@ -162,7 +188,8 @@ export function WelcomeFlow({
   );
 
   const next = nextBeat(beats, beat);
-  const previous = previousBeat(beats, beat);
+  // Once a server is being made, going back would make another one.
+  const previous = beat === "sharedReady" ? null : previousBeat(beats, beat);
   const advance = useCallback(() => {
     if (next) go(next);
     else void finish("completed");
@@ -214,8 +241,13 @@ export function WelcomeFlow({
   // Setting up or joining a Shared workspace ends the welcome and opens that
   // path; nothing else here is needed for it (engines sign in on the server).
   const openShared = (choice: "create" | "join") => {
+    if (choice === "create") {
+      setSharedPath(true);
+      go("sharedName");
+      return;
+    }
     void finish("completed");
-    window.dispatchEvent(new Event(choice === "create" ? OPEN_CREATE_SHARED : OPEN_JOIN_SHARED));
+    window.dispatchEvent(new Event(OPEN_JOIN_SHARED));
   };
   const current = beats.indexOf(beat) + 1;
 
@@ -277,6 +309,10 @@ export function WelcomeFlow({
           {beat === "reel" && <FeatureReel {...beatProps} />}
           {beat === "engines" && <EnginesBeat {...beatProps} />}
           {beat === "permissions" && <PermissionsBeat {...beatProps} />}
+          {beat === "sharedName" && <SharedNameBeat {...beatProps} name={sharedName} onName={setSharedName} />}
+          {beat === "sharedWhere" && <SharedWhereBeat name={sharedName} onCreated={(server) => { setSharedServerId(server.id); go("sharedReady"); }} />}
+          {beat === "sharedReady" && <SharedReadyBeat serverId={sharedServerId} onOpened={() => void finish("completed")} />}
+          {beat === "invite" && <InviteBeat {...beatProps} />}
           {beat === "bot" && (
             <MeetYourBotBeat
               bot={bot}
