@@ -81,8 +81,10 @@ Steps, in order. Each one is safe on its own:
    with different people. The bot's memory stays shared, by decision. Proven
    with two signed-in test people on a throwaway server, before anyone real
    can join.
-2. **Invite by link.** The owner creates a one-time invite link; opening it
-   signs that person in. No email service needed. Email codes can come later.
+2. **Colonie Accounts and invite by link.** A small Colonie-run account
+   service (sign up, sign in, email and password). An admin creates a
+   one-time invite link; opening it asks the person to sign in or sign up,
+   then joins them to the workspace under their account.
 3. **Run as a server.** A workspace runs on a server reachable over HTTPS, with
    its engines signed in there, not on anyone's Mac.
 4. **Open it from the app.** The sidebar's Shared option connects to a
@@ -101,7 +103,11 @@ Steps, in order. Each one is safe on its own:
   workspace; the price follows the server cost and is set after hosting is
   benchmarked. Invited members pay nothing.
 - People bring their own keys for paid services (AI, Composio, speech, email).
-  The first version runs no Colonie-paid service.
+  The one Colonie-run service is Colonie Accounts (below).
+- **Colonie Accounts** (owner decision, October 21): everyone invited to a
+  Shared workspace must have a Colonie account, one identity across every
+  workspace, signed up with email and password. Colonie runs this service.
+  Local workspaces still need no account.
 - Accounts, invitations, purchases, and updates are central Colonie services
   for Shared workspaces only. Bots, files, memory, credentials, and runs stay on
   the owner's own server.
