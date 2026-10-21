@@ -99,9 +99,11 @@ Steps, in order. Each one is safe on its own:
 
 - The name is Colonie. It is independent of the project it was forked from.
 - Keep the current desktop look and feel; the owner likes it.
-- Local workspaces are free. A Shared workspace is a one-time purchase per
-  workspace; the price follows the server cost and is set after hosting is
-  benchmarked. Invited members pay nothing.
+- Local workspaces are free. A Shared workspace needs a lifetime license,
+  bought once (owner decision, October 22), whether it runs on DigitalOcean
+  or the owner's own server. Invited members pay nothing. Colonie does not
+  host servers for now; a managed option may come after release. Still open:
+  the price, per workspace or per account, and the payment provider.
 - People bring their own keys for paid services (AI, Composio, speech, email).
   The one Colonie-run service is Colonie Accounts (below).
 - **Colonie Accounts** (owner decision, October 21): everyone invited to a

@@ -23,7 +23,11 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    the generated first-boot script checked against `deploy/`. Out of scope
    here: publishing the image (next), a custom domain, backups.
 2. Publishing the server image where a droplet can pull it.
-3. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
+3. Shared workspaces need a lifetime license bought once (Colonie Cloud
+   records it; the workspace checks it when people sign in). Waits on the
+   owner: price, per workspace or per account, payment provider.
+4. Self-hosting: one command on any Ubuntu server, printing the owner link.
+5. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
 Seen in a real window (throwaway data): the profile menu's Join a Shared
 workspace, its dialog refusing a bad link, the Shared choice opening Create
