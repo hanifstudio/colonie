@@ -96,6 +96,29 @@ test("hosted workspace input accepts addresses and keeps valid codes only in the
   assert.equal(env.parsePairingLink("https://a.example/pair#code=%"), null);
 });
 
+test("a Shared workspace invite link is accepted as it was copied", () => {
+  const code = "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd";
+  const parsed = env.parseHostedWorkspaceLink(`https://team.example/invite/${code}`);
+  assert.deepEqual(parsed, { origin: "https://team.example", code: null, url: `https://team.example/invite/${code}` });
+  for (const bad of ["https://team.example/invite/", "https://team.example/invite/short", `https://team.example/invite/${code}/x`, `https://team.example/invite/${code}?x=1`, `http://team.example/invite/${code}`]) {
+    assert.equal(env.parseHostedWorkspaceLink(bad), null, bad);
+  }
+});
+
+test("a Shared workspace may pass through Colonie Cloud to sign in, and nowhere else", () => {
+  const local = "http://127.0.0.1:18799";
+  const cloud = "https://colonie-cloud.example";
+  const state = { environments: [{ id: "team", name: "Team", origin: "https://team.example" }], activeId: "team" };
+  assert.equal(env.workspaceNavigationAllowed(`${cloud}/authorize?client_id=x`, state, local, [cloud]), true);
+  assert.equal(env.workspaceNavigationAllowed(`${cloud}/authorize`, state, local), false);
+  assert.equal(env.workspaceNavigationAllowed("https://evil.example/authorize", state, local, [cloud]), false);
+  // The local app never needs the detour.
+  assert.equal(env.workspaceNavigationAllowed(`${cloud}/authorize`, env.withActive(state, "local"), local, [cloud]), false);
+  // The menu offers joining by name.
+  const items = env.workspaceMenuTemplate(state, { onSwitch() {}, onConnect() {}, onForget() {} });
+  assert.equal(items.find((item) => item.id === "workspace-connect").label, "Join a Shared workspace…");
+});
+
 test("workspace shell exposes only current identity and rejects subframes and unrelated windows", () => {
   const state = { environments: [{ id: "cloud", name: "Acme", origin: "https://acme.example" }], activeId: "cloud" };
   assert.deepEqual(env.workspaceSummary(state), { local: false, name: "Acme", origin: "https://acme.example" });
@@ -133,8 +156,6 @@ test("native workspace choices use saved IDs and connect opens settings without 
   const calls = [];
   const items = env.workspaceMenuTemplate(state, { onSwitch: (id) => calls.push(["switch", id]), onConnect: () => calls.push(["settings"]), onForget: (id) => calls.push(["forget", id]) });
   assert.equal(items.find((item) => item.id === "workspace-cloud").checked, true);
-  // The menu id stays "workspace-connect"; the label uses the product word.
-  assert.equal(items.find((item) => item.id === "workspace-connect").label, "Connect to a server…");
   items.find((item) => item.id === "workspace-local").click();
   items.find((item) => item.id === "workspace-connect").click();
   items.find((item) => item.id === "workspace-forget").click();

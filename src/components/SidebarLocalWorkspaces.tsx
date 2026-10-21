@@ -15,9 +15,11 @@ import {
   Loading02Icon,
   PlusSignIcon,
   Tick01Icon,
+  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import type { SidebarMenuItem } from "./SidebarPopoverMenu";
+import { OPEN_JOIN_SHARED } from "./JoinSharedWorkspace";
 import { t } from "@/lib/i18n";
 import {
   nameIssueMessage,
@@ -222,6 +224,15 @@ export function useLocalWorkspaceItems({ menuOpen }: { menuOpen: boolean }): Sid
     keepOpen: true,
     onSelect: () => { setCreating(true); setError(""); setNotice(""); },
   });
+  if (window.colonie?.environments) {
+    items.push({
+      key: "workspace-join-shared",
+      label: "Join a Shared workspace",
+      icon: <HIcon icon={UserGroupIcon} size={18} />,
+      disabled: busy !== "",
+      onSelect: () => window.dispatchEvent(new Event(OPEN_JOIN_SHARED)),
+    });
+  }
   if (notice) {
     items.push({
       key: "workspace-notice",

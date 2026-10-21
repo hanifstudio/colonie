@@ -1019,6 +1019,8 @@ ipcMain.on("desktop:unread-count", (event, value) => {
 // Only {id, name, origin} is stored here; the session credential is the
 // HttpOnly cookie /pair set for that origin, kept by Chromium's cookie jar.
 const { LOCAL_ID, activeEnvironment, allowedOrigins, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, withActive, withEnvironment, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
+/** Where people sign in to a Shared workspace with their Colonie account. */
+const COLONIE_SIGN_IN_ORIGINS = [environmentsModule.normalizeOrigin(process.env.COLONIE_CLOUD_ISSUER || "https://colonie-cloud.hanifyaskur.workers.dev")].filter(Boolean);
 let environmentsState = { environments: [], activeId: LOCAL_ID };
 function environmentsFile() {
   return path.join(app.getPath("userData"), "environments.json");
@@ -1113,18 +1115,19 @@ function openWorkspaceSettings(computerId, panel = "computer") {
 async function connectHostedWorkspace(input, name) {
   const link = parseHostedWorkspaceLink(input);
   if (!link) {
-    throw new Error("Enter an HTTPS server address or a full pairing link. Keep the pairing code after #, not in the URL query.");
+    throw new Error("Paste the invite link exactly as you received it, or the workspace's HTTPS address.");
   }
   const host = new URL(link.origin).host;
+  const invite = new URL(link.url).pathname.startsWith("/invite/");
   const { response } = await dialog.showMessageBox({
     type: "question",
-    buttons: ["Connect", "Cancel"],
+    buttons: ["Join", "Cancel"],
     defaultId: 0,
     cancelId: 1,
-    message: `Connect to ${host}?`,
-    detail: link.code
-      ? "The pairing code in the link is used once, then this app stays signed in to that server."
-      : "The link has no pairing code; the server will ask for one.",
+    message: `Join the Shared workspace at ${host}?`,
+    detail: invite
+      ? "You sign in with your Colonie account, or create one. The invite works once; after that this app stays signed in."
+      : "You sign in with your Colonie account. Someone in the workspace must have invited you.",
   });
   if (response !== 0) return false;
   let next = withEnvironment(environmentsState, { origin: link.origin, name }, () => randomUUID());
@@ -1294,7 +1297,7 @@ function createWindow() {
     try {
       origin = new URL(url).origin;
     } catch {}
-    if (workspaceNavigationAllowed(url, environmentsState, rendererOrigin())) return;
+    if (workspaceNavigationAllowed(url, environmentsState, rendererOrigin(), COLONIE_SIGN_IN_ORIGINS)) return;
     event.preventDefault();
     slog(`blocked navigation to ${origin ?? "an invalid address"}`);
   };

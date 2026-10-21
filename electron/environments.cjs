@@ -46,8 +46,9 @@ function parsePairingLink(input) {
   }
 }
 
-/** The desktop connection form accepts a hostname, HTTPS address or pairing
- * link. Keep codes out of queries/history and refuse unrelated URL paths. */
+/** The desktop connection form accepts a hostname, HTTPS address, a Shared
+ * workspace invite link (`/invite/<code>`, used once by the server), or a
+ * pairing link. Keep codes out of queries/history and refuse unrelated paths. */
 function parseHostedWorkspaceLink(input) {
   if (typeof input !== "string") return null;
   const text = input.trim();
@@ -56,6 +57,10 @@ function parseHostedWorkspaceLink(input) {
     const url = new URL(text.includes("://") ? text : `https://${text}`);
     const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
     if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) return null;
+    if (/^\/invite\/[\w-]{24,128}$/.test(url.pathname)) {
+      if (url.username || url.password || url.search || url.hash || (!loopback && !url.hostname.includes("."))) return null;
+      return { origin: url.origin, code: null, url: `${url.origin}${url.pathname}` };
+    }
     if (url.username || url.password || url.search || !["/", "/pair", "/pair/"].includes(url.pathname)) return null;
     if (!loopback && !url.hostname.includes(".")) return null;
     const parsed = parsePairingLink(url.href);
@@ -79,10 +84,14 @@ function workspaceWindowTitle(state, name = "Colonie") {
 }
 
 /** Renderer navigation stays in the selected workspace. Switching is a main
- * process action; a cloud page must not navigate itself onto the local bridge. */
-function workspaceNavigationAllowed(url, state, localOrigin) {
+ * process action; a cloud page must not navigate itself onto the local bridge.
+ * A saved workspace may pass through `signInOrigins` (Colonie Cloud), where
+ * people sign in and come back; the local app never goes there. */
+function workspaceNavigationAllowed(url, state, localOrigin, signInOrigins = []) {
   try {
-    return new URL(url).origin === (activeEnvironment(state)?.origin ?? localOrigin);
+    const origin = new URL(url).origin;
+    const active = activeEnvironment(state);
+    return origin === (active?.origin ?? localOrigin) || (Boolean(active) && signInOrigins.includes(origin));
   } catch {
     return false;
   }
@@ -109,7 +118,7 @@ function workspaceMenuTemplate(state, { onSwitch, onConnect, onForget }) {
       type: "radio", checked: entry.id === state.activeId, click: () => onSwitch(entry.id),
     })),
     { type: "separator" },
-    { id: "workspace-connect", label: "Connect to a server…", click: onConnect },
+    { id: "workspace-connect", label: "Join a Shared workspace…", click: onConnect },
     ...(active ? [{ id: "workspace-forget", label: `Forget “${active.name}”…`, click: () => onForget(active.id) }] : []),
   ];
 }

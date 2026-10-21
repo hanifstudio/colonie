@@ -28,7 +28,7 @@ export function buildApplicationMenu({ environments, activeId, onSwitch, onConne
         click: () => onSwitch(e.id),
       })),
       { type: "separator" },
-      { label: "Connect to a server…", click: onConnect },
+      { label: "Join a Shared workspace…", click: onConnect },
       {
         label: active ? `Forget “${active.name}”` : "Forget Server",
         enabled: Boolean(active),

@@ -1,3 +1,4 @@
+import { JoinSharedWorkspace } from "./components/JoinSharedWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
@@ -288,6 +289,7 @@ export function Shell() {
       {!remoteClient && state.activityOpen && bot && <ActivityPanel key={`activity:${bot.id}`} bot={bot} />}
       {!remoteClient && state.filePreview && <FilePreviewPanel key={`file:${state.filePreview.threadId}:${state.filePreview.messageId}:${state.filePreview.path}`} preview={state.filePreview} />}
       {state.appSettingsOpen && <SettingsModal />}
+      <JoinSharedWorkspace />
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}

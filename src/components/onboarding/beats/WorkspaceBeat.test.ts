@@ -23,7 +23,7 @@ function rows(html: string): string[] {
 }
 
 describe("the workspace step", () => {
-  it("offers Local as the chosen kind and Server as unavailable", () => {
+  it("offers Local as the chosen kind and Shared as not yet available", () => {
     const [local, server, next] = rows(render());
 
     expect(local).toContain("Local");
@@ -31,7 +31,7 @@ describe("the workspace step", () => {
     expect(local).toContain('aria-checked="true"');
     expect(local).not.toContain("disabled");
 
-    expect(server).toContain("Server");
+    expect(server).toContain("Shared");
     expect(server).toContain("Coming later");
     expect(server).toContain('aria-checked="false"');
     expect(server).toContain("disabled");
@@ -43,6 +43,6 @@ describe("the workspace step", () => {
   it("says where the workspace lives before the engines are set up", () => {
     const html = render();
     expect(html).toContain("Your bots, conversations and connections live together in a workspace.");
-    expect(html).toContain("Yours runs on this computer. Server workspaces are on the way.");
+    expect(html).toContain("Yours runs on this computer. Shared workspaces, which people you invite can join, run on a server.");
   });
 });
