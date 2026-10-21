@@ -7,6 +7,7 @@
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
+import { DESKTOP_CALLBACK, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -92,6 +93,7 @@ export function createRequestHandler(deps: RequestHandlerDeps) {
   /** Joining and signing in with a Colonie account (colonie/accounts/). */
   const colonieSignIn: ColonieSignIn | undefined = deps.colonieSignIn;
   const sharedServers: SharedServers | undefined = deps.sharedServers;
+  const desktopAccount: DesktopAccount | undefined = deps.desktopAccount;
   /** Where people reach this server (COLONIE_PUBLIC_URL), else the request's own address. */
   const publicUrlFor = (req: IncomingMessage): string => deps.publicUrl ?? `http://${req.headers.host ?? "127.0.0.1"}`;
 const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
@@ -139,6 +141,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (colonieSignIn && await colonieSignIn.handle(req, res, path, method, deps.publicUrl ?? null)) return;
     // The owner's browser coming back from DigitalOcean's sign-in. Public
     // like the MCP way back above: the state is the credential, used once.
+    if (desktopAccount && method === "GET" && path === DESKTOP_CALLBACK) {
+      const answer = await desktopAccount.callback(url.search);
+      res.writeHead(answer.status, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
+      res.end(answer.text);
+      return;
+    }
     if (sharedServers && method === "GET" && path === DIGITALOCEAN_CALLBACK) {
       const answer = await sharedServers.callback(url.search);
       res.writeHead(answer.status, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
@@ -504,6 +512,20 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const body = await readBody(req);
       const role: MemberRole = body?.role === "admin" ? "admin" : "member";
       return json(res, 201, colonieSignIn.createInvite(role, publicUrlFor(req)));
+    }
+
+    // ── the Colonie account of the person on this computer (desktop owner) ──
+    if (desktopAccount && path.startsWith("/api/colonie-account")) {
+      try {
+        if (method === "GET" && path === "/api/colonie-account") return json(res, 200, { required: true, account: desktopAccount.account() });
+        if (method === "POST" && path === "/api/colonie-account/start") {
+          const port = new URL(`http://${req.headers.host ?? "127.0.0.1"}`).port;
+          return json(res, 200, await desktopAccount.start(`http://127.0.0.1${port ? `:${port}` : ""}${DESKTOP_CALLBACK}`));
+        }
+        if (method === "POST" && path === "/api/colonie-account/sign-out") { desktopAccount.signOut(); return json(res, 200, { ok: true }); }
+      } catch (error) {
+        return json(res, (error as { status?: number }).status ?? 502, { error: (error as Error).message });
+      }
     }
 
     // ── Shared workspaces on the owner's DigitalOcean account (desktop owner) ──

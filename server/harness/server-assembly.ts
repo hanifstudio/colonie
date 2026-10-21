@@ -734,6 +734,7 @@ const handleRequest = createRequestHandler({
   colonieSignIn: deps.colonieSignIn,
   sharedServers: deps.sharedServers,
   threadPeople: deps.threadPeople,
+  desktopAccount: deps.desktopAccount,
   publicUrl: FALLBACK_PUBLIC_URL,
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,

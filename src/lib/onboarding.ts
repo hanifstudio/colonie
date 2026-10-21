@@ -113,6 +113,8 @@ export function hintSeenPatch(
 export type BeatId = "hello" | "workspace" | "reel" | "engines" | "permissions" | "bot";
 
 export interface BeatOptions {
+  /** This computer has a Colonie account (components/AccountGate.tsx). */
+  signedIn?: boolean;
   /** The desktop app can ask for the microphone; a browser cannot. */
   dictation: boolean;
   /** The feature reel ships in a later phase; it is a beat the machine
@@ -131,8 +133,9 @@ export interface BeatOptions {
 export function beatsFor(options: BeatOptions): BeatId[] {
   if (options.hosted) return ["hello", "bot"];
   // The workspace comes first: it is what the engines, the bot and everything
-  // after it belong to.
-  const beats: BeatId[] = ["hello", "workspace"];
+  // after it belong to. Signed in to a Colonie account, the person already
+  // said who they are, so the hello beat's name and email are not asked again.
+  const beats: BeatId[] = options.signedIn ? ["workspace"] : ["hello", "workspace"];
   if (options.reel) beats.push("reel");
   beats.push("engines");
   if (options.dictation) beats.push("permissions");

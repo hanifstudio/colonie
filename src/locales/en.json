@@ -1173,7 +1173,7 @@
   "onboarding.workspace.title": "Your workspace",
   "onboarding.workspace.intro": "Your bots, conversations and connections live together in a workspace. What would you like to do?",
   "onboarding.workspace.local": "Use it on this computer",
-  "onboarding.workspace.localDetail": "A Local workspace. Free, and no account needed.",
+  "onboarding.workspace.localDetail": "A Local workspace. Free; bots, files and conversations stay on this computer.",
   "onboarding.workspace.server": "Set up a Shared workspace",
   "onboarding.workspace.serverDetail": "On a server you own, for you, the people you invite, and your bots.",
   "onboarding.workspace.joinNext": "Paste the invite link",

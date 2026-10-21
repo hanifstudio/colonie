@@ -106,10 +106,11 @@ Steps, in order. Each one is safe on its own:
   the price, per workspace or per account, and the payment provider.
 - People bring their own keys for paid services (AI, Composio, speech, email).
   The one Colonie-run service is Colonie Accounts (below).
-- **Colonie Accounts** (owner decision, October 21): everyone invited to a
-  Shared workspace must have a Colonie account, one identity across every
-  workspace, signed up with email and password, with password reset by email.
-  Local workspaces still need no account.
+- **Colonie Accounts** (owner decisions, October 21 and 22): everyone signs
+  up once for a Colonie account, email and password with reset by email, on
+  first opening the app, Local included. One identity across every
+  workspace. After that a Local workspace works offline and never checks
+  the account again; a Shared workspace signs people in with it.
 - **Colonie Cloud** is the one Colonie-run backend: Cloudflare Workers with a
   Neon Postgres database. Accounts are its first service; later Colonie
   services live there too. No domain yet; one is bought before release.

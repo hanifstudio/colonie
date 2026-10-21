@@ -37,6 +37,11 @@ async function chooseRoot(): Promise<React.ReactNode> {
     }
   }
   const { default: App } = await import("./App");
+  // The desktop app's own page: a Colonie account first, once (AccountGate).
+  if (window.colonie?.localWorkspaces) {
+    const { AccountGate } = await import("./components/AccountGate");
+    return <AccountGate><App /></AccountGate>;
+  }
   return <App />;
 }
 

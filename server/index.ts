@@ -136,6 +136,7 @@ import {requestOrigin, resolveLoopbackTrust, serializeSessionCookie, sessionCook
 import {createColonieSignIn} from "./colonie/accounts/colonie-signin.ts";
 import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deploy/shared-servers.ts";
 import { createThreadPeople } from "./colonie/chat/thread-people.ts";
+import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
@@ -388,6 +389,20 @@ const personOf = (auth: RequestAuth): string | null => {
   const viewer = viewerFor(auth);
   return viewer.kind === "person" && viewer.key ? viewer.key : null;
 };
+
+// The Colonie account of the person on this computer: signed up once on
+// first opening the app (never on a Shared workspace server or a hosted one).
+const desktopAccount = LOOPBACK.trust === "owner" && !HOSTED_WORKSPACE
+  ? createDesktopAccount({
+    dir: process.env.COLONIE_USER_DATA?.trim() || DATA_DIR,
+    issuer: process.env.COLONIE_CLOUD_ISSUER?.trim() || COLONIE_CLOUD,
+    onSignedIn: (account) => {
+      const profile = { ...loadConfig().profile, name: account.name, email: account.email };
+      saveConfig({ profile });
+      cfg.profile = profile;
+    },
+  })
+  : undefined;
 
 // Who takes part in a conversation, in a Shared workspace.
 const threadPeople = createThreadPeople({
@@ -1931,6 +1946,7 @@ const { server, liveCalls } = createServerAssembly({
   colonieSignIn,
   sharedServers,
   threadPeople,
+  desktopAccount,
   ownThreads,
   personOf,
   COMMAND_ALLOWLIST_DRIVERS,

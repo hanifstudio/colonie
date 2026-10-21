@@ -20,7 +20,8 @@ against the live cloud), engine sign-in from the admin's browser. In order:
 Done: one click on DigitalOcean (stand-in tests; never with a real account);
 self-hosting with one pasted command (script run with recorded tools).
 Seen in a real window: Join a Shared workspace, Create a Shared workspace
-with both choices and the command to paste.
+with both choices and the command to paste; the first run's three choices;
+the Colonie account screen (signed up through a local Colonie Cloud).
 Not yet seen: Settings, People; a join through Colonie Cloud.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev

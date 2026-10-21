@@ -12,9 +12,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
+import { verifiedColonieAccount } from "./colonie-oauth.ts";
 
 export type MemberRole = "admin" | "member";
 export interface Member { sub: string; email: string; name: string; role: MemberRole; joinedAt: string }
@@ -48,7 +48,6 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
   const http = deps.fetch ?? fetch;
   const now = deps.now ?? (() => new Date());
   const pending = new Map<string, Pending>();
-  let jwks: { issuer: string; set: ReturnType<typeof createRemoteJWKSet> } | null = null;
 
   const readJson = <T>(file: string, fallback: T): T => {
     try { return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) as T : fallback; } catch { return fallback; }
@@ -88,20 +87,8 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
     redirectTo(res, url.toString());
   }
 
-  async function verifiedAccount(cloud: CloudLink, redirectUri: string, code: string, flow: Pending) {
-    const answer = await http(`${cloud.issuer}/token`, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ grant_type: "authorization_code", code, client_id: cloud.clientId, redirect_uri: redirectUri, code_verifier: flow.verifier }).toString(),
-    });
-    if (!answer.ok) return null;
-    const { id_token: idToken } = await answer.json() as { id_token?: string };
-    if (!idToken) return null;
-    if (jwks?.issuer !== cloud.issuer) jwks = { issuer: cloud.issuer, set: createRemoteJWKSet(new URL(`${cloud.issuer}/.well-known/jwks.json`)) };
-    const { payload } = await jwtVerify(idToken, jwks.set, { issuer: cloud.issuer, audience: cloud.clientId, algorithms: ["ES256"] });
-    if (payload.nonce !== flow.nonce || typeof payload.sub !== "string" || typeof payload.email !== "string") return null;
-    return { sub: payload.sub, email: payload.email.trim().toLowerCase(), name: typeof payload.name === "string" ? payload.name : payload.email };
-  }
+  const verifiedAccount = (cloud: CloudLink, redirectUri: string, code: string, flow: Pending) =>
+    verifiedColonieAccount({ http, issuer: cloud.issuer, clientId: cloud.clientId, redirectUri, code, verifier: flow.verifier, nonce: flow.nonce });
 
   return {
     /** The workspace's link to Colonie Cloud, if it has one. */

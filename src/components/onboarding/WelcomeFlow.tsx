@@ -101,9 +101,10 @@ export function WelcomeFlow({
   /** A hosted team workspace: the hosted beat set, no email field. */
   hosted?: boolean;
 }) {
-  const { dispatch } = useStore();
+  const { state: storeState, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
-  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted });
+  const signedIn = Boolean(window.colonie?.localWorkspaces && storeState.config?.profile?.email);
+  const beats = beatsFor({ dictation: dictation ?? capabilities.dictation.available, reel, hosted, signedIn });
   const [beat, setBeat] = useState<BeatId>(() => (initialBeat && beats.includes(initialBeat) ? initialBeat : beats[0] ?? "hello"));
   const [mascot, setMascot] = useState<MausState>(MASCOT_FOR_BEAT[beat]);
   const [motion, setMotion] = useState<{ kind: Motion; key: number }>({ kind: "blink", key: 0 });
