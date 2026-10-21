@@ -247,8 +247,10 @@ Researched October 21 (developers.cloudflare.com, neon.com, resend.com):
   (free plan) through Hyperdrive; `jose` for signed tokens (ES256), with a
   published public key that workspaces verify against.
 - **Passwords:** scrypt (N=2^15, r=8, p=3), never PBKDF2 (Workers caps it far
-  below safe strength). Generic errors, rate limits, lockout after failures,
-  Turnstile on sign-up and reset.
+  below safe strength). Generic errors and a lockout after ten failures.
+  Turnstile is deferred (owner decision, October 21).
+- **Invites are never emailed** (owner decision, October 21): the app shows the
+  invite link with a copy button, and the admin sends it however they like.
 - **Email:** password reset needs a domain we own to send to anyone. Until it
   is bought, reset emails reach only the owner's own address (for testing).
 - **Address:** starts on a `*.workers.dev` address; the issuer address is a

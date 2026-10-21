@@ -18,8 +18,10 @@ Neon (Singapore) with a Hyperdrive config, and Resend; stores the output of
 `pnpm --filter colonie-cloud new-signing-key` with `wrangler secret put
 SIGNING_JWK` (and `RESEND_API_KEY`); sets `ISSUER` and the Hyperdrive id in
 `cloud/wrangler.jsonc`; runs `wrangler deploy`. A domain before any outside
-user. Before then: Turnstile and per-IP limits (a lock can be set off on
-purpose against someone), and `/forgot` timing.
+user. Before then: per-IP limits (a lock can be set off on purpose against
+someone) and `/forgot` timing; Turnstile is deferred. The Neon password the
+owner pasted in chat on October 21 is treated as exposed and is not used: it
+is reset, and the owner creates Hyperdrive from their own terminal.
 Gaps: bot memory learns nothing in a Shared workspace; the commit guard
 counts a final newline as a line.
 
