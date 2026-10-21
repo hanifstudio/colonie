@@ -23,9 +23,8 @@ someone) and `/forgot` timing; Turnstile is deferred.
 **Live, October 21:** https://colonie-cloud.hanifyaskur.workers.dev on Neon
 through Hyperdrive `9cadf41e…`, tables in schema `colonie_cloud`; sign up,
 sign in, and the Sign in with Colonie exchange checked live. That database
-is now Colonie's only (owner); the old WhatsApp-bot tables in `public` and a
-`colonie_cloud_v1` schema are still there (a reset was refused by the agent
-guard; the owner runs it). After the owner resets the Neon password:
+is Colonie's only; the owner cleared the old tables (`public`,
+`colonie_cloud_v1`) on October 21. After the owner resets the Neon password:
 `wrangler hyperdrive update 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`.
 Gaps: bot memory learns nothing in a Shared workspace; the commit guard
 counts a final newline as a line.
