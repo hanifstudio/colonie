@@ -5,27 +5,20 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: a person sees only the conversations they are in
+## Now: invite a person by link
 
-Step one of "Plan: inviting people" (blueprint). Local must behave exactly as
-today. Steps, in order:
+Step two of "Plan: inviting people" (blueprint). Step one, privacy by person,
+is done: in a Shared workspace each person, admins included, sees, searches,
+streams, and acts on only their own conversations, and no turn quotes anyone
+else's; 26 two-person tests guard it (`server/colonie/chat/shared-*.e2e.test.ts`,
+harness `server/testing/shared-workspace.ts`).
 
-1. Done: a Shared workspace shows each person only threads naming them.
-2. Done: conversations store their participants (server-private).
-3. Done: own conversation per bot; every bot route acting on a thread uses
-   the person's own and answers 404 for anyone else's.
-4. Done: live updates and their replay, admins included.
-5. Done: search scans only the person's own threads; workspace backups and
-   team backups answer 403 to sessions; a bot's activity and the decision log
-   list only the person's own threads.
-6. Done, no change needed: ACP turns quote no other conversation (recall and
-   recent work exist only on the retired path); a test guards it. Gap: bot
-   memory learns only from unsigned messages, so in Shared it learns nothing.
-7. **Current card.** Only a conversation's participants answer its approval cards.
-
-Decided, reversible: routine and webhook threads belong to their creator; a
-busy bot stays visible to all. Fix: the commit guard counts a final newline.
-**Proof:** each step adds two-person checks (`server/testing/shared-workspace.ts`).
+- **After:** an admin creates a one-time invite link; opening it signs that
+  person in to the Shared workspace, without email. The pairing-code
+  machinery in `server/sessions.ts` exists but has no route.
+- **Gaps found, not yet fixed:** bot memory learns only from unsigned
+  messages, so in a Shared workspace it learns nothing (owner wants it shared
+  and learning); the commit guard counts a final newline as a line.
 
 ## Next: a person installs Colonie from this code and completes the first run
 
