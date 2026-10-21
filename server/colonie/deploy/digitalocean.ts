@@ -5,7 +5,9 @@
 // DigitalOcean bills the owner; nothing here runs on a Colonie service.
 //
 // The first-boot files are the ones in deploy/ (a test keeps them equal), so
-// what runs on a droplet is what was tried in Docker.
+// what runs on a droplet is what was tried in Docker. The same script sets up
+// the owner's own server when they paste selfHostCommand into it.
+import { gzipSync } from "node:zlib";
 
 export const DEFAULT_REGION = "sgp1";
 export const DEFAULT_SIZE = "s-2vcpu-4gb";
@@ -65,21 +67,50 @@ export function sslipAddress(ip: string): string {
   return `https://${ip.replace(/[.:]/g, "-")}.sslip.io`;
 }
 
-/** The droplet's first-boot script. Every value is checked or reduced to
- * plain characters, because it lands in a shell script and an env file. */
-export function firstBootScript(input: { image: string; issuer: string; workspaceName: string; ownerCode: string }): string {
+/** The workspace's HTTPS address from what the owner typed: a public IPv4
+ * address (served on `<ip>.sslip.io`) or a domain that points at the server.
+ * Null for anything else, private addresses included. */
+export function siteAddress(input: string): string | null {
+  const text = input.trim().toLowerCase().replace(/^https:\/\//, "").replace(/\/$/, "");
+  const ip = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+  if (ip) {
+    const [a, b] = [Number(ip[1]), Number(ip[2])];
+    if (ip.slice(1).some((part) => Number(part) > 255)) return null;
+    if (a === 10 || a === 127 || a === 0 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127)) return null;
+    return sslipAddress(text);
+  }
+  if (!/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(text)) return null;
+  return `https://${text}`;
+}
+
+/** The server's set-up script: on a droplet's first boot, or pasted by the
+ * owner into their own Ubuntu server (`site` given). Every value is checked
+ * or reduced to plain characters, because it lands in a shell script and an
+ * env file. Running it again keeps the data and restarts with these values. */
+export function firstBootScript(input: { image: string; issuer: string; workspaceName: string; ownerCode: string; site?: string }): string {
   if (!/^[\w.\-/:@]+$/.test(input.image)) throw new Error("image reference has characters a script cannot carry");
   if (!/^https:\/\/[\w.\-:]+$/.test(input.issuer)) throw new Error("the Colonie Cloud address must be a bare https origin");
   if (!/^[\w-]{24,128}$/.test(input.ownerCode)) throw new Error("the owner invite code must be 24 to 128 letters, digits, - or _");
+  if (input.site !== undefined && !/^https:\/\/[a-z0-9.-]+$/.test(input.site)) throw new Error("the site address must be an https origin");
   const name = input.workspaceName.replace(/[^\p{L}\p{N} .,'&()-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Colonie workspace";
+  const site = input.site
+    ? [`SITE=${input.site}`]
+    : ["IP=$(curl -fsS http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address)", "SITE=https://${IP//./-}.sslip.io"];
   return [
     "#!/bin/bash",
-    "# Colonie Shared workspace: first boot. Logs: /var/log/cloud-init-output.log",
+    "# Colonie Shared workspace: set up this server. On a droplet, logs are in /var/log/cloud-init-output.log",
     "set -euo pipefail",
+    'if [ "$(id -u)" -ne 0 ]; then echo "This must run as root (use sudo)." >&2; exit 1; fi',
     "export DEBIAN_FRONTEND=noninteractive",
-    "apt-get update",
-    "apt-get install -y docker.io docker-compose-v2",
-    "IP=$(curl -fsS http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address)",
+    "if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then",
+    "  apt-get update",
+    "  apt-get install -y docker.io docker-compose-v2",
+    "fi",
+    ...site,
+    "if [ ! -f /opt/colonie/compose.yaml ] && command -v ss >/dev/null && ss -ltnH '( sport = :80 or sport = :443 )' | grep -q .; then",
+    '  echo "Something on this server already uses port 80 or 443. Stop it, then run this again." >&2; exit 1',
+    "fi",
+    "if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then ufw allow 80/tcp; ufw allow 443/tcp; fi",
     "mkdir -p /opt/colonie",
     "cd /opt/colonie",
     "cat > compose.yaml <<'COLONIE_COMPOSE'",
@@ -88,7 +119,7 @@ export function firstBootScript(input: { image: string; issuer: string; workspac
     CADDY_FILE + "COLONIE_CADDY",
     "umask 077",
     "cat > .env <<COLONIE_ENV",
-    "SITE_ADDRESS=https://${IP//./-}.sslip.io",
+    "SITE_ADDRESS=$SITE",
     `COLONIE_IMAGE="${input.image}"`,
     `COLONIE_CLOUD_ISSUER="${input.issuer}"`,
     `COLONIE_WORKSPACE_NAME="${name}"`,
@@ -96,8 +127,15 @@ export function firstBootScript(input: { image: string; issuer: string; workspac
     "COLONIE_ENV",
     "docker compose pull",
     "docker compose up -d --no-build",
+    'echo "Colonie is starting at $SITE. Go back to the Colonie app: it opens the workspace when it answers."',
     "",
   ].join("\n");
+}
+
+/** One line the owner pastes into their server: the whole script, gzipped
+ * and base64-encoded, so nothing is downloaded from anywhere to run it. */
+export function selfHostCommand(script: string): string {
+  return `echo ${gzipSync(Buffer.from(script)).toString("base64")} | base64 -d | gunzip | sudo bash`;
 }
 
 interface Droplet { id: number; status: string; networks?: { v4?: Array<{ type: string; ip_address: string }> } }

@@ -72,7 +72,7 @@ function approve(authorizationUrl: string) {
   return `?code=${code}&state=${url.searchParams.get("state")}`;
 }
 
-function servers(dataDir: string, probe = async () => dropletUp) {
+function servers(dataDir: string, probe: (address: string) => Promise<boolean> = async () => dropletUp) {
   return createSharedServers({
     dataDir, oauthBase: base, apiBase: base, image: "ghcr.io/example/colonie-workspace:1.0.0", issuer: "https://cloud.example",
     // a short real pause, so a test can change what the server answers between tries
@@ -170,4 +170,29 @@ test("deleting a workspace removes its server by tag and forgets it; disconnecti
   await shared.disconnect();
   expect(existsSync(join(dir, "digitalocean.json"))).toBe(false);
   expect(await shared.status()).toMatchObject({ connected: false });
+});
+
+test("on the owner's own server: no DigitalOcean needed, a command to paste, then the same wait and invite", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "colonie-shared-servers-"));
+  let up = false;
+  const shared = servers(dir, async (address) => up && address === "https://team.example.com");
+  const before = seen.length;
+  const record = await shared.createSelfHosted("Launch Team", "team.example.com");
+  expect(seen.length).toBe(before); // DigitalOcean is never asked
+  expect(record).toMatchObject({ name: "Launch Team", kind: "self", state: "starting", address: "https://team.example.com" });
+  expect(record.command).toMatch(/^echo [A-Za-z0-9+/=]+ \| base64 -d \| gunzip \| sudo bash$/);
+  expect(record.inviteUrl).toBeUndefined();
+  up = true;
+  await settle(() => shared.list()[0]?.state === "ready");
+  const ready = shared.list()[0];
+  expect(ready.inviteUrl).toMatch(/^https:\/\/team\.example\.com\/invite\/[\w-]{32}$/);
+  // Forgetting it leaves the owner's server alone.
+  await shared.remove(ready.id);
+  expect(seen.length).toBe(before);
+  expect(shared.list()).toEqual([]);
+});
+
+test("an address that cannot be reached from the internet is refused", async () => {
+  const shared = servers(mkdtempSync(join(tmpdir(), "colonie-shared-servers-")));
+  await expect(shared.createSelfHosted("Team", "192.168.1.20")).rejects.toMatchObject({ status: 400 });
 });

@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { COMPOSE_FILE, CADDY_FILE, createDigitalOcean, firstBootScript, sslipAddress } from "./digitalocean.ts";
+import { gunzipSync } from "node:zlib";
+
+import { COMPOSE_FILE, CADDY_FILE, createDigitalOcean, firstBootScript, selfHostCommand, siteAddress, sslipAddress } from "./digitalocean.ts";
 
 interface Seen { method: string; path: string; body: any; auth: string | undefined }
 const seen: Seen[] = [];
@@ -128,4 +130,34 @@ test("a workspace name cannot smuggle shell or settings into the script", () => 
   expect(script).not.toContain("\nEVIL=1");
   expect(() => firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "short" })).toThrow();
   expect(() => firstBootScript({ image: "img;reboot", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd" })).toThrow();
+});
+
+test("on the owner's own server the address is given, not read from DigitalOcean", () => {
+  const script = firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd", site: "https://team.example.com" });
+  expect(script).toContain("SITE=https://team.example.com\n");
+  expect(script).toContain("SITE_ADDRESS=$SITE");
+  expect(script).not.toContain("169.254.169.254");
+  expect(script).toMatch(/must run as root/);
+  expect(script).toMatch(/ufw allow/);
+  expect(() => firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd", site: "https://x.example/$(reboot)" })).toThrow();
+});
+
+test("an IP address or a domain becomes the workspace's HTTPS address", () => {
+  expect(siteAddress("203.0.113.9")).toBe("https://203-0-113-9.sslip.io");
+  expect(siteAddress(" Team.Example.com ")).toBe("https://team.example.com");
+  expect(siteAddress("https://team.example.com/")).toBe("https://team.example.com");
+  for (const bad of ["", "localhost", "10.0.0.5", "192.168.1.2", "team", "https://user@team.example.com", "team.example.com:8443/x", "$(reboot).example.com"]) {
+    expect(siteAddress(bad), bad).toBeNull();
+  }
+});
+
+test("the command to paste is one line that carries the whole script", () => {
+  const script = firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd", site: "https://team.example.com" });
+  const command = selfHostCommand(script);
+  expect(command).not.toContain("\n");
+  expect(command).not.toMatch(/https?:\/\//); // nothing is downloaded to run it
+  const encoded = /echo ([A-Za-z0-9+/=]+) \| base64 -d \| gunzip \| sudo bash$/.exec(command)?.[1];
+  expect(encoded).toBeTruthy();
+  expect(gunzipSync(Buffer.from(encoded!, "base64")).toString()).toBe(script);
+  expect(command.length).toBeLessThan(4000);
 });

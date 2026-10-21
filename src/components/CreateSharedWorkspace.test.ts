@@ -13,14 +13,15 @@ const connected: SharedServersState = {
   servers: [],
 };
 const view = (state: SharedServersState | null, extra: Partial<Parameters<typeof CreateSharedWorkspaceView>[0]> = {}) => renderToStaticMarkup(createElement(CreateSharedWorkspaceView, {
-  state, name: "Launch Team", busy: "", error: "", waitingForBrowser: false,
+  state, name: "Launch Team", busy: "", error: "", waitingForBrowser: false, mode: "digitalocean", address: "",
+  onMode: () => {}, onAddress: () => {}, onCreateSelf: () => {},
   onName: () => {}, onConnect: () => {}, onCreate: () => {}, onOpen: () => {}, onDelete: () => {}, onClose: () => {}, ...extra,
 }));
 
 test("before anything, the owner learns where it runs and who bills them, and connects DigitalOcean", () => {
   const html = view(disconnected);
   expect(html).toContain("Create a Shared workspace");
-  expect(html).toMatch(/your own DigitalOcean account/);
+  expect(html).toMatch(/A new server in your DigitalOcean account/);
   expect(html).toContain("Connect DigitalOcean");
   expect(html).not.toContain("Create workspace");
 });
@@ -62,4 +63,27 @@ test("the first open uses the owner's invite, later opens the address", async ()
   expect(markOpened).toHaveBeenCalledWith("b");
   await openShared({ addFromLink }, markOpened, { ...server, opened: true });
   expect(addFromLink).toHaveBeenLastCalledWith("https://h.sslip.io", "Design");
+});
+
+test("the owner chooses between one click on DigitalOcean and their own server", () => {
+  const html = view(disconnected);
+  expect(html).toContain("One click on DigitalOcean");
+  expect(html).toContain("My own server");
+});
+
+test("on their own server: a name and the server's address, then the command to paste", () => {
+  const form = view(disconnected, { mode: "self" });
+  expect(form).toMatch(/IP address or domain/);
+  expect(form).toMatch(/Ubuntu/);
+  expect(form).toContain("Get the command");
+  expect(form).not.toContain("Connect DigitalOcean");
+
+  const waiting = view({ ...disconnected, servers: [{
+    id: "s", kind: "self", name: "Launch Team", tag: "t", region: "", size: "", state: "starting", createdAt: "",
+    address: "https://team.example.com", command: "echo H4sI | base64 -d | gunzip | sudo bash",
+  }] }, { mode: "self" });
+  expect(waiting).toContain("echo H4sI | base64 -d | gunzip | sudo bash");
+  expect(waiting).toMatch(/Paste this into your server/);
+  expect(waiting).toContain("Copy");
+  expect(waiting).toContain("Forget");
 });

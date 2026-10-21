@@ -17,7 +17,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
-import { DEFAULT_REGION, DEFAULT_SIZE, createDigitalOcean, firstBootScript, sslipAddress } from "./digitalocean.ts";
+import { DEFAULT_REGION, DEFAULT_SIZE, createDigitalOcean, firstBootScript, selfHostCommand, siteAddress, sslipAddress } from "./digitalocean.ts";
 
 /** Colonie Cloud, where people sign in to a Shared workspace. The desktop
  * app's window allows the same address (electron/main.mjs). */
@@ -35,10 +35,15 @@ const SCOPES = [
 const PENDING_MS = 15 * 60_000;
 const READY_ATTEMPTS = 180; // ten seconds apart: half an hour for first boot and the image download
 const READY_INTERVAL_MS = 10_000;
+const SELF_READY_ATTEMPTS = 720; // two hours: the owner pastes the command when they get to it
 
 export type SharedServerState = "creating" | "starting" | "ready" | "failed";
 export interface SharedServer {
   id: string;
+  /** Where it runs: a droplet made here, or the owner's own server. */
+  kind?: "digitalocean" | "self";
+  /** Own server: the one line the owner pastes into it. */
+  command?: string;
   name: string;
   tag: string;
   region: string;
@@ -119,19 +124,22 @@ export function createSharedServers(deps: {
 
   async function finish(id: string) {
     const record = records.find((entry) => entry.id === id);
-    if (!record?.dropletId) return;
+    if (!record?.dropletId && record?.kind !== "self") return;
+    const self = record.kind === "self";
     try {
       let address = record.address;
       if (!address) {
-        address = sslipAddress(await digitalOcean.waitForAddress(record.dropletId));
+        address = sslipAddress(await digitalOcean.waitForAddress(record.dropletId!));
         update(id, { state: "starting", address });
       }
-      for (let attempt = 0; attempt < READY_ATTEMPTS; attempt += 1) {
+      for (let attempt = 0; attempt < (self ? SELF_READY_ATTEMPTS : READY_ATTEMPTS); attempt += 1) {
         if (!records.some((entry) => entry.id === id)) return; // deleted meanwhile
         if (await probe(address)) { update(id, { state: "ready" }); return; }
         await sleep(READY_INTERVAL_MS);
       }
-      update(id, { state: "failed", error: "The server did not answer within half an hour. Delete it and try again, or look at it in DigitalOcean." });
+      update(id, { state: "failed", error: self
+        ? "The server did not answer within two hours. Check the command finished on it, then add it again."
+        : "The server did not answer within half an hour. Delete it and try again, or look at it in DigitalOcean." });
     } catch (error) {
       update(id, { state: "failed", error: (error as Error).message });
     }
@@ -230,10 +238,30 @@ export function createSharedServers(deps: {
       update(id, { opened: true });
     },
 
+    /** A Shared workspace on the owner's own server: the command to paste
+     * there, then the same wait and owner invite as a droplet. */
+    async createSelfHosted(name: string, rawAddress: string): Promise<SharedServer> {
+      const address = siteAddress(rawAddress);
+      if (!address) throw Object.assign(new Error("Enter the server's public IP address, or a domain that points to it."), { status: 400 });
+      const cleanName = name.trim().replace(/\s+/g, " ").slice(0, 60) || "Colonie workspace";
+      const id = randomUUID();
+      const ownerCode = randomBytes(24).toString("base64url");
+      const command = selfHostCommand(firstBootScript({ image: deps.image, issuer: deps.issuer, workspaceName: cleanName, ownerCode, site: address }));
+      const record: Stored = {
+        id, kind: "self", name: cleanName, tag: `colonie-ws-${id.slice(0, 8)}`, region: "", size: "",
+        state: "starting", createdAt: new Date(now()).toISOString(), address, command, ownerCode,
+      };
+      records = [...records, record];
+      saveRecords();
+      void finish(id);
+      return shown(record);
+    },
+
     async remove(id: string) {
       const record = records.find((entry) => entry.id === id);
       if (!record) throw Object.assign(new Error("No such Shared workspace."), { status: 404 });
-      await digitalOcean.remove(record.tag);
+      // The owner's own server is theirs to stop; only a droplet made here is deleted.
+      if (record.kind !== "self") await digitalOcean.remove(record.tag);
       records = records.filter((entry) => entry.id !== id);
       saveRecords();
     },

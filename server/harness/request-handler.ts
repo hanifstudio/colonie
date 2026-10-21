@@ -520,6 +520,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           await sharedServers.disconnect();
           return json(res, 200, { ok: true });
         }
+        if (method === "POST" && path === "/api/shared-servers/self") {
+          const body = await readBody(req);
+          const name = typeof body?.name === "string" ? body.name : "";
+          if (!name.trim()) return json(res, 400, { error: "Give the workspace a name." });
+          return json(res, 201, await sharedServers.createSelfHosted(name, typeof body?.address === "string" ? body.address : ""));
+        }
         if (method === "POST" && path === "/api/shared-servers") {
           const body = await readBody(req);
           const name = typeof body?.name === "string" ? body.name : "";

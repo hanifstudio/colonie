@@ -6,9 +6,11 @@
 // new-workspace form's Shared choice.
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CloudServerIcon, Loading02Icon } from "@hugeicons/core-free-icons";
+import { CloudServerIcon, Copy01Icon, Loading02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { api } from "@/state/store";
+import { useCopyFeedback } from "@/lib/copy-text";
+import { cn } from "@/lib/cn";
 
 export const OPEN_CREATE_SHARED = "colonie:create-shared";
 
@@ -17,6 +19,7 @@ const SIZES: Record<string, string> = { "s-2vcpu-4gb": "2 CPUs, 4 GB memory" };
 
 export interface SharedServer {
   id: string; name: string; tag: string; region: string; size: string;
+  kind?: "digitalocean" | "self"; command?: string;
   state: "creating" | "starting" | "ready" | "failed";
   createdAt: string; address?: string; inviteUrl?: string; opened?: boolean; error?: string;
 }
@@ -42,6 +45,25 @@ export async function openShared(
   return joined;
 }
 
+export type SetupMode = "digitalocean" | "self";
+
+/** The one line to paste into the owner's own server, with a Copy button. */
+function PasteCommand({ command }: { command: string }) {
+  const { state, copy } = useCopyFeedback(command);
+  return (
+    <div className="mt-2 rounded-lg border border-hairline/40 bg-inset p-2.5">
+      <p className="mb-1.5 text-[11.5px] text-ink-secondary">Paste this into your server, signed in over SSH:</p>
+      <div className="flex items-start gap-2">
+        <code className="max-h-16 min-w-0 flex-1 overflow-hidden break-all font-mono text-[10.5px] leading-snug text-ink select-all">{command}</code>
+        <button type="button" onClick={copy} className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] text-ink-secondary hover:bg-control hover:text-ink">
+          <HIcon icon={state === "copied" ? Tick01Icon : Copy01Icon} size={13} className={cn(state === "copied" && "text-success")} />
+          {state === "copied" ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const PROGRESS: Record<SharedServer["state"], string> = {
   creating: "Creating the server on DigitalOcean…",
   starting: "Starting Colonie on the server. The first start takes a few minutes.",
@@ -49,8 +71,13 @@ const PROGRESS: Record<SharedServer["state"], string> = {
   failed: "",
 };
 
-export function CreateSharedWorkspaceView({ state, name, busy, error, waitingForBrowser, onName, onConnect, onCreate, onOpen, onDelete, onClose }: {
+export function CreateSharedWorkspaceView({ state, name, busy, error, waitingForBrowser, mode, address, onMode, onAddress, onCreateSelf, onName, onConnect, onCreate, onOpen, onDelete, onClose }: {
   state: SharedServersState | null;
+  mode: SetupMode;
+  address: string;
+  onMode: (mode: SetupMode) => void;
+  onAddress: (address: string) => void;
+  onCreateSelf: () => void;
   name: string;
   /** "connect", "create", or a server id being opened or deleted */
   busy: string;
@@ -77,13 +104,40 @@ export function CreateSharedWorkspaceView({ state, name, busy, error, waitingFor
           <h2 id="create-shared-title" className="text-[17px] font-semibold text-ink">Create a Shared workspace</h2>
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-secondary">
-          A Shared workspace runs on a server in your own DigitalOcean account, so the people you invite can use it
-          with you and your bots. The bots use the AI subscriptions you sign in to on that server.
+          A Shared workspace runs on a server you own, so the people you invite can use it with you and your bots.
+          The bots use the AI subscriptions you sign in to on that server.
         </p>
+        <div role="radiogroup" aria-label="Where it runs" className="mt-4 grid grid-cols-2 gap-2">
+          {([["digitalocean", "One click on DigitalOcean", "A new server in your DigitalOcean account."], ["self", "My own server", "A server you already have, with Ubuntu."]] as const).map(([value, label, detail]) => (
+            <button key={value} type="button" role="radio" aria-checked={mode === value} onClick={() => onMode(value)}
+              className={cn("rounded-xl border p-3 text-left", mode === value ? "border-accent/70 bg-accent/10" : "border-hairline/40 hover:bg-control")}>
+              <div className="text-[13px] font-medium text-ink">{label}</div>
+              <div className="mt-0.5 text-[11.5px] leading-snug text-ink-secondary">{detail}</div>
+            </button>
+          ))}
+        </div>
 
         {!state && <p className="mt-4 flex items-center gap-2 text-[12.5px] text-ink-secondary"><HIcon icon={Loading02Icon} size={13} className="animate-spin" />Checking…</p>}
 
-        {ocean && !ocean.connected && (
+        {mode === "self" && (
+          <div className="mt-4 rounded-xl border border-hairline/40 bg-inset p-4 text-[12.5px]">
+            <p className="leading-relaxed text-ink-secondary">
+              Your server needs Ubuntu 22.04 or 24.04, at least 2 CPUs and 4 GB of memory, ports 80 and 443 open, and
+              about 10 GB free. Enter its public IP address or domain name that points to it.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <input value={name} onChange={(event) => onName(event.target.value)} maxLength={60} aria-label="Workspace name" placeholder="Workspace name"
+                className="rounded-lg border border-hairline/40 bg-panel px-3 py-2 text-[13px] text-ink placeholder:text-ink-tertiary focus:border-accent/60 focus:outline-none" />
+              <input value={address} onChange={(event) => onAddress(event.target.value)} aria-label="Server IP address or domain" placeholder="203.0.113.9 or team.example.com"
+                className="rounded-lg border border-hairline/40 bg-panel px-3 py-2 text-[13px] text-ink placeholder:text-ink-tertiary focus:border-accent/60 focus:outline-none" />
+              <button type="button" className={cn(button, "self-end")} disabled={busy !== "" || !name.trim() || !address.trim()} onClick={onCreateSelf}>
+                {busy === "create" && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}Get the command
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === "digitalocean" && ocean && !ocean.connected && (
           <div className="mt-4">
             <button type="button" className={button} disabled={busy === "connect"} onClick={onConnect}>
               {busy === "connect" && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}Connect DigitalOcean
@@ -96,7 +150,7 @@ export function CreateSharedWorkspaceView({ state, name, busy, error, waitingFor
           </div>
         )}
 
-        {ocean?.connected && (
+        {mode === "digitalocean" && ocean?.connected && (
           <div className="mt-4 rounded-xl border border-hairline/40 bg-inset p-4 text-[12.5px]">
             {ocean.account && <p className="text-ink-secondary">DigitalOcean: <span className="text-ink">{ocean.account.email}</span></p>}
             <p className="mt-1 text-ink">
@@ -127,12 +181,16 @@ export function CreateSharedWorkspaceView({ state, name, busy, error, waitingFor
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-ink">{server.name}</div>
                   <div className={server.state === "failed" ? "text-[11.5px] text-danger" : "text-[11.5px] text-ink-secondary"}>
-                    {server.state === "failed" ? server.error : server.state === "ready" ? server.address?.replace(/^https:\/\//, "") : PROGRESS[server.state]}
+                    {server.state === "failed" ? server.error
+                      : server.state === "ready" ? server.address?.replace(/^https:\/\//, "")
+                      : server.kind === "self" ? `Waiting for ${server.address?.replace(/^https:\/\//, "")} to answer. This opens when it does.`
+                      : PROGRESS[server.state]}
                   </div>
+                  {server.kind === "self" && server.state === "starting" && server.command && <PasteCommand command={server.command} />}
                 </div>
                 {(server.state === "creating" || server.state === "starting") && <HIcon icon={Loading02Icon} size={14} className="shrink-0 animate-spin text-ink-secondary" />}
                 {server.state === "ready" && <button type="button" className={button} disabled={busy !== ""} onClick={() => onOpen(server)}>Open</button>}
-                <button type="button" className={quiet} disabled={busy !== ""} onClick={() => onDelete(server)}>Delete</button>
+                <button type="button" className={quiet} disabled={busy !== ""} onClick={() => onDelete(server)}>{server.kind === "self" ? "Forget" : "Delete"}</button>
               </div>
             ))}
           </div>
@@ -155,6 +213,8 @@ export function CreateSharedWorkspace() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [waitingForBrowser, setWaitingForBrowser] = useState(false);
+  const [mode, setMode] = useState<SetupMode>("digitalocean");
+  const [address, setAddress] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -210,13 +270,20 @@ export function CreateSharedWorkspace() {
     setName("");
     await load();
   });
+  const createSelf = () => run("create", async () => {
+    await api("/api/shared-servers/self", { method: "POST", body: JSON.stringify({ name: name.trim(), address: address.trim() }) });
+    setName("");
+    setAddress("");
+    await load();
+  });
   const openServer = (server: SharedServer) => run(server.id, async () => {
     const markOpened = async (id: string) => { await api(`/api/shared-servers/${id}/opened`, { method: "POST" }); };
     if (await openShared(bridge, markOpened, server)) setOpen(false);
   });
   const remove = (server: SharedServer) => run(server.id, async () => {
-    const sure = await (window.colonie?.confirm ?? (async (message: string) => window.confirm(message)))(
-      `Delete “${server.name}”? Its server and everything on it are deleted from DigitalOcean, and billing stops. This cannot be undone.`,
+    const sure = await (window.colonie?.confirm ?? (async (message: string) => window.confirm(message)))(server.kind === "self"
+      ? `Forget “${server.name}”? It is removed from this list only; your server keeps running until you stop it.`
+      : `Delete “${server.name}”? Its server and everything on it are deleted from DigitalOcean, and billing stops. This cannot be undone.`,
     );
     if (!sure) return;
     await api(`/api/shared-servers/${server.id}`, { method: "DELETE" });
@@ -224,6 +291,7 @@ export function CreateSharedWorkspace() {
   });
   return createPortal(
     <CreateSharedWorkspaceView state={state} name={name} busy={busy} error={error} waitingForBrowser={waitingForBrowser}
+      mode={mode} address={address} onMode={setMode} onAddress={setAddress} onCreateSelf={() => void createSelf()}
       onName={setName} onConnect={() => void connect()} onCreate={() => void create()}
       onOpen={(server) => void openServer(server)} onDelete={(server) => void remove(server)}
       onClose={() => { if (!busy) setOpen(false); }} />,

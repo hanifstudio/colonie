@@ -11,29 +11,17 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current: one-click deployment to DigitalOcean.** From the new-workspace
-   form, the owner picks Shared, connects DigitalOcean in the browser (OAuth
-   with PKCE, the app registers itself, no secret), sees the monthly price
-   from DigitalOcean, and creates the workspace: one droplet in Singapore,
-   tagged, behind a firewall (80 and 443), set up on first boot to run the
-   server image with Caddy on `<ip>.sslip.io`. When it answers, the app opens
-   its owner invite, and they sign in as its first admin. Deleting removes
-   the droplet and firewall by tag. Proof: tests against a stand-in
-   DigitalOcean API (OAuth, account limits, price, create, wait, delete) and
-   the generated first-boot script checked against `deploy/`. Out of scope
-   here: publishing the image (next), a custom domain, backups.
-2. Publishing the server image where a droplet can pull it.
-3. Shared workspaces need a lifetime license bought once (Colonie Cloud
-   records it; the workspace checks it when people sign in). Waits on the
-   owner: price, per workspace or per account, payment provider.
-4. Self-hosting: one command on any Ubuntu server, printing the owner link.
-5. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
+1. **Current, waits on the owner:** publishing the server image where a
+   server can pull it (push, run the Server image workflow, make the package
+   public), then one real Shared workspace on the owner's Akamai server.
+2. A lifetime license for Shared, bought once (owner decision); later.
+3. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
 
-Seen in a real window (throwaway data): the profile menu's Join a Shared
-workspace, its dialog refusing a bad link, the Shared choice opening Create
-a Shared workspace. Not yet seen: Settings, People; a join through Colonie
-Cloud; a real DigitalOcean sign-in and droplet. Conversations with several people (header: people, add, leave).
-Admins remove people from Settings, People.
+Done: one click on DigitalOcean (stand-in tests; never with a real account);
+self-hosting with one pasted command (script run with recorded tools).
+Seen in a real window: Join a Shared workspace, Create a Shared workspace
+with both choices and the command to paste.
+Not yet seen: Settings, People; a join through Colonie Cloud.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
