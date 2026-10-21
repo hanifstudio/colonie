@@ -14,10 +14,10 @@ import type { ProviderInstance } from "../contracts.ts";
 const dir = mkdtempSync(join(tmpdir(), "colonie-remote-sign-in-wiring-"));
 const adapter = join(dir, "adapter.mjs");
 writeFileSync(adapter, `
-import { writeFileSync } from "node:fs";
+import { appendFileSync } from "node:fs";
 const args = process.argv.slice(2).join(" ");
 const home = process.env.CODEX_HOME ?? process.env.CLAUDE_CONFIG_DIR;
-writeFileSync(home + "/ran-with", args + "\\nBROWSER=" + process.env.BROWSER);
+appendFileSync(home + "/ran-with", args + " BROWSER=" + process.env.BROWSER + "\\n"); // every run, the background one too
 if (args.endsWith("login --device-auth")) {
   process.stderr.write("https://auth.openai.com/codex/device\\nWXYZ-98765\\n");
   setTimeout(() => process.exit(0), 200);
@@ -56,8 +56,7 @@ test("Codex on a server: the code comes from its own CLI, run in its own CODEX_H
   const started = await instance.startAuthentication!();
   expect(started).toMatchObject({ authorizationUrl: "https://auth.openai.com/codex/device", userCode: "WXYZ-98765" });
   const ran = readFileSync(join(home, "ran-with"), "utf8");
-  expect(ran).toContain('cli -c cli_auth_credentials_store="file" login --device-auth');
-  expect(ran).toContain("BROWSER=true");
+  expect(ran).toContain('cli -c cli_auth_credentials_store="file" login --device-auth BROWSER=true');
   const until = Date.now() + 5_000;
   while ((await instance.getAuthentication!(started.flowId!)).phase !== "succeeded") {
     if (Date.now() > until) throw new Error("never succeeded");

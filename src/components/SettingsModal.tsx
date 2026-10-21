@@ -34,8 +34,10 @@ import { brand } from "../lib/brand";
 import { EnginesSettings } from "./EnginesSettings";
 import { LocalComputerSection } from "./LocalComputerSection";
 import { PeopleSection } from "./PeopleSection";
+import { ColoniePeople } from "./ColoniePeople";
 import { ActivitySection } from "./ActivitySection";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
+import { readEnvironment } from "@/lib/session";
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
@@ -769,12 +771,20 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   useEffect(() => window.colonie?.onOpenAppSettings?.(() => setQuery("")), []);
   const q = query.trim().toLowerCase();
   const ownerOrAdmin = useOwnerOrAdmin(!workspace);
+  // A Shared workspace connected to Colonie accounts: its admins invite people here.
+  const [colonieSignIn, setColonieSignIn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void readEnvironment().then((environment) => { if (alive) setColonieSignIn(environment?.capabilities?.colonieSignIn === true); });
+    return () => { alive = false; };
+  }, []);
+  const colonieInvites = colonieSignIn && ownerOrAdmin === true;
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
-    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id))
+    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id) || (colonieInvites && entry.id === "people"))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
-    .filter((entry) => entry.id !== "people" || !window.colonie)
+    .filter((entry) => entry.id !== "people" || colonieInvites || !window.colonie)
     // the activity log belongs to a workspace served to a browser, and to its admins
     .filter((entry) => entry.id !== "activity" || (!window.colonie && ownerOrAdmin === true));
   // the Skills surface browses the shared library, which exists only where
@@ -990,8 +1000,8 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
       case "people":
         return (
           <>
-            <PeopleSection />
-            {!remoteActive && <CustomDomainSettings />}
+            {colonieInvites ? <ColoniePeople /> : <PeopleSection />}
+            {!remoteActive && !colonieInvites && <CustomDomainSettings />}
           </>
         );
       case "activity":
