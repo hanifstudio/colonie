@@ -7,7 +7,7 @@
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
-import { DESKTOP_CALLBACK, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
+import { DESKTOP_CALLBACK, callbackPage, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -143,8 +143,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // like the MCP way back above: the state is the credential, used once.
     if (desktopAccount && method === "GET" && path === DESKTOP_CALLBACK) {
       const answer = await desktopAccount.callback(url.search);
-      res.writeHead(answer.status, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
-      res.end(answer.text);
+      res.writeHead(answer.status, {
+        "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+      });
+      res.end(callbackPage(answer.text, answer.status === 200));
       return;
     }
     if (sharedServers && method === "GET" && path === DIGITALOCEAN_CALLBACK) {

@@ -14,6 +14,20 @@ import { writeFileAtomic } from "../../persistence/atomic.ts";
 import { verifiedColonieAccount, type ColonieAccount } from "./colonie-oauth.ts";
 
 export const DESKTOP_CALLBACK = "/auth/colonie/desktop-callback";
+
+/** The page the browser shows on coming back: Colonie Cloud's look
+ * (cloud/src/app.ts), one line of text, nothing loaded from anywhere. */
+export function callbackPage(text: string, ok: boolean): string {
+  const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${ok ? "Signed in" : "Sign-in did not finish"} · Colonie</title><style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#080808;color:#fcfcfc;
+font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{width:100%;max-width:420px;background:#111111;border:1px solid #33333380;border-radius:20px;padding:28px;box-shadow:0 24px 60px -20px #000000cc}
+.brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fcfcfc99;margin-bottom:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:#7b61ff}h1{font-size:20px;font-weight:600;margin:0 0 6px}p{color:#fcfcfc99;font-size:13.5px;margin:10px 0}
+</style></head><body><main><div class="brand"><span class="dot"></span>Colonie</div><h1>${ok ? "You are signed in" : "Sign-in did not finish"}</h1><p>${escape(text)}</p></main></body></html>`;
+}
 const PENDING_MS = 15 * 60_000;
 
 interface Stored { issuer?: string; clientId?: string; redirectUri?: string; account?: ColonieAccount & { signedInAt: string } }

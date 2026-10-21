@@ -63,13 +63,34 @@ const SECURITY_HEADERS = {
   "cache-control": "no-store",
 };
 
+/** The look of the Colonie app (its default "midnight" skin and brand
+ * colour), so signing in feels like part of the app. Inline only: the pages
+ * load nothing from anywhere (see the content security policy). */
+const STYLE = `
+:root{color-scheme:dark;--canvas:#080808;--panel:#111111;--inset:#191919;--hairline:#333333;--ink:#fcfcfc;--ink-2:#fcfcfc99;--accent:#7b61ff;--accent-ink:#ffffff;--danger:#ff5667}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--canvas);color:var(--ink);
+font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{width:100%;max-width:420px;background:var(--panel);border:1px solid #33333380;border-radius:20px;padding:28px;box-shadow:0 24px 60px -20px #000000cc}
+.brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+h1{font-size:20px;line-height:1.3;font-weight:600;margin:0 0 6px}
+p{color:var(--ink-2);font-size:13.5px;margin:10px 0}
+label{display:block;margin:14px 0 6px;font-size:12.5px;font-weight:500;color:var(--ink-2)}
+input{width:100%;padding:10px 12px;font:inherit;font-size:14px;color:var(--ink);background:var(--inset);border:1px solid #33333399;border-radius:10px;outline:none}
+input:focus{border-color:var(--accent)}
+button{width:100%;margin-top:20px;padding:11px 16px;font:inherit;font-size:14px;font-weight:600;color:var(--accent-ink);background:var(--accent);border:0;border-radius:12px;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+button.quiet{background:transparent;color:var(--ink-2);margin-top:8px;font-weight:500}
+a{color:var(--ink);text-underline-offset:3px}
+.error{color:var(--danger);font-size:13px}
+.row{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px;color:var(--ink-2)}
+.row p{margin:0}`;
+
 function page(title: string, body: string, status = 200, headers: Record<string, string> = {}): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escape(title)} · Colonie</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:24rem;margin:4rem auto;padding:0 1rem;color:#1d1d1f}
-label{display:block;margin:.75rem 0 .25rem}input{width:100%;box-sizing:border-box;padding:.5rem;font:inherit}
-button{margin-top:1rem;padding:.5rem 1rem;font:inherit}.error{color:#b00020}a{color:inherit}</style></head>
-<body><h1>${escape(title)}</h1>${body}</body></html>`;
+<title>${escape(title)} · Colonie</title><style>${STYLE}</style></head>
+<body><main><div class="brand"><span class="dot"></span>Colonie</div><h1>${escape(title)}</h1>${body}</main></body></html>`;
   return new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8", ...SECURITY_HEADERS, ...headers } });
 }
 
@@ -113,7 +134,7 @@ function signInPage(next: string, error: string | null = null, email = "", statu
 <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required value="${escape(email)}">
 <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
 <button type="submit">Sign in</button></form>
-<p>New to Colonie? <a href="/signup${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}">Create an account</a></p>`, status);
+<div class="row"><p>New to Colonie? <a href="/signup${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}">Create an account</a></p><p><a href="/forgot">Forgot password?</a></p></div>`, status);
 }
 
 function forgotPage(error: string | null = null, status = 200) {
@@ -162,11 +183,18 @@ export function createApp({ db, issuer, signer, mailer, now = () => new Date() }
 
   function consentPage(client: Client, account: Account, params: AuthorizeParams): Response {
     const fields = Object.entries(params).map(([key, value]) => `<input type="hidden" name="${key}" value="${escape(value)}">`).join("");
-    const host = new URL(client.redirect_uri).host;
-    return page("Continue to the workspace", `<p>Join <strong>${escape(client.name)}</strong> at <strong>${escape(host)}</strong> as
+    const redirect = new URL(client.redirect_uri);
+    const signOut = `<form method="post" action="/signout"><button type="submit" class="quiet">Not you? Sign out</button></form>`;
+    // The Colonie app on the person's own computer: it registers under this
+    // name and comes back to 127.0.0.1 (server/colonie/accounts/desktop-account.ts).
+    if (client.name === "Colonie on this computer" && ["127.0.0.1", "localhost", "[::1]"].includes(redirect.hostname)) {
+      return page("Continue to Colonie", `<p>Sign in to the Colonie app on this computer as
 <strong>${escape(account.name)}</strong> (${escape(account.email)})?</p>
-<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>
-<form method="post" action="/signout"><button type="submit">Not you? Sign out</button></form>`);
+<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`);
+    }
+    return page("Continue to the workspace", `<p>Join <strong>${escape(client.name)}</strong> at <strong>${escape(redirect.host)}</strong> as
+<strong>${escape(account.name)}</strong> (${escape(account.email)})?</p>
+<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`);
   }
 
   async function currentAccount(request: Request): Promise<Account | null> {
@@ -313,7 +341,7 @@ export function createApp({ db, issuer, signer, mailer, now = () => new Date() }
         const account = await currentAccount(request);
         if (!account) return redirect("/signin");
         return page("Your Colonie account", `<p>Signed in as <strong>${escape(account.name)}</strong> (${escape(account.email)}).</p>
-<form method="post" action="/signout"><button type="submit">Sign out</button></form>`);
+<form method="post" action="/signout"><button type="submit" class="quiet">Sign out</button></form>`);
       }
 
       return page("Not found", "<p>There is nothing here.</p>", 404);
