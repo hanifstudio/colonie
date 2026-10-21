@@ -12,15 +12,13 @@ today. Steps, in order:
 
 1. Done: a Shared workspace shows each person only threads naming them.
 2. Done: conversations store their participants (server-private).
-3. **Current card.** Half done: own conversation per bot, sends, bot list,
-   switching. Now: bot routes that act on a thread (compact, edit, active
-   branch, cards, queue, interrupt, respond, always-allow, ACP inputs/live)
-   take the person's own conversation when none is named, and 404 when the
-   named one (body, query, or a message in it) is not theirs. Mostly through
-   `requestedTaskBot` and `pinnedClientThread` (no pin rule when Shared), with
-   `ownThreads`/`personOf` wired. Tests (do not edit):
-   `server/colonie/chat/shared-thread-actions.e2e.test.ts`.
-4. Live updates and their replay carry only a person's own conversations. (Strong.)
+3. Done: own conversation per bot (sends, bot list, switching), and every bot
+   route that acts on a thread (compact, edit, active branch, cards, queue,
+   interrupt, respond, always-allow, ACP inputs/live): each takes the person's
+   own conversation when none is named, and answers 404 for another person's
+   thread or message. Local is unchanged.
+4. **Current card.** Live updates and their replay carry only a person's own
+   conversations. (Strong.)
 5. Search, exports, and backups: search covers only your own conversations;
    whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)
 6. Recall never quotes another conversation with different people; the bot's

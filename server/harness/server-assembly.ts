@@ -303,6 +303,7 @@ ROUTES.push(connectedToolsRoutes({
 // has produced, and the reply the adapter is streaming right now.
 ROUTES.push(createBotAcpRoutes({
   bot: (id) => store.bot(id),
+  currentThread: (bot, auth) => deps.ownThreads.currentThread(deps.personOf(auth), bot),
   hasThread: (botId, threadId) => store.tasks(botId).some((task: any) => task.threadId === threadId),
   inputReceipts,
   liveReply: (botId: string, threadId: string, fallbackInstanceId: string) => {
@@ -378,7 +379,7 @@ ROUTES.push(createCalendarWebhookRoutes({
 }));
 ROUTES.push(createReactionRoutes({ store }));
 ROUTES.push(createAuthSessionRoutes({ sessions, cookieName: SESSION_COOKIE }));
-ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast }));
+ROUTES.push(createBotReadRoutes({ store, requestedTaskBot, wireBot, broadcast, shared: () => deps.ownThreads.shared() }));
 ROUTES.push(createBotProfilePatchRoutes({ store, storedAvatarExists, wireBot, broadcast }));
 ROUTES.push(createThreadEventsRoutes({ store, eventsDir: EVENTS_DIR, nativeDir: NATIVE_DIR, readThreadEvents }));
 ROUTES.push(createCommandAllowlistRoutes({
@@ -412,6 +413,7 @@ ROUTES.push(createBotUpdateRoutes({
   interruptAllDirectThreads,
   forgetTemporaryBrowser,
   storedAvatarExists,
+  shared: () => deps.ownThreads.shared(),
 }));
 ROUTES.push(createBotTaskRoutes({
   ownThreads: deps.ownThreads,
@@ -528,6 +530,7 @@ ROUTES.push(createQueueSteerRoutes({
   runningTurnInstance,
   clearUnattended,
   drainQueuedSends,
+  shared: () => deps.ownThreads.shared(),
 }));
 ROUTES.push(createProviderInstanceRoutes({
   store,

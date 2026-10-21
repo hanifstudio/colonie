@@ -7,6 +7,8 @@
 // stays pure. Each function's header says what it refuses.
 import { admit } from "../../admission.ts";
 import type { BotRecord } from "../../persistence/store.ts";
+import type { RequestAuth } from "../../request-auth.ts";
+import type { OwnThreads } from "./own-threads.ts";
 
 /** Everything this cluster reaches in the server; see the header. */
 export interface ThreadAdmissionDeps {
@@ -19,6 +21,10 @@ export function createThreadAdmission(deps: ThreadAdmissionDeps) {
   const {
     directTurnBots, directTurnDispatchClaims, maxConcurrentThreads, store
   } = deps;
+  /** Each person's own conversations in a Shared workspace; absent means
+   * Local, where the bot's current thread is the right one. */
+  const ownThreads: OwnThreads | undefined = deps.ownThreads;
+  const personOf: ((auth: RequestAuth) => string | null) | undefined = deps.personOf;
 
 function botForThread(botId: string, threadId: string): BotRecord | null {
   return directTurnBots.get(threadId) ?? store().projectBotForTask(botId, threadId) ?? store().bot(botId);
@@ -67,11 +73,25 @@ function unattendedDispatchState(botId: string): "ready" | "busy" | "missing" {
   return "ready";
 }
 
-function requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord {
+/** The bot as a request acts on it. In a Shared workspace the thread is the
+ * person's own: the one the request names, or their current conversation when
+ * it names none. A thread they do not take part in, and a person with no
+ * conversation yet, answer exactly like a thread that does not exist. A caller
+ * that does not name a person (the server's own work) keeps the old lookup. */
+function requestedTaskBot(botId: string, rawThreadId: unknown, auth?: RequestAuth): BotRecord {
   const profile = store().bot(botId);
   if (!profile) throw Object.assign(new Error("no such bot"), { status: 404 });
   if (rawThreadId !== undefined && (typeof rawThreadId !== "string" || !/^[\w-]+$/.test(rawThreadId))) {
     throw Object.assign(new Error("threadId must be a task id"), { status: 400 });
+  }
+  if (ownThreads?.shared() && auth) {
+    const person = personOf?.(auth) ?? null;
+    const threadId = typeof rawThreadId === "string" ? rawThreadId : ownThreads.currentThread(person, profile);
+    const task = threadId ? store().taskByThread(botId, threadId) : undefined;
+    if (!person || !task || !(task.participants ?? []).includes(person)) {
+      throw Object.assign(new Error("no such task"), { status: 404 });
+    }
+    return store().projectBotForTask(botId, threadId)!;
   }
   const threadId = typeof rawThreadId === "string" ? rawThreadId : profile.threadId;
   const task = store().projectBotForTask(botId, threadId);

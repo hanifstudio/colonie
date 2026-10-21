@@ -7,11 +7,15 @@
 // receipts a turn has produced, and the reply currently streaming out of the
 // adapter. index.ts supplies the adapter's live reply instead of this module
 // importing AcpRuntime, so the type-stripped server needs no driver import here.
+import type { RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface BotAcpRouteDeps {
   /** The bot record for an id, or nothing when there is none. */
   bot(id: string): { id: string; threadId: string; modelSelection: { instanceId: string } } | null | undefined;
+  /** The conversation this request acts on when it names none: the person's
+   * own in a Shared workspace, the bot's current one in Local. */
+  currentThread(bot: { id: string; threadId: string }, auth: RequestAuth): string | null;
   /** Whether that thread is one of the bot's own. */
   hasThread(botId: string, threadId: string): boolean;
   /** The ACP tool receipts recorded for a thread. */
@@ -23,14 +27,15 @@ export interface BotAcpRouteDeps {
 }
 
 export function createBotAcpRoutes(deps: BotAcpRouteDeps): RouteHandler {
-  return async ({ res, path, url, method, json }) => {
+  return async ({ res, path, url, method, auth, json }) => {
     /** scratch for route matches, shared by both guards below */
     let m: RegExpMatchArray | null = null;
     m = path.match(/^\/api\/bots\/([\w-]+)\/acp-inputs$/);
     if (m && method === "GET") {
       const bot = deps.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      const threadId = url.searchParams.get("threadId") ?? bot.threadId;
+      const threadId = url.searchParams.get("threadId") ?? deps.currentThread(bot, auth);
+      if (!threadId) return json(res, 200, { receipts: [] });
       if (!deps.hasThread(bot.id, threadId)) return json(res, 404, { error: "no such thread" });
       return json(res, 200, { receipts: deps.inputReceipts(threadId) });
     }
@@ -38,7 +43,8 @@ export function createBotAcpRoutes(deps: BotAcpRouteDeps): RouteHandler {
     if (m && method === "GET") {
       const bot = deps.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      const threadId = url.searchParams.get("threadId") ?? bot.threadId;
+      const threadId = url.searchParams.get("threadId") ?? deps.currentThread(bot, auth);
+      if (!threadId) return json(res, 200, { reply: null });
       if (!deps.hasThread(bot.id, threadId)) return json(res, 404, { error: "no such thread" });
       return json(res, 200, { reply: deps.liveReply(bot.id, threadId, bot.modelSelection.instanceId) });
     }

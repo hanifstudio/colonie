@@ -454,7 +454,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
 
     // ── bots ──
-    const requirePinnedClientThread = pinnedClientThread({ auth, store });
+    const requirePinnedClientThread = pinnedClientThread({ auth, store, shared: () => ownThreads?.shared() ?? false });
     if (method === "GET" && path === "/api/bots") {
       const limit = pageSize(url.searchParams.get("messages"));
       if (limit === null) return json(res, 400, { error: "messages must be a non-negative whole number" });
@@ -858,7 +858,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const existing = store.bot(m[1]);
       if (!existing) return json(res, 404, { error: "no such bot" });
       requirePinnedClientThread(existing.id, undefined);
-      const selected = requestedTaskBot(existing.id, undefined);
+      const selected = requestedTaskBot(existing.id, undefined, auth);
       if (existing.approvalGrant) {
         return json(res, 409, { error: "wait for the approval-level change to finish before changing models" });
       }
@@ -892,7 +892,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
       const allowKey = typeof body.allowKey === "string" ? body.allowKey : "";
-      const bot = requestedTaskBot(m[1], body.threadId);
+      const bot = requestedTaskBot(m[1], body.threadId, auth);
       if (!allowKey) return json(res, 400, { error: "allowKey required" });
       const pending = store.messagesFor(bot.threadId).find((message: any) =>
         message.card?.requestId &&
@@ -1025,7 +1025,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!body || typeof body !== "object" || Array.isArray(body)) {
         return json(res, 400, { error: "body must be a JSON object" });
       }
-      const bot = requestedTaskBot(m[1], body.threadId);
+      const bot = requestedTaskBot(m[1], body.threadId, auth);
       const existing = store.messagesFor(bot.threadId).find((msg: any) => msg.id === m![2]);
       if (!existing?.card) return json(res, 404, { error: "no such card" });
       if (existing.card.requestId) {
@@ -1080,7 +1080,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (m && method === "DELETE") {
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body?.threadId);
+      const bot = requestedTaskBot(m[1], body?.threadId, auth);
       const queueId = m[2];
       if (!cancelSteeredMessage(bot.id, queueId, bot.threadId)) {
         return json(res, 404, { error: "no such queued message" });
@@ -1097,7 +1097,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (m && method === "POST") {
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body?.threadId);
+      const bot = requestedTaskBot(m[1], body?.threadId, auth);
       await startTurn(bot.id, "Summarize conversation context", {
         threadId: bot.threadId, compactOnly: true, cardContinuation: true, trigger: usageTriggerFor(auth),
       });
@@ -1113,7 +1113,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const messageId = m[2];
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body.threadId);
+      const bot = requestedTaskBot(m[1], body.threadId, auth);
       const text = String(body.text ?? "").trim();
       if (!text) return json(res, 400, { error: "text required" });
       const threadMessages = store.messagesFor(bot.threadId);
@@ -1156,7 +1156,13 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (m && method === "POST") {
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body.threadId);
+      const bot = requestedTaskBot(m[1], body.threadId, auth);
+      // The named leaf must be in the conversation being switched. In a Shared
+      // workspace a message in someone else's conversation is not found, the
+      // same as a thread that is not theirs.
+      if (ownThreads?.shared() && !store.messagesFor(bot.threadId).some((msg: any) => msg.id === String(body.messageId ?? ""))) {
+        return json(res, 404, { error: "no such message" });
+      }
       if (threadBusy(bot.id, bot.threadId)) return json(res, 409, { error: "the thread is working — stop it before switching versions" });
       if (isColonieAcpDriver(registry.get(bot.modelSelection.instanceId)?.driverKind)) return json(res, 409, { error: "Native ACP history switching is not available. Start a new thread." });
       const leaf = store.setActiveLeaf(bot.threadId, String(body.messageId ?? ""));
@@ -1178,10 +1184,15 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       const body = rawBody ?? {};
       requirePinnedClientThread(bot.id, body.threadId);
-      const expectedThreadId = body.threadId;
-      if (expectedThreadId !== undefined && (typeof expectedThreadId !== "string" || !/^[\w-]+$/.test(expectedThreadId))) {
+      if (body.threadId !== undefined && (typeof body.threadId !== "string" || !/^[\w-]+$/.test(body.threadId))) {
         return json(res, 400, { error: "threadId must be a task id" });
       }
+      // In a Shared workspace the stop lands on the person's own conversation:
+      // the one the body names, or their current one. Someone else's
+      // conversation is not found, so a stop cannot reach it.
+      const expectedThreadId: string | undefined = ownThreads?.shared()
+        ? requestedTaskBot(bot.id, body.threadId, auth).threadId
+        : body.threadId;
       // Explicit thread targets never fall through to another routine or
       // channel just because it belongs to the same bot.
       if (typeof expectedThreadId === "string" && store.taskByThread(bot.id, expectedThreadId)) {

@@ -8,6 +8,7 @@ import { holdSteeredQueue, restoreHeldSteeredQueue, settleHeldSteeredQueue } fro
 import type { SteerOutcome } from "../contracts.ts";
 import type { Handoffs } from "../colonie/chat/delta-context.ts";
 import type { BotRecord, Store } from "../persistence/store.ts";
+import type { RequestAuth } from "../request-auth.ts";
 import { pinnedClientThread } from "./pinned-client.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -15,24 +16,26 @@ export interface QueueSteerRouteDeps {
   store: Store;
   desktopManaged: boolean;
   handoffs: Pick<Handoffs, "current" | "steered">;
-  requestedTaskBot: (botId: string, rawThreadId: unknown) => BotRecord;
+  requestedTaskBot: (botId: string, rawThreadId: unknown, auth: RequestAuth) => BotRecord;
   /** The live provider turn for a thread, when there is one. */
   runningTurnInstance: (bot: BotRecord | null | undefined, threadId: string) => any;
   clearUnattended: (threadId: string) => void;
   drainQueuedSends: () => void;
+  /** Whether this is a Shared workspace, where the pin rule does not apply. */
+  shared?: () => boolean;
 }
 
 export function createQueueSteerRoutes(deps: QueueSteerRouteDeps): RouteHandler {
   return async ({ req, res, path, method, auth, json, readBody }) => {
     const { store, handoffs, requestedTaskBot, runningTurnInstance, clearUnattended, drainQueuedSends } = deps;
     const DESKTOP_MANAGED = deps.desktopManaged;
-    const requirePinnedClientThread = pinnedClientThread({ auth, store });
+    const requirePinnedClientThread = pinnedClientThread({ auth, store, shared: deps.shared });
     let m: RegExpMatchArray | null = null;
     m = path.match(/^\/api\/bots\/([\w-]+)\/queue\/([\w-]+)\/steer$/);
     if (m && method === "POST") {
       const body = await readBody(req);
       requirePinnedClientThread(m[1], body?.threadId);
-      const bot = requestedTaskBot(m[1], body?.threadId);
+      const bot = requestedTaskBot(m[1], body?.threadId, auth);
       // Pressing Steer folds the queued words into the running turn. It does
       // not re-book that turn to whoever pressed it, and the words keep the
       // sender they were queued with.

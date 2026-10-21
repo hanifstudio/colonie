@@ -18,7 +18,7 @@ import type { AppConfig } from "../config.ts";
 import { parseConnectorTools, sectionKey, type BotRecord, type Store } from "../persistence/store.ts";
 import { profileSnapshot } from "../profile-revision.ts";
 import { recordProfileChange } from "../profile-versions.ts";
-import { clientBotPatchViolation, requestSource } from "../request-auth.ts";
+import { clientBotPatchViolation, requestSource, type RequestAuth } from "../request-auth.ts";
 import { pinnedClientThread } from "./pinned-client.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -38,7 +38,7 @@ export interface BotUpdateRouteDeps {
   maxWorkspaceBots: number;
   broadcast: (payload: Record<string, unknown>) => void;
   wireBot: (bot: BotRecord) => WireBot;
-  requestedTaskBot: (botId: string, rawThreadId: unknown) => BotRecord;
+  requestedTaskBot: (botId: string, rawThreadId: unknown, auth: RequestAuth) => BotRecord;
   threadBusy: (botId: string, threadId: string) => boolean;
   checkedModelSelection: (
     raw: unknown,
@@ -51,6 +51,8 @@ export interface BotUpdateRouteDeps {
   interruptAllDirectThreads: (botId: string) => Promise<void>;
   forgetTemporaryBrowser: (botId: string) => Promise<void>;
   storedAvatarExists: (avatarUrl: string) => boolean;
+  /** Whether this is a Shared workspace, where the pin rule does not apply. */
+  shared?: () => boolean;
 }
 
 export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
@@ -63,7 +65,7 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
     } = deps;
     const DESKTOP_MANAGED = deps.desktopManaged;
     const MAX_WORKSPACE_BOTS = deps.maxWorkspaceBots;
-    const requirePinnedClientThread = pinnedClientThread({ auth, store });
+    const requirePinnedClientThread = pinnedClientThread({ auth, store, shared: deps.shared });
     let m: RegExpMatchArray | null = null;
     m = path.match(/^\/api\/bots\/([\w-]+)$/);
     if (m && method === "PATCH") {
@@ -76,7 +78,7 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
         if (field) return json(res, 403, { error: `forbidden: this session may change how a bot looks, not "${field}" (needs the admin scope)` });
       }
       const existingBot = store.bot(m[1]);
-      const selectedTask = existingBot ? requestedTaskBot(existingBot.id, undefined) : null;
+      const selectedTask = existingBot ? requestedTaskBot(existingBot.id, undefined, auth) : null;
       const beforeProfile = existingBot ? profileSnapshot(existingBot) : undefined;
       const beforeVisibility = existingBot?.visibility;
       if (body.requireAvailableModel !== undefined && typeof body.requireAvailableModel !== "boolean") {

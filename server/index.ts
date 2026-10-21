@@ -582,6 +582,8 @@ const { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdm
   directTurnBots,
   directTurnDispatchClaims,
   maxConcurrentThreads: () => maxConcurrentBotThreads(cfg),
+  ownThreads,
+  personOf,
   // `store` is created below this point and these read it only when called.
   store: () => store,
 });

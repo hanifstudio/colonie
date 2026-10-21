@@ -15,7 +15,7 @@ export interface CommandAllowlistRouteDeps {
   };
   registry: { get: (instanceId: string) => { driverKind?: string } | null | undefined };
   canManage: (auth: RequestAuth) => boolean;
-  requestedTaskBot: (botId: string, rawThreadId: unknown) => BotRecord;
+  requestedTaskBot: (botId: string, rawThreadId: unknown, auth: RequestAuth) => BotRecord;
   response: (bot: BotRecord) => CommandAllowlistResponse;
   drivers: Set<string>;
 }
@@ -26,7 +26,7 @@ export function createCommandAllowlistRoutes(deps: CommandAllowlistRouteDeps): R
     const match = path.match(/^\/api\/bots\/([\w-]+)\/command-allowlist(?:\/([\w-]+))?$/);
     if (!match) return PASS;
     if (!deps.canManage(auth)) return json(res, 403, { error: "Only the owner or an admin can manage command permissions." });
-    const bot = deps.requestedTaskBot(match[1], url.searchParams.get("threadId") ?? undefined);
+    const bot = deps.requestedTaskBot(match[1], url.searchParams.get("threadId") ?? undefined, auth);
     if (method === "GET" && !match[2]) return json(res, 200, deps.response(bot));
     if (method === "POST" && !match[2]) {
       const candidate = commandAllowlistCandidate(await readBody(req));

@@ -18,7 +18,7 @@ export interface ThreadRespondRouteDeps {
   desktopManaged: boolean;
   approvalBus: ApprovalBus;
   botForThread: (botId: string, threadId: string) => BotRecord | null;
-  requestedTaskBot: (botId: string, rawThreadId: unknown) => BotRecord;
+  requestedTaskBot: (botId: string, rawThreadId: unknown, auth: RequestAuth) => BotRecord;
   answerRequest: Helper;
   answeringCardAs: Helper;
   cardAnswerRefusal: (auth: RequestAuth, threadId: string, requestId: string, behavior: string) => string | null;
@@ -181,7 +181,7 @@ export function createThreadRespondRoutes(deps: ThreadRespondRouteDeps): RouteHa
     m = path.match(/^\/api\/bots\/([\w-]+)\/respond$/);
     if (m && method === "POST") {
       const body = await readBody(req);
-      const selected = requestedTaskBot(m[1], body.threadId);
+      const selected = requestedTaskBot(m[1], body.threadId, auth);
       const bot = botForThread(selected.id, selected.threadId)!;
       const behavior = requestBehavior(body.behavior);
       const reviewedSha256 = typeof body.reviewedSha256 === "string" ? body.reviewedSha256 : undefined;
