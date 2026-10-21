@@ -4,6 +4,9 @@
 // and that code lets the owner in as the first admin — once, and only while
 // nobody has joined. Nothing about the owner is known to the server before.
 import { randomBytes } from "node:crypto";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { browser, joinAs, startColonieCloud } from "../../testing/colonie-cloud.ts";
@@ -15,7 +18,12 @@ let ws: SharedWorkspace;
 
 beforeAll(async () => {
   cloud = await startColonieCloud();
+  // Serve a web app, as a real server does: its page fallback must not answer
+  // invite links (it did once, in the container).
+  const webApp = mkdtempSync(join(tmpdir(), "colonie-web-"));
+  writeFileSync(join(webApp, "index.html"), "<!doctype html><title>Colonie web app</title>");
   ws = await startSharedWorkspace([], {}, (url) => ({
+    COLONIE_STATIC_DIR: webApp,
     COLONIE_WORKSPACE_KIND: "shared",
     COLONIE_PUBLIC_URL: url,
     COLONIE_CLOUD_ISSUER: cloud.url,

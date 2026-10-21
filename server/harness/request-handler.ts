@@ -131,6 +131,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // ── who is asking (server/request-auth.ts) ──────────────────────────
     // Two public routes come first: what this server is.
     // Everything else needs the loopback owner or a session with the right scope.
+    // Invite links and the way back from Colonie Cloud are public: the person
+    // has no session yet. Each is a browser page, GET only, answered before
+    // the web app's pages so their fallback page never swallows them.
+    if (colonieSignIn && await colonieSignIn.handle(req, res, path, method, deps.publicUrl ?? null)) return;
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
     if (method === "GET" && path === "/.well-known/colonie/environment") {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && emailSignIn.enabled(), sharedComputers: lendingEnabled(), colonieSignIn: Boolean(colonieSignIn?.link()) }));
@@ -177,9 +181,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       res.setHeader("set-cookie", serializeSessionCookie(SESSION_COOKIE, issued.token, { secure, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) }));
       return json(res, 200, { session: issued.session, environment });
     }
-    // Invite links and the way back from Colonie Cloud are public: the person
-    // has no session yet. Each is a browser page, GET only.
-    if (colonieSignIn && await colonieSignIn.handle(req, res, path, method, deps.publicUrl ?? null)) return;
     const gate = resolveRequestAuth(req, {
       sessions,
       cookieName: SESSION_COOKIE,
