@@ -11,11 +11,10 @@ Step two of "Plan: inviting people" (blueprint, "Colonie Cloud: accounts
 design"). Built and tested on this machine; nothing is deployed until the
 owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
 
-1. **Current.** Accounts core: database schema, scrypt passwords, sign up and
-   sign in pages, a signed-in session. Tests on an in-process Postgres (PGlite).
-2. Sign in with Colonie for workspaces: register a workspace, authorize with
-   code plus PKCE, token endpoint, published public key.
-3. Password reset by email (sender behind an interface), rate limits, lockout.
+1. Done: accounts (scrypt passwords, sign up, sign in, sessions).
+2. Done: Sign in with Colonie (workspace registration, code plus PKCE, ES256
+   ID token, published key). 17 tests on in-process Postgres (PGlite).
+3. **Current.** Password reset by email (sender behind an interface), rate limits, lockout.
 4. Workspace side: an admin creates a one-time invite link; the person signs
    in or up at Colonie Cloud and comes back with their own identity; the
    privacy tests hold for them. End to end on this machine.

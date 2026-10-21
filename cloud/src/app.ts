@@ -3,12 +3,42 @@
 // Cloudflare Worker and in a test.
 import { closeSession, createAccount, openSession, sessionAccount, SESSION_DAYS, signIn, signUpProblem, type Account } from "./accounts.ts";
 import type { Db } from "./db.ts";
+import { findClient, issueCode, redeemCode, redirectProblem, registerClient, type Client, type Signer } from "./oauth.ts";
 
 export const SESSION_COOKIE = "__Host-colonie_session";
 
 export interface AppOptions {
   db: Db;
+  /** This service's public address, the `iss` of every ID token. */
+  issuer: string;
+  /** Signs ID tokens for Sign in with Colonie. */
+  signer: Signer;
   now?: () => Date;
+}
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...SECURITY_HEADERS } });
+
+/** The parameters of a sign-in request from a workspace, read from a query
+ * string or a form. */
+function authorizeParams(source: URLSearchParams) {
+  return {
+    response_type: source.get("response_type") ?? "",
+    client_id: source.get("client_id") ?? "",
+    redirect_uri: source.get("redirect_uri") ?? "",
+    state: source.get("state") ?? "",
+    code_challenge: source.get("code_challenge") ?? "",
+    code_challenge_method: source.get("code_challenge_method") ?? "",
+    nonce: source.get("nonce") ?? "",
+  };
+}
+type AuthorizeParams = ReturnType<typeof authorizeParams>;
+
+/** Back to the workspace with a result. Only ever to its registered address. */
+function backTo(client: Client, values: Record<string, string>): Response {
+  const url = new URL(client.redirect_uri);
+  for (const [key, value] of Object.entries(values)) if (value) url.searchParams.set(key, value);
+  return redirect(url.toString());
 }
 
 const escape = (value: string) =>
@@ -74,7 +104,31 @@ function signInPage(next: string, error: string | null = null, email = "", statu
 <p>New to Colonie? <a href="/signup${next === "/" ? "" : `?next=${encodeURIComponent(next)}`}">Create an account</a></p>`, status);
 }
 
-export function createApp({ db, now = () => new Date() }: AppOptions) {
+export function createApp({ db, issuer, signer, now = () => new Date() }: AppOptions) {
+  /** The workspace asking, checked before anything is sent back to it: an
+   * unknown client or an address that is not exactly its own gets an error
+   * page here, never a redirect. Then the request itself: a problem with it
+   * goes back to the (now trusted) address as an OAuth error. */
+  async function checkAuthorize(params: AuthorizeParams): Promise<{ client: Client } | { page: Response } | { back: Response }> {
+    const client = params.client_id ? await findClient(db, params.client_id) : null;
+    if (!client || client.redirect_uri !== params.redirect_uri) {
+      return { page: page("Cannot continue", "<p>This sign-in link does not come from a workspace Colonie knows. Ask for a new invite link.</p>", 400) };
+    }
+    if (params.response_type !== "code" || params.code_challenge_method !== "S256" || !/^[\w-]{43}$/.test(params.code_challenge)) {
+      return { back: backTo(client, { error: "invalid_request", state: params.state }) };
+    }
+    return { client };
+  }
+
+  function consentPage(client: Client, account: Account, params: AuthorizeParams): Response {
+    const fields = Object.entries(params).map(([key, value]) => `<input type="hidden" name="${key}" value="${escape(value)}">`).join("");
+    const host = new URL(client.redirect_uri).host;
+    return page("Continue to the workspace", `<p>Join <strong>${escape(client.name)}</strong> at <strong>${escape(host)}</strong> as
+<strong>${escape(account.name)}</strong> (${escape(account.email)})?</p>
+<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>
+<form method="post" action="/signout"><button type="submit">Not you? Sign out</button></form>`);
+  }
+
   async function currentAccount(request: Request): Promise<Account | null> {
     const token = cookieToken(request);
     return token ? sessionAccount(db, token, now()) : null;
@@ -95,7 +149,8 @@ export function createApp({ db, now = () => new Date() }: AppOptions) {
         const origin = request.headers.get("origin");
         if (origin && origin !== url.origin) return page("Not allowed", "<p>This form must be sent from Colonie.</p>", 403);
       }
-      const form = method === "POST" ? new URLSearchParams(await request.text()) : null;
+      const raw = method === "POST" ? await request.text() : "";
+      const form = method === "POST" ? new URLSearchParams(raw) : null;
       const next = safeNext(form?.get("next") ?? url.searchParams.get("next"));
 
       if (url.pathname === "/signup" && method === "GET") return signUpPage(next);
@@ -123,6 +178,57 @@ export function createApp({ db, now = () => new Date() }: AppOptions) {
         const token = cookieToken(request);
         if (token) await closeSession(db, token);
         return redirect("/signin", { "set-cookie": clearedCookie });
+      }
+
+      // ── Sign in with Colonie (for Shared workspaces) ──
+      if (url.pathname === "/.well-known/jwks.json" && method === "GET") return json(await signer.publicJwks());
+      if (url.pathname === "/.well-known/openid-configuration" && method === "GET") {
+        return json({
+          issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`,
+          jwks_uri: `${issuer}/.well-known/jwks.json`, registration_endpoint: `${issuer}/clients`,
+          response_types_supported: ["code"], grant_types_supported: ["authorization_code"],
+          code_challenge_methods_supported: ["S256"], id_token_signing_alg_values_supported: ["ES256"],
+          subject_types_supported: ["public"], token_endpoint_auth_methods_supported: ["none"],
+        });
+      }
+      if (url.pathname === "/clients" && method === "POST") {
+        // A workspace registers itself: its name, and the one address it may
+        // be sent back to. No secret: it proves each sign-in with PKCE.
+        let body: { name?: unknown; redirect_uri?: unknown } = {};
+        try { body = JSON.parse(raw); } catch { /* answered as missing fields below */ }
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const redirectUri = typeof body.redirect_uri === "string" ? body.redirect_uri : "";
+        const invalid = !name ? "name required" : redirectProblem(redirectUri);
+        if (invalid) return json({ error: "invalid_client_metadata", error_description: invalid }, 400);
+        const client = await registerClient(db, { name, redirect_uri: redirectUri });
+        return json({ client_id: client.id, client_name: client.name, redirect_uris: [client.redirect_uri], token_endpoint_auth_method: "none" }, 201);
+      }
+      if (url.pathname === "/authorize" && (method === "GET" || method === "POST")) {
+        const params = authorizeParams(method === "GET" ? url.searchParams : form!);
+        const checked = await checkAuthorize(params);
+        if ("page" in checked) return checked.page;
+        if ("back" in checked) return checked.back;
+        const account = await currentAccount(request);
+        if (!account) {
+          const query = new URLSearchParams(params).toString();
+          return redirect(`/signin?next=${encodeURIComponent(`/authorize?${query}`)}`);
+        }
+        if (method === "GET") return consentPage(checked.client, account, params);
+        const code = await issueCode(db, { client: checked.client, account, challenge: params.code_challenge, nonce: params.nonce || null, now: now() });
+        return backTo(checked.client, { code, state: params.state });
+      }
+      if (url.pathname === "/token" && method === "POST") {
+        if (form!.get("grant_type") !== "authorization_code") return json({ error: "unsupported_grant_type" }, 400);
+        const redeemed = await redeemCode(db, {
+          code: form!.get("code") ?? "", clientId: form!.get("client_id") ?? "",
+          redirectUri: form!.get("redirect_uri") ?? "", verifier: form!.get("code_verifier") ?? "", now: now(),
+        });
+        if ("error" in redeemed) return json({ error: redeemed.error }, 400);
+        const { account, nonce } = redeemed;
+        const idToken = await signer.sign(
+          { sub: account.id, email: account.email, email_verified: false, name: account.name, ...(nonce ? { nonce } : {}) },
+          form!.get("client_id")!, now());
+        return json({ id_token: idToken, token_type: "Bearer", expires_in: 300 });
       }
 
       if (url.pathname === "/" && method === "GET") {

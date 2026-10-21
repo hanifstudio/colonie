@@ -22,6 +22,25 @@ export const MIGRATIONS: readonly string[] = [
      expires_at timestamptz not null
    );
    create index sessions_account on sessions(account_id);`,
+  // Sign in with Colonie: each Shared workspace is a client with one exact
+  // address to come back to; a code is single-use, short-lived, bound to a
+  // PKCE challenge, and stored only as a hash.
+  `create table clients (
+     id text primary key,
+     name text not null,
+     redirect_uri text not null,
+     created_at timestamptz not null default now()
+   );
+   create table auth_codes (
+     code_hash text primary key,
+     client_id text not null references clients(id) on delete cascade,
+     account_id text not null references accounts(id) on delete cascade,
+     redirect_uri text not null,
+     code_challenge text not null,
+     nonce text,
+     expires_at timestamptz not null,
+     used_at timestamptz
+   );`,
 ];
 
 /** Bring the schema up to date. Safe to run on every start. */

@@ -1,7 +1,7 @@
 // Colonie accounts: sign up, sign in, the signed-in session, and signing out.
 import { afterEach, expect, test } from "vitest";
 
-import { migrate } from "../src/db.ts";
+import { MIGRATIONS, migrate } from "../src/db.ts";
 import { hashPassword, verifyPassword } from "../src/passwords.ts";
 import { testCloud, testDb } from "./helpers.ts";
 
@@ -18,7 +18,8 @@ test("the schema migrates once and again without harm", async () => {
   const db = await testDb();
   closers.push(() => db.close());
   await migrate(db);
-  expect(await db.query("select version from schema_migrations")).toEqual([{ version: 1 }]);
+  const versions = (await db.query<{ version: number }>("select version from schema_migrations order by version")).map((row) => row.version);
+  expect(versions).toEqual(MIGRATIONS.map((_, index) => index + 1));
 });
 
 test("a password is stored as an scrypt hash with its parameters, and only verifies itself", async () => {
