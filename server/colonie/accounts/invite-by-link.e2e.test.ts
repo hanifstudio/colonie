@@ -4,102 +4,25 @@
 // person's browser would: invite link, Colonie sign-up, consent, back to the
 // workspace signed in under their own identity — and the privacy rules hold
 // for them like for anyone else.
-import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { createApp } from "../../../cloud/src/app.ts";
-import { createSigner, generateSigningJwk } from "../../../cloud/src/oauth.ts";
-import { testDb } from "../../../cloud/test/helpers.ts";
-import { freePortBlock } from "../../testing/ports.ts";
+import { browser, joinAs as join, startColonieCloud, type Browser } from "../../testing/colonie-cloud.ts";
 import { startSharedWorkspace, type SharedWorkspace } from "../../testing/shared-workspace.ts";
 
 const ADA = "ada@x.com"; // the workspace admin who invites
 
-let cloudServer: Server;
+let cloud: Awaited<ReturnType<typeof startColonieCloud>>;
 let cloudUrl: string;
-let closeDb: () => Promise<void>;
 let ws: SharedWorkspace;
 let botId: string;
 
-/** A browser: follows redirects across both sites, keeps each site's cookies. */
-function browser() {
-  const jars = new Map<string, Map<string, string>>();
-  const jarFor = (origin: string) => jars.get(origin) ?? jars.set(origin, new Map()).get(origin)!;
-  async function go(url: string, init: { method?: string; form?: Record<string, string> } = {}): Promise<{ url: string; status: number; text: string }> {
-    let current = new URL(url);
-    let method = init.method ?? (init.form ? "POST" : "GET");
-    let body: string | undefined = init.form ? new URLSearchParams(init.form).toString() : undefined;
-    for (let hop = 0; hop < 10; hop += 1) {
-      const jar = jarFor(current.origin);
-      const headers: Record<string, string> = {};
-      if (jar.size) headers.cookie = [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
-      if (body !== undefined) { headers["content-type"] = "application/x-www-form-urlencoded"; headers.origin = current.origin; }
-      const response = await fetch(current, { method, headers, body, redirect: "manual" });
-      for (const cookie of response.headers.getSetCookie()) {
-        const [pair] = cookie.split(";");
-        const [name, ...value] = pair!.split("=");
-        if (/Max-Age=0/i.test(cookie)) jar.delete(name!); else jar.set(name!, value.join("="));
-      }
-      const location = response.headers.get("location");
-      if (response.status >= 300 && response.status < 400 && location) {
-        current = new URL(location, current);
-        method = "GET";
-        body = undefined;
-        continue;
-      }
-      return { url: current.toString(), status: response.status, text: await response.text() };
-    }
-    throw new Error("too many redirects");
-  }
-  /** The form fields on the page (the consent page posts them back). */
-  const formFields = (html: string) => Object.fromEntries([...html.matchAll(/<input type="hidden" name="([^"]+)" value="([^"]*)">/g)]
-    .map((match) => [match[1]!, match[2]!.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")]));
-  const cookieHeader = (origin: string) => [...jarFor(origin)].map(([name, value]) => `${name}=${value}`).join("; ");
-  return { go, formFields, cookieHeader };
-}
-
-/** Accept an invite as a new person: sign up at Colonie, continue, land back. */
-async function joinAs(inviteUrl: string, person: { name: string; email: string; password: string }) {
-  const b = browser();
-  const signIn = await b.go(inviteUrl);
-  expect(signIn.url).toContain(`${cloudUrl}/signin`);
-  const next = new URL(signIn.url).searchParams.get("next")!;
-  const consent = await b.go(`${cloudUrl}/signup`, { form: { ...person, next } });
-  expect(consent.text, consent.text.slice(0, 500)).toContain("Continue to the workspace");
-  const landed = await b.go(`${cloudUrl}/authorize`, { form: b.formFields(consent.text) });
-  return { b, landed };
-}
-
+const joinAs = (inviteUrl: string, person: { name: string; email: string; password: string }) => join(cloudUrl, inviteUrl, person);
 /** The workspace API as this browser's session. */
-async function api(b: ReturnType<typeof browser>, path: string, init: { method?: string; body?: unknown } = {}) {
-  const response = await fetch(`${ws.url}${path}`, {
-    method: init.method ?? "GET",
-    headers: { cookie: b.cookieHeader(ws.url), origin: ws.url, ...(init.body === undefined ? {} : { "content-type": "application/json" }) },
-    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-  });
-  const text = await response.text();
-  let body: any = text;
-  try { body = JSON.parse(text); } catch { /* not JSON */ }
-  return { status: response.status, body };
-}
+const api = (b: Browser, path: string, init: { method?: string; body?: unknown } = {}) => b.api(ws.url, path, init);
 
 beforeAll(async () => {
-  const db = await testDb();
-  closeDb = () => db.close();
-  const port = await freePortBlock([0]);
-  cloudUrl = `http://127.0.0.1:${port}`;
-  const app = createApp({ db, issuer: cloudUrl, signer: await createSigner(await generateSigningJwk("e2e"), cloudUrl) });
-  cloudServer = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const headers = new Headers();
-    for (const [name, value] of Object.entries(req.headers)) if (typeof value === "string") headers.set(name, value);
-    const response = await app.fetch(new Request(`${cloudUrl}${req.url}`, { method: req.method, headers, ...(chunks.length ? { body: Buffer.concat(chunks) } : {}) }));
-    res.writeHead(response.status, Object.fromEntries(response.headers));
-    res.end(Buffer.from(await response.arrayBuffer()));
-  });
-  await new Promise<void>((resolve) => cloudServer.listen(port, "127.0.0.1", resolve));
-
+  cloud = await startColonieCloud();
+  cloudUrl = cloud.url;
   ws = await startSharedWorkspace([{ email: ADA, admin: true }]);
   botId = (await ws.as(ADA, "/api/bots")).body.bots[0].id;
   const connected = await ws.as(ADA, "/api/colonie-cloud/connect", { method: "POST", body: { issuer: cloudUrl, name: "Launch Team" } });
@@ -107,8 +30,7 @@ beforeAll(async () => {
 }, 90_000);
 afterAll(async () => {
   await ws?.stop();
-  await new Promise((resolve) => cloudServer?.close(resolve));
-  await closeDb?.();
+  await cloud?.stop();
 });
 
 test("an invited person signs up at Colonie and lands in the workspace under their own identity", async () => {

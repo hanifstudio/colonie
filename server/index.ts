@@ -261,6 +261,27 @@ let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 // Where remote clients reach this server (a proxy's public address), for links this
 // server hands out.
 const FALLBACK_PUBLIC_URL = process.env.COLONIE_PUBLIC_URL?.trim().replace(/\/+$/, "") || null;
+// A server set up as a Shared workspace (the one-click deployment) is told at
+// start where Colonie Cloud is and its first owner's invite code; it connects
+// before it listens, so the owner's link works from the first request.
+{
+  const issuer = process.env.COLONIE_CLOUD_ISSUER?.trim();
+  if (issuer && !colonieSignIn.link()) {
+    if (!FALLBACK_PUBLIC_URL) console.warn("[colonie-cloud] COLONIE_CLOUD_ISSUER needs COLONIE_PUBLIC_URL, the address people reach this server at");
+    else {
+      try {
+        await colonieSignIn.connect(issuer, process.env.COLONIE_WORKSPACE_NAME?.trim() || "Colonie workspace", FALLBACK_PUBLIC_URL);
+      } catch (error) {
+        console.error(`[colonie-cloud] could not connect to ${issuer}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  const ownerCode = process.env.COLONIE_OWNER_INVITE_CODE?.trim();
+  if (ownerCode) {
+    const result = colonieSignIn.ensureOwnerInvite(ownerCode);
+    if (result === "invalid") console.warn("[colonie-cloud] COLONIE_OWNER_INVITE_CODE is not a valid invite code");
+  }
+}
 const cfg = loadConfig();
 const providerConfigs = () => instanceConfigs(cfg);
 // The per-thread event log cap is checked after every NDJSON append.

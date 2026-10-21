@@ -133,6 +133,21 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
 
     members: (): Member[] => book().members,
 
+    /** The first owner's way in. Whoever creates the server (the one-click
+     * deployment) makes this code and hands it over at start; only its hash is
+     * kept. It is an admin invite, and only while the workspace has no member:
+     * once anyone has joined, a code at start does nothing. */
+    ensureOwnerInvite(code: string): "added" | "present" | "has-members" | "invalid" {
+      if (!/^[\w-]{20,64}$/.test(code)) return "invalid";
+      const current = book();
+      if (current.members.length) return "has-members";
+      const codeHash = sha256(code);
+      if (current.invites.some((invite) => invite.codeHash === codeHash)) return "present";
+      current.invites.push({ codeHash, role: "admin", expiresAt: new Date(now().getTime() + INVITE_DAYS * 24 * 60 * 60_000).toISOString() });
+      saveBook(current);
+      return "added";
+    },
+
     /** The public routes of this flow. True when the request was one of them. */
     async handle(req: IncomingMessage, res: ServerResponse, path: string, method: string, publicUrl: string | null): Promise<boolean> {
       const invitePath = /^\/invite\/([\w-]{20,64})$/.exec(path);

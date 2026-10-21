@@ -40,7 +40,12 @@ export interface SharedWorkspace {
 
 const ROOT = join(import.meta.dirname, "..", "..");
 
-export async function startSharedWorkspace(people: SharedPerson[], extraConfig: Record<string, unknown> = {}): Promise<SharedWorkspace> {
+export async function startSharedWorkspace(
+  people: SharedPerson[],
+  extraConfig: Record<string, unknown> = {},
+  /** Start-up settings for the server, given the address it will answer at. */
+  extraEnv: (url: string) => Record<string, string> = () => ({}),
+): Promise<SharedWorkspace> {
   const home = mkdtempSync(join(tmpdir(), "colonie-shared-home-"));
   const dataDir = mkdtempSync(join(tmpdir(), "colonie-shared-data-"));
   const admins = people.filter((person) => person.admin).map((person) => person.email);
@@ -69,15 +74,15 @@ export async function startSharedWorkspace(people: SharedPerson[], extraConfig: 
   registry.close();
 
   const port = await freePortBlock([0, 1]);
+  const url = `http://127.0.0.1:${port}`;
   let output = "";
   const child: ChildProcess = spawn(process.execPath, [join(ROOT, "server", "index.ts")], {
     cwd: ROOT,
-    env: childEnv({ HOME: home, COLONIE_PROFILE: "1", COLONIE_DATA_DIR: dataDir, COLONIE_PORT: String(port) }),
+    env: childEnv({ HOME: home, COLONIE_PROFILE: "1", COLONIE_DATA_DIR: dataDir, COLONIE_PORT: String(port), ...extraEnv(url) }),
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout?.on("data", (chunk) => { output += chunk; });
   child.stderr?.on("data", (chunk) => { output += chunk; });
-  const url = `http://127.0.0.1:${port}`;
 
   const stop = async () => {
     if (child.exitCode === null) {
