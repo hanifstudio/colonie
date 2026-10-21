@@ -7,19 +7,27 @@ Updated October 21, 2026.
 
 ## Now: a person sees only the conversations they are in
 
-Owner decision, October 21: the first release has Shared workspaces with
-invitations, and a conversation is readable only by its participants, the
-owner and admins included. This is step one of "Plan: inviting people" in the
-blueprint, for a strong model: today privacy is per bot, so two people on one
-bot see each other's chats, and recall can carry one person's chat into
-another's answer.
+Step one of "Plan: inviting people" (blueprint). Today privacy is per bot, so
+two people on one bot see each other's chats. A Shared workspace is new, never
+converted from Local, so Local must behave exactly as today. Steps, in order:
 
-- **After:** every conversation has participants; reads, search, exports, and
-  live updates show a person only their own; recall and message search never
-  quote one conversation inside another with different people. The bot's
-  memory stays shared across people (owner decision).
-- **Proof:** two signed-in test people on a throwaway server cannot see or
-  reach each other's conversations by any route, live stream, or bot answer.
+1. The workspace knows it is Shared; every signed-in person, owner and admins
+   included, sees a thread only if they are among its participants. (Strong model.)
+2. Every conversation stores its participants, set where it is created.
+   (Cheaper model, tests first.)
+3. Each person has their own current conversation with each bot; a first
+   message to a bot opens one. Every route goes through that. (Strong model.)
+4. Live updates and their replay carry only a person's own conversations. (Strong.)
+5. Search, exports, and backups: search covers only your own conversations;
+   whole-workspace backups are refused to signed-in people. (Cheaper, tests first.)
+6. Recall never quotes another conversation with different people; the bot's
+   memory stays shared (owner decision). (Strong.)
+7. Only a conversation's participants answer its approval cards. (Strong.)
+
+Decided here, reversible: routines and webhooks record who created them, and
+their threads belong to that person; a bot being busy stays visible to all.
+**Proof:** two signed-in test people on a throwaway server; each step adds checks
+that one never sees, reaches, searches, or is quoted the other's conversation.
 
 ## Next: a person installs Colonie from this code and completes the first run
 
