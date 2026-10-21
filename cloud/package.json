@@ -1,0 +1,20 @@
+{
+  "name": "colonie-cloud",
+  "private": true,
+  "type": "module",
+  "description": "Colonie Cloud: the one Colonie-run backend (accounts first). Cloudflare Workers + Neon Postgres.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "jose": "6.2.13"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.11"
+  }
+}

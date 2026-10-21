@@ -5,20 +5,26 @@ change; delete finished work. History is in Git.
 
 Updated October 21, 2026.
 
-## Now: invite a person by link
+## Now: Colonie Cloud accounts, and invite by link
 
-Step two of "Plan: inviting people" (blueprint). Step one, privacy by person,
-is done: in a Shared workspace each person, admins included, sees, searches,
-streams, and acts on only their own conversations, and no turn quotes anyone
-else's; 26 two-person tests guard it (`server/colonie/chat/shared-*.e2e.test.ts`,
-harness `server/testing/shared-workspace.ts`).
+Step two of "Plan: inviting people" (blueprint, "Colonie Cloud: accounts
+design"). Built and tested on this machine; nothing is deployed until the
+owner creates the Cloudflare, Neon, and Resend accounts. Code in `cloud/`.
 
-- **After:** an admin creates a one-time invite link; opening it signs that
-  person in to the Shared workspace, without email. The pairing-code
-  machinery in `server/sessions.ts` exists but has no route.
-- **Gaps found, not yet fixed:** bot memory learns only from unsigned
-  messages, so in a Shared workspace it learns nothing (owner wants it shared
-  and learning); the commit guard counts a final newline as a line.
+1. **Current.** Accounts core: database schema, scrypt passwords, sign up and
+   sign in pages, a signed-in session. Tests on an in-process Postgres (PGlite).
+2. Sign in with Colonie for workspaces: register a workspace, authorize with
+   code plus PKCE, token endpoint, published public key.
+3. Password reset by email (sender behind an interface), rate limits, lockout.
+4. Workspace side: an admin creates a one-time invite link; the person signs
+   in or up at Colonie Cloud and comes back with their own identity; the
+   privacy tests hold for them. End to end on this machine.
+5. Wrangler config and a local `wrangler dev` run in the real Workers runtime.
+
+Privacy by person (step one) is done and guarded by
+`server/colonie/chat/shared-*.e2e.test.ts`. Gaps: bot memory learns nothing in
+a Shared workspace (only unsigned messages feed it); the commit guard counts a
+final newline as a line.
 
 ## Next: a person installs Colonie from this code and completes the first run
 

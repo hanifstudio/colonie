@@ -35,7 +35,7 @@
     "control:colonie": "node --experimental-strip-types scripts/control-colonie.ts",
     "dev:desktop": "electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
-    "check": "pnpm typecheck && pnpm lint && pnpm structure:check && pnpm test",
+    "check": "pnpm typecheck && pnpm lint && pnpm structure:check && pnpm test && pnpm --filter colonie-cloud check",
     "prepare": "git config core.hooksPath scripts/git-hooks",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "structure:check": "node scripts/structure/check-structure.mjs",
