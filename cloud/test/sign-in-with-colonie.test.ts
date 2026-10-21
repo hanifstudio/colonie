@@ -59,6 +59,9 @@ test("the whole flow ends in an ID token the workspace can verify", async () => 
   expect(consent.text).toContain("Launch Team");
   expect(consent.text).toContain("203-0-113-5.sslip.io");
   expect(consent.text).toContain("Ada Lovelace");
+  // Continue redirects to the workspace: a browser blocks that unless the
+  // page's form-action allows the workspace's origin (and only that one).
+  expect(consent.response.headers.get("content-security-policy")).toContain("form-action 'self' https://203-0-113-5.sslip.io;");
   const { code, state } = await approve(s, challenge);
   expect(state).toBe("state-123");
   const token = await exchange(s, code, verifier);

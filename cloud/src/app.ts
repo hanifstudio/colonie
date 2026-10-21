@@ -184,17 +184,21 @@ export function createApp({ db, issuer, signer, mailer, now = () => new Date() }
   function consentPage(client: Client, account: Account, params: AuthorizeParams): Response {
     const fields = Object.entries(params).map(([key, value]) => `<input type="hidden" name="${key}" value="${escape(value)}">`).join("");
     const redirect = new URL(client.redirect_uri);
+    // Continue answers with a redirect to the client's way back, and browsers
+    // hold a form's redirects to form-action too: allow that one origin, on
+    // this page only, or Continue does nothing.
+    const csp = { "content-security-policy": SECURITY_HEADERS["content-security-policy"].replace("form-action 'self'", `form-action 'self' ${redirect.origin}`) };
     const signOut = `<form method="post" action="/signout"><button type="submit" class="quiet">Not you? Sign out</button></form>`;
     // The Colonie app on the person's own computer: it registers under this
     // name and comes back to 127.0.0.1 (server/colonie/accounts/desktop-account.ts).
     if (client.name === "Colonie on this computer" && ["127.0.0.1", "localhost", "[::1]"].includes(redirect.hostname)) {
       return page("Continue to Colonie", `<p>Sign in to the Colonie app on this computer as
 <strong>${escape(account.name)}</strong> (${escape(account.email)})?</p>
-<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`);
+<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`, 200, csp);
     }
     return page("Continue to the workspace", `<p>Join <strong>${escape(client.name)}</strong> at <strong>${escape(redirect.host)}</strong> as
 <strong>${escape(account.name)}</strong> (${escape(account.email)})?</p>
-<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`);
+<form method="post" action="/authorize">${fields}<button type="submit">Continue</button></form>${signOut}`, 200, csp);
   }
 
   async function currentAccount(request: Request): Promise<Account | null> {
