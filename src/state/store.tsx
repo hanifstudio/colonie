@@ -164,6 +164,8 @@ export interface SecretRequestCardData {
 }
 
 export interface Message {
+  /** A line about a group or DM itself ("Ana added Bob"), not anyone's words. */
+  notice?: true;
   id: string;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { Conversation } from "@/lib/conversations";
-import { withFrame } from "@/lib/conversations";
+import { mentionQuery, mentionSuggestions, withFrame } from "@/lib/conversations";
 import type { Message } from "@/state/store";
 import { ConversationListView } from "./SidebarConversations";
 import { ConversationMessagesView } from "./ConversationView";
@@ -66,5 +66,30 @@ describe("groups and DMs between people", () => {
     expect(list).toHaveLength(1);
     list = withFrame(list, { kind: "message.patch", threadId: "t1", message: { ...first, text: "Done." } });
     expect(list[0]!.text).toBe("Done.");
+  });
+
+  it("someone @named sees it on the conversation, before plain unread", () => {
+    const html = renderToStaticMarkup(createElement(ConversationListView, {
+      conversations: [conversation({ unread: true, mentioned: true })], selectedId: undefined, onSelect: () => {}, onNew: () => {},
+    }));
+    expect(html).toContain('aria-label="You were mentioned"');
+    expect(html).not.toContain('aria-label="Unread"');
+  });
+
+  it("typing @ suggests the people here and the bots, by any word of their name", () => {
+    expect(mentionQuery("hey @bo")).toBe("bo");
+    expect(mentionQuery("mail me at bob@x.com")).toBeNull();
+    expect(mentionQuery("done")).toBeNull();
+    const names = [{ name: "Bob Builder", kind: "person" as const }, { name: "Riset", kind: "bot" as const }];
+    expect(mentionSuggestions("bu", names).map((entry) => entry.name)).toEqual(["Bob Builder"]);
+    expect(mentionSuggestions("", names)).toHaveLength(2);
+  });
+
+  it("a line about the conversation itself reads as a note, not as someone's words", () => {
+    const html = renderToStaticMarkup(createElement(ConversationMessagesView, {
+      messages: [message({ id: "n1", role: "bot", notice: true, text: "Ana made the group with Bob, Riset." })],
+    }));
+    expect(html).toContain("Ana made the group with Bob, Riset.");
+    expect(html).not.toContain("· Bot");
   });
 });

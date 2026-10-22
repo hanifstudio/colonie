@@ -1,57 +1,39 @@
-// Creating a Shared workspace from the desktop app, as the owner sees it:
-// connect DigitalOcean, the monthly price first, then the server's progress
-// until it can be opened.
+// The owner's Shared workspace servers, as the menu's list shows them:
+// where each is and how it is doing, Open and Delete or Forget. Making one
+// is the onboarding (onboarding/beats/SharedBeats.test.ts).
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 
-import { CreateSharedWorkspaceView, openShared, type SharedServersState } from "./CreateSharedWorkspace";
+import { SharedServersView, openShared, type SharedServersState } from "./CreateSharedWorkspace";
 
-const disconnected: SharedServersState = { digitalOcean: { connected: false, region: "sgp1", size: "s-2vcpu-4gb" }, servers: [] };
-const connected: SharedServersState = {
-  digitalOcean: { connected: true, region: "sgp1", size: "s-2vcpu-4gb", account: { email: "owner@example.com", dropletLimit: 3, active: true }, price: { monthlyUsd: 24, hourlyUsd: 0.0357 } },
-  servers: [],
-};
-const view = (state: SharedServersState | null, extra: Partial<Parameters<typeof CreateSharedWorkspaceView>[0]> = {}) => renderToStaticMarkup(createElement(CreateSharedWorkspaceView, {
-  state, name: "Launch Team", busy: "", error: "", waitingForBrowser: false, mode: "digitalocean", address: "",
-  onMode: () => {}, onAddress: () => {}, onCreateSelf: () => {},
-  onName: () => {}, onConnect: () => {}, onCreate: () => {}, onOpen: () => {}, onDelete: () => {}, onClose: () => {}, ...extra,
+const ocean: SharedServersState["digitalOcean"] = { connected: true, region: "sgp1", size: "s-2vcpu-4gb" };
+const view = (state: SharedServersState | null) => renderToStaticMarkup(createElement(SharedServersView, {
+  state, busy: "", error: "", onOpen: () => {}, onDelete: () => {}, onNew: () => {}, onClose: () => {},
 }));
 
-test("before anything, the owner learns where it runs and who bills them, and connects DigitalOcean", () => {
-  const html = view(disconnected);
-  expect(html).toContain("Create a Shared workspace");
-  expect(html).toMatch(/A new server in your DigitalOcean account/);
-  expect(html).toContain("Connect DigitalOcean");
-  expect(html).not.toContain("Create workspace");
+test("with none yet, the list says how to make one", () => {
+  const html = view({ digitalOcean: ocean, servers: [] });
+  expect(html).toContain("Shared workspace servers");
+  expect(html).toMatch(/New workspace → Shared/);
+  expect(html).not.toContain("Connect DigitalOcean");
 });
 
-test("while the browser sign-in is open, the dialog says it is waiting", () => {
-  expect(view(disconnected, { waitingForBrowser: true })).toMatch(/Finish connecting in your browser/);
-});
-
-test("connected, the live monthly price and place are shown before Create", () => {
-  const html = view(connected);
-  expect(html).toContain("owner@example.com");
-  expect(html).toContain("$24 a month");
-  expect(html).toContain("Singapore");
-  expect(html).toMatch(/Billed by DigitalOcean until you delete it/);
-  expect(html).toContain("Create workspace");
-});
-
-test("each server shows where it is, and a ready one can be opened or deleted", () => {
+test("each server shows where it is, and a ready one can be opened; a droplet deleted, an own server forgotten", () => {
   const html = view({
-    ...connected,
+    digitalOcean: ocean,
     servers: [
-      { id: "a", name: "Launch Team", tag: "colonie-ws-a", region: "sgp1", size: "s-2vcpu-4gb", state: "starting", createdAt: "2026-10-21T00:00:00Z", address: "https://203-0-113-7.sslip.io" },
-      { id: "b", name: "Design", tag: "colonie-ws-b", region: "sgp1", size: "s-2vcpu-4gb", state: "ready", createdAt: "2026-10-21T00:00:00Z", address: "https://203-0-113-8.sslip.io", inviteUrl: "https://203-0-113-8.sslip.io/invite/x" },
-      { id: "c", name: "Broken", tag: "colonie-ws-c", region: "sgp1", size: "s-2vcpu-4gb", state: "failed", createdAt: "2026-10-21T00:00:00Z", error: "The server did not answer within half an hour." },
+      { id: "a", name: "Launch Team", tag: "colonie-ws-a", region: "sgp1", size: "s-2vcpu-4gb", state: "starting", createdAt: "", address: "https://203-0-113-7.sslip.io" },
+      { id: "b", name: "Design", tag: "colonie-ws-b", region: "sgp1", size: "s-2vcpu-4gb", state: "ready", createdAt: "", address: "https://203-0-113-8.sslip.io", inviteUrl: "https://203-0-113-8.sslip.io/invite/x" },
+      { id: "c", name: "Broken", tag: "colonie-ws-c", region: "sgp1", size: "s-2vcpu-4gb", state: "failed", createdAt: "", error: "The server did not answer within half an hour." },
+      { id: "d", kind: "self", name: "Own", tag: "colonie-ws-d", region: "", size: "", state: "ready", createdAt: "", address: "https://team.example.com" },
     ],
   });
   expect(html).toMatch(/Starting Colonie/);
-  expect(html).toContain("Open");
   expect(html).toContain("did not answer within half an hour");
-  expect(html.match(/Delete/g)?.length).toBe(3);
+  expect(html.match(/>Open</g)?.length).toBe(2);
+  expect(html.match(/>Delete</g)?.length).toBe(3);
+  expect(html.match(/>Forget</g)?.length).toBe(1);
 });
 
 test("the first open uses the owner's invite, later opens the address", async () => {
@@ -63,27 +45,4 @@ test("the first open uses the owner's invite, later opens the address", async ()
   expect(markOpened).toHaveBeenCalledWith("b");
   await openShared({ addFromLink }, markOpened, { ...server, opened: true });
   expect(addFromLink).toHaveBeenLastCalledWith("https://h.sslip.io", "Design");
-});
-
-test("the owner chooses between one click on DigitalOcean and their own server", () => {
-  const html = view(disconnected);
-  expect(html).toContain("One click on DigitalOcean");
-  expect(html).toContain("My own server");
-});
-
-test("on their own server: a name and the server's address, then the command to paste", () => {
-  const form = view(disconnected, { mode: "self" });
-  expect(form).toMatch(/IP address or domain/);
-  expect(form).toMatch(/Ubuntu/);
-  expect(form).toContain("Get the command");
-  expect(form).not.toContain("Connect DigitalOcean");
-
-  const waiting = view({ ...disconnected, servers: [{
-    id: "s", kind: "self", name: "Launch Team", tag: "t", region: "", size: "", state: "starting", createdAt: "",
-    address: "https://team.example.com", command: "echo H4sI | base64 -d | gunzip | sudo bash",
-  }] }, { mode: "self" });
-  expect(waiting).toContain("echo H4sI | base64 -d | gunzip | sudo bash");
-  expect(waiting).toMatch(/Paste this into your server/);
-  expect(waiting).toContain("Copy");
-  expect(waiting).toContain("Forget");
 });

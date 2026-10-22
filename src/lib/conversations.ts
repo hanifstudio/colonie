@@ -14,6 +14,20 @@ export interface ConversationPerson { email: string; name: string; you: boolean 
 export interface Conversation {
   id: string; threadId: string; kind: "group" | "dm"; title: string; name: string;
   people: ConversationPerson[]; bots: string[]; lastMessageAt: number; unread: boolean;
+  /** Someone @named the caller since they last read it. */
+  mentioned?: boolean;
+}
+
+/** The "@query" being typed at the end of the text, or null. */
+export function mentionQuery(textBeforeCaret: string): string | null {
+  const match = /(?:^|\s)@([^\s@]*)$/.exec(textBeforeCaret);
+  return match ? match[1]! : null;
+}
+
+/** Names that start with the query (people and bots), for the suggestion list. */
+export function mentionSuggestions(query: string, names: Array<{ name: string; kind: "person" | "bot" }>) {
+  const q = query.toLowerCase();
+  return names.filter((entry) => entry.name.toLowerCase().startsWith(q) || entry.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(q))).slice(0, 6);
 }
 export interface ThreadFrame { kind: "message" | "message.patch"; threadId: string; message: Message }
 

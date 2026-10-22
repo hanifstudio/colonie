@@ -33,7 +33,9 @@ export function ConversationListView({ conversations, selectedId, onSelect, onNe
             conversation.id === selectedId ? "bg-raised text-ink" : "text-ink-secondary hover:bg-raised/50 hover:text-ink")}>
           <HIcon icon={conversation.kind === "dm" ? UserIcon : UserGroupIcon} size={15} className="shrink-0" />
           <span className={cn("min-w-0 flex-1 truncate", conversation.unread && "font-semibold text-ink")}>{conversation.title}</span>
-          {conversation.unread && <span aria-label="Unread" className="size-2 shrink-0 rounded-full bg-accent" />}
+          {conversation.mentioned
+            ? <span aria-label="You were mentioned" title="You were mentioned" className="shrink-0 rounded-full bg-accent px-1.5 text-[10.5px] font-bold leading-4 text-white">@</span>
+            : conversation.unread && <span aria-label="Unread" className="size-2 shrink-0 rounded-full bg-accent" />}
         </button>
       ))}
     </section>

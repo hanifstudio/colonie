@@ -382,6 +382,8 @@ export type CardAnswerer = (
 export interface WireMessage {
   roomRequest?: { id: string; phase: "request" | "result" };
   id: string;
+  /** A line about the conversation itself ("Ana added Bob"), not anyone's words. */
+  notice?: true;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;

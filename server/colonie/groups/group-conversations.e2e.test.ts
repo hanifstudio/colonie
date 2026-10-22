@@ -46,6 +46,17 @@ test("a person makes a group with another person and a bot; both see it in their
   expect(made.body.people.map((person: any) => person.email)).toEqual([ADA, BOB]);
   const bobs = await ws.as(BOB, "/api/conversations");
   expect(bobs.body.conversations.map((entry: any) => entry.id)).toContain(group.id);
+  // A line says what happened, and reaches every member's app as it is written.
+  const first = (await messagesOf(BOB))[0];
+  expect(first).toMatchObject({ notice: true, text: `ada@x.com made the group with bob@x.com, ${bot.name}.` });
+});
+
+test("@naming a person marks the conversation for them", async () => {
+  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: "@bob@x.com can you check the budget?" } });
+  const bobs = (await ws.as(BOB, "/api/conversations")).body.conversations.find((entry: any) => entry.id === group.id);
+  expect(bobs).toMatchObject({ unread: true, mentioned: true });
+  await ws.as(BOB, `/api/conversations/${group.id}/read`, { method: "POST" });
+  expect((await ws.as(BOB, "/api/conversations")).body.conversations.find((entry: any) => entry.id === group.id).mentioned).toBe(false);
 });
 
 test("people write in it, and a bot answers there when mentioned", async () => {
@@ -56,7 +67,7 @@ test("people write in it, and a bot answers there when mentioned", async () => {
     const line = list.find((message) => message.from?.botId === bot.id);
     return Boolean(line && !/working on it/.test(line.text));
   }, "the bot's answer in the group");
-  expect(messages.map((message) => message.sender?.name ?? message.from?.name)).toEqual(["bob@x.com", "ada@x.com", bot.name]);
+  expect(messages.filter((message) => !message.notice).map((message) => message.sender?.name ?? message.from?.name)).toEqual(["ada@x.com", "bob@x.com", "ada@x.com", bot.name]);
   expect(messages.at(-1).text).not.toMatch(/could not/);
   // The bot's own work for this group is open to whoever asked it.
   const adaBots = await ws.as(ADA, "/api/bots");

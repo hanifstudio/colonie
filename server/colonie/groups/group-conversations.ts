@@ -31,6 +31,8 @@ export interface GroupConversation {
   updatedAt: number;
   /** When each person last read it, by person key. */
   readAt: Record<string, number>;
+  /** When each person was last @mentioned in it, by person key. */
+  mentionedAt?: Record<string, number>;
   /** Each bot's own working thread for this conversation. */
   botThreads: Record<string, string>;
 }
@@ -94,8 +96,14 @@ export function createGroupConversations(deps: {
       name: record.name, people, bots: record.bots,
       lastMessageAt: last?.at ?? record.createdAt,
       unread: Boolean(last && last.at > (record.readAt[caller.key] ?? 0) && last.sender?.id !== caller.key),
+      mentioned: (record.mentionedAt?.[caller.key] ?? 0) > (record.readAt[caller.key] ?? 0),
     };
   }
+
+  const nameOf = (key: string) => { const entry = known().get(key); return entry?.name || entry?.email || "Someone"; };
+  /** A line about the conversation itself; it also tells every member's app. */
+  const notice = (record: GroupConversation, text: string) =>
+    deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text, notice: true });
 
   /** People named by address: on this workspace's list, never the caller twice. */
   function peopleFor(caller: Caller, emails: unknown): string[] | Answer {
@@ -123,7 +131,7 @@ export function createGroupConversations(deps: {
     const lines: string[] = [];
     let size = 0;
     for (const message of deps.store().messagesFor(record.threadId).slice(-CONTEXT_MESSAGES - 1, -1).reverse()) {
-      if (message.kind !== "text" || !message.text?.trim()) continue;
+      if (message.kind !== "text" || message.notice || !message.text?.trim()) continue;
       const who = message.role === "bot" ? message.from?.name ?? "A bot" : message.sender?.name ?? "Someone";
       const line = `${who}: ${message.text.trim()}`;
       if (size + line.length > CONTEXT_CHARS) break;
@@ -198,6 +206,8 @@ export function createGroupConversations(deps: {
       };
       records = [...records, record];
       save();
+      const others = [...people.filter((key) => key !== caller.key).map(nameOf), ...bots.map((id) => deps.store().bot(id)?.name ?? "a bot")];
+      notice(record, kind === "dm" ? `${caller.name} started this conversation.` : `${caller.name} made the group${others.length ? ` with ${others.join(", ")}` : ""}.`);
       return { status: 201, body: wire(record, caller) };
     },
 
@@ -215,6 +225,9 @@ export function createGroupConversations(deps: {
       const message = deps.store().appendMessage(record.threadId, { role: "user", kind: "text", text, sender: { name: caller.name, id: caller.key } });
       record.updatedAt = message.at;
       record.readAt[caller.key] = message.at;
+      // @Name of a person here marks the conversation for them.
+      const people = record.people.filter((key) => key !== caller.key).map((key) => ({ key, name: nameOf(key) }));
+      for (const person of mentionedBots(text, people)) (record.mentionedAt ??= {})[person.key] = message.at;
       save();
       void mention(record, caller, text);
       return { status: 201, body: { message } };
@@ -236,9 +249,13 @@ export function createGroupConversations(deps: {
       if (!Array.isArray(people)) return people;
       const bots = botsFor(caller, input.bots);
       if (!Array.isArray(bots)) return bots;
+      const newPeople = people.filter((key) => !record.people.includes(key));
+      const newBots = bots.filter((id) => !record.bots.includes(id));
       record.people = [...new Set([...record.people, ...people])];
       record.bots = [...new Set([...record.bots, ...bots])];
       save();
+      const added = [...newPeople.map(nameOf), ...newBots.map((botId) => deps.store().bot(botId)?.name ?? "a bot")];
+      if (added.length) notice(record, `${caller.name} added ${added.join(", ")}.`);
       return { status: 200, body: wire(record, caller) };
     },
 
@@ -247,6 +264,7 @@ export function createGroupConversations(deps: {
       if (!record) return fail(404, "no such conversation");
       record.people = record.people.filter((key) => key !== caller.key);
       save();
+      notice(record, `${caller.name} left.`);
       return { status: 200, body: { ok: true } };
     },
 

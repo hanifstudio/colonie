@@ -1,5 +1,5 @@
 import { JoinSharedWorkspace } from "./components/JoinSharedWorkspace";
-import { CreateSharedWorkspace } from "./components/CreateSharedWorkspace";
+import { SharedServersDialog } from "./components/CreateSharedWorkspace";
 import { SharedOnboarding } from "./components/onboarding/SharedOnboarding";
 import { ConversationView } from "./components/conversations/ConversationView";
 import { NewConversationDialog } from "./components/conversations/NewConversationDialog";
@@ -296,7 +296,7 @@ export function Shell() {
       {!remoteClient && state.filePreview && <FilePreviewPanel key={`file:${state.filePreview.threadId}:${state.filePreview.messageId}:${state.filePreview.path}`} preview={state.filePreview} />}
       {state.appSettingsOpen && <SettingsModal />}
       <JoinSharedWorkspace />
-      <CreateSharedWorkspace />
+      <SharedServersDialog />
       <SharedOnboarding />
       <NewConversationDialog />
       {state.pluginsOpen && <PluginsPanel />}

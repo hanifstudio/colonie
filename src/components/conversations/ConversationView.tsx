@@ -9,7 +9,7 @@ import { MentionTextarea } from "../MentionTextarea";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, conversationMessages, leaveConversation, markConversationRead,
-  postToConversation, useConversations, withFrame, workspacePeople, type ThreadFrame,
+  mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type ThreadFrame,
 } from "@/lib/conversations";
 import { useStore, type Message } from "@/state/store";
 
@@ -18,6 +18,7 @@ export function ConversationMessagesView({ messages, threadId = "" }: { messages
   return (
     <ol className="flex flex-col gap-4">
       {messages.map((message) => {
+        if (message.notice) return <li key={message.id} className="text-center text-[12px] text-ink-tertiary">{message.text}</li>;
         const bot = message.role === "bot";
         const who = bot ? message.from?.name ?? "Bot" : message.sender?.name ?? "Someone";
         return (
@@ -69,6 +70,17 @@ export function ConversationView({ id }: { id: string }) {
 
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
   const memberBots = bots.filter((bot) => conversation?.bots.includes(bot.id));
+  // "@" suggests the people here and the bots one can ask.
+  const mentionable = useMemo(() => [
+    ...(conversation?.people ?? []).filter((person) => !person.you).map((person) => ({ name: person.name, kind: "person" as const })),
+    ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
+  ], [conversation?.people, bots]);
+  const query = mentionQuery(text);
+  const suggestions = query === null ? [] : mentionSuggestions(query, mentionable);
+  const pick = (name: string) => {
+    setText((value) => value.replace(/@([^\s@]*)$/, `@${name} `));
+    inputRef.current?.focus();
+  };
   const send = async () => {
     const value = text.trim();
     if (!value || busy) return;
@@ -102,11 +114,26 @@ export function ConversationView({ id }: { id: string }) {
         <div ref={endRef} />
       </div>
       <form className="border-t border-hairline/40 px-6 py-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+        {suggestions.length > 0 && (
+          <ul role="listbox" aria-label="Mention" className="mb-2 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1 text-[13px]">
+            {suggestions.map((entry) => (
+              <li key={`${entry.kind}:${entry.name}`}>
+                <button type="button" onMouseDown={(event) => { event.preventDefault(); pick(entry.name); }}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ink hover:bg-raised">
+                  <span>@{entry.name}</span><span className="text-[11px] text-ink-tertiary">{entry.kind === "bot" ? "Bot" : "Person"}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="rounded-2xl border border-hairline/50 bg-panel px-4 py-2.5">
-          <MentionTextarea inputRef={inputRef} peers={bots} value={text} rows={2} disabled={busy}
-            placeholder={`Message ${conversation.title} — @mention a bot to ask it`}
+          <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={2} disabled={busy}
+            placeholder={`Message ${conversation.title} — type @ to mention someone or ask a bot`}
             onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }}
+            onKeyDown={(event) => {
+              if ((event.key === "Enter" || event.key === "Tab") && suggestions.length > 0) { event.preventDefault(); pick(suggestions[0]!.name); return; }
+              if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
+            }}
             className="w-full resize-none bg-transparent text-[14px] text-ink placeholder:text-ink-tertiary focus:outline-none" />
           {bots.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1.5">
