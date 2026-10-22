@@ -14,6 +14,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { ApiError, api, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
+import { useAdvancedMode } from "@/lib/interface-mode";
 import type { MemoryEntry, MemoryKind, MemoryView } from "../../../shared/colonie-memory";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { HIcon } from "../HIcon";
@@ -85,6 +86,7 @@ function messageOf(cause: unknown): string {
 
 export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?: boolean }) {
   const [state, dispatch] = useReducer(memorySectionReducer, initialMemorySectionState);
+  const advanced = useAdvancedMode();
   const [editing, setEditing] = useState<Draft | null>(null);
   const [adding, setAdding] = useState<{ scope: "shared" | "bot"; kind: MemoryKind; text: string; until: string } | null>(null);
   const [forgetTarget, setForgetTarget] = useState<MemoryEntry | null>(null);
@@ -219,18 +221,15 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
 
   return (
     <div role="region" aria-label="Bot memory" className="flex flex-col gap-4">
-      <div className="rounded-xl bg-card p-4">
+      <div className="px-1">
         <div className="text-[15px] font-medium text-ink">Memory</div>
         <p className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
-          Memory lets {bot.name} carry useful details between conversations. You can read, edit or forget anything here.
-        </p>
-        <p className="mt-1 text-[12.5px] text-ink-secondary">
-          Messages already sent in a conversation stay in that conversation's own history. Changes here apply to what future
-          replies can recall. Start a new conversation for a fresh chat history.
+          What {bot.name} remembers between conversations, kept by itself. Read, change or forget anything here.
         </p>
       </div>
 
-      {view && (
+      {/* switching memory off is a builder's choice: Advanced mode only */}
+      {view && advanced && (
         <div className="rounded-xl bg-card p-4">
           <div className="text-[15px] font-medium text-ink">Workspace memory</div>
           <p className="mt-1 text-[12.5px] text-ink-secondary">These controls affect memory for all your bots.</p>
@@ -245,7 +244,7 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
         </div>
       )}
 
-      {view && (
+      {view && advanced && (
         <div className="rounded-xl bg-card p-4">
           <div className="text-[15px] font-medium text-ink">This bot</div>
           <label className="mt-3 flex items-center justify-between gap-3 text-[13px] text-ink">
@@ -283,12 +282,9 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
         />
       )}
 
-      {view && (
+      {view && (adding ? (
         <div className="rounded-xl bg-card p-4">
-          <div className="flex items-center gap-2 text-[15px] font-medium text-ink">
-            <HIcon icon={Add01Icon} size={16} /> Add a memory
-          </div>
-          {adding ? (
+          <div className="text-[15px] font-medium text-ink">Add a memory</div>
             <div className="mt-3 flex flex-col gap-2">
               <div className="flex gap-2">
                 <select className={cn(inputCls, "text-[13px]")} aria-label="Memory scope" value={adding.scope} onChange={(event) => setAdding({ ...adding, scope: event.target.value as "shared" | "bot" })}>
@@ -313,11 +309,12 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
                 <button type="button" className={quietButtonCls} disabled={saving} onClick={() => setAdding(null)}>Cancel</button>
               </div>
             </div>
-          ) : (
-            <button type="button" className={cn(buttonCls, "mt-3")} onClick={() => setAdding({ scope: "bot", kind: "fact", text: "", until: "" })}>Add a memory</button>
-          )}
         </div>
-      )}
+      ) : (
+        <button type="button" className={cn(buttonCls, "flex items-center gap-1.5 self-start")} onClick={() => setAdding({ scope: "bot", kind: "fact", text: "", until: "" })}>
+          <HIcon icon={Add01Icon} size={15} /> Add a memory
+        </button>
+      ))}
 
       {editing && (
         <div className="rounded-xl bg-card p-4">
@@ -345,7 +342,8 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
         </div>
       )}
 
-      {view && (
+      {/* how automatic memory is doing: only when there is news, or in Advanced mode */}
+      {view && (advanced || view.status.running || view.status.pending > 0 || view.status.lastError) && (
         <div className="rounded-xl bg-card p-4">
           <div className="flex items-center gap-2 text-[13px] text-ink-secondary">
             <HIcon icon={SparklesIcon} size={14} />

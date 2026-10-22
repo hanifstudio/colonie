@@ -792,7 +792,8 @@ export type AppSettingsSection =
   | "people"
   | "activity"
   | "backups"
-  | "skills";
+  | "skills"
+  | "profile";
 
 export type BotSettingsSection =
   | "overview"

@@ -17,12 +17,11 @@ import { HIcon } from "./HIcon";
 
 import { openExternalLink } from "@/lib/app-links";
 import { cn } from "@/lib/cn";
-import { claudeUserMcpEnabled } from "@/lib/feature-flags";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { updateMcpServers } from "@/lib/mcp-servers";
 import { completeMcpSignIn, mcpSignInLink, runMcpSignIn, type McpSignInStatus } from "@/lib/mcp-sign-in";
-import { api, useStore, type ConfigStatus } from "@/state/store";
+import { api, useStore } from "@/state/store";
 
 import { Switch } from "./SettingsPrimitives";
 import { WhopIcon } from "./WhopIcon";
@@ -222,14 +221,13 @@ function draftFor(server: McpServerListing): McpDraft {
 
 /** `embedded`: a section of the Apps pop-up's one scrolling view, rather
  * than a page that owns its own scroll. */
-export function McpServersPanel({ embedded = false, whopCard = false, hideWhop = false, refreshKey = 0, onWhopConnection, nativeSettings = true }: {
+export function McpServersPanel({ embedded = false, whopCard = false, hideWhop = false, refreshKey = 0, onWhopConnection }: {
   embedded?: boolean;
   /** Use the same OAuth lifecycle as a normal app tile, without MCP controls. */
   whopCard?: boolean;
   hideWhop?: boolean;
   refreshKey?: number;
   onWhopConnection?: (connected: boolean) => void;
-  nativeSettings?: boolean;
 } = {}) {
   const { state: store, dispatch } = useStore();
   const [servers, setServers] = useState<McpServerListing[] | null>(null);
@@ -688,7 +686,6 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
             </button>
           </div>
         </div>
-        {nativeSettings && <ClaudeMcpSwitch />}
 
         {importOpen && (
           <div className="mt-4 rounded-2xl border border-hairline/60 bg-card p-4 sm:p-5">
@@ -998,48 +995,3 @@ export function McpServersPanel({ embedded = false, whopCard = false, hideWhop =
   );
 }
 
-/** The one Claude-only setting on this page, in the words a person would
- * use. Claude bots normally see just the servers listed here; this switch
- * also gives them the MCP servers and connectors of this machine's own
- * Claude Code setup — what Codex bots already do with their config. Saved
- * on the workspace; the next message picks it up. */
-function ClaudeMcpSwitch() {
-  const { state, dispatch } = useStore();
-  const enabled = claudeUserMcpEnabled(state.config);
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  const toggle = async () => {
-    if (saving) return;
-    setSaving(true);
-    setFailed(false);
-    try {
-      const config: ConfigStatus = await api("/api/config", {
-        method: "PATCH",
-        body: JSON.stringify({ features: { claudeUserMcp: !enabled } }),
-      });
-      dispatch({ type: "configStatus", config });
-    } catch {
-      setFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl border border-hairline/50 bg-card px-4 py-4 sm:px-5">
-      <div className="min-w-0">
-        <div className="text-[14px] font-medium text-ink">{t("mcp.claude.title")}</div>
-        <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("mcp.claude.desc")}</p>
-        {failed && <p role="alert" className="mt-1 text-[12px] text-danger">{t("mcp.claude.error")}</p>}
-      </div>
-      <Switch
-        checked={enabled}
-        aria-label={t("mcp.claude.aria")}
-        disabled={saving}
-        onClick={() => void toggle()}
-        className="mt-0.5 shrink-0 disabled:cursor-wait disabled:opacity-50"
-      />
-    </div>
-  );
-}

@@ -25,8 +25,8 @@ function isolationEnvironment(driver: string, nativeBase: string): Record<string
 /** The Colonie fleet's default pair: the two maintained ACP engines. */
 function defaultFleet(isolated: (entry: InstanceConfig) => InstanceConfig): InstanceConfigMap {
   return {
-    "codex-acp": isolated({ driver: COLONIE_DRIVER, displayName: "Codex · ACP", icon: { kind: "preset", preset: "openai" } }),
-    "claude-acp": isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } }),
+    "codex-acp": isolated({ driver: COLONIE_DRIVER, displayName: "Codex", icon: { kind: "preset", preset: "openai" } }),
+    "claude-acp": isolated({ driver: "claude-acp", displayName: "Claude", icon: { kind: "preset", preset: "anthropic" } }),
   };
 }
 
@@ -51,7 +51,7 @@ export function colonieInstances(configured: InstanceConfigMap | undefined, nati
   // engines at all; the default pair is the floor.
   if (!Object.keys(result).length) return defaultFleet(isolated);
   if (!Object.values(result).some((entry) => entry.driver === "claude-acp")) {
-    result["claude-acp"] = isolated({ driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } });
+    result["claude-acp"] = isolated({ driver: "claude-acp", displayName: "Claude", icon: { kind: "preset", preset: "anthropic" } });
   }
   return result;
 }

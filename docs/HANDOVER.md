@@ -18,6 +18,9 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    person confirms the card; "/" lists the bot's guides. Guides stay per
    bot (owner). Left: see a real Claude and Codex do both from plain words
    on Etalas after the update. Out of scope: event triggers (Slack, GitHub).
+   Also (owner, October 23): settings tidied: Profile under Account, Claude
+   and Codex on the AI page, MCP servers on their own tab, skills listed
+   (not typed) with a preview, memory switches in Advanced mode only.
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief

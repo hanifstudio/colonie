@@ -207,7 +207,7 @@ export function SimpleBotPanel({
                 placeholder: t("botSettings.simple.instructionsPlaceholder", { name: bot.name }),
               }}
             />
-            {acp && <p className="-mt-3 text-xs text-ink-secondary">{workspace ? "Your bot uses its saved profile and instructions starting with your next message." : "Your bot uses its profile and saved instructions automatically. Changes apply to new conversations."}</p>}
+            {acp && <p className="-mt-3 text-xs text-ink-secondary">Changes apply from your next message, in every conversation.</p>}
             {acp && !workspace && <ChiefControls bot={bot} />}
             {acp && !workspace && <BotConnectedTools bot={bot} />}
             {acp && !workspace && <ColonieSkillsSection bot={bot} />}

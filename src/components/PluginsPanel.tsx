@@ -862,8 +862,9 @@ export function PluginsPanel() {
             </section>
           )}
 
-          {filter !== "connected" && (
-            <div className={cn(filter === "all" && "mt-8 border-t border-hairline/30 pt-6", filter === "mcp" && "pt-3")}>
+          {/* your own MCP servers have their own tab */}
+          {filter === "mcp" && (
+            <div className="pt-3">
               <McpServersPanel embedded hideWhop />
             </div>
           )}

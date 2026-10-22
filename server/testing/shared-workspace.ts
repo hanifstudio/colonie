@@ -54,7 +54,7 @@ export async function startSharedWorkspace(
     signIn: { admins, members },
     instances: {
       "codex-acp": {
-        driver: "codex-acp", displayName: "Codex · ACP",
+        driver: "codex-acp", displayName: "Codex",
         config: { cli: process.execPath, args: ["--experimental-strip-types", join(ROOT, "server", "acp", "testing", "fake-agent.ts")] },
         environment: { COLONIE_FAKE_STATE: join(dataDir, "fake-state.json") },
       },

@@ -11,6 +11,7 @@ import { HIcon } from "./HIcon";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { EngineCard, EngineSections, RefreshEngines, engineReady } from "./EngineLibrary";
 import { cn } from "@/lib/cn";
+import { isColonieAcpDriver } from "../../shared/acp";
 import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
 import { ApiKeyEngineManage, EngineSetup, EngineUpdateNotice, EngineWarningNotice, isApiKeyEngine } from "./EngineSetup";
@@ -201,6 +202,20 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
   );
 }
 
+/** Claude or Codex as Colonie runs them: sign in (in the app, or the
+ * terminal login Claude's adapter needs), or that it is ready. The adapters
+ * ship with the app, so there is no program path to choose. */
+function AcpEngineRow({ instance }: { instance: InstanceInfo }) {
+  return (
+    <EngineCard instance={instance}>
+      {!engineReady(instance) && <EngineSetup instance={instance} intent="cloud" unframed />}
+      {engineReady(instance) && <p className="mt-2 flex items-center gap-1.5 text-[12px] text-success"><HIcon icon={Tick01Icon} size={13} />Signed in and ready for your bots</p>}
+      {instance.snapshot.update && <EngineUpdateNotice update={instance.snapshot.update} instance={instance} className="mt-3" />}
+      {instance.snapshot.warning && <EngineWarningNotice warning={instance.snapshot.warning} className="mt-3" />}
+    </EngineCard>
+  );
+}
+
 function EngineRow({ instance }: { instance: InstanceInfo }) {
   const { refreshInstances } = useStore();
   const [open, setOpen] = useState(false);
@@ -320,18 +335,21 @@ export function EnginesSettings() {
   // (and a Set CLI… path) for engines the running build doesn't recognize.
   // Key engines have no CLI; keep them once their key is saved, or the card
   // (and the only way back to a mistyped key) vanishes (MOCA-292).
-  const rows = state.instances.filter((i) => i.cli !== undefined || i.cliDefault !== undefined || i.snapshot.state === "unavailable" || isApiKeyEngine(i));
+  // Claude and Codex through their ACP adapters are what Colonie's bots run
+  // on: always listed, to sign in or see they are ready.
+  const rows = state.instances.filter((i) => isColonieAcpDriver(i.driverKind) || i.cli !== undefined || i.cliDefault !== undefined || i.snapshot.state === "unavailable" || isApiKeyEngine(i));
 
   return (
     <div className="flex min-w-0 flex-col gap-6 pb-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-60">
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">{t("settings.engines.title")}</h1>
-          <p className="mt-2 max-w-lg text-[13px] leading-relaxed text-ink-secondary">{t("engines.library.intro")}</p>
+          {/* the size of every other settings heading (SettingsPrimitives Card) */}
+          <h1 className="text-[15px] font-medium text-ink">{t("settings.engines.title")}</h1>
+          <p className="mt-0.5 max-w-lg text-[13px] leading-relaxed text-ink-secondary">{t("engines.library.intro")}</p>
         </div>
         <RefreshEngines />
       </div>
-      <EngineSections instances={rows} renderEngine={(instance) => <EngineRow instance={instance} />} />
+      <EngineSections instances={rows} renderEngine={(instance) => isColonieAcpDriver(instance.driverKind) ? <AcpEngineRow instance={instance} /> : <EngineRow instance={instance} />} />
     </div>
   );
 }

@@ -41,6 +41,8 @@ import { readEnvironment } from "@/lib/session";
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
+import { PersonAvatar } from "./PersonAvatar";
+import { openPhotoPage, useSignedInAccount } from "./SidebarProfileMenu";
 import { effortLabel } from "./ModelPicker";
 import { EFFORT_LEVELS, isEffortLevel } from "../../shared/wire";
 import { shortcutLabel } from "./ShortcutHint";
@@ -100,6 +102,7 @@ export const SECTIONS: Array<{
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
   { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
+  { id: "profile", group: "account", labelKey: "settings.profile.title", icon: UserCircleIcon, keywords: ["profile", "name", "email", "photo", "avatar", "about me", "about"] },
   { id: "people", group: "account", labelKey: "settings.section.people", icon: UsersIcon, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
   { id: "activity", group: "account", labelKey: "settings.section.activity", icon: ScrollTextIcon, keywords: ["activity", "audit", "log", "history", "who changed", "approvals", "decisions", "admin"] },
   { id: "experimental", group: "account", labelKey: "settings.section.experimental", icon: FlaskConicalIcon, keywords: ["early", "preview", "learn", "skill", "authoring"] },
@@ -120,7 +123,7 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
   { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections"] },
   { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["computer"] },
-  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["people", "activity"] },
+  { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["profile", "people", "activity"] },
 ];
 
 /** Advanced-only pages. A deep link to one still opens it in Simple mode, as
@@ -173,6 +176,7 @@ export function sectionMatches(section: (typeof SECTIONS)[number], query: string
 /** Name and email save on blur; shared context has its own autosave. */
 function ProfileFields() {
   const { state, dispatch } = useStore();
+  const account = useSignedInAccount();
   const [name, setName] = useState(state.config?.profile?.name ?? "");
   const [email, setEmail] = useState(state.config?.profile?.email ?? "");
   useEffect(() => {
@@ -195,6 +199,22 @@ function ProfileFields() {
 
   const inputClass =
     "w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[14px] text-ink placeholder:text-ink-secondary focus:outline-none";
+  // Signed in with a Colonie account: its name, email and photo are the
+  // profile, the same in every workspace; only About me is set here.
+  if (account) return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <PersonAvatar name={account.name} email={account.email} src={account.avatar} size={44} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-medium text-ink">{account.name}</div>
+          <div className="truncate text-[12.5px] text-ink-secondary">{account.email}</div>
+        </div>
+        {account.photoUrl && <button type="button" onClick={() => openPhotoPage(account.photoUrl!)}
+          className="shrink-0 rounded-lg bg-control px-3 py-1.5 text-[13px] text-ink hover:bg-raised">Change photo</button>}
+      </div>
+      <AboutMeSettings />
+    </div>
+  );
   return (
     <div className="flex flex-col gap-3">
       <input aria-label={t("settings.profile.name")} value={name} onChange={(e) => setName(e.target.value)} onBlur={save} placeholder={t("settings.profile.name")} className={inputClass} />
@@ -782,7 +802,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
-    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups"].includes(entry.id) || (colonieInvites && entry.id === "people"))
+    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups", "profile"].includes(entry.id) || (colonieInvites && entry.id === "people"))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
     .filter((entry) => entry.id !== "people" || colonieInvites || !window.colonie)
     // the activity log belongs to a workspace served to a browser, and to its admins
@@ -877,20 +897,14 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
     switch (id) {
       case "general":
         if (workspace) return <>
-          <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1"><AdvancedModeRow /></div>
-          <LanguageRow />
+          <div><AdvancedModeRow /><LanguageRow /></div>
           {workspace.general}
         </>;
         return (
           <>
-            <div className="rounded-2xl border border-accent-border/40 bg-raised-hover/40 px-1">
+            <div>
               <AdvancedModeRow />
               {colonieFleet && advanced && <DeveloperToolsRow />}
-            </div>
-            <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
-              <ProfileFields />
-            </Card>
-            <div>
               <LanguageRow />
               <NewBotEffortRow />
               <AnalyticsRow />
@@ -997,6 +1011,9 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
       case "skills":
         // the shared skills library exists only where features.skillsLibrary is on
         return skillsLibraryEnabled(state.config) ? <SkillsSection /> : null;
+      case "profile":
+        // the page already names it Profile; the card does not repeat it
+        return <Card><ProfileFields /></Card>;
       case "people":
         return (
           <>
