@@ -31,5 +31,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: the Shared workspace journey in a real browser
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec vite build
+          pnpm journey dist
       - name: desktop shell tests
         run: node --test electron/environments.node-test.mjs electron/preload.node-test.mjs electron/local-workspaces.node-test.mjs electron/workspace-switch.node-test.mjs electron/colonie-config.node-test.mjs

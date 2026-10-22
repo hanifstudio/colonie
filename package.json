@@ -20,6 +20,7 @@
   "scripts": {
     "colonie": "node scripts/colonie/start.ts",
     "colonie:web": "node scripts/colonie/start.ts --web",
+    "journey": "node scripts/journeys/shared-workspace.mjs",
     "colonie:test": "vitest run server/acp/ server/colonie/ src/components/BloubAvatar.test.ts",
     "colonie:build": "node scripts/colonie/icons.ts && pnpm build && pnpm build:server && node scripts/colonie/stage-runtime.mjs",
     "colonie:build:server": "pnpm build && pnpm build:server && node scripts/colonie/stage-runtime.mjs",
