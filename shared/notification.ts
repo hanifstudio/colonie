@@ -7,6 +7,9 @@ export type NotifyKind =
   | "question"
   | "done"
   | "routine-failed"
+  /** A routine finished its run: what it reported, so scheduled work is
+   * seen without opening the app. */
+  | "routine-done"
   | "routine-deferred"
   | "turn-failed"
   /** A run failed, stalled or could not start and no Chief of Staff was

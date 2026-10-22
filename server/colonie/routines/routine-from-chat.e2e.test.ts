@@ -56,3 +56,55 @@ test("a bot schedules a routine for itself from chat, and the person sees it wit
   // the engine was told it applied, so it can say so honestly
   expect(JSON.stringify(messages)).toMatch(/applied/);
 }, 60_000);
+
+test("a routine a bot schedules while working for a group reports each run to that group", async () => {
+  const group = (await ws.as(ANA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Launch", emails: [], bots: [botId] } })).body;
+  const bot = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);
+  // an @mention gives the bot its work thread for this group
+  await ws.as(ANA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} hello` } });
+  let workThread = "";
+  const made = Date.now() + 20_000;
+  while (!workThread && Date.now() < made) {
+    const tasks = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId).tasks ?? [];
+    workThread = tasks.find((task: any) => task.title === "Work for Launch")?.threadId ?? "";
+    if (!workThread) await settle(100);
+  }
+  expect(workThread).not.toBe("");
+  await settle(1500);
+
+  // the engine schedules from that work (the stand-in needs the call spelled out)
+  await ws.as(ANA, `/api/bots/${botId}/messages`, { method: "POST", body: { threadId: workThread, text: `mcp call colonie_workspace schedule_routine ${JSON.stringify({
+    name: "Launch check", instructions: "Say how the launch is going.", requestId: "group-1", schedule: { type: "weekly", time: "09:00", weekdays: ["monday"] },
+  })}` } });
+  let requestId = "";
+  const asked = Date.now() + 20_000;
+  while (!requestId && Date.now() < asked) {
+    const messages = (await ws.as(ANA, `/api/threads/${workThread}/messages`)).body.messages ?? [];
+    requestId = messages.find((message: any) => message.card?.requestId && !message.card?.routineRequest && !message.card?.answered)?.card.requestId ?? "";
+    if (!requestId) await settle(100);
+  }
+  await ws.as(ANA, `/api/threads/${workThread}/respond`, { method: "POST", body: { behavior: "allow", requestId } });
+  let routine: any;
+  const until = Date.now() + 20_000;
+  while (!routine && Date.now() < until) {
+    routine = (await ws.as(ANA, "/api/routines")).body.routines?.find((entry: any) => entry.name === "Launch check");
+    if (!routine) await settle(200);
+  }
+  expect(routine).toBeTruthy();
+
+  // a run reports into the group, from the bot, and is announced
+  const live = await ws.stream(ANA);
+  expect((await ws.as(ANA, `/api/routines/${routine.id}/run`, { method: "POST" })).status).toBeLessThan(300);
+  let report: any;
+  const ran = Date.now() + 40_000;
+  while (!report && Date.now() < ran) {
+    const messages = (await ws.as(ANA, `/api/conversations/${group.id}/messages`)).body.messages ?? [];
+    report = messages.find((message: any) => message.from?.botId === botId && !/working on it|hello/.test(message.text ?? "") && /launch is going/i.test(message.text ?? ""));
+    if (!report) await settle(250);
+  }
+  const announced = Date.now() + 10_000;
+  while (!live.text().includes("finished a routine") && Date.now() < announced) await settle(100);
+  live.close();
+  expect(live.text()).toContain("finished a routine");
+  if (!report) throw new Error(`no report in the group:\n${JSON.stringify((await ws.as(ANA, `/api/conversations/${group.id}/messages`)).body.messages?.map((m: any) => m.text)).slice(0, 1500)}`);
+}, 120_000);

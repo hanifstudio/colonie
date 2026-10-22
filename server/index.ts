@@ -910,7 +910,9 @@ const colonieChief = new ColonieChief({
     })),
     propose: async (botId, threadId, proposal, canCommit) => {
       const result = await routineRequests.submit({ botId, threadId, proposal, canCommit });
-      return { state: result.state, summary: result.summary, nextRunAt: result.nextRunAt ? new Date(result.nextRunAt).toISOString() : null, timeZone: result.timeZone };
+      // scheduled while answering in a group or DM: its runs report there
+      const reportsTo = result.result?.action === "create" && groupConversations.attachRoutine(botId, threadId, result.result.resultId);
+      return { ...(reportsTo ? { reportsTo: "this conversation" } : {}), state: result.state, summary: result.summary, nextRunAt: result.nextRunAt ? new Date(result.nextRunAt).toISOString() : null, timeZone: result.timeZone };
     },
     now: () => ({ time: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" }),
   },
@@ -1275,6 +1277,8 @@ registerCompletedTurnNotes({
   store,
 });
 let routines: RoutineManager | null = null;
+/** Finished runs already announced, so each is news once per start. */
+const notifiedRoutineRuns = new Set<string>();
 let calendarCalls: CalendarCallManager | null = null;
 const localVmOwnerBusy = (botId: string) => store.bot(botId)?.busy === true;
 const localVmLeases = new LocalVmLeasePool(30 * 60_000);
@@ -1719,7 +1723,19 @@ routines = new RoutineManager({
       closeOpenApprovals(threadId);
     }
   },
-  onRunChanged: syncRoutineRunToSource,
+  onRunChanged: (run) => {
+    const thread = syncRoutineRunToSource(run);
+    const conversationThread = groupConversations.routineRunFinished(run);
+    // a finished run is news once, while it is fresh (a restart replays old
+    // runs; those were announced already): what it reported
+    if (run.status === "completed" && !notifiedRoutineRuns.has(run.id) && Date.now() - (run.finishedAt ?? 0) < 10 * 60_000) {
+      notifiedRoutineRuns.add(run.id);
+      const bot = store.bot(run.botId);
+      const detail = `${run.routineName}${run.output?.trim() ? `: ${redactSecretsInText(run.output.trim())}` : ""}`;
+      if (bot) notify(buildNotification("routine-done", routineSourceOwner(run)?.bot ?? bot, conversationThread ?? thread ?? run.threadId ?? bot.threadId, detail));
+    }
+    return thread;
+  },
   onRunFailed: (run) => {
     if (run.threadId) {
       pendingDelegationWakes.delete(run.threadId);

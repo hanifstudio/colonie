@@ -35,6 +35,10 @@ export interface GroupConversation {
   mentionedAt?: Record<string, number>;
   /** Each bot's own working thread for this conversation. */
   botThreads: Record<string, string>;
+  /** Routines a bot scheduled while answering here: each run reports here. */
+  routines?: string[];
+  /** The message each reported run left here, so a run reports once. */
+  routineRuns?: Record<string, string>;
 }
 
 /** Who is asking: a person of a Shared workspace, or this computer's owner. */
@@ -273,6 +277,37 @@ export function createGroupConversations(deps: {
     },
 
     /** A bot's turn ended: its answer replaces the waiting line. */
+    /** A routine a bot scheduled from its work for a conversation reports
+     * to that conversation. False when the thread is no conversation's. */
+    attachRoutine(botId: string, workThreadId: string, routineId: string): boolean {
+      const record = records.find((entry) => entry.botThreads[botId] === workThreadId);
+      if (!record) return false;
+      record.routines = [...new Set([...(record.routines ?? []), routineId])];
+      save();
+      return true;
+    },
+
+    /** A finished run of such a routine: its report in the conversation, from
+     * its bot, once per run. Answers the conversation's thread when the
+     * routine reports to one. */
+    routineRunFinished(run: { id: string; routineId: string; botId: string; routineName: string; status: string; output?: string; error?: string }): string | undefined {
+      const record = records.find((entry) => entry.routines?.includes(run.routineId));
+      if (!record) return undefined;
+      if (!["completed", "failed", "missed"].includes(run.status) || record.routineRuns?.[run.id]) return record.threadId;
+      const bot = deps.store().bot(run.botId);
+      if (!bot) return record.threadId;
+      const said = run.status === "completed"
+        ? run.output?.trim() || `${run.routineName}: done.`
+        : `${run.routineName} ${run.status === "missed" ? "was missed" : "failed"}${run.error ? `: ${run.error}` : "."}`;
+      const message = deps.store().appendMessage(record.threadId, {
+        role: "bot", kind: "text", text: said.slice(0, 20_000),
+        from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
+      });
+      record.routineRuns = { ...record.routineRuns, [run.id]: message.id };
+      save();
+      return record.threadId;
+    },
+
     turnCompleted(threadId: string, ok: boolean) {
       const pending = waiting.get(threadId);
       if (!pending) return;

@@ -101,6 +101,8 @@ export function buildNotification(
           ? `${who} needs your hands`
           : kind === "routine-failed"
             ? `${who}'s routine failed`
+            : kind === "routine-done"
+              ? `${who} finished a routine`
             : kind === "routine-deferred"
               ? `${who}'s routine is waiting`
             : kind === "turn-failed"
