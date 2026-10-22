@@ -136,6 +136,7 @@ import {requestOrigin, resolveLoopbackTrust, serializeSessionCookie, sessionCook
 import {createColonieSignIn} from "./colonie/accounts/colonie-signin.ts";
 import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deploy/shared-servers.ts";
 import { createThreadPeople } from "./colonie/chat/thread-people.ts";
+import { LOCAL_PERSON, createGroupConversations, type Caller } from "./colonie/groups/group-conversations.ts";
 import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
@@ -381,6 +382,7 @@ const { viewerFor, visibleTo, ownThreadIds, forgetVisibility, subjectVisible } =
   routines: () => routines,
   store: () => store,
   sharedWorkspace: () => workspaceKind.shared(),
+  conversationOf: (threadId: string) => groupConversations.byThread(threadId),
 });
 // Each person's own conversation with each bot, in a Shared workspace.
 const ownThreads = createOwnThreads({ store: () => store, sharedWorkspace: () => workspaceKind.shared(), file: join(DATA_DIR, "person-threads.json") });
@@ -415,6 +417,35 @@ const threadPeople = createThreadPeople({
   },
   isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
   keyOf: (email) => personKey({ id: "", email }),
+});
+
+// Groups and DMs between people (colonie/groups): who is asking, then the
+// conversations themselves. A bot's answer comes back when its turn ends.
+const workspaceDirectory = () => {
+  const names = new Map(colonieSignIn.members().map((member) => [member.email.toLowerCase(), member.name]));
+  const lists = signInAllowList();
+  return [...new Set([...lists.admins, ...lists.members].filter((entry) => !entry.startsWith("@")))]
+    .map((email) => ({ email, name: names.get(email) }));
+};
+const conversationCaller = (auth: RequestAuth): Caller | null => {
+  if (!workspaceKind.shared()) {
+    if (auth.kind !== "loopback") return null;
+    return { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true };
+  }
+  const key = personOf(auth);
+  if (!key || auth.kind !== "session") return null;
+  const email = auth.session.email?.trim().toLowerCase() ?? "";
+  const name = colonieSignIn.members().find((member) => member.email.toLowerCase() === email)?.name || email || "Someone";
+  return { key, name, seesBot: (botId) => visibleTo(viewerFor(auth)).bot(botId) };
+};
+const groupConversations = createGroupConversations({
+  file: join(DATA_DIR, "group-conversations.json"),
+  store: () => store,
+  directory: workspaceDirectory,
+  isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
+  keyOf: (email) => personKey({ id: "", email }),
+  runBotTurn: async (botId, threadId, text, sender) => { await startOrQueueDirectMessage(botId, threadId, text, undefined, undefined, sender); },
+  onChange: () => forgetVisibility(),
 });
 
 /** A member may schedule a routine only for a bot or room they can see. */
@@ -1406,6 +1437,10 @@ bus.subscribe((event: RuntimeEvent) => {
   drainDelegationWakes();
 });
 
+// A bot mentioned in a group or DM: its answer goes back there (colonie/groups).
+bus.subscribe((event: RuntimeEvent) => {
+  if (event.type === "turn.completed") groupConversations.turnCompleted(event.threadId, event.ok);
+});
 const { deliverLateQuestionAnswer, drainQueuedSends, startOrQueueDirectMessage } = createDirectFlow({
   botAtThreadCapacity,
   cfg,
@@ -1946,6 +1981,9 @@ const { server, liveCalls } = createServerAssembly({
   colonieSignIn,
   sharedServers,
   threadPeople,
+  groupConversations,
+  conversationCaller,
+  workspaceDirectory,
   desktopAccount,
   ownThreads,
   personOf,

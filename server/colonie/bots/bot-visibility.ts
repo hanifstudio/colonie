@@ -174,7 +174,10 @@ export interface VisibilityGroup {
   audienceFloor?: unknown;
 }
 
-export type ThreadOwner = { bot: string; group?: undefined } | { group: string; bot?: undefined };
+export type ThreadOwner = { bot: string; group?: undefined; conversation?: undefined }
+  | { group: string; bot?: undefined; conversation?: undefined }
+  /** A conversation of several people and bots (colonie/groups): its people only. */
+  | { conversation: string; bot?: undefined; group?: undefined };
 
 /** What one viewer may see of the current fleet, built from the store's
  * records. When no bot is restricted, or the viewer sees everything, every
@@ -241,7 +244,7 @@ export class VisibleSet {
     if (this.everything) return true;
     const owner = this.ownerOf(threadId);
     if (!owner) return false;
-    const reachable = owner.bot !== undefined ? this.bot(owner.bot) : this.group(owner.group);
+    const reachable = owner.bot !== undefined ? this.bot(owner.bot) : owner.group !== undefined ? this.group(owner.group) : true;
     if (!reachable || this.viewer.kind !== "person") return reachable;
     const key = this.viewer.key;
     return key !== "" && (this.participantsOf(threadId) ?? []).includes(key);

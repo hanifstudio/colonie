@@ -313,6 +313,12 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET"], path: /^\/api\/bots\/[\w-]+\/slack-management$/ },
   { methods: ["GET"], path: /^\/api\/search$/ },
   { methods: ["GET"], path: /^\/api\/threads\/[\w-]+\/messages$/ },
+  // groups and DMs between people: only a conversation's own people get an answer (see the handler)
+  { methods: ["GET"], path: /^\/api\/people$/ },
+  { methods: ["GET", "POST"], path: /^\/api\/conversations$/ },
+  { methods: ["GET", "POST"], path: /^\/api\/conversations\/[\w-]+\/messages$/ },
+  { methods: ["POST"], path: /^\/api\/conversations\/[\w-]+\/(read|members)$/ },
+  { methods: ["DELETE"], path: /^\/api\/conversations\/[\w-]+\/members\/me$/ },
   // the people in a conversation: only its own people get an answer (see the handler)
   { methods: ["GET", "POST"], path: /^\/api\/threads\/[\w-]+\/people$/ },
   { methods: ["DELETE"], path: /^\/api\/threads\/[\w-]+\/people\/me$/ },

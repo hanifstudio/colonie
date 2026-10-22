@@ -11,12 +11,14 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current: every new workspace is a guided onboarding, ready to use at
-   the end** (owner, October 22). Done: Shared, on the first run or as New
-   workspace → Shared (name, its server, the wait, Open; inside, AI on the
-   server, invite people, the bot). Next: one list of workspaces at the top
-   left; New workspace → Local through its onboarding; the journey as a
-   permanent test in CI.
+1. **Current: groups and DMs between people** (owner approved the plan,
+   October 22). A person makes a group with a name, people and bots; every
+   member sees it in the sidebar and writes in it; a bot answers when
+   @mentioned, in the group; a DM between two people works the same with no
+   bots until one is @mentioned. Non-members see nothing. Proof: two-person
+   tests on a throwaway Shared workspace, then the real app. Then: one list
+   of workspaces; New workspace → Local onboarding; update notice for
+   Shared servers; the journey as a permanent CI test.
 2. **Waits on the owner:** publishing the server image where a
    server can pull it (push, run the Server image workflow, make the package
    public), then one real Shared workspace on the owner's Akamai server.

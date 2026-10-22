@@ -18,8 +18,10 @@ export function createVisibility(deps: VisibilityDeps) {
   /** Whether this is a Shared workspace (server/runtime/workspace-kind.ts),
    * and who takes part in a thread. Both absent means Local. */
   const sharedWorkspace: () => boolean = deps.sharedWorkspace ?? (() => false);
+  /** A conversation of several people and bots that owns this thread, if any. */
+  const conversationOf: (threadId: string) => { id: string; people: readonly string[] } | undefined = deps.conversationOf ?? (() => undefined);
   const participantsOf: (threadId: string) => readonly string[] | undefined = deps.participantsOf
-    ?? ((threadId: string) => store().threadParticipants(threadId));
+    ?? ((threadId: string) => conversationOf(threadId)?.people ?? store().threadParticipants(threadId));
 
 
 // ── bot visibility (server/bot-visibility.ts) ──────────────────────────
@@ -50,7 +52,8 @@ function threadOwner(threadId: string): ThreadOwner | undefined {
   if (owner === undefined) {
     const bot = store().botByThread(threadId);
     const group = bot ? undefined : store().groupByThread(threadId);
-    owner = bot ? { bot: bot.id } : group ? { group: group.id } : null;
+    const conversation = bot || group ? undefined : conversationOf(threadId);
+    owner = bot ? { bot: bot.id } : group ? { group: group.id } : conversation ? { conversation: conversation.id } : null;
     if (threadOwners.size >= 20_000) threadOwners.clear();
     threadOwners.set(threadId, owner);
   }

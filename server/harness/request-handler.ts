@@ -7,6 +7,7 @@
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
+import type { Caller, GroupConversations } from "../colonie/groups/group-conversations.ts";
 import { DESKTOP_CALLBACK, callbackPage, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
@@ -615,6 +616,27 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           }),
         ),
       });
+    }
+
+    // ── groups and DMs between people (colonie/groups) ──
+    const groupConversations: GroupConversations | undefined = deps.groupConversations;
+    if (groupConversations && (path === "/api/people" || path.startsWith("/api/conversations"))) {
+      const caller: Caller | null = deps.conversationCaller(auth);
+      if (!caller) return json(res, 403, { error: "sign in to talk with people and bots" });
+      if (method === "GET" && path === "/api/people") {
+        const directory = deps.workspaceDirectory() as Array<{ email: string; name?: string }>;
+        return json(res, 200, { people: directory.map((entry) => ({ email: entry.email, name: entry.name || entry.email })) });
+      }
+      let answer: { status: number; body: unknown } | null = null;
+      if (method === "GET" && path === "/api/conversations") answer = groupConversations.list(caller);
+      else if (method === "POST" && path === "/api/conversations") answer = groupConversations.create(caller, (await readBody(req)) ?? {});
+      else if ((m = path.match(/^\/api\/conversations\/([\w-]+)\/messages$/))) {
+        answer = method === "GET" ? groupConversations.messages(caller, m[1])
+          : method === "POST" ? await groupConversations.post(caller, m[1], (await readBody(req))?.text) : null;
+      } else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/read$/))) answer = groupConversations.read(caller, m[1]);
+      else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members$/))) answer = groupConversations.add(caller, m[1], (await readBody(req)) ?? {});
+      else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members\/me$/))) answer = groupConversations.leave(caller, m[1]);
+      return answer ? json(res, answer.status, answer.body) : json(res, 405, { error: "method not allowed" });
     }
 
     // the people in a conversation (Shared workspace): list, add, leave

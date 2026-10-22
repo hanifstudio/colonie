@@ -54,6 +54,8 @@ one-line change here.
 - `server/colonie/mcp/` — MCP servers: registry and directory, HTTP and OAuth transports,
   probes, schema validation and trimming, connector advertisement/cards/verdicts, tool
   images, the bridge and the gate config.
+- `server/colonie/groups/` — Groups and DMs between people: conversations of several people
+  and bots, a bot answering where it is mentioned, and who may see them.
 - `server/colonie/memory/` — Bot memory: capture, entries, topics, organization, journal,
   tidy, the recall prompt and recall. `server/colonie/memory/ledger/` holds the
   capture-to-recall ledger service, its store and routes.

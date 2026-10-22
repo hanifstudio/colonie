@@ -125,11 +125,16 @@ Steps, in order. Each one is safe on its own:
 
 - Two kinds, named Local and Shared in the app. Only a Shared workspace can
   invite people. The first public release has both.
-- In a Shared workspace a conversation belongs to one bot and to the people
-  in it. Anyone in it can add another person of the workspace or leave; no
-  one else sees it, admins included. Other bots join a conversation when
-  someone @mentions them: the conversation's bot asks them (chosen by the
-  agent, October 21; the owner can change it).
+- Colonie is where people and bots work together (owner, October 22). A
+  workspace has three kinds of conversation, all in the sidebar: a DM with
+  a bot (private to its people, who can add others), a DM between two
+  people (a bot joins when @mentioned), and a group: a named room of
+  several people and several bots. Only members see a conversation, admins
+  included. For the first release: bots answer in a group when @mentioned;
+  groups are by invitation; any member creates groups and adds bots they
+  can see; a bot that needs permission asks the person who asked it.
+  Later: a lead bot per group, bots working with each other in the open,
+  open groups, files and pins, threaded replies.
 - Every new Local workspace gets its own engine sign-in and connections. It
   never borrows another workspace's credentials or history.
 - The first-run welcome flow stays as it is. One step was added: it explains
