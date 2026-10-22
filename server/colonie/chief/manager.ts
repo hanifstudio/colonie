@@ -75,6 +75,9 @@ export interface ChiefDeps {
   runAssignment(job: ChiefAssignment, signal: AbortSignal): Promise<string>;
   skills: ChiefSkillsDeps;
   routines?: ChiefRoutinesDeps;
+  /** Ask the person for a secret: a button under the reply opens a form;
+   * the value never comes back here (colonie/secrets). */
+  requestSecret?(botId: string, threadId: string, input: { name: string; description: string }): unknown;
 }
 
 interface Lease {
@@ -118,6 +121,7 @@ What a bot can do
 - Guides (skills): save_my_skill proposes one and the person confirms it on a card; read_skill reads one. The person can type "/" in the message box to pick one of the bot's guides.
 - Memory: Colonie keeps relevant facts from conversations by itself and supplies them when they matter. A bot cannot save a memory directly.
 - Connected apps: the person adds MCP servers or Composio apps under Apps (puzzle icon by their profile), then chooses which a bot may use in that bot's settings, Access, "Connected apps and tools". When a task needs an app that is not connected, say where to connect it.
+- Secrets: when a task needs a key or password, request_secret puts a button under your reply; the person saves it privately and you get it in a file on their next message, never in the chat. People also manage them in Settings, AI, Secrets.
 - Approvals: risky actions wait for the person's Allow, depending on the bot's approval level (bot settings, Permissions).
 - The Chief of Staff (one per workspace) can also create, change and ask other bots.
 
@@ -135,6 +139,7 @@ const selfSkillTools: ToolDef[] = [
   { name: "about_colonie", description: "How Colonie works: workspaces, what you can and cannot do, where things are for the person. Read it when asked what you can do or how to do something in Colonie.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "request_secret", description: "Ask the person for a key, password or token a task needs (an API key, an app password). A button under your reply lets them save it privately; you never see the value. Once saved, it is in the secrets file named in your context on their next message: load it in your scripts and never print it. Never ask for a secret in the chat itself. Prefer a connected app (Apps) when one covers the service. After calling, say in one line what it is for and end your turn.", inputSchema: { type: "object", properties: { name: { type: "string", description: "An environment-variable name, e.g. GMAIL_APP_PASSWORD." }, description: { type: "string", description: "What it is and where the person finds it, in a sentence." }, requestId: { type: "string" } }, required: ["name", "description", "requestId"], additionalProperties: false } },
   { name: "save_my_skill", description: "Save a way of working as one of your guides, when the person asks (\"save what we just did as a skill\") or agrees to your offer after a task went well. A guide says when to use it, what it needs, the steps, how to check the result and what to hand back. The person confirms it on a card in the chat; until then nothing is saved. After calling, tell the person the card is there and end your turn. To change a guide you saved before, save it again under the same name.", inputSchema: { type: "object", properties: { name: { type: "string", description: "lowercase-with-hyphens, e.g. weekly-launch-report" }, description: { type: "string", description: "When to use it, one or two sentences." }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
 ];
 
@@ -471,6 +476,12 @@ export class ColonieChief {
         return ABOUT_COLONIE;
       case "list_my_skills":
         return safeText(this.deps.skills.list(lease.botId));
+      case "request_secret": {
+        const requestSecret = this.deps.requestSecret;
+        if (!requestSecret) throw new ToolError("Secrets are not available here.");
+        const input = { name: this.requiredString(args, "name"), description: this.requiredString(args, "description") };
+        return this.mutate(lease, name, args, () => safeText(requestSecret(lease.botId, lease.threadId, input)));
+      }
       case "save_my_skill": {
         const propose = this.deps.skills.propose;
         if (!propose) throw new ToolError("Saving guides is not available here.");

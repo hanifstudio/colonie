@@ -52,9 +52,20 @@ const SECRET_FLAG = /(--(?:token|password|passwd|api-key|apikey|secret|access-ke
 /** `scheme://user:secret@host` — the password in a URL's userinfo. */
 const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@'"]+:)([^\s/@'"«»]+)(@)/gi;
 
+/** Values a person saved as Secrets (server/colonie/secrets): masked
+ * wherever they appear, whatever their shape. Set by the server only. */
+let knownSecretValues: string[] = [];
+export function setKnownSecretValues(values: readonly string[]): void {
+  // short values would mask ordinary words; longest first so a value that
+  // contains another is masked whole
+  knownSecretValues = [...new Set(values.filter((value) => value.length >= 6))].sort((a, b) => b.length - a.length);
+}
+
 export function redactSecretsInText(text: string): string {
-  if (!text || text.length < 8) return text;
+  if (!text || text.length < 6) return text;
   let out = text;
+  for (const value of knownSecretValues) if (out.includes(value)) out = out.split(value).join(mask(value));
+  if (out.length < 8) return out;
   out = out.replace(PEM_BLOCK, (_m, open: string, body: string, close: string) => `${open}\n${mask(body.trim())}\n${close}`);
   for (const re of KEY_PREFIXES) out = out.replace(re, (m) => mask(m));
   out = out.replace(BEARER, (_m, lead: string, tok: string) => `${lead}${mask(tok)}`);

@@ -14,13 +14,14 @@ against the live cloud), engine sign-in from the admin's browser. In order:
 1. **Current: routines and skills from chat** (owner, October 23), as Grok
    Bot offers them. Done: any bot schedules and changes its own routines
    from chat (applied with an Undo); one made in a group reports there; a
-   finished run is announced; any bot saves a guide from chat once the
-   person confirms the card; "/" lists the bot's guides. Guides stay per
-   bot (owner). Left: see a real Claude and Codex do both from plain words
-   on Etalas after the update. Out of scope: event triggers (Slack, GitHub).
-   Also (owner, October 23): settings tidied: Profile under Account, Claude
-   and Codex on the AI page, MCP servers on their own tab, skills listed
-   (not typed) with a preview, memory switches in Advanced mode only.
+   finished run is announced; any bot saves a guide from chat (confirmed
+   on a card); "/" lists guides, kept per bot. Left: a real Claude and
+   Codex doing both on Etalas. Out of scope: event triggers.
+   Now (owner, October 23): Secrets. A bot that needs a key asks for it
+   with a button under its reply; a popup takes the name and value; the
+   bot's scripts get it, the chat and the AI never see it. Settings, AI,
+   Secrets lists them. A secret is its owner's (in a Shared workspace,
+   used only when that person asks) and reaches only the bots allowed.
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief

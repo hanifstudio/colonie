@@ -735,6 +735,7 @@ const handleRequest = createRequestHandler({
   sharedServers: deps.sharedServers,
   threadPeople: deps.threadPeople,
   groupConversations: deps.groupConversations,
+  secrets: deps.secrets,
   conversationCaller: deps.conversationCaller,
   workspaceDirectory: deps.workspaceDirectory,
   desktopAccount: deps.desktopAccount,

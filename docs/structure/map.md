@@ -67,6 +67,8 @@ one-line change here.
 - `server/colonie/routines/` — Scheduled and webhook work: routines and their runs,
   calendar calls, run cards, webhook ingress and wiring.
 - `server/colonie/runtime/` — Feature-side event subscriber wiring for the bus.
+- `server/colonie/secrets/` — Secrets: a person's keys and passwords for their bots, encrypted
+  at rest, handed to a request's scripts in a private file, never shown to the AI.
 - `server/colonie/skills/` — Bot skills: the library and resolution, learning, fetching,
   staged cleanup, the skills-library migration, routes.
 - `server/colonie/teams/` — Teams as packages: manifest, export/import and parts, package

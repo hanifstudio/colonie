@@ -60,6 +60,7 @@ import type { PlaceRow } from "../../shared/place-view";
 import { isProviderSafetyBlock, PROVIDER_SAFETY_GUIDANCE, PROVIDER_SAFETY_HELP_URL } from "../../shared/provider-safety";
 import { BotAvatar } from "./Avatar";
 import { PersonAvatar } from "./PersonAvatar";
+import { SecretAsk } from "./Secrets";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { normalizeState, stateForBot } from "@/lib/mascot";
@@ -498,6 +499,10 @@ const Bubble = memo(function Bubble({
 
   // a line about the conversation itself (who made it, who joined)
   if (message.notice) return <div className="py-1 text-center text-[12.5px] text-ink-tertiary">{message.text}</div>;
+  // a bot asking for a secret: the button opens the private form; once saved
+  // the person's short note lets the bot carry on with it
+  if (message.secretAsk) return <SecretAsk message={message} threadId={threadId}
+    onSaved={(name) => { if (!message.secretAsk?.saved) dispatch({ type: "send", botId, threadId, text: `I saved ${name}. Please continue.` }); }} />;
 
   if (user && editing && !webhookView && !hasAttachments) {
     return (

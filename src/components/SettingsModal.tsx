@@ -42,6 +42,7 @@ import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { Card, SettingRow, Switch } from "./SettingsPrimitives";
 import { PersonAvatar } from "./PersonAvatar";
+import { SecretsSettings } from "./Secrets";
 import { openPhotoPage, useSignedInAccount } from "./SidebarProfileMenu";
 import { effortLabel } from "./ModelPicker";
 import { EFFORT_LEVELS, isEffortLevel } from "../../shared/wire";
@@ -98,6 +99,7 @@ export const SECTIONS: Array<{
   { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "top"] },
   { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
+  { id: "secrets", group: "ai", labelKey: "settings.section.secrets", icon: Key01Icon, keywords: ["secrets", "keys", "passwords", "tokens", "env", "environment", "credentials"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
@@ -121,7 +123,7 @@ export type SimpleSettingsPage = {
 export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
-  { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections"] },
+  { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "secrets"] },
   { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["computer"] },
   { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["profile", "people", "activity"] },
 ];
@@ -802,7 +804,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
-    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "backups", "profile"].includes(entry.id) || (colonieInvites && entry.id === "people"))
+    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "secrets", "backups", "profile"].includes(entry.id) || (colonieInvites && entry.id === "people"))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
     .filter((entry) => entry.id !== "people" || colonieInvites || !window.colonie)
     // the activity log belongs to a workspace served to a browser, and to its admins
@@ -998,6 +1000,8 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         );
       case "engines":
         return <EnginesSettings />;
+      case "secrets":
+        return <SecretsSettings />;
       case "backups":
         return <WorkspaceBackupSettings />;
       case "computer":

@@ -166,6 +166,7 @@ export interface SecretRequestCardData {
 export interface Message {
   /** A line about a group or DM itself ("Ana added Bob"), not anyone's words. */
   notice?: true;
+  secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
   id: string;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
@@ -793,7 +794,8 @@ export type AppSettingsSection =
   | "activity"
   | "backups"
   | "skills"
-  | "profile";
+  | "profile"
+  | "secrets";
 
 export type BotSettingsSection =
   | "overview"
@@ -1302,6 +1304,12 @@ function optimisticUserMessage(
 
 export function reducer(state: AppState, action: Action): AppState {
   if (action.type === "messageAdded" || action.type === "messagePatched" || action.type === "threadActive" || action.type === "optimisticMessageRemoved") {
+    // A person's first message to a bot in a Shared workspace starts their own
+    // conversation: the bot had none for them (threadId ""), so this is the
+    // one they are looking at. Adopt it, or everything after (the reply, an
+    // approval card) waits unseen in the background until a reload.
+    const starting = state.bots.find((bot) => bot.threadId === "" && !bot.awaitingThreadSnapshot && bot.tasks?.some((task) => task.threadId === action.threadId));
+    if (starting) state = updateBot(state, starting.id, (bot) => ({ ...bot, threadId: action.threadId }));
     const owner = state.bots.find((bot) => (bot.threadId !== action.threadId || bot.awaitingThreadSnapshot) && bot.tasks?.some((task) => task.threadId === action.threadId));
     if (owner) {
       // ponytail: a bounded race buffer, not a second transcript store. The

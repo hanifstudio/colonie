@@ -319,6 +319,9 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET", "POST"], path: /^\/api\/conversations\/[\w-]+\/messages$/ },
   { methods: ["POST"], path: /^\/api\/conversations\/[\w-]+\/(read|members)$/ },
   { methods: ["DELETE"], path: /^\/api\/conversations\/[\w-]+\/members\/me$/ },
+  // Secrets: each person reads and changes only their own (see the handler)
+  { methods: ["GET"], path: /^\/api\/secrets$/ },
+  { methods: ["PUT", "PATCH", "DELETE"], path: /^\/api\/secrets\/[A-Z][A-Z0-9_]{1,63}$/ },
   // the people in a conversation: only its own people get an answer (see the handler)
   { methods: ["GET", "POST"], path: /^\/api\/threads\/[\w-]+\/people$/ },
   { methods: ["DELETE"], path: /^\/api\/threads\/[\w-]+\/people\/me$/ },

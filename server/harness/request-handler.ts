@@ -8,6 +8,7 @@ import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-signin.ts";
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
 import type { Caller, GroupConversations } from "../colonie/groups/group-conversations.ts";
+import type { Secrets } from "../colonie/secrets/secrets.ts";
 import { DESKTOP_CALLBACK, callbackPage, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
 import { accountPhoto } from "../colonie/accounts/colonie-oauth.ts";
 import type { ServerUpdate } from "../colonie/deploy/server-update.ts";
@@ -636,6 +637,37 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           }),
         ),
       });
+    }
+
+    // ── Secrets (colonie/secrets): a person's own, never their values ──
+    const secrets: Secrets | undefined = deps.secrets;
+    if (secrets && (path === "/api/secrets" || path.startsWith("/api/secrets/"))) {
+      const caller: Caller | null = deps.conversationCaller(auth);
+      if (!caller) return json(res, 403, { error: "sign in to keep secrets" });
+      if (method === "GET" && path === "/api/secrets") return json(res, 200, { secrets: secrets.list(caller.key) });
+      const name = (m = path.match(/^\/api\/secrets\/([A-Z][A-Z0-9_]{1,63})$/))?.[1];
+      if (!name) return json(res, 404, { error: "no such secret" });
+      // only bots this person can see may be given one
+      const visibleBots = (value: unknown) => Array.isArray(value) ? value.filter((id): id is string => typeof id === "string" && caller.seesBot(id)) : undefined;
+      try {
+        if (method === "PUT") {
+          const body = (await readBody(req)) ?? {};
+          const botId = typeof body.botId === "string" && caller.seesBot(body.botId) ? body.botId : undefined;
+          const secret = secrets.put(caller.key, { name, value: body.value, description: body.description, bots: visibleBots(body.bots), botId });
+          // saved from a bot's request in a chat: that card is answered
+          if (typeof body.threadId === "string" && typeof body.messageId === "string" && botId) {
+            const message = store.messagesFor(body.threadId).find((entry: { id: string; secretAsk?: { name: string } }) => entry.id === body.messageId && entry.secretAsk?.name === name);
+            if (message?.secretAsk && store.botByThread(body.threadId)?.id === botId) store.patchMessage(body.threadId, message.id, { secretAsk: { ...message.secretAsk, saved: true } });
+          }
+          return json(res, 200, { secret });
+        }
+        if (method === "PATCH") return json(res, 200, { secret: secrets.setBots(caller.key, name, visibleBots(((await readBody(req)) ?? {}).bots) ?? []) });
+        if (method === "DELETE") return secrets.remove(caller.key, name) ? json(res, 200, { ok: true }) : json(res, 404, { error: "no such secret" });
+      } catch (error) {
+        const status = (error as { status?: number }).status ?? 400;
+        return json(res, status, { error: error instanceof Error ? error.message : String(error) });
+      }
+      return json(res, 405, { error: "method not allowed" });
     }
 
     // ── groups and DMs between people (colonie/groups) ──

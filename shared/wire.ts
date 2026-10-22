@@ -384,6 +384,9 @@ export interface WireMessage {
   id: string;
   /** A line about the conversation itself ("Ana added Bob"), not anyone's words. */
   notice?: true;
+  /** A bot asking the person for a secret (server/colonie/secrets): a button
+   * under its reply opens a form; the value never enters the chat. */
+  secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;

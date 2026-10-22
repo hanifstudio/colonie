@@ -141,6 +141,7 @@ import { createThreadPeople } from "./colonie/chat/thread-people.ts";
 import { LOCAL_PERSON, createGroupConversations, type Caller } from "./colonie/groups/group-conversations.ts";
 import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
 import { accountPhoto } from "./colonie/accounts/colonie-oauth.ts";
+import { createSecrets, SECRET_NAME } from "./colonie/secrets/secrets.ts";
 import { createServerUpdate } from "./colonie/deploy/server-update.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
@@ -453,6 +454,8 @@ const conversationCaller = (auth: RequestAuth): Caller | null => {
   const name = colonieSignIn.members().find((member) => member.email.toLowerCase() === email)?.name || email || "Someone";
   return { key, name, seesBot: (botId) => visibleTo(viewerFor(auth)).bot(botId) };
 };
+/** A person's keys and passwords for their bots (colonie/secrets). */
+const secrets = createSecrets({ dir: join(DATA_DIR, "secrets") });
 const groupConversations = createGroupConversations({
   file: join(DATA_DIR, "group-conversations.json"),
   store: () => store,
@@ -925,6 +928,19 @@ const colonieChief = new ColonieChief({
       });
       return { state: "waiting for the person", summary: `A card in this chat asks the person to ${staged.action === "create" ? "save" : "update"} the guide "${staged.name}". Nothing is saved until they answer; end your turn.` };
     },
+  },
+  // A bot asking for a secret: a message whose button opens the form
+  // (src/components/SecretAsk.tsx); the value goes to /api/secrets.
+  requestSecret: (botId, threadId, input) => {
+    const name = input.name.trim().toUpperCase();
+    if (!SECRET_NAME.test(name)) throw new Error("Name it like an environment variable: capital letters, digits and _, e.g. GMAIL_APP_PASSWORD.");
+    const bot = store.bot(botId);
+    store.appendMessage(threadId, {
+      role: "bot", kind: "text", text: "",
+      ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
+      secretAsk: { name, description: input.description.trim().slice(0, 300), botId },
+    });
+    return { state: "waiting for the person", summary: `A button under your reply asks the person to save ${name}. You will not see the value; on their next message it is in your secrets file.` };
   },
   // Routines from chat; the scheduler and request service start further down
   // and are only read when a tool is called.
@@ -1558,8 +1574,19 @@ const acpSituation = (senderName?: string) => {
       : `This is ${asker ? `${asker}'s` : "the person's"} own Local workspace on their computer.`,
   ].filter(Boolean).join(" ");
 };
+/** The secrets this person lets this bot use, for one request: written to
+ * a private file, named (never shown) in the bot's context. A request with
+ * no person behind it (a routine on a Shared workspace) gets none. */
+const acpSecrets = (botId: string, threadId: string, senderKey?: string) => {
+  const owner = workspaceKind.shared() ? senderKey : LOCAL_PERSON;
+  const prepared = owner ? secrets.prepare(owner, botId, threadId) : null;
+  return prepared
+    ? `Secrets you may use: ${prepared.names.join(", ")}, in ${prepared.file} as NAME='value' lines. Load them in your scripts (for example: set -a; . "${prepared.file}"; set +a) and never print their values.`
+    : "";
+};
 const startTurn = createStartTurn({
   acpSituation,
+  acpSecrets,
   ComputerWaitParked,
   DirectTurnSetupCancelled,
   MAX_COMMS_DEPTH,
@@ -2068,6 +2095,7 @@ const { server, liveCalls } = createServerAssembly({
   sharedServers,
   threadPeople,
   groupConversations,
+  secrets,
   conversationCaller,
   workspaceDirectory,
   desktopAccount,
