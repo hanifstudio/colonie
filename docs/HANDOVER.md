@@ -15,25 +15,22 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    October 22). A person makes a group with a name, people and bots; every
    member sees it in the sidebar and writes in it; a bot answers when
    @mentioned, in the group; a DM between two people works the same with no
-   bots until one is @mentioned. Non-members see nothing. Proof: two-person
+   bots until one is @mentioned. Non-members see nothing. Now, like Slack:
+   the sidebar lists everyone else in the workspace; clicking a person opens
+   the DM with them, starting it if needed (proof: view tests, the journey
+   opens a DM from the sidebar; out of scope: presence, notifications).
+   Proof: two-person
    tests on a throwaway Shared workspace, then the real app. Done too: one
    list of workspaces; New workspace (Local or Shared); Update for Shared
    servers; the journey as a CI test; the image 3.9 → 2.7 GB. Left in the
    image: web-app-only packages and Next.js (via better-auth), about 600 MB.
-2. **Waits on the owner:** publishing the server image where a
-   server can pull it (push, run the Server image workflow, make the package
-   public), then one real Shared workspace on the owner's Akamai server.
-3. A lifetime license for Shared, bought once (owner decision); later.
-4. Release: a `.dmg`, the Colonie Cloud domain, CI seen green on GitHub.
+2. A lifetime license for Shared, bought once (owner decision); later.
+3. Release: a signed, notarized `.dmg` (friends get an unsigned build from
+   GitHub Releases, tag `friends-<version>`, so the legacy updater mirror
+   skips it), the Colonie Cloud domain.
 
-Done: one click on DigitalOcean (stand-in tests; never with a real account);
-self-hosting with one pasted command (script run with recorded tools).
-Seen in a real window: Join a Shared workspace, Create a Shared workspace
-with both choices and the command to paste; the first run's three choices;
-the Colonie account screen; the owner's whole journey with a local Colonie
-Cloud and Shared workspace: sign up in the account window, open the Shared
-workspace by its owner invite with only Continue, the workspace welcome.
-Not yet seen: Settings, People; a join through Colonie Cloud.
+Not yet seen in a real window: the installed app opening a `colonie://`
+invite link; Update on a real Shared server.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the

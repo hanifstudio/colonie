@@ -123,6 +123,16 @@ try {
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");
+
+  step = "a DM from the sidebar";
+  await bob.reload();
+  await settle(bob);
+  await bob.click('section[aria-label="Groups and people"] button[title="ana@x.com"]');
+  await bob.fill("main form textarea", "just between us");
+  await bob.keyboard.press("Enter");
+  await until(ana, async () => (await ana.locator('section[aria-label="Groups and people"] button:has-text("Bob") [aria-label="Unread"]').count()) > 0, "Ana sees Bob's DM as unread in her sidebar");
+  await ana.click('section[aria-label="Groups and people"] button:has-text("Bob")');
+  await until(ana, async () => (await text(ana)).includes("just between us"), "Ana reads the DM");
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   console.log("Shared workspace journey: passed");
 } catch (error) {

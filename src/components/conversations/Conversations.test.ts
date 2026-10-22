@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { Conversation } from "@/lib/conversations";
 import { mentionQuery, mentionSuggestions, withFrame } from "@/lib/conversations";
 import type { Message } from "@/state/store";
-import { ConversationListView } from "./SidebarConversations";
+import { ConversationListView, sidebarRows } from "./SidebarConversations";
 import { ConversationMessagesView } from "./ConversationView";
 import { NewConversationView } from "./NewConversationDialog";
 
@@ -66,6 +66,18 @@ describe("groups and DMs between people", () => {
     expect(list).toHaveLength(1);
     list = withFrame(list, { kind: "message.patch", threadId: "t1", message: { ...first, text: "Done." } });
     expect(list[0]!.text).toBe("Done.");
+  });
+
+  it("lists everyone else in the workspace, like Slack: a person with a DM shows that DM", () => {
+    const dm = conversation({ id: "c2", kind: "dm", title: "Bob", unread: true });
+    const gone = conversation({ id: "c3", kind: "dm", title: "Cy", people: [{ email: "ana@x.com", name: "Ana", you: true }, { email: "cy@x.com", name: "Cy", you: false }] });
+    const rows = sidebarRows([dm, conversation({}), gone], [{ email: "Bob@x.com", name: "Bob" }, { email: "dee@x.com", name: "Dee" }]);
+    expect(rows.map((row) => row.kind === "person" ? `person:${row.person.name}` : row.conversation.id)).toEqual(["c1", "c2", "person:Dee", "c3"]);
+    const html = renderToStaticMarkup(createElement(ConversationListView, {
+      conversations: [], people: [{ email: "dee@x.com", name: "Dee" }], selectedId: undefined, onSelect: () => {}, onNew: () => {},
+    }));
+    expect(html).toContain("Dee");
+    expect(html).toContain("Start a group with people and bots");
   });
 
   it("someone @named sees it on the conversation, before plain unread", () => {
