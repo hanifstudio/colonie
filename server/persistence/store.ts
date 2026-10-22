@@ -2581,7 +2581,7 @@ export class Store {
    * random friendly name like every other bot. */
   seedIfEmpty() {
     if (!this.needsSeed()) return;
-    const bot = this.createBot(colonieProfile() ? { name: "Codex", color: "purple" } : {});
+    const bot = this.createBot(colonieProfile() ? { color: "purple" } : {});
     if (colonieProfile()) {
       this.patchBot(bot.id, { computer: "off" });
       // Colonie's first bot is the workspace Chief by default.

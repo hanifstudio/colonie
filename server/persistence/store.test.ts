@@ -56,3 +56,20 @@ test("a store built without a workspace still uses the process's own data direct
   expect(store.bots).toBeInstanceOf(Array);
   expect(DATA_DIR.startsWith(homedir())).toBe(true);
 });
+
+// The first bot of a new workspace gets a friendly name like every other bot,
+// not the name of an engine.
+test("the first bot of a workspace is named like any bot, and leads as Chief of Staff", () => {
+  const before = process.env.COLONIE_PROFILE;
+  process.env.COLONIE_PROFILE = "1";
+  try {
+    const store = new Store(selection, undefined, undefined, scopeWithBots([]));
+    store.seedIfEmpty();
+    const [first] = store.bots;
+    expect(first?.name).toBeTruthy();
+    expect(first?.name).not.toBe("Codex");
+    expect(first?.chiefOfStaff).toBe(true);
+  } finally {
+    if (before === undefined) delete process.env.COLONIE_PROFILE; else process.env.COLONIE_PROFILE = before;
+  }
+});
