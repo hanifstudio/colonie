@@ -1324,6 +1324,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 400, { error: "body must be a JSON object" });
       }
       const body = rawBody ?? {};
+      if (body.threadId === "") delete body.threadId; // no conversation yet: none named
       requirePinnedClientThread(bot.id, body.threadId);
       if (body.threadId !== undefined && (typeof body.threadId !== "string" || !/^[\w-]+$/.test(body.threadId))) {
         return json(res, 400, { error: "threadId must be a task id" });

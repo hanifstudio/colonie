@@ -70,6 +70,9 @@ export function createBotMessagesRoutes(deps: BotMessagesRouteDeps): RouteHandle
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
       const shared = deps.ownThreads?.shared() ?? false;
+      // "" is a person's current conversation when they have none yet (the
+      // bot as a Shared workspace shows it to them): the same as naming none.
+      if (body.threadId === "") delete body.threadId;
       // In a Shared workspace a message with no thread goes to the sender's own
       // conversation, so there is nothing ambiguous to pin.
       if (!shared) requirePinnedClientThread(bot.id, body.threadId);

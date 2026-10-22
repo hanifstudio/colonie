@@ -64,6 +64,14 @@ test("someone with no conversation with the bot gets an empty one, not a missing
   expect(bot.threadId).toBe("");
 });
 
+test("their first message, sent with the empty conversation the app holds, opens their own", async () => {
+  // The app sends the bot's current thread, which is "" for a person with none.
+  const sent = await ws.as(CICI, `/api/bots/${botId}/messages`, { method: "POST", body: { text: "cici's first question", threadId: "" } });
+  expect(sent.status, JSON.stringify(sent.body)).toBe(202);
+  expect(sent.body.threadId).toMatch(/^[\w-]+$/);
+  expect(sent.body.threadId).not.toBe(thread);
+});
+
 test("someone not in it still cannot see it, list its people, or add themselves", async () => {
   expect((await ws.as(CICI, `/api/threads/${thread}/messages`)).status).toBe(404);
   expect((await people(CICI)).status).toBe(404);

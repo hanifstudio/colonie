@@ -81,6 +81,8 @@ function unattendedDispatchState(botId: string): "ready" | "busy" | "missing" {
 function requestedTaskBot(botId: string, rawThreadId: unknown, auth?: RequestAuth): BotRecord {
   const profile = store().bot(botId);
   if (!profile) throw Object.assign(new Error("no such bot"), { status: 404 });
+  // "" is a person's conversation when they have none yet: as if none were named.
+  if (rawThreadId === "") rawThreadId = undefined;
   if (rawThreadId !== undefined && (typeof rawThreadId !== "string" || !/^[\w-]+$/.test(rawThreadId))) {
     throw Object.assign(new Error("threadId must be a task id"), { status: 400 });
   }
