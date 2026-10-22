@@ -13,7 +13,7 @@ import {
   StopIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { useStore, visibleMessages, currentTaskBot, type Bot, type Message } from "@/state/store";
+import { api, useStore, visibleMessages, currentTaskBot, type Bot, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { activeLocale, t } from "@/lib/i18n";
@@ -83,6 +83,7 @@ import { serializeThreadRefs, threadTokenFromPaste, threadTokenSpacing } from "@
 import {
   composerSlashTrigger,
   replaceComposerSlashTrigger,
+  slashReplacement,
   type ComposerSlashCommand,
 } from "@/lib/composer-commands";
 
@@ -273,6 +274,16 @@ export function Composer({
 
   // ── Slash commands and @mentions ─────────────────────────────────────
   const slash = composerSlashTrigger(text, caret);
+  const slashOpen = Boolean(slash);
+  const [guides, setGuides] = useState<Array<{ name: string; description: string }>>([]);
+  useEffect(() => {
+    if (!slashOpen || !bot) return;
+    let alive = true;
+    void api<{ skills?: Array<{ name: string; description: string; enabled: boolean }> }>(`/api/bots/${bot.id}/colonie-skills`)
+      .then((view) => { if (alive) setGuides((view.skills ?? []).filter((skill) => skill.enabled)); })
+      .catch(() => { if (alive) setGuides([]); });
+    return () => { alive = false; };
+  }, [slashOpen, bot?.id]);
   const locale = activeLocale();
   const commandCandidates = useMemo(() => {
     if (!slash || slash.start === dismissedSlashAt) return [];
@@ -297,6 +308,8 @@ export function Composer({
       label: "/setup",
       description: t("composer.command.setupDesc"),
     });
+    // the bot's own guides, by name (ACP bots; loaded when "/" is typed)
+    for (const guide of guides) available.push({ id: `guide:${guide.name}`, label: `/${guide.name}`, description: guide.description });
     const query = slash.query.toLowerCase();
     return available.filter(
       (command) =>
@@ -304,7 +317,7 @@ export function Composer({
         command.id.startsWith(query) ||
         command.description.toLowerCase().includes(query),
     );
-  }, [slash, dismissedSlashAt, bot, state.config, state.instances, locale]);
+  }, [slash, dismissedSlashAt, bot, state.config, state.instances, locale, guides]);
   const commandPickerOpen = commandCandidates.length > 0;
 
   // Tag another bot; the agent reaches it via ask_bot.
@@ -349,7 +362,7 @@ export function Composer({
 
   const pickCommand = (command: ComposerSlashCommand) => {
     if (!slash) return;
-    const replacement = command.id === "learn" ? "/learn " : command.id === "setup" ? "/setup " : "";
+    const replacement = slashReplacement(command.id);
     const next = replaceComposerSlashTrigger(text, slash, replacement);
     editText(next.text);
     setCaret(next.caret);

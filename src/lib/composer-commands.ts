@@ -1,9 +1,19 @@
-export type ComposerSlashCommandId = "learn" | "setup";
+/** A built-in command, or one of the bot's guides by name. */
+export type ComposerSlashCommandId = "learn" | "setup" | `guide:${string}`;
 
 export interface ComposerSlashCommand {
   id: ComposerSlashCommandId;
-  label: `/${ComposerSlashCommandId}`;
+  label: string;
   description: string;
+}
+
+/** What picking a command leaves in the draft. A guide becomes a plain
+ * request to use it, in the person's own words, which they can still edit;
+ * the bot reads the guide (read_skill) because its index names it. */
+export function slashReplacement(id: ComposerSlashCommandId): string {
+  if (id === "learn") return "/learn ";
+  if (id === "setup") return "/setup ";
+  return `Use your guide "${id.slice("guide:".length)}": `;
 }
 
 export interface ComposerSlashTrigger {
@@ -17,7 +27,7 @@ export interface ComposerSlashTrigger {
 export function composerSlashTrigger(text: string, caretInput: number): ComposerSlashTrigger | null {
   const caret = Math.max(0, Math.min(text.length, Math.floor(caretInput)));
   const prefix = text.slice(0, caret);
-  const match = /^\/([a-z-]*)$/i.exec(prefix);
+  const match = /^\/([a-z0-9-]*)$/i.exec(prefix);
   if (!match) return null;
   return { query: match[1] ?? "", start: 0, end: caret };
 }
