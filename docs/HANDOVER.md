@@ -12,13 +12,12 @@ Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
 1. **Current: routines and skills from chat** (owner, October 23), as Grok
-   Bot offers them. A person asks a bot "every weekday at 8, sum up the
-   news" and the bot schedules it (any bot, its own routines; applied with
-   an Undo, or a card). A routine started in a group reports to that group.
-   Then skills: any bot saves a guide from chat, one library for all bots,
-   `/` to use one. Proof: the e2e test drives the engine's tool call on a
-   throwaway Shared workspace; the journey. Out of scope: event triggers
-   (Slack, GitHub).
+   Bot offers them. Done: any bot schedules and changes its own routines
+   from chat (applied with an Undo); one made in a group reports there; a
+   finished run is announced; any bot saves a guide from chat once the
+   person confirms the card; "/" lists the bot's guides. Guides stay per
+   bot (owner). Left: see a real Claude and Codex do both from plain words
+   on Etalas after the update. Out of scope: event triggers (Slack, GitHub).
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief
