@@ -738,6 +738,7 @@ const handleRequest = createRequestHandler({
   conversationCaller: deps.conversationCaller,
   workspaceDirectory: deps.workspaceDirectory,
   desktopAccount: deps.desktopAccount,
+  serverUpdate: deps.serverUpdate,
   publicUrl: FALLBACK_PUBLIC_URL,
   selectedTaskBot: deps.selectedTaskBot,
   ownThreads: deps.ownThreads,

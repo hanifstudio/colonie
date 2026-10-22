@@ -110,6 +110,7 @@ import { attentionHasRunningWork, attentionJumpAction, attentionTriggerLabel, at
 import { SidebarAttentionPanel } from "./SidebarAttentionPanel";
 import { SidebarPinnedThreadsPanel } from "./SidebarPinnedThreadsPanel";
 import { SidebarConversations } from "./conversations/SidebarConversations";
+import { ServerUpdateNotice } from "./ServerUpdateNotice";
 import { useLiveMedia } from "@/lib/live-call-media";
 import { LiveCallPill, liveBadgeFor } from "./LiveCallPill";
 import { ShortcutHint } from "./ShortcutHint";
@@ -2259,12 +2260,15 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
           // of the profile row's rounded hover pill, and the two hover states
           // read as one crowded block rather than two rows. Apps sits at the
           // end of the profile row.
+          <>
+          <ServerUpdateNotice />
           <div className="flex items-center gap-1 not-first:mt-3">
             <div className="min-w-0 flex-1">
               <SidebarProfileMenu />
             </div>
             <SidebarAppsButton />
           </div>
+          </>
         )}
         </>}
       </div>

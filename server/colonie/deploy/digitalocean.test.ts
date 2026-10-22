@@ -142,6 +142,9 @@ test("on the owner's own server the address is given, not read from DigitalOcean
   expect(script).not.toContain("169.254.169.254");
   expect(script).toMatch(/must run as root/);
   expect(script).toMatch(/ufw allow/);
+  // updates from the app: the host's watcher for a request in the control folder
+  expect(script).toContain("PathExists=/opt/colonie/control/update-requested");
+  expect(script).toContain("systemctl enable --now colonie-update.path");
   expect(() => firstBootScript({ image: "img:1", issuer: "https://cloud.example", workspaceName: "Team", ownerCode: "q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd", site: "https://x.example/$(reboot)" })).toThrow();
 });
 

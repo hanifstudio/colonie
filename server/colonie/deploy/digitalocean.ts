@@ -31,8 +31,12 @@ export const COMPOSE_FILE = [
   "      COLONIE_CLOUD_ISSUER: ${COLONIE_CLOUD_ISSUER}\n",
   "      COLONIE_WORKSPACE_NAME: ${COLONIE_WORKSPACE_NAME:-Colonie workspace}\n",
   "      COLONIE_OWNER_INVITE_CODE: ${COLONIE_OWNER_INVITE_CODE:-}\n",
+  "      # updates from the app: a request here, acted on by the host's watcher\n",
+  "      COLONIE_IMAGE: ${COLONIE_IMAGE:-colonie-workspace:latest}\n",
+  "      COLONIE_CONTROL_DIR: /control\n",
   "    volumes:\n",
   "      - colonie-data:/data\n",
+  "      - ./control:/control\n",
   "    ports:\n",
   "      - \"${HTTP_PORT:-80}:80\"\n",
   "      - \"${HTTPS_PORT:-443}:443\"\n",
@@ -83,6 +87,49 @@ export function siteAddress(input: string): string | null {
   return `https://${text}`;
 }
 
+/** Updates from the app (colonie/deploy/server-update.ts): the app writes a
+ * published version into /opt/colonie/control/update-requested; this
+ * watcher on the host pins it, pulls it and restarts. Only a release number
+ * passes; nothing else from the request reaches a command. */
+const UPDATE_WATCHER = [
+  "mkdir -p /opt/colonie/control",
+  "cat > /usr/local/bin/colonie-update <<'COLONIE_UPDATER'",
+  "#!/bin/bash",
+  "set -euo pipefail",
+  "cd /opt/colonie",
+  "request=control/update-requested",
+  "[ -f \"$request\" ] || exit 0",
+  "tag=$(head -c 32 \"$request\" | tr -cd '0-9.')",
+  "rm -f \"$request\"",
+  "[[ \"$tag\" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || exit 0",
+  "image=$(sed -n 's/^COLONIE_IMAGE=\"\\(.*\\)\"$/\\1/p' .env)",
+  "next=\"${image%:*}:$tag\"",
+  "echo \"$(date -u +%FT%TZ) updating to $tag\" >> control/update.log",
+  "# fetched first: a version that cannot be had leaves the running one as it is",
+  "docker pull \"$next\"",
+  "sed -i.bak \"s|^COLONIE_IMAGE=.*|COLONIE_IMAGE=\\\"$next\\\"|\" .env && rm -f .env.bak",
+  "docker compose up -d --no-build",
+  "echo \"$(date -u +%FT%TZ) running $tag\" >> control/update.log",
+  "COLONIE_UPDATER",
+  "chmod 755 /usr/local/bin/colonie-update",
+  "cat > /etc/systemd/system/colonie-update.path <<'COLONIE_UNIT'",
+  "[Unit]",
+  "Description=Colonie: update when the app asks",
+  "[Path]",
+  "PathExists=/opt/colonie/control/update-requested",
+  "[Install]",
+  "WantedBy=multi-user.target",
+  "COLONIE_UNIT",
+  "cat > /etc/systemd/system/colonie-update.service <<'COLONIE_UNIT'",
+  "[Unit]",
+  "Description=Colonie: pull and restart the version the app asked for",
+  "[Service]",
+  "Type=oneshot",
+  "ExecStart=/usr/local/bin/colonie-update",
+  "COLONIE_UNIT",
+  "if command -v systemctl >/dev/null; then systemctl daemon-reload && systemctl enable --now colonie-update.path; fi",
+];
+
 /** The server's set-up script: on a droplet's first boot, or pasted by the
  * owner into their own Ubuntu server (`site` given). Every value is checked
  * or reduced to plain characters, because it lands in a shell script and an
@@ -126,6 +173,8 @@ export function firstBootScript(input: { image: string; issuer: string; workspac
     `COLONIE_WORKSPACE_NAME="${name}"`,
     `COLONIE_OWNER_INVITE_CODE="${input.ownerCode}"`,
     "COLONIE_ENV",
+    "umask 022",
+    ...UPDATE_WATCHER,
     "docker compose pull",
     "docker compose up -d --no-build",
     'echo "Colonie is starting at $SITE. Go back to the Colonie app: it opens the workspace when it answers."',

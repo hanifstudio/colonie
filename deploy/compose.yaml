@@ -16,8 +16,12 @@ services:
       COLONIE_CLOUD_ISSUER: ${COLONIE_CLOUD_ISSUER}
       COLONIE_WORKSPACE_NAME: ${COLONIE_WORKSPACE_NAME:-Colonie workspace}
       COLONIE_OWNER_INVITE_CODE: ${COLONIE_OWNER_INVITE_CODE:-}
+      # updates from the app: a request here, acted on by the host's watcher
+      COLONIE_IMAGE: ${COLONIE_IMAGE:-colonie-workspace:latest}
+      COLONIE_CONTROL_DIR: /control
     volumes:
       - colonie-data:/data
+      - ./control:/control
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"

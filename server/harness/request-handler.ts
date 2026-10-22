@@ -9,6 +9,7 @@ import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-sign
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
 import type { Caller, GroupConversations } from "../colonie/groups/group-conversations.ts";
 import { DESKTOP_CALLBACK, callbackPage, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
+import type { ServerUpdate } from "../colonie/deploy/server-update.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
@@ -530,6 +531,23 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const body = await readBody(req);
       const role: MemberRole = body?.role === "admin" ? "admin" : "member";
       return json(res, 201, colonieSignIn.createInvite(role, publicUrlFor(req)));
+    }
+
+    // ── updating this Shared workspace's server (admins; colonie/deploy/server-update.ts) ──
+    if (path === "/api/server-update") {
+      const serverUpdate: ServerUpdate | undefined = deps.serverUpdate;
+      if (!serverUpdate) return json(res, 404, { error: "This server is not updated from the app." });
+      try {
+        if (method === "GET") return json(res, 200, await serverUpdate.status());
+        if (method === "POST") {
+          const status = await serverUpdate.status();
+          const body = await readBody(req);
+          const version = typeof body?.version === "string" ? body.version : status.latest ?? "";
+          return json(res, 202, serverUpdate.request(version));
+        }
+      } catch (error) {
+        return json(res, (error as { status?: number }).status ?? 500, { error: (error as Error).message });
+      }
     }
 
     // ── the Colonie account of the person on this computer (desktop owner) ──

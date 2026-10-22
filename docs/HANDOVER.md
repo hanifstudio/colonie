@@ -47,7 +47,7 @@ The server image is about 3 GB.
 |---|---|
 | The release is built from code that reaches `main` | Waiting on the owner (see blueprint) |
 | CI passes on that code | Rewritten to run `pnpm check`; never run on GitHub |
-| A version number and an update path for people on 0.2.0 | Not decided |
+| A version number and an update path for people on 0.2.0 | Shared servers update from the app to a newer published version; each release must raise package.json's version before the Server image workflow |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |

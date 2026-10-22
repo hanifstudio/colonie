@@ -138,6 +138,7 @@ import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deplo
 import { createThreadPeople } from "./colonie/chat/thread-people.ts";
 import { LOCAL_PERSON, createGroupConversations, type Caller } from "./colonie/groups/group-conversations.ts";
 import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
+import { createServerUpdate } from "./colonie/deploy/server-update.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
 import {ThreadStarters} from "./colonie/chat/thread-starters.ts";
@@ -404,6 +405,12 @@ const desktopAccount = LOOPBACK.trust === "owner" && !HOSTED_WORKSPACE
       cfg.profile = profile;
     },
   })
+  : undefined;
+
+// Updating this Shared workspace's server from the app: a request in the
+// control folder that the host's watcher acts on (colonie/deploy).
+const serverUpdate = process.env.COLONIE_CONTROL_DIR?.trim()
+  ? createServerUpdate({ controlDir: process.env.COLONIE_CONTROL_DIR.trim(), version: serverVersion(), image: process.env.COLONIE_IMAGE?.trim() ?? "" })
   : undefined;
 
 // Who takes part in a conversation, in a Shared workspace.
@@ -1985,6 +1992,7 @@ const { server, liveCalls } = createServerAssembly({
   conversationCaller,
   workspaceDirectory,
   desktopAccount,
+  serverUpdate,
   ownThreads,
   personOf,
   COMMAND_ALLOWLIST_DRIVERS,
