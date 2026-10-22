@@ -21,15 +21,18 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    Colonie Cloud ("Change photo" in the profile menu), shown in every
    workspace. Proof: view tests, the journey (photo upload against a local
    Colonie Cloud, the photo shown to the other person), screenshots. Out of
-   scope: presence, notifications, cropping. Teams are removed (owner,
-   October 23): one list of bots, one Chief of Staff; the app first, then
-   the server code and its tests, which the owner commits (the hook keeps
-   test deletions for the owner). Left in the image: web-app-only
-   packages and Next.js (via better-auth), about 600 MB.
-2. A lifetime license for Shared, bought once (owner decision); later.
-3. Release: a signed, notarized `.dmg` (friends get an unsigned build from
+   scope: presence, notifications, cropping.
+2. **Next: the team code leaves the server.** Teams are gone from the app
+   (owner, October 23). Left on the server: sections and their shared
+   instructions, team memory, the section boundary between bots, a Chief
+   per section, team routes, library, import and package code, and their
+   tests. One Chief for the workspace, no boundary; prepared by the agent,
+   committed by the owner (the hook keeps test deletions for the owner).
+3. A lifetime license for Shared, bought once (owner decision); later.
+4. Release: a signed, notarized `.dmg` (friends get an unsigned build from
    GitHub Releases, tag `friends-<version>`, so the legacy updater mirror
-   skips it), the Colonie Cloud domain.
+   skips it), the Colonie Cloud domain; the server image's last 600 MB
+   (web-app-only packages, Next.js via better-auth).
 
 Not yet seen in a real window: the installed app opening a `colonie://`
 invite link; Update on a real Shared server.
@@ -44,8 +47,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 | What must be true | Status |
 |---|---|
-| The release is built from code that reaches `main` | Waiting on the owner (see blueprint) |
-| CI passes on that code | Rewritten to run `pnpm check`; never run on GitHub |
+| CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
 | A version number and an update path | 0.3.3. A release raises package.json's version on main; Server image publishes it by itself and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
@@ -56,7 +58,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | The download is signed and notarized | Blocked: no Apple Developer account |
 | The download page points to the new build | Not started |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
-| A Shared workspace: one-click server, invite by link, people and bots together | Privacy and invites done; server, app, groups, deploy to do |
+| A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 
 ## Known broken
 
