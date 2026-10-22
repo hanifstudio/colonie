@@ -71,7 +71,9 @@ import {onKeyRejectionChange} from "./colonie/providers/key-rejections.ts";
 import {entitled} from "./enterprise.ts";
 
 
+import { randomUUID } from "node:crypto";
 import { buildNotification } from "./notify.ts";
+import type { SkillRequestCardData } from "../shared/skill-request.ts";
 import { type RuntimeEvent } from "./contracts.ts";
 import {isRemoteMcpServer, parseStoredMcpServer} from "./colonie/mcp/mcp-registry.ts";
 import { McpOAuthManager, withMcpSignIn } from "./colonie/mcp/mcp-oauth.ts";
@@ -900,6 +902,29 @@ const colonieChief = new ColonieChief({
     save: (botId, input, actor) => colonieSkills.save(botId, input as Parameters<ColonieSkills["save"]>[1], undefined, { botId: actor.botId }),
     setEnabled: (botId, name, enabled, expectedRevision) => colonieSkills.setEnabled(botId, name, enabled, expectedRevision),
     remove: (botId, name, expectedRevision) => colonieSkills.remove(botId, name, expectedRevision),
+    // A bot's own guide from chat: staged, and a card asks the person
+    // (answered by thread-respond → skill-resolution, which applies it).
+    propose: (botId, threadId, input) => {
+      const staged = colonieSkills.stage(botId, input);
+      const bot = store.bot(botId);
+      const requestId = randomUUID();
+      const request: SkillRequestCardData = {
+        version: 1, requestId, botId, threadId, stagedId: staged.id, action: staged.action, name: staged.name, gist: staged.gist,
+        source: staged.source, preview: staged.files.find((file) => file.path === "SKILL.md")?.content ?? "", sha256: staged.sha256,
+        warnings: staged.warnings, createdAt: Date.now(),
+      };
+      const warnings = staged.warnings.length ? `\n\nWarnings:\n- ${staged.warnings.join("\n- ")}` : "";
+      store.appendMessage(threadId, {
+        role: "bot", kind: "options",
+        ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
+        card: {
+          title: staged.action === "create" ? `Save the guide "${staged.name}"?` : `Update the guide "${staged.name}"?`,
+          subtitle: `${staged.gist || staged.name}\n\n${bot?.name ?? "The bot"} reads it when a task matches.${warnings}`,
+          options: [staged.action === "create" ? "Enable" : "Update", "Deny"], requestId, tool: "save_my_skill", skillRequest: request,
+        },
+      });
+      return { state: "waiting for the person", summary: `A card in this chat asks the person to ${staged.action === "create" ? "save" : "update"} the guide "${staged.name}". Nothing is saved until they answer; end your turn.` };
+    },
   },
   // Routines from chat; the scheduler and request service start further down
   // and are only read when a tool is called.

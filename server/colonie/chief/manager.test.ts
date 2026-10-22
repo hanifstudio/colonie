@@ -44,7 +44,7 @@ test("a bot that is not the Chief, with no guides, can still list and schedule i
   const token = server.headers.find((header) => header.name === "Authorization")!.value.slice("Bearer ".length);
 
   const tools = (await rpc(manager, token, "tools/list")).result.tools!.map((tool) => tool.name);
-  expect(tools).toEqual(expect.arrayContaining(["list_routines", "schedule_routine", "change_routine"]));
+  expect(tools).toEqual(expect.arrayContaining(["list_routines", "schedule_routine", "change_routine", "save_my_skill", "read_skill"]));
   expect(tools).not.toContain("create_bot");
 
   const listed = await rpc(manager, token, "tools/call", { name: "list_routines", arguments: {} });

@@ -44,6 +44,9 @@ export interface ChiefSkillsDeps {
   save(botId: string, input: unknown, actor: ChiefActor): unknown;
   setEnabled(botId: string, name: string, enabled: boolean, expectedRevision: string): unknown;
   remove(botId: string, name: string, expectedRevision: string): unknown;
+  /** Stage a bot's own guide and put a card in its conversation for the
+   * person; nothing is saved until they answer. */
+  propose?(botId: string, threadId: string, input: { name: string; description: string; instructions: string }): unknown;
 }
 
 /** A bot's own routines, scheduled from chat (colonie/routines). A change
@@ -104,6 +107,7 @@ interface ToolDef {
 const selfSkillTools: ToolDef[] = [
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "save_my_skill", description: "Save a way of working as one of your guides, when the person asks (\"save what we just did as a skill\") or agrees to your offer after a task went well. A guide says when to use it, what it needs, the steps, how to check the result and what to hand back. The person confirms it on a card in the chat; until then nothing is saved. After calling, tell the person the card is there and end your turn. To change a guide you saved before, save it again under the same name.", inputSchema: { type: "object", properties: { name: { type: "string", description: "lowercase-with-hyphens, e.g. weekly-launch-report" }, description: { type: "string", description: "When to use it, one or two sentences." }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
 ];
 
 const SCHEDULE = {
@@ -437,6 +441,12 @@ export class ColonieChief {
         return this.readSkill(lease, args);
       case "list_my_skills":
         return safeText(this.deps.skills.list(lease.botId));
+      case "save_my_skill": {
+        const propose = this.deps.skills.propose;
+        if (!propose) throw new ToolError("Saving guides is not available here.");
+        const input = { name: this.requiredString(args, "name"), description: this.requiredString(args, "description"), instructions: this.requiredString(args, "instructions") };
+        return this.mutate(lease, name, args, () => safeText(propose(lease.botId, lease.threadId, input)));
+      }
       case "list_routines":
         return safeText({ ...this.routineDeps().now(), routines: this.routineDeps().list(lease.botId) });
       case "schedule_routine": {

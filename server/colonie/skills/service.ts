@@ -26,6 +26,7 @@ import {
   setSkillEnabled,
   stageSkillWrite,
   type SkillListing,
+  type StagedSkillWrite,
 } from "./skills.ts";
 import {
   listLibrarySkills,
@@ -196,6 +197,30 @@ export class ColonieSkills {
   private indexText(lines: readonly string[]): string {
     if (!lines.length) return "No app-managed guides are enabled for this request.";
     return `Enabled app-managed guides:${this.guidance(lines.length)}\n${lines.join("\n")}`;
+  }
+
+  /** A bot proposing a guide for itself from chat: the same checks as
+   * save, staged but not applied. The person's answer on the card applies
+   * it (skill-resolution.ts) or throws it away. */
+  stage(botId: string, input: { name: string; description: string; instructions: string }): StagedSkillWrite {
+    if (!isSkillName(input.name)) throw fail("Choose a name of lowercase letters, numbers and single hyphens.", 400);
+    const description = input.description.trim();
+    if (!description) throw fail("Add a short description of when to use this guide.", 400);
+    if (description.length > DESCRIPTION_MAX) throw fail(`The description is limited to ${DESCRIPTION_MAX} characters.`, 400);
+    const instructions = input.instructions.trim();
+    if (!instructions) throw fail("Add the guide instructions.", 400);
+    scrub(instructions, "instructions");
+    scrub(description, "description");
+    const existing = listSkills(botId).find((skill) => skill.name === input.name);
+    if (existing && !existing.editable) throw fail(`The guide "${input.name}" was imported and is read-only. Choose a new name.`, 409);
+    const staged = stageSkillWrite(botId, {
+      action: existing ? "update" : "create",
+      ...(existing ? { targetName: input.name } : {}),
+      files: [{ path: "SKILL.md", content: buildSkillMd(input.name, description, instructions) }],
+      source: COLONIE_SOURCE,
+    });
+    if ("error" in staged) throw fail(staged.error, 400);
+    return staged;
   }
 
   save(botId: string, input: SaveSkillInput, expectedRevision?: string, actor?: ColonieSkillActor): ColonieSkillsView {
