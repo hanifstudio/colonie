@@ -1,8 +1,8 @@
 // The Colonie Chief: one workspace role, its scoped model-facing tools and its
 // delegated assignments. A per-conversation lease exposes a private loopback
 // MCP server (`colonie_workspace`) to the active ACP turn. The current Chief
-// gets management and ask tools; every other bot gets only a self-scoped
-// read_skill for the exact hashes its dispatch selected. Authority is checked
+// gets management and ask tools; every bot gets a self-scoped read_skill for
+// the exact hashes its dispatch selected, and its own routines. Authority is checked
 // against the current Chief on every request, mutations claim a durable
 // idempotency key before they run, and delegated children have their own fresh
 // conversation, permissions and Stop tree.
@@ -46,6 +46,15 @@ export interface ChiefSkillsDeps {
   remove(botId: string, name: string, expectedRevision: string): unknown;
 }
 
+/** A bot's own routines, scheduled from chat (colonie/routines). A change
+ * goes through the routine request service: applied with an Undo receipt
+ * for the bot's own routines, or left as a card for the person. */
+export interface ChiefRoutinesDeps {
+  list(botId: string): unknown;
+  propose(botId: string, threadId: string, proposal: unknown, canCommit: () => boolean): Promise<unknown>;
+  now(): { time: string; timeZone: string };
+}
+
 export interface ChiefDeps {
   origin: string;
   dataDir?: string;
@@ -62,6 +71,7 @@ export interface ChiefDeps {
   createAssignmentThread(job: ChiefAssignment): string;
   runAssignment(job: ChiefAssignment, signal: AbortSignal): Promise<string>;
   skills: ChiefSkillsDeps;
+  routines?: ChiefRoutinesDeps;
 }
 
 interface Lease {
@@ -95,6 +105,36 @@ const selfSkillTools: ToolDef[] = [
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
 ];
+
+const SCHEDULE = {
+  type: "object",
+  description: "When it runs. once: {type, at} with at an RFC3339 date-time with an explicit offset. weekly: {type, time \"HH:MM\", weekdays [\"monday\", ...]} in the timezone from list_routines; every day is all seven weekdays. interval: {type, everyMinutes 5-1440, optional weekdays, window {start, end} as HH:MM, endsAt}. cron: {type, expression (five fields), timeZone (IANA)} for monthly dates, last days or nth weekdays.",
+  properties: {
+    type: { type: "string", enum: ["once", "weekly", "interval", "cron"] },
+    at: { type: "string" }, time: { type: "string" }, weekdays: { type: "array", items: { type: "string" } },
+    everyMinutes: { type: "number" }, window: { type: "object", properties: { start: { type: "string" }, end: { type: "string" } } },
+    endsAt: { type: "string" }, expression: { type: "string" }, timeZone: { type: "string" },
+  },
+  required: ["type"],
+};
+const ROUTINE_OUTCOME = " Read the result: a change to your own routines usually applies at once and the person sees it with an Undo; otherwise it waits for the person's confirmation in the chat. Never claim it is scheduled unless the result says applied.";
+
+const selfRoutineTools: ToolDef[] = [
+  { name: "list_routines", description: "List your routines (scheduled work) with their ids, schedules, whether they are on, and when they run next, plus the current time and timezone. Call it before scheduling anything relative (\"tomorrow\", \"in an hour\") and before changing a routine.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "schedule_routine", description: "Schedule work for yourself when the person asks for recurring or future work (\"every weekday at 8 sum up the news\", \"remind me tomorrow at 3pm\"). Settle the time, timezone and what to do with the person first if anything is unclear. Each run starts fresh with only the instructions, so write them complete: what to do, where to look, what to report. Never approximate a schedule you cannot express; say so instead." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { name: { type: "string", description: "Short name, up to 80 characters." }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean", description: "Carry the previous run's report into the next run." }, requestId: { type: "string" } }, required: ["name", "instructions", "schedule", "requestId"], additionalProperties: false } },
+  { name: "change_routine", description: "Change one of your routines when the person asks: update its name, instructions or schedule, pause, resume, run it now, or delete it. Get the id from list_routines." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { routineId: { type: "string" }, action: { type: "string", enum: ["update", "pause", "resume", "run_now", "delete"] }, name: { type: "string" }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean" }, requestId: { type: "string" } }, required: ["routineId", "action", "requestId"], additionalProperties: false } },
+];
+
+/** Only the fields a schedule of its type takes: a model often adds a
+ * timezone or weekdays where they do not belong. */
+function scheduleOf(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const input = value as Record<string, unknown>;
+  const keep: Record<string, string[]> = { once: ["at"], weekly: ["time", "weekdays"], interval: ["everyMinutes", "anchorAt", "weekdays", "window", "endsAt"], cron: ["expression", "timeZone"] };
+  const fields = keep[String(input.type)];
+  if (!fields) return value;
+  return Object.fromEntries([["type", input.type], ...fields.filter((key) => input[key] !== undefined).map((key) => [key, input[key]])]);
+}
 
 const chiefTools: ToolDef[] = [
   { name: "list_bots", description: "List the workspace's visible bots.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
@@ -211,7 +251,9 @@ export class ColonieChief {
   mount(botId: string, threadId: string, instanceId: string, skillRevision?: string, skillHashes?: Record<string, string>): AcpToolMount | null {
     const chief = this.deps.chiefId() === botId;
     const hashes: Record<string, string> = chief ? {} : { ...skillHashes };
-    if (!chief && Object.keys(hashes).length === 0) return null;
+    // every bot can schedule its own routines; without them, a bot with no
+    // selected guide has nothing to mount
+    if (!chief && Object.keys(hashes).length === 0 && !this.deps.routines) return null;
     const revision = hashOf({ botId, instanceId, chief, skillRevision: skillRevision ?? "", hashes, chiefId: this.deps.chiefId() ?? "" });
     const slot = `${threadId}:${instanceId}`;
     const previous = this.leases.get(slot);
@@ -314,7 +356,8 @@ export class ColonieChief {
   }
 
   private toolsFor(lease: Lease): ToolDef[] {
-    return lease.chief ? [...chiefTools, ...selfSkillTools] : [...selfSkillTools];
+    const routines = this.deps.routines ? selfRoutineTools : [];
+    return lease.chief ? [...chiefTools, ...selfSkillTools, ...routines] : [...selfSkillTools, ...routines];
   }
 
   private async call(lease: Lease, name: string, args: Record<string, unknown>): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: true }> {
@@ -394,9 +437,29 @@ export class ColonieChief {
         return this.readSkill(lease, args);
       case "list_my_skills":
         return safeText(this.deps.skills.list(lease.botId));
+      case "list_routines":
+        return safeText({ ...this.routineDeps().now(), routines: this.routineDeps().list(lease.botId) });
+      case "schedule_routine": {
+        const routine = { name: this.requiredString(args, "name"), instructions: this.requiredString(args, "instructions"), schedule: scheduleOf(args.schedule),
+          ...(typeof args.continuity === "boolean" ? { continuity: args.continuity } : {}) };
+        return this.mutate(lease, name, args, async () => safeText(await this.routineDeps().propose(lease.botId, lease.threadId, { action: "create", routine }, () => lease.active)));
+      }
+      case "change_routine": {
+        const routineId = this.requiredString(args, "routineId");
+        const action = this.requiredString(args, "action");
+        const changes = Object.fromEntries(Object.entries({ name: args.name, instructions: args.instructions, schedule: args.schedule === undefined ? undefined : scheduleOf(args.schedule), continuity: args.continuity })
+          .filter(([, value]) => value !== undefined));
+        const proposal = action === "update" ? { action, routineId, changes } : { action, routineId };
+        return this.mutate(lease, name, args, async () => safeText(await this.routineDeps().propose(lease.botId, lease.threadId, proposal, () => lease.active)));
+      }
       default:
         throw new ToolError(`Unknown tool: ${name}`);
     }
+  }
+
+  private routineDeps(): ChiefRoutinesDeps {
+    if (!this.deps.routines) throw new ToolError("Routines are not available here.");
+    return this.deps.routines;
   }
 
   private readSkill(lease: Lease, args: Record<string, unknown>): string {

@@ -901,6 +901,19 @@ const colonieChief = new ColonieChief({
     setEnabled: (botId, name, enabled, expectedRevision) => colonieSkills.setEnabled(botId, name, enabled, expectedRevision),
     remove: (botId, name, expectedRevision) => colonieSkills.remove(botId, name, expectedRevision),
   },
+  // Routines from chat; the scheduler and request service start further down
+  // and are only read when a tool is called.
+  routines: {
+    list: (botId) => (routines?.listRoutines() ?? []).filter((routine) => routine.botId === botId && !routine.groupId).map((routine) => ({
+      id: routine.id, name: routine.name, enabled: routine.enabled, schedule: routine.schedule, instructions: routine.prompt.slice(0, 500),
+      nextRunAt: routine.nextRunAt ? new Date(routine.nextRunAt).toISOString() : null,
+    })),
+    propose: async (botId, threadId, proposal, canCommit) => {
+      const result = await routineRequests.submit({ botId, threadId, proposal, canCommit });
+      return { state: result.state, summary: result.summary, nextRunAt: result.nextRunAt ? new Date(result.nextRunAt).toISOString() : null, timeZone: result.timeZone };
+    },
+    now: () => ({ time: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" }),
+  },
 });
 /** Merge the app-selected connected tools with the Colonie workspace tools into
  * one ACP mount, so a turn sees both without either lifecycle being lost. */
