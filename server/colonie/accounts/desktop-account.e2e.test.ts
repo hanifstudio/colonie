@@ -26,6 +26,7 @@ afterAll(async () => {
 
 test("until they sign up, the app says an account is needed", async () => {
   expect(await local("/api/colonie-account")).toEqual({ status: 200, body: { required: true, account: null } });
+  expect((await local("/api/me")).body).toEqual({ account: null });
 });
 
 test("they sign up in their browser, come back to this computer, and the app knows them", async () => {
@@ -44,6 +45,7 @@ test("they sign up in their browser, come back to this computer, and the app kno
   expect(back.status).toBe(200);
   expect(back.text).toMatch(/return to Colonie/i);
 
+  expect((await local("/api/me")).body).toEqual({ account: { name: "Ana Owner", email: "ana@x.com" } });
   const after = await local("/api/colonie-account");
   expect(after.body).toEqual({ required: true, account: { email: "ana@x.com", name: "Ana Owner" } });
   // The profile the app shows is the account's.

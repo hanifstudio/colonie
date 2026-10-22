@@ -43,6 +43,8 @@ test("an invited person signs up at Colonie and lands in the workspace under the
   expect(bots.status).toBe(200);
   const members = await ws.as(ADA, "/api/colonie-cloud");
   expect(members.body.members).toEqual([expect.objectContaining({ email: "bob@x.com", name: "Bob Builder", role: "member" })]);
+  // The sidebar shows who is signed in: their own account, not the workspace's profile.
+  expect((await api(b, "/api/me")).body).toEqual({ account: { name: "Bob Builder", email: "bob@x.com" } });
 });
 
 test("the new member's conversations are private from the admin who invited them", async () => {

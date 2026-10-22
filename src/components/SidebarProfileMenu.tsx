@@ -48,6 +48,20 @@ export function profileInitials(profile?: { name?: string; email?: string }): st
 }
 
 /** The name shown on the row: the profile name, else the email, else "You". */
+/** The Colonie account of whoever is signed in here (GET /api/me), or null. */
+export function useSignedInAccount(): { name: string; email: string } | null {
+  const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetch("/api/me", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { account?: { name: string; email: string } | null } | null) => { if (alive) setAccount(body?.account ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return account;
+}
+
 export function profileLabel(profile?: { name?: string; email?: string }): string {
   return profile?.name?.trim() || profile?.email?.trim() || t("sidebar.profile.you");
 }
@@ -193,7 +207,10 @@ export function SidebarProfileMenu() {
   const workspaceItems = useLocalWorkspaceItems({ menuOpen });
   const triggerRef = useRef<HTMLSpanElement>(null);
 
-  const profile = state.config?.profile;
+  // Who is signed in: their Colonie account, in every kind of workspace. The
+  // workspace's profile is the fallback while it loads, or with no account.
+  const account = useSignedInAccount();
+  const profile = account ?? state.config?.profile;
   const name = profileLabel(profile);
 
   const items: SidebarMenuItem[] = [
@@ -243,7 +260,10 @@ export function SidebarProfileMenu() {
             )}
           >
             <InitialsAvatar initials={profileInitials(profile)} size={28} />
-            <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{name}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] text-ink">{name}</span>
+              {account?.email && account.email !== name && <span className="block truncate text-[11.5px] text-ink-secondary">{account.email}</span>}
+            </span>
             {/* an update is the one thing worth interrupting the name for, so
               * it sits on the row rather than waiting to be found in the menu */}
             {update && updateNoteworthy(update.phase, update.pending) && (

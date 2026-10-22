@@ -281,6 +281,15 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (await dispatchRoutes(ROUTES, { req, res, url, path, method, auth, json, readBody })) return;
 
     // ── sessions: who am I, tickets, pairing and revocation ─────────────
+    // Who is signed in, the same in every kind of workspace: the Colonie
+    // account of this computer's owner, or of the person a session is for.
+    if (method === "GET" && path === "/api/me") {
+      if (auth.kind === "loopback") return json(res, 200, { account: desktopAccount?.account() ?? null });
+      const email = auth.session.email?.trim().toLowerCase();
+      if (!email) return json(res, 200, { account: null });
+      const member = colonieSignIn?.members().find((entry) => entry.email.toLowerCase() === email);
+      return json(res, 200, { account: { name: member?.name || email, email } });
+    }
     if (method === "GET" && path === "/api/auth/session") {
       return json(
         res,
