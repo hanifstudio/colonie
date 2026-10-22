@@ -47,7 +47,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | 0.3.4. A release raises package.json's version on main; Server image publishes it by itself and Shared admins see Update |
+| A version number and an update path | 0.3.5. A release raises package.json's version on main; Server image publishes it by itself and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
