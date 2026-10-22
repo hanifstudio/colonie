@@ -104,7 +104,35 @@ interface ToolDef {
   inputSchema: { type: "object"; properties: Record<string, unknown>; required?: string[]; additionalProperties: boolean };
 }
 
+/** How Colonie works, for a bot asked what it can do or where something is.
+ * Read on demand, so it costs nothing on turns that do not need it. */
+export const ABOUT_COLONIE = `Colonie is an app where people and AI bots work together. Each bot has a name, its own instructions, memory, guides and conversations, and runs on the person's own Claude or Codex subscription.
+
+Workspaces
+- Local: on the person's computer, just them and their bots. Routines run while the app is open.
+- Shared: on a server. People join with an invite link (Settings, People) in the Colonie app or a browser. People and bots talk in groups and direct messages; a bot answers in a group when someone @mentions it. Routines run whenever the server is on.
+
+What a bot can do
+- Work with the engine's own tools: files in its working folder, commands, web search and reading pages, as the engine and the bot's approval level allow.
+- Routines (scheduled work): list_routines, schedule_routine, change_routine. A run reports in the conversation it was set up from (a group when it came from a group), and the person is notified when it finishes. People also find routines on the Routines page (Advanced mode, foot of the sidebar).
+- Guides (skills): save_my_skill proposes one and the person confirms it on a card; read_skill reads one. The person can type "/" in the message box to pick one of the bot's guides.
+- Memory: Colonie keeps relevant facts from conversations by itself and supplies them when they matter. A bot cannot save a memory directly.
+- Connected apps: the person adds MCP servers or Composio apps under Apps (puzzle icon by their profile), then chooses which a bot may use in that bot's settings, Access, "Connected apps and tools". When a task needs an app that is not connected, say where to connect it.
+- Approvals: risky actions wait for the person's Allow, depending on the bot's approval level (bot settings, Permissions).
+- The Chief of Staff (one per workspace) can also create, change and ask other bots.
+
+What a bot cannot do in Colonie
+- Use a browser window or a desktop of its own beyond the engine's tools.
+- Edit or branch earlier messages; a new conversation starts fresh.
+- Message other bots, unless it is the Chief.
+
+Where things are for the person
+- New bot or new group: the + at the top of the sidebar.
+- A bot's settings: click its name at the top of its chat.
+- Their photo, settings and updates: the profile menu, bottom left.`;
+
 const selfSkillTools: ToolDef[] = [
+  { name: "about_colonie", description: "How Colonie works: workspaces, what you can and cannot do, where things are for the person. Read it when asked what you can do or how to do something in Colonie.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "save_my_skill", description: "Save a way of working as one of your guides, when the person asks (\"save what we just did as a skill\") or agrees to your offer after a task went well. A guide says when to use it, what it needs, the steps, how to check the result and what to hand back. The person confirms it on a card in the chat; until then nothing is saved. After calling, tell the person the card is there and end your turn. To change a guide you saved before, save it again under the same name.", inputSchema: { type: "object", properties: { name: { type: "string", description: "lowercase-with-hyphens, e.g. weekly-launch-report" }, description: { type: "string", description: "When to use it, one or two sentences." }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
@@ -439,6 +467,8 @@ export class ColonieChief {
       }
       case "read_skill":
         return this.readSkill(lease, args);
+      case "about_colonie":
+        return ABOUT_COLONIE;
       case "list_my_skills":
         return safeText(this.deps.skills.list(lease.botId));
       case "save_my_skill": {

@@ -730,7 +730,7 @@ export class AcpRuntime implements ProviderAdapter {
       }
       const pin = input.acpContext ? pinContext(input.threadId, input.acpContext) : null;
       const combinedReceipt = this.combinedReceipt(session.mounts);
-      const composed = composeContext(pin, turnText, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: combinedReceipt, memory: input.acpMemory, skills: input.acpSkills, chief: input.acpChief, assignment: input.acpAssignment });
+      const composed = composeContext(pin, turnText, this.instanceId, this.config.instructions, { provider: this.provider, model: effectiveModel, mode, tools: combinedReceipt, memory: input.acpMemory, skills: input.acpSkills, chief: input.acpChief, assignment: input.acpAssignment, situation: input.acpSituation });
       const prompt = composed.prompt;
       for (const image of input.images ?? []) {
         prompt.push({ type: "image", mimeType: image.mime, data: readFileSync(image.path).toString("base64") });

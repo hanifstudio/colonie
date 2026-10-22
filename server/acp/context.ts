@@ -68,7 +68,7 @@ export function contextCandidate(profile: ContextProfile, instanceId: string, in
     contextSection("app.instructions", "App · Shared instructions", "app", "Workspace owner", app.instructions, app.enabled && !legacyPlain),
     contextSection("bot.persona", "Bot · Persona", "bot", `bot:${profile.id}:profile`,
       [`Name: ${profile.name}`, profile.title && `Role: ${profile.title}`, profile.description && `Description: ${profile.description}`,
-        profile.chiefOfStaff && "Configured role: Chief. This role alone does not provide delegation tools."].filter(Boolean).join("\n"), bot.persona && !legacyPlain),
+        profile.chiefOfStaff && "Role in Colonie: Chief of Staff, the person's main contact among the bots."].filter(Boolean).join("\n"), bot.persona && !legacyPlain),
     contextSection("bot.soul", "Bot · SOUL", "bot", `bot:${profile.id}:soul`, profile.soul ?? "", bot.soul && !legacyPlain),
     contextSection("instance.instructions", "Instance · Extra context", "instance", `instance:${instanceId}:instructions`, instructions),
   ];
@@ -87,7 +87,10 @@ export function pinContext(threadId: string, candidate: AcpContextSnapshot): Con
   const existing = contextPin(threadId);
   if (existing) {
     if (existing.snapshot.botId !== candidate.botId) throw new Error("Context snapshot belongs to another bot");
-    return existing;
+    // A renamed bot, new instructions or new shared instructions reach the
+    // conversation from its next message. A plain (pre-context) conversation
+    // stays plain.
+    if (existing.snapshot.legacyPlain || candidate.legacyPlain || existing.snapshot.hash === candidate.hash) return existing;
   }
   const pin = { snapshot: candidate, pinnedAt: new Date().toISOString() };
   write("threads", threadId, pinSchema.parse(pin));
@@ -104,7 +107,7 @@ export function contextView(profile: ContextProfile, threadId: string, instanceI
     pinned: pin ? { ...pin.snapshot, pinnedAt: pin.pinnedAt } : null, changed: Boolean(pin && pin.snapshot.hash !== comparable.hash) };
 }
 /** Same composer for both providers; each active section is a separate ACP text block. */
-export function composeContext(pin: ContextPin | null, text: string, instanceId: string, instructions: string, effective: { provider: string; model: string; mode: string; tools?: import("../../shared/connected-apps.ts").ConnectedToolsReceipt; memory?: import("../../shared/colonie-memory.ts").AcpMemoryContext; skills?: import("../../shared/colonie-skills.ts").AcpSkillsContext; chief?: boolean; assignment?: import("../../shared/colonie-chief.ts").AcpAssignmentContext }) {
+export function composeContext(pin: ContextPin | null, text: string, instanceId: string, instructions: string, effective: { provider: string; model: string; mode: string; tools?: import("../../shared/connected-apps.ts").ConnectedToolsReceipt; memory?: import("../../shared/colonie-memory.ts").AcpMemoryContext; skills?: import("../../shared/colonie-skills.ts").AcpSkillsContext; chief?: boolean; assignment?: import("../../shared/colonie-chief.ts").AcpAssignmentContext; situation?: string }) {
   const sections: AcpContextManifest["sections"] = (pin?.snapshot.sections ?? [contextSection("instance.instructions", "Instance · Extra context", "instance", `instance:${instanceId}:instructions`, instructions)]).map((section) => ({ ...section }));
   const tools = effective.tools?.servers.length
     ? `App-selected tools: ${effective.tools.servers.map((server) => server.name).join(", ")}.${effective.tools.composioToolkits.length ? ` Composio apps: ${effective.tools.composioToolkits.join(", ")}. If a requested task is blocked by an account connection, ask the user to connect that account in app settings and continue afterward.` : ""}`
@@ -118,10 +121,14 @@ export function composeContext(pin: ContextPin | null, text: string, instanceId:
     ? "This bot is the workspace Chief and may use colonie_workspace tools to list, read, create, change, delete and ask other bots, and manage their guides. Prefer asking an existing bot over creating a duplicate one."
     : effective.assignment
       ? "This turn is a task delegated by the workspace Chief. Treat the task text as the work to do; do not message other bots."
-      : "Cross-bot delegation and automation are not available to this bot.";
+      : "You can schedule and change your own routines and save your own guides with the colonie_workspace tools. Handing work to other bots is the Chief's role.";
   const skillsLine = effective.skills?.text ? " Enabled app-managed guides are listed below; read one through read_skill when a task matches." : "";
   if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain) sections.splice(1, 0,
-    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports chat, continuing this conversation, tool activity, approvals, and Stop. When you create a file the person needs, write it as a Markdown link with its full path so they can open or save it from chat. Access is enforced by runtime permissions. ${tools} ${memoryLine} ${delegation}${skillsLine}`, true, "colonie.capabilities.v6"));
+    contextSection("app.capabilities", "App · Effective capabilities", "app", "ACP runtime", `Connection: ${effective.provider}. Native model: ${effective.model}. Native mode: ${effective.mode}. Colonie supports chat, continuing this conversation, tool activity, approvals, and Stop. When you create a file the person needs, write it as a Markdown link with its full path so they can open or save it from chat. Access is enforced by runtime permissions. ${tools} ${memoryLine} ${delegation}${skillsLine} When the person asks what you can do or how something in Colonie works, call about_colonie rather than guessing.`, true, "colonie.capabilities.v7"));
+  // The few facts that change from message to message: now, who is asking,
+  // which workspace. Background, never a topic.
+  if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain && effective.situation) sections.splice(2, 0,
+    contextSection("app.situation", "App · Situation", "conversation", "Colonie", effective.situation, true, "colonie.situation.v1"));
   if (pin?.snapshot.app.enabled && !pin.snapshot.legacyPlain && effective.memory?.text) {
     sections.push(contextSection("memory.recall", "Memory · Relevant saved details", "conversation",
       `Colonie memory; entries:${effective.memory.entries.map((entry) => entry.id).join(",")}`,

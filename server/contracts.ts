@@ -124,6 +124,8 @@ export interface SendTurnInput {
   acpAssignment?: import("../shared/colonie-chief.ts").AcpAssignmentContext;
   /** True when this bot is the workspace Chief (it has management tools). */
   acpChief?: boolean;
+  /** Now, who is asking, which workspace: one line for the ACP context. */
+  acpSituation?: string;
   threadId: ThreadId;
   /** The bot this turn belongs to. threadIds are meant to be unique per bot
    * task, but a driver's process-level resource maps (permission-broker

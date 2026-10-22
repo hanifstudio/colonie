@@ -27,6 +27,17 @@ test("a bot schedules a routine for itself from chat, and the person sees it wit
   }) } });
   expect(sent.status).toBeLessThan(300);
   const threadId = sent.body.threadId;
+  // what the engine was sent: who is asking and where, before the message
+  const until0 = Date.now() + 15_000;
+  let sentText = "";
+  while (!sentText && Date.now() < until0) {
+    const receipts = (await ws.as(ANA, `/api/bots/${botId}/acp-inputs?threadId=${threadId}`)).body.receipts ?? [];
+    sentText = receipts.flatMap((receipt: any) => receipt.prompt ?? []).map((block: any) => block.text ?? "").join("\n");
+    if (!sentText) await settle(100);
+  }
+  expect(sentText).toMatch(/Now: \w+day, /);
+  expect(sentText).toContain("This is the Shared workspace");
+  expect(sentText).toContain("about_colonie");
 
   // the engine asks before using a tool (the stand-in always does); the
   // person allows it in the conversation

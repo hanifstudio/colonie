@@ -1540,7 +1540,26 @@ const { startScreenPoller, pokeScreenPoller, stopScreenPoller, finalScreenFrame,
 /** Starting a bot turn, out of this file: see colonie/chat/turn-start.ts. The
  * run-time-mutable bindings are handed over as getters so the module always
  * reads the current one. */
+/** The few facts a bot needs about where it is, with every message: now in
+ * this computer's timezone, who is asking, which workspace and who is in it.
+ * One short line of background (server/acp/context.ts "situation"). */
+const acpSituation = (senderName?: string) => {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const now = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+  const shared = workspaceKind.shared();
+  const name = process.env.COLONIE_WORKSPACE_NAME?.trim();
+  const people = shared ? workspaceDirectory().map((person) => person.name || person.email) : [];
+  const asker = senderName || (!shared ? desktopAccount?.account()?.name || cfg.profile?.name : undefined);
+  return [
+    `Now: ${now} (${timeZone}).`,
+    asker ? `You are talking with ${asker}.` : "",
+    shared
+      ? `This is the Shared workspace${name ? ` "${name}"` : ""}${people.length ? ` with ${people.length} ${people.length === 1 ? "person" : "people"}: ${people.slice(0, 12).join(", ")}${people.length > 12 ? ", and others" : ""}` : ""}.`
+      : `This is ${asker ? `${asker}'s` : "the person's"} own Local workspace on their computer.`,
+  ].filter(Boolean).join(" ");
+};
 const startTurn = createStartTurn({
+  acpSituation,
   ComputerWaitParked,
   DirectTurnSetupCancelled,
   MAX_COMMS_DEPTH,

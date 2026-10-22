@@ -77,7 +77,7 @@ export function createStartTurn(deps: StartTurnDeps) {
     botAtThreadCapacity, browserIntegration, browserRuntime, cfg, checkedTaskModelSwitch,
     claimTurnResource, clearCancelledProviderHandshake, clearDirectTurnDispatch,
     clearFailedAutoPin, clearInternalTurn, clearTurnDigestState, clearUnattended, colonieMemory,
-    colonieMemorySources, colonieSkills, colonieTurnByThread, compactConversation,
+    colonieMemorySources, colonieSkills, colonieTurnByThread, compactConversation, acpSituation,
     computerSelectionTurns, connectedAppsIntegration, controlIntegration, delegationWakeBudget,
     directContext, directFollowupSettlers, directFollowupTurns, directRequestOwners,
     directTurnBots, directTurnClaimExists, directTurnClaimIsCurrent, directTurnDispatchClaims,
@@ -432,6 +432,7 @@ async function startTurn(
         }
         const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
           threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          acpSituation: acpSituation?.(userMessage.sender?.name),
           cwd, model, approvalMode: approvalModeForTurn(bot, false),
           resumeCursor: task.resumeCursors[instanceId],
         }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
