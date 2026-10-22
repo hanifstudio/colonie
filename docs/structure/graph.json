@@ -1,24 +1,24 @@
 {
-  "head": "fd89076a84c1a4e43a77e79cb759865189f01a50",
+  "head": "ac1d6136237fbe53b800f1573e89792959a75ea8",
   "programs": [
     {
       "name": "server",
-      "files": 571
+      "files": 624
     },
     {
       "name": "app",
-      "files": 467
+      "files": 489
     },
     {
       "name": "portable",
-      "files": 571
+      "files": 607
     }
   ],
   "totals": {
-    "files": 1068,
-    "sourceFiles": 1080,
-    "edges": 3685,
-    "aliasEdges": 920,
+    "files": 1153,
+    "sourceFiles": 1168,
+    "edges": 3868,
+    "aliasEdges": 936,
     "unresolvedRelativeSpecs": 4,
     "probeResolutions": 8
   },
@@ -60,7 +60,7 @@
   "staleBaseline": [],
   "cycles": {
     "fileLevel": {
-      "count": 10,
+      "count": 9,
       "largest": [
         {
           "size": 14,
@@ -73,8 +73,8 @@
             "server/colonie/peers/peer-provenance.ts",
             "server/persistence/message-db.ts",
             "server/colonie/bots/bot-folder.ts",
-            "server/colonie/teams/section-context.ts",
-            "server/persistence/store.ts"
+            "server/colonie/teams/published-teams.ts",
+            "server/colonie/bots/new-bot-defaults.ts"
           ]
         },
         {
@@ -96,9 +96,9 @@
         {
           "size": 3,
           "files": [
-            "src/components/lazy-screens.tsx",
-            "src/components/TeamDialog.tsx",
-            "src/components/TeamMapPage.tsx"
+            "src/state/bot-patch-queue.ts",
+            "src/state/store.tsx",
+            "src/lib/conversations.ts"
           ]
         },
         {
@@ -106,13 +106,6 @@
           "files": [
             "server/colonie/skills/skills.ts",
             "server/colonie/skills/skill-library.ts"
-          ]
-        },
-        {
-          "size": 2,
-          "files": [
-            "src/state/store.tsx",
-            "src/state/bot-patch-queue.ts"
           ]
         },
         {
@@ -148,10 +141,13 @@
     "folderLevel": [
       [
         "server/colonie/runtime",
-        "server/testing",
         "server/decider",
         "server/colonie/chief",
         "server/colonie/skills",
+        "server/colonie/groups",
+        "server/colonie/deploy",
+        "server/testing",
+        "server/colonie/accounts",
         "server/tts",
         "server/harness",
         "server/routes",
@@ -174,8 +170,8 @@
       ],
       [
         "src/hooks",
-        "src/state",
         "src/lib",
+        "src/state",
         "src/components"
       ]
     ],
@@ -184,20 +180,20 @@
       {
         "a": "src/components",
         "b": "src/lib",
-        "aToB": 600,
+        "aToB": 610,
         "bToA": 3
       },
       {
         "a": "server (root files)",
         "b": "server/colonie/chat",
-        "aToB": 27,
-        "bToA": 66
+        "aToB": 29,
+        "bToA": 67
       },
       {
         "a": "server (root files)",
         "b": "server/harness",
-        "aToB": 16,
-        "bToA": 50
+        "aToB": 17,
+        "bToA": 52
       },
       {
         "a": "server/harness",
@@ -208,19 +204,25 @@
       {
         "a": "src/lib",
         "b": "src/state",
-        "aToB": 26,
-        "bToA": 14
+        "aToB": 29,
+        "bToA": 15
       },
       {
         "a": "server (root files)",
         "b": "server/colonie/providers",
         "aToB": 11,
-        "bToA": 26
+        "bToA": 28
       },
       {
         "a": "server/routes",
         "b": "server/testing",
         "aToB": 34,
+        "bToA": 1
+      },
+      {
+        "a": "server/colonie/chat",
+        "b": "server/persistence",
+        "aToB": 30,
         "bToA": 1
       },
       {
@@ -230,16 +232,10 @@
         "bToA": 13
       },
       {
-        "a": "server/colonie/chat",
-        "b": "server/persistence",
-        "aToB": 27,
-        "bToA": 1
-      },
-      {
         "a": "server (root files)",
         "b": "server/persistence",
         "aToB": 15,
-        "bToA": 9
+        "bToA": 10
       },
       {
         "a": "server (root files)",
@@ -272,6 +268,12 @@
         "bToA": 10
       },
       {
+        "a": "server (root files)",
+        "b": "server/acp",
+        "aToB": 2,
+        "bToA": 13
+      },
+      {
         "a": "server/colonie/chat",
         "b": "server/colonie/peers",
         "aToB": 6,
@@ -284,22 +286,34 @@
         "bToA": 10
       },
       {
-        "a": "server/colonie/teams",
-        "b": "server/persistence",
-        "aToB": 10,
-        "bToA": 3
-      },
-      {
         "a": "server/colonie/bots",
         "b": "server/colonie/teams",
         "aToB": 6,
         "bToA": 7
       },
       {
+        "a": "server/colonie/teams",
+        "b": "server/persistence",
+        "aToB": 10,
+        "bToA": 3
+      },
+      {
+        "a": "server/harness",
+        "b": "server/persistence",
+        "aToB": 12,
+        "bToA": 1
+      },
+      {
         "a": "server (root files)",
         "b": "server/colonie/skills",
         "aToB": 5,
         "bToA": 7
+      },
+      {
+        "a": "server/colonie/chat",
+        "b": "server/harness",
+        "aToB": 1,
+        "bToA": 11
       },
       {
         "a": "server/colonie/bots",
@@ -314,16 +328,10 @@
         "bToA": 7
       },
       {
-        "a": "server/colonie/chat",
-        "b": "server/harness",
-        "aToB": 1,
-        "bToA": 10
-      },
-      {
         "a": "server (root files)",
-        "b": "server/acp",
-        "aToB": 2,
-        "bToA": 8
+        "b": "server/runtime",
+        "aToB": 8,
+        "bToA": 2
       },
       {
         "a": "server/colonie/chat",
@@ -350,12 +358,6 @@
         "bToA": 5
       },
       {
-        "a": "server (root files)",
-        "b": "server/runtime",
-        "aToB": 6,
-        "bToA": 1
-      },
-      {
         "a": "server/colonie/chat",
         "b": "server/colonie/computer",
         "aToB": 3,
@@ -368,14 +370,14 @@
         "bToA": 6
       },
       {
-        "a": "server/colonie/computer",
-        "b": "server/persistence",
+        "a": "server/colonie/bots",
+        "b": "server/colonie/peers",
         "aToB": 5,
         "bToA": 1
       },
       {
-        "a": "server/colonie/bots",
-        "b": "server/colonie/peers",
+        "a": "server/colonie/computer",
+        "b": "server/persistence",
         "aToB": 5,
         "bToA": 1
       },
@@ -494,7 +496,7 @@
         "bToA": 1
       }
     ],
-    "mutualPairCount": 52
+    "mutualPairCount": 53
   },
   "unresolvedRelativeSpecs": [
     {
@@ -557,7 +559,7 @@
     }
   ],
   "deadExports": {
-    "count": 1997,
+    "count": 2039,
     "byArea": {
       "shared/outbound.ts": 4,
       "shared/tool-scope.ts": 1,
@@ -579,7 +581,7 @@
       "server/contracts.ts": 6,
       "server/auto-approve.ts": 4,
       "server/prices.ts": 1,
-      "server/colonie": 665,
+      "server/colonie": 675,
       "server/decision-log.ts": 4,
       "server/activity.ts": 1,
       "server/admin-activity.ts": 11,
@@ -587,19 +589,19 @@
       "server/agent-tool-policy.ts": 2,
       "server/persistence": 21,
       "shared/acp.ts": 1,
+      "shared/json.ts": 1,
+      "server/config.ts": 37,
       "server/commands.ts": 2,
       "server/surface.ts": 4,
       "shared/skill-md.ts": 3,
-      "shared/package-format.ts": 16,
-      "shared/json.ts": 1,
-      "server/config.ts": 37,
+      "shared/package-format.ts": 17,
       "server/proxy-paths.ts": 1,
       "server/sessions.ts": 24,
       "server/request-auth.ts": 10,
       "server/enterprise.ts": 3,
       "server/brand.ts": 5,
       "server/command-allowlist.ts": 1,
-      "server/runtime": 12,
+      "server/runtime": 13,
       "server/custom-domain.ts": 3,
       "server/generated-image.ts": 1,
       "shared/options-card.ts": 1,
@@ -620,6 +622,7 @@
       "server/setup-mode.ts": 1,
       "shared/tool-surface.ts": 2,
       "server/profile-learned.ts": 2,
+      "server/resume-recovery.ts": 6,
       "server/decider": 24,
       "server/recent-work.ts": 11,
       "server/outbound-requests.ts": 2,
@@ -633,24 +636,25 @@
       "shared/live-call.ts": 3,
       "server/live-call.ts": 9,
       "server/live-call-controller.ts": 11,
+      "shared/team-backup.ts": 2,
       "server/tts": 1,
       "shared/line-diff.ts": 2,
       "server/profile-requests.ts": 7,
       "server/index.ts": 1,
       "server/options-card.ts": 3,
-      "server/resume-recovery.ts": 7,
       "server/server-launcher.ts": 1,
       "server/tool-results.ts": 2,
+      "server/testing": 47,
+      "cloud/src": 13,
+      "cloud/test": 2,
       "server/model-catalog": 37,
-      "server/testing": 50,
-      "src/lib": 258,
-      "src/components": 346,
+      "src/lib": 262,
+      "src/components": 350,
       "src/state": 25,
       "third_party/bloub": 21,
-      "shared/device-sign-in.ts": 1,
-      "shared/new-bot-defaults.ts": 1,
-      "shared/tool-scope-support.ts": 1,
       "src/hooks": 1,
+      "shared/tool-scope-support.ts": 1,
+      "shared/new-bot-defaults.ts": 1,
       "src/App.tsx": 2,
       "vite.config.ts": 1,
       "shared/colonie-bot-profile.ts": 7,
@@ -658,7 +662,8 @@
       "electron/android-device.mjs": 2,
       "electron/approval-trusted-mode.cjs": 7,
       "electron/capabilities.cjs": 6,
-      "electron/colonie-config.mjs": 3,
+      "electron/colonie-config.mjs": 6,
+      "electron/local-workspaces.mjs": 3,
       "electron/cua-connection.cjs": 1,
       "electron/cua-linux.cjs": 16,
       "electron/cua-linux-runtime.cjs": 22,
@@ -670,7 +675,7 @@
       "electron/startup-screen.mjs": 1,
       "electron/skin-overlay.cjs": 2,
       "electron/secure-credentials.mjs": 1,
-      "electron/environments.cjs": 16,
+      "electron/environments.cjs": 20,
       "electron/routine-wake.mjs": 2,
       "electron/screen-preview.cjs": 5,
       "electron/desktop-viewer.cjs": 2,
@@ -1115,6 +1120,234 @@
         "name": "COLONIE_ACP_DRIVERS"
       },
       {
+        "path": "server/colonie/bots/bot-visibility.ts",
+        "name": "audienceEquals"
+      },
+      {
+        "path": "server/colonie/bots/bot-visibility.ts",
+        "name": "roomFeeds"
+      },
+      {
+        "path": "server/colonie/bots/bot-visibility.ts",
+        "name": "memberGroup"
+      },
+      {
+        "path": "server/colonie/bots/bot-visibility.ts",
+        "name": "MAX_VISIBILITY_PEOPLE"
+      },
+      {
+        "path": "server/colonie/bots/bot-visibility.ts",
+        "name": "VisibilityGroup"
+      },
+      {
+        "path": "server/colonie/bots/bot-profile.ts",
+        "name": "BOT_PROFILE_PATCH_FIELDS"
+      },
+      {
+        "path": "server/colonie/bots/bot-profile.ts",
+        "name": "BotProfilePatchResult"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "botDefaultModelSchema"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "botDefaultsProfileSchema"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "botRoutineTemplateSchema"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "BotDefaultsProfile"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "BotRoutineTemplate"
+      },
+      {
+        "path": "server/colonie/bots/new-bot-defaults.ts",
+        "name": "BotSkillTemplate"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "isHarnessOwnedMcpEnvName"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "addDisabledMcpServer"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "StdioMcpServerListing"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "RemoteMcpServerListing"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "McpServerListing"
+      },
+      {
+        "path": "server/colonie/mcp/mcp-registry.ts",
+        "name": "DisabledMcpServerAdd"
+      },
+      {
+        "path": "shared/json.ts",
+        "name": "JsonPrimitive"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "isValidCdpTarget"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "browserProfilePartitionId"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "browserProfileRoutingConflict"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "stripControlPlaneEnv"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "claudeInstanceOwnsRouting"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "instanceOwnsRouting"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "FISH_TTS_MODELS"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_MCP_CALL_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MIN_MCP_CALL_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MAX_MCP_CALL_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_MAX_CONCURRENT_BOT_THREADS"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MAX_CONCURRENT_BOT_THREADS"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MIN_THREAD_EVENT_LOG_BYTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MAX_THREAD_EVENT_LOG_BYTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_LOCAL_VM_MODE"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_LOCAL_VM_MAX_INSTANCES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MIN_LOCAL_VM_MAX_INSTANCES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MAX_LOCAL_VM_MAX_INSTANCES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_LOCAL_VM_IDLE_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MIN_LOCAL_VM_IDLE_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "MAX_LOCAL_VM_IDLE_TIMEOUT_MINUTES"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "BrowserProfile"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "ConfigPatch"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "BrowserProfilePartitionTarget"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "LIVE_IDLE_MINUTES_DEFAULT"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_CAPTURE_QUIET_MS"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "DEFAULT_TIDY_HOUR"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "FLEET_NEUTRAL_KEYS"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "WORKSPACE_CREDENTIAL_ENV"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "CONTROL_PLANE_ENV"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "CONTROL_PLANE_ENV_PREFIX"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "OPENCODE_PROVIDER_ENV"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "OPENCODE_PROVIDER_KEY_LIMIT"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "OPENAI_API_INSTANCE"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "OPENROUTER_API_INSTANCE"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "XAI_API_INSTANCE"
+      },
+      {
+        "path": "server/config.ts",
+        "name": "CustomMcpServer"
+      },
+      {
         "path": "server/colonie/teams/published-teams.ts",
         "name": "PUBLISHED_TEAMS_FILE"
       },
@@ -1257,241 +1490,13 @@
       {
         "path": "server/surface.ts",
         "name": "MountedSurfaces"
-      },
-      {
-        "path": "server/surface.ts",
-        "name": "SurfacePlan"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "UNSEEN_MAX_MESSAGES"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "UNSEEN_MAX_BYTES"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "HANDED_MAX_IDS"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "UnseenMessage"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "SessionStart"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "HandoffStore"
-      },
-      {
-        "path": "server/colonie/chat/delta-context.ts",
-        "name": "Handoff"
-      },
-      {
-        "path": "shared/skill-md.ts",
-        "name": "parseSkillTags"
-      },
-      {
-        "path": "shared/skill-md.ts",
-        "name": "SKILL_NAME_MAX"
-      },
-      {
-        "path": "shared/skill-md.ts",
-        "name": "SKILL_TAGS_MAX"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "isSeedPath"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageBytes"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "upgradeV1"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "downgradeToV1"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageSecretFindings"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageScanFindings"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageKeys"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PACKAGE_MAX_BYTES"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PACKAGE_MAX_PRESETS"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PACKAGE_MAX_CONNECTIONS"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "TEAM_BRIEF_MAX_BYTES"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PACKAGE_V1_VERSION"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PackageFormatErrorCode"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageRoutineScheduleSchema"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "packageDocumentSchema"
-      },
-      {
-        "path": "shared/package-format.ts",
-        "name": "PackageAvatar"
-      },
-      {
-        "path": "server/colonie/teams/package-parts.ts",
-        "name": "partHash"
-      },
-      {
-        "path": "server/colonie/teams/package-parts.ts",
-        "name": "releaseLook"
-      },
-      {
-        "path": "server/colonie/teams/package-parts.ts",
-        "name": "ROOM_PARTS"
-      },
-      {
-        "path": "server/colonie/teams/package-parts.ts",
-        "name": "LookValue"
-      },
-      {
-        "path": "server/colonie/teams/package-parts.ts",
-        "name": "roomReleaseValues"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "titleFromMessage"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "normalizeGroupDefaultResponder"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "GroupPackageStamp"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "TaskWirePrivateKeys"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "TaskWireDerivedKeys"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "TaskWireProjection"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "TaskWireProjectionIsExact"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "taskWireProjectionIsExact"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "TaskPatch"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "ACTIVITY_BUSY"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "UNTITLED_TASK"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "UNTITLED_THREAD"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "BotWirePrivateKeys"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "BotWireProjection"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "BotWireProjectionIsExact"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "botWireProjectionIsExact"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "CONNECTOR_SLUGS_MAX"
-      },
-      {
-        "path": "server/persistence/store.ts",
-        "name": "CONNECTOR_TOOLS_PER_SERVICE_MAX"
-      },
-      {
-        "path": "server/colonie/bots/bot-profile.ts",
-        "name": "BOT_PROFILE_PATCH_FIELDS"
-      },
-      {
-        "path": "server/colonie/bots/bot-profile.ts",
-        "name": "BotProfilePatchResult"
-      },
-      {
-        "path": "server/colonie/bots/new-bot-defaults.ts",
-        "name": "botDefaultModelSchema"
-      },
-      {
-        "path": "server/colonie/bots/new-bot-defaults.ts",
-        "name": "botDefaultsProfileSchema"
-      },
-      {
-        "path": "server/colonie/bots/new-bot-defaults.ts",
-        "name": "botRoutineTemplateSchema"
-      },
-      {
-        "path": "server/colonie/bots/new-bot-defaults.ts",
-        "name": "BotDefaultsProfile"
-      },
-      {
-        "path": "server/colonie/bots/new-bot-defaults.ts",
-        "name": "BotRoutineTemplate"
       }
     ]
   },
   "largestPublicSurfaces": [
     {
       "path": "server/config.ts",
-      "exports": 83
+      "exports": 80
     },
     {
       "path": "shared/package-format.ts",

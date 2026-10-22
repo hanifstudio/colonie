@@ -21,7 +21,10 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    Colonie Cloud ("Change photo" in the profile menu), shown in every
    workspace. Proof: view tests, the journey (photo upload against a local
    Colonie Cloud, the photo shown to the other person), screenshots. Out of
-   scope: presence, notifications, cropping. Left in the image: web-app-only
+   scope: presence, notifications, cropping. Teams are removed (owner,
+   October 23): one list of bots, one Chief of Staff; the app first, then
+   the server code and its tests, which the owner commits (the hook keeps
+   test deletions for the owner). Left in the image: web-app-only
    packages and Next.js (via better-auth), about 600 MB.
 2. A lifetime license for Shared, bought once (owner decision); later.
 3. Release: a signed, notarized `.dmg` (friends get an unsigned build from

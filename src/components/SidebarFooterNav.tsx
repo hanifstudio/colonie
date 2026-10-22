@@ -1,10 +1,10 @@
 // The places at the foot of the sidebar, as direct rows: Routines (the
-// Automations page) and Triggers, then Team map in Advanced mode. They used
+// Automations page) and Triggers. They used
 // to hide behind a hover "Tools" menu; a row each is one click instead of a
 // hover and a click. Simple mode keeps none of them: scheduling and webhooks
 // are builder tools. Apps sits beside the profile (SidebarAppsButton), except
 // on the avatars-only rail, where it stays a row just above the avatar.
-import { Calendar03Icon, NetworkIcon, PuzzleIcon, ZapIcon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, PuzzleIcon, ZapIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import type { ReactNode } from "react";
 
@@ -128,17 +128,6 @@ export function SidebarFooterNav({ density }: { density: SidebarDensity }) {
         icon={(active) => <HIcon icon={PuzzleIcon} size={iconSize} className={tone(active)} />}
         onClick={() => dispatch({ type: "togglePlugins", open: true })}
       />}
-      {advanced && (
-        <NavRow
-          id="team-map"
-          label={t("sidebar.nav.teamMap")}
-          tourId="team-tools"
-          iconsOnly={iconsOnly}
-          active={state.activeView === "team-map"}
-          icon={(active) => <HIcon icon={NetworkIcon} size={iconSize} className={tone(active)} />}
-          onClick={() => dispatch({ type: "showTeamMap" })}
-        />
-      )}
     </nav>
   );
 }

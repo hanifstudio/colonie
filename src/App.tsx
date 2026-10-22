@@ -20,7 +20,7 @@ import { PluginsPanel, preloadConnectedApps } from "@/components/PluginsPanel";
 import {
   ActivityPanel, BotSettingsDialog, ComputerPanel, InspectorPanel, KeyboardShortcutsModal, LocalVmWorkspace, NewBotDialog,
   FilePreviewPanel,
-  preloadScreens, RemoteAgentSettingsPanel, RemoteDesktopPanel, RoutinesPage, SettingsModal, TeamMapPage, TriggersPanel,
+  preloadScreens, RemoteAgentSettingsPanel, RemoteDesktopPanel, RoutinesPage, SettingsModal, TriggersPanel,
 } from "@/components/lazy-screens";
 import { WorkspaceBackupRecovery } from "@/components/WorkspaceBackupSettings";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -62,8 +62,6 @@ export function Shell() {
   // the Browser tab, expanded into the main column (the small preview in
   // the panel hands off to this and back)
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const previousViewRef = useRef(state.activeView);
-  const calendarOriginRef = useRef<"chat" | "team-map">("chat");
   const bot = state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0];
   // A side panel beside the full sidebar leaves the default 1100px window a
   // ~330px chat. Fold the sidebar to its avatar rail for as long as a panel
@@ -120,13 +118,6 @@ export function Shell() {
   }, [state.selectedId, bot?.threadId, state.activeView, state.pluginsOpen, state.settingsOpen]);
 
   useEffect(() => {
-    if (state.activeView === "routines" && previousViewRef.current !== "routines") {
-      calendarOriginRef.current = previousViewRef.current;
-    }
-    previousViewRef.current = state.activeView;
-  }, [state.activeView]);
-
-  useEffect(() => {
     if (
       localVmWorkspaceBotId &&
       (state.activeView !== "chat" || state.selectedId !== localVmWorkspaceBotId)
@@ -147,10 +138,6 @@ export function Shell() {
   };
 
   const closeCalendar = useCallback(() => {
-    if (calendarOriginRef.current === "team-map") {
-      dispatch({ type: "showTeamMap" });
-      return;
-    }
     dispatch({ type: "select", id: state.selectedId });
   }, [dispatch, state.selectedId]);
   const openCalendarChat = useCallback((id: string) => {
@@ -233,9 +220,7 @@ export function Shell() {
           }}
         />
       )}
-      {state.activeView === "team-map" ? (
-        <TeamMapPage />
-      ) : state.activeView === "routines" ? (
+      {state.activeView === "routines" ? (
         <RoutinesPage onBack={closeCalendar} onOpenChat={openCalendarChat} />
       ) : !remoteClient && localVmWorkspaceBotId ? (
         <LocalVmWorkspace

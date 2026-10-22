@@ -841,7 +841,7 @@ export interface AppState {
   selectedId: string;
   /** A group or DM between people open instead of a bot's chat (lib/conversations.ts). */
   selectedConversationId?: string;
-  activeView: "chat" | "team-map" | "routines";
+  activeView: "chat" | "routines";
   routines: Routine[];
   routineRuns: RoutineRun[];
   routinesLoadState: "loading" | "ready" | "error";
@@ -1006,7 +1006,6 @@ export type Action =
   | { type: "sections"; sections: string[] }
   | { type: "sectionDeleted"; section: string; sections: string[] }
   | { type: "showRoutines"; section?: "schedule" | "logs"; view?: "calendar" | "list"; botId?: string; routineId?: string; runStatus?: RoutineRunStatusFilter }
-  | { type: "showTeamMap" }
   | { type: "showChat" }
   | { type: "routinesHydrated"; routines: Routine[]; runs: RoutineRun[] }
   | { type: "routinesLoadFailed" }
@@ -1391,19 +1390,6 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     case "showChat":
       return state.activeView === "chat" ? state : { ...state, activeView: "chat" };
-    case "showTeamMap":
-      return {
-        ...state,
-        activeView: "team-map",
-        settingsOpen: false,
-        computerOpen: false,
-        inspectorOpen: false,
-        activityOpen: false,
-        filePreview: null,
-        appSettingsOpen: false,
-        pluginsOpen: false,
-        triggersOpen: false,
-      };
     case "routinesHydrated":
       return { ...state, routines: action.routines, routineRuns: trimRoutineRuns(action.runs), routinesLoadState: "ready" };
     case "routinesLoadFailed":

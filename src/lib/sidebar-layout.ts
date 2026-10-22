@@ -78,6 +78,15 @@ export function pinnedCircleThreadListVisible(
   return circles && density !== "icons" && pinnedCount > 0;
 }
 
+/** There are no teams: every bot sits in one list, led by one Chief of
+ * Staff (the first). A bot still filed in a team, or still marked Chief of
+ * an old team, shows as an ordinary row; bots that need no change keep
+ * their identity so their rows do not redraw. */
+export function withoutTeams<T extends SidebarBot>(bots: T[]): T[] {
+  const chief = bots.find((bot) => !bot.hidden && bot.chiefOfStaff);
+  return bots.map((bot) => (bot.section || (bot.chiefOfStaff && bot !== chief) ? { ...bot, section: undefined, chiefOfStaff: bot === chief } : bot));
+}
+
 /** Pinned bots are a virtual view. Their saved section is left untouched so
  * unpinning returns them to the context they came from.
  * With universal pins, a pin lifts a bot out of every group, including a

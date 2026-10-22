@@ -245,17 +245,11 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
 
 function DraftSection({ active, draft, defaultsMode }: { active: Section; draft: BotCreationDraft; defaultsMode: boolean }) {
   const bot = draft.bot;
-  const { state } = useStore();
   const derived = useBotSettingsDerived(bot);
   if (active === "Identity") return <div className="space-y-4">
     <StartingRole draft={draft} defaultsMode={defaultsMode} />
     <IdentitySection bot={bot} patch={derived.patch} activeState={derived.activeState} mascotMotion={null}
       namePlaceholder={defaultsMode ? t("newBot.randomName") : undefined} />
-    <label className="block text-[13px] text-ink-secondary">Team
-      <select className={cn(inputCls, "mt-1.5")} value={bot.section ?? ""} onChange={event => draft.patch({ section: event.target.value })}>
-        <option value="">General</option>{[...new Set([...(state.sections ?? []), ...state.bots.map(bot => bot.section ?? "")])].filter(Boolean).map(name => <option key={name}>{name}</option>)}
-      </select>
-    </label>
   </div>;
   if (active === "Soul") return <SoulSection bot={bot} patch={derived.patch} />;
   if (active === "Skills") return <SkillsSection bot={bot} />;

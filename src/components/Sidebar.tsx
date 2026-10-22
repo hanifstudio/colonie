@@ -11,8 +11,6 @@ import {
   CrownIcon,
   Delete02Icon,
   FolderAddIcon,
-  FolderMinusIcon,
-  LibraryIcon,
   Loading02Icon,
   MoreHorizontalIcon,
   MultiplicationSignIcon,
@@ -23,11 +21,8 @@ import {
   PinOffIcon,
   PlusSignIcon,
   Search01Icon,
-  Share08Icon,
   SidebarLeftIcon,
-  Tick01Icon,
   UserGroupIcon,
-  UsersIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { api, useStore, formatTime, visibleMessages, currentTaskBot, openThread, type Action, type AppState, type Bot, type BotProject, type InstanceInfo, type Message } from "@/state/store";
@@ -53,9 +48,6 @@ import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
 import { WorkingDots } from "./WorkingIndicator";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { MIN_QUERY, SearchResults } from "./SearchResults";
-import { TeamLibraryPanel } from "./TeamLibraryPanel";
-import { ShareTeamDialog } from "./ShareTeamDialog";
-import { TeamDialog } from "./TeamDialog";
 import { RenameTitle } from "./RenameTitle";
 import { BotProjectDialog, FolderActions, FolderIcon, navigateThreadMenu } from "./BotProjects";
 import { draggedFolder, FOLDER_DRAG_TYPE, moveFolder, placeFolder } from "@/lib/folder-order";
@@ -87,6 +79,7 @@ import {
   moveSection,
   orderedSidebarSections,
   partitionSidebarBots,
+  withoutTeams,
   placeSection,
   pinnedCircleThreadListVisible,
   sameSectionOrder,
@@ -185,148 +178,17 @@ function useRevealedThreadRow(reveal: AppState["revealThread"], currentThreadId:
   }, [reveal, currentThreadId]);
 }
 
-/** Move-to-section popover: existing sections as chips (checkmark on the
- * target's current one), a create field, and a remove action. Serves bots
- * and channels alike — the caller supplies the assignment. Mirrors the
- * context menu's fixed positioning + dismiss-on-outside-click contract. */
-function SectionPicker({
-  current,
-  anchor,
-  onClose,
-  onAssign,
-}: {
-  /** the target's current section; undefined = none */
-  current: string | undefined;
-  anchor: { x: number; y: number } | null;
-  onClose: () => void;
-  /** "" clears — the server drops an empty section */
-  onAssign: (section: string) => void;
-}) {
-  const { state } = useStore();
-  const [name, setName] = useState("");
-  const motion = useHeldMenuMotion(anchor);
-  const shown = motion.value;
-  const heldCurrent = useRef(current);
-  if (anchor) heldCurrent.current = current;
-  const trimmed = name.trim();
-
-  useEffect(() => {
-    if (!anchor) return;
-    const onDown = (e: MouseEvent) => {
-      if (!(e.target instanceof Element) || !e.target.closest("[data-section-picker]")) onClose();
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onClose);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onClose);
-    };
-  }, [anchor, onClose]);
-
-  // Hidden bots can carry a stale assignment; don't offer it as a context.
-  const sections = [
-    ...new Set([
-      ...(state.sections ?? []),
-      ...state.bots.filter((b) => !b.hidden && b.section).map((b) => b.section!),
-    ]),
-  ];
-
-  const assign = (section: string) => {
-    onAssign(section);
-    onClose();
-  };
-
-  if (!motion.shown || !shown) return null;
-  const sectionCurrent = heldCurrent.current;
-  const top = Math.max(8, Math.min(shown.y, window.innerHeight - 300));
-  const left = Math.min(shown.x, window.innerWidth - 260);
-
-  return (
-    <div
-      data-section-picker
-      style={{ top, left }}
-      className={cn("fixed z-40 w-[236px] overflow-hidden rounded-xl border border-hairline/50 bg-menu py-2 shadow-2xl shadow-black/60", motion.className)} {...motion.exitProps}
-    >
-      <div className="px-3.5 pb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
-        {t("sidebar.section.moveToContext")}
-      </div>
-      {sections.length > 0 && (
-        <div className="flex flex-col gap-0.5 px-1.5 py-1">
-          {sections.map((section) => (
-            <button
-              key={section}
-              onClick={() => assign(section)}
-              className={cn(
-                "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px]",
-                section === sectionCurrent ? "bg-raised text-ink" : "text-ink hover:bg-raised/70",
-              )}
-            >
-              <span className="truncate">{section}</span>
-              {section === sectionCurrent && <HIcon icon={Tick01Icon} size={14} className="shrink-0 text-accent" />}
-            </button>
-          ))}
-        </div>
-      )}
-      <form
-        className="flex items-center gap-1.5 px-2.5 py-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!trimmed || trimmed.length > 60) return;
-          assign(trimmed);
-        }}
-      >
-        <input
-          autoFocus
-          maxLength={60}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t("sidebar.section.newContext")}
-          aria-label={t("sidebar.section.newContextAria")}
-          className="w-full rounded-lg bg-raised/70 px-2.5 py-1.5 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!trimmed || trimmed.length > 60}
-          className={cn(
-            "shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-medium",
-            trimmed ? "bg-accent text-panel" : "bg-raised/70 text-ink-secondary",
-          )}
-        >
-          {t("common.add")}
-        </button>
-      </form>
-      {sectionCurrent && (
-        <>
-          <div className="mx-2 my-1 border-t border-hairline/40" />
-          <button
-            onClick={() => assign("")}
-            className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[13px] text-danger hover:bg-raised/70"
-          >
-            <HIcon icon={FolderMinusIcon} size={15} />
-            {t("sidebar.section.removeFromContext")}
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
 export function BotContextMenu({
   menu,
   onClose,
   onArchive,
   onDelete,
-  onMoveToSection,
   onNewFolder,
 }: {
   menu: MenuState | null;
   onClose: () => void;
   onArchive: (bot: Bot) => void;
   onDelete: (bot: Bot) => void;
-  onMoveToSection: (botId: string) => void;
   onNewFolder: (botId: string) => void;
 }) {
   const motion = useHeldMenuMotion(menu);
@@ -432,10 +294,6 @@ export function BotContextMenu({
         {divider("threads")}
       </>}
       {remoteClient ? [
-        item(<HIcon icon={FolderAddIcon} size={16} className="text-ink-secondary" />, t("sidebar.bot.moveToSection"), () => {
-          onClose();
-          onMoveToSection(bot.id);
-        }),
         item(<HIcon icon={PencilIcon} size={16} className="text-ink-secondary" />, t("sidebar.bot.editProfile"), () => {
           dispatch({ type: "select", id: bot.id });
           dispatch({ type: "toggleSettings", open: true });
@@ -458,10 +316,6 @@ export function BotContextMenu({
             hint: !bot.chiefOfStaff && !canCoordinate ? t("sidebar.bot.chiefNeedsEngine") : undefined,
           },
         ),
-        item(<HIcon icon={FolderAddIcon} size={16} className="text-ink-secondary" />, t("sidebar.bot.moveToSection"), () => {
-          onClose();
-          onMoveToSection(bot.id);
-        }),
         item(<HIcon icon={Notification01Icon} size={16} className="text-ink-secondary" />, t("sidebar.bot.markUnread"), () =>
           dispatch({ type: "markUnread", botId: bot.id }),
         ),
@@ -1433,25 +1287,6 @@ function ArchivedBotsPanel({
   );
 }
 
-/** A named team's context menu: add bots, rename, share the whole team,
- * delete. Exported for a markup test. */
-export function TeamMenuItems({ onAddBots, onRename, onShare, onDelete }: {
-  onAddBots: () => void;
-  onRename: () => void;
-  onShare: () => void;
-  onDelete: () => void;
-}) {
-  const item = "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-raised";
-  return (
-    <>
-      <button type="button" role="menuitem" autoFocus className={item} onClick={onAddBots}><HIcon icon={UsersIcon} size={14} />{t("team.addBots")}</button>
-      <button type="button" role="menuitem" className={item} onClick={onRename}><HIcon icon={PencilIcon} size={14} />{t("team.rename")}</button>
-      <button type="button" role="menuitem" className={item} onClick={onShare}><HIcon icon={Share08Icon} size={14} />{t("team.share")}</button>
-      <button type="button" role="menuitem" className={cn(item, "text-danger")} onClick={onDelete}><HIcon icon={Delete02Icon} size={14} />{t("team.delete")}</button>
-    </>
-  );
-}
-
 /** Account workspaces supply only the added controls. The existing sidebar,
  * density, search, bot rows, glass and window chrome stay the base UI. */
 export interface WorkspaceSidebarControls {
@@ -1482,31 +1317,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
   const [confirm, setConfirm] = useState<{ kind: BotConfirmKind; bot: Bot } | null>(null);
   const cancelConfirm = useCallback(() => setConfirm(null), []);
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [sectionPicker, setSectionPicker] = useState<MenuState | null>(null);
-  const [newTeam, setNewTeam] = useState(false);
-  const [teamMenu, setTeamMenu] = useState<{ name: string; x: number; y: number } | null>(null);
-  const teamMotion = useHeldMenuMotion(teamMenu);
-  const teamMenuReturn = useRef<HTMLElement | null>(null);
-  const closeTeamMenu = () => {
-    (teamMenuReturn.current?.isConnected ? teamMenuReturn.current : sidebarRef.current)?.focus();
-    setTeamMenu(null);
-  };
-  const renamedTeam = (oldName: string, newName: string) => {
-    const replace = (ids: string[]) => [...new Set(ids.map(id => id === userSectionId(oldName) ? userSectionId(newName) : id))];
-    setCollapsedSections(current => { const next = replace(current); saveCollapsedSections(next); return next; });
-    setSectionOrder(current => { const next = replace(current); saveSectionOrder(next); return next; });
-    requestAnimationFrame(() => {
-      const header = [...(sidebarRef.current?.querySelectorAll<HTMLElement>("[data-section]") ?? [])]
-        .find(element => element.dataset.section === newName);
-      (header?.querySelector<HTMLElement>("button") ?? header ?? sidebarRef.current)?.focus();
-    });
-  };
-  const [deletingTeam, setDeletingTeam] = useState<string | null>(null);
-  const [teamDeletePending, setTeamDeletePending] = useState(false);
-  const teamDeleteRunning = useRef(false);
-  const [moveToTeam, setMoveToTeam] = useState<string | null>(null);
-  const [renameTeam, setRenameTeam] = useState<string | null>(null);
-  const [shareTeam, setShareTeam] = useState<string | null>(null);
   const [plusOpen, setPlusOpen] = useState(false);
   const plusMotion = useMenuMotion(plusOpen);
   const advanced = useAdvancedMode();
@@ -1518,8 +1328,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
     saveSidebarAttentionPinned(pinned);
   };
   const [newFolderBotId, setNewFolderBotId] = useState<string | null>(null);
-  const [teamLibraryOpen, setTeamLibraryOpen] = useState(false);
-  const [teamInstallUrl, setTeamInstallUrl] = useState<string | null>(null);
   const [archivedBotsOpen, setArchivedBotsOpen] = useState(false);
   const [teamFeedback, setTeamFeedback] = useState<{
     error: boolean;
@@ -1600,14 +1408,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
   const plusMenuRef = useRef<HTMLDivElement>(null);
   usePopoverDismiss(attentionOpen, attentionMenuRef, () => setAttentionOpen(false));
   usePopoverDismiss(plusOpen, plusMenuRef, () => setPlusOpen(false));
-
-  useEffect(() => {
-    if (remoteClient) return;
-    return window.colonie?.onPackageInstall?.((url) => {
-      setTeamInstallUrl(url);
-      setTeamLibraryOpen(true);
-    });
-  }, [remoteClient]);
 
   useEffect(() => {
     if (!teamFeedback) return;
@@ -1702,17 +1502,11 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
     sectionChiefs,
     sectionedBots,
     unsectionedBots,
-  } = partitionSidebarBots(matchingBots, { universalPins });
+  } = partitionSidebarBots(withoutTeams(matchingBots), { universalPins });
 
   // User sections keep first-appearance order. The saved layout keeps an
   // empty section's former slot so it returns there when content comes back.
-  const sectionNames: string[] = (state.sections ?? []).filter((name) => !q || name.toLowerCase().includes(q.toLowerCase()));
-  for (const bot of sectionedBots) {
-    if (!sectionNames.includes(bot.section!)) sectionNames.push(bot.section!);
-  }
-  for (const bot of sectionChiefs) {
-    if (!sectionNames.includes(bot.section!)) sectionNames.push(bot.section!);
-  }
+  const sectionNames: string[] = [];
   const naturalSectionIds = [
     ...(pinnedBots.length > 0 && !universalPins ? [PINNED_SECTION_ID] : []),
     ...(unsectionedBots.length > 0 ? [BOTS_SECTION_ID] : []),
@@ -1984,25 +1778,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                   <HIcon icon={UserGroupIcon} size={16} className="text-ink-secondary" />
                   <span className="flex-1">New group or DM</span>
                 </button>
-                {!remoteClient && <button
-                  onClick={() => { setPlusOpen(false); setNewTeam(true); }}
-                  disabled
-                  className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[14px] text-ink hover:bg-raised/70 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <HIcon icon={FolderAddIcon} size={16} className="text-ink-secondary" /> {t("team.create")}
-                </button>}
                 {!remoteClient && <>
-                <button
-                  onClick={() => {
-                    setPlusOpen(false);
-                    setTeamLibraryOpen(true);
-                  }}
-                  disabled
-                  className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[14px] text-ink hover:bg-raised/70 disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <HIcon icon={LibraryIcon} size={16} className="text-ink-secondary" />
-                  {t("sidebar.teamLibrary")}
-                </button>
                 {archivedBots.length > 0 && (
                   <button
                     onClick={() => {
@@ -2171,11 +1947,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                 {density !== "icons" && (
                   <SidebarSectionHeader
                     name={sectionLabel(id)}
-                    onContextMenu={!remoteClient && layoutInteractive && sectionName ? (event) => {
-                      event.preventDefault();
-                      teamMenuReturn.current = event.currentTarget.querySelector<HTMLElement>("button") ?? event.currentTarget;
-                      setTeamMenu({ name: sectionName, x: Math.max(8, Math.min(event.clientX, window.innerWidth - 230)), y: Math.max(8, Math.min(event.clientY, window.innerHeight - 150)) });
-                    } : undefined}
                     collapsed={collapsed}
                     attention={attention}
                     onToggle={layoutInteractive ? () => toggleSection(id) : undefined}
@@ -2190,7 +1961,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                     }}
                     onDragEnd={resetSectionDrag}
                     onMove={(direction) => moveSidebarSection(id, direction)}
-                    onDelete={!remoteClient && sectionName ? () => setDeletingTeam(sectionName) : undefined}
                   />
                 )}
                 {collapsed && queued.length > 0 && <button type="button" onClick={() => toggleSection(id)}
@@ -2207,12 +1977,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                         row={botRow}
                       />
                     ) : sectionBotItems.map((bot) => <BotListItem key={bot.id} {...botRow(bot)} />)}
-                    {!remoteClient && sectionName && layoutInteractive && (
-                      <button onClick={() => setMoveToTeam(sectionName)} aria-label={t(state.bots.some(bot => !bot.hidden && bot.section?.trim() === sectionName) ? "team.manageBotsIn" : "team.addBotsTo", { name: sectionName })}
-                        className="mx-3 my-1 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink">
-                        <HIcon icon={PlusSignIcon} size={13} /> {t(state.bots.some(bot => !bot.hidden && bot.section?.trim() === sectionName) ? "team.manageBots" : "team.addBots")}
-                      </button>
-                    )}
                   </>
                 )}
                 {dropTarget?.id === id && dropTarget.place === "after" && draggingSectionId !== id && (
@@ -2290,10 +2054,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
           onClose={() => setMenu(null)}
           onArchive={requestArchive}
           onDelete={(bot) => setConfirm({ kind: "delete", bot })}
-          onMoveToSection={(botId) => {
-            if (!menu) return;
-            setSectionPicker({ botId, x: menu.x, y: menu.y });
-          }}
           onNewFolder={setNewFolderBotId}
         />
       {showThreads && newFolderBotId && state.bots.find((bot) => bot.id === newFolderBotId) && <BotProjectDialog bot={state.bots.find((bot) => bot.id === newFolderBotId)!} onClose={() => setNewFolderBotId(null)} />}
@@ -2311,85 +2071,11 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
           else dispatch({ type: "deleteBot", botId: bot.id });
         }}
       />
-      {newTeam && <TeamDialog onClose={() => setNewTeam(false)} />}
-      {renameTeam && <TeamDialog section={renameTeam} rename onRenamed={renamedTeam} onClose={() => setRenameTeam(null)} />}
-      {teamMotion.shown && teamMotion.value && createPortal(<div className={cn("fixed inset-0 z-40", teamMotion.closing && "pointer-events-none")} onMouseDown={closeTeamMenu}>
-        <div role="menu" aria-label={teamMotion.value.name} style={{ left: teamMotion.value.x, top: teamMotion.value.y }}
-          className={cn("absolute w-[220px] rounded-xl border border-hairline/50 bg-menu p-1.5 text-ink shadow-xl", teamMotion.className)} {...teamMotion.exitProps}
-          onMouseDown={event => event.stopPropagation()} onKeyDown={event => {
-            if (event.key === "Escape" || event.key === "Tab") { event.preventDefault(); event.stopPropagation(); closeTeamMenu(); return; }
-            navigateThreadMenu(event);
-          }}>
-          <TeamMenuItems
-            onAddBots={() => { closeTeamMenu(); setMoveToTeam(teamMotion.value!.name); }}
-            onRename={() => { closeTeamMenu(); setRenameTeam(teamMotion.value!.name); }}
-            onShare={() => { closeTeamMenu(); setShareTeam(teamMotion.value!.name); }}
-            onDelete={() => { closeTeamMenu(); setDeletingTeam(teamMotion.value!.name); }}
-          />
-        </div>
-      </div>, document.body)}
-      <ConfirmDialog open={deletingTeam !== null} title={t("team.deleteTitle", { name: deletingTeam ?? "" })}
-        body={t("team.deleteKeepBotsDescription")} confirmLabel={t("team.delete")} returnFocusRef={sidebarRef}
-        pending={teamDeletePending}
-        onCancel={() => { if (!teamDeleteRunning.current) setDeletingTeam(null); }} onConfirm={() => {
-          const name = deletingTeam;
-          if (!name || teamDeleteRunning.current) return;
-          teamDeleteRunning.current = true;
-          setTeamDeletePending(true);
-          void api(`/api/sidebar-sections?section=${encodeURIComponent(name)}`, { method: "DELETE" })
-            .then(({ sections }) => { dispatch({ type: "sectionDeleted", section: name, sections }); setDeletingTeam(null); })
-            .catch(cause => setTeamFeedback({ error: true, text: cause instanceof Error ? cause.message : String(cause) }))
-            .finally(() => { teamDeleteRunning.current = false; setTeamDeletePending(false); });
-        }} />
-      {moveToTeam && <TeamDialog section={moveToTeam} onClose={() => setMoveToTeam(null)} />}
-      {shareTeam !== null && <ShareTeamDialog team={shareTeam} onClose={() => setShareTeam(null)} />}
-      <SectionPicker
-          current={sectionPicker ? state.bots.find((b) => b.id === sectionPicker.botId)?.section : undefined}
-          anchor={sectionPicker}
-          onClose={() => setSectionPicker(null)}
-          onAssign={(section) => {
-            if (!sectionPicker) return;
-            if (!remoteClient) {
-              dispatch({ type: "updateBot", botId: sectionPicker.botId, patch: { section } });
-              return;
-            }
-            void api("/api/sidebar-sections", {
-              method: "POST",
-              body: JSON.stringify({ name: section, botIds: [sectionPicker.botId] }),
-            })
-              .then(({ bots }) => bots.forEach((bot: Bot) => dispatch({ type: "botPatched", bot })))
-              .catch((cause) => dispatch({ type: "error", message: cause instanceof Error ? cause.message : String(cause) }));
-          }}
-        />
       {!remoteClient && archivedBotsOpen && (
         <ArchivedBotsPanel
           bots={archivedBots}
           onClose={() => setArchivedBotsOpen(false)}
           onRestored={(message) => setTeamFeedback({ error: false, text: message })}
-        />
-      )}
-      {!remoteClient && teamLibraryOpen && (
-        <TeamLibraryPanel
-          returnFocusRef={importReturnRef}
-          initialUrl={teamInstallUrl ?? undefined}
-          onClose={() => {
-            setTeamLibraryOpen(false);
-            setTeamInstallUrl(null);
-          }}
-          onImported={(result) => {
-            setTeamLibraryOpen(false);
-            setTeamInstallUrl(null);
-            setTeamFeedback({
-              error: false,
-              text:
-                (result.members === 0 && result.presets
-                  ? t("sidebar.presetsImported", { count: result.presets })
-                  : result.members === 1
-                  ? t("sidebar.teamImportedOne")
-                  : t("sidebar.teamImportedMany", { count: result.members })) +
-                (result.connections ? ` · ${t("sidebar.connectionsToFinish", { count: result.connections })}` : ""),
-            });
-          }}
         />
       )}
       {teamFeedback &&

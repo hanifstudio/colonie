@@ -26,7 +26,6 @@ import { CommandAllowlistDialog } from "../CommandAllowlistDialog";
 import { FullAccessWarning } from "../FullAccessWarning";
 import { LocalComputerAutoWarning } from "../LocalComputerAutoWarning";
 import { Switch } from "../SettingsPrimitives";
-import { ManagedTeamsSettings } from "./ManagedTeamsSettings";
 import { ProposalStatus } from "./ProposalStatus";
 import type { useBotSettingsDerived } from "./useBotSettingsDerived";
 import { useBotEditor } from "./BotEditorContext";
@@ -38,8 +37,8 @@ export function PermissionsSection({
   bot: Bot;
   derived: ReturnType<typeof useBotSettingsDerived>;
 }) {
-  const { patch, engine, canCoordinate, approvalMode, trustedModesAvailable, sectionName, currentChief } = derived;
-  const { state, dispatch } = useStore();
+  const { patch, engine, canCoordinate, approvalMode, trustedModesAvailable, currentChief } = derived;
+  const { dispatch } = useStore();
   const ownerOrAdmin = useOwnerOrAdmin();
   const { draft } = useBotEditor();
   const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
@@ -79,7 +78,7 @@ export function PermissionsSection({
           </span>
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-medium text-ink">Chief of Staff</div>
-            <div className="text-[11.5px] text-ink-secondary">One for {sectionName}</div>
+            <div className="text-[11.5px] text-ink-secondary">One for this workspace</div>
           </div>
           <Switch
             checked={Boolean(bot.chiefOfStaff)}
@@ -94,21 +93,14 @@ export function PermissionsSection({
           {bot.chiefOfStaff && !canCoordinate
             ? "This bot still holds the role, but its current provider cannot contact teammates. Choose a provider that supports bot coordination."
             : bot.chiefOfStaff
-              ? `This is the primary contact for ${sectionName}. It can create and coordinate specialists in this team, then combine their work into one answer.`
+              ? "This is the primary contact for your bots. It can create and coordinate specialists, then combine their work into one answer."
               : !canCoordinate
                 ? "Choose a provider that supports bot coordination."
                 : currentChief
-                  ? `Make this bot the ${sectionName} Chief and hand the role over from ${currentChief.name}.`
-                  : `Make this bot the primary contact for the ${sectionName} team.`}
+                  ? `Make this bot the Chief of Staff and hand the role over from ${currentChief.name}.`
+                  : "Make this bot the primary contact for your bots."}
         </div>
         <ProposalStatus bot={bot} kind="chief" />
-        {bot.chiefOfStaff && <ManagedTeamsSettings
-          key={bot.id + JSON.stringify(bot.managedSections ?? [])}
-          name={bot.name} ownTeam={bot.section?.trim() || ""}
-          teams={["", ...(state.sections ?? []), ...state.bots.map(member => member.section?.trim() || "")]}
-          allowed={bot.managedSections ?? []}
-          onSave={managedSections => patch({ managedSections, acknowledgePeerScope: true })}
-        />}
         {bot.chiefOfStaff && <ProposalStatus bot={bot} kind="owner" />}
       </div>
 
