@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { Conversation } from "@/lib/conversations";
 import { asChatMessages, mentionQuery, mentionSuggestions, withFrame } from "@/lib/conversations";
 import type { Message } from "@/state/store";
-import { ConversationListView, sidebarRows } from "./SidebarConversations";
+import { ConversationListView, rowMetrics, sidebarRows } from "./SidebarConversations";
 import { NewConversationView } from "./NewConversationDialog";
 
 const conversation = (extra: Partial<Conversation>): Conversation => ({
@@ -18,16 +18,25 @@ const conversation = (extra: Partial<Conversation>): Conversation => ({
 const message = (extra: Partial<Message>): Message => ({ id: "m1", at: 1, role: "user", kind: "text", text: "hi", ...extra } as Message);
 
 describe("groups and DMs between people", () => {
-  it("the sidebar lists them by name, marks unread ones, and offers a new one", () => {
+  it("the sidebar lists them by name with the last thing said, marks unread ones, and is quiet when empty", () => {
     const html = renderToStaticMarkup(createElement(ConversationListView, {
-      conversations: [conversation({}), conversation({ id: "c2", kind: "dm", title: "Bob", unread: true })],
-      selectedId: "c1", onSelect: () => {}, onNew: () => {},
+      conversations: [conversation({ preview: "Bob: see you Friday" }), conversation({ id: "c2", kind: "dm", title: "Bob", unread: true })],
+      selectedId: "c1", onSelect: () => {},
     }));
-    expect(html).toContain("Groups and people");
     expect(html).toContain("Launch");
+    expect(html).toContain("Bob: see you Friday");
     expect(html).toContain("Bob");
     expect(html).toContain('aria-label="Unread"');
-    expect(html).toContain("New group or DM");
+    // no heading or "start a group" line: a new group starts from the + menu
+    expect(html).not.toContain("Start a group");
+    expect(renderToStaticMarkup(createElement(ConversationListView, { conversations: [], selectedId: undefined, onSelect: () => {} }))).toBe("");
+  });
+
+  it("a person's or group's row is the size of a bot's row at each density", () => {
+    expect(rowMetrics("comfortable", true).avatar).toBe(32);
+    expect(rowMetrics("comfortable", false).avatar).toBe(56);
+    expect(rowMetrics("compact", true).avatar).toBe(26);
+    expect(rowMetrics("comfortable", true).row).toMatch(/\bpl-6\b/);
   });
 
   it("shows who wrote each message, people and bots: yours on the right, the first of a run with a face", () => {
@@ -73,15 +82,15 @@ describe("groups and DMs between people", () => {
     const rows = sidebarRows([dm, conversation({}), gone], [{ email: "Bob@x.com", name: "Bob" }, { email: "dee@x.com", name: "Dee" }]);
     expect(rows.map((row) => row.kind === "person" ? `person:${row.person.name}` : row.conversation.id)).toEqual(["c1", "c2", "person:Dee", "c3"]);
     const html = renderToStaticMarkup(createElement(ConversationListView, {
-      conversations: [], people: [{ email: "dee@x.com", name: "Dee" }], selectedId: undefined, onSelect: () => {}, onNew: () => {},
+      conversations: [], people: [{ email: "dee@x.com", name: "Dee" }], selectedId: undefined, onSelect: () => {},
     }));
     expect(html).toContain("Dee");
-    expect(html).toContain("Start a group with people and bots");
+    expect(html).toContain("Send a message");
   });
 
   it("someone @named sees it on the conversation, before plain unread", () => {
     const html = renderToStaticMarkup(createElement(ConversationListView, {
-      conversations: [conversation({ unread: true, mentioned: true })], selectedId: undefined, onSelect: () => {}, onNew: () => {},
+      conversations: [conversation({ unread: true, mentioned: true })], selectedId: undefined, onSelect: () => {},
     }));
     expect(html).toContain('aria-label="You were mentioned"');
     expect(html).not.toContain('aria-label="Unread"');

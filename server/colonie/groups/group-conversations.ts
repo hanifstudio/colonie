@@ -90,11 +90,15 @@ export function createGroupConversations(deps: {
     const others = people.filter((person) => !person.you);
     const messages = deps.store().messagesFor(record.threadId);
     const last = messages.at(-1);
+    const said = messages.findLast((message) => !message.notice && message.text?.trim());
+    const speaker = !said ? "" : said.role === "bot" ? said.from?.name ?? "Bot" : said.sender?.id === caller.key ? "You" : said.sender?.name ?? "Someone";
     return {
       id: record.id, threadId: record.threadId, kind: record.kind,
       title: record.kind === "dm" ? others[0]?.name ?? "Direct message" : record.name,
       name: record.name, people, bots: record.bots,
       lastMessageAt: last?.at ?? record.createdAt,
+      // the last thing said, for the sidebar's second line
+      preview: said ? `${speaker}: ${said.text!.trim().replace(/\s+/g, " ").slice(0, 120)}` : "",
       unread: Boolean(last && last.at > (record.readAt[caller.key] ?? 0) && last.sender?.id !== caller.key),
       mentioned: (record.mentionedAt?.[caller.key] ?? 0) > (record.readAt[caller.key] ?? 0),
     };

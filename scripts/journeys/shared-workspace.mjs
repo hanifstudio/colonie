@@ -58,7 +58,7 @@ async function join_(invite, person) {
   await Promise.all([page.waitForLoadState("load"), page.click('button[type="submit"]')]);
   check((await page.title()).startsWith("Continue"), `${person.name} reaches the consent page after signing up`);
   await Promise.all([page.waitForLoadState("load"), page.click('button:has-text("Continue")')]);
-  await until(page, async () => (await page.locator(`section[aria-label="Groups and people"]`).count()) > 0, `${person.name} lands in the workspace, not a blank page`);
+  await until(page, async () => (await page.locator("[data-sidebar-bot-row]").count()) > 0, `${person.name} lands in the workspace, not a blank page`);
   await settle(page);
   return page;
 }
@@ -96,7 +96,8 @@ try {
 
   step = "a group with a person and a bot";
   await settle(ana);
-  await ana.click('button[aria-label="New group or DM"]');
+  await ana.click('button[aria-label="New or share"], button[aria-label="New"]');
+  await ana.click('button:has-text("New group or DM")');
   await ana.fill('input[aria-label="Group name"]', "Launch");
   await ana.click('button[aria-pressed]:has-text("Bob")');
   await ana.locator('fieldset:has(legend:text("Bots")) button').first().click();

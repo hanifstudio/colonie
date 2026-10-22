@@ -1,15 +1,17 @@
 // The sidebar's groups and the people of the workspace, like Slack's
 // channels and direct messages: each group by its name, then everyone else
-// here; a person opens the DM with them (started on the first click). Unread
-// ones are marked, and there is a way to start a new group.
+// here; a person opens the DM with them (started on the first click). Each
+// row is the size of a bot's, with a face and the last thing said; unread
+// ones are marked. A new group starts from the sidebar's + menu.
 import { useCallback, useEffect, useState } from "react";
-import { PlusSignIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, OPEN_NEW_CONVERSATION, createConversation, useConversations, workspacePeople, type Conversation,
 } from "@/lib/conversations";
+import { useShowThreads } from "@/lib/thread-preferences";
 import { useStore } from "@/state/store";
 
 export interface Person { email: string; name: string; avatar?: string }
@@ -30,53 +32,68 @@ export function sidebarRows(conversations: Conversation[], others: Person[]): Si
   return [...groups.map((conversation) => ({ kind: "conversation" as const, conversation })), ...people, ...rest.map((conversation) => ({ kind: "conversation" as const, conversation }))];
 }
 
-function ConversationFace({ conversation }: { conversation: Conversation }) {
-  const other = conversation.kind === "dm" ? conversation.people.find((person) => !person.you) : undefined;
-  return other
-    ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={20} />
-    : <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-raised"><HIcon icon={UserGroupIcon} size={12} /></span>;
+/** The size a bot's row has at this density (Sidebar's BotListItem), so a
+ * person, a group and a bot sit in the sidebar as equals. */
+export function rowMetrics(density: "compact" | "comfortable" | string, showThreads: boolean) {
+  const compact = density === "compact";
+  return {
+    avatar: compact ? (showThreads ? 26 : 40) : (showThreads ? 32 : 56),
+    row: cn("flex w-full items-center rounded-md pr-2 text-left outline-none focus-visible:ring-1 focus-visible:ring-accent/60",
+      compact ? (showThreads ? "gap-1.5 py-1" : "gap-2 py-1.5") : (showThreads ? "gap-2 py-2" : "gap-3 py-2.5"),
+      showThreads ? "pl-6" : "pl-2"),
+  };
 }
 
-const rowClass = (selected: boolean) => cn("flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13.5px]",
-  selected ? "bg-raised text-ink" : "text-ink-secondary hover:bg-raised/50 hover:text-ink");
+function Face({ conversation, person, size }: { conversation?: Conversation; person?: Person; size: number }) {
+  const other = person ?? (conversation?.kind === "dm" ? conversation.people.find((entry) => !entry.you) : undefined);
+  return other
+    ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={size} />
+    : <span className="flex shrink-0 items-center justify-center rounded-full bg-raised text-ink-secondary" style={{ width: size, height: size }}>
+      <HIcon icon={UserGroupIcon} size={Math.round(size * 0.5)} />
+    </span>;
+}
 
-export function ConversationListView({ conversations, people = [], selectedId, onSelect, onPerson = () => {}, onNew }: {
+export function ConversationListView({ conversations, people = [], selectedId, density = "comfortable", showThreads = true, onSelect, onPerson = () => {} }: {
   conversations: Conversation[];
   /** Everyone else in the workspace. */
   people?: Person[];
   selectedId: string | undefined;
+  density?: string;
+  showThreads?: boolean;
   onSelect: (id: string) => void;
   onPerson?: (email: string) => void;
-  onNew: () => void;
 }) {
   const rows = sidebarRows(conversations, people);
-  return (
-    <section aria-label="Groups and people" className="px-2 pb-2 pt-1">
-      <div className="flex items-center justify-between px-2 py-1">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">Groups and people</span>
-        <button type="button" onClick={onNew} aria-label="New group or DM" title="New group or DM"
-          className="rounded-md p-1 text-ink-secondary hover:bg-raised hover:text-ink">
-          <HIcon icon={PlusSignIcon} size={14} />
-        </button>
+  if (rows.length === 0) return null;
+  const metrics = rowMetrics(density, showThreads);
+  const line = (name: string, second: string, unread = false, mentioned = false) => (
+    <div className="min-w-0 flex-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-[14px] font-semibold text-ink">{name}</span>
+        {mentioned && <span aria-label="You were mentioned" title="You were mentioned" className="shrink-0 rounded-full bg-accent px-1.5 text-[10.5px] font-bold leading-4 text-white">@</span>}
       </div>
-      {!rows.some((row) => row.kind === "conversation" && row.conversation.kind === "group") && (
-        <button type="button" onClick={onNew} className="w-full rounded-lg px-2 py-1.5 text-left text-[12.5px] text-ink-tertiary hover:bg-raised/50 hover:text-ink-secondary">
-          Start a group with people and bots
-        </button>
-      )}
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[11px] text-ink-secondary">{second}</span>
+        {unread && !mentioned && <span aria-label="Unread" className="size-2 shrink-0 rounded-full bg-accent" />}
+      </div>
+    </div>
+  );
+  return (
+    <section aria-label="Groups and people" className="flex flex-col gap-0.5 pb-1.5">
       {rows.map((row) => row.kind === "person" ? (
-        <button key={`person:${row.person.email}`} type="button" onClick={() => onPerson(row.person.email)} title={row.person.email} className={rowClass(false)}>
-          <PersonAvatar name={row.person.name} email={row.person.email} src={row.person.avatar} size={20} />
-          <span className="min-w-0 flex-1 truncate">{row.person.name}</span>
+        <button key={`person:${row.person.email}`} type="button" onClick={() => onPerson(row.person.email)} title={row.person.email}
+          className={cn(metrics.row, "hover:bg-raised/40")}>
+          <Face person={row.person} size={metrics.avatar} />
+          {line(row.person.name, "Send a message")}
         </button>
       ) : (
         <button key={row.conversation.id} type="button" onClick={() => onSelect(row.conversation.id)}
-          aria-current={row.conversation.id === selectedId ? "page" : undefined} className={rowClass(row.conversation.id === selectedId)}>
-          <ConversationFace conversation={row.conversation} />
-          <span className={cn("min-w-0 flex-1 truncate", row.conversation.unread && "font-semibold text-ink")}>{row.conversation.title}</span>
-          {row.conversation.mentioned
-            ? <span aria-label="You were mentioned" title="You were mentioned" className="shrink-0 rounded-full bg-accent px-1.5 text-[10.5px] font-bold leading-4 text-white">@</span>
-            : row.conversation.unread && <span aria-label="Unread" className="size-2 shrink-0 rounded-full bg-accent" />}
+          aria-current={row.conversation.id === selectedId ? "page" : undefined}
+          className={cn(metrics.row, row.conversation.id === selectedId ? "bg-raised/70" : "hover:bg-raised/40")}>
+          <Face conversation={row.conversation} size={metrics.avatar} />
+          {line(row.conversation.title,
+            row.conversation.preview || (row.conversation.kind === "group" ? `${row.conversation.people.length + row.conversation.bots.length} members` : "Send a message"),
+            row.conversation.unread, row.conversation.mentioned)}
         </button>
       ))}
     </section>
@@ -103,8 +120,9 @@ function useOtherPeople(): Person[] {
   return others;
 }
 
-export function SidebarConversations() {
+export function SidebarConversations({ density }: { density: string }) {
   const { state, dispatch } = useStore();
+  const showThreads = useShowThreads();
   const { conversations } = useConversations();
   const people = useOtherPeople();
   if (!conversations) return null;
@@ -117,8 +135,8 @@ export function SidebarConversations() {
   };
   return (
     <ConversationListView conversations={conversations} people={people} selectedId={state.selectedConversationId}
+      density={density} showThreads={showThreads}
       onSelect={(id) => dispatch({ type: "selectConversation", id })}
-      onPerson={(email) => void openDm(email)}
-      onNew={() => window.dispatchEvent(new Event(OPEN_NEW_CONVERSATION))} />
+      onPerson={(email) => void openDm(email)} />
   );
 }

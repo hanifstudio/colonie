@@ -14,6 +14,8 @@ export interface ConversationPerson { key?: string; email: string; name: string;
 export interface Conversation {
   id: string; threadId: string; kind: "group" | "dm"; title: string; name: string;
   people: ConversationPerson[]; bots: string[]; lastMessageAt: number; unread: boolean;
+  /** The last thing said ("Bob: see you"), empty before anything is. */
+  preview?: string;
   /** Someone @named the caller since they last read it. */
   mentioned?: boolean;
 }

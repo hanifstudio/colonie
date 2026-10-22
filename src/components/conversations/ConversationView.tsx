@@ -140,7 +140,9 @@ function ConversationComposer({ conversation, bots, onSent }: { conversation: Co
         <div className="relative">
           <div aria-hidden data-composer-backdrop className="pointer-events-none absolute -bottom-3 -left-5 -right-5 top-1/2 bg-app" />
           <div data-tour="composer" className={COMPOSER_PILL}>
-            {bots.length > 0 && (
+            {/* a group offers its bots at a click; a DM is between people
+                (typing @ still asks a bot in) */}
+            {conversation.kind === "group" && bots.length > 0 && (
               <div className="flex flex-wrap gap-1.5 px-2 pt-1">
                 {bots.slice(0, 6).map((bot) => (
                   <button key={bot.id} type="button" onClick={() => { setText((value) => `${value}${value && !value.endsWith(" ") ? " " : ""}@${bot.name} `); inputRef.current?.focus(); }}

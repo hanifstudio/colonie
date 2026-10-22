@@ -26,6 +26,7 @@ import {
   Share08Icon,
   SidebarLeftIcon,
   Tick01Icon,
+  UserGroupIcon,
   UsersIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
@@ -110,6 +111,7 @@ import { attentionHasRunningWork, attentionJumpAction, attentionTriggerLabel, at
 import { SidebarAttentionPanel } from "./SidebarAttentionPanel";
 import { SidebarPinnedThreadsPanel } from "./SidebarPinnedThreadsPanel";
 import { SidebarConversations } from "./conversations/SidebarConversations";
+import { OPEN_NEW_CONVERSATION } from "@/lib/conversations";
 import { ServerUpdateNotice } from "./ServerUpdateNotice";
 import { useLiveMedia } from "@/lib/live-call-media";
 import { LiveCallPill, liveBadgeFor } from "./LiveCallPill";
@@ -808,7 +810,8 @@ export function botRowProps(
   bot: Bot,
   layout: Pick<BotRowProps, "density" | "quiet" | "query" | "onMenu">,
 ): BotRowProps {
-  const selected = state.activeView === "chat" && state.selectedId === bot.id;
+  // a group or DM open in the chat pane is what is selected, not the bot
+  const selected = state.activeView === "chat" && !state.selectedConversationId && state.selectedId === bot.id;
   const reveal = state.revealThread;
   return {
     ...layout,
@@ -1974,6 +1977,13 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                   <span className="flex-1">{t("sidebar.newBot")}</span>
                   <ShortcutHint id="new-bot" />
                 </button>
+                <button
+                  onClick={() => { setPlusOpen(false); window.dispatchEvent(new Event(OPEN_NEW_CONVERSATION)); }}
+                  className="flex w-full items-center gap-3 px-3.5 py-2 text-left text-[14px] text-ink hover:bg-raised/70"
+                >
+                  <HIcon icon={UserGroupIcon} size={16} className="text-ink-secondary" />
+                  <span className="flex-1">New group or DM</span>
+                </button>
                 {!remoteClient && <button
                   onClick={() => { setPlusOpen(false); setNewTeam(true); }}
                   disabled
@@ -2074,7 +2084,6 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
           onToggle={layoutInteractive ? () => toggleSection(PINNED_THREADS_SECTION_ID) : undefined}
         />
       )}
-      {density !== "icons" && <SidebarConversations />}
       </GlassBar>
 
       {density !== "icons" && <div
@@ -2120,6 +2129,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
           {matchingBots.length === 0 && q && q.length < MIN_QUERY && (
             <div className="px-3 py-6 text-center text-[13px] text-ink-secondary">{t("sidebar.noMatch", { query })}</div>
           )}
+          {density !== "icons" && <SidebarConversations density={density} />}
           {unsectionedChief && (
             <div className="mb-1.5">
               <BotListItem {...botRow(unsectionedChief)} />
