@@ -116,13 +116,14 @@ try {
   await ana.keyboard.type("please summarise");
   await ana.keyboard.press("Enter");
   await until(ana, async () => {
-    const all = await text(ana);
-    return all.includes("· Bot") && !all.includes("is working on it");
-  }, "the bot answers in the group", 40_000);
+    const answered = await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count();
+    return answered > 0 && !(await text(ana)).includes("is working on it");
+  }, "the bot answers in the group, under its face and name", 40_000);
 
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");
+  check(await bob.locator('[data-testid="sender-line"]', { hasText: "Ana" }).count() > 0, "Bob sees Ana's messages under her face and name");
 
   step = "a DM from the sidebar";
   await bob.reload();

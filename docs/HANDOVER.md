@@ -11,19 +11,18 @@ Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current: groups and DMs between people** (owner approved the plan,
-   October 22). A person makes a group with a name, people and bots; every
-   member sees it in the sidebar and writes in it; a bot answers when
-   @mentioned, in the group; a DM between two people works the same with no
-   bots until one is @mentioned. Non-members see nothing. Now, like Slack:
-   the sidebar lists everyone else in the workspace; clicking a person opens
-   the DM with them, starting it if needed (proof: view tests, the journey
-   opens a DM from the sidebar; out of scope: presence, notifications).
-   Proof: two-person
-   tests on a throwaway Shared workspace, then the real app. Done too: one
-   list of workspaces; New workspace (Local or Shared); Update for Shared
-   servers; the journey as a CI test; the image 3.9 → 2.7 GB. Left in the
-   image: web-app-only packages and Next.js (via better-auth), about 600 MB.
+1. **Current: one chat for bots and people, with faces** (owner, October
+   22). Groups and DMs work (a person makes a group with people and bots, a
+   bot answers when @mentioned, the sidebar lists everyone, a click opens
+   the DM). Now: a group or DM looks and works like a chat with a bot (same
+   header pill, bubbles, composer); others' messages carry their avatar and
+   name. Every person has an avatar: their photo, or a coloured initial.
+   The photo belongs to the Colonie account (owner decision), set once at
+   Colonie Cloud ("Change photo" in the profile menu), shown in every
+   workspace. Proof: view tests, the journey (photo upload against a local
+   Colonie Cloud, the photo shown to the other person), screenshots. Out of
+   scope: presence, notifications, cropping. Left in the image: web-app-only
+   packages and Next.js (via better-auth), about 600 MB.
 2. A lifetime license for Shared, bought once (owner decision); later.
 3. Release: a signed, notarized `.dmg` (friends get an unsigned build from
    GitHub Releases, tag `friends-<version>`, so the legacy updater mirror

@@ -60,6 +60,7 @@ import { openPlaceAction, placeRowViewFor, usePlaceSeat, worksOnSimpleLabel } fr
 import type { PlaceRow } from "../../shared/place-view";
 import { isProviderSafetyBlock, PROVIDER_SAFETY_GUIDANCE, PROVIDER_SAFETY_HELP_URL } from "../../shared/provider-safety";
 import { BotAvatar } from "./Avatar";
+import { PersonAvatar } from "./PersonAvatar";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { normalizeState, stateForBot } from "@/lib/mascot";
@@ -499,6 +500,9 @@ const Bubble = memo(function Bubble({
     if (focusedSearch && collapsible) setExpanded(true);
   }, [focusedSearch, collapsible, focus?.nonce]);
 
+  // a line about the conversation itself (who made it, who joined)
+  if (message.notice) return <div className="py-1 text-center text-[12.5px] text-ink-tertiary">{message.text}</div>;
+
   if (user && editing && !webhookView && !hasAttachments) {
     return (
       <div className="flex w-full justify-end">
@@ -521,7 +525,9 @@ const Bubble = memo(function Bubble({
     <div className={cn("group flex w-full flex-col", user ? "animate-msg-in items-end" : "items-start")}>
       {/* who wrote it: a signed-in person's own words carry their name too, so a
           conversation with several people reads like one */}
-      {message.sender && <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}{!user && message.sender.kind === "bot" ? " · Bot" : ""}</span>}
+      {message.sender && (user
+        ? <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}</span>
+        : <SenderLine message={message} />)}
       {peer && <PeerLabel peer={peer} />}
       <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
         {user && (
@@ -736,6 +742,23 @@ const Bubble = memo(function Bubble({
  * by id, then by name for rows that predate Message.peerAsk; a peer since
  * renamed or deleted still shows the name the line carries. Renders with its
  * bubble. */
+/** Who wrote a message on the left side, with their face: a bot's mascot or
+ * photo, a person's photo or initial. */
+function SenderLine({ message }: { message: Message }) {
+  const { bots } = useChatRows();
+  const sender = message.sender!;
+  const bot = sender.kind === "bot" ? bots.find((b) => b.id === message.from?.botId) ?? bots.find((b) => b.name === sender.name) : undefined;
+  return (
+    <div className="mb-1.5 flex items-center gap-2 pl-0.5" data-testid="sender-line">
+      {sender.kind === "bot"
+        ? <BotAvatar bot={bot ?? { name: sender.name, color: message.from?.color ?? "blue" }} state="happy" size={22} motion="none" motionKey={0} animated={false} />
+        : <PersonAvatar name={sender.name} email={sender.email} src={sender.avatar} size={22} />}
+      <span className="text-[12.5px] font-medium text-ink">{sender.name}</span>
+      {sender.kind === "bot" && <span className="text-[11px] text-ink-tertiary">Bot</span>}
+    </div>
+  );
+}
+
 function PeerLabel({ peer }: { peer: PeerLine }) {
   const { bots } = useChatRows();
   const author =

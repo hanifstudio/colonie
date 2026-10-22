@@ -10,7 +10,7 @@ export const THREAD_FRAME = "colonie:thread-frame";
 export const CONVERSATIONS_CHANGED = "colonie:conversations-changed";
 export const OPEN_NEW_CONVERSATION = "colonie:new-conversation";
 
-export interface ConversationPerson { email: string; name: string; you: boolean }
+export interface ConversationPerson { key?: string; email: string; name: string; you: boolean; avatar?: string }
 export interface Conversation {
   id: string; threadId: string; kind: "group" | "dm"; title: string; name: string;
   people: ConversationPerson[]; bots: string[]; lastMessageAt: number; unread: boolean;
@@ -62,4 +62,31 @@ export function useConversations(): { conversations: Conversation[] | null; relo
     return () => { if (timer) clearTimeout(timer); window.removeEventListener(THREAD_FRAME, soon); window.removeEventListener(CONVERSATIONS_CHANGED, soon); };
   }, [reload]);
   return { conversations, reload };
+}
+
+/** A conversation's messages as the bot chat shows them: the caller's own on
+ * the right; everyone else's (people and bots) on the left, and the first of
+ * a run from one sender carries who it is (name, avatar). */
+export function asChatMessages(messages: Message[], people: ConversationPerson[]): Message[] {
+  const me = people.find((person) => person.you)?.key;
+  const byKey = new Map(people.flatMap((person) => person.key ? [[person.key, person] as const] : []));
+  let previous = "";
+  return messages.map((message) => {
+    if (message.notice) { previous = ""; return message; }
+    if (message.role === "user" && (!message.sender?.id || message.sender.id === me)) {
+      previous = "you";
+      const { sender: _mine, ...own } = message;
+      return own;
+    }
+    const bot = message.role === "bot";
+    const who = bot ? `bot:${message.from?.botId ?? message.from?.name ?? ""}` : `person:${message.sender?.id ?? message.sender?.name ?? ""}`;
+    const first = who !== previous;
+    previous = who;
+    const person = bot ? undefined : byKey.get(message.sender?.id ?? "");
+    const sender = !first ? undefined : bot
+      ? { name: message.from?.name ?? "Bot", kind: "bot" as const }
+      : { name: person?.name ?? message.sender?.name ?? "Someone", kind: "human" as const, id: message.sender?.id, avatar: person?.avatar, email: person?.email };
+    const { sender: _raw, ...rest } = message;
+    return { ...rest, role: "bot", ...(sender ? { sender } : {}) } as Message;
+  });
 }

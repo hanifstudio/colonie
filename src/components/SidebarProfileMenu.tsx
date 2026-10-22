@@ -22,7 +22,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
-import { InitialsAvatar } from "./Avatar";
+import { PersonAvatar } from "./PersonAvatar";
 import { AboutDialog } from "./AboutDialog";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
 import { ShortcutHint } from "./ShortcutHint";
@@ -48,13 +48,15 @@ export function profileInitials(profile?: { name?: string; email?: string }): st
 
 /** The name shown on the row: the profile name, else the email, else "You". */
 /** The Colonie account of whoever is signed in here (GET /api/me), or null. */
-export function useSignedInAccount(): { name: string; email: string } | null {
-  const [account, setAccount] = useState<{ name: string; email: string } | null>(null);
+export interface SignedInAccount { name: string; email: string; avatar?: string; photoUrl?: string }
+
+export function useSignedInAccount(): SignedInAccount | null {
+  const [account, setAccount] = useState<SignedInAccount | null>(null);
   useEffect(() => {
     let alive = true;
     void fetch("/api/me", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((body: { account?: { name: string; email: string } | null } | null) => { if (alive) setAccount(body?.account ?? null); })
+      .then((body: { account?: SignedInAccount | null } | null) => { if (alive) setAccount(body?.account ?? null); })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
@@ -251,7 +253,7 @@ export function SidebarProfileMenu() {
               open ? "bg-raised" : "hover:bg-raised/50",
             )}
           >
-            <InitialsAvatar initials={profileInitials(profile)} size={28} />
+            <PersonAvatar name={name} email={account?.email} src={account?.avatar} size={28} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] text-ink">{name}</span>
               {account?.email && account.email !== name && <span className="block truncate text-[11.5px] text-ink-secondary">{account.email}</span>}

@@ -3,15 +3,16 @@
 // here; a person opens the DM with them (started on the first click). Unread
 // ones are marked, and there is a way to start a new group.
 import { useCallback, useEffect, useState } from "react";
-import { PlusSignIcon, UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { PlusSignIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
+import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, OPEN_NEW_CONVERSATION, createConversation, useConversations, workspacePeople, type Conversation,
 } from "@/lib/conversations";
 import { useStore } from "@/state/store";
 
-export interface Person { email: string; name: string }
+export interface Person { email: string; name: string; avatar?: string }
 export type SidebarRow = { kind: "conversation"; conversation: Conversation } | { kind: "person"; person: Person };
 
 /** Groups first, then one row per other person: their DM when there is one. */
@@ -27,6 +28,13 @@ export function sidebarRows(conversations: Conversation[], others: Person[]): Si
   const listed = new Set(others.map((person) => person.email.toLowerCase()));
   const rest = dms.filter((dm) => !dm.people.some((person) => !person.you && listed.has(person.email.toLowerCase())));
   return [...groups.map((conversation) => ({ kind: "conversation" as const, conversation })), ...people, ...rest.map((conversation) => ({ kind: "conversation" as const, conversation }))];
+}
+
+function ConversationFace({ conversation }: { conversation: Conversation }) {
+  const other = conversation.kind === "dm" ? conversation.people.find((person) => !person.you) : undefined;
+  return other
+    ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={20} />
+    : <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-raised"><HIcon icon={UserGroupIcon} size={12} /></span>;
 }
 
 const rowClass = (selected: boolean) => cn("flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13.5px]",
@@ -58,13 +66,13 @@ export function ConversationListView({ conversations, people = [], selectedId, o
       )}
       {rows.map((row) => row.kind === "person" ? (
         <button key={`person:${row.person.email}`} type="button" onClick={() => onPerson(row.person.email)} title={row.person.email} className={rowClass(false)}>
-          <HIcon icon={UserIcon} size={15} className="shrink-0" />
+          <PersonAvatar name={row.person.name} email={row.person.email} src={row.person.avatar} size={20} />
           <span className="min-w-0 flex-1 truncate">{row.person.name}</span>
         </button>
       ) : (
         <button key={row.conversation.id} type="button" onClick={() => onSelect(row.conversation.id)}
           aria-current={row.conversation.id === selectedId ? "page" : undefined} className={rowClass(row.conversation.id === selectedId)}>
-          <HIcon icon={row.conversation.kind === "dm" ? UserIcon : UserGroupIcon} size={15} className="shrink-0" />
+          <ConversationFace conversation={row.conversation} />
           <span className={cn("min-w-0 flex-1 truncate", row.conversation.unread && "font-semibold text-ink")}>{row.conversation.title}</span>
           {row.conversation.mentioned
             ? <span aria-label="You were mentioned" title="You were mentioned" className="shrink-0 rounded-full bg-accent px-1.5 text-[10.5px] font-bold leading-4 text-white">@</span>

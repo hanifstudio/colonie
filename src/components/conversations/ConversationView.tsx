@@ -1,40 +1,29 @@
-// A group or a DM between people, open in the main pane: who is in it, every
-// message with who wrote it (people and bots), and a composer where
-// @mentioning a bot asks it to answer here.
+// A group or a DM between people, open in the main pane. It is the same chat
+// as with a bot (ChatView: header pill, bubbles, composer pill): your own
+// messages on the right, everyone else's on the left under their face and
+// name. @mentioning a bot asks it to answer here.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
-import { ChatMarkdown } from "../ChatMarkdown";
+import { ChatView, CHATHEAD_PILL } from "../ChatView";
+import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
 import { MentionTextarea } from "../MentionTextarea";
+import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
-  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, conversationMessages, leaveConversation, markConversationRead,
-  mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type ThreadFrame,
+  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
+  mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
-import { useStore, type Message } from "@/state/store";
+import { useStore, type Bot, type Message } from "@/state/store";
 
-export function ConversationMessagesView({ messages, threadId = "" }: { messages: Message[]; threadId?: string }) {
-  if (messages.length === 0) return <p className="px-2 py-8 text-center text-[13px] text-ink-tertiary">No messages yet. Say hello, or @mention a bot to ask it.</p>;
-  return (
-    <ol className="flex flex-col gap-4">
-      {messages.map((message) => {
-        if (message.notice) return <li key={message.id} className="text-center text-[12px] text-ink-tertiary">{message.text}</li>;
-        const bot = message.role === "bot";
-        const who = bot ? message.from?.name ?? "Bot" : message.sender?.name ?? "Someone";
-        return (
-          <li key={message.id} className="flex gap-3">
-            <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold", bot ? "bg-accent/20 text-accent" : "bg-raised text-ink-secondary")}>
-              {who.slice(0, 1).toUpperCase()}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[12px] text-ink-secondary"><span className="font-medium text-ink">{who}</span>{bot && " · Bot"}</div>
-              <div className="text-[14px] text-ink"><ChatMarkdown text={message.text ?? ""} mentionPeers={[]} message={{ threadId, messageId: message.id }} /></div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+/** The conversation as the chat view's "bot": its title and messages. Never
+ * one of the workspace's bots, so nothing done to a bot reaches it. */
+function chatFor(conversation: Conversation, messages: Message[]): Bot {
+  return {
+    id: `conversation:${conversation.id}`, threadId: conversation.threadId, name: conversation.title, title: "", description: "",
+    messages, color: "blue", notifications: true, unread: false, busy: false, activity: "idle", computer: "off",
+    modelSelection: { instanceId: "conversation", model: "" },
+  } as Bot;
 }
 
 export function ConversationView({ id }: { id: string }) {
@@ -42,12 +31,7 @@ export function ConversationView({ id }: { id: string }) {
   const { conversations } = useConversations();
   const conversation = conversations?.find((entry) => entry.id === id);
   const [messages, setMessages] = useState<Message[] | null>(null);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [membersOpen, setMembersOpen] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
   const threadId = conversation?.threadId;
 
   useEffect(() => {
@@ -66,17 +50,63 @@ export function ConversationView({ id }: { id: string }) {
     window.addEventListener(THREAD_FRAME, onFrame);
     return () => window.removeEventListener(THREAD_FRAME, onFrame);
   }, [id, threadId]);
-  useEffect(() => { endRef.current?.scrollIntoView?.({ block: "end" }); }, [messages?.length]);
 
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
-  const memberBots = bots.filter((bot) => conversation?.bots.includes(bot.id));
-  // "@" suggests the people here and the bots one can ask.
+  const shown = useMemo(() => conversation && messages ? asChatMessages(messages, conversation.people) : [], [conversation, messages]);
+  if (!conversation) {
+    return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
+  }
+  const memberBots = bots.filter((bot) => conversation.bots.includes(bot.id));
+  const other = conversation.kind === "dm" ? conversation.people.find((person) => !person.you) : undefined;
+  return (
+    <ChatView key={conversation.id} bot={chatFor(conversation, shown)} accountConversation={{
+      identity: (
+        <span className={cn(CHATHEAD_PILL, "pr-3.5")} title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
+          {other
+            ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={24} />
+            : <span className="flex size-6 items-center justify-center rounded-full bg-raised text-ink-secondary"><HIcon icon={UserGroupIcon} size={14} /></span>}
+          <span className="min-w-0 truncate text-[14px] font-semibold">{conversation.title}</span>
+        </span>
+      ),
+      actions: (
+        <button type="button" onClick={() => setMembersOpen((open) => !open)} aria-expanded={membersOpen}
+          className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
+          {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
+        </button>
+      ),
+      beforeMessages: (
+        <>
+          {membersOpen && <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots}
+            onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
+          {!messages && <div className="flex justify-center py-8"><HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" /></div>}
+        </>
+      ),
+      empty: messages ? <p className="py-10 text-center text-[13px] text-ink-secondary">No messages yet. Say hello, or @mention a bot to ask it.</p> : <></>,
+      composer: <ConversationComposer key={conversation.id} conversation={conversation} bots={bots}
+        onSent={(message) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: conversation.threadId, message }))} />,
+    }} />
+  );
+}
+
+/** The composer pill of a bot chat, for a conversation: text, @mentions of
+ * the people here and the bots one can ask. */
+function ConversationComposer({ conversation, bots, onSent }: { conversation: Conversation; bots: Bot[]; onSent: (message: Message) => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const mentionable = useMemo(() => [
-    ...(conversation?.people ?? []).filter((person) => !person.you).map((person) => ({ name: person.name, kind: "person" as const })),
+    ...conversation.people.filter((person) => !person.you).map((person) => ({ name: person.name, kind: "person" as const })),
     ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
-  ], [conversation?.people, bots]);
+  ], [conversation.people, bots]);
   const query = mentionQuery(text);
   const suggestions = query === null ? [] : mentionSuggestions(query, mentionable);
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
+  }, [text]);
   const pick = (name: string) => {
     setText((value) => value.replace(/@([^\s@]*)$/, `@${name} `));
     inputRef.current?.focus();
@@ -86,34 +116,14 @@ export function ConversationView({ id }: { id: string }) {
     if (!value || busy) return;
     setBusy(true); setError("");
     try {
-      const { message } = await postToConversation(id, value);
-      setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message }));
+      const { message } = await postToConversation(conversation.id, value);
+      onSent(message);
       setText("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };
-
-  if (!conversation) {
-    return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
-  }
   return (
-    <main className="flex h-full min-w-0 flex-1 flex-col bg-app">
-      <header className="flex items-center gap-3 border-b border-hairline/40 px-6 py-3">
-        <HIcon icon={UserGroupIcon} size={18} className="text-ink-secondary" />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold text-ink">{conversation.title}</h1>
-          <p className="truncate text-[12px] text-ink-secondary">
-            {[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}
-          </p>
-        </div>
-        <button type="button" onClick={() => setMembersOpen((open) => !open)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">Members</button>
-      </header>
-      {membersOpen && <Members conversationId={id} kind={conversation.kind} people={conversation.people} memberBots={memberBots.map((bot) => bot.id)}
-        bots={bots} onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-        {messages ? <ConversationMessagesView messages={messages} threadId={threadId} /> : <HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" />}
-        <div ref={endRef} />
-      </div>
-      <form className="border-t border-hairline/40 px-6 py-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+    <form className="pointer-events-none relative px-5 pb-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
+      <div className="pointer-events-auto relative w-full">
         {suggestions.length > 0 && (
           <ul role="listbox" aria-label="Mention" className="mb-2 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1 text-[13px]">
             {suggestions.map((entry) => (
@@ -126,34 +136,43 @@ export function ConversationView({ id }: { id: string }) {
             ))}
           </ul>
         )}
-        <div className="rounded-2xl border border-hairline/50 bg-panel px-4 py-2.5">
-          <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={2} disabled={busy}
-            placeholder={`Message ${conversation.title} — type @ to mention someone or ask a bot`}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.key === "Enter" || event.key === "Tab") && suggestions.length > 0) { event.preventDefault(); pick(suggestions[0]!.name); return; }
-              if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); }
-            }}
-            className="w-full resize-none bg-transparent text-[14px] text-ink placeholder:text-ink-tertiary focus:outline-none" />
-          {bots.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {bots.slice(0, 6).map((bot) => (
-                <button key={bot.id} type="button" onClick={() => { setText((value) => `${value}${value && !value.endsWith(" ") ? " " : ""}@${bot.name} `); inputRef.current?.focus(); }}
-                  className="rounded-full bg-raised px-2 py-0.5 text-[11.5px] text-ink-secondary hover:text-ink">@{bot.name}</button>
-              ))}
+        {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
+        <div className="relative">
+          <div aria-hidden data-composer-backdrop className="pointer-events-none absolute -bottom-3 -left-5 -right-5 top-1/2 bg-app" />
+          <div data-tour="composer" className={COMPOSER_PILL}>
+            {bots.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-2 pt-1">
+                {bots.slice(0, 6).map((bot) => (
+                  <button key={bot.id} type="button" onClick={() => { setText((value) => `${value}${value && !value.endsWith(" ") ? " " : ""}@${bot.name} `); inputRef.current?.focus(); }}
+                    className="rounded-full bg-raised px-2 py-0.5 text-[11.5px] text-ink-secondary hover:text-ink">@{bot.name}</button>
+                ))}
+              </div>
+            )}
+            <div data-composer-row className={COMPOSER_ROW}>
+              <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1} disabled={busy}
+                placeholder={`Message ${conversation.title}`} aria-label="Message"
+                onChange={(event) => setText(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.key === "Enter" || event.key === "Tab") && suggestions.length > 0) { event.preventDefault(); pick(suggestions[0]!.name); return; }
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
+                }}
+                className={cn(COMPOSER_INPUT, "ml-2 flex-1")} />
+              <button type="submit" aria-label="Send message" title="Send message" disabled={!text.trim() || busy}
+                className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-white hover:brightness-110 disabled:opacity-40">
+                {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={ArrowUp01Icon} size={17} />}
+              </button>
             </div>
-          )}
+          </div>
         </div>
-        {error && <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p>}
-      </form>
-    </main>
+      </div>
+    </form>
   );
 }
 
-function Members({ conversationId, kind, people, memberBots, bots, onLeft }: {
-  conversationId: string; kind: "group" | "dm"; people: Array<{ email: string; name: string; you: boolean }>;
-  memberBots: string[]; bots: Array<{ id: string; name: string }>; onLeft: () => void;
+function Members({ conversation, memberBots, bots, onLeft }: {
+  conversation: Conversation; memberBots: string[]; bots: Array<{ id: string; name: string }>; onLeft: () => void;
 }) {
+  const { id: conversationId, kind, people } = conversation;
   const [everyone, setEveryone] = useState<Array<{ email: string; name: string }>>([]);
   const [error, setError] = useState("");
   useEffect(() => { void workspacePeople().then(setEveryone).catch(() => {}); }, []);
@@ -164,7 +183,15 @@ function Members({ conversationId, kind, people, memberBots, bots, onLeft }: {
   };
   const inPeople = new Set(people.map((person) => person.email));
   return (
-    <div className="border-b border-hairline/40 bg-panel px-6 py-3 text-[12.5px]">
+    <div className="mx-auto w-full max-w-[42rem] rounded-2xl border border-hairline/40 bg-panel px-4 py-3 text-[12.5px]">
+      <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-2">
+        {people.map((person) => (
+          <li key={person.email || person.name} className="flex items-center gap-2 text-ink">
+            <PersonAvatar name={person.name} email={person.email} src={person.avatar} size={20} />{person.you ? `${person.name} (you)` : person.name}
+          </li>
+        ))}
+        {bots.filter((bot) => memberBots.includes(bot.id)).map((bot) => <li key={bot.id} className="text-ink-secondary">{bot.name} · Bot</li>)}
+      </ul>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {kind === "group" && everyone.filter((person) => !inPeople.has(person.email)).length > 0 && (
           <label className="flex items-center gap-2 text-ink-secondary">Add a person

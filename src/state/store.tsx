@@ -171,7 +171,7 @@ export interface Message {
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;
   /** Account workspace attribution; only the display name, never credentials. */
-  sender?: { name: string; kind: "human" | "bot" };
+  sender?: { name: string; kind?: "human" | "bot"; id?: string; avatar?: string; email?: string };
   /** digest messages: what the turn did, rendered in `text` and structured here. */
   digest?: TurnDigest;
   compaction?: import("../../shared/wire").WireMessage["compaction"];

@@ -85,7 +85,7 @@ export function createGroupConversations(deps: {
     const names = known();
     const people = record.people.map((key) => {
       const entry = names.get(key);
-      return { email: entry?.email ?? "", name: key === caller.key ? caller.name : entry?.name || entry?.email || "Someone", you: key === caller.key };
+      return { key, email: entry?.email ?? "", name: key === caller.key ? caller.name : entry?.name || entry?.email || "Someone", you: key === caller.key };
     });
     const others = people.filter((person) => !person.you);
     const messages = deps.store().messagesFor(record.threadId);

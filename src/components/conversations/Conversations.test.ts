@@ -5,10 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import type { Conversation } from "@/lib/conversations";
-import { mentionQuery, mentionSuggestions, withFrame } from "@/lib/conversations";
+import { asChatMessages, mentionQuery, mentionSuggestions, withFrame } from "@/lib/conversations";
 import type { Message } from "@/state/store";
 import { ConversationListView, sidebarRows } from "./SidebarConversations";
-import { ConversationMessagesView } from "./ConversationView";
 import { NewConversationView } from "./NewConversationDialog";
 
 const conversation = (extra: Partial<Conversation>): Conversation => ({
@@ -31,17 +30,17 @@ describe("groups and DMs between people", () => {
     expect(html).toContain("New group or DM");
   });
 
-  it("shows who wrote each message, people and bots", () => {
-    const html = renderToStaticMarkup(createElement(ConversationMessagesView, {
-      messages: [
-        message({ id: "m1", text: "plan for Friday?", sender: { name: "Bob", kind: "human" } }),
-        message({ id: "m2", role: "bot", text: "Here is the plan.", from: { botId: "b1", name: "Riset", color: "teal" } }),
-      ],
-    }));
-    expect(html).toContain("Bob");
-    expect(html).toContain("plan for Friday?");
-    expect(html).toContain("Riset");
-    expect(html).toContain("Here is the plan.");
+  it("shows who wrote each message, people and bots: yours on the right, the first of a run with a face", () => {
+    const people = [{ key: "pa", email: "ana@x.com", name: "Ana", you: true }, { key: "pb", email: "bob@x.com", name: "Bob", you: false, avatar: "https://cloud/avatars/b" }];
+    const shown = asChatMessages([
+      message({ id: "m0", text: "hi all", sender: { name: "Ana", id: "pa" } }),
+      message({ id: "m1", text: "plan for Friday?", sender: { name: "Bob", id: "pb" } }),
+      message({ id: "m2", text: "and Saturday?", sender: { name: "Bob", id: "pb" } }),
+      message({ id: "m3", role: "bot", text: "Here is the plan.", from: { botId: "b1", name: "Riset", color: "teal" } }),
+    ], people);
+    expect(shown.map((m) => [m.role, m.sender?.name ?? null])).toEqual([["user", null], ["bot", "Bob"], ["bot", null], ["bot", "Riset"]]);
+    expect(shown[1]!.sender).toMatchObject({ kind: "human", avatar: "https://cloud/avatars/b", email: "bob@x.com" });
+    expect(shown[3]!.sender).toMatchObject({ kind: "bot" });
   });
 
   it("a new conversation asks a group's name, its people and bots; a DM one person", () => {
@@ -98,10 +97,8 @@ describe("groups and DMs between people", () => {
   });
 
   it("a line about the conversation itself reads as a note, not as someone's words", () => {
-    const html = renderToStaticMarkup(createElement(ConversationMessagesView, {
-      messages: [message({ id: "n1", role: "bot", notice: true, text: "Ana made the group with Bob, Riset." })],
-    }));
-    expect(html).toContain("Ana made the group with Bob, Riset.");
-    expect(html).not.toContain("· Bot");
+    const shown = asChatMessages([message({ id: "n1", role: "bot", notice: true, text: "Ana made the group with Bob, Riset." })], []);
+    expect(shown[0]).toMatchObject({ notice: true, text: "Ana made the group with Bob, Riset." });
+    expect(shown[0]!.sender).toBeUndefined();
   });
 });
