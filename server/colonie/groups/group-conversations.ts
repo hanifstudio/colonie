@@ -145,7 +145,7 @@ export function createGroupConversations(deps: {
       if (!record.bots.includes(bot.id)) { record.bots.push(bot.id); save(); }
       let threadId = record.botThreads[bot.id];
       if (!threadId || !store.taskByThread(bot.id, threadId)) {
-        const task = store.createTask(bot.id, record.kind === "dm" ? "Direct message" : record.name, false, undefined, undefined, undefined, undefined, [caller.key]);
+        const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [caller.key]);
         if (!task) continue;
         threadId = task.threadId;
         record.botThreads[bot.id] = threadId;

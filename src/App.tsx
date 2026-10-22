@@ -1,6 +1,8 @@
 import { JoinSharedWorkspace } from "./components/JoinSharedWorkspace";
 import { CreateSharedWorkspace } from "./components/CreateSharedWorkspace";
 import { SharedOnboarding } from "./components/onboarding/SharedOnboarding";
+import { ConversationView } from "./components/conversations/ConversationView";
+import { NewConversationDialog } from "./components/conversations/NewConversationDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
@@ -243,6 +245,8 @@ export function Shell() {
         />
       ) : noEngines ? (
         <NoEngines />
+      ) : state.selectedConversationId ? (
+        <ConversationView key={state.selectedConversationId} id={state.selectedConversationId} />
       ) : bot ? (
         <ChatView bot={bot} />
       ) : (
@@ -294,6 +298,7 @@ export function Shell() {
       <JoinSharedWorkspace />
       <CreateSharedWorkspace />
       <SharedOnboarding />
+      <NewConversationDialog />
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}

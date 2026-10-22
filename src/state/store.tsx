@@ -2,6 +2,7 @@
 // it dispatches typed commands over HTTP and folds the one SSE event
 // stream from the harness server into local state. The reducer stays
 // pure; everything async lives in the wrapped dispatch + SSE fold.
+import { THREAD_FRAME } from "@/lib/conversations";
 import {
   createContext,
   useCallback,
@@ -836,6 +837,8 @@ export interface AppState {
   liveCallLookupSeq: number;
   /** selected chat — a bot id */
   selectedId: string;
+  /** A group or DM between people open instead of a bot's chat (lib/conversations.ts). */
+  selectedConversationId?: string;
   activeView: "chat" | "team-map" | "routines";
   routines: Routine[];
   routineRuns: RoutineRun[];
@@ -1028,6 +1031,7 @@ export type Action =
   | { type: "liveCallLookup"; call: LiveCallState | null; since: number; seq: number }
   | { type: "profileSaved"; profile: Partial<NonNullable<ConfigStatus["profile"]>> }
   | { type: "select"; id: string }
+  | { type: "selectConversation"; id: string | null }
   | {
       type: "send";
       botId: string;
@@ -1461,7 +1465,10 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         config: { ...state.config, profile: { name: "", email: "", ...state.config.profile, ...action.profile } },
       } : state;
+    case "selectConversation":
+      return { ...state, activeView: "chat", selectedConversationId: action.id ?? undefined };
     case "select": {
+      state = { ...state, selectedConversationId: undefined };
       return updateBot(
         withMascotMotion(
           {
@@ -3349,6 +3356,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           rawDispatch({ type: "botQueues", queues: frame.queues });
           break;
         case "message": {
+          // Groups and DMs between people keep their own messages (lib/conversations.ts).
+          window.dispatchEvent(new CustomEvent(THREAD_FRAME, { detail: { kind: "message", threadId: frame.threadId, message: frame.message } }));
           rawDispatch({ type: "messageAdded", threadId: frame.threadId, message: frame.message as Message });
           if (frame.message?.role === "user" && typeof frame.message.queueId === "string") {
             rawDispatch({
@@ -3377,6 +3386,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "message.patch":
+          window.dispatchEvent(new CustomEvent(THREAD_FRAME, { detail: { kind: "message.patch", threadId: frame.threadId, message: frame.message } }));
           rawDispatch({ type: "messagePatched", threadId: frame.threadId, message: frame.message as Message });
           break;
         case "thread":

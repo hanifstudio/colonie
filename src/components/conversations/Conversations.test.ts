@@ -1,0 +1,70 @@
+// Groups and DMs between people in the app: the sidebar list, the
+// conversation with its people and bots, and making a new one.
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import type { Conversation } from "@/lib/conversations";
+import { withFrame } from "@/lib/conversations";
+import type { Message } from "@/state/store";
+import { ConversationListView } from "./SidebarConversations";
+import { ConversationMessagesView } from "./ConversationView";
+import { NewConversationView } from "./NewConversationDialog";
+
+const conversation = (extra: Partial<Conversation>): Conversation => ({
+  id: "c1", threadId: "t1", kind: "group", title: "Launch", name: "Launch",
+  people: [{ email: "ana@x.com", name: "Ana", you: true }, { email: "bob@x.com", name: "Bob", you: false }],
+  bots: ["b1"], lastMessageAt: 1, unread: false, ...extra,
+});
+const message = (extra: Partial<Message>): Message => ({ id: "m1", at: 1, role: "user", kind: "text", text: "hi", ...extra } as Message);
+
+describe("groups and DMs between people", () => {
+  it("the sidebar lists them by name, marks unread ones, and offers a new one", () => {
+    const html = renderToStaticMarkup(createElement(ConversationListView, {
+      conversations: [conversation({}), conversation({ id: "c2", kind: "dm", title: "Bob", unread: true })],
+      selectedId: "c1", onSelect: () => {}, onNew: () => {},
+    }));
+    expect(html).toContain("Groups and people");
+    expect(html).toContain("Launch");
+    expect(html).toContain("Bob");
+    expect(html).toContain('aria-label="Unread"');
+    expect(html).toContain("New group or DM");
+  });
+
+  it("shows who wrote each message, people and bots", () => {
+    const html = renderToStaticMarkup(createElement(ConversationMessagesView, {
+      messages: [
+        message({ id: "m1", text: "plan for Friday?", sender: { name: "Bob", kind: "human" } }),
+        message({ id: "m2", role: "bot", text: "Here is the plan.", from: { botId: "b1", name: "Riset", color: "teal" } }),
+      ],
+    }));
+    expect(html).toContain("Bob");
+    expect(html).toContain("plan for Friday?");
+    expect(html).toContain("Riset");
+    expect(html).toContain("Here is the plan.");
+  });
+
+  it("a new conversation asks a group's name, its people and bots; a DM one person", () => {
+    const people = [{ email: "bob@x.com", name: "Bob" }];
+    const bots = [{ id: "b1", name: "Riset" }];
+    const group = renderToStaticMarkup(createElement(NewConversationView, { kind: "group", name: "", people, bots, chosenPeople: [], chosenBots: [], busy: false, error: "",
+      onKind: () => {}, onName: () => {}, onTogglePerson: () => {}, onToggleBot: () => {}, onCreate: () => {}, onClose: () => {} }));
+    expect(group).toContain("Group name");
+    expect(group).toContain("Bob");
+    expect(group).toContain("Riset");
+    expect(group).toContain("Create group");
+    const dm = renderToStaticMarkup(createElement(NewConversationView, { kind: "dm", name: "", people, bots, chosenPeople: [], chosenBots: [], busy: false, error: "",
+      onKind: () => {}, onName: () => {}, onTogglePerson: () => {}, onToggleBot: () => {}, onCreate: () => {}, onClose: () => {} }));
+    expect(dm).not.toContain("Group name");
+    expect(dm).toContain("Start DM");
+  });
+
+  it("live messages are added once and patched in place", () => {
+    const first = message({ id: "m1", role: "bot", text: "Riset is working on it…" });
+    let list = withFrame([], { kind: "message", threadId: "t1", message: first });
+    list = withFrame(list, { kind: "message", threadId: "t1", message: first });
+    expect(list).toHaveLength(1);
+    list = withFrame(list, { kind: "message.patch", threadId: "t1", message: { ...first, text: "Done." } });
+    expect(list[0]!.text).toBe("Done.");
+  });
+});

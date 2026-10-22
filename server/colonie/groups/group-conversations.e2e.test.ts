@@ -60,7 +60,7 @@ test("people write in it, and a bot answers there when mentioned", async () => {
   expect(messages.at(-1).text).not.toMatch(/could not/);
   // The bot's own work for this group is open to whoever asked it.
   const adaBots = await ws.as(ADA, "/api/bots");
-  expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.map((task: any) => task.title)).toContain("Launch");
+  expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.map((task: any) => task.title)).toContain("Work for Launch");
 });
 
 test("someone not in the group sees nothing of it", async () => {
@@ -91,9 +91,9 @@ test("only people of the workspace can be added, and a person can leave", async 
 });
 
 test("on a Local workspace its owner makes a group with their bots", async () => {
-  const localBot = (await (await fetch(`${local.url}/api/bots`)).json()).bots[0];
+  const localBot = ((await (await fetch(`${local.url}/api/bots`)).json()) as { bots: Array<{ id: string }> }).bots[0]!;
   const made = await fetch(`${local.url}/api/conversations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "group", name: "My team", bots: [localBot.id] }) });
   expect(made.status).toBe(201);
-  const list = await (await fetch(`${local.url}/api/conversations`)).json();
+  const list = await (await fetch(`${local.url}/api/conversations`)).json() as { conversations: Array<{ title: string }> };
   expect(list.conversations.map((entry: any) => entry.title)).toEqual(["My team"]);
 });
