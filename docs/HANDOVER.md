@@ -18,7 +18,8 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    bots until one is @mentioned. Non-members see nothing. Proof: two-person
    tests on a throwaway Shared workspace, then the real app. Done too: one
    list of workspaces; New workspace (Local or Shared); Update for Shared
-   servers. Then: the journey as a permanent CI test; a smaller image.
+   servers; the journey as a CI test; the image 3.9 → 2.7 GB. Left in the
+   image: web-app-only packages and Next.js (via better-auth), about 600 MB.
 2. **Waits on the owner:** publishing the server image where a
    server can pull it (push, run the Server image workflow, make the package
    public), then one real Shared workspace on the owner's Akamai server.
@@ -39,7 +40,6 @@ Not yet seen: Settings, People; a join through Colonie Cloud.
 owner resets the Neon password: `wrangler hyperdrive update
 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`. Before outside users:
 a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
-The server image is about 3 GB.
 
 ## Before a public release
 

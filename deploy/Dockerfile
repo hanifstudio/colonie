@@ -19,7 +19,10 @@ RUN node -e 'const fs=require("fs");const f="pnpm-workspace.yaml";fs.writeFileSy
     && pnpm install --frozen-lockfile --ignore-scripts \
     && pnpm rebuild esbuild
 COPY . .
-RUN pnpm build \
+# COPY brought the two-CPU list back; without removing it again, prune
+# reinstalls every other CPU's engines (about 750 MB of ARM binaries).
+RUN node -e 'const fs=require("fs");const f="pnpm-workspace.yaml";fs.writeFileSync(f,fs.readFileSync(f,"utf8").replace(/^supportedArchitectures:\n(?:  .*\n)+/m,""))' \
+    && pnpm build \
     && pnpm prune --prod --ignore-scripts
 
 # Run: Node, git for the engines, and the built app.
