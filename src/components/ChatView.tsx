@@ -1,5 +1,4 @@
 import { Component, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type ReactNode } from "react";
-import { ConversationPeople } from "./ConversationPeople";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useDeveloperTools } from "@/lib/developer-tools";
 import { useCopyFeedback } from "@/lib/copy-text";
@@ -91,10 +90,8 @@ import { FilePreviewScope } from "./AttachmentPreview";
 import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
 import { RenameTitle } from "./RenameTitle";
-import { BotActivityPicker, TaskPicker } from "./TaskPicker";
+import { BotActivityPicker } from "./TaskPicker";
 import { ChiefActivity } from "./ChiefActivity";
-import { NewThreadButton } from "./BotProjects";
-import { conversationTitle } from "@/lib/conversation-title";
 import { ModelPicker } from "./ModelPicker";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
 import { ShortcutHint } from "./ShortcutHint";
@@ -132,7 +129,6 @@ import { pendingApprovals } from "./PendingApproval";
 import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
 import { AcpLiveReply } from "./AcpLiveReply";
 import { AcpContextDialog } from "./AcpContextDialog";
-import { AcpSettingsDialog } from "./AcpSettingsDialog";
 import { isColonieAcpDriver } from "../../shared/acp";
 
 /** Long user messages collapse behind a fade so pasted walls of text don't
@@ -1144,10 +1140,8 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
   const [findOpen, setFindOpen] = useState(false);
   const [acpContextOpen, setAcpContextOpen] = useState(false);
   const developerTools = useDeveloperTools();
-  const [acpSettingsOpen, setAcpSettingsOpen] = useState(false);
   const codexAcp = !accountConversation && isColonieAcpDriver(state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId)?.driverKind);
   useEffect(() => setAcpContextOpen(false), [bot.threadId]);
-  useEffect(() => setAcpSettingsOpen(false), [bot.threadId, bot.modelSelection.instanceId]);
   const { replyTo, selectReply, clearReply, consumeReply, restoreReply } = useReplyDraft(
     bot.threadId,
     `bot:${bot.id}:${bot.threadId}`,
@@ -1454,9 +1448,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
             </button>
           )}
           {accountConversation ? <>{accountConversation.actions}<ChatHeaderMenu bot={bot} messages={messages} findOpen={findOpen} onFind={() => setFindOpen((open) => !open)} accountWorkspace /></> : <>
-          <ConversationPeople key={`people:${bot.threadId}`} threadId={bot.threadId} />
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
-          {codexAcp && <button aria-label="Open native settings" disabled={bot.busy} onClick={() => setAcpSettingsOpen(true)} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-40">Agent options</button>}
           {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}
           {/* below md the sidebar (and its Live call pill) is hidden */}
           <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, state)} />
@@ -1479,11 +1471,8 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
         </div>
       </div>
 
-      {accountConversation ? null : codexAcp ? <div data-conversation-navigation className="flex min-w-0 flex-wrap items-center gap-2 px-5 py-2">
-        <TaskPicker bot={bot} conversations />
-        <span dir="auto" className="min-w-0 flex-1 truncate text-xs text-ink-secondary">{conversationTitle(bot.tasks?.find((task) => task.threadId === bot.threadId)?.title)}</span>
-        <NewThreadButton bot={bot} label="New conversation" className="shrink-0 border border-hairline/40" />
-      </div> : <BotActivityPicker bot={bot} />}
+      {/* a bot's conversations are in the sidebar under it, with New conversation */}
+      {accountConversation || codexAcp ? null : <BotActivityPicker bot={bot} />}
       {codexAcp && bot.chiefOfStaff && <div className="px-5 pb-1"><ChiefActivity botId={bot.id} threadId={bot.threadId} /></div>}
       {routineExecution && <div className="mx-5 mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[11.5px] text-ink-secondary">
         <span className="min-w-0 flex-1 truncate">{t("routines.executionDetails", { name: routineExecution.routineName })}</span>
@@ -1620,7 +1609,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
 
       <TranscriptAnnouncer threadKey={transcriptKey} snapshot={announcement} />
       {developerTools && acpContextOpen && <AcpContextDialog botId={bot.id} threadId={bot.threadId} onClose={() => setAcpContextOpen(false)} />}
-      {acpSettingsOpen && <AcpSettingsDialog key={`${bot.threadId}:${bot.modelSelection.instanceId}`} botId={bot.id} threadId={bot.threadId} onClose={() => setAcpSettingsOpen(false)} />}
 
       {/* Reading scrollback — one tap back to the end, streaming or not */}
       {!following && (
