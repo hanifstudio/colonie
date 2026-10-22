@@ -228,6 +228,12 @@ const bridge = {
     forget: (id) => ipcRenderer.invoke("environments:forget", id),
     /** Settings → Servers, on a saved server's Computer access panel, or
      * ("copy") its Copy this computer here panel. */
+    /** The workspace menu's New workspace / Shared workspace servers, on this computer's page. */
+    onAction: (cb) => {
+      const handler = (_event, action) => cb(action === "shared-servers" ? "shared-servers" : "new-workspace");
+      ipcRenderer.on("workspaces:action", handler);
+      return () => ipcRenderer.removeListener("workspaces:action", handler);
+    },
     onOpenSettings: (cb) => {
       const handler = (_event, computerId, panel) => cb(computerId, panel === "copy" ? "copy" : undefined);
       ipcRenderer.on("workspaces:open-settings", handler);

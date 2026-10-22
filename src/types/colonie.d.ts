@@ -118,6 +118,8 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
         switch: (id: string) => Promise<void>;
         addFromLink: (link: string, name?: string) => Promise<boolean | void>;
         forget: (id: string) => Promise<void>;
+        /** The workspace menu's New workspace / Shared workspace servers. */
+        onAction?: (callback: (action: "new-workspace" | "shared-servers") => void) => () => void;
         /** `panel` "copy": that server's Copy this computer here panel; otherwise its Computer access. */
         onOpenSettings?: (callback: (computerId?: string | null, panel?: "copy") => void) => () => void;
       };

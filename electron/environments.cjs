@@ -130,18 +130,29 @@ function workspaceSenderAllowed(event, contents, state, localOrigin) {
   }
 }
 
-/** Native menu choices, never renderer-supplied destinations or callbacks. */
-function workspaceMenuTemplate(state, { onSwitch, onConnect, onForget }) {
+/** Native menu choices, never renderer-supplied destinations or callbacks.
+ * One list of every workspace: this computer's Local ones (when `local` is
+ * given), the saved Shared ones, then New workspace, Join, and the Shared
+ * workspace servers. */
+function workspaceMenuTemplate(state, { onSwitch, onConnect, onForget, onLocal, onNew, onServers }, local = null) {
   const active = activeEnvironment(state);
+  const localItems = local && onLocal
+    ? local.workspaces.map((workspace) => ({
+      id: `workspace-local-${workspace.id}`, label: workspace.name, sublabel: "On this computer",
+      type: "radio", checked: !active && workspace.id === local.runningId, click: () => onLocal(workspace.id),
+    }))
+    : [{ id: "workspace-local", label: "This computer", type: "radio", checked: !active, click: () => onSwitch(LOCAL_ID) }];
   return [
-    { id: "workspace-local", label: "This computer", type: "radio", checked: !active, click: () => onSwitch(LOCAL_ID) },
+    ...localItems,
     ...state.environments.map((entry) => ({
-      id: `workspace-${entry.id}`, label: entry.name, sublabel: new URL(entry.origin).host,
+      id: `workspace-${entry.id}`, label: entry.name, sublabel: `${local ? "Shared · " : ""}${new URL(entry.origin).host}`,
       type: "radio", checked: entry.id === state.activeId, click: () => onSwitch(entry.id),
     })),
     { type: "separator" },
+    ...(onNew ? [{ id: "workspace-new", label: "New workspace…", click: onNew }] : []),
     { id: "workspace-connect", label: "Join a Shared workspace…", click: onConnect },
-    ...(active ? [{ id: "workspace-forget", label: `Forget “${active.name}”…`, click: () => onForget(active.id) }] : []),
+    ...(onServers ? [{ id: "workspace-servers", label: "Shared workspace servers…", click: onServers }] : []),
+    ...(active ? [{ type: "separator" }, { id: "workspace-forget", label: `Forget “${active.name}”…`, click: () => onForget(active.id) }] : []),
   ];
 }
 

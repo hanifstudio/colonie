@@ -25,7 +25,6 @@ import { HIcon } from "./HIcon";
 import { InitialsAvatar } from "./Avatar";
 import { AboutDialog } from "./AboutDialog";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
-import { useLocalWorkspaceItems } from "./SidebarLocalWorkspaces";
 import { ShortcutHint } from "./ShortcutHint";
 import { useStore } from "@/state/store";
 import { useUpdaterState, type UpdaterState } from "@/lib/updater";
@@ -203,8 +202,6 @@ export function SidebarProfileMenu() {
   const { state, dispatch } = useStore();
   const update = useUpdateItem();
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const workspaceItems = useLocalWorkspaceItems({ menuOpen });
   const triggerRef = useRef<HTMLSpanElement>(null);
 
   // Who is signed in: their Colonie account, in every kind of workspace. The
@@ -214,14 +211,10 @@ export function SidebarProfileMenu() {
   const name = profileLabel(profile);
 
   const items: SidebarMenuItem[] = [
-    ...workspaceItems,
     {
       key: "settings",
       label: t("sidebar.menu.settings"),
       icon: <HIcon icon={Settings01Icon} size={18} />,
-      // When the workspaces are listed above, the app's own entries are a
-      // second group rather than the top of one.
-      separatorBefore: workspaceItems.length > 0,
       onSelect: () => dispatch({ type: "toggleAppSettings" }),
     },
     {
@@ -250,7 +243,6 @@ export function SidebarProfileMenu() {
       <SidebarPopoverMenu
         items={items}
         ariaLabel={name}
-        onOpenChange={setMenuOpen}
         renderTrigger={({ open }) => (
           <span
             ref={triggerRef}

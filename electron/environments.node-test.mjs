@@ -182,3 +182,27 @@ test("the Colonie account window goes only to Colonie Cloud and back to this com
   assert.equal(env.accountWindowStartAllowed(`${cloud}/authorize`, [cloud]), true);
   assert.equal(env.accountWindowStartAllowed("http://127.0.0.1:18799/auth/colonie/desktop-callback", [cloud]), false);
 });
+
+test("one list of every workspace: this computer's Local ones, then the Shared ones, then what to do", () => {
+  const state = { environments: [{ id: "team", name: "Launch Team", origin: "https://team.example" }], activeId: "local" };
+  const calls = [];
+  const items = env.workspaceMenuTemplate(state, {
+    onSwitch: (id) => calls.push(["switch", id]), onConnect: () => calls.push(["join"]), onForget: (id) => calls.push(["forget", id]),
+    onLocal: (id) => calls.push(["local", id]), onNew: () => calls.push(["new"]), onServers: () => calls.push(["servers"]),
+  }, { workspaces: [{ id: "default", name: "My workspace" }, { id: "w2", name: "Side project" }], runningId: "default" });
+  const labels = items.filter((item) => item.type !== "separator").map((item) => item.label);
+  assert.deepEqual(labels, ["My workspace", "Side project", "Launch Team", "New workspace…", "Join a Shared workspace…", "Shared workspace servers…"]);
+  assert.equal(items.find((item) => item.label === "My workspace").checked, true);
+  assert.equal(items.find((item) => item.label === "My workspace").sublabel, "On this computer");
+  assert.equal(items.find((item) => item.label === "Launch Team").sublabel, "Shared · team.example");
+  items.find((item) => item.label === "Side project").click();
+  items.find((item) => item.label === "Launch Team").click();
+  items.find((item) => item.label === "New workspace…").click();
+  items.find((item) => item.label === "Shared workspace servers…").click();
+  assert.deepEqual(calls, [["local", "w2"], ["switch", "team"], ["new"], ["servers"]]);
+  // On the Shared one, its own Local workspace is not marked as open.
+  const away = env.workspaceMenuTemplate({ ...state, activeId: "team" }, { onSwitch() {}, onConnect() {}, onForget() {}, onLocal() {}, onNew() {}, onServers() {} },
+    { workspaces: [{ id: "default", name: "My workspace" }], runningId: "default" });
+  assert.equal(away.find((item) => item.label === "My workspace").checked, false);
+  assert.equal(away.find((item) => item.label === "Launch Team").checked, true);
+});

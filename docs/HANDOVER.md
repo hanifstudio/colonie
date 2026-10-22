@@ -16,9 +16,9 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    member sees it in the sidebar and writes in it; a bot answers when
    @mentioned, in the group; a DM between two people works the same with no
    bots until one is @mentioned. Non-members see nothing. Proof: two-person
-   tests on a throwaway Shared workspace, then the real app. Then: one list
-   of workspaces; New workspace → Local onboarding; update notice for
-   Shared servers; the journey as a permanent CI test.
+   tests on a throwaway Shared workspace, then the real app. Done too: one
+   list of workspaces; New workspace (Local or Shared); Update for Shared
+   servers. Then: the journey as a permanent CI test; a smaller image.
 2. **Waits on the owner:** publishing the server image where a
    server can pull it (push, run the Server image workflow, make the package
    public), then one real Shared workspace on the owner's Akamai server.

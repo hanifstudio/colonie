@@ -3,6 +3,7 @@ import { SharedServersDialog } from "./components/CreateSharedWorkspace";
 import { SharedOnboarding } from "./components/onboarding/SharedOnboarding";
 import { ConversationView } from "./components/conversations/ConversationView";
 import { NewConversationDialog } from "./components/conversations/NewConversationDialog";
+import { NewWorkspaceDialog } from "./components/NewWorkspaceDialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Loading02Icon, Menu01Icon } from "@hugeicons/core-free-icons";
@@ -299,6 +300,7 @@ export function Shell() {
       <SharedServersDialog />
       <SharedOnboarding />
       <NewConversationDialog />
+      <NewWorkspaceDialog />
       {state.pluginsOpen && <PluginsPanel />}
       {state.triggersOpen && <TriggersPanel />}
       {state.newBotOpen && <NewBotDialog />}

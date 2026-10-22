@@ -1937,20 +1937,65 @@ ipcMain.handle("local-workspaces:switch", localWorkspaceOnly("local-workspaces:s
 
 // A server's page can ask for the native chooser, not choose a destination or
 // mutate the desktop's saved list. Only native menu clicks perform those acts.
-ipcMain.handle("workspaces:state", workspaceOnly(() => workspaceSummary(environmentsState)));
+// The Local workspace this launch runs: switching one records the next
+// start's choice, so the menu marks the one actually open.
+const LAUNCH_WORKSPACE_ID = (() => {
+  try { return readWorkspaces(localWorkspaceOptions()).activeId; } catch { return null; }
+})();
+
+ipcMain.handle("workspaces:state", workspaceOnly(() => {
+  const summary = workspaceSummary(environmentsState);
+  if (!summary.local) return summary;
+  // On this computer the pill names the Local workspace that is open.
+  try {
+    const open = readWorkspaces(localWorkspaceOptions()).workspaces.find((workspace) => workspace.id === LAUNCH_WORKSPACE_ID);
+    return open ? { ...summary, name: open.name } : summary;
+  } catch { return summary; }
+}));
 let workspaceMenuOpen = false;
 // Back to this computer: the one move a Shared workspace's page may ask for,
 // so a broken one never traps the person (src/components/AppErrorBoundary.tsx).
 ipcMain.handle("workspaces:this-computer", workspaceOnly(() => switchEnvironment(LOCAL_ID)));
+/** Open one of this computer's Local workspaces from the menu, from any page. */
+async function openLocalWorkspace(id) {
+  if (activeEnvironment(environmentsState)) persistEnvironments(withActive(environmentsState, LOCAL_ID));
+  const result = switchLocalWorkspace(id);
+  if (!result.ok) {
+    await dialog.showMessageBox({ type: "warning", message: "That workspace could not be opened.", detail: result.message ?? "" });
+    return;
+  }
+  if (result.mode === "reopen-colonie") {
+    await dialog.showMessageBox({ type: "info", message: `Open Colonie again to use “${result.target.name}”.`, detail: "This copy of Colonie runs from its source, so it opens the workspace on its next start." });
+  }
+  if (result.mode !== "restart-app") navigateMainWindow(rendererOrigin());
+}
+
+/** New workspace or the Shared workspace servers: they live on this
+ * computer's own page, so a Shared workspace's page goes back there first. */
+function openLocalAction(action) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (senderIsLocal({ sender: mainWindow.webContents }) && !activeEnvironment(environmentsState)) {
+    mainWindow.webContents.send("workspaces:action", action);
+    return;
+  }
+  persistEnvironments(withActive(environmentsState, LOCAL_ID));
+  navigateMainWindow(`${rendererOrigin()}/?desktop-action=${encodeURIComponent(action)}`);
+}
+
 ipcMain.handle("workspaces:menu", workspaceOnly(async () => {
   if (workspaceMenuOpen) return;
   workspaceMenuOpen = true;
   try {
+    let local = null;
+    try { local = { workspaces: readWorkspaces(localWorkspaceOptions()).workspaces, runningId: LAUNCH_WORKSPACE_ID }; } catch { /* no list */ }
     const menu = Menu.buildFromTemplate(workspaceMenuTemplate(environmentsState, {
       onSwitch: (id) => void workspaceMenuAction(() => switchEnvironment(id)),
       onConnect: () => void workspaceMenuAction(openWorkspaceSettings),
       onForget: (id) => void workspaceMenuAction(() => forgetEnvironment(id)),
-    }));
+      onLocal: (id) => void workspaceMenuAction(() => openLocalWorkspace(id)),
+      onNew: () => void workspaceMenuAction(() => openLocalAction("new-workspace")),
+      onServers: () => void workspaceMenuAction(() => openLocalAction("shared-servers")),
+    }, local));
     await new Promise((resolve) => menu.popup({ window: mainWindow, callback: resolve }));
   } finally {
     workspaceMenuOpen = false;
