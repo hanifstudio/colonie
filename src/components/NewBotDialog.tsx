@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Delete02Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
+import { BotAvatar } from "./Avatar";
+import { MAUS_COLORS } from "@/lib/mascot";
 import { api, BotEditorStore, useStore, type Bot, type ModelSelection } from "@/state/store";
 import { BotCreationDraft, EMPTY_BOT_DEFAULTS } from "@/lib/bot-creation-draft";
 import { createConfiguredBot, preparedBotTemplate } from "@/lib/create-configured-bot";
@@ -178,7 +180,8 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
   const title = defaultsMode ? t("newBot.defaults") : t("sidebar.newBot");
   return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-3 sm:p-5">
     <div ref={dialog} role="dialog" aria-modal="true" aria-label={title} aria-busy={saving} tabIndex={-1}
-      className="flex h-[min(760px,94dvh)] w-full max-w-[900px] flex-col overflow-hidden rounded-2xl border border-hairline/50 bg-panel shadow-2xl outline-none">
+      className={cn("flex w-full flex-col overflow-hidden rounded-2xl border border-hairline/50 bg-panel shadow-2xl outline-none",
+        defaultsMode ? "h-[min(760px,94dvh)] max-w-[900px]" : "max-h-[94dvh] max-w-[520px]")}>
       <div className="flex shrink-0 items-center justify-between border-b border-hairline/40 px-5 py-4">
         <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
         <button type="button" onClick={() => closeRef.current()} aria-label={t("common.close")}
@@ -211,7 +214,11 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
             )}
           </div>
         )}
-      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+      {!defaultsMode && <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {!ready && !error && <div role="status" className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={16} className="animate-spin" />{t("newBot.loading")}</div>}
+        {ready && <fieldset disabled={saving} className="min-w-0"><SimpleNewBot draft={draft} /></fieldset>}
+      </div>}
+      {defaultsMode && <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav aria-label={t("newBot.sections")} className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline/40 p-2 sm:w-40 sm:flex-col sm:border-b-0 sm:border-r">
           {SECTIONS.map(label => <button key={label} type="button" onClick={() => setActive(label)} aria-current={active === label ? "page" : undefined}
             className={cn("shrink-0 rounded-lg px-3 py-2 text-left text-[13px]", active === label ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/50")}>{label}</button>)}
@@ -224,7 +231,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
             </BotEditorContext.Provider></BotEditorStore>
           </fieldset>}
         </div>
-      </div>
+      </div>}
       {needsSetup && <div role="alert" className="flex flex-wrap items-center gap-2 border-t border-hairline/40 px-5 py-3 text-[13px] text-ink-secondary">
         {t("newBot.needsModel")}
         <button type="button" className="underline" onClick={() => { closeRef.current(); parent.dispatch({ type: "toggleAppSettings", open: true, section: "engines" }); }}>{t("newBot.openModels")}</button>
@@ -240,6 +247,45 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
       <FullAccessWarning open={warning === "full"} onCancel={() => setWarning(null)} onConfirm={() => { draft.consent.confirmFullAccess = true; setWarning(null); void save(); }} />
       <LocalComputerAutoWarning open={warning === "local"} onCancel={() => setWarning(null)} onConfirm={() => { draft.consent.acknowledgeLocalAuto = true; setWarning(null); void save(); }} />
     </div>
+  </div>;
+}
+
+/** Making a bot: its face and name (a friendly name is suggested), what it
+ * should do (its standing instructions), or a role to start from. The rest
+ * (skills, memory, model, permissions, voice) waits in the bot's settings. */
+export function SimpleNewBot({ draft }: { draft: BotCreationDraft }) {
+  const bot = draft.bot;
+  const colors = Object.keys(MAUS_COLORS) as Array<keyof typeof MAUS_COLORS>;
+  const nextColor = () => colors[(colors.indexOf(bot.color as keyof typeof MAUS_COLORS) + 1) % colors.length]!;
+  const name = bot.name.trim() || "this bot";
+  return <div className="space-y-5">
+    <div className="flex items-center gap-4">
+      <button type="button" onClick={() => draft.patch({ color: nextColor() })} title="Change look" aria-label="Change look"
+        className="flex shrink-0 flex-col items-center gap-1 rounded-xl p-1 text-[11px] text-ink-secondary hover:bg-control/50 hover:text-ink">
+        <BotAvatar bot={bot} state="happy" size={56} motion="none" motionKey={0} animated={false} />
+        Change look
+      </button>
+      <label className="min-w-0 flex-1 text-[13px] text-ink-secondary">Name
+        <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} autoFocus
+          className={cn(inputCls, "mt-1.5")} />
+      </label>
+    </div>
+    <label className="block text-[13px] text-ink-secondary">What should {name} do?
+      <textarea value={bot.soul ?? ""} onChange={event => draft.patch({ soul: event.target.value })} rows={4}
+        placeholder="For example: keep our launch on track, remind people of deadlines, and sum up each week."
+        className={cn(inputCls, "mt-1.5 resize-y")} />
+    </label>
+    <div>
+      <div className="text-[13px] text-ink-secondary">Or start from</div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {BOT_ROLES.map(role => <button key={role.id} type="button" title={role.description}
+          onClick={() => { const { name: _role, ...job } = roleProfilePatch(role); draft.choosePreset(undefined); draft.patch(job); }}
+          className={cn("rounded-full border px-3 py-1 text-[12.5px]", bot.soul === role.soul ? "border-accent/60 bg-accent/10 text-ink" : "border-hairline/50 text-ink-secondary hover:text-ink")}>
+          {role.name}
+        </button>)}
+      </div>
+    </div>
+    <p className="text-[12px] text-ink-tertiary">Skills, memory, model and permissions are in the bot's settings once it is made.</p>
   </div>;
 }
 

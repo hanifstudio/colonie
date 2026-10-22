@@ -1924,7 +1924,9 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                   : sectionName
                     ? sectionedBots.filter((bot) => bot.section === sectionName)
                     : [];
-            const collapsed = sectionCollapsed(id);
+            // without its heading the lone list cannot be folded, so it never is
+            const lone = id === BOTS_SECTION_ID && sectionIds.length === 1;
+            const collapsed = !lone && sectionCollapsed(id);
             const queued = collapsed ? [...sectionChiefItems, ...sectionBotItems].flatMap((bot) =>
               sidebarBotActivityTasks(bot, state.pendingQueued).filter((task) => task.queued).map((task) => `${bot.name}: ${task.title}`)) : [];
             const attention = collapsed
@@ -1944,7 +1946,8 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
                 {dropTarget?.id === id && dropTarget.place === "before" && draggingSectionId !== id && (
                   <div className="mx-2 h-0.5 rounded-full bg-accent" />
                 )}
-                {density !== "icons" && (
+                {/* one plain list of bots needs no heading over it */}
+                {density !== "icons" && !lone && (
                   <SidebarSectionHeader
                     name={sectionLabel(id)}
                     collapsed={collapsed}
