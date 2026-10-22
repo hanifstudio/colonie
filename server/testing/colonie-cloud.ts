@@ -86,7 +86,10 @@ export function browser() {
 /** Accept an invite as a new person: sign up at Colonie, continue, land back. */
 export async function joinAs(cloudUrl: string, inviteUrl: string, person: { name: string; email: string; password: string }) {
   const b = browser();
-  const signIn = await b.go(inviteUrl);
+  // The invite page offers the app or this browser; a browser person picks the browser.
+  const landing = await b.go(inviteUrl);
+  if (!landing.text.includes("Continue in this browser")) throw new Error(`no invite page: ${landing.status} ${landing.text.slice(0, 200)}`);
+  const signIn = await b.go(`${inviteUrl}?via=browser`);
   if (!signIn.url.startsWith(`${cloudUrl}/signin`)) throw new Error(`invite did not lead to Colonie sign-in: ${signIn.status} ${signIn.url}`);
   const next = new URL(signIn.url).searchParams.get("next")!;
   const consent = await b.go(`${cloudUrl}/signup`, { form: { ...person, next } });

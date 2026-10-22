@@ -206,3 +206,15 @@ test("one list of every workspace: this computer's Local ones, then the Shared o
   assert.equal(away.find((item) => item.label === "My workspace").checked, false);
   assert.equal(away.find((item) => item.label === "Launch Team").checked, true);
 });
+
+test("a colonie://join link from an invite page names the invite, and nothing else", () => {
+  const invite = "https://team.example/invite/q3J0Xn2l7uGm1oS9YbV4cR8eTwKp5Hzd";
+  assert.equal(env.parseJoinUrl(`colonie://join?link=${encodeURIComponent(invite)}`), invite);
+  for (const bad of ["colonie://join", "colonie://other?link=x", `colonie://join?link=${encodeURIComponent("javascript:alert(1)")}`,
+    `colonie://join?link=${encodeURIComponent("https://team.example/settings")}`, "https://team.example/invite/x", "not a url"]) {
+    assert.equal(env.parseJoinUrl(bad), null, bad);
+  }
+  // The app opens an invite straight to signing in, past its "app or browser" page.
+  assert.equal(env.joinDestination(env.parseHostedWorkspaceLink(invite)), `${invite}?via=app`);
+  assert.equal(env.joinDestination(env.parseHostedWorkspaceLink("https://team.example")), "https://team.example");
+});

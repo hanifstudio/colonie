@@ -237,6 +237,7 @@ const SESSION_COOKIE = sessionCookieName(PORT, ENVIRONMENT_ID);
 // Joining a Shared workspace with a Colonie account (colonie/accounts/).
 const colonieSignIn = createColonieSignIn({
   dataDir: DATA_DIR,
+  workspaceName: () => process.env.COLONIE_WORKSPACE_NAME?.trim() ?? "",
   allowEmail: (email, role) => {
     const current = loadConfig().signIn ?? {};
     const key = role === "admin" ? "admins" : "members";

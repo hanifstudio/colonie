@@ -15,6 +15,7 @@ import { startSharedWorkspace, type SharedWorkspace } from "../../testing/shared
 const OWNER_CODE = randomBytes(24).toString("base64url");
 let cloud: Awaited<ReturnType<typeof startColonieCloud>>;
 let ws: SharedWorkspace;
+let owner: ReturnType<typeof browser>;
 
 beforeAll(async () => {
   cloud = await startColonieCloud();
@@ -45,6 +46,7 @@ test("a new server is connected to Colonie and offers its sign-in from the start
 
 test("the owner's code makes them the first admin, who can then invite others", async () => {
   const { b, landed } = await joinAs(cloud.url, `${ws.url}/invite/${OWNER_CODE}`, { name: "Owner", email: "owner@x.com", password: "a strong password" });
+  owner = b;
   expect(new URL(landed.url).origin).toBe(ws.url);
   expect(b.cookieHeader(ws.url)).toMatch(/^colonie_session_/);
   const session = await b.api(ws.url, "/api/auth/session");
@@ -54,6 +56,20 @@ test("the owner's code makes them the first admin, who can then invite others", 
   const invite = await b.api(ws.url, "/api/invites", { method: "POST", body: {} });
   expect(invite.status).toBe(201);
   expect(invite.body.url).toContain(`${ws.url}/invite/`);
+});
+
+test("an invite link opens a page offering the app, this browser, or a download", async () => {
+  const fresh = await owner.api(ws.url, "/api/invites", { method: "POST", body: {} });
+  const url = fresh.body.url as string;
+  const page = await browser().go(url);
+  expect(page.status).toBe(200);
+  expect(page.text).toContain("You're invited to Launch Team");
+  expect(page.text).toContain(`href="colonie://join?link=${encodeURIComponent(url)}"`);
+  expect(page.text).toContain(`href="${new URL(url).pathname}?via=browser"`);
+  expect(page.text).toContain("https://github.com/hanifstudio/colonie/releases/latest");
+  // The desktop app goes straight to signing in.
+  const app = await fetch(`${url}?via=app`, { redirect: "manual" });
+  expect(app.status).toBe(303);
 });
 
 test("the owner's code works once", async () => {

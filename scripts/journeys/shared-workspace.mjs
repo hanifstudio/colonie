@@ -49,6 +49,8 @@ async function join_(invite, person) {
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(`${person.name}: ${error}`));
   await page.goto(invite);
+  check((await text(page)).includes("Open in the Colonie app"), `${person.name}'s invite page offers the app, this browser, or a download`);
+  await page.click("text=Continue in this browser");
   await page.click("text=Create an account");
   await page.fill('input[name="name"]', person.name);
   await page.fill('input[name="email"]', person.email);

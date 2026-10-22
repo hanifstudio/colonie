@@ -25,6 +25,8 @@ export interface CloudLink { issuer: string; clientId: string }
 export const INVITE_DAYS = 7;
 const PENDING_MS = 10 * 60_000;
 const CALLBACK = "/auth/colonie/callback";
+/** Where the Colonie app is downloaded, until it has its own site. */
+const DOWNLOAD_URL = "https://github.com/hanifstudio/colonie/releases/latest";
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("base64url");
 
@@ -40,6 +42,8 @@ export interface ColonieSignInDeps {
   sessionCookie: (req: IncomingMessage, token: string, maxAgeSeconds: number) => string;
   fetch?: typeof fetch;
   now?: () => Date;
+  /** The workspace's name when Colonie Cloud's record has none (set up before it was kept). */
+  workspaceName?: () => string;
 }
 
 export function createColonieSignIn(deps: ColonieSignInDeps) {
@@ -56,6 +60,11 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
     const value = readJson<Partial<CloudLink>>(cloudFile, {});
     return typeof value.issuer === "string" && typeof value.clientId === "string" ? { issuer: value.issuer, clientId: value.clientId } : null;
   };
+  /** The name the workspace registered with Colonie Cloud, for its invite page. */
+  const workspaceName = () => {
+    const value = readJson<{ name?: unknown }>(cloudFile, {});
+    return typeof value.name === "string" && value.name.trim() ? value.name.trim() : deps.workspaceName?.() || "this Colonie workspace";
+  };
   const book = () => readJson<{ invites: Invite[]; members: Member[] }>(membersFile, { invites: [], members: [] });
   const saveBook = (value: { invites: Invite[]; members: Member[] }) => writeFileAtomic(membersFile, JSON.stringify(value, null, 2), { mode: 0o600 });
 
@@ -64,6 +73,34 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'" });
     res.end(`<!doctype html><meta charset="utf-8"><title>${escape(title)}</title><body style="font:16px system-ui;max-width:28rem;margin:4rem auto"><h1>${escape(title)}</h1><p>${escape(text)}</p>`);
   }
+  /** The invite's first page, like a meeting link's: open it in the Colonie
+   * app (colonie://join, electron/environments.cjs), go on in this browser,
+   * or download the app. Colonie Cloud's look; nothing loaded from anywhere. */
+  function invitePage(res: ServerResponse, workspace: string, inviteUrl: string, invitePath: string) {
+    const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    const appLink = `colonie://join?link=${encodeURIComponent(inviteUrl)}`;
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer",
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; frame-ancestors 'none'" });
+    res.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join ${escape(workspace)} · Colonie</title><style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#080808;color:#fcfcfc;
+font:15px/1.5 Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{width:100%;max-width:420px;background:#111111;border:1px solid #33333380;border-radius:20px;padding:28px;box-shadow:0 24px 60px -20px #000000cc}
+.brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fcfcfc99;margin-bottom:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:#7b61ff}h1{font-size:20px;font-weight:600;margin:0 0 6px}
+p{color:#fcfcfc99;font-size:13.5px;margin:10px 0}
+a.button{display:block;text-align:center;text-decoration:none;margin-top:12px;padding:11px 16px;border-radius:12px;font-weight:600;font-size:14px}
+.primary{background:#7b61ff;color:#fff}.secondary{background:#2f2f2f;color:#fcfcfc}
+.small{font-size:12.5px;margin-top:20px}.small a{color:#fcfcfc}
+</style></head><body><main><div class="brand"><span class="dot"></span>Colonie</div>
+<h1>You're invited to ${escape(workspace)}</h1>
+<p>Work with its people and bots in Colonie. Open it in the app, or right here in your browser.</p>
+<a class="button primary" href="${escape(appLink)}">Open in the Colonie app</a>
+<a class="button secondary" href="${escape(invitePath)}?via=browser">Continue in this browser</a>
+<p class="small">Don't have the app? <a href="${DOWNLOAD_URL}">Download Colonie for Mac</a>. The first time you open it, right-click Colonie and choose Open (or System Settings → Privacy &amp; Security → Open Anyway).</p>
+</main></body></html>`);
+  }
+
   const redirectTo = (res: ServerResponse, location: string, headers: Record<string, string> = {}) => {
     res.writeHead(303, { location, "cache-control": "no-store", ...headers });
     res.end();
@@ -105,7 +142,7 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
       if (!answer.ok) throw Object.assign(new Error(`Colonie Cloud refused the workspace (${answer.status})`), { status: 502 });
       const { client_id: clientId } = await answer.json() as { client_id: string };
       const value = { issuer: cleanIssuer, clientId };
-      writeFileAtomic(cloudFile, JSON.stringify(value, null, 2), { mode: 0o600 });
+      writeFileAtomic(cloudFile, JSON.stringify({ ...value, name }, null, 2), { mode: 0o600 });
       return value;
     },
 
@@ -161,6 +198,13 @@ export function createColonieSignIn(deps: ColonieSignInDeps) {
         const invite = book().invites.find((entry) => entry.codeHash === inviteHash);
         if (!invite || invite.usedAt || invite.expiresAt <= now().toISOString()) {
           page(res, 410, "This invite link no longer works", "It was used already or has expired. Ask for a new one.");
+          return true;
+        }
+        // A person opening the link chooses: the Colonie app, this browser, or
+        // a download. The app itself (?via=app) and "this browser" go on.
+        const via = new URL(req.url ?? "/", "http://x").searchParams.get("via");
+        if (via !== "app" && via !== "browser") {
+          invitePage(res, workspaceName(), `${origin(req, publicUrl)}${path}`, path);
           return true;
         }
         startSignIn(req, res, cloud, publicUrl, inviteHash);

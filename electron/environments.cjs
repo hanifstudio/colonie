@@ -71,6 +71,25 @@ function parseHostedWorkspaceLink(input) {
   }
 }
 
+/** `colonie://join?link=<invite or workspace address>`, from a workspace's
+ * invite page: the link, when it is one this app would join; else null. */
+function parseJoinUrl(input) {
+  try {
+    const url = new URL(input);
+    if (url.protocol !== "colonie:" || url.hostname !== "join") return null;
+    const link = url.searchParams.get("link") ?? "";
+    return parseHostedWorkspaceLink(link) ? link.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where the window goes to join: an invite goes straight to signing in
+ * (?via=app), past the page that asks "app or browser". */
+function joinDestination(link) {
+  return new URL(link.url).pathname.startsWith("/invite/") ? `${link.url}?via=app` : link.url;
+}
+
 /** Remote renderers learn only their current workspace, not the local list. */
 function workspaceSummary(state) {
   const active = activeEnvironment(state);
@@ -233,6 +252,8 @@ function allowedOrigins(state, localOrigin) {
 
 module.exports = {
   LOCAL_ID,
+  joinDestination,
+  parseJoinUrl,
   accountWindowNavigationAllowed,
   accountWindowStartAllowed,
   activeEnvironment,

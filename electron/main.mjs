@@ -214,7 +214,26 @@ app.on("open-url", (event, url) => {
   event.preventDefault();
 });
 
+// colonie://join links from a workspace's invite page ("Open in the
+// Colonie app"): join it here, once the window is up.
+let pendingJoinLink = null;
+function joinFromLink(raw) {
+  const link = parseJoinUrl(raw);
+  if (!link) return;
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+    activateExistingWindow(BrowserWindow.getAllWindows());
+    void connectHostedWorkspace(link).catch(() => {});
+  } else pendingJoinLink = link;
+}
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  joinFromLink(url);
+});
+
 app.on("second-instance", (_event, commandLine) => {
+  // Windows and Linux hand a colonie:// link to the running app this way.
+  const join = commandLine.find((arg) => typeof arg === "string" && arg.startsWith("colonie://"));
+  if (join) joinFromLink(join);
   const packageUrl = packageUrlFromCommandLine(commandLine);
   if (packageUrl) pendingPackageInstallUrl = packageUrl;
   if (!desktopTray?.show()) activateExistingWindow(BrowserWindow.getAllWindows());
@@ -1018,7 +1037,7 @@ ipcMain.on("desktop:unread-count", (event, value) => {
 // The app switches by loading the chosen server's own UI (electron/menu.mjs).
 // Only {id, name, origin} is stored here; the session credential is the
 // HttpOnly cookie /pair set for that origin, kept by Chromium's cookie jar.
-const { LOCAL_ID, accountWindowNavigationAllowed, accountWindowStartAllowed, activeEnvironment, allowedOrigins, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, withActive, withEnvironment, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
+const { LOCAL_ID, accountWindowNavigationAllowed, accountWindowStartAllowed, activeEnvironment, joinDestination, parseJoinUrl, allowedOrigins, parseEnvironments, parseHostedWorkspaceLink, serializeEnvironments, withActive, withEnvironment, withoutEnvironment, workspaceMenuTemplate, workspaceNavigationAllowed, workspaceSenderAllowed, workspaceSummary, workspaceWindowTitle } = environmentsModule;
 /** Where people sign in to a Shared workspace with their Colonie account. */
 const COLONIE_SIGN_IN_ORIGINS = [environmentsModule.normalizeOrigin(process.env.COLONIE_CLOUD_ISSUER || "https://colonie-cloud.hanifyaskur.workers.dev")].filter(Boolean);
 let environmentsState = { environments: [], activeId: LOCAL_ID };
@@ -1134,7 +1153,7 @@ async function connectHostedWorkspace(input, name) {
   const added = next.environments.find((e) => e.origin === link.origin);
   next = withActive(next, added.id);
   persistEnvironments(next);
-  navigateMainWindow(link.url);
+  navigateMainWindow(joinDestination(link));
   return true;
 }
 
@@ -1246,6 +1265,12 @@ function createWindow() {
     },
   });
   mainWindow = win;
+  // A colonie://join link that arrived before the window: join once it is up.
+  win.webContents.once("did-finish-load", () => {
+    const link = pendingJoinLink;
+    pendingJoinLink = null;
+    if (link) void connectHostedWorkspace(link).catch(() => {});
+  });
   win.on("show", () => desktopTray?.windowShown(win));
   win.on("close", (event) => {
     if (process.platform === "win32" && !desktopShutdownStarted && desktopTray) {
@@ -2118,6 +2143,8 @@ setCuaStateListener((connection) => {
 
 
 app.whenReady().then(async () => {
+  // Invite pages open the installed app with colonie://join links.
+  if (app.isPackaged && !app.isDefaultProtocolClient("colonie")) app.setAsDefaultProtocolClient("colonie");
   // Cached-before-the-fix attachment responses outlive `no-store`: entries
   // stored under the old one-year immutable policy can replay to a second
   // identity in this profile without the visibility gate re-running. The

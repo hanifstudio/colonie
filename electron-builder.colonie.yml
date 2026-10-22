@@ -30,6 +30,10 @@ extraResources:
     to: licenses/Bloub-LICENSE.txt
   - from: third_party/bloub/PROVENANCE.md
     to: licenses/Bloub-PROVENANCE.md
+# Invite pages open the installed app with colonie://join links.
+protocols:
+  - name: Colonie
+    schemes: [colonie]
 mac:
   # Apple silicon only: every machine on this team is arm64, and a universal
   # binary would make each person download the half they cannot run.
