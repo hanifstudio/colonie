@@ -138,6 +138,7 @@ import { COLONIE_CLOUD, createSharedServers, serverImage } from "./colonie/deplo
 import { createThreadPeople } from "./colonie/chat/thread-people.ts";
 import { LOCAL_PERSON, createGroupConversations, type Caller } from "./colonie/groups/group-conversations.ts";
 import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
+import { accountPhoto } from "./colonie/accounts/colonie-oauth.ts";
 import { createServerUpdate } from "./colonie/deploy/server-update.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
@@ -430,10 +431,14 @@ const threadPeople = createThreadPeople({
 // Groups and DMs between people (colonie/groups): who is asking, then the
 // conversations themselves. A bot's answer comes back when its turn ends.
 const workspaceDirectory = () => {
-  const names = new Map(colonieSignIn.members().map((member) => [member.email.toLowerCase(), member.name]));
+  const members = new Map(colonieSignIn.members().map((member) => [member.email.toLowerCase(), member]));
+  const issuer = colonieSignIn.link()?.issuer;
   const lists = signInAllowList();
   return [...new Set([...lists.admins, ...lists.members].filter((entry) => !entry.startsWith("@")))]
-    .map((email) => ({ email, name: names.get(email) }));
+    .map((email) => {
+      const member = members.get(email);
+      return { email, name: member?.name, ...(issuer && member?.sub ? { avatar: accountPhoto(issuer, member.sub).avatar } : {}) };
+    });
 };
 const conversationCaller = (auth: RequestAuth): Caller | null => {
   if (!workspaceKind.shared()) {

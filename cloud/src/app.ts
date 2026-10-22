@@ -6,6 +6,7 @@ import {
   resetAccount, sessionAccount, SESSION_DAYS, signIn, signUpProblem, startPasswordReset, type Account,
 } from "./accounts.ts";
 import type { Db } from "./db.ts";
+import { findPhoto, removePhoto, savePhoto } from "./photos.ts";
 import { findClient, issueCode, redeemCode, redirectProblem, registerClient, type Client, type Signer } from "./oauth.ts";
 
 export const SESSION_COOKIE = "__Host-colonie_session";
@@ -85,7 +86,10 @@ button.quiet{background:transparent;color:var(--ink-2);margin-top:8px;font-weigh
 a{color:var(--ink);text-underline-offset:3px}
 .error{color:var(--danger);font-size:13px}
 .row{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px;color:var(--ink-2)}
-.row p{margin:0}`;
+.row p{margin:0}
+.photo{width:96px;height:96px;margin:18px auto 4px;border-radius:50%;overflow:hidden;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:600}
+.photo img{width:100%;height:100%;object-fit:cover}
+input[type=file]{padding:8px}`;
 
 function page(title: string, body: string, status = 200, headers: Record<string, string> = {}): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -164,6 +168,42 @@ function resetPage(token: string, error: string | null = null, status = 200) {
 const invalidResetPage = () =>
   page("Reset link not valid", `<p>This reset link has expired or was already used. Ask for a new one.</p>
 <p><a href="/forgot">Ask for a new link</a></p>`, 400);
+
+/** Choosing a photo: the browser shrinks it to a 256 px square JPEG (the
+ * only script these pages run, allowed by its nonce), then the form sends
+ * that. */
+function photoPage(account: Account, hasPhoto: boolean, note: string | null = null, status = 200) {
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const face = hasPhoto
+    ? `<img id="face" alt="" src="/photos/${encodeURIComponent(account.id)}?v=${Date.now()}">`
+    : `<img id="face" alt="" hidden><span id="initial">${escape((account.name.trim()[0] ?? "?").toUpperCase())}</span>`;
+  const body = `${note ? `<p role="status">${escape(note)}</p>` : ""}
+<p>Your photo shows next to your name in every Colonie workspace.</p>
+<div class="photo">${face}</div>
+<form method="post" action="/photo"><input type="hidden" name="photo" id="photo">
+<label for="file">Choose a picture</label><input id="file" type="file" accept="image/*">
+<button type="submit" id="save" disabled>Save photo</button></form>
+${hasPhoto ? `<form method="post" action="/photo"><input type="hidden" name="remove" value="1"><button type="submit" class="quiet">Remove photo</button></form>` : ""}
+<script nonce="${nonce}">
+const file = document.getElementById("file"), photo = document.getElementById("photo"), save = document.getElementById("save"), face = document.getElementById("face");
+file.addEventListener("change", async () => {
+  const chosen = file.files && file.files[0];
+  if (!chosen) return;
+  try {
+    const image = await createImageBitmap(chosen);
+    const side = Math.min(image.width, image.height), size = 256;
+    const canvas = document.createElement("canvas"); canvas.width = size; canvas.height = size;
+    canvas.getContext("2d").drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, size, size);
+    photo.value = canvas.toDataURL("image/jpeg", 0.85);
+    face.src = photo.value; face.hidden = false;
+    const initial = document.getElementById("initial"); if (initial) initial.remove();
+    save.disabled = false;
+  } catch { alert("That picture could not be read. Try a JPEG or PNG."); }
+});
+</script>`;
+  const csp = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; script-src 'nonce-" + nonce + "'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+  return page("Your photo", body, status, { "content-security-policy": csp });
+}
 
 export function createApp({ db, issuer, signer, mailer, now = () => new Date() }: AppOptions) {
   /** The workspace asking, checked before anything is sent back to it: an
@@ -341,10 +381,33 @@ export function createApp({ db, issuer, signer, mailer, now = () => new Date() }
         return json({ id_token: idToken, token_type: "Bearer", expires_in: 300 });
       }
 
+      const photoPath = /^\/photos\/([\w-]{1,64})$/.exec(url.pathname);
+      if (photoPath && method === "GET") {
+        const photo = await findPhoto(db, photoPath[1]!);
+        if (!photo) return new Response("No photo", { status: 404, headers: { "content-type": "text/plain", "cache-control": "public, max-age=60", "x-content-type-options": "nosniff" } });
+        const bytes = Uint8Array.from(atob(photo.data), (char) => char.charCodeAt(0));
+        return new Response(bytes, { headers: {
+          "content-type": "image/jpeg", "cache-control": "public, max-age=60", etag: `"${photo.updatedAt}"`,
+          "x-content-type-options": "nosniff", "cross-origin-resource-policy": "cross-origin",
+        } });
+      }
+      if (url.pathname === "/photo") {
+        const account = await currentAccount(request);
+        if (!account) return redirect("/signin?next=/photo");
+        if (method === "POST") {
+          if (form!.get("remove")) { await removePhoto(db, account.id); return photoPage(account, false, "Photo removed."); }
+          const saved = await savePhoto(db, account.id, form!.get("photo") ?? "", now());
+          if (saved === "invalid") return photoPage(account, Boolean(await findPhoto(db, account.id)), "That picture could not be saved. Choose another.", 400);
+          return photoPage(account, true, "Saved. You can close this window.");
+        }
+        if (method === "GET") return photoPage(account, Boolean(await findPhoto(db, account.id)));
+      }
+
       if (url.pathname === "/" && method === "GET") {
         const account = await currentAccount(request);
         if (!account) return redirect("/signin");
         return page("Your Colonie account", `<p>Signed in as <strong>${escape(account.name)}</strong> (${escape(account.email)}).</p>
+<p><a href="/photo">Change your photo</a></p>
 <form method="post" action="/signout"><button type="submit" class="quiet">Sign out</button></form>`);
       }
 

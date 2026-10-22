@@ -31,3 +31,10 @@ export async function verifiedColonieAccount(input: {
   if (payload.nonce !== input.nonce || typeof payload.sub !== "string" || typeof payload.email !== "string") return null;
   return { sub: payload.sub, email: payload.email.trim().toLowerCase(), name: typeof payload.name === "string" ? payload.name : payload.email };
 }
+
+/** Where a Colonie account's photo is (Colonie Cloud, by account id; a 404
+ * until one is set) and where its owner changes it. */
+export function accountPhoto(issuer: string, sub: string): { avatar: string; photoUrl: string } {
+  const base = issuer.replace(/\/+$/, "");
+  return { avatar: `${base}/photos/${encodeURIComponent(sub)}`, photoUrl: `${base}/photo` };
+}

@@ -12,6 +12,7 @@
 // Help Center and Send Feedback are not offered.
 import { useEffect, useRef, useState } from "react";
 import {
+  ImageUploadIcon,
   ArrowDownToLineIcon,
   InformationCircleIcon,
   KeyboardIcon,
@@ -50,17 +51,32 @@ export function profileInitials(profile?: { name?: string; email?: string }): st
 /** The Colonie account of whoever is signed in here (GET /api/me), or null. */
 export interface SignedInAccount { name: string; email: string; avatar?: string; photoUrl?: string }
 
+/** The signed-in Colonie account, read again when the window comes back
+ * (after changing the photo in the account window, the new one shows). */
 export function useSignedInAccount(): SignedInAccount | null {
   const [account, setAccount] = useState<SignedInAccount | null>(null);
   useEffect(() => {
     let alive = true;
-    void fetch("/api/me", { credentials: "same-origin" })
+    const load = () => void fetch("/api/me", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : null))
-      .then((body: { account?: SignedInAccount | null } | null) => { if (alive) setAccount(body?.account ?? null); })
+      .then((body: { account?: SignedInAccount | null } | null) => {
+        const next = body?.account ?? null;
+        if (alive) setAccount(next?.avatar ? { ...next, avatar: `${next.avatar}?v=${Date.now()}` } : next);
+      })
       .catch(() => {});
-    return () => { alive = false; };
+    load();
+    window.addEventListener("focus", load);
+    return () => { alive = false; window.removeEventListener("focus", load); };
   }, []);
   return account;
+}
+
+/** The account's photo page at Colonie Cloud: in the app's account window,
+ * else (a browser, or a Shared workspace's window) a new tab. */
+export function openPhotoPage(url: string) {
+  const inBrowser = () => { window.open(url, "_blank", "noopener"); };
+  if (window.colonie?.account) void window.colonie.account.openWindow(url).catch(inBrowser);
+  else inBrowser();
 }
 
 export function profileLabel(profile?: { name?: string; email?: string }): string {
@@ -213,6 +229,12 @@ export function SidebarProfileMenu() {
   const name = profileLabel(profile);
 
   const items: SidebarMenuItem[] = [
+    ...(account?.photoUrl ? [{
+      key: "photo",
+      label: "Change photo",
+      icon: <HIcon icon={ImageUploadIcon} size={18} />,
+      onSelect: () => openPhotoPage(account.photoUrl!),
+    }] : []),
     {
       key: "settings",
       label: t("sidebar.menu.settings"),

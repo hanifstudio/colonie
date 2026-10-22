@@ -9,6 +9,7 @@ import type { ColonieSignIn, MemberRole } from "../colonie/accounts/colonie-sign
 import { CALLBACK_PATH as DIGITALOCEAN_CALLBACK, type SharedServers } from "../colonie/deploy/shared-servers.ts";
 import type { Caller, GroupConversations } from "../colonie/groups/group-conversations.ts";
 import { DESKTOP_CALLBACK, callbackPage, type DesktopAccount } from "../colonie/accounts/desktop-account.ts";
+import { accountPhoto } from "../colonie/accounts/colonie-oauth.ts";
 import type { ServerUpdate } from "../colonie/deploy/server-update.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { ServerResponse } from "node:http";
@@ -290,7 +291,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const email = auth.session.email?.trim().toLowerCase();
       if (!email) return json(res, 200, { account: null });
       const member = colonieSignIn?.members().find((entry) => entry.email.toLowerCase() === email);
-      return json(res, 200, { account: { name: member?.name || email, email } });
+      const issuer = colonieSignIn?.link()?.issuer;
+      return json(res, 200, { account: { name: member?.name || email, email, ...(issuer && member?.sub ? accountPhoto(issuer, member.sub) : {}) } });
     }
     if (method === "GET" && path === "/api/auth/session") {
       return json(
@@ -642,8 +644,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const caller: Caller | null = deps.conversationCaller(auth);
       if (!caller) return json(res, 403, { error: "sign in to talk with people and bots" });
       if (method === "GET" && path === "/api/people") {
-        const directory = deps.workspaceDirectory() as Array<{ email: string; name?: string }>;
-        return json(res, 200, { people: directory.map((entry) => ({ email: entry.email, name: entry.name || entry.email })) });
+        const directory = deps.workspaceDirectory() as Array<{ email: string; name?: string; avatar?: string }>;
+        return json(res, 200, { people: directory.map((entry) => ({ email: entry.email, name: entry.name || entry.email, ...(entry.avatar ? { avatar: entry.avatar } : {}) })) });
       }
       let answer: { status: number; body: unknown } | null = null;
       if (method === "GET" && path === "/api/conversations") answer = groupConversations.list(caller);

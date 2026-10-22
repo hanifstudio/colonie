@@ -45,9 +45,11 @@ test("they sign up in their browser, come back to this computer, and the app kno
   expect(back.status).toBe(200);
   expect(back.text).toMatch(/return to Colonie/i);
 
-  expect((await local("/api/me")).body).toEqual({ account: { name: "Ana Owner", email: "ana@x.com" } });
+  // with where the account's photo is, at the same Colonie Cloud
+  const photo = { avatar: expect.stringMatching(new RegExp(`^${cloud.url}/photos/[\\w-]+$`)), photoUrl: `${cloud.url}/photo` };
+  expect((await local("/api/me")).body).toEqual({ account: { name: "Ana Owner", email: "ana@x.com", ...photo } });
   const after = await local("/api/colonie-account");
-  expect(after.body).toEqual({ required: true, account: { email: "ana@x.com", name: "Ana Owner" } });
+  expect(after.body).toEqual({ required: true, account: { email: "ana@x.com", name: "Ana Owner", ...photo } });
   // The profile the app shows is the account's.
   const config = await local("/api/config");
   expect(config.body.profile).toMatchObject({ name: "Ana Owner", email: "ana@x.com" });

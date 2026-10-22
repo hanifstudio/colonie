@@ -58,6 +58,12 @@ export const MIGRATIONS: readonly string[] = [
      window_started_at timestamptz not null,
      locked_until timestamptz
    );`,
+  // A photo on the account (photos.ts), one per person.
+  `create table if not exists colonie_cloud.photos (
+     account_id text primary key references colonie_cloud.accounts(id) on delete cascade,
+     data text not null,
+     updated_at timestamptz not null default now()
+   );`,
 ];
 
 /** Bring the schema up to date. Safe to run on every start, and from several

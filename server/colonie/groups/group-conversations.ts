@@ -51,7 +51,7 @@ export function createGroupConversations(deps: {
   file: string;
   store: () => Store;
   /** People of the workspace who can be named, by address. */
-  directory: () => Array<{ email: string; name?: string }>;
+  directory: () => Array<{ email: string; name?: string; avatar?: string }>;
   /** Whether this address may sign in to the workspace. */
   isMember: (email: string) => boolean;
   keyOf: (email: string) => string;
@@ -85,7 +85,7 @@ export function createGroupConversations(deps: {
     const names = known();
     const people = record.people.map((key) => {
       const entry = names.get(key);
-      return { key, email: entry?.email ?? "", name: key === caller.key ? caller.name : entry?.name || entry?.email || "Someone", you: key === caller.key };
+      return { key, email: entry?.email ?? "", name: key === caller.key ? caller.name : entry?.name || entry?.email || "Someone", you: key === caller.key, ...(entry?.avatar ? { avatar: entry.avatar } : {}) };
     });
     const others = people.filter((person) => !person.you);
     const messages = deps.store().messagesFor(record.threadId);

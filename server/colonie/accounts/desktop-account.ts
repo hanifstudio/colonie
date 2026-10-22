@@ -11,7 +11,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
-import { verifiedColonieAccount, type ColonieAccount } from "./colonie-oauth.ts";
+import { accountPhoto, verifiedColonieAccount, type ColonieAccount } from "./colonie-oauth.ts";
 
 export const DESKTOP_CALLBACK = "/auth/colonie/desktop-callback";
 
@@ -49,9 +49,10 @@ export function createDesktopAccount(deps: {
   const save = (value: Stored) => writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 
   return {
-    account(): { email: string; name: string } | null {
-      const { account } = read();
-      return account ? { email: account.email, name: account.name } : null;
+    account(): { email: string; name: string; avatar?: string; photoUrl?: string } | null {
+      const stored = read();
+      const { account } = stored;
+      return account ? { email: account.email, name: account.name, ...(account.sub ? accountPhoto(stored.issuer ?? issuer, account.sub) : {}) } : null;
     },
 
     /** Where to send the person's browser to sign up or in. */

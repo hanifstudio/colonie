@@ -121,7 +121,7 @@ test("a database another app already uses is left alone: our tables live in thei
   expect(await db.query("select * from public.accounts")).toEqual([{ jid: "123@s.whatsapp.net", phone: "+62" }]);
   expect(await db.query("select count(*)::int as n from public.schema_migrations")).toEqual([{ n: 0 }]);
   const ours = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'colonie_cloud' order by 1");
-  expect(ours.map((row) => row.table_name)).toEqual(["accounts", "auth_codes", "clients", "password_resets", "schema_migrations", "sessions", "sign_in_failures"]);
+  expect(ours.map((row) => row.table_name)).toEqual(["accounts", "auth_codes", "clients", "password_resets", "photos", "schema_migrations", "sessions", "sign_in_failures"]);
 });
 
 test("several isolates may migrate at the same time", async () => {

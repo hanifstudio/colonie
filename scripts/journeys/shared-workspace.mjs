@@ -125,6 +125,21 @@ try {
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");
   check(await bob.locator('[data-testid="sender-line"]', { hasText: "Ana" }).count() > 0, "Bob sees Ana's messages under her face and name");
 
+  step = "a photo on the account";
+  const photoPage = await ana.context().newPage();
+  await photoPage.goto(`${cloud.url}/photo`);
+  // a 4×4 PNG; the page shrinks it to a square JPEG in the browser
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGM4EWADRwzEcQAxkhVB/dKiCQAAAABJRU5ErkJggg==", "base64");
+  await photoPage.setInputFiles("#file", { name: "me.png", mimeType: "image/png", buffer: png });
+  await until(photoPage, async () => await photoPage.locator("#save").isEnabled(), "Ana chooses a picture at Colonie Cloud");
+  await Promise.all([photoPage.waitForLoadState("load"), photoPage.click("#save")]);
+  await until(photoPage, async () => (await text(photoPage)).includes("Saved."), "the photo is saved on her account");
+  await photoPage.close();
+  await bob.reload();
+  await settle(bob);
+  await until(bob, async () => bob.evaluate(() => [...document.querySelectorAll('section[aria-label="Groups and people"] img')]
+    .some((img) => img.src.includes("/photos/") && img.complete && img.naturalWidth > 0)), "Bob sees Ana's photo in his sidebar");
+
   step = "a DM from the sidebar";
   await bob.reload();
   await settle(bob);
