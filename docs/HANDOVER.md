@@ -47,7 +47,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 |---|---|
 | The release is built from code that reaches `main` | Waiting on the owner (see blueprint) |
 | CI passes on that code | Rewritten to run `pnpm check`; never run on GitHub |
-| A version number and an update path for people on 0.2.0 | Shared servers update from the app to a newer published version; each release must raise package.json's version before the Server image workflow |
+| A version number and an update path | 0.3.0. A release raises package.json's version on main; Server image publishes it by itself and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |

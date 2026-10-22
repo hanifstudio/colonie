@@ -5,9 +5,14 @@ name: Server image
 # ghcr.io/hanifstudio/colonie-workspace:<package.json version> and :latest.
 # A droplet created from the app pulls the version that matches the app.
 # The package must be public for droplets to pull it without signing in.
+# A release is a raised version in package.json reaching main: this
+# publishes that version once (a version already published is left alone),
+# and Shared workspace admins then see it with Update.
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    paths: ["package.json"]
     tags: ["v*"]
 
 permissions:
@@ -20,7 +25,16 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: is this version published already?
+        id: published
+        run: |
+          version=$(node -p "require('./package.json').version")
+          image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/colonie-workspace
+          token=$(curl -fsS "https://ghcr.io/token?scope=repository:${image#ghcr.io/}:pull" | node -p "JSON.parse(require('fs').readFileSync(0)).token")
+          code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $token" -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json" "https://ghcr.io/v2/${image#ghcr.io/}/manifests/$version")
+          if [ "$code" = "200" ] && [ "${{ github.event_name }}" = "push" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; echo "$version is published already"; fi
       - name: build
+        if: steps.published.outputs.skip != 'true'
         run: |
           version=$(node -p "require('./package.json').version")
           image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/colonie-workspace
@@ -28,6 +42,7 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           docker build --platform linux/amd64 -f deploy/Dockerfile -t "$image:$version" -t "$image:latest" .
       - name: the image starts and answers
+        if: steps.published.outputs.skip != 'true'
         run: |
           docker run -d --name probe "$IMAGE:$VERSION"
           for i in $(seq 1 60); do
@@ -37,6 +52,7 @@ jobs:
           docker logs probe
           exit 1
       - name: publish
+        if: steps.published.outputs.skip != 'true'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "$IMAGE:$VERSION"
