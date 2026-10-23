@@ -112,8 +112,11 @@ try {
   await ana.keyboard.type("can you check the budget?");
   await ana.keyboard.press("Enter");
   await until(bob, async () => (await bob.locator('[aria-label="You were mentioned"]').count()) > 0, "Bob is marked as mentioned");
-  const botChip = ana.locator("main form button", { hasText: /^@/ }).first();
-  await botChip.click();
+  // a bot is mentioned the same way: "@", its name from the menu
+  const botName = await ana.evaluate(async () => (await (await fetch("/api/bots")).json()).bots[0].name);
+  await ana.keyboard.type(`@${botName.slice(0, 2)}`);
+  await until(ana, async () => (await ana.locator('[role="listbox"][aria-label="Mention"] [role="option"]', { hasText: botName }).count()) > 0, "typing @ suggests the bot too");
+  await ana.locator('[role="listbox"][aria-label="Mention"] [role="option"]', { hasText: botName }).first().click();
   await ana.keyboard.type("please summarise");
   await ana.keyboard.press("Enter");
   await until(ana, async () => {
@@ -124,7 +127,7 @@ try {
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");
-  check(await bob.locator('[data-testid="sender-line"]', { hasText: "Ana" }).count() > 0, "Bob sees Ana's messages under her face and name");
+  await until(bob, async () => (await bob.locator('[data-testid="sender-line"]', { hasText: "Ana" }).count()) > 0, "Bob sees Ana's messages under her face and name");
 
   step = "a photo on the account";
   const photoPage = await ana.context().newPage();
