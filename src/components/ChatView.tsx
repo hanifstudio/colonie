@@ -161,6 +161,8 @@ interface ChatRows {
   bots: readonly Bot[];
   /** Every other bot, and in a group or DM its people, for @mentions. */
   mentionPeers: readonly MentionPeer[];
+  /** In a group or DM: who is looking, and what a saved secret does. */
+  conversation?: AccountConversationControls["relay"];
   /** A search hit or jump target in this thread. */
   focus: AppState["focusMessage"];
   showToolCalls: boolean;
@@ -460,7 +462,7 @@ const Bubble = memo(function Bubble({
   replyTarget?: Message;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch } = useChatRows();
+  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch, conversation } = useChatRows();
   const remoteClient = window.colonie?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
@@ -508,8 +510,14 @@ const Bubble = memo(function Bubble({
   </div>;
   // a bot asking for a secret: the button opens the private form; once saved
   // the person's short note lets the bot carry on with it
-  if (message.secretAsk) return <SecretAsk message={message} threadId={threadId}
-    onSaved={(name) => { if (!message.secretAsk?.saved) dispatch({ type: "send", botId, threadId, text: `I saved ${name}. Please continue.` }); }} />;
+  if (message.secretAsk) {
+    // relayed into a group: saved against the bot's own work, by whoever asked
+    if (message.relay) return <SecretAsk message={{ ...message, id: message.relay.messageId }} threadId={message.relay.threadId}
+      canAnswer={conversation?.viewerKey === message.relay.askedBy}
+      onSaved={(name) => { if (!message.secretAsk?.saved) conversation?.onSecretSaved(name, message.secretAsk!.botId); }} />;
+    return <SecretAsk message={message} threadId={threadId}
+      onSaved={(name) => { if (!message.secretAsk?.saved) dispatch({ type: "send", botId, threadId, text: `I saved ${name}. Please continue.` }); }} />;
+  }
 
   if (user && editing && !webhookView && !hasAttachments) {
     return (
@@ -741,26 +749,10 @@ const Bubble = memo(function Bubble({
           </button>
         </div>
       )}
-      {/* in a group: the bot waits for a person in its own work, where the
-          card is; this opens it */}
-      {message.workThread && <WorkThreadButton botId={message.workThread.botId} threadId={message.workThread.threadId} />}
     </div>
   );
 });
 
-function WorkThreadButton({ botId, threadId }: { botId: string; threadId: string }) {
-  const { state, dispatch } = useStore();
-  const bot = state.bots.find((entry) => entry.id === botId);
-  // only the person it waits for can open that work
-  if (!bot?.tasks?.some((task) => task.threadId === threadId)) return null;
-  const name = bot.name;
-  return (
-    <button type="button" onClick={() => { dispatch({ type: "selectConversation", id: null }); openThread(dispatch, { botId, threadId }, state); }}
-      className="mt-1.5 rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-medium text-white hover:brightness-110">
-      Open {name}'s work
-    </button>
-  );
-}
 
 /** Who wrote a relayed line and how it arrived, above the bubble. Looked up
  * by id, then by name for rows that predate Message.peerAsk; a peer since
@@ -926,7 +918,7 @@ const MessagesList = memo(function MessagesList({
   onRegenerate: () => void;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, focus, showToolCalls, locale } = useChatRows();
+  const { botId, threadId, botName, focus, showToolCalls, locale, conversation } = useChatRows();
   // Finished tool chips become compact runs; settled assistant narration
   // becomes one reversible turn row while the terminal answer stays visible.
   // The locale refreshes the turn labels when the language changes.
@@ -1002,9 +994,11 @@ const MessagesList = memo(function MessagesList({
               // draw must fall back to its text on every open, not take the
               // whole page down every time this chat is selected.
               const card = m.card?.requestId && m.card.questionRequest ? (
-                <QuestionCard threadId={threadId} bot={{ name: botName }} message={m} />
+                <QuestionCard threadId={m.relay?.threadId ?? threadId} bot={{ name: m.from?.name ?? botName }} message={m} />
               ) : m.card?.requestId && m.card.tool ? (
-                <ApprovalCard bot={{ name: botName }} message={m} threadId={threadId} />
+                // relayed into a group: the bot that asked, and who it waits for
+                <ApprovalCard bot={{ name: m.from?.name ?? botName }} message={m} threadId={m.relay?.threadId ?? threadId}
+                  waitingFor={m.relay && m.relay.askedBy !== conversation?.viewerKey ? m.relay.askedByName : undefined} />
               ) : shouldHideOnboardingCard(m, transcript) ? null : (
                 <OptionCard botId={botId} threadId={threadId} message={m} />
               );
@@ -1146,6 +1140,9 @@ export interface AccountConversationControls {
   composer: ReactNode;
   /** The people of a group or DM, so @Name of a person is marked too. */
   mentionPeople?: readonly string[];
+  /** Cards a bot relayed from its work: who may answer, and how a saved
+   * secret lets the bot carry on. */
+  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void };
   identity?: ReactNode;
   actions?: ReactNode;
   beforeMessages?: ReactNode;
@@ -1261,7 +1258,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
   branch.current = messages;
   const onBranch = useCallback((messageId: string) => branch.current.some((m) => m.id === messageId), []);
   const rows = useMemo<ChatRows>(
-    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, nativeHistoryOnly: codexAcp || Boolean(accountConversation), accountWorkspace: Boolean(accountConversation), bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
+    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, voiceId: bot.voice, tts, localVoice, busy, nativeHistoryOnly: codexAcp || Boolean(accountConversation), accountWorkspace: Boolean(accountConversation), conversation: accountConversation?.relay, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch }),
     [bot.id, bot.threadId, bot.name, bot.voice, tts, localVoice, busy, codexAcp, accountConversation, bots, mentionPeers, focus, showToolCalls, locale, dispatch, onBranch],
   );
   // Where this conversation works, for the place icon on screen and page tools.

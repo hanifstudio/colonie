@@ -395,6 +395,9 @@ export interface WireMessage {
   workThread?: { botId: string; threadId: string };
   /** In a group or DM: the bot is still working on this line's answer. */
   working?: true;
+  /** In a group or DM: a card copied from the bot's own work, answered
+   * there by the person who asked (colonie/groups relayWork). */
+  relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;

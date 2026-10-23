@@ -140,7 +140,11 @@ export function SecretDialog({ open, initial, existing = false, botId, threadId,
 
 /** A bot's request for a secret, under its reply: one button opens the form.
  * Once saved, it says so; the next message gives the bot its file. */
-export function SecretAsk({ message, threadId, onSaved }: { message: Message; threadId: string; onSaved?: (name: string) => void }) {
+export function SecretAsk({ message, threadId, onSaved, canAnswer = true }: {
+  message: Message; threadId: string; onSaved?: (name: string) => void;
+  /** In a group, only the person the bot asked saves it. */
+  canAnswer?: boolean;
+}) {
   const ask = message.secretAsk!;
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(Boolean(ask.saved));
@@ -157,10 +161,10 @@ export function SecretAsk({ message, threadId, onSaved }: { message: Message; th
             </div>
             {ask.description && <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-secondary">{ask.description}</p>}
           </div>
-          <button type="button" onClick={() => setOpen(true)}
+          {canAnswer && <button type="button" onClick={() => setOpen(true)}
             className={cn("shrink-0 rounded-xl px-3.5 py-2 text-[13px] font-medium", saved ? "bg-control text-ink hover:bg-raised" : "bg-accent text-white hover:brightness-110")}>
             {saved ? "Change" : "Add secret"}
-          </button>
+          </button>}
         </div>
       </div>
       <SecretDialog open={open} existing={saved} initial={{ name: ask.name, description: ask.description }} botId={ask.botId} threadId={threadId} messageId={message.id}

@@ -17,11 +17,10 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    finished run is announced; any bot saves a guide from chat (confirmed
    on a card); "/" lists guides, kept per bot. Left: a real Claude and
    Codex doing both on Etalas. Out of scope: event triggers.
-   Now (owner, October 23): Secrets. A bot that needs a key asks for it
-   with a button under its reply; a popup takes the name and value; the
-   bot's scripts get it, the chat and the AI never see it. Settings, AI,
-   Secrets lists them. A secret is its owner's (in a Shared workspace,
-   used only when that person asks) and reaches only the bots allowed.
+   Secrets done. Now (owner, October 23): a group is the one place. A
+   mentioned bot gets only what was said since it last spoke (its engine
+   session keeps the rest); its cards (approval, question, secret) show
+   in the group, answered by whoever asked; no separate work to open.
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief

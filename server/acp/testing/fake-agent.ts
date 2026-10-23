@@ -173,7 +173,8 @@ agent({ name: "Colonie deterministic fixture" })
       }
       result = `MCP tools: ${names.join(", ") || "None"}`;
     }
-    const mcpCall = /^mcp call ([\w-]+) ([\w-]+)(?: (.*))?$/.exec(text);
+    // in a group the person's words are the brief's last line, after "@Bot "
+    const mcpCall = /^mcp call ([\w-]+) ([\w-]+)(?: (.*))?$/.exec(/\n@\S+ (mcp call [^\n]*)$/.exec(text)?.[1] ?? text);
     if (mcpCall) {
       const serverName = mcpCall[1]!; const name = mcpCall[2]!;
       const args = JSON.parse(mcpCall[3] ?? "{}");

@@ -1509,6 +1509,11 @@ bus.subscribe((event: RuntimeEvent) => {
   drainDelegationWakes();
 });
 
+// A bot's cards for a person (an approval, a question, a secret) in its work
+// for a group or DM are relayed into that conversation (colonie/groups).
+store.onChange((change) => {
+  if (change.type === "message" || change.type === "message.patch") groupConversations.relayWork(change.threadId, change.message);
+});
 // A bot mentioned in a group or DM: its answer goes back there (colonie/groups).
 bus.subscribe((event: RuntimeEvent) => {
   if (event.type === "turn.completed") groupConversations.turnCompleted(event.threadId, event.ok);

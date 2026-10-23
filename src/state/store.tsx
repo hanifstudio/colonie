@@ -169,6 +169,7 @@ export interface Message {
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
   workThread?: { botId: string; threadId: string };
   working?: true;
+  relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };
   id: string;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";

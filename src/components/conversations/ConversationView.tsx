@@ -9,6 +9,7 @@ import { ChatView, CHATHEAD_PILL } from "../ChatView";
 import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
 import { MentionTextarea } from "../MentionTextarea";
 import { ComposerMenuRow } from "../ComposerMenuRow";
+import { PendingApprovalActions, PendingApprovalPanel, pendingApprovals } from "../PendingApproval";
 import { BotAvatar } from "../Avatar";
 import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
@@ -16,7 +17,7 @@ import {
   CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
   mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
-import { useStore, type Bot, type Message } from "@/state/store";
+import { api, useStore, type Bot, type Message } from "@/state/store";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -56,6 +57,18 @@ export function ConversationView({ id }: { id: string }) {
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
   const shown = useMemo(() => conversation && messages ? asChatMessages(messages, conversation.people) : [], [conversation, messages]);
   const mentionPeople = useMemo(() => conversation?.people.map((person) => person.name) ?? [], [conversation?.people]);
+  const viewerKey = conversation?.people.find((person) => person.you)?.key;
+  // a secret saved from a bot's card: tell the bot here, so it carries on
+  const relay = useMemo(() => ({
+    viewerKey,
+    onSecretSaved: (name: string, botId: string) => {
+      const botName = state.bots.find((bot) => bot.id === botId)?.name;
+      if (!botName) return;
+      void postToConversation(id, `@${botName} I saved ${name}. Please continue.`)
+        .then(({ message }) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message })))
+        .catch(() => {});
+    },
+  }), [viewerKey, state.bots, id, threadId]);
   if (!conversation) {
     return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
   }
@@ -64,6 +77,7 @@ export function ConversationView({ id }: { id: string }) {
   return (
     <ChatView key={conversation.id} bot={chatFor(conversation, shown)} accountConversation={{
       mentionPeople,
+      relay,
       identity: (
         <span className={cn(CHATHEAD_PILL, "pr-3.5")} title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
           {other
@@ -86,7 +100,7 @@ export function ConversationView({ id }: { id: string }) {
         </>
       ),
       empty: messages ? <p className="py-10 text-center text-[13px] text-ink-secondary">No messages yet. Say hello, or @mention a bot to ask it.</p> : <></>,
-      composer: <ConversationComposer key={conversation.id} conversation={conversation} bots={bots}
+      composer: <ConversationComposer key={conversation.id} conversation={conversation} bots={bots} messages={shown} viewerKey={viewerKey}
         onSent={(message) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: conversation.threadId, message }))} />,
     }} />
   );
@@ -95,7 +109,13 @@ export function ConversationView({ id }: { id: string }) {
 /** The composer pill of a bot chat, for a conversation: text, and "@" for
  * the people here and the bots one can ask, in the same menu as a bot chat
  * (faces, names, arrows to choose, Enter or Tab to pick, Esc to close). */
-function ConversationComposer({ conversation, bots, onSent }: { conversation: Conversation; bots: Bot[]; onSent: (message: Message) => void }) {
+function ConversationComposer({ conversation, bots, messages, viewerKey, onSent }: {
+  conversation: Conversation; bots: Bot[]; messages: Message[]; viewerKey?: string; onSent: (message: Message) => void;
+}) {
+  // a bot's question for this person, relayed from its work: answered here,
+  // with the same panel as a bot chat, against the bot's own work
+  const approval = useMemo(() => pendingApprovals(messages.filter((message) => message.relay?.askedBy === viewerKey))[0], [messages, viewerKey]);
+  const approvalBot = approval ? bots.find((bot) => bot.id === approval.message.from?.botId) : undefined;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -145,6 +165,13 @@ function ConversationComposer({ conversation, bots, onSent }: { conversation: Co
     <form className="pointer-events-none relative px-5 pb-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
       <div className="pointer-events-auto relative w-full">
         {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
+        {approval?.message.relay && (
+          <div className="mb-2 overflow-hidden rounded-2xl border border-accent/40 bg-card">
+            <PendingApprovalPanel pending={approval} count={1} index={0} />
+            <PendingApprovalActions pending={approval} threadId={approval.message.relay.threadId} bot={approvalBot}
+              onCancelTurn={() => void api(`/api/bots/${approval.message.from?.botId}/interrupt`, { method: "POST", body: JSON.stringify({ threadId: approval.message.relay!.threadId }) }).catch(() => {})} />
+          </div>
+        )}
         <div className="relative">
           <div aria-hidden data-composer-backdrop className="pointer-events-none absolute -bottom-3 -left-5 -right-5 top-1/2 bg-app" />
           {open && (

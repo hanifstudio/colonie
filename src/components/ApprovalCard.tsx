@@ -258,6 +258,7 @@ export function ApprovalCard({
   bot,
   message,
   threadId,
+  waitingFor,
 }: {
   /** who is asking, for the "Name wants to …" line */
   bot?: Pick<Bot, "name">;
@@ -265,6 +266,8 @@ export function ApprovalCard({
   /** the conversation the card is in, for Undo on a change that applied
    * without a person */
   threadId?: string;
+  /** In a group: the person it waits for, when that is not the viewer. */
+  waitingFor?: string;
 }) {
   const card = message.card;
   if (!card) return null;
@@ -366,7 +369,7 @@ export function ApprovalCard({
         ) : (
           <>
             <HIcon icon={ShieldCheckIcon} size={14} className="text-accent" />
-            {isRoutineRequest || isSkillRequest || isProfileRequest || isTeamSetup
+            {waitingFor ? `Waiting for ${waitingFor}` : isRoutineRequest || isSkillRequest || isProfileRequest || isTeamSetup
               ? t("approval.status.waitingConfirmation")
               : t("approval.status.waitingAnswer")}
           </>

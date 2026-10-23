@@ -39,6 +39,9 @@ export interface GroupConversation {
   routines?: string[];
   /** The message each reported run left here, so a run reports once. */
   routineRuns?: Record<string, string>;
+  /** When each bot last caught up, by bot id: a mention hands it only what
+   * was said since (its engine session keeps the rest). */
+  seenAt?: Record<string, number>;
 }
 
 /** Who is asking: a person of a Shared workspace, or this computer's owner. */
@@ -78,7 +81,10 @@ export function createGroupConversations(deps: {
   /** A bot's working thread → the conversation lines waiting for its
    * answers, oldest first: a mention while it works queues a turn, and each
    * turn that ends answers the oldest line. */
-  type Pending = { conversationId: string; messageId: string; botId: string; since: number; asker: string };
+  type Pending = { conversationId: string; messageId: string; botId: string; since: number; asker: string; askerKey: string };
+  /** A card from a bot's work (an approval, a question, a secret) → its copy
+   * in the conversation, so it is answered there. */
+  const relayed = new Map<string, string>();
   const waiting = new Map<string, Pending[]>();
   /** Waiting lines live in memory: after a restart none can be answered, so
    * a line left "working on it" (or waiting for a person) says it stopped. */
@@ -94,7 +100,12 @@ export function createGroupConversations(deps: {
       }
       for (const message of store.messagesFor(record.threadId)) {
         if (message.role !== "bot" || !message.from) continue;
-        if (message.workThread || message.text === `${message.from.name} is working on it…`) {
+        // a relayed card the restart left unanswerable
+        if (message.relay && message.card?.requestId && !message.card.answered && !message.card.dismissed) {
+          store.patchMessage(record.threadId, message.id, { card: { ...message.card, expired: true } });
+          continue;
+        }
+        if (message.working || message.workThread || message.text === `${message.from.name} is working on it…` || /^\S.* is waiting for .+\)\.$/.test(message.text ?? "")) {
           store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined, working: undefined });
         }
       }
@@ -157,23 +168,36 @@ export function createGroupConversations(deps: {
     return bots;
   }
 
-  /** What a bot is handed when mentioned: who is here, the recent messages, the ask. */
-  function brief(record: GroupConversation, botName: string, asker: string, text: string): string {
+  /** What a bot is handed when mentioned: what was said since it last
+   * caught up (its engine session holds everything before), then the ask.
+   * The first time, who is here and the recent messages. */
+  function brief(record: GroupConversation, bot: { id: string; name: string }, asker: string, text: string, upTo: number): string {
+    const since = record.seenAt?.[bot.id];
+    const said = deps.store().messagesFor(record.threadId).filter((message: Message) =>
+      message.kind === "text" && !message.notice && !message.working && message.text?.trim() &&
+      message.at < upTo && (since === undefined || message.at > since) &&
+      // its own earlier answers are already in its session
+      message.from?.botId !== bot.id);
     const lines: string[] = [];
     let size = 0;
-    for (const message of deps.store().messagesFor(record.threadId).slice(-CONTEXT_MESSAGES - 1, -1).reverse()) {
-      if (message.kind !== "text" || message.notice || !message.text?.trim()) continue;
+    for (const message of said.slice(-CONTEXT_MESSAGES).reverse()) {
       const who = message.role === "bot" ? message.from?.name ?? "A bot" : message.sender?.name ?? "Someone";
-      const line = `${who}: ${message.text.trim()}`;
+      const line = `${who}: ${message.text!.trim()}`;
       if (size + line.length > CONTEXT_CHARS) break;
       size += line.length;
       lines.unshift(line);
     }
+    const skipped = said.length - lines.length;
+    record.seenAt = { ...record.seenAt, [bot.id]: upTo };
+    save();
     const where = record.kind === "dm" ? "a direct message between people" : `the group "${record.name}"`;
+    const header = since === undefined
+      ? `You were mentioned in ${where}. Its people and bots read your answer there; answer ${asker}, briefly and to the point.`
+      : `${asker} mentioned you again in ${where}.`;
     return [
-      `You were mentioned in ${where}. Its people and bots read your answer there; answer ${asker}, briefly and to the point.`,
-      ...(lines.length ? ["", "Recent messages:", ...lines] : []),
-      "", `${asker} wrote to ${botName}:`, text,
+      header,
+      ...(lines.length ? ["", since === undefined ? "Recent messages:" : "Said since you last spoke:", ...(skipped > 0 ? [`(${skipped} earlier messages not shown)`] : []), ...lines] : []),
+      "", `${asker} wrote to you:`, text,
     ].join("\n");
   }
 
@@ -198,10 +222,10 @@ export function createGroupConversations(deps: {
         role: "bot", kind: "text", text: `${bot.name} is working on it…`, working: true,
         from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
       });
-      const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: caller.name };
+      const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: caller.name, askerKey: caller.key };
       waiting.set(threadId, [...(waiting.get(threadId) ?? []), pending]);
       try {
-        await deps.runBotTurn(bot.id, threadId, brief(record, bot.name, caller.name, text), { name: caller.name });
+        await deps.runBotTurn(bot.id, threadId, brief(record, bot, caller.name, text, line.at), { name: caller.name });
       } catch (error) {
         waiting.set(threadId, (waiting.get(threadId) ?? []).filter((entry) => entry !== pending));
         store.patchMessage(record.threadId, line.id, { text: `${bot.name} could not start: ${(error as Error).message}` });
@@ -297,6 +321,11 @@ export function createGroupConversations(deps: {
       const record = mine(caller, id);
       if (!record) return fail(404, "no such conversation");
       record.people = record.people.filter((key) => key !== caller.key);
+      // nor can they open what the bots did for it any more
+      for (const threadId of Object.values(record.botThreads)) {
+        const participants = deps.store().threadParticipants(threadId);
+        if (participants?.includes(caller.key)) deps.store().setThreadParticipants(threadId, participants.filter((key) => key !== caller.key));
+      }
       save();
       notice(record, `${caller.name} left.`);
       return { status: 200, body: { ok: true } };
@@ -343,10 +372,44 @@ export function createGroupConversations(deps: {
       const record = byId(pending.conversationId);
       const bot = deps.store().bot(pending.botId);
       if (!record || !bot) return;
+      // the card itself is relayed below this line (relayWork)
       deps.store().patchMessage(record.threadId, pending.messageId, {
-        text: `${bot.name} needs ${pending.asker} for ${what} before it can go on.`,
-        workThread: { botId: bot.id, threadId }, working: undefined,
+        text: `${bot.name} is waiting for ${pending.asker} (${what}).`, working: undefined,
       });
+    },
+
+    /** A message in a bot's work for a conversation: a card for a person
+     * (an approval, a question, a secret) is copied into the conversation,
+     * answered there by whoever asked, and kept in step as it is answered. */
+    relayWork(threadId: string, message: Message) {
+      const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk);
+      if (!isCard) return;
+      const key = `${threadId}:${message.id}`;
+      const copy = relayed.get(key);
+      const store = deps.store();
+      if (copy) {
+        const record = records.find((entry) => Object.values(entry.botThreads).includes(threadId));
+        if (!record) return;
+        store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk });
+        // answered: the bot carries on
+        const pending = waiting.get(threadId)?.[0];
+        const settled = message.secretAsk ? message.secretAsk.saved : message.card?.answered || message.card?.dismissed;
+        const bot = pending && store.bot(pending.botId);
+        if (settled && pending && bot) store.patchMessage(record.threadId, pending.messageId, { text: `${bot.name} is working on it…`, working: true });
+        return;
+      }
+      const pending = waiting.get(threadId)?.[0];
+      if (!pending) return;
+      const record = byId(pending.conversationId);
+      const bot = store.bot(pending.botId);
+      if (!record || !bot) return;
+      const line = store.appendMessage(record.threadId, {
+        role: "bot", kind: message.kind, text: message.text ?? "",
+        ...(message.card ? { card: message.card } : {}), ...(message.secretAsk ? { secretAsk: message.secretAsk } : {}),
+        from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
+        relay: { threadId, messageId: message.id, askedBy: pending.askerKey, askedByName: pending.asker },
+      });
+      relayed.set(key, line.id);
     },
 
     /** A bot's turn ended: its answer replaces the oldest waiting line. */

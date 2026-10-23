@@ -72,3 +72,19 @@ test("another person's request to the same bot gets none of Ana's secrets", asyn
   await waitFor("Bob got no answer", async () => (await messages(BOB, threadId)).find((m: any) => m.role === "bot" && m.text));
   expect(existsSync(join(ws.dataDir, "secrets", "runtime", `${threadId}.env`))).toBe(false);
 }, 60_000);
+
+test("in a group, the bot's request for a secret shows there and is saved by the person who asked", async () => {
+  const group = (await ws.as(ANA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Ops", emails: [BOB], bots: [botId] } })).body;
+  const bot = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);
+  const ask = { name: "GITLAB_TOKEN", description: "A GitLab token with read_repository.", requestId: "g-1" };
+  await ws.as(ANA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} mcp call colonie_workspace request_secret ${JSON.stringify(ask)}` } });
+  const groupMessages = async (email: string) => (await ws.as(email, `/api/conversations/${group.id}/messages`)).body.messages ?? [];
+  const card = await waitFor("no secret card in the group", async () => (await groupMessages(ANA)).find((m: any) => m.secretAsk && m.relay));
+  expect(card.secretAsk.name).toBe("GITLAB_TOKEN");
+  // Bob sees it is Ana's to answer
+  expect((await groupMessages(BOB)).find((m: any) => m.id === card.id).relay.askedByName).toBeTruthy();
+  const saved = await ws.as(ANA, "/api/secrets/GITLAB_TOKEN", { method: "PUT", body: { value: "glpat-abcdefghijkl", botId, threadId: card.relay.threadId, messageId: card.relay.messageId } });
+  expect(saved.status).toBe(200);
+  await waitFor("the group's copy did not show it saved", async () => (await groupMessages(ANA)).find((m: any) => m.id === card.id && m.secretAsk.saved));
+  expect(JSON.stringify(await groupMessages(BOB))).not.toContain("glpat-abcdefghijkl");
+}, 60_000);

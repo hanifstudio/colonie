@@ -111,56 +111,48 @@ test("on a Local workspace its owner makes a group with their bots", async () =>
   expect(list.conversations.map((entry: any) => entry.title)).toEqual(["My team"]);
 });
 
-test("a bot that stops for a person in a group says so there, with the way to its work, then answers", async () => {
+test("a bot that stops for a person in a group asks them there, and carries on once they answer", async () => {
   const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
+  // Bob left in an earlier test; he is back for these
+  await ws.as(ADA, `/api/conversations/${group.id}/members`, { method: "POST", body: { emails: [BOB] } });
   await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
-  const waitingLine = async () => (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id).at(-1);
+  const find = async () => (await messagesOf(ADA)).find((message) => message.relay && message.card?.requestId && !message.card.answered);
+  let card: any;
   const until = Date.now() + 20_000;
+  while (!card && Date.now() < until) { card = await find(); if (!card) await new Promise((r) => setTimeout(r, 150)); }
+  // the card is in the group, for the person who asked; the line says who it waits for
+  expect(card.relay.askedBy).toBeTruthy();
+  expect(card.from.botId).toBe(bot.id);
+  const waitingLine = (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id && !message.relay).at(-1);
+  expect(waitingLine.text).toMatch(/is waiting for .+ \(an OK\)\./);
+  // the others in the group see the card too
+  expect((await messagesOf(BOB)).some((message) => message.id === card.id)).toBe(true);
+  // answered from the group, against the bot's own work
+  expect((await ws.as(ADA, `/api/threads/${card.relay.threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } })).status).toBe(200);
   let line: any;
-  while (Date.now() < until) {
-    line = await waitingLine();
-    if (line?.workThread) break;
-    await new Promise((resolve) => setTimeout(resolve, 150));
-  }
-  expect(line.text).toMatch(/needs .* for an OK before it can go on/);
-  const work = line.workThread.threadId;
-  // the card is in the bot's work, where the person who asked answers it
-  const card = (await ws.as(ADA, `/api/threads/${work}/messages`)).body.messages.find((message: any) => message.card?.requestId && !message.card.answered);
-  expect(card).toBeTruthy();
-  expect((await ws.as(ADA, `/api/threads/${work}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } })).status).toBe(200);
   const answered = Date.now() + 20_000;
   while (Date.now() < answered) {
-    line = (await messagesOf(ADA)).find((message) => message.id === line.id);
-    if (!line.workThread) break;
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    line = (await messagesOf(ADA)).find((message) => message.id === waitingLine.id);
+    if (!line.working && !/is waiting for/.test(line.text)) break;
+    await new Promise((r) => setTimeout(r, 150));
   }
-  expect(line.workThread).toBeUndefined();
-  expect(line.text).not.toMatch(/needs .* before it can go on|working on it/);
+  expect(line.text).not.toMatch(/is waiting for|working on it/);
+  expect((await messagesOf(ADA)).find((message) => message.id === card.id).card.answered).toBeTruthy();
 }, 60_000);
 
-test("a second mention while the bot is busy gets its own answer; no line is left working", async () => {
+test("a second mention hands the bot only what was said since it last spoke", async () => {
   const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
-  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission again` } });
-  const lines = async () => (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id);
-  let first: any;
-  const asked = Date.now() + 20_000;
-  while (Date.now() < asked) { first = (await lines()).at(-1); if (first?.workThread) break; await new Promise((r) => setTimeout(r, 150)); }
-  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} and one more thing` } });
-  await new Promise((r) => setTimeout(r, 500));
-  const second = (await lines()).at(-1);
-  expect(second.id).not.toBe(first.id);
-  const work = first.workThread.threadId;
-  const card = (await ws.as(ADA, `/api/threads/${work}/messages`)).body.messages.find((message: any) => message.card?.requestId && !message.card.answered);
-  await ws.as(ADA, `/api/threads/${work}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } });
-  // the stand-in's answer echoes recent messages, so compare whole lines
-  const stillWaiting = (text: string) => text === `${bot.name} is working on it…` || /^\S+ needs \S+ for an OK before it can go on\.$/.test(text);
-  const done = Date.now() + 30_000;
-  let texts: string[] = [];
-  while (Date.now() < done) {
-    const now = await lines();
-    texts = [first.id, second.id].map((id) => now.find((message) => message.id === id)?.text ?? "");
-    if (!texts.some(stillWaiting)) break;
-    await new Promise((r) => setTimeout(r, 200));
+  await ws.as(BOB, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: "the venue moved to Friday" } });
+  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} what changed?` } });
+  let answer: any;
+  const until = Date.now() + 20_000;
+  while (Date.now() < until) {
+    answer = (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id && !message.relay).at(-1);
+    if (answer && !answer.working && /what changed/.test(answer.text)) break;
+    await new Promise((r) => setTimeout(r, 150));
   }
-  expect(texts.some(stillWaiting)).toBe(false);
-}, 90_000);
+  // the stand-in answers with what it was handed
+  expect(answer.text).toContain("mentioned you again");
+  expect(answer.text).toContain("the venue moved to Friday");
+  expect(answer.text).not.toContain("plan for Friday?");
+}, 60_000);
