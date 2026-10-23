@@ -131,6 +131,9 @@ agent({ name: "Colonie deterministic fixture" })
       return { stopReason: "cancelled" };
     }
     let result = `${session.prompts.length}: ${text}`;
+    // a bot in a group handing work on: its answer names the other bot only
+    const handOff = /hand over to (\S+)\s*$/.exec(text)?.[1];
+    if (handOff) result = `@${handOff} over to you`;
     if (text.startsWith("COLONIE_MEMORY_CAPTURE_V1") || text.includes("COLONIE_MEMORY_CAPTURE_V1\n")) {
       // Scripted judgments exercise the real SDK/background lifecycle; they
       // are intentionally not evidence of real-model extraction quality.

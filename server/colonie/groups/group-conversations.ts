@@ -42,6 +42,11 @@ export interface GroupConversation {
   /** When each bot last caught up, by bot id: a mention hands it only what
    * was said since (its engine session keeps the rest). */
   seenAt?: Record<string, number>;
+  /** Instructions every bot reads here ("focus on the IGRS project"). */
+  instructions?: string;
+  /** What each bot was last told about the group (people, bots,
+   * instructions), by bot id: told again only when it changes. */
+  toldAbout?: Record<string, string>;
 }
 
 /** Who is asking: a person of a Shared workspace, or this computer's owner. */
@@ -63,7 +68,8 @@ export function createGroupConversations(deps: {
   isMember: (email: string) => boolean;
   keyOf: (email: string) => string;
   /** Start (or queue) a bot's turn in one of its threads. */
-  runBotTurn: (botId: string, threadId: string, text: string, sender: { name: string }) => Promise<void>;
+  /** The sender names who asked (and, by id, whose secrets the bot may use). */
+  runBotTurn: (botId: string, threadId: string, text: string, sender: { name: string; id: string }) => Promise<void>;
   /** Membership or a record changed: who sees which thread is recomputed. */
   onChange?: () => void;
   now?: () => number;
@@ -81,7 +87,17 @@ export function createGroupConversations(deps: {
   /** A bot's working thread → the conversation lines waiting for its
    * answers, oldest first: a mention while it works queues a turn, and each
    * turn that ends answers the oldest line. */
-  type Pending = { conversationId: string; messageId: string; botId: string; since: number; asker: string; askerKey: string };
+  type Pending = {
+    conversationId: string; messageId: string; botId: string; since: number; asker: string; askerKey: string;
+    /** Bots still to answer the same message after this one. */
+    upcoming: readonly string[];
+    /** How many bots in a row handed this on without a person. */
+    depth: number;
+    /** The turn ended (answered or not): the next bot in line may start. */
+    done: () => void;
+  };
+  /** At most this many bots in a row hand work on without a person. */
+  const MAX_HANDOFFS = 3;
   /** A card from a bot's work (an approval, a question, a secret) → its copy
    * in the conversation, so it is answered there. */
   const relayed = new Map<string, string>();
@@ -133,7 +149,7 @@ export function createGroupConversations(deps: {
     return {
       id: record.id, threadId: record.threadId, kind: record.kind,
       title: record.kind === "dm" ? others[0]?.name ?? "Direct message" : record.name,
-      name: record.name, people, bots: record.bots,
+      name: record.name, people, bots: record.bots, instructions: record.instructions ?? "",
       lastMessageAt: last?.at ?? record.createdAt,
       // the last thing said, for the sidebar's second line
       preview: said ? `${speaker}: ${said.text!.trim().replace(/\s+/g, " ").slice(0, 120)}` : "",
@@ -168,10 +184,30 @@ export function createGroupConversations(deps: {
     return bots;
   }
 
-  /** What a bot is handed when mentioned: what was said since it last
-   * caught up (its engine session holds everything before), then the ask.
-   * The first time, who is here and the recent messages. */
-  function brief(record: GroupConversation, bot: { id: string; name: string }, asker: string, text: string, upTo: number): string {
+  /** Who and what a group is, for a bot: told the first time and again
+   * only when it changes (people, bots and their roles, instructions). */
+  function about(record: GroupConversation, bot: { id: string }): string | null {
+    const store = deps.store();
+    const people = record.people.map(nameOf);
+    const bots = record.bots.map((id) => store.bot(id)).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .map((entry) => entry.id === bot.id ? `${entry.name} (you)` : `${entry.name}${entry.title?.trim() ? ` (${entry.title.trim()})` : ""}`);
+    const lines = [
+      record.kind === "dm" ? "This is a direct message between people." : `This is the group "${record.name}".`,
+      `People: ${people.join(", ")}.`,
+      `Bots: ${bots.join(", ")}.`,
+      ...(bots.length > 1 ? ["To hand part of the work to another bot here, @mention it by name in your answer; it answers after you."] : []),
+      ...(record.instructions?.trim() ? ["", "Instructions for this group:", record.instructions.trim()] : []),
+    ];
+    const text = lines.join("\n");
+    if (record.toldAbout?.[bot.id] === text) return null;
+    record.toldAbout = { ...record.toldAbout, [bot.id]: text };
+    return text;
+  }
+
+  /** What a bot is handed when mentioned: about the group when that is
+   * new to it, what was said since it last caught up (its engine session
+   * holds everything before), then the ask. */
+  function brief(record: GroupConversation, bot: { id: string; name: string }, ask: Ask, text: string, upTo: number): string {
     const since = record.seenAt?.[bot.id];
     const said = deps.store().messagesFor(record.threadId).filter((message: Message) =>
       message.kind === "text" && !message.notice && !message.working && message.text?.trim() &&
@@ -188,49 +224,65 @@ export function createGroupConversations(deps: {
       lines.unshift(line);
     }
     const skipped = said.length - lines.length;
+    const told = about(record, bot);
     record.seenAt = { ...record.seenAt, [bot.id]: upTo };
     save();
-    const where = record.kind === "dm" ? "a direct message between people" : `the group "${record.name}"`;
-    const header = since === undefined
-      ? `You were mentioned in ${where}. Its people and bots read your answer there; answer ${asker}, briefly and to the point.`
-      : `${asker} mentioned you again in ${where}.`;
+    const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}` : `${ask.asker} mentioned you`;
     return [
-      header,
+      `${asked}. Everyone here reads your answer; answer briefly and to the point.`,
+      ...(told ? ["", told] : []),
       ...(lines.length ? ["", since === undefined ? "Recent messages:" : "Said since you last spoke:", ...(skipped > 0 ? [`(${skipped} earlier messages not shown)`] : []), ...lines] : []),
-      "", `${asker} wrote to you:`, text,
+      "", `${ask.by ?? ask.asker} wrote to you:`, text,
     ].join("\n");
   }
 
-  async function mention(record: GroupConversation, caller: Caller, text: string) {
+  /** Who a turn is for: the person who started it (their approvals, their
+   * secrets), and the bot that handed it on, if one did. */
+  type Ask = { asker: string; askerKey: string; by?: string; depth: number; upcoming?: readonly string[] };
+
+  /** Ask one bot and wait for its turn to end, so the next one in line sees
+   * its answer. */
+  function askBot(record: GroupConversation, bot: NonNullable<ReturnType<Store["bot"]>>, ask: Ask, text: string): Promise<void> {
     const store = deps.store();
-    const candidates = store.bots.filter((bot) => record.bots.includes(bot.id) || caller.seesBot(bot.id));
-    for (const bot of mentionedBots(text, candidates)) {
-      if (!record.bots.includes(bot.id)) { record.bots.push(bot.id); save(); }
-      let threadId = record.botThreads[bot.id];
-      if (!threadId || !store.taskByThread(bot.id, threadId)) {
-        const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [caller.key]);
-        if (!task) continue;
-        threadId = task.threadId;
-        store.patchTask(bot.id, threadId, { forConversation: record.id });
-        record.botThreads[bot.id] = threadId;
-        save();
-      } else if (!(store.threadParticipants(threadId) ?? []).includes(caller.key)) {
-        // whoever asks can open the bot's work for this conversation
-        store.setThreadParticipants(threadId, [...(store.threadParticipants(threadId) ?? []), caller.key]);
-      }
-      const line = store.appendMessage(record.threadId, {
-        role: "bot", kind: "text", text: `${bot.name} is working on it…`, working: true,
-        from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
-      });
-      const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: caller.name, askerKey: caller.key };
-      waiting.set(threadId, [...(waiting.get(threadId) ?? []), pending]);
-      try {
-        await deps.runBotTurn(bot.id, threadId, brief(record, bot, caller.name, text, line.at), { name: caller.name });
-      } catch (error) {
-        waiting.set(threadId, (waiting.get(threadId) ?? []).filter((entry) => entry !== pending));
-        store.patchMessage(record.threadId, line.id, { text: `${bot.name} could not start: ${(error as Error).message}` });
-      }
+    if (!record.bots.includes(bot.id)) { record.bots.push(bot.id); save(); }
+    let threadId = record.botThreads[bot.id];
+    if (!threadId || !store.taskByThread(bot.id, threadId)) {
+      const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [ask.askerKey]);
+      if (!task) return Promise.resolve();
+      threadId = task.threadId;
+      store.patchTask(bot.id, threadId, { forConversation: record.id });
+      record.botThreads[bot.id] = threadId;
+      save();
+    } else if (!(store.threadParticipants(threadId) ?? []).includes(ask.askerKey)) {
+      // whoever asks may answer the bot's cards for it
+      store.setThreadParticipants(threadId, [...(store.threadParticipants(threadId) ?? []), ask.askerKey]);
     }
+    const work = threadId;
+    const line = store.appendMessage(record.threadId, {
+      role: "bot", kind: "text", text: `${bot.name} is working on it…`, working: true,
+      from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
+    });
+    return new Promise<void>((resolve) => {
+      const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, upcoming: ask.upcoming ?? [], done: resolve };
+      waiting.set(work, [...(waiting.get(work) ?? []), pending]);
+      deps.runBotTurn(bot.id, work, brief(record, bot, ask, text, line.at), { name: ask.asker, id: ask.askerKey }).catch((error: unknown) => {
+        waiting.set(work, (waiting.get(work) ?? []).filter((entry) => entry !== pending));
+        store.patchMessage(record.threadId, line.id, { text: `${bot.name} could not start: ${(error as Error).message}`, working: undefined });
+        resolve();
+      });
+    });
+  }
+
+  /** The bots a message names answer one after another, each seeing what the
+   * ones before it said. */
+  async function askInTurn(record: GroupConversation, bots: Array<NonNullable<ReturnType<Store["bot"]>>>, ask: Ask, text: string) {
+    for (const [index, bot] of bots.entries()) await askBot(record, bot, { ...ask, upcoming: bots.slice(index + 1).map((next) => next.id) }, text);
+  }
+
+  function mention(record: GroupConversation, caller: Caller, text: string) {
+    const candidates = deps.store().bots.filter((bot) => record.bots.includes(bot.id) || caller.seesBot(bot.id));
+    const bots = mentionedBots(text, candidates);
+    if (bots.length) void askInTurn(record, bots, { asker: caller.name, askerKey: caller.key, depth: 0 }, text);
   }
 
   return {
@@ -287,8 +339,22 @@ export function createGroupConversations(deps: {
       const people = record.people.filter((key) => key !== caller.key).map((key) => ({ key, name: nameOf(key) }));
       for (const person of mentionedBots(text, people)) (record.mentionedAt ??= {})[person.key] = message.at;
       save();
-      void mention(record, caller, text);
+      mention(record, caller, text);
       return { status: 201, body: { message } };
+    },
+
+    /** A group's instructions, which every bot in it reads. */
+    update(caller: Caller, id: string, input: { instructions?: unknown }): Answer {
+      const record = mine(caller, id);
+      if (!record) return fail(404, "no such conversation");
+      if (record.kind !== "group") return fail(400, "Only a group has instructions.");
+      if (typeof input.instructions !== "string") return fail(400, "instructions required");
+      const instructions = input.instructions.trim().slice(0, 4000);
+      if (instructions === (record.instructions ?? "")) return { status: 200, body: wire(record, caller) };
+      record.instructions = instructions;
+      save();
+      notice(record, instructions ? `${caller.name} updated the group's instructions.` : `${caller.name} cleared the group's instructions.`);
+      return { status: 200, body: wire(record, caller) };
     },
 
     read(caller: Caller, id: string): Answer {
@@ -419,13 +485,19 @@ export function createGroupConversations(deps: {
       if (!pending) return;
       if (queue.length) waiting.set(threadId, queue); else waiting.delete(threadId);
       const record = byId(pending.conversationId);
-      if (!record) return;
-      const answer = [...deps.store().messagesFor(threadId)].reverse().find((message: Message) => message.role === "bot" && message.kind === "text" && message.at >= pending.since && message.text?.trim());
-      const bot = deps.store().bot(pending.botId);
-      deps.store().patchMessage(record.threadId, pending.messageId, {
-        text: ok && answer?.text ? answer.text : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`,
-        workThread: undefined, working: undefined,
-      });
+      if (!record) return pending.done();
+      const store = deps.store();
+      const answer = [...store.messagesFor(threadId)].reverse().find((message: Message) => message.role === "bot" && message.kind === "text" && message.at >= pending.since && message.text?.trim());
+      const bot = store.bot(pending.botId);
+      const said = ok && answer?.text ? answer.text : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
+      store.patchMessage(record.threadId, pending.messageId, { text: said, workThread: undefined, working: undefined });
+      pending.done();
+      // a bot that @mentions another bot here hands it on, a few times at most
+      if (!ok || !answer?.text || !bot || pending.depth >= MAX_HANDOFFS) return;
+      // not a bot that answers this same message next anyway
+      const others = record.bots.filter((id) => id !== bot.id && !pending.upcoming.includes(id)).map((id) => store.bot(id)).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+      const handedTo = mentionedBots(answer.text, others);
+      if (handedTo.length) void askInTurn(record, handedTo, { asker: pending.asker, askerKey: pending.askerKey, by: bot.name, depth: pending.depth + 1 }, answer.text);
     },
   };
 }

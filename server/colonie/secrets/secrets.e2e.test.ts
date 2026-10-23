@@ -87,4 +87,8 @@ test("in a group, the bot's request for a secret shows there and is saved by the
   expect(saved.status).toBe(200);
   await waitFor("the group's copy did not show it saved", async () => (await groupMessages(ANA)).find((m: any) => m.id === card.id && m.secretAsk.saved));
   expect(JSON.stringify(await groupMessages(BOB))).not.toContain("glpat-abcdefghijkl");
+  // Ana's next mention in the group hands the bot her secret, in its file
+  await ws.as(ANA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} I saved GITLAB_TOKEN. Please continue.` } });
+  const file = join(ws.dataDir, "secrets", "runtime", `${card.relay.threadId}.env`);
+  await waitFor("the group's request got no secrets file", async () => existsSync(file) && readFileSync(file, "utf8").includes("GITLAB_TOKEN='glpat-abcdefghijkl'") ? true : undefined);
 }, 60_000);

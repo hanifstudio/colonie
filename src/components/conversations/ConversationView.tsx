@@ -14,7 +14,7 @@ import { BotAvatar } from "../Avatar";
 import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
-  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
+  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
   mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
@@ -186,7 +186,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
           <div data-tour="composer" className={COMPOSER_PILL}>
             <div data-composer-row className={COMPOSER_ROW}>
               <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
-                placeholder={`Message ${conversation.title}`} aria-label="Message"
+                placeholder={conversation.kind === "group" && bots.length ? `Message ${conversation.title} · type @ to ask a bot` : `Message ${conversation.title}`} aria-label="Message"
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => {
                   if (open) {
@@ -254,7 +254,35 @@ function Members({ conversation, memberBots, bots, onLeft }: {
           Leave this {kind === "dm" ? "DM" : "group"}
         </button>
       </div>
+      {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
       {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** What every bot in the group reads ("focus on the IGRS project, answer
+ * in Indonesian"). */
+function GroupInstructions({ conversation, onError }: { conversation: Conversation; onError: (message: string) => void }) {
+  const [text, setText] = useState(conversation.instructions ?? "");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setText(conversation.instructions ?? ""), [conversation.instructions]);
+  const changed = text.trim() !== (conversation.instructions ?? "").trim();
+  const save = async () => {
+    setSaving(true); onError("");
+    try { await updateConversation(conversation.id, { instructions: text }); window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)); }
+    catch (cause) { onError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); }
+  };
+  return (
+    <div className="mt-4 border-t border-hairline/40 pt-3">
+      <label className="block">
+        <span className="text-[12.5px] font-medium text-ink">Instructions for this group</span>
+        <span className="mt-0.5 block text-[12px] text-ink-secondary">Every bot here reads them, for example the project it is about or the language to use.</span>
+        <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} maxLength={4000}
+          placeholder="Focus on the IGRS project. Answer in Indonesian."
+          className="mt-2 w-full resize-y rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[13px] text-ink placeholder:text-ink-tertiary focus:border-accent/60 focus:outline-none" />
+      </label>
+      {changed && <button type="button" disabled={saving} onClick={() => void save()}
+        className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-50">{saving ? "Saving…" : "Save instructions"}</button>}
     </div>
   );
 }

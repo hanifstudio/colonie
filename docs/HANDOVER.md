@@ -17,10 +17,12 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    finished run is announced; any bot saves a guide from chat (confirmed
    on a card); "/" lists guides, kept per bot. Left: a real Claude and
    Codex doing both on Etalas. Out of scope: event triggers.
-   Secrets done. Now (owner, October 23): a group is the one place. A
-   mentioned bot gets only what was said since it last spoke (its engine
-   session keeps the rest); its cards (approval, question, secret) show
-   in the group, answered by whoever asked; no separate work to open.
+   Secrets and one-place groups done. Now (owner, October 23), group
+   sessions with several bots: each bot knows the group (people, bots and
+   their roles, group instructions); two bots mentioned together answer in
+   turn; a bot may @mention another (at most 3 in a row without a person);
+   permissions and secrets follow the person who started it; no answer
+   without a mention, with a hint to type @.
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief
@@ -33,8 +35,7 @@ against the live cloud), engine sign-in from the admin's browser. In order:
    skips it), the Colonie Cloud domain; the server image's last 600 MB
    (web-app-only packages, Next.js via better-auth).
 
-Not yet seen in a real window: the installed app opening a `colonie://`
-invite link; Update on a real Shared server.
+Not yet seen in a real window: the installed app opening a `colonie://` link.
 
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the

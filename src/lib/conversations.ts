@@ -16,6 +16,8 @@ export interface Conversation {
   people: ConversationPerson[]; bots: string[]; lastMessageAt: number; unread: boolean;
   /** The last thing said ("Bob: see you"), empty before anything is. */
   preview?: string;
+  /** A group's instructions, which every bot in it reads. */
+  instructions?: string;
   /** Someone @named the caller since they last read it. */
   mentioned?: boolean;
 }
@@ -42,6 +44,8 @@ export const createConversation = (input: { kind: "group" | "dm"; name?: string;
   api<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(input) });
 export const addToConversation = (id: string, input: { emails?: string[]; bots?: string[] }) =>
   api<Conversation>(`/api/conversations/${id}/members`, { method: "POST", body: JSON.stringify(input) });
+export const updateConversation = (id: string, input: { instructions: string }) =>
+  api<Conversation>(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
 export const workspacePeople = async () => (await api<{ people: Array<{ email: string; name: string }> }>("/api/people")).people;
 

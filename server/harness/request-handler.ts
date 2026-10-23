@@ -686,6 +686,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         answer = method === "GET" ? groupConversations.messages(caller, m[1])
           : method === "POST" ? await groupConversations.post(caller, m[1], (await readBody(req))?.text) : null;
       } else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/read$/))) answer = groupConversations.read(caller, m[1]);
+      else if (method === "PATCH" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.update(caller, m[1], (await readBody(req)) ?? {});
       else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members$/))) answer = groupConversations.add(caller, m[1], (await readBody(req)) ?? {});
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members\/me$/))) answer = groupConversations.leave(caller, m[1]);
       return answer ? json(res, answer.status, answer.body) : json(res, 405, { error: "method not allowed" });

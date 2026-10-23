@@ -3,7 +3,7 @@
 // of two people and a bot, the bot answering in the group when mentioned, a
 // DM between two people, and nobody else seeing any of it. Then a Local
 // workspace, where its owner makes a group with their bots.
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { startSharedWorkspace, type SharedWorkspace } from "../../testing/shared-workspace.ts";
 
@@ -152,7 +152,87 @@ test("a second mention hands the bot only what was said since it last spoke", as
     await new Promise((r) => setTimeout(r, 150));
   }
   // the stand-in answers with what it was handed
-  expect(answer.text).toContain("mentioned you again");
+  expect(answer.text).toContain("Said since you last spoke:");
   expect(answer.text).toContain("the venue moved to Friday");
   expect(answer.text).not.toContain("plan for Friday?");
 }, 60_000);
+
+describe("a group with several bots", () => {
+  let second: { id: string; name: string };
+  let crew: { id: string; threadId: string };
+  const lines = async () => (await ws.as(ADA, `/api/conversations/${crew.id}/messages`)).body.messages as Array<any>;
+  const settled = async (count: number, ms = 30_000) => {
+    const end = Date.now() + ms;
+    let found: any[] = [];
+    while (Date.now() < end) {
+      found = (await lines()).filter((message) => message.from && !message.notice && !message.relay);
+      if (found.length >= count && found.every((message) => !message.working)) return found;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    throw new Error(`bots did not settle: ${JSON.stringify(found.map((m) => [m.from?.name, m.working, (m.text ?? "").slice(0, 60)]))}`);
+  };
+
+  beforeAll(async () => {
+    const made = await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Quill", title: "Researcher" } });
+    second = made.body.bot ?? made.body;
+    const first = (await ws.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.id !== second.id);
+    bot = { id: first.id, name: first.name };
+    crew = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Crew", emails: [BOB], bots: [bot.id, second.id] } })).body;
+    await ws.as(ADA, `/api/conversations/${crew.id}`, { method: "PATCH", body: { instructions: "Answer in Indonesian." } });
+  }, 60_000);
+
+  test("each bot is told who is here, the other bots and their roles, and the group's instructions", async () => {
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${second.name} hello` } });
+    const [answer] = await settled(1);
+    // the stand-in answers with what it was handed
+    expect(answer.text).toContain('This is the group "Crew".');
+    expect(answer.text).toContain(`${bot.name}`);
+    expect(answer.text).toContain(`${second.name} (you)`);
+    expect(answer.text).toContain("Instructions for this group:");
+    expect(answer.text).toContain("Answer in Indonesian.");
+  }, 60_000);
+
+  test("two bots in one message answer in turn, the second seeing the first's answer", async () => {
+    const before = (await lines()).length;
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} @${second.name} plan the launch` } });
+    const end = Date.now() + 40_000;
+    let mine: any[] = [];
+    while (Date.now() < end) {
+      mine = (await lines()).slice(before).filter((message) => message.from && !message.notice);
+      const firstDone = mine.find((message) => message.from.botId === bot.id && !message.working);
+      const secondDone = mine.find((message) => message.from.botId === second.id && !message.working);
+      if (firstDone && secondDone) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    const firstAnswer = mine.find((message) => message.from.botId === bot.id);
+    const secondAnswer = mine.find((message) => message.from.botId === second.id);
+    expect(mine.indexOf(firstAnswer)).toBeLessThan(mine.indexOf(secondAnswer));
+    // the second was handed what the first said
+    expect(secondAnswer.text).toContain(`${bot.name}: `);
+    // asked once by the message, not again because the first named it
+    expect(mine.filter((message) => message.from.botId === second.id && message.from && !message.relay)).toHaveLength(1);
+  }, 90_000);
+
+  test("a bot that @mentions another bot hands it on, and the chain stops after three", async () => {
+    const before = (await lines()).length;
+    // the stand-in answers "hand over to <name>" with "@<name> over to you"
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} hand over to ${second.name}` } });
+    const end = Date.now() + 60_000;
+    let mine: any[] = [];
+    while (Date.now() < end) {
+      mine = (await lines()).slice(before).filter((message) => message.from && !message.notice && !message.relay);
+      if (mine.length >= 2 && mine.every((message) => !message.working)) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const again = (await lines()).slice(before).filter((message) => message.from && !message.notice && !message.relay);
+        if (again.length === mine.length && again.every((message) => !message.working)) break;
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    expect(mine[0].from.botId).toBe(bot.id);
+    expect(mine[0].text).toBe(`@${second.name} over to you`);
+    const handed = mine.find((message) => message.from.botId === second.id);
+    expect(handed.text).toContain(`${bot.name} (a bot) asked you, for`);
+    // the stand-in echoes every mention back, so it would go on: one ask and three hand-offs at most
+    expect(mine.length).toBeLessThanOrEqual(4);
+  }, 120_000);
+});
