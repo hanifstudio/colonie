@@ -75,8 +75,31 @@ export function createGroupConversations(deps: {
     writeFileAtomic(deps.file, `${JSON.stringify(records, null, 2)}\n`, { mode: 0o600 });
     deps.onChange?.();
   };
-  /** A bot's working thread → the conversation line waiting for its answer. */
-  const waiting = new Map<string, { conversationId: string; messageId: string; botId: string; since: number }>();
+  /** A bot's working thread → the conversation lines waiting for its
+   * answers, oldest first: a mention while it works queues a turn, and each
+   * turn that ends answers the oldest line. */
+  type Pending = { conversationId: string; messageId: string; botId: string; since: number; asker: string };
+  const waiting = new Map<string, Pending[]>();
+  /** Waiting lines live in memory: after a restart none can be answered, so
+   * a line left "working on it" (or waiting for a person) says it stopped. */
+  let settledLeftovers = false;
+  const settleLeftovers = () => {
+    if (settledLeftovers) return;
+    settledLeftovers = true;
+    const store = deps.store();
+    for (const record of records) {
+      // work made before it was marked as the conversation's
+      for (const [botId, threadId] of Object.entries(record.botThreads)) {
+        if (store.taskByThread(botId, threadId) && !store.taskByThread(botId, threadId)?.forConversation) store.patchTask(botId, threadId, { forConversation: record.id });
+      }
+      for (const message of store.messagesFor(record.threadId)) {
+        if (message.role !== "bot" || !message.from) continue;
+        if (message.workThread || message.text === `${message.from.name} is working on it…`) {
+          store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined });
+        }
+      }
+    }
+  };
 
   const byId = (id: string) => records.find((record) => record.id === id);
   const mine = (caller: Caller, id: string) => {
@@ -164,6 +187,7 @@ export function createGroupConversations(deps: {
         const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [caller.key]);
         if (!task) continue;
         threadId = task.threadId;
+        store.patchTask(bot.id, threadId, { forConversation: record.id });
         record.botThreads[bot.id] = threadId;
         save();
       } else if (!(store.threadParticipants(threadId) ?? []).includes(caller.key)) {
@@ -174,11 +198,12 @@ export function createGroupConversations(deps: {
         role: "bot", kind: "text", text: `${bot.name} is working on it…`,
         from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
       });
-      waiting.set(threadId, { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at });
+      const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: caller.name };
+      waiting.set(threadId, [...(waiting.get(threadId) ?? []), pending]);
       try {
         await deps.runBotTurn(bot.id, threadId, brief(record, bot.name, caller.name, text), { name: caller.name });
       } catch (error) {
-        waiting.delete(threadId);
+        waiting.set(threadId, (waiting.get(threadId) ?? []).filter((entry) => entry !== pending));
         store.patchMessage(record.threadId, line.id, { text: `${bot.name} could not start: ${(error as Error).message}` });
       }
     }
@@ -190,6 +215,7 @@ export function createGroupConversations(deps: {
     },
 
     list(caller: Caller): Answer {
+      settleLeftovers();
       const mineAll = records.filter((record) => record.people.includes(caller.key)).map((record) => wire(record, caller));
       return { status: 200, body: { conversations: mineAll.sort((a, b) => b.lastMessageAt - a.lastMessageAt) } };
     },
@@ -308,16 +334,34 @@ export function createGroupConversations(deps: {
       return record.threadId;
     },
 
-    turnCompleted(threadId: string, ok: boolean) {
-      const pending = waiting.get(threadId);
+    /** The bot stopped for a person (an approval, a question, a secret)
+     * in its own work thread, where the card is: the waiting line says so
+     * and offers the way there, or the group only ever sees "working on it". */
+    needsPerson(threadId: string, what: string) {
+      const pending = waiting.get(threadId)?.[0];
       if (!pending) return;
-      waiting.delete(threadId);
+      const record = byId(pending.conversationId);
+      const bot = deps.store().bot(pending.botId);
+      if (!record || !bot) return;
+      deps.store().patchMessage(record.threadId, pending.messageId, {
+        text: `${bot.name} needs ${pending.asker} for ${what} before it can go on.`,
+        workThread: { botId: bot.id, threadId },
+      });
+    },
+
+    /** A bot's turn ended: its answer replaces the oldest waiting line. */
+    turnCompleted(threadId: string, ok: boolean) {
+      const queue = waiting.get(threadId) ?? [];
+      const pending = queue.shift();
+      if (!pending) return;
+      if (queue.length) waiting.set(threadId, queue); else waiting.delete(threadId);
       const record = byId(pending.conversationId);
       if (!record) return;
       const answer = [...deps.store().messagesFor(threadId)].reverse().find((message: Message) => message.role === "bot" && message.kind === "text" && message.at >= pending.since && message.text?.trim());
       const bot = deps.store().bot(pending.botId);
       deps.store().patchMessage(record.threadId, pending.messageId, {
         text: ok && answer?.text ? answer.text : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`,
+        workThread: undefined,
       });
     },
   };

@@ -10,4 +10,7 @@ export interface AcpToolMount {
   deactivate(): void;
   release(): void;
   calls(): import("../../../shared/connected-apps.ts").ConnectedToolCall[];
+  /** Tools of this mount that never need the engine's permission prompt:
+   * Colonie's own, each confirmed by its own card or Undo. */
+  trustedTools?: readonly string[];
 }

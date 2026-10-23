@@ -31,10 +31,9 @@ test("a bot that is not the Chief saves a guide only once the person confirms th
   const guide = { name: "weekly-launch-report", description: "Use when asked for the weekly launch report.", instructions: "1. Read the launch notes.\n2. List what moved.\n3. Hand back five lines.", requestId: "guide-1" };
   const sent = await ws.as(ANA, `/api/bots/${botId}/messages`, { method: "POST", body: { text: `mcp call colonie_workspace save_my_skill ${JSON.stringify(guide)}` } });
   const threadId = sent.body.threadId;
-  const permission = await card(threadId, (c) => c.requestId && !c.skillRequest);
-  await ws.as(ANA, `/api/threads/${threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId: permission.requestId } });
-
+  // Colonie's own tool asks nothing first: the guide card is the question
   const proposal = await card(threadId, (c) => Boolean(c.skillRequest));
+  expect(((await ws.as(ANA, `/api/threads/${threadId}/messages`)).body.messages ?? []).some((m: any) => m.card?.requestId && !m.card.skillRequest)).toBe(false);
   expect(proposal.skillRequest).toMatchObject({ botId, name: "weekly-launch-report", action: "create" });
   expect(proposal.skillRequest.preview).toContain("List what moved.");
   // nothing is saved before the answer

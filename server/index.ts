@@ -940,6 +940,7 @@ const colonieChief = new ColonieChief({
       ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
       secretAsk: { name, description: input.description.trim().slice(0, 300), botId },
     });
+    groupConversations.needsPerson(threadId, `the secret ${name}`);
     return { state: "waiting for the person", summary: `A button under your reply asks the person to save ${name}. You will not see the value; on their next message it is in your secrets file.` };
   },
   // Routines from chat; the scheduler and request service start further down
@@ -1511,6 +1512,8 @@ bus.subscribe((event: RuntimeEvent) => {
 // A bot mentioned in a group or DM: its answer goes back there (colonie/groups).
 bus.subscribe((event: RuntimeEvent) => {
   if (event.type === "turn.completed") groupConversations.turnCompleted(event.threadId, event.ok);
+  // stopped for a person in its work thread: the group line points there
+  if (event.type === "request.opened") groupConversations.needsPerson(event.threadId, event.requestType === "question" ? "an answer" : "an OK");
 });
 const { deliverLateQuestionAnswer, drainQueuedSends, startOrQueueDirectMessage } = createDirectFlow({
   botAtThreadCapacity,

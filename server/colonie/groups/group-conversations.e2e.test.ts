@@ -72,6 +72,8 @@ test("people write in it, and a bot answers there when mentioned", async () => {
   // The bot's own work for this group is open to whoever asked it.
   const adaBots = await ws.as(ADA, "/api/bots");
   expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.map((task: any) => task.title)).toContain("Work for Launch");
+  // marked as the group's, so it is not listed with the bot's own conversations
+  expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.find((task: any) => task.title === "Work for Launch").forConversation).toBe(group.id);
 });
 
 test("someone not in the group sees nothing of it", async () => {
@@ -108,3 +110,57 @@ test("on a Local workspace its owner makes a group with their bots", async () =>
   const list = await (await fetch(`${local.url}/api/conversations`)).json() as { conversations: Array<{ title: string }> };
   expect(list.conversations.map((entry: any) => entry.title)).toEqual(["My team"]);
 });
+
+test("a bot that stops for a person in a group says so there, with the way to its work, then answers", async () => {
+  const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
+  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
+  const waitingLine = async () => (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id).at(-1);
+  const until = Date.now() + 20_000;
+  let line: any;
+  while (Date.now() < until) {
+    line = await waitingLine();
+    if (line?.workThread) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  expect(line.text).toMatch(/needs .* for an OK before it can go on/);
+  const work = line.workThread.threadId;
+  // the card is in the bot's work, where the person who asked answers it
+  const card = (await ws.as(ADA, `/api/threads/${work}/messages`)).body.messages.find((message: any) => message.card?.requestId && !message.card.answered);
+  expect(card).toBeTruthy();
+  expect((await ws.as(ADA, `/api/threads/${work}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } })).status).toBe(200);
+  const answered = Date.now() + 20_000;
+  while (Date.now() < answered) {
+    line = (await messagesOf(ADA)).find((message) => message.id === line.id);
+    if (!line.workThread) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  expect(line.workThread).toBeUndefined();
+  expect(line.text).not.toMatch(/needs .* before it can go on|working on it/);
+}, 60_000);
+
+test("a second mention while the bot is busy gets its own answer; no line is left working", async () => {
+  const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
+  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission again` } });
+  const lines = async () => (await messagesOf(ADA)).filter((message) => message.from?.botId === bot.id);
+  let first: any;
+  const asked = Date.now() + 20_000;
+  while (Date.now() < asked) { first = (await lines()).at(-1); if (first?.workThread) break; await new Promise((r) => setTimeout(r, 150)); }
+  await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} and one more thing` } });
+  await new Promise((r) => setTimeout(r, 500));
+  const second = (await lines()).at(-1);
+  expect(second.id).not.toBe(first.id);
+  const work = first.workThread.threadId;
+  const card = (await ws.as(ADA, `/api/threads/${work}/messages`)).body.messages.find((message: any) => message.card?.requestId && !message.card.answered);
+  await ws.as(ADA, `/api/threads/${work}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } });
+  // the stand-in's answer echoes recent messages, so compare whole lines
+  const stillWaiting = (text: string) => text === `${bot.name} is working on it…` || /^\S+ needs \S+ for an OK before it can go on\.$/.test(text);
+  const done = Date.now() + 30_000;
+  let texts: string[] = [];
+  while (Date.now() < done) {
+    const now = await lines();
+    texts = [first.id, second.id].map((id) => now.find((message) => message.id === id)?.text ?? "");
+    if (!texts.some(stillWaiting)) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  expect(texts.some(stillWaiting)).toBe(false);
+}, 90_000);

@@ -4,6 +4,7 @@
 // the only clean slate is a second bot. A task is a real boundary — its
 // own transcript and its own provider session — so sensitive work, a
 // long job and a quick question can sit side by side under one agent.
+import { listedTask } from "@/lib/listed-tasks";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Activity01Icon, ChevronDownIcon, FolderInputIcon, PencilIcon, PinIcon, PinOffIcon, PlusSignIcon, Search01Icon, Delete02Icon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
@@ -475,7 +476,7 @@ export function TaskPicker({ bot, conversations = false }: { bot: Bot; conversat
   return (
     <ConversationTaskPicker
       threadId={bot.threadId}
-      tasks={orderedThreadList((bot.tasks ?? []).filter((task) => !task.routineRunId))}
+      tasks={orderedThreadList((bot.tasks ?? []).filter(listedTask))}
       busy={false}
       bot={bot}
       conversations={conversations}

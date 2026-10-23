@@ -1,3 +1,4 @@
+import { listedTask } from "@/lib/listed-tasks";
 import {
   AlertCircleIcon,
   Clock03Icon,
@@ -24,7 +25,7 @@ export function sidebarBotActivityTasks(bot: Bot, queued: Record<string, unknown
   }];
   return tasks.map((task) => ({ ...task, queued: Boolean(queued[task.threadId]?.length) }))
     // Routine runs are reachable through their run receipt, never a menu.
-    .filter((task) => !task.routineRunId)
+    .filter(listedTask)
     .filter((task) => task.activity === "waiting-on-you" || task.activity === "working" || task.busy || task.queued || task.unread);
 }
 
@@ -35,7 +36,7 @@ export function threadsWhenTreeHidden(bot: Bot, queued: Record<string, unknown[]
   const attention = sidebarBotActivityTasks(bot, queued);
   const seen = new Set(attention.map((task) => task.threadId));
   const pinned = (bot.tasks ?? [])
-    .filter((task) => task.pinned === true && !task.routineRunId && !seen.has(task.threadId))
+    .filter((task) => task.pinned === true && listedTask(task) && !seen.has(task.threadId))
     .map((task) => ({ ...task, queued: Boolean(queued[task.threadId]?.length) }));
   return orderedThreadList([...attention, ...pinned]);
 }
@@ -118,7 +119,7 @@ export function crossBotPinnedThreads(bots: Bot[], queued: Record<string, unknow
   const flat: FlatAttentionEntry[] = bots
     .filter((bot) => !bot.hidden)
     .flatMap((bot): FlatAttentionEntry[] => (bot.tasks ?? [])
-      .filter((task) => task.pinned === true && !task.routineRunId)
+      .filter((task) => task.pinned === true && listedTask(task))
       .map((task) => ({ ...task, queued: Boolean(queued[task.threadId]?.length), botId: bot.id, botName: bot.name })));
   return orderedThreadList(flat).map(({ botId, botName, ...task }): AttentionThread =>
     ({ kind: "bot", botId, botName, task }));

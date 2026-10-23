@@ -123,6 +123,9 @@ export interface WireTask {
   projectId?: string;
   /** Detached routine execution, reachable through its visible results card. */
   routineRunId?: string;
+  /** A bot's work for a group or DM (colonie/groups): reached from that
+   * conversation, not listed with the bot's own conversations. */
+  forConversation?: string;
   /** Set when a bot, not a person, opened this thread. */
   openedBy?: TaskOpenedBy;
   /** Set by close_thread; absent while the thread is open. */
@@ -387,6 +390,9 @@ export interface WireMessage {
   /** A bot asking the person for a secret (server/colonie/secrets): a button
    * under its reply opens a form; the value never enters the chat. */
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
+  /** In a group or DM: the bot's own work thread, where a card waits for a
+   * person (colonie/groups needsPerson). */
+  workThread?: { botId: string; threadId: string };
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;

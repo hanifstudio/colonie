@@ -39,18 +39,6 @@ test("a bot schedules a routine for itself from chat, and the person sees it wit
   expect(sentText).toContain("This is the Shared workspace");
   expect(sentText).toContain("about_colonie");
 
-  // the engine asks before using a tool (the stand-in always does); the
-  // person allows it in the conversation
-  let requestId = "";
-  const asked = Date.now() + 20_000;
-  while (!requestId && Date.now() < asked) {
-    const messages = (await ws.as(ANA, `/api/threads/${threadId}/messages`)).body.messages ?? [];
-    requestId = messages.find((message: any) => message.card?.requestId && !message.card?.routineRequest)?.card.requestId ?? "";
-    if (!requestId) await settle(100);
-  }
-  expect(requestId).not.toBe("");
-  expect((await ws.as(ANA, `/api/threads/${threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId } })).status).toBe(200);
-
   let routine: any;
   const until = Date.now() + 30_000;
   while (!routine && Date.now() < until) {
@@ -87,14 +75,6 @@ test("a routine a bot schedules while working for a group reports each run to th
   await ws.as(ANA, `/api/bots/${botId}/messages`, { method: "POST", body: { threadId: workThread, text: `mcp call colonie_workspace schedule_routine ${JSON.stringify({
     name: "Launch check", instructions: "Say how the launch is going.", requestId: "group-1", schedule: { type: "weekly", time: "09:00", weekdays: ["monday"] },
   })}` } });
-  let requestId = "";
-  const asked = Date.now() + 20_000;
-  while (!requestId && Date.now() < asked) {
-    const messages = (await ws.as(ANA, `/api/threads/${workThread}/messages`)).body.messages ?? [];
-    requestId = messages.find((message: any) => message.card?.requestId && !message.card?.routineRequest && !message.card?.answered)?.card.requestId ?? "";
-    if (!requestId) await settle(100);
-  }
-  await ws.as(ANA, `/api/threads/${workThread}/respond`, { method: "POST", body: { behavior: "allow", requestId } });
   let routine: any;
   const until = Date.now() + 20_000;
   while (!routine && Date.now() < until) {

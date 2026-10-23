@@ -1,3 +1,4 @@
+import { listedTask } from "@/lib/listed-tasks";
 import { approvalCardOutcome } from "./ApprovalCard";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -429,7 +430,7 @@ export function BotThreadList({ bot, selected, density, query, pendingQueued, re
   const now = useRelativeNow();
   const advanced = useAdvancedMode();
   const tasks = (bot.tasks ?? [{ threadId: bot.threadId, title: t("task.newShort"), createdAt: 0 }])
-    .filter((task) => !task.routineRunId)
+    .filter(listedTask)
     .map((task) => ({ ...task, queued: Boolean(pendingQueued[task.threadId]?.length) }));
   const projects = bot.projects ?? NO_FOLDERS;
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -824,7 +825,7 @@ export const BotListItem = memo(function BotListItem(props: BotRowProps) {
   useEffect(() => { if (reveal && showThreads) setThreadsOpen(true); }, [reveal, showThreads]);
   // one thread is the bot itself; the disclosure only earns its place once
   // there is a list (a second thread or a folder) to open
-  const hasThreadList = (bot.tasks?.filter((task) => !task.routineRunId).length ?? 1) > 1 || (bot.projects?.length ?? 0) > 0 || Boolean(query);
+  const hasThreadList = (bot.tasks?.filter(listedTask).length ?? 1) > 1 || (bot.projects?.length ?? 0) > 0 || Boolean(query);
   const iconOnly = density === "icons";
   const expanded = showThreads && !iconOnly && threadsOpen && hasThreadList;
   useEffect(() => {
@@ -1493,7 +1494,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
         b.name.toLowerCase().includes(q) ||
         (b.title ?? "").toLowerCase().includes(q) ||
         preview(b, visibleMessages(b), state.instances).toLowerCase().includes(q) ||
-        b.tasks?.some((task) => !task.routineRunId && task.title.toLowerCase().includes(q)) ||
+        b.tasks?.some((task) => listedTask(task) && task.title.toLowerCase().includes(q)) ||
         b.projects?.some((folder) => folder.name.toLowerCase().includes(q)),
     );
   const {

@@ -39,10 +39,9 @@ test("a bot asks, the person saves it privately, and the next request gets a fil
   const ask = { name: "GMAIL_APP_PASSWORD", description: "App password for reading your Gmail.", requestId: "s-1" };
   const sent = await ws.as(ANA, `/api/bots/${botId}/messages`, { method: "POST", body: { text: `mcp call colonie_workspace request_secret ${JSON.stringify(ask)}` } });
   const threadId = sent.body.threadId;
-  const permission = await waitFor("no tool permission card", async () => (await messages(ANA, threadId)).find((m: any) => m.card?.requestId)?.card);
-  await ws.as(ANA, `/api/threads/${threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId: permission.requestId } });
-
+  // Colonie's own tool asks nothing first: the card is its confirmation
   const card = await waitFor("no secret request in the chat", async () => (await messages(ANA, threadId)).find((m: any) => m.secretAsk));
+  expect((await messages(ANA, threadId)).some((m: any) => m.card?.requestId && !m.card?.skillRequest)).toBe(false);
   expect(card.secretAsk).toMatchObject({ name: "GMAIL_APP_PASSWORD", botId });
 
   const saved = await ws.as(ANA, "/api/secrets/GMAIL_APP_PASSWORD", { method: "PUT", body: { value: VALUE, description: "Gmail", botId, threadId, messageId: card.id } });

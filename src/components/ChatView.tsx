@@ -735,9 +735,26 @@ const Bubble = memo(function Bubble({
           </button>
         </div>
       )}
+      {/* in a group: the bot waits for a person in its own work, where the
+          card is; this opens it */}
+      {message.workThread && <WorkThreadButton botId={message.workThread.botId} threadId={message.workThread.threadId} />}
     </div>
   );
 });
+
+function WorkThreadButton({ botId, threadId }: { botId: string; threadId: string }) {
+  const { state, dispatch } = useStore();
+  const bot = state.bots.find((entry) => entry.id === botId);
+  // only the person it waits for can open that work
+  if (!bot?.tasks?.some((task) => task.threadId === threadId)) return null;
+  const name = bot.name;
+  return (
+    <button type="button" onClick={() => { dispatch({ type: "selectConversation", id: null }); openThread(dispatch, { botId, threadId }, state); }}
+      className="mt-1.5 rounded-xl bg-accent px-3.5 py-1.5 text-[13px] font-medium text-white hover:brightness-110">
+      Open {name}'s work
+    </button>
+  );
+}
 
 /** Who wrote a relayed line and how it arrived, above the bubble. Looked up
  * by id, then by name for rows that predate Message.peerAsk; a peer since

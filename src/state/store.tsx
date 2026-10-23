@@ -167,6 +167,7 @@ export interface Message {
   /** A line about a group or DM itself ("Ana added Bob"), not anyone's words. */
   notice?: true;
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
+  workThread?: { botId: string; threadId: string };
   id: string;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
@@ -249,6 +250,7 @@ export interface Task {
   threadId: string;
   /** Internal routine execution; reachable through its run receipt, not history menus. */
   routineRunId?: string;
+  forConversation?: string;
   projectId?: string;
   title: string;
   createdAt: number;

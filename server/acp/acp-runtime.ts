@@ -328,6 +328,14 @@ export class AcpRuntime implements ProviderAdapter {
     if (session.closed || session.loading || !turn || turn.finished || turn.cancelled || request.sessionId !== session.id) {
       return Promise.resolve({ outcome: { outcome: "cancelled" } });
     }
+    // Colonie's own tools (request_secret, schedule_routine, ...) carry their
+    // own confirmation; the engine's prompt would only ask a second time.
+    const trusted = session.mounts.flatMap((mount) => mount.trustedTools ?? []);
+    const named = [request.toolCall.title, (request.toolCall as { name?: string }).name].filter((value): value is string => typeof value === "string");
+    const allow = request.options.find((option) => option.kind === "allow_once") ?? request.options.find((option) => option.kind === "allow_always");
+    if (allow && named.some((value) => trusted.some((tool) => value === tool || value.endsWith(`__${tool}`) || value.endsWith(`.${tool}`) || value.includes(`colonie_workspace`) && value.includes(tool)))) {
+      return Promise.resolve({ outcome: { outcome: "selected", optionId: allow.optionId } });
+    }
     const requestId = newId();
     // Register before emitting: a listener may answer synchronously.
     const result = new Promise<RequestPermissionResponse>((resolve) => {

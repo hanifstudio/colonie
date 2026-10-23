@@ -318,6 +318,9 @@ export class ColonieChief {
       servers,
       revision,
       receipt,
+      // asking first (request_secret, schedule_routine, save_my_skill, ...)
+      // would ask twice: each already has its own card, Undo or answer
+      trustedTools: [...selfSkillTools, ...selfRoutineTools].map((tool) => tool.name),
       activate: () => {
         this.assertCurrent(lease);
         if (lease.controller.signal.aborted) lease.controller = new AbortController();

@@ -1,3 +1,4 @@
+import { listedTask } from "./listed-tasks";
 import { useEffect, useState, type SetStateAction } from "react";
 
 /** The open state each sidebar row was left in outside a search. Kept here
@@ -48,6 +49,6 @@ export function searchMatchesThreads(
 ): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return false;
-  return Boolean(tasks?.some((task) => !task.routineRunId && task.title.toLowerCase().includes(q)))
+  return Boolean(tasks?.some((task) => listedTask(task) && task.title.toLowerCase().includes(q)))
     || folders.some((folder) => folder.name.toLowerCase().includes(q));
 }

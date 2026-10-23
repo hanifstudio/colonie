@@ -194,7 +194,8 @@ agent({ name: "Colonie deterministic fixture" })
       } else result = `MCP permission: ${outcome}`;
       await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: toolCall.toolCallId, status: outcome === "yes-once" ? "completed" : "failed", content: [{ type: "content", content: { type: "text", text: result } }] } });
     }
-    if (text.startsWith("permission")) {
+    // a group mention wraps the person's words in a brief; they are its last line
+    if (text.startsWith("permission") || /\n@\S+ permission[^\n]*$/.test(text)) {
       const toolCall = { toolCallId: crypto.randomUUID(), title: "Write fixture file", kind: "edit" as const, status: "pending" as const };
       await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "tool_call", ...toolCall } });
       const answer = await client.request<RequestPermissionResponse, RequestPermissionRequest>(methods.client.session.requestPermission, {
