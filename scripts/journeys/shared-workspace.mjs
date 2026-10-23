@@ -107,7 +107,7 @@ try {
   step = "@mentions";
   await ana.click("main form textarea");
   await ana.keyboard.type("@Bo");
-  await until(ana, async () => (await ana.locator('ul[aria-label="Mention"] button').count()) > 0, "typing @Bo suggests Bob");
+  await until(ana, async () => (await ana.locator('[role="listbox"][aria-label="Mention"] [role="option"]').count()) > 0, "typing @Bo suggests Bob");
   await ana.keyboard.press("Enter");
   await ana.keyboard.type("can you check the budget?");
   await ana.keyboard.press("Enter");

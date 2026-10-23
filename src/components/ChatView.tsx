@@ -59,6 +59,7 @@ import { openPlaceAction, placeRowViewFor, usePlaceSeat, worksOnSimpleLabel } fr
 import type { PlaceRow } from "../../shared/place-view";
 import { isProviderSafetyBlock, PROVIDER_SAFETY_GUIDANCE, PROVIDER_SAFETY_HELP_URL } from "../../shared/provider-safety";
 import { BotAvatar } from "./Avatar";
+import type { MentionPeer } from "@/lib/mentions";
 import { PersonAvatar } from "./PersonAvatar";
 import { SecretAsk } from "./Secrets";
 import { TurnPresence } from "./TurnPresence";
@@ -158,8 +159,8 @@ interface ChatRows {
   accountWorkspace?: boolean;
   /** Every bot, for who wrote a relayed line or sits across a bot⇄bot chip. */
   bots: readonly Bot[];
-  /** Every other bot, for @mentions. */
-  mentionPeers: readonly Bot[];
+  /** Every other bot, and in a group or DM its people, for @mentions. */
+  mentionPeers: readonly MentionPeer[];
   /** A search hit or jump target in this thread. */
   focus: AppState["focusMessage"];
   showToolCalls: boolean;
@@ -499,6 +500,12 @@ const Bubble = memo(function Bubble({
 
   // a line about the conversation itself (who made it, who joined)
   if (message.notice) return <div className="py-1 text-center text-[12.5px] text-ink-tertiary">{message.text}</div>;
+  // in a group: the bot is still working on its answer; the same dots as a
+  // bot chat, under its face and name
+  if (message.working) return <div className="flex w-full flex-col items-start">
+    {message.sender && <SenderLine message={message} />}
+    <div className="rounded-2xl bg-card px-4 py-3" role="status" aria-label={message.text}><WorkingDots /></div>
+  </div>;
   // a bot asking for a secret: the button opens the private form; once saved
   // the person's short note lets the bot carry on with it
   if (message.secretAsk) return <SecretAsk message={message} threadId={threadId}
@@ -526,9 +533,8 @@ const Bubble = memo(function Bubble({
     <div className={cn("group flex w-full flex-col", user ? "animate-msg-in items-end" : "items-start")}>
       {/* who wrote it: a signed-in person's own words carry their name too, so a
           conversation with several people reads like one */}
-      {message.sender && (user
-        ? <span className="mb-1 px-1 text-[11px] text-ink-secondary">{message.sender.name}</span>
-        : <SenderLine message={message} />)}
+      {/* your own messages need no name; others' carry their face and name */}
+      {message.sender && !user && <SenderLine message={message} />}
       {peer && <PeerLabel peer={peer} />}
       <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
         {user && (
@@ -1138,6 +1144,8 @@ function chiefOfStaffBadge(bot: Bot) {
  * surface used by Local: header pill, bubbles, Markdown, glass and composer. */
 export interface AccountConversationControls {
   composer: ReactNode;
+  /** The people of a group or DM, so @Name of a person is marked too. */
+  mentionPeople?: readonly string[];
   identity?: ReactNode;
   actions?: ReactNode;
   beforeMessages?: ReactNode;
@@ -1237,7 +1245,8 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
 
   // What the rows read besides their own message (see ChatRows).
   const bots = useDrawnBots(state.bots);
-  const mentionPeers = useMemo(() => bots.filter((peer) => peer.id !== bot.id), [bots, bot.id]);
+  const mentionPeers = useMemo<readonly MentionPeer[]>(() => [...bots.filter((peer) => peer.id !== bot.id), ...(accountConversation?.mentionPeople ?? []).map((name) => ({ name }))],
+    [bots, bot.id, accountConversation?.mentionPeople]);
   const focus = state.focusMessage?.threadId === bot.threadId ? state.focusMessage : null;
   const showToolCalls = showToolCallsEnabled(state.config);
   const tts = state.config?.tts;

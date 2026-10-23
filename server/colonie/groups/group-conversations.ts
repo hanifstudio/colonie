@@ -95,7 +95,7 @@ export function createGroupConversations(deps: {
       for (const message of store.messagesFor(record.threadId)) {
         if (message.role !== "bot" || !message.from) continue;
         if (message.workThread || message.text === `${message.from.name} is working on it…`) {
-          store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined });
+          store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined, working: undefined });
         }
       }
     }
@@ -195,7 +195,7 @@ export function createGroupConversations(deps: {
         store.setThreadParticipants(threadId, [...(store.threadParticipants(threadId) ?? []), caller.key]);
       }
       const line = store.appendMessage(record.threadId, {
-        role: "bot", kind: "text", text: `${bot.name} is working on it…`,
+        role: "bot", kind: "text", text: `${bot.name} is working on it…`, working: true,
         from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
       });
       const pending: Pending = { conversationId: record.id, messageId: line.id, botId: bot.id, since: line.at, asker: caller.name };
@@ -345,7 +345,7 @@ export function createGroupConversations(deps: {
       if (!record || !bot) return;
       deps.store().patchMessage(record.threadId, pending.messageId, {
         text: `${bot.name} needs ${pending.asker} for ${what} before it can go on.`,
-        workThread: { botId: bot.id, threadId },
+        workThread: { botId: bot.id, threadId }, working: undefined,
       });
     },
 
@@ -361,7 +361,7 @@ export function createGroupConversations(deps: {
       const bot = deps.store().bot(pending.botId);
       deps.store().patchMessage(record.threadId, pending.messageId, {
         text: ok && answer?.text ? answer.text : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`,
-        workThread: undefined,
+        workThread: undefined, working: undefined,
       });
     },
   };

@@ -8,6 +8,8 @@ import { HIcon } from "../HIcon";
 import { ChatView, CHATHEAD_PILL } from "../ChatView";
 import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
 import { MentionTextarea } from "../MentionTextarea";
+import { ComposerMenuRow } from "../ComposerMenuRow";
+import { BotAvatar } from "../Avatar";
 import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
@@ -53,6 +55,7 @@ export function ConversationView({ id }: { id: string }) {
 
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
   const shown = useMemo(() => conversation && messages ? asChatMessages(messages, conversation.people) : [], [conversation, messages]);
+  const mentionPeople = useMemo(() => conversation?.people.map((person) => person.name) ?? [], [conversation?.people]);
   if (!conversation) {
     return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
   }
@@ -60,6 +63,7 @@ export function ConversationView({ id }: { id: string }) {
   const other = conversation.kind === "dm" ? conversation.people.find((person) => !person.you) : undefined;
   return (
     <ChatView key={conversation.id} bot={chatFor(conversation, shown)} accountConversation={{
+      mentionPeople,
       identity: (
         <span className={cn(CHATHEAD_PILL, "pr-3.5")} title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
           {other
@@ -88,19 +92,26 @@ export function ConversationView({ id }: { id: string }) {
   );
 }
 
-/** The composer pill of a bot chat, for a conversation: text, @mentions of
- * the people here and the bots one can ask. */
+/** The composer pill of a bot chat, for a conversation: text, and "@" for
+ * the people here and the bots one can ask, in the same menu as a bot chat
+ * (faces, names, arrows to choose, Enter or Tab to pick, Esc to close). */
 function ConversationComposer({ conversation, bots, onSent }: { conversation: Conversation; bots: Bot[]; onSent: (message: Message) => void }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const people = useMemo(() => conversation.people.filter((person) => !person.you), [conversation.people]);
   const mentionable = useMemo(() => [
-    ...conversation.people.filter((person) => !person.you).map((person) => ({ name: person.name, kind: "person" as const })),
+    ...people.map((person) => ({ name: person.name, kind: "person" as const })),
     ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
-  ], [conversation.people, bots]);
+  ], [people, bots]);
   const query = mentionQuery(text);
-  const suggestions = query === null ? [] : mentionSuggestions(query, mentionable);
+  const queryAt = query === null ? null : text.length - query.length - 1;
+  const suggestions = query === null || queryAt === dismissedAt ? [] : mentionSuggestions(query, mentionable);
+  const open = suggestions.length > 0;
+  useEffect(() => setHighlight(0), [query]);
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
@@ -109,6 +120,7 @@ function ConversationComposer({ conversation, bots, onSent }: { conversation: Co
   }, [text]);
   const pick = (name: string) => {
     setText((value) => value.replace(/@([^\s@]*)$/, `@${name} `));
+    setDismissedAt(null);
     inputRef.current?.focus();
   };
   const send = async () => {
@@ -121,41 +133,41 @@ function ConversationComposer({ conversation, bots, onSent }: { conversation: Co
       setText("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };
+  const face = (entry: { name: string; kind: "person" | "bot" }) => {
+    if (entry.kind === "bot") {
+      const bot = bots.find((candidate) => candidate.name === entry.name);
+      return bot ? <BotAvatar bot={bot} state="happy" size={24} motion="none" motionKey={0} animated={false} /> : null;
+    }
+    const person = people.find((candidate) => candidate.name === entry.name);
+    return <PersonAvatar name={entry.name} email={person?.email} src={person?.avatar} size={24} />;
+  };
   return (
     <form className="pointer-events-none relative px-5 pb-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
       <div className="pointer-events-auto relative w-full">
-        {suggestions.length > 0 && (
-          <ul role="listbox" aria-label="Mention" className="mb-2 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1 text-[13px]">
-            {suggestions.map((entry) => (
-              <li key={`${entry.kind}:${entry.name}`}>
-                <button type="button" onMouseDown={(event) => { event.preventDefault(); pick(entry.name); }}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-ink hover:bg-raised">
-                  <span>@{entry.name}</span><span className="text-[11px] text-ink-tertiary">{entry.kind === "bot" ? "Bot" : "Person"}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
         {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
         <div className="relative">
           <div aria-hidden data-composer-backdrop className="pointer-events-none absolute -bottom-3 -left-5 -right-5 top-1/2 bg-app" />
+          {open && (
+            <div role="listbox" aria-label="Mention" className="absolute bottom-full start-2 z-20 mb-2 max-h-72 w-72 overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg">
+              {suggestions.map((entry, index) => (
+                <ComposerMenuRow key={`${entry.kind}:${entry.name}`} role="option" aria-selected={index === highlight} selected={index === highlight}
+                  onMouseDown={(event) => { event.preventDefault(); pick(entry.name); }} onMouseEnter={() => setHighlight(index)}
+                  icon={face(entry)} name={entry.name} kind={entry.kind === "bot" ? "Bot" : "Person"} />
+              ))}
+            </div>
+          )}
           <div data-tour="composer" className={COMPOSER_PILL}>
-            {/* a group offers its bots at a click; a DM is between people
-                (typing @ still asks a bot in) */}
-            {conversation.kind === "group" && bots.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 px-2 pt-1">
-                {bots.slice(0, 6).map((bot) => (
-                  <button key={bot.id} type="button" onClick={() => { setText((value) => `${value}${value && !value.endsWith(" ") ? " " : ""}@${bot.name} `); inputRef.current?.focus(); }}
-                    className="rounded-full bg-raised px-2 py-0.5 text-[11.5px] text-ink-secondary hover:text-ink">@{bot.name}</button>
-                ))}
-              </div>
-            )}
             <div data-composer-row className={COMPOSER_ROW}>
-              <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1} disabled={busy}
+              <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
                 placeholder={`Message ${conversation.title}`} aria-label="Message"
                 onChange={(event) => setText(event.target.value)}
                 onKeyDown={(event) => {
-                  if ((event.key === "Enter" || event.key === "Tab") && suggestions.length > 0) { event.preventDefault(); pick(suggestions[0]!.name); return; }
+                  if (open) {
+                    if (event.key === "ArrowDown") { event.preventDefault(); setHighlight((index) => (index + 1) % suggestions.length); return; }
+                    if (event.key === "ArrowUp") { event.preventDefault(); setHighlight((index) => (index - 1 + suggestions.length) % suggestions.length); return; }
+                    if (event.key === "Escape") { event.preventDefault(); setDismissedAt(queryAt); return; }
+                    if (event.key === "Enter" || event.key === "Tab") { event.preventDefault(); pick(suggestions[highlight]!.name); return; }
+                  }
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
                 }}
                 className={cn(COMPOSER_INPUT, "ml-2 flex-1")} />

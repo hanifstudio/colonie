@@ -48,7 +48,9 @@ export const workspacePeople = async () => (await api<{ people: Array<{ email: s
 /** Apply one live frame to a conversation's messages. */
 export function withFrame(messages: Message[], frame: ThreadFrame): Message[] {
   if (frame.kind === "message") return messages.some((message) => message.id === frame.message.id) ? messages : [...messages, frame.message];
-  return messages.map((message) => (message.id === frame.message.id ? { ...message, ...frame.message } : message));
+  // a patch frame carries the whole message: take it as it is, so a field
+  // the server cleared (working, workThread) is cleared here too
+  return messages.map((message) => (message.id === frame.message.id ? frame.message : message));
 }
 
 /** The caller's conversations, kept fresh by live messages and changes here. */

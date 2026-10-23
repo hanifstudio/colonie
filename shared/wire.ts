@@ -393,6 +393,8 @@ export interface WireMessage {
   /** In a group or DM: the bot's own work thread, where a card waits for a
    * person (colonie/groups needsPerson). */
   workThread?: { botId: string; threadId: string };
+  /** In a group or DM: the bot is still working on this line's answer. */
+  working?: true;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
   text?: string;

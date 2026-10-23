@@ -74,6 +74,9 @@ describe("groups and DMs between people", () => {
     expect(list).toHaveLength(1);
     list = withFrame(list, { kind: "message.patch", threadId: "t1", message: { ...first, text: "Done." } });
     expect(list[0]!.text).toBe("Done.");
+    // a field the server cleared is cleared here too
+    list = withFrame([{ ...first, working: true }], { kind: "message.patch", threadId: "t1", message: { ...first, text: "Done." } });
+    expect(list[0]!.working).toBeUndefined();
   });
 
   it("lists everyone else in the workspace, like Slack: a person with a DM shows that DM", () => {

@@ -85,7 +85,8 @@ test("a successful sign-in clears the count of wrong ones", async () => {
   expect((await signIn(s, ADA.password)).response.status).toBe(303);
   for (let i = 0; i < 9; i += 1) await signIn(s, `wrong password ${i}`);
   expect((await signIn(s, ADA.password)).response.status).toBe(303);
-});
+  // twenty deliberately slow password checks: room for a busy machine
+}, 90_000);
 
 test("a lock does not reveal whether an address has an account", async () => {
   const s = await setup();

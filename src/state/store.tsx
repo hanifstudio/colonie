@@ -168,6 +168,7 @@ export interface Message {
   notice?: true;
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
   workThread?: { botId: string; threadId: string };
+  working?: true;
   id: string;
   role: "bot" | "user";
   kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";

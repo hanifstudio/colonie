@@ -13,15 +13,12 @@
 
 /* Inline mentions keep the surrounding font metrics, including in the
    textarea mirror. No padding/border/font-weight changes that shift the caret. */
+/* One color for every mention, person or bot (a bot's own color made each
+   one look different): the accent, as a soft tint. */
 .mention-highlight {
-  --mention-color: var(--color-ink-secondary);
-
-  color: color-mix(in srgb, var(--mention-color) 30%, var(--color-ink));
-  background: color-mix(in srgb, var(--mention-color) 24%, var(--color-inset));
-  border-radius: 3px;
-  text-decoration: underline;
-  text-decoration-color: var(--mention-color);
-  text-underline-offset: 3px;
+  color: color-mix(in srgb, var(--color-accent) 75%, var(--color-ink));
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: 4px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
