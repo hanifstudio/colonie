@@ -37,4 +37,4 @@ jobs:
           pnpm exec vite build
           pnpm journey dist
       - name: desktop shell tests
-        run: node --test electron/environments.node-test.mjs electron/preload.node-test.mjs electron/local-workspaces.node-test.mjs electron/workspace-switch.node-test.mjs electron/colonie-config.node-test.mjs
+        run: node --test electron/environments.node-test.mjs electron/preload.node-test.mjs electron/local-workspaces.node-test.mjs electron/workspace-switch.node-test.mjs electron/colonie-config.node-test.mjs electron/data-dir-lease.node-test.mjs

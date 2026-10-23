@@ -73,8 +73,14 @@ function bootSession() {
 }
 
 function uptimeMs() {
-  const seconds = uptime();
-  return Number.isFinite(seconds) && seconds >= 0 ? Math.floor(seconds * 1000) : 0;
+  try {
+    const seconds = uptime();
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.floor(seconds * 1000);
+  } catch {
+    // Sandboxed macOS can deny this optional reboot signal. Unknown is not
+    // zero: treating it as zero could retire a lease whose owner is alive.
+  }
+  return undefined;
 }
 
 function isBootIdentity(value) {
@@ -87,7 +93,10 @@ function ownerPredatesThisBoot(owner) {
   // Without a boot id, a since-boot clock is still one-directional: it cannot
   // run backwards within a single boot, so a larger recorded value can only
   // have been written before a reboot.
-  if (Number.isInteger(owner.uptime)) return uptimeMs() < owner.uptime;
+  if (Number.isInteger(owner.uptime)) {
+    const currentUptime = uptimeMs();
+    if (currentUptime !== undefined) return currentUptime < owner.uptime;
+  }
   // A record written by an older build carries neither signal. Treating it as
   // current preserves the previous behaviour exactly.
   return false;

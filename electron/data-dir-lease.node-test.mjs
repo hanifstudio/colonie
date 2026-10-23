@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { hostname, tmpdir, uptime as osUptime } from "node:os";
+import os, { hostname, tmpdir, uptime as osUptime } from "node:os";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 
@@ -29,6 +30,15 @@ function delegationEntry(lease) {
   assert.match(entries[0][0], /INTERNAL.*LEASE/);
   assert.match(entries[0][1], /^v1:[1-9][0-9]*:[0-9a-f-]{36}$/);
   return entries[0];
+}
+
+function mockUptime(t, implementation) {
+  t.mock.method(os, "uptime", implementation);
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
 }
 
 function runNode(source, environment = {}) {
@@ -512,7 +522,8 @@ test("a lease under another name from another boot still fails closed, and says 
   });
 });
 
-test("a lease recorded above the machine's current uptime is retired", () => {
+test("a lease recorded above the machine's current uptime is retired", (t) => {
+  mockUptime(t, () => 42);
   const { dataDir } = temporaryDirectory();
   // Windows has no boot session id, so a reboot is proven by the only
   // one-directional signal available: a since-boot clock cannot run backwards
@@ -524,6 +535,39 @@ test("a lease recorded above the machine's current uptime is retired", () => {
     token: randomUUID(),
   });
 
+  const lease = acquireDataDirLease(dataDir);
+  assert.equal(lease.ownerPid, process.pid);
+  assert.equal(lease.release(), true);
+});
+
+test("denied uptime access does not prevent acquiring and releasing an unused directory", (t) => {
+  mockUptime(t, () => { throw Object.assign(new Error("uv_uptime returned EPERM"), { code: "EPERM" }); });
+  const { dataDir } = temporaryDirectory();
+  const lease = acquireDataDirLease(dataDir);
+  const record = JSON.parse(readFileSync(path.join(dataDir, LEASE_NAME), "utf8"));
+  assert.equal(Object.hasOwn(record, "uptime"), false);
+  assert.equal(record.pid, process.pid);
+  assert.equal(lease.release(), true);
+});
+
+for (const unavailable of ["denied", NaN, Infinity, -1]) {
+  test(`unavailable uptime (${unavailable}) cannot retire a live owner's lease`, (t) => {
+    const { dataDir } = temporaryDirectory();
+    const leasePath = plantOwner(dataDir, { boot: null, uptime: 3_600_000, pid: process.pid, token: randomUUID() });
+    const before = readFileSync(leasePath, "utf8");
+    mockUptime(t, () => {
+      if (unavailable === "denied") throw Object.assign(new Error("uv_uptime returned EPERM"), { code: "EPERM" });
+      return unavailable;
+    });
+    assert.throws(() => acquireDataDirLease(dataDir), /already using this data directory/i);
+    assert.equal(readFileSync(leasePath, "utf8"), before);
+  });
+}
+
+test("denied uptime access still allows recovery of a dead owner", async (t) => {
+  const { dataDir } = temporaryDirectory();
+  plantOwner(dataDir, { boot: null, uptime: 3_600_000, pid: await exitedPid(), token: randomUUID() });
+  mockUptime(t, () => { throw Object.assign(new Error("uv_uptime returned EPERM"), { code: "EPERM" }); });
   const lease = acquireDataDirLease(dataDir);
   assert.equal(lease.ownerPid, process.pid);
   assert.equal(lease.release(), true);
