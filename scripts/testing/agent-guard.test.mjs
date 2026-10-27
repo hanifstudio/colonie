@@ -5,16 +5,22 @@ const blocked = (command) => expect(commandProblem(command), command).not.toBeNu
 const allowed = (command) => expect(commandProblem(command), command).toBeNull();
 
 describe("the agent guard", () => {
-  it("refuses pushing and publishing in any spelling", () => {
-    blocked("git push");
-    blocked("git push origin restructure");
-    blocked("git -C . push");
+  it("allows ordinary pushes while refusing destructive pushes and other publishing", () => {
+    allowed("git push");
+    allowed("git push origin main");
+    allowed("git -C . push");
     blocked("cd x && git -c a=b push --force");
+    blocked("git push -f origin main");
+    blocked("git push --force-with-lease origin main");
+    blocked("git push --delete origin main");
+    blocked("git push origin +main");
+    blocked("git push origin :main");
+    blocked("git push --mirror");
     blocked("gh pr create --fill");
     allowed("git status && git log --oneline -3");
     allowed("gh pr view 12");
     allowed("git stash push -m wip && git stash pop");
-    blocked("git stash push -m wip && git push");
+    allowed("git stash push -m wip && git push");
   });
 
   it("refuses skipping or moving the commit hook", () => {
@@ -31,11 +37,11 @@ describe("the agent guard", () => {
 
   it("reads a heredoc body as text, not as commands", () => {
     allowed("git commit -q -F - <<'EOF'\nDeny git push and --no-verify; never touch ~/.colonie.\nEOF\ngit log -1");
-    blocked("git commit -F - <<'EOF'\nmessage\nEOF\ngit push");
+    blocked("git commit -F - <<'EOF'\nmessage\nEOF\ngit commit --no-verify -m x");
     blocked("python3 - <<'EOF'\nopen('/Users/x/.colonie/config.json').read()\nEOF");
     allowed("cat > deploy/Dockerfile <<'EOF'\nRUN rm -rf /var/lib/apt/lists/*\nEOF");
     blocked("bash <<'EOF'\nrm -rf ~/Documents\nEOF");
-    blocked("sh -s <<EOF\ngit push\nEOF");
+    blocked("sh -s <<EOF\ngit push --force\nEOF");
   });
 
   it("refuses the owner's real data and credentials", () => {

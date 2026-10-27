@@ -2,9 +2,11 @@
 
 ## Now: publish Colonie 0.3.7
 
-Publish local main through the normal GitHub workflows. Prove CI, the versioned
-server image, and its health check before announcing availability. The repository
-guard reserves GitHub publication for the owner. No real-data testing or unrelated changes.
+Allow ordinary Git pushes at the owner's explicit request, while retaining commit,
+credential, real-data, and destructive-command protections; prove the guard rules.
+Commit and push local main through the normal GitHub workflows. Prove CI, the
+versioned server image, and its health check before announcing availability.
+No real-data testing or unrelated changes.
 
 ## Next: everything a first public release with Shared workspaces needs
 

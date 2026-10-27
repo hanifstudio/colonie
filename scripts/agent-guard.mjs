@@ -8,7 +8,7 @@ const SEP = String.raw`[^;&|\n]*`;
 const TEMP_ROOTS = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"];
 
 const RULES = [
-  [new RegExp(String.raw`\bgit\b${SEP}(?<!\bstash\s+)\bpush\b`), "git push is the owner's step."],
+  [new RegExp(String.raw`\bgit\b${SEP}\bpush\b${SEP}(?:--(?:force(?:-with-lease|-if-includes)?|delete|mirror)\b|\s-[a-zA-Z]*[fd](?=\s|$)|\s[+:]\S)`), "force pushes and remote ref deletion are not allowed."],
   [/\bgh\s+(pr\s+(create|merge)|release\s+create|repo\s+(edit|delete|create))\b/, "publishing to GitHub is the owner's step."],
   [/--no-verify\b/, "skipping the commit hook is not allowed; fix what it reports."],
   [new RegExp(String.raw`\bgit\b${SEP}\bcommit\b${SEP}\s-[a-zA-Z]*n`), "git commit -n skips the commit hook; fix what it reports."],

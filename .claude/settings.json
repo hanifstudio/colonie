@@ -11,9 +11,7 @@
       "Read(~/.ssh/**)",
       "Read(~/.aws/**)",
       "Read(**/.env)",
-      "Read(**/.env.*)",
-      "Bash(git push *)",
-      "Bash(git * push *)"
+      "Read(**/.env.*)"
     ],
     "ask": [
       "Edit(/scripts/commit-guard.mjs)",
