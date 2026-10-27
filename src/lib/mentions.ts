@@ -5,13 +5,37 @@ import { isMentionBoundary, isMentionNameContinuation } from "../../shared/menti
 export type MentionPeer = { name: string; hidden?: boolean; color?: MausColor };
 export type MentionRange = { start: number; end: number; color?: string };
 
+export interface MentionQuery { start: number; end: number; query: string }
+
+/** Search only the mention being edited, never an email, URL, or selection. */
+export function mentionQueryAt(text: string, caret: number, selectionEnd = caret): MentionQuery | null {
+  if (caret !== selectionEnd || caret < 0 || caret > text.length) return null;
+  const before = text.slice(0, caret);
+  const start = before.lastIndexOf("@");
+  if (start < 0 || !isMentionBoundary(text, start)) return null;
+  const query = before.slice(start + 1);
+  if (query.length > 128 || /[\r\n@]/u.test(query)) return null;
+  return { start, end: caret, query };
+}
+
+/** Complete the edited name without losing later text or doubling spaces. */
+export function replaceMentionQuery(text: string, query: MentionQuery, name: string) {
+  const existing = mentionRanges(text, [{ name }]).find((range) => range.start === query.start && range.end >= query.end);
+  const end = existing?.end ?? query.end + (text.slice(query.end).match(/^[\p{L}\p{N}\p{M}_-]*/u)?.[0].length ?? 0);
+  const after = text.slice(end);
+  const space = after ? "" : " ";
+  const inserted = `@${name}${space}`;
+  return { text: text.slice(0, query.start) + inserted + after, start: query.start, end, inserted,
+    caret: query.start + inserted.length + (after.startsWith(" ") ? 1 : 0) };
+}
+
 /** Filter the composer's mention roster without silently truncating it.
  * Large rooms stay fully reachable; the picker itself owns scrolling. */
 export function mentionChoicesForQuery<T extends { name: string }>(pool: readonly T[], query: string): T[] {
   const normalized = query.trim().toLowerCase();
   // "@Scout " is a completed tag, not a new search. Closing here lets Enter
   // send instead of selecting the same bot again.
-  if (query.endsWith(" ") && pool.some((choice) => choice.name.toLowerCase() === normalized)) return [];
+  if (/\s$/u.test(query) && pool.some((choice) => choice.name.toLowerCase() === normalized)) return [];
   return pool.filter((choice) => !normalized || choice.name.toLowerCase().includes(normalized));
 }
 

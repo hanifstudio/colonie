@@ -78,7 +78,8 @@ import {
   doubleEnterSteersQueue,
 } from "./ComposerQueuedMessages";
 import { skillAuthoringEnabled } from "@/lib/feature-flags";
-import { mentionChoicesForQuery, mentionRowDescription } from "@/lib/mentions";
+import { mentionRowDescription } from "@/lib/mentions";
+import { useMentionPicker } from "@/lib/use-mention-picker";
 import { serializeThreadRefs, threadTokenFromPaste, threadTokenSpacing } from "@/lib/thread-refs";
 import {
   composerSlashTrigger,
@@ -86,18 +87,6 @@ import {
   slashReplacement,
   type ComposerSlashCommand,
 } from "@/lib/composer-commands";
-
-/** The active @mention query at the caret: the text between an `@` that
- * starts a word and the caret. null = no mention being typed. */
-function mentionQueryAt(text: string, caret: number): { start: number; query: string } | null {
-  const upto = text.slice(0, caret);
-  const at = upto.lastIndexOf("@");
-  if (at === -1) return null;
-  if (at > 0 && !/\s/.test(upto[at - 1])) return null; // user@host, not a tag
-  const query = upto.slice(at + 1);
-  if (query.length > 24 || query.includes("@") || query.includes("\n")) return null;
-  return { start: at, query };
-}
 
 type MentionChoice = { id: string; name: string; bot: Bot };
 
@@ -198,7 +187,6 @@ export function Composer({
       editText(nextText);
       editAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
       setCaret(nextText.length);
-      setDismissedAt(null);
       requestAnimationFrame(() => {
         const input = inputRef.current;
         if (!input) return;
@@ -210,11 +198,13 @@ export function Composer({
   );
   const [recording, setRecording] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
-  const [caret, setCaret] = useState(0);
   const [highlight, setHighlight] = useState(0);
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null); // Esc'd this @
   const [dismissedSlashAt, setDismissedSlashAt] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const mentionPool: MentionChoice[] = useMemo(() => state.bots.filter((member) => member.id !== bot?.id && !member.hidden)
+    .map((member) => ({ id: member.id, name: member.name, bot: member })), [state.bots, bot?.id]);
+  const mentions = useMentionPicker({ text, choices: mentionPool, inputRef, onChange: editText });
+  const { caret, setCaret } = mentions;
   const draftIdRef = useRef(draftId);
   draftIdRef.current = draftId;
   // the latest caret, readable from callbacks without re-creating them
@@ -263,7 +253,6 @@ export function Composer({
     });
     return () => cancelAnimationFrame(frame);
   }, [replyToId]);
-  const mentionListRef = useRef<HTMLDivElement>(null);
   // what was typed before the mic went on — partials append after it
   const baseText = useRef("");
 
@@ -321,44 +310,14 @@ export function Composer({
   const commandPickerOpen = commandCandidates.length > 0;
 
   // Tag another bot; the agent reaches it via ask_bot.
-  const mention = mentionQueryAt(text, caret);
-  const candidates = useMemo(() => {
-    if (!mention || mention.start === dismissedAt) return [];
-    const pool: MentionChoice[] = state.bots
-      .filter((member) => member.id !== bot?.id && !member.hidden)
-      .map((member) => ({ id: member.id, name: member.name, bot: member }));
-    return mentionChoicesForQuery(pool, mention.query);
-  }, [mention, dismissedAt, state.bots, bot?.id]);
-  const mentionPickerOpen = candidates.length > 0;
+  const candidates = mentions.candidates;
+  const mentionPickerOpen = mentions.open;
   const commandMotion = useMenuMotion(commandPickerOpen);
-  const mentionMotion = useMenuMotion(mentionPickerOpen);
 
   useEffect(
     () => setHighlight(0),
-    [mention?.start, mention?.query, slash?.start, slash?.query],
+    [slash?.start, slash?.query],
   );
-
-  useEffect(() => {
-    if (!mentionPickerOpen) return;
-    mentionListRef.current
-      ?.querySelector<HTMLElement>(`[data-mention-index="${highlight}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [highlight, mentionPickerOpen]);
-
-  const pickMention = (peer: MentionChoice) => {
-    if (!mention) return;
-    const after = text.slice(caret);
-    const next = `${text.slice(0, mention.start)}@${peer.name} ${after}`;
-    editText(next);
-    const newCaret = mention.start + peer.name.length + 2;
-    setCaret(newCaret);
-    // picking completes this tag — close the popup so the next Enter sends
-    setDismissedAt(mention.start);
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(newCaret, newCaret);
-    });
-  };
 
   const pickCommand = (command: ComposerSlashCommand) => {
     if (!slash) return;
@@ -795,25 +754,28 @@ export function Composer({
             ))}
           </div>
         )}
-        {mentionMotion.shown && (
+        {mentionPickerOpen && (
           <div
-            ref={mentionListRef}
+            ref={mentions.listRef}
+            id={mentions.listId}
             role="listbox"
             aria-label={t("composer.mention.aria")}
-            className={cn("absolute bottom-full start-2 z-20 mb-2 max-h-72 w-72 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg", mentionMotion.className)} {...mentionMotion.exitProps}
+            className="absolute bottom-full start-2 z-20 mb-2 max-h-72 w-72 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg"
           >
             {candidates.map((peer, i) => {
               const description = mentionRowDescription({ kind: "bot", title: peer.bot.title });
               return (
                 <ComposerMenuRow
                   key={peer.id}
-                  id={`composer-mention-${peer.id}`}
+                  id={mentions.optionId(i)}
                   data-mention-index={i}
                   role="option"
-                  aria-selected={i === highlight}
-                  onClick={() => pickMention(peer)}
-                  onMouseEnter={() => setHighlight(i)}
-                  selected={i === highlight}
+                  aria-selected={i === mentions.highlight}
+                  tabIndex={-1}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => mentions.pick(peer)}
+                  onMouseEnter={() => mentions.setHighlight(i)}
+                  selected={i === mentions.highlight}
                   icon={
                     <BotAvatar
                       bot={peer.bot}
@@ -946,6 +908,7 @@ export function Composer({
             </div>
           )}
           <MentionTextarea
+          {...mentions.inputProps}
           wrapperClassName="@max-[30rem]/composer:order-first @max-[30rem]/composer:basis-full"
           inputRef={inputRef}
           peers={state.bots.filter((member) => member.id !== bot?.id)}
@@ -955,14 +918,12 @@ export function Composer({
           value={text}
           onChange={(e) => {
             editText(e.target.value);
-            setCaret(e.target.selectionStart ?? e.target.value.length);
-            setDismissedAt(null);
+            mentions.changed(e.currentTarget);
             setDismissedSlashAt(null);
           }}
           onPaste={handlePaste}
-          onKeyUp={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
-          onClick={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
           onKeyDown={(e) => {
+            if (mentions.isComposing(e)) return;
             if (commandPickerOpen) {
               if (e.key === "ArrowDown" || e.key === "ArrowUp") {
                 e.preventDefault();
@@ -972,7 +933,7 @@ export function Composer({
                 );
                 return;
               }
-              if (e.key === "Enter" || e.key === "Tab") {
+              if ((e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
                 e.preventDefault();
                 pickCommand(commandCandidates[highlight]);
                 return;
@@ -983,24 +944,7 @@ export function Composer({
                 return;
               }
             }
-            if (mentionPickerOpen) {
-              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                e.preventDefault();
-                const delta = e.key === "ArrowDown" ? 1 : -1;
-                setHighlight((h) => (h + delta + candidates.length) % candidates.length);
-                return;
-              }
-              if (e.key === "Enter" || e.key === "Tab") {
-                e.preventDefault();
-                pickMention(candidates[highlight]);
-                return;
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setDismissedAt(mention?.start ?? null);
-                return;
-              }
-            }
+            if (mentions.keyDown(e)) return;
             // an empty composer + ArrowUp = edit your last message (like a chat app)
             if (e.key === "ArrowUp" && !hasContent && onEditLast) {
               e.preventDefault();

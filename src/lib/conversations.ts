@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Message } from "@/state/store";
 import { api } from "@/state/store";
+import { mentionChoicesForQuery, mentionQueryAt } from "./mentions";
 
 export const THREAD_FRAME = "colonie:thread-frame";
 export const CONVERSATIONS_CHANGED = "colonie:conversations-changed";
@@ -25,14 +26,12 @@ export interface Conversation {
 
 /** The "@query" being typed at the end of the text, or null. */
 export function mentionQuery(textBeforeCaret: string): string | null {
-  const match = /(?:^|\s)@([^\s@]*)$/.exec(textBeforeCaret);
-  return match ? match[1]! : null;
+  return mentionQueryAt(textBeforeCaret, textBeforeCaret.length)?.query ?? null;
 }
 
 /** Names that start with the query (people and bots), for the suggestion list. */
 export function mentionSuggestions(query: string, names: Array<{ name: string; kind: "person" | "bot" }>) {
-  const q = query.toLowerCase();
-  return names.filter((entry) => entry.name.toLowerCase().startsWith(q) || entry.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(q))).slice(0, 6);
+  return mentionChoicesForQuery(names, query);
 }
 export interface ThreadFrame { kind: "message" | "message.patch"; threadId: string; message: Message }
 

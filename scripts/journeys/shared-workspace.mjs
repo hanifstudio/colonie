@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { verifyChatComposer } from "./chat-composer.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
 const web = process.argv[2] ?? join(root, "dist");
@@ -98,7 +99,7 @@ try {
   step = "a second person joins by invite";
   const invite = await ana.evaluate(async () => (await (await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json()).url);
   check(typeof invite === "string" && invite.includes("/invite/"), "the owner makes an invite link");
-  const bob = await join_(invite, { name: "Bob", email: "bob@x.com" });
+  const bob = await join_(invite, { name: "Bob Hartono", email: "bob@x.com" });
   const bobPersonal = await personal(bob);
 
   step = "a group with a person and a bot";
@@ -110,6 +111,9 @@ try {
   await ana.locator('fieldset:has(legend:text("Bots")) button').first().click();
   await ana.click('button:has-text("Create group")');
   await until(bob, async () => (await text(bob)).includes("Launch"), "the group shows in Bob's sidebar without a reload");
+
+  step = "typing and mentions in a group";
+  await verifyChatComposer(ana, { name: "Bob Hartono", label: "group", check, until });
 
   step = "@mentions";
   await ana.click("main form textarea");
@@ -188,6 +192,22 @@ try {
   await until(ana, async () => (await ana.locator('section[aria-label="Groups and people"] button:has-text("Bob") [aria-label="Unread"]').count()) > 0, "Ana sees Bob's DM as unread in her sidebar");
   await ana.click('section[aria-label="Groups and people"] button:has-text("Bob")');
   await until(ana, async () => (await text(ana)).includes("just between us"), "Ana reads the DM");
+  step = "typing and mentions in a person's DM";
+  await verifyChatComposer(ana, { name: "Bob Hartono", label: "person-dm", check, until });
+
+  step = "typing and mentions in a bot's DM";
+  const originalBotId = await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).id, botName);
+  const createdBot = await ana.evaluate(async () => {
+    const response = await fetch("/api/bots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Nara Research" }) });
+    return response.status;
+  });
+  check(createdBot === 201, "a second fixture bot is available for mention suggestions");
+  await ana.locator(`[data-sidebar-bot-row="${originalBotId}"]`).click();
+  await until(ana, async () => {
+    const editor = ana.locator('main [data-tour="composer"] textarea');
+    return await editor.count() > 0 && (await editor.getAttribute("aria-label") ?? "").includes(botName);
+  }, "the original bot's DM is open");
+  await verifyChatComposer(ana, { name: "Nara Research", label: "bot-dm", check, until });
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   console.log("Shared workspace journey: passed");
 } catch (error) {

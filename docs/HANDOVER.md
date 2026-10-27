@@ -1,6 +1,12 @@
 # Handover
 
-## Now: everything a first public release with Shared workspaces needs
+## Now: publish Colonie 0.3.7
+
+Publish local main through the normal GitHub workflows. Prove CI, the versioned
+server image, and its health check before announcing availability. The repository
+guard reserves GitHub publication for the owner. No real-data testing or unrelated changes.
+
+## Next: everything a first public release with Shared workspaces needs
 
 Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
@@ -36,7 +42,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | 0.3.6. A release raises package.json's version on main; Server image publishes it by itself and Shared admins see Update |
+| A version number and an update path | 0.3.7 prepared locally. A raised package.json version on main publishes the Server image and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |

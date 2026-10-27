@@ -15,9 +15,10 @@ import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
-  mentionQuery, mentionSuggestions, postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
+  postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
+import { useMentionPicker } from "@/lib/use-mention-picker";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -132,8 +133,6 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [highlight, setHighlight] = useState(0);
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingSend = useRef<{ text: string; id: string } | null>(null);
   const people = useMemo(() => conversation.people.filter((person) => !person.you), [conversation.people]);
@@ -141,22 +140,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
     ...people.map((person) => ({ name: person.name, kind: "person" as const })),
     ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
   ], [people, bots]);
-  const query = mentionQuery(text);
-  const queryAt = query === null ? null : text.length - query.length - 1;
-  const suggestions = query === null || queryAt === dismissedAt ? [] : mentionSuggestions(query, mentionable);
-  const open = suggestions.length > 0;
-  useEffect(() => setHighlight(0), [query]);
-  useEffect(() => {
-    const input = inputRef.current;
-    if (!input) return;
-    input.style.height = "auto";
-    input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
-  }, [text]);
-  const pick = (name: string) => {
-    setText((value) => value.replace(/@([^\s@]*)$/, `@${name} `));
-    setDismissedAt(null);
-    inputRef.current?.focus();
-  };
+  const mentions = useMentionPicker({ text, choices: mentionable, inputRef, onChange: setText });
   const send = async () => {
     const value = text;
     if (!value.trim() || busy) return;
@@ -190,30 +174,25 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
         )}
         <div className="relative">
           <div aria-hidden data-composer-backdrop className="pointer-events-none absolute -bottom-3 -left-5 -right-5 top-1/2 bg-app" />
-          {open && (
-            <div role="listbox" aria-label="Mention" className="absolute bottom-full start-2 z-20 mb-2 max-h-72 w-72 overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg">
-              {suggestions.map((entry, index) => (
-                <ComposerMenuRow key={`${entry.kind}:${entry.name}`} role="option" aria-selected={index === highlight} selected={index === highlight}
-                  onMouseDown={(event) => { event.preventDefault(); pick(entry.name); }} onMouseEnter={() => setHighlight(index)}
+          {mentions.open && (
+            <div ref={mentions.listRef} id={mentions.listId} role="listbox" aria-label="Mention" className="absolute bottom-full start-2 z-20 mb-2 max-h-72 w-72 overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg">
+              {mentions.candidates.map((entry, index) => (
+                <ComposerMenuRow key={`${entry.kind}:${entry.name}`} id={mentions.optionId(index)} role="option" tabIndex={-1} aria-selected={index === mentions.highlight} selected={index === mentions.highlight}
+                  onMouseDown={(event) => event.preventDefault()} onClick={() => mentions.pick(entry)} onMouseEnter={() => mentions.setHighlight(index)}
                   icon={face(entry)} name={entry.name} kind={entry.kind === "bot" ? "Bot" : "Person"} />
               ))}
             </div>
           )}
           <div data-tour="composer" className={COMPOSER_PILL}>
             <div data-composer-row className={COMPOSER_ROW}>
-              <MentionTextarea inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
+              <MentionTextarea {...mentions.inputProps} wrapperClassName="ml-2" inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
                 placeholder={conversation.kind === "group" && bots.length ? `Message ${conversation.title} · type @ to ask a bot` : `Message ${conversation.title}`} aria-label="Message"
-                onChange={(event) => setText(event.target.value)}
+                onChange={(event) => { setText(event.target.value); mentions.changed(event.currentTarget); }}
                 onKeyDown={(event) => {
-                  if (open) {
-                    if (event.key === "ArrowDown") { event.preventDefault(); setHighlight((index) => (index + 1) % suggestions.length); return; }
-                    if (event.key === "ArrowUp") { event.preventDefault(); setHighlight((index) => (index - 1 + suggestions.length) % suggestions.length); return; }
-                    if (event.key === "Escape") { event.preventDefault(); setDismissedAt(queryAt); return; }
-                    if (event.key === "Enter" || event.key === "Tab") { event.preventDefault(); pick(suggestions[highlight]!.name); return; }
-                  }
+                  if (mentions.isComposing(event) || mentions.keyDown(event)) return;
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
                 }}
-                className={cn(COMPOSER_INPUT, "ml-2 flex-1")} />
+                className={COMPOSER_INPUT} />
               <button type="submit" aria-label="Send message" title="Send message" disabled={!text.trim() || busy}
                 className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-white hover:brightness-110 disabled:opacity-40">
                 {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={ArrowUp01Icon} size={17} />}

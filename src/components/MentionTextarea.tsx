@@ -18,7 +18,15 @@ export function MentionTextarea({ inputRef, peers, everyone = false, wrapperClas
     const input = inputRef.current;
     const mirror = mirrorRef.current;
     if (!input || !mirror) return;
+    const style = getComputedStyle(input);
+    // One source of geometry and typography: the actual native editor.
+    // Caller spacing, skin fonts, zoom, and scrollbars must not move its caret
+    // away from the glyphs painted by the mirror.
+    for (const key of ["font", "fontKerning", "fontFeatureSettings", "fontVariationSettings", "letterSpacing", "wordSpacing", "lineHeight", "textAlign", "textIndent", "textTransform", "tabSize", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"] as const) mirror.style[key] = style[key];
+    mirror.style.left = `${input.offsetLeft + input.clientLeft}px`;
+    mirror.style.top = `${input.offsetTop + input.clientTop}px`;
     mirror.style.width = `${input.clientWidth}px`;
+    mirror.style.height = `${input.clientHeight}px`;
     mirror.scrollTop = input.scrollTop;
     mirror.scrollLeft = input.scrollLeft;
   }, [inputRef]);
@@ -46,7 +54,7 @@ export function MentionTextarea({ inputRef, peers, everyone = false, wrapperClas
     return () => observer.disconnect();
   }, [inputRef, resize, sync]);
   return <div className={cn("mention-editor relative min-w-0 flex-1 self-center", wrapperClassName)}>
-    <div ref={mirrorRef} dir={props.dir} aria-hidden="true" className="mention-editor-mirror pointer-events-none absolute inset-0 overflow-hidden">
+    <div ref={mirrorRef} dir={props.dir} aria-hidden="true" className="mention-editor-mirror pointer-events-none absolute overflow-hidden">
       <MentionText text={String(props.value ?? "")} peers={peers} everyone={everyone} />{"\n"}
     </div>
     <textarea {...props} ref={inputRef} onScroll={(event) => { sync(); props.onScroll?.(event); }} />
