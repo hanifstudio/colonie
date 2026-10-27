@@ -847,6 +847,7 @@ const store = new Store(
   (selection) => withNewBotEffort(selection, cfg.newBots?.effort, registry.get(selection.instanceId)?.adapter.capabilities.effortLevels),
   (instanceId) => registry.cliTarget(instanceId)?.driverKind,
 );
+groupConversations.initialize();
 const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), ENVIRONMENT_ID);
 const botAppPolicies = new BotAppPolicies(join(DATA_DIR, "connected-apps", "bots"));
 const learnedFacts = new LearnedFacts(join(DATA_DIR, "profile-learned.json"));

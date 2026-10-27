@@ -128,6 +128,7 @@ async function acceptDirectSend(
 
       const currentAtStart = store.projectBotForTask(botId, threadId);
       if (!currentAtStart) throw Object.assign(new Error("no such bot"), { status: 404 });
+      if (store.taskByThread(botId, threadId)?.forConversation) throw Object.assign(new Error("Send this message in the group, not in the bot's personal chat."), { status: 409 });
       if (!store.taskByThread(currentAtStart.id, threadId)) {
         throw Object.assign(new Error("the target task no longer exists"), { status: 409 });
       }

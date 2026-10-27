@@ -10,6 +10,15 @@ const bot = { id: "b1", name: "Nova", title: "", description: "", threadId: "", 
 const message = (extra: Partial<Message>): Message => ({ id: "m1", at: 1, role: "user", kind: "text", text: "hi", parentId: null, ...extra } as Message);
 
 describe("a person's first conversation with a bot", () => {
+  it("never adopts a group's work as the first personal conversation", () => {
+    const work = { ...bot.tasks![0]!, forConversation: "group-1" };
+    const before: AppState = { ...initialState, bots: [{ ...bot, tasks: [work] }], selectedId: bot.id, selectedConversationId: "group-1" };
+    let state = reducer(before, { type: "messageAdded", threadId: work.threadId, message: message({ text: "Internal group context" }) });
+    state = reducer(state, { type: "messageAdded", threadId: work.threadId, message: message({ id: "answer", role: "bot", text: "Group answer" }) });
+    expect(state.bots[0]!.threadId).toBe("");
+    expect(state.bots[0]!.messages).toEqual([]);
+    expect(state.selectedConversationId).toBe("group-1");
+  });
   it("is followed as soon as its first message arrives, and what comes next shows in it", () => {
     let state: AppState = { ...initialState, bots: [bot], selectedId: "b1" };
     state = reducer(state, { type: "messageAdded", threadId: "t1", message: message({}) });

@@ -247,10 +247,9 @@ export function createGroupConversations(deps: {
     if (!record.bots.includes(bot.id)) { record.bots.push(bot.id); save(); }
     let threadId = record.botThreads[bot.id];
     if (!threadId || !store.taskByThread(bot.id, threadId)) {
-      const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [ask.askerKey]);
+      const task = store.createTask(bot.id, record.kind === "dm" ? "Work for a direct message" : `Work for ${record.name}`, false, undefined, undefined, undefined, undefined, [ask.askerKey], { forConversation: record.id });
       if (!task) return Promise.resolve();
       threadId = task.threadId;
-      store.patchTask(bot.id, threadId, { forConversation: record.id });
       record.botThreads[bot.id] = threadId;
       save();
     } else if (!(store.threadParticipants(threadId) ?? []).includes(ask.askerKey)) {
@@ -286,6 +285,7 @@ export function createGroupConversations(deps: {
   }
 
   return {
+    initialize: settleLeftovers,
     byThread(threadId: string): GroupConversation | undefined {
       return records.find((record) => record.threadId === threadId);
     },

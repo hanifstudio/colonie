@@ -72,9 +72,10 @@ test("a routine a bot schedules while working for a group reports each run to th
   await settle(1500);
 
   // the engine schedules from that work (the stand-in needs the call spelled out)
-  await ws.as(ANA, `/api/bots/${botId}/messages`, { method: "POST", body: { threadId: workThread, text: `mcp call colonie_workspace schedule_routine ${JSON.stringify({
+  const scheduled = await ws.as(ANA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} mcp call colonie_workspace schedule_routine ${JSON.stringify({
     name: "Launch check", instructions: "Say how the launch is going.", requestId: "group-1", schedule: { type: "weekly", time: "09:00", weekdays: ["monday"] },
   })}` } });
+  expect(scheduled.status).toBe(201);
   let routine: any;
   const until = Date.now() + 20_000;
   while (!routine && Date.now() < until) {

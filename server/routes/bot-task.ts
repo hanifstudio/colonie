@@ -61,6 +61,7 @@ export function createBotTaskRoutes(deps: BotTaskRouteDeps): RouteHandler {
     if (m && method === "POST") {
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
+      if (store.taskByThread(bot.id, m[2])?.forConversation) return json(res, 409, { error: "Open the group to continue this conversation." });
       // Navigation only: execution owns its thread, never this selected id.
       const requestedMessages = url.searchParams.get("messages");
       const switchLimit = pageSize(requestedMessages);

@@ -8,6 +8,7 @@
 // person's first message to a bot opens a conversation naming them. In a
 // Local workspace nothing changes: the current thread is the bot's.
 import { readFileSync } from "node:fs";
+import { isPersonalThread } from "../../../shared/personal-thread.ts";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
 import type { BotRecord, Store } from "../../persistence/store.ts";
@@ -30,8 +31,10 @@ export function createOwnThreads({ store, sharedWorkspace, file }: OwnThreadsDep
   }
   const keyOf = (person: string, botId: string) => `${person}:${botId}`;
   const save = () => writeFileAtomic(file, JSON.stringify(Object.fromEntries(pointers)), { mode: 0o600 });
-  const takesPart = (botId: string, threadId: string, person: string) =>
-    (store().taskByThread(botId, threadId)?.participants ?? []).includes(person);
+  const takesPart = (botId: string, threadId: string, person: string) => {
+    const task = store().taskByThread(botId, threadId);
+    return Boolean(task && isPersonalThread(task) && (task.participants ?? []).includes(person));
+  };
 
   /** The person's current conversation with this bot, or null when they have
    * none yet. A pointer that no longer names one of their conversations falls
@@ -40,7 +43,7 @@ export function createOwnThreads({ store, sharedWorkspace, file }: OwnThreadsDep
     const pointed = pointers.get(keyOf(person, bot.id));
     if (pointed && takesPart(bot.id, pointed, person)) return pointed;
     const newest = store().tasks(bot.id)
-      .filter((task) => !task.routineRunId && (task.participants ?? []).includes(person))
+      .filter((task) => isPersonalThread(task) && (task.participants ?? []).includes(person))
       .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0];
     return newest?.threadId ?? null;
   }
@@ -52,7 +55,11 @@ export function createOwnThreads({ store, sharedWorkspace, file }: OwnThreadsDep
      * Local workspace, the person's own in a Shared one (null: none yet, or
      * a caller who is no person). */
     currentThread(person: string | null, bot: BotRecord): string | null {
-      if (!sharedWorkspace()) return bot.threadId;
+      if (!sharedWorkspace()) {
+        const selected = store().taskByThread(bot.id, bot.threadId);
+        return !selected || isPersonalThread(selected) ? bot.threadId
+          : store().tasks(bot.id).find(isPersonalThread)?.threadId ?? null;
+      }
       return person ? current(person, bot) : null;
     },
 

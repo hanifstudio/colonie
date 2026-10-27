@@ -3,6 +3,7 @@
 // stream from the harness server into local state. The reducer stays
 // pure; everything async lives in the wrapped dispatch + SSE fold.
 import { THREAD_FRAME } from "@/lib/conversations";
+import { isPersonalThread } from "../../shared/personal-thread";
 import {
   createContext,
   useCallback,
@@ -1312,7 +1313,8 @@ export function reducer(state: AppState, action: Action): AppState {
     // conversation: the bot had none for them (threadId ""), so this is the
     // one they are looking at. Adopt it, or everything after (the reply, an
     // approval card) waits unseen in the background until a reload.
-    const starting = state.bots.find((bot) => bot.threadId === "" && !bot.awaitingThreadSnapshot && bot.tasks?.some((task) => task.threadId === action.threadId));
+    if (state.bots.some((bot) => bot.tasks?.some((task) => task.threadId === action.threadId && task.forConversation))) return state;
+    const starting = state.bots.find((bot) => bot.threadId === "" && !bot.awaitingThreadSnapshot && bot.tasks?.some((task) => task.threadId === action.threadId && isPersonalThread(task)));
     if (starting) state = updateBot(state, starting.id, (bot) => ({ ...bot, threadId: action.threadId }));
     const owner = state.bots.find((bot) => (bot.threadId !== action.threadId || bot.awaitingThreadSnapshot) && bot.tasks?.some((task) => task.threadId === action.threadId));
     if (owner) {

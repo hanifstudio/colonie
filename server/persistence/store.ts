@@ -2455,7 +2455,7 @@ export class Store {
    * `participants` names the people this conversation belongs to; the copy
    * is stored, so a caller's later change cannot rewrite it. */
   createTask(botId: string, title?: string, activate = true, projectId?: string, openedBy?: TaskOpenedBy, approvalMode?: "ask" | "full",
-    modelSelection?: ModelSelection, participants?: readonly string[]): TaskRecord | null {
+    modelSelection?: ModelSelection, participants?: readonly string[], purpose?: Pick<TaskRecord, "forConversation">): TaskRecord | null {
     const bot = this.bot(botId);
     if (!bot) return null;
     if (projectId !== undefined && !this.project(botId, projectId)) return null;
@@ -2468,6 +2468,7 @@ export class Store {
       ...(projectId ? { projectId } : {}),
       ...(openedBy ? { openedBy: structuredClone(openedBy) } : {}),
       ...(participants?.length ? { participants: [...participants] } : {}),
+      ...(purpose?.forConversation ? { forConversation: purpose.forConversation } : {}),
       resumeCursors: {},
       ...(modelSelection && !sameModelSelection(modelSelection, bot.modelSelection) ? { modelSelection: structuredClone(modelSelection) } : {}),
       approvalMode: approvalMode ?? approvalModeFor(bot),

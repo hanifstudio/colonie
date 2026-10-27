@@ -60,6 +60,7 @@ test("@naming a person marks the conversation for them", async () => {
 });
 
 test("people write in it, and a bot answers there when mentioned", async () => {
+  const personalBefore = (await ws.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.id === bot.id);
   expect((await ws.as(BOB, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: "hi all, plan for Friday?" } })).status).toBe(201);
   const asked = await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} please summarise the plan` } });
   expect(asked.status).toBe(201);
@@ -71,6 +72,9 @@ test("people write in it, and a bot answers there when mentioned", async () => {
   expect(messages.at(-1).text).not.toMatch(/could not/);
   // The bot's own work for this group is open to whoever asked it.
   const adaBots = await ws.as(ADA, "/api/bots");
+  const personalAfter = adaBots.body.bots.find((entry: any) => entry.id === bot.id);
+  expect(personalAfter.threadId).toBe(personalBefore.threadId);
+  expect(personalAfter.messages).toEqual(personalBefore.messages);
   expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.map((task: any) => task.title)).toContain("Work for Launch");
   // marked as the group's, so it is not listed with the bot's own conversations
   expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.find((task: any) => task.title === "Work for Launch").forConversation).toBe(group.id);
