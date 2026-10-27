@@ -20,6 +20,7 @@ export interface Conversation {
   instructions?: string;
   /** Someone @named the caller since they last read it. */
   mentioned?: boolean;
+  canStop?: boolean;
 }
 
 /** The "@query" being typed at the end of the text, or null. */
@@ -37,8 +38,8 @@ export interface ThreadFrame { kind: "message" | "message.patch"; threadId: stri
 
 export const listConversations = async () => (await api<{ conversations: Conversation[] }>("/api/conversations")).conversations;
 export const conversationMessages = async (id: string) => (await api<{ messages: Message[] }>(`/api/conversations/${id}/messages`)).messages;
-export const postToConversation = (id: string, text: string) =>
-  api<{ message: Message }>(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+export const postToConversation = (id: string, text: string, sendId: string = crypto.randomUUID()) =>
+  api<{ message: Message }>(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ text, sendId }) });
 export const markConversationRead = (id: string) => api(`/api/conversations/${id}/read`, { method: "POST" }).catch(() => {});
 export const createConversation = (input: { kind: "group" | "dm"; name?: string; emails: string[]; bots: string[] }) =>
   api<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(input) });
@@ -47,6 +48,7 @@ export const addToConversation = (id: string, input: { emails?: string[]; bots?:
 export const updateConversation = (id: string, input: { instructions: string }) =>
   api<Conversation>(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
+export const stopConversation = (id: string) => api(`/api/conversations/${id}/stop`, { method: "POST" });
 export const workspacePeople = async () => (await api<{ people: Array<{ email: string; name: string }> }>("/api/people")).people;
 
 /** Apply one live frame to a conversation's messages. */

@@ -462,7 +462,8 @@ const groupConversations = createGroupConversations({
   directory: workspaceDirectory,
   isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
   keyOf: (email) => personKey({ id: "", email }),
-  runBotTurn: async (botId, threadId, text, sender) => { await startOrQueueDirectMessage(botId, threadId, text, undefined, undefined, sender); },
+  runBotTurn: async (work, threadId, prompt, recoveryPrompt) => { await startTurn(work.botId, work.text, { threadId, providerPrompt: prompt, providerRecoveryPrompt: recoveryPrompt, commsDepth: work.depth, sendId: work.id, sender: { name: work.asker, id: work.askerKey } }); },
+  interruptBotTurn: (botId, threadId) => interruptDirectThread(botId, threadId),
   onChange: () => forgetVisibility(),
 });
 
@@ -1517,6 +1518,7 @@ store.onChange((change) => {
 });
 // A bot mentioned in a group or DM: its answer goes back there (colonie/groups).
 bus.subscribe((event: RuntimeEvent) => {
+  if (shouldIgnoreProviderEvent(event)) return;
   if (event.type === "turn.completed") groupConversations.turnCompleted(event.threadId, event.ok);
   // stopped for a person in its work thread: the group line points there
   if (event.type === "request.opened") groupConversations.needsPerson(event.threadId, event.requestType === "question" ? "an answer" : "an OK");
@@ -2326,6 +2328,7 @@ const { server, liveCalls } = createServerAssembly({
   watchdog,
 });
 console.log(describeEdition(await loadEnterpriseLayer()));
+groupConversations.wake();
 // A key inside its last 30 days, or already in its grace period, says so
 // where an operator reads first.
 const startupLicenseWarning = licenseWarning(editionStatus());

@@ -99,6 +99,13 @@ function cardAnswerRefusal(auth: RequestAuth, threadId: string, requestId: strin
     return "Only a workspace admin can review shared team memory.";
   }
   if (auth.scopes.includes("admin") || !sharedMembership()) return null;
+  const owner = store().botByThread?.(threadId);
+  if (owner && store().taskByThread(owner.id, threadId)?.forConversation) {
+    // A group session is reused by several people. Its first caller must
+    // never inherit authority over another person's later requests.
+    return cardRequesterKey(threadId, requestId) === personKey(auth.session)
+      ? null : "Only the person who sent this request, or a workspace admin, can answer this card.";
+  }
   const known = [threadStarters.get(threadId), cardRequesterKey(threadId, requestId)].filter((person): person is string => Boolean(person));
   if (!known.length || known.includes(personKey(auth.session))) return null;
   return "Only the person who started this conversation or sent this request, or a workspace admin, can answer this card.";

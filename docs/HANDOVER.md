@@ -1,28 +1,16 @@
 # Handover
 
-What is being worked on now, and what comes next. Rewrite this page as things
-change; delete finished work. History is in Git.
-
-Updated October 21, 2026.
-
 ## Now: everything a first public release with Shared workspaces needs
 
 Owner, October 21: keep going until release. Done: privacy by person, Colonie
 Cloud with invite by link, the server image (`deploy/`, tried in Docker
 against the live cloud), engine sign-in from the admin's browser. In order:
 
-1. **Current: routines and skills from chat** (owner, October 23), as Grok
-   Bot offers them. Done: any bot schedules and changes its own routines
-   from chat (applied with an Undo); one made in a group reports there; a
-   finished run is announced; any bot saves a guide from chat (confirmed
-   on a card); "/" lists guides, kept per bot. Left: a real Claude and
-   Codex doing both on Etalas. Out of scope: event triggers.
-   Secrets and one-place groups done. Now (owner, October 23), group
-   sessions with several bots: each bot knows the group (people, bots and
-   their roles, group instructions); two bots mentioned together answer in
-   turn; a bot may @mention another (at most 3 in a row without a person);
-   permissions and secrets follow the person who started it; no answer
-   without a mention, with a hint to type @.
+1. **Current: verify routines, guides, and group replies with real engines.**
+   Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
+   Prove scheduling and changing a routine, its report in the originating group,
+   saving a guide from chat, and a group reply with the right person's approval.
+   Out of scope: event triggers and the owner's real data.
 2. **Next: the team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief

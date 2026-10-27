@@ -15,7 +15,7 @@ import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
-  mentionQuery, mentionSuggestions, postToConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
+  mentionQuery, mentionSuggestions, postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 
@@ -35,6 +35,8 @@ export function ConversationView({ id }: { id: string }) {
   const conversation = conversations?.find((entry) => entry.id === id);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [stopError, setStopError] = useState("");
   const threadId = conversation?.threadId;
 
   useEffect(() => {
@@ -87,13 +89,24 @@ export function ConversationView({ id }: { id: string }) {
         </span>
       ),
       actions: (
+        <>
+        {conversation.canStop && <button type="button" disabled={stopping} onClick={() => {
+          setStopping(true); setStopError("");
+          void stopConversation(id).then(() => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)))
+            .catch((error: unknown) => setStopError(error instanceof Error ? error.message : String(error)))
+            .finally(() => setStopping(false));
+        }} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-50">
+          {stopping ? "Stopping…" : "Stop my work"}
+        </button>}
         <button type="button" onClick={() => setMembersOpen((open) => !open)} aria-expanded={membersOpen}
           className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
           {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
         </button>
+        </>
       ),
       beforeMessages: (
         <>
+          {stopError && <p role="alert" className="px-4 py-2 text-sm text-ink-secondary">{stopError}</p>}
           {membersOpen && <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots}
             onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
           {!messages && <div className="flex justify-center py-8"><HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" /></div>}
@@ -122,6 +135,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
   const [highlight, setHighlight] = useState(0);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingSend = useRef<{ text: string; id: string } | null>(null);
   const people = useMemo(() => conversation.people.filter((person) => !person.you), [conversation.people]);
   const mentionable = useMemo(() => [
     ...people.map((person) => ({ name: person.name, kind: "person" as const })),
@@ -144,12 +158,14 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
     inputRef.current?.focus();
   };
   const send = async () => {
-    const value = text.trim();
-    if (!value || busy) return;
+    const value = text;
+    if (!value.trim() || busy) return;
     setBusy(true); setError("");
     try {
-      const { message } = await postToConversation(conversation.id, value);
+      if (pendingSend.current?.text !== value) pendingSend.current = { text: value, id: crypto.randomUUID() };
+      const { message } = await postToConversation(conversation.id, value, pendingSend.current.id);
       onSent(message);
+      pendingSend.current = null;
       setText("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };

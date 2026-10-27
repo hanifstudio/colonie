@@ -142,6 +142,10 @@ async function startTurn(
     /** Stable identity supplied by the composer so a network retry cannot
      * dispatch the same user action twice. */
     sendId?: string;
+    /** App-authored group context; the stored user message keeps its original words. */
+    providerPrompt?: string;
+    /** Canonical group history for a provider that rejects its saved session. */
+    providerRecoveryPrompt?: string;
     /** The words were spoken in a Live call, not typed. */
     via?: "call";
     /** An external interface relayed the words through the guarded send
@@ -226,14 +230,14 @@ async function startTurn(
   // string remains the durable message. Native-image providers get a
   // path-free prompt and bounded inputs instead of needing a Read tool;
   // path-reading drivers retain the attachment tag as their compatibility route.
-  const resolvedImages = extractTurnImages(text);
+  const resolvedImages = extractTurnImages(opts?.providerPrompt ?? text);
   const usesNativeImageInput = instance.adapter.capabilities.nativeImageInput === true;
-  const providerText = usesNativeImageInput ? resolvedImages.text : text;
+  const providerText = usesNativeImageInput ? resolvedImages.text : opts?.providerPrompt ?? text;
   const turnImages = usesNativeImageInput ? resolvedImages.images : [];
   const commsDepth = opts?.commsDepth ?? 0;
   // Classify the turn where the peer paths' depth actually arrives: by the
   // time it settles, the fold has only a thread id to go on.
-  if (commsDepth > 0 || opts?.colonieAssignment) markInternalTurn(threadId);
+  if (commsDepth > 0 || opts?.colonieAssignment || task.forConversation) markInternalTurn(threadId);
   else clearInternalTurn(threadId);
   // a task takes its name from the first thing you asked it to do
   if (resolvedImages.text.trim() && !opts?.cardContinuation) {
@@ -405,8 +409,8 @@ async function startTurn(
         const acpAssignment = opts?.colonieAssignment ?? undefined;
         // Bot memory learns from every person; a signed message teaches this
         // bot only, under the sender's name (memory/ledger/capture.ts).
-        if (!userMessage.peerAsk && !acpAssignment) colonieMemorySources.set(threadId, {
-          botId: bot.id, threadId, messageId: userMessage.id, text: providerText, at: new Date(userMessage.at).toISOString(),
+        if (!userMessage.peerAsk && !acpAssignment && !(task.forConversation && commsDepth > 0)) colonieMemorySources.set(threadId, {
+          botId: bot.id, threadId, messageId: userMessage.id, text: userMessage.text ?? text, at: new Date(userMessage.at).toISOString(),
           ...(userMessage.sender?.name ? { speaker: userMessage.sender.name } : {}),
         });
         // Wait immediately before dispatch: resources are already claimed, but
@@ -431,7 +435,7 @@ async function startTurn(
           throw new DirectTurnSetupCancelled("turn stopped before dispatch");
         }
         const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: providerText, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          threadId, botId: bot.id, text: providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
           acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id)].filter(Boolean).join(" ") || undefined,
           cwd, model, approvalMode: approvalModeForTurn(bot, false),
           resumeCursor: task.resumeCursors[instanceId],

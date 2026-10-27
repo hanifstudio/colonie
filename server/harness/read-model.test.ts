@@ -30,6 +30,19 @@ test("pageSize treats absent, invalid and bounded input differently", () => {
   expect(read.pageSize("100000")).toBe(200);
 });
 
+test("an old group-work selection never travels as the bot's personal transcript", () => {
+  const tasks = [
+    { threadId: "work", title: "Work for IGRS", createdAt: 1, forConversation: "igrs" },
+    { threadId: "private", title: "Personal", createdAt: 1 },
+  ];
+  const { read, messages } = model({ tasks: () => tasks });
+  messages.work = [{ id: "group-context", text: "Internal group prompt" }];
+  messages.private = [{ id: "private-message", text: "Hello" }];
+  const bot = { id: "nimbus", threadId: "work", modelSelection: { instanceId: "codex-acp", model: "m" }, tasks } as never;
+  expect(read.wireBot(bot).threadId).toBe("private");
+  expect(read.publicBot(bot).messages).toEqual(messages.private);
+});
+
 test("slimMessage strips pixels from a screen row and keeps other rows whole", () => {
   const { read } = model();
   const screen = read.slimMessage({ id: "m1", role: "bot", at: 0, kind: "screen", png: "AAAA", mime: "image/png" });

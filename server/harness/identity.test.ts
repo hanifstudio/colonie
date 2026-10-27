@@ -18,3 +18,24 @@ test("a session with no email is keyed by the session itself", () => {
   expect(a).not.toContain("s-1");
   expect(a).toMatch(/^p_[A-Za-z0-9_-]{22}$/);
 });
+
+test("starting a group's bot session gives no authority over a later caller's approval", () => {
+  const first = { id: "first", email: "first@x.com" };
+  const current = { id: "current", email: "current@x.com" };
+  const identity = createIdentity({
+    signInAllowList: () => ({ members: ["first@x.com", "current@x.com"] }),
+    threadStarters: new Map([["work", personKey(first as never)]]),
+    store: () => ({
+      botByThread: () => ({ id: "nimbus" }),
+      taskByThread: () => ({ forConversation: "igrs" }),
+      messagesFor: () => [
+        { id: "ask", role: "user", sender: { id: personKey(current as never) } },
+        { role: "bot", requestMessageId: "ask", card: { requestId: "approval" } },
+      ],
+    }),
+  } as never);
+  const auth = (session: typeof first) => ({ kind: "session", session, scopes: ["chat"] }) as never;
+  expect(identity.cardAnswerRefusal(auth(first), "work", "approval", "allow")).toMatch(/Only the person/);
+  expect(identity.cardAnswerRefusal(auth(current), "work", "approval", "allow")).toBeNull();
+  expect(identity.cardAnswerRefusal(auth(current), "work", "missing-request", "allow")).toMatch(/Only the person/);
+});

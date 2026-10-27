@@ -1305,10 +1305,10 @@ export class Store {
     return null;
   }
 
-  appendMessage(threadId: string, message: Omit<Message, "id" | "at"> & { at?: number }, command?: Command): Message {
+  appendMessage(threadId: string, message: Omit<Message, "id" | "at"> & { at?: number }, command?: Command, persistRelated?: (message: Message) => void): Message {
     const t = this.thread(threadId);
     const full: Message = { id: newId(), at: Date.now(), parentId: t.activeLeafId, ...redactBotAuthored(message) };
-    const persist = () => { mdb.appendMessage(threadId, full); return full; };
+    const persist = () => mdb.withMessageTransaction(() => { mdb.appendMessage(threadId, full); persistRelated?.(full); return full; });
     const committed = command ? runCommand(command, persist) : persist();
     if (committed.id !== full.id) return committed;
     // Only publish the committed write. A failed receipt must leave both
@@ -1441,7 +1441,7 @@ export class Store {
     return cur;
   }
 
-  patchMessage(threadId: string, messageId: string, patch: Partial<Message>, command?: Command): Message | null {
+  patchMessage(threadId: string, messageId: string, patch: Partial<Message>, command?: Command, persistRelated?: (message: Message) => void): Message | null {
     const t = this.thread(threadId);
     const idx = t.messages.findIndex((m) => m.id === messageId);
     if (idx === -1) return null;
@@ -1450,7 +1450,7 @@ export class Store {
     // a failed write cannot make this process believe a card was answered
     // while a restart would still show it as pending.
     let applied = false;
-    const persist = () => { mdb.updateMessage(threadId, next); applied = true; return next; };
+    const persist = () => mdb.withMessageTransaction(() => { mdb.updateMessage(threadId, next); persistRelated?.(next); applied = true; return next; });
     const committed = command ? runCommand(command, persist) : persist();
     if (!applied) return committed;
     t.messages[idx] = next;

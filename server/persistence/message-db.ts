@@ -192,7 +192,7 @@ function db(): DatabaseSync {
 /** Nested writes use savepoints: even a caught inner error must not commit
  * half of an inner command. The outer transaction still owns durability. */
 let transactionDepth = 0;
-function transaction<T>(fn: (database: DatabaseSync) => T): T {
+export function withMessageTransaction<T>(fn: (database: DatabaseSync) => T): T {
   const database = db();
   if (transactionDepth > 0) {
     const savepoint = `command_${transactionDepth}`;
@@ -221,6 +221,9 @@ function transaction<T>(fn: (database: DatabaseSync) => T): T {
     transactionDepth = 0;
   }
 }
+
+// Existing transcript mutations join the same transaction as related records.
+const transaction = withMessageTransaction;
 
 export interface FollowupPayload {
   text: string;

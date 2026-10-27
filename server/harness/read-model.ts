@@ -1,5 +1,6 @@
 // The client-facing read models: how a bot and a task are shaped on the wire, the public bot with its newest message page, the guarded snapshot of one request, and the message-page helpers every HTTP/SSE reply uses. index.ts wires this once and destructures the names its routes still call.
 import { type WireBot, type WireTask} from "../../shared/wire.ts";
+import { isPersonalThread } from "../../shared/personal-thread.ts";
 import { type ModelSelection } from "../contracts.ts";
 import { conversationPreview } from "../acp/conversation-preview.ts";
 import { colonieProfile } from "../acp/profile.ts";
@@ -47,15 +48,16 @@ const wireBot = (bot: BotRecord): WireBot => {
   const visible = approvalGrant && !approvalGrant.threadOnly
     ? { ...rest, approvalMode: "ask" as const, autoApprove: false }
     : rest;
-  return { ...visible,
+  const selected = tasks?.find((task) => task.threadId === bot.threadId);
+  const threadId = selected && !isPersonalThread(selected) ? tasks?.find(isPersonalThread)?.threadId ?? "" : bot.threadId;
+  return { ...visible, threadId,
     avatarUrl: visible.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection)) } : {}) };
 };
 
-const publicBot = (bot: NonNullable<ReturnType<typeof store.bot>>) => ({
-  ...wireBot(bot),
-  ...messagePage(bot.threadId, DEFAULT_PAGE),
-  tasks: store.tasks(bot.id).map((task: any) => wireTask(task, bot.modelSelection)),
-});
+const publicBot = (bot: NonNullable<ReturnType<typeof store.bot>>) => {
+  const shown = wireBot(bot);
+  return { ...shown, ...messagePage(shown.threadId, DEFAULT_PAGE), tasks: store.tasks(bot.id).map((task: any) => wireTask(task, bot.modelSelection)) };
+};
 const publicBotQueuedMessages = () => queuedSteerSnapshot((botId, threadId) => Boolean(store.taskByThread(botId, threadId)));
 // ── message pages ──────────────────────────────────────────────────────
 // GET /api/bots hands back every bot with its entire transcript, which is

@@ -41,7 +41,7 @@ const ws = await startSharedWorkspace([], {}, (url) => ({
   COLONIE_STATIC_DIR: web, COLONIE_WORKSPACE_KIND: "shared", COLONIE_PUBLIC_URL: url,
   COLONIE_CLOUD_ISSUER: cloud.url, COLONIE_WORKSPACE_NAME: "Launch Team", COLONIE_OWNER_INVITE_CODE: ownerCode,
 }));
-const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
+const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}), headless: !process.env.COLONIE_JOURNEY_HEADFUL });
 const errors = [];
 
 async function join_(invite, person) {
@@ -88,11 +88,18 @@ try {
   await ana.keyboard.press("Enter");
   await until(ana, async () => (await text(ana)).includes("hello bot"), "the first message is sent (no thread error)");
   check(!/threadId must be|no such task/.test(await text(ana)), "no error is shown");
+  const personal = async (page) => page.evaluate(async () => {
+    const bot = (await (await fetch("/api/bots")).json()).bots[0];
+    return { threadId: bot.threadId, messages: bot.messages.map(({ id, text }) => ({ id, text })), busy: bot.busy };
+  });
+  await until(ana, async () => !(await personal(ana)).busy, "the personal bot reply finishes");
+  const anaPersonal = await personal(ana);
 
   step = "a second person joins by invite";
   const invite = await ana.evaluate(async () => (await (await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json()).url);
   check(typeof invite === "string" && invite.includes("/invite/"), "the owner makes an invite link");
   const bob = await join_(invite, { name: "Bob", email: "bob@x.com" });
+  const bobPersonal = await personal(bob);
 
   step = "a group with a person and a bot";
   await settle(ana);
@@ -128,6 +135,34 @@ try {
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");
   await until(bob, async () => (await bob.locator('[data-testid="sender-line"]', { hasText: "Ana" }).count()) > 0, "Bob sees Ana's messages under her face and name");
+
+  step = "group work stays out of personal chats";
+  await bob.fill("main form textarea", `@${botName} Bob's separate group request`);
+  await bob.keyboard.press("Enter");
+  await until(bob, async () => {
+    const body = await text(bob);
+    return body.includes("Bob's separate group request") && !body.includes("is working on it") && (await personal(bob)).messages.length === bobPersonal.messages.length;
+  }, "Bob's first bot request runs in the group", 40_000);
+  for (const [page, before, name] of [[ana, anaPersonal, "Ana"], [bob, bobPersonal, "Bob"]]) {
+    await page.reload();
+    await settle(page);
+    const after = await personal(page);
+    check(after.threadId === before.threadId && JSON.stringify(after.messages) === JSON.stringify(before.messages), `${name}'s personal transcript is unchanged after live group work and reload`);
+    await page.locator("[data-sidebar-bot-row]").first().click();
+    check(!(await page.locator("main").innerText()).includes("Bob's separate group request"), `${name}'s bot DM contains no group request`);
+  }
+
+  step = "stopping one's own group work";
+  await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
+  await bob.fill("main form textarea", `@${botName} permission please`);
+  await bob.keyboard.press("Enter");
+  await until(bob, async () => (await text(bob)).includes("is waiting for Bob"), "the bot asks Bob for approval inside the group", 40_000);
+  await bob.getByRole("button", { name: "Stop my work", exact: true }).click();
+  await until(bob, async () => (await text(bob)).includes("Stopped by the person who asked."), "Bob stops the waiting work in the group");
+  await until(bob, async () => !(await bob.getByRole("button", { name: /^(Stop my work|Stopping…)$/ }).count()), "the cancelled work no longer appears active");
+  check(!(await bob.getByRole("alert").count()), "stopping the work shows no request error");
+  check(JSON.stringify((await personal(ana)).messages) === JSON.stringify(anaPersonal.messages), "stopping group work leaves Ana's personal transcript unchanged");
+  if (process.env.COLONIE_JOURNEY_SCREENSHOT) await bob.screenshot({ path: process.env.COLONIE_JOURNEY_SCREENSHOT });
 
   step = "a photo on the account";
   const photoPage = await ana.context().newPage();

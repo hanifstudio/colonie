@@ -64,7 +64,10 @@ store.onChange((change: any) => {
       break;
     case "bot": {
       const bot = store.bot(change.botId);
-      if (bot) broadcast({ kind: "bot", bot: { ...wireBot(bot), ...pageIfThreadChanged(bot.id, bot.threadId) } });
+      if (bot) {
+        const shown = wireBot(bot);
+        broadcast({ kind: "bot", bot: { ...shown, ...pageIfThreadChanged(bot.id, shown.threadId) } });
+      }
       break;
     }
     case "bot.deleted":

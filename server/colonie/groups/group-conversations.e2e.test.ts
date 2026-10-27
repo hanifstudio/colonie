@@ -78,6 +78,9 @@ test("people write in it, and a bot answers there when mentioned", async () => {
   expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.map((task: any) => task.title)).toContain("Work for Launch");
   // marked as the group's, so it is not listed with the bot's own conversations
   expect(adaBots.body.bots.find((entry: any) => entry.id === bot.id).tasks.find((task: any) => task.title === "Work for Launch").forConversation).toBe(group.id);
+  const worker = personalAfter.tasks.find((task: any) => task.forConversation === group.id);
+  const execution = (await ws.as(ADA, `/api/threads/${worker.threadId}/messages`)).body.messages;
+  expect(execution.findLast((message: any) => message.role === "user").text).toBe(`@${bot.name} please summarise the plan`);
 });
 
 test("someone not in the group sees nothing of it", async () => {
@@ -119,11 +122,16 @@ test("a bot that stops for a person in a group asks them there, and carries on o
   const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
   // Bob left in an earlier test; he is back for these
   await ws.as(ADA, `/api/conversations/${group.id}/members`, { method: "POST", body: { emails: [BOB] } });
+  await ws.as(BOB, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} Bob's group context` } });
+  await until(() => messagesOf(BOB), (messages) => {
+    const line = messages.filter((message) => message.from?.botId === bot.id && !message.relay).at(-1);
+    return Boolean(line && !line.working && line.text.includes("Bob's group context"));
+  }, "Bob's group answer before Ana's approval");
   await ws.as(ADA, `/api/conversations/${group.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
   const find = async () => (await messagesOf(ADA)).find((message) => message.relay && message.card?.requestId && !message.card.answered);
   let card: any;
-  const until = Date.now() + 20_000;
-  while (!card && Date.now() < until) { card = await find(); if (!card) await new Promise((r) => setTimeout(r, 150)); }
+  const deadline = Date.now() + 20_000;
+  while (!card && Date.now() < deadline) { card = await find(); if (!card) await new Promise((r) => setTimeout(r, 150)); }
   // the card is in the group, for the person who asked; the line says who it waits for
   expect(card.relay.askedBy).toBeTruthy();
   expect(card.from.botId).toBe(bot.id);
@@ -131,6 +139,7 @@ test("a bot that stops for a person in a group asks them there, and carries on o
   expect(waitingLine.text).toMatch(/is waiting for .+ \(an OK\)\./);
   // the others in the group see the card too
   expect((await messagesOf(BOB)).some((message) => message.id === card.id)).toBe(true);
+  expect((await ws.as(BOB, `/api/threads/${card.relay.threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } })).status).toBe(403);
   // answered from the group, against the bot's own work
   expect((await ws.as(ADA, `/api/threads/${card.relay.threadId}/respond`, { method: "POST", body: { behavior: "allow", requestId: card.card.requestId } })).status).toBe(200);
   let line: any;
@@ -240,3 +249,21 @@ describe("a group with several bots", () => {
     expect(mine.length).toBeLessThanOrEqual(4);
   }, 120_000);
 });
+
+test("a member stops only their own group work while the bot's personal chat stays unchanged", async () => {
+  const made = await ws.as(BOB, "/api/conversations", { method: "POST", body: { name: "Stop here", emails: [ADA], bots: [bot.id] } });
+  expect(made.status).toBe(201);
+  const id = made.body.id;
+  const before = (await ws.as(BOB, "/api/bots")).body.bots.find((entry: any) => entry.id === bot.id);
+  await ws.as(BOB, `/api/conversations/${id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
+  await until(async () => (await ws.as(BOB, `/api/conversations/${id}/messages`)).body.messages as any[],
+    (messages) => messages.some((message) => message.relay && message.card?.requestId), "the group's approval before stopping");
+  expect((await ws.as(ADA, `/api/conversations/${id}/stop`, { method: "POST" })).body).toEqual({ stopped: 0 });
+  expect((await ws.as(BOB, `/api/conversations/${id}/stop`, { method: "POST" })).body).toEqual({ stopped: 1 });
+  const messages = (await ws.as(BOB, `/api/conversations/${id}/messages`)).body.messages;
+  expect(messages.some((message: any) => message.text === "Stopped by the person who asked.")).toBe(true);
+  expect((await ws.as(BOB, "/api/conversations")).body.conversations.find((entry: any) => entry.id === id).canStop).toBe(false);
+  const after = (await ws.as(BOB, "/api/bots")).body.bots.find((entry: any) => entry.id === bot.id);
+  expect(after.threadId).toBe(before.threadId);
+  expect(after.messages).toEqual(before.messages);
+}, 60_000);
