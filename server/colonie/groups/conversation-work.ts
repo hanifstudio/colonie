@@ -157,9 +157,13 @@ export function createConversationWork(deps: {
       for (const work of conversationWork(undefined, "running")) {
         const path = work.threadId ? deps.store().activePath(work.threadId) : [];
         const at = path.findIndex((message) => message.sendId === work.id);
-        const terminal = at >= 0 && path.slice(at + 1).some((message) => message.turnTerminal);
+        const terminal = at >= 0 ? path.slice(at + 1).findLast((message) => message.role === "bot" && message.kind === "text" && message.turnTerminal) : undefined;
+        const failed = terminal?.turnSucceeded === false;
         const bot = deps.store().bot(work.botId);
-        finish({ ...work, status: "interrupted" }, terminal, `${bot?.name ?? "The bot"} stopped when Colonie restarted. Mention it again to ask.`);
+        // A final text marker also exists on failed turns. Only the runtime's
+        // durable success annotation proves that this answer finished.
+        finish({ ...work, status: failed ? "running" : "interrupted" }, terminal?.turnSucceeded === true,
+          failed ? undefined : `${bot?.name ?? "The bot"} stopped when Colonie restarted. Mention it again to ask.`);
       }
     },
     completed(threadId: string, ok: boolean) {

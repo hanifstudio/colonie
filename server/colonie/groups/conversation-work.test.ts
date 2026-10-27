@@ -93,10 +93,22 @@ test("a result persisted just before a crash is recovered without running the pr
   const f = fixture();
   await f.service.post(caller, f.group.id, `@${f.bot.name} bounded work`, "recover");
   await settle(() => f.calls.length === 1);
-  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "text", text: "Durable answer", turnTerminal: true });
+  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "text", text: "Durable answer", turnTerminal: true, turnSucceeded: true });
   const restarted = f.make(); restarted.initialize(); restarted.wake();
   expect(conversationWork(f.group.id)[0]?.status).toBe("completed");
   expect(f.store.messagesFor(f.group.threadId).filter((message) => message.text === "Durable answer")).toHaveLength(1);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(f.calls).toHaveLength(1);
+});
+
+test.each([false, undefined])("a restart never promotes a failed or unproven answer to completed (%s)", async (outcome) => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} bounded work`, "uncertain");
+  await settle(() => f.calls.length === 1);
+  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "text", text: "Partial answer before a failure", turnTerminal: true, turnSucceeded: outcome });
+  const restarted = f.make(); restarted.initialize(); restarted.wake();
+  expect(conversationWork(f.group.id)[0]?.status).toBe(outcome === false ? "failed" : "interrupted");
+  expect(f.store.messagesFor(f.group.threadId).some((message) => message.text === "Partial answer before a failure")).toBe(false);
   await new Promise((resolve) => setTimeout(resolve, 10));
   expect(f.calls).toHaveLength(1);
 });
