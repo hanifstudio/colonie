@@ -599,7 +599,7 @@ bus.attach(registry.instances());
 // A key the provider refused, or accepted again, changes what Model
 // providers and the picker show; the config event refreshes /api/instances.
 onKeyRejectionChange(() => broadcast({ kind: "config", ...configStatus() }));
-const { activeInternalGenerationByThread, beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn, computerSelectionTurns, mintInternalCapability, revokeAllInternalCapabilities, revokeEarlierTurnCapabilities, revokeInternalCapabilitiesForThread, revokeInternalCapabilityForProviderEvent, revokeInternalCapabilityGeneration } = createInternalCapabilities({
+const { activeInternalGenerationByThread, authorizedInternalCapability, beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn, computerSelectionTurns, internalCapabilityIsActive, mintInternalCapability, revokeAllInternalCapabilities, revokeEarlierTurnCapabilities, revokeInternalCapabilitiesForThread, revokeInternalCapabilityForProviderEvent, revokeInternalCapabilityGeneration } = createInternalCapabilities({
   botForThread: () => botForThread,
   server: () => server,
 });
@@ -2110,6 +2110,9 @@ const { server, liveCalls } = createServerAssembly({
   secrets,
   conversationCaller,
   workspaceDirectory,
+  authorizedInternalCapability,
+  internalCapabilityIsActive,
+  claimTurnResource,
   desktopAccount,
   serverUpdate,
   ownThreads,

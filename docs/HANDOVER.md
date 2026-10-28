@@ -69,15 +69,16 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
+- No real Claude or Codex bot has browsed yet (a simulated engine drove the
+  real browser), the Browser panel was never watched or taken over for one, and
+  logins kept between turns were not checked. The Shared image is now about
+  950 MB with the browser; it built and answered, but no droplet has run it.
 
 ## Queue after the current task
 
 1. A person installs Colonie on a clean Mac from a `.dmg` and completes the
    first run in a real window, with throwaway data.
-2. Each bot browses with its own browser and logins, on ACP. A person logs
-   in for it once, watches it, and can take over. Local and Shared servers
-   (which have no browser yet). Screen control of desktop apps comes later.
-3. Gaps in the engine connection, each needing a decision before code:
+2. Gaps in the engine connection, each needing a decision before code:
    - A message cannot be sent into a turn that is already running (no steering
      on the ACP engines).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
@@ -85,8 +86,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-4. Small fix: email sign-in answers 502 saying the accounts-service address
+3. Small fix: email sign-in answers 502 saying the accounts-service address
    "is set" when it is not set at all.
-5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
+4. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
-6. Tidy the interface code into feature folders, one feature at a time.
+5. Tidy the interface code into feature folders, one feature at a time.

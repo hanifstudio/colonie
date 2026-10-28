@@ -5,7 +5,7 @@ import { type Message } from "../persistence/store.ts";
 import { type LocalVmTarget } from "../colonie/computer/container-computer.ts";
 import { approvalModeFor } from "../../shared/approval-mode.ts";
 import { ProviderTurnGenerationRegistry } from "../colonie/chat/turn-dispatch-guard.ts";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 /** Everything this cluster reaches in the server; see the header. */
 export interface InternalCapabilitiesDeps {
@@ -124,6 +124,29 @@ function mintInternalCapability(capability: Omit<InternalCapability, "orphanExpi
   return token;
 }
 
+/** Honoured only during the turn it was minted for, and not once that turn
+ * has chosen to move to another computer. */
+function internalCapabilityIsActive(capability: InternalCapability): boolean {
+  const switching = computerSelectionTurns.get(capability.threadId);
+  if ((capability.kind === "computer" || capability.kind === "browser") &&
+      switching?.generation === capability.generation && switching.selected) return false;
+  return capability.orphanExpiresAt > Date.now() && activeInternalGenerationByThread.get(capability.threadId) === capability.generation;
+}
+
+/** The live record behind an integration's `Authorization` header, or null. */
+function authorizedInternalCapability(header: string | string[] | undefined): InternalCapability | null {
+  const got = Buffer.from(Array.isArray(header) ? "" : (header ?? ""));
+  for (const [token, capability] of internalCapabilities) {
+    if (!internalCapabilityIsActive(capability)) {
+      internalCapabilities.delete(token);
+      continue;
+    }
+    const expected = Buffer.from(`Bearer ${token}`);
+    if (got.length === expected.length && timingSafeEqual(got, expected)) return capability;
+  }
+  return null;
+}
+
 function revokeInternalCapabilityGeneration(threadId: string, generation: string): void {
   for (const [token, capability] of internalCapabilities) {
     if (capability.threadId === threadId && capability.generation === generation) {
@@ -180,7 +203,9 @@ function revokeInternalCapabilityForProviderEvent(event: RuntimeEvent): void {
 
   return {
     activeInternalGenerationByThread,
+    authorizedInternalCapability,
     beginInternalCapabilityGeneration,
+    internalCapabilityIsActive,
     bindInternalCapabilityToProviderTurn,
     computerSelectionTurns,
     mintInternalCapability,

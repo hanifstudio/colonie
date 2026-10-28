@@ -464,6 +464,21 @@ export function agentBrowserIntegration(input: {
   return { command: input.binaryPath, args: ["mcp", "--tools", "core", "--no-webmcp"], env };
 }
 
+/** The built-in browser as a Claude or Codex (ACP) tool mount: the harness
+ * proxy a turn's browserIntegration names, behind its turn bearer. Nothing
+ * to lease or release here: the bearer is honoured only during the turn it
+ * was minted for, and it stays the same while the thread's grants do, so the
+ * revision (and with it the engine process) does not change every turn. */
+export function browserToolMount(proxy: { command: string; args: string[]; env: Record<string, string> }): import("../connections/contracts.ts").AcpToolMount {
+  const servers = [{ name: "browser", command: proxy.command, args: proxy.args, env: Object.entries(proxy.env).map(([name, value]) => ({ name, value })) }];
+  const revision = createHash("sha256").update(JSON.stringify(servers)).digest("hex");
+  return {
+    servers, revision,
+    receipt: { policyHash: revision, composioToolkits: [], servers: [{ name: "browser", source: "colonie", transport: "stdio" }] },
+    activate() {}, deactivate() {}, release() {}, calls: () => [],
+  };
+}
+
 /** Give the session's browser the standard page size, launching it with the
  * session's own launch environment if it is not running yet. Best effort:
  * false (and the page keeps whatever size it had) on any failure. */

@@ -216,6 +216,8 @@ export class AcpRuntime implements ProviderAdapter {
     nativeImageInput: true,
     strictResume: true,
     // Keep tools, project context and native compaction owned by Codex.
+    // The one Colonie tool beside them: the bot's own built-in browser.
+    browserMcp: true,
   };
   private readonly sessions = new Map<string, LiveSession>();
   private readonly listeners = new Set<RuntimeEventListener>();
@@ -581,7 +583,7 @@ export class AcpRuntime implements ProviderAdapter {
    * separate lease; the runtime activates/releases each, so neither wrapper can
    * release a lease the other still holds. */
   private mountsOf(input: SendTurnInput): AcpToolMount[] {
-    return [input.acpTools, input.acpExtraTools].filter((mount): mount is AcpToolMount => Boolean(mount));
+    return [input.acpTools, input.acpExtraTools, input.acpBrowserTools].filter((mount): mount is AcpToolMount => Boolean(mount));
   }
   private mountRevision(mounts: readonly AcpToolMount[]): string {
     return mounts.map((mount) => mount.revision).join("+");

@@ -170,6 +170,9 @@ Steps, in order. Each one is safe on its own:
   a bot does one screen task at a time. On a Local Mac, using the Mac's own
   apps means sharing the person's one screen: one at a time, and the person
   always wins.
+- Every Shared server comes with a browser, even for owners who never have
+  bots browse (owner, October 28). The update is larger, and several bots
+  browsing at once may need the larger server.
 - Work files belong to the conversation, not the bot. A group has one
   project folder that every bot in it works in and every member sees; a DM
   has its own. Files stay when a bot leaves and go when the conversation is

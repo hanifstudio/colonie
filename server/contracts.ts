@@ -118,6 +118,8 @@ export interface SendTurnInput {
   /** A second independent tool mount (the Colonie workspace tools), kept separate
    * so each mount owns its own lease lifetime and neither can release the other. */
   acpExtraTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
+  /** The built-in browser, when this bot browses (colonie/computer). */
+  acpBrowserTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
   /** Fresh scoped skills index, separate from stable persona/SOUL pins. */
   acpSkills?: import("../shared/colonie-skills.ts").AcpSkillsContext;
   /** Present only on a delegated Chief assignment turn: its exact ownership. */

@@ -23,7 +23,7 @@ import { createColonieSkillsRoutes } from "../colonie/skills/routes.ts";
 import { createSkillResolution } from "../colonie/skills/skill-resolution.ts";
 import { createWorkspaceBackupRoutes } from "../colonie/workspace/workspace-backup-http.ts";
 import { ensureTaskWorkspace } from "../colonie/workspace/workspace.ts";
-import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, customMcpServers, instanceConfigs, liveSettingsFor, loadConfig, saveConfig } from "../config.ts";
+import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, builtInBrowserEnabled, customMcpServers, instanceConfigs, liveSettingsFor, loadConfig, saveConfig } from "../config.ts";
 import { flushDecisionLog, withDecisionActor } from "../decision-log.ts";
 import { findAntigravityLeftovers, removeAntigravityLeftovers } from "../drivers/antigravity-temp.ts";
 import { entitled } from "../enterprise.ts";
@@ -45,6 +45,7 @@ import { createBotMemoryRoutes } from "../routes/bot-memory.ts";
 import { createBotMessagesRoutes } from "../routes/bot-messages.ts";
 import { createBotPresetRoutes } from "../routes/bot-presets.ts";
 import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
+import { createInternalBrowserRoute } from "../routes/internal-browser.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
 import { createBotReadRoutes } from "../routes/bot-read.ts";
@@ -355,6 +356,13 @@ ROUTES.push(createAcpSettingsRoutes({
 }));
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 ROUTES.push(createConversationFilesRoutes({ conversations: deps.groupConversations, caller: deps.conversationCaller }));
+ROUTES.push(createInternalBrowserRoute({
+  authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
+  bot: (id) => store.bot(id), browserEnabled: () => builtInBrowserEnabled(cfg),
+  browserIntegration: (botId, profile) => browserIntegration(botId, profile),
+  currentBrowserSession: (botId, profile) => currentBrowserSession(botId, profile),
+  claimTurnResource: deps.claimTurnResource, runtime: browserRuntime,
+}));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording, ownThreadIds }));

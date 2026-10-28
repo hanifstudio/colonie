@@ -25,10 +25,36 @@ RUN node -e 'const fs=require("fs");const f="pnpm-workspace.yaml";fs.writeFileSy
     && pnpm build \
     && pnpm prune --prod --ignore-scripts
 
-# Run: Node, git for the engines, and the built app.
+# Run: Node, git for the engines, the bots' browser, and the built app.
 FROM node:24-bookworm-slim
+# Chrome's Bookworm libraries, installed here: agent-browser's --with-deps
+# would call sudo, which this image does not ship.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git \
+    libxcb-shm0 libx11-xcb1 libx11-6 libxcb1 libxext6 libxrandr2 \
+    libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 libgtk-3-0 \
+    libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 \
+    libcairo2 libgdk-pixbuf-2.0-0 libxrender1 libasound2 libfreetype6 \
+    libfontconfig1 libdbus-1-3 libnss3 libnss3-tools libnspr4 \
+    libatk-bridge2.0-0 libdrm2 libxkbcommon0 libatspi2.0-0 libcups2 \
+    libxshmfence1 libgbm1 fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
+# Every Shared server carries the bots' browser (owner, October 28): the
+# pinned agent-browser and a Chrome for Testing, before the app files so a
+# code-only update does not download them again. Pin here and in
+# server/colonie/computer/browser-engine-release.ts together.
+ARG AGENT_BROWSER_VERSION=0.37.0
+RUN npm install -g --cache /tmp/npm-cache agent-browser@${AGENT_BROWSER_VERSION} \
+    && HOME=/opt/colonie-browser agent-browser install \
+    && ln -s /opt/colonie-browser/.agent-browser/browsers/chrome-*/chrome /opt/colonie-browser/chrome \
+    && native="$(readlink -f "$(command -v agent-browser)")" \
+    && case "$native" in */agent-browser/bin/agent-browser-linux-*) ;; *) echo "agent-browser is not a native binary: $native" >&2; exit 1;; esac \
+    && [ "$(head -c 4 "$native")" = "$(printf '\177ELF')" ] \
+    && for binary in "${native%/*}"/agent-browser-*; do [ "$binary" = "$native" ] || rm "$binary"; done \
+    && agent-browser --version \
+    && rm -rf /tmp/npm-cache /tmp/node-compile-cache
+# The browser stays outside /data, which may be an existing volume; each
+# bot's browser sessions and logins live under HOME, in /data.
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/opt/colonie-browser/chrome
 WORKDIR /app
 COPY --from=build /app /app
 # Everything the workspace keeps lives in one volume.

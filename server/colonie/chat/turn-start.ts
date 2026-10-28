@@ -33,7 +33,7 @@ import * as checkpoints from "./checkpoints.ts";
 import * as composio from "../mcp/composio.ts";
 import { extractTurnImages } from "../../colonie/chat/turn-images.ts";
 import { turnStartLogLine } from "../../colonie/chat/turn-log.ts";
-import { agentBrowserFrame, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
+import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
 import { removedComputerInstanceIds } from "../../colonie/computer/computer-engine-removal.ts";
 import { autoLocalVmAttachable, containerComputerFrame, containerComputerMcp, containerComputerStatus, poolLocalVmTarget, type LocalVmTarget, type Runtime} from "../../colonie/computer/container-computer.ts";
 import { withMcpSignIn } from "../../colonie/mcp/mcp-oauth.ts";
@@ -417,6 +417,21 @@ async function startTurn(
         runningTurnEngines.set(threadId, instance);
         const mounts = await acpToolMount(bot.id, threadId, instanceId);
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
+        // Each bot browses in its own browser, with its own logins (owner,
+        // October 28): the same session the Browser panel shows and a person
+        // can take over. No engine installed yet means no browser tools, and a
+        // browser that cannot start never stops the bot from answering.
+        const browsingBot = store.bot(bot.id);
+        let browserProblem = "";
+        const browser = browsingBot && builtInBrowserEnabled(cfg) && browsingBot.browser !== false
+          ? await browserIntegration(bot.id, browsingBot.browserProfile, { threadId, generation: dispatchClaimId }).catch((error: unknown) => {
+            browserProblem = error instanceof Error ? error.message : String(error);
+            console.warn(`[browser] ${bot.name}'s browser could not be prepared: ${browserProblem}`);
+            return null;
+          })
+          : null;
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during browser setup"); }
+        const acpBrowserTools = browser ? browserToolMount(browser.integration) : undefined;
         const acpMemory = colonieMemory().recall(bot.id, providerText) ?? undefined;
         const acpSkills = colonieSkills.context(bot.id);
         const acpAssignment = opts?.colonieAssignment ?? undefined;
@@ -448,8 +463,9 @@ async function startTurn(
           throw new DirectTurnSetupCancelled("turn stopped before dispatch");
         }
         const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
-          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id)].filter(Boolean).join(" ") || undefined,
+          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpBrowserTools, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id), acpBrowserTools ? BUILT_IN_BROWSER_SYSTEM_PROMPT.trim() : undefined,
+            browserProblem ? `Your browser could not start for this request (${browserProblem}). If the request needs a browser, say so; do not look for another way to browse.` : undefined].filter(Boolean).join(" ") || undefined,
           cwd, model, approvalMode: approvalModeForTurn(bot, false),
           resumeCursor: rebuildGroupSession ? undefined : task.resumeCursors[instanceId],
           sessionReset: rebuildGroupSession,
