@@ -196,8 +196,13 @@ Steps, in order. Each one is safe on its own:
   does; the person opens the browser, does that step, and presses Done, which
   resumes the bot. While the card waits, the browser stays in the person's
   hands. The panel opens by itself when a bot starts browsing and stays
-  closed once the person closes it, as in Hermes. One Computer panel shows
-  what the bot uses; a desktop appears only where the bot has one.
+  closed once the person closes it, as in Hermes.
+- A bot's computer is a real computer, as in OpenMausBot (owner, October 29):
+  the Local VM, a Linux desktop in a container (Docker, Podman, or Apple's
+  container), one shared by all bots unless set per bot. A bot with a
+  computer browses with the browser on that desktop, and the Computer panel
+  shows the desktop; the separate built-in browser is only for a bot with no
+  computer, and its tab says Browser, never Computer.
 - The pause and Done live on the server, so a future Telegram or Slack bot
   sends the same card with buttons and a link to the browser, as Hermes and
   OpenClaw do for approvals. The link needs the person signed in; forwarding

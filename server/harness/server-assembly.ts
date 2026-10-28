@@ -46,6 +46,7 @@ import { createBotMessagesRoutes } from "../routes/bot-messages.ts";
 import { createBotPresetRoutes } from "../routes/bot-presets.ts";
 import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
 import { createSignInAskRoutes } from "../routes/sign-in-ask.ts";
+import { createInternalComputerControlRoute } from "../routes/internal-computer-control.ts";
 import { createInternalBrowserRoute } from "../routes/internal-browser.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
@@ -383,6 +384,11 @@ ROUTES.push(createInternalBrowserRoute({
     const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
     broadcast({ kind: "browser-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, ...(conversationId ? { conversationId } : {}) });
   },
+}));
+ROUTES.push(createInternalComputerControlRoute({
+  authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
+  bot: (id) => store.bot(id), snapshot: (botId) => botComputerControlSnapshot(botId),
+  claimTurnResource: deps.claimTurnResource, ...deps.computerGate,
 }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));

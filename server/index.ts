@@ -124,7 +124,7 @@ import {runSkillsLibraryBoot} from "./colonie/skills/skills-library-migration.ts
 import { createPresetStore } from "./colonie/bots/presets.ts";
 import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
-import { PlaceUnavailableError, placeUnavailable, type PlaceSource, type Surface } from "./surface.ts";
+import { PlaceUnavailableError, placeUnavailable, surfaceLabel, type PlaceSource, type Surface } from "./surface.ts";
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, type WorkspaceAccess } from "./enterprise.ts";
@@ -1996,6 +1996,23 @@ function teammateReportContext(requestId: string, readerBotId?: string): string 
 // them — its pending map lives in the module so the two respond endpoints
 // can call resolvePeerComms without holding a reference back to here.
 const approvalBus: ApprovalBus = { store, broadcast, notify, autoApply: fullAccessForSource };
+/** A bot asking the person to take over its computer (the Local VM bridge's
+ * request_help, through /api/internal/computer-control): the app shows the
+ * ask, and it buzzes, because the bot is blocked on the person's hands. */
+function requestComputerHelp(botId: string, threadId: string, reason: unknown) {
+  const { snapshot, requestId } = computerControl.requestHelpLease(botId, reason);
+  const bot = store.bot(botId);
+  if (bot) {
+    const place = store.taskByThread(bot.id, threadId)?.surface ?? bot.computer;
+    const where = place && place !== "off" ? ` on ${surfaceLabel(place)}` : "";
+    notify(buildNotification("takeover", bot, threadId, `${snapshot.helpReason ?? "asked you to take over"}${where}`));
+  }
+  return { held: snapshot.held, helpOpen: snapshot.helpReason !== null, requestId };
+}
+function expireComputerHelp(botId: string, requestId: unknown) {
+  const snapshot = computerControl.expireHelp(botId, requestId);
+  return { held: snapshot.held, helpOpen: snapshot.helpReason !== null };
+}
 
 // Approvals live only in memory, so any peer card still open on disk is one
 // whose resolver died with the previous process. Left alone it can never be
@@ -2130,6 +2147,7 @@ const { server, liveCalls } = createServerAssembly({
   authorizedInternalCapability,
   internalCapabilityIsActive,
   claimTurnResource,
+  computerGate: { autoVmClaims, turnComputerResources, requestHelp: requestComputerHelp, expireHelp: expireComputerHelp },
   desktopAccount,
   serverUpdate,
   ownThreads,

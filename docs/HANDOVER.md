@@ -1,13 +1,19 @@
 # Handover
 
-## Now: verify routines, guides, and group replies with real engines
+## Now: give Claude and Codex bots a real computer
+
+A Claude or Codex bot works on its Local VM desktop and browses there, as in
+OpenMausBot; the Computer panel shows that desktop. First restore the deleted
+computer-control route, then mount the VM for ACP bots instead of the separate
+browser. Proof: tests, then a real container. Not now: Shared servers, the Mac.
+
+## Next: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
-Out of scope: event triggers and the owner's real data.
 
-## Next: prepare the first public release
+## After that: prepare the first public release
 
 1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
