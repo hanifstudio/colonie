@@ -262,6 +262,9 @@ export interface ContainerRuntimeStatus {
 
 /** Inspect only the host runtime. Unlike a full Local VM status check, this
  * never opens a container, calls Cua, or reads a desktop screenshot. */
+/** The Podman machine's memory: the 4 GB desktop plus room for the VM itself. */
+const PODMAN_MACHINE_MEMORY_MB = 6144;
+
 /** Start an installed container runtime whose daemon is down, so a person
  * who chose Local VM never has to open a terminal: Colima (or Docker
  * Desktop) for docker, the Podman machine, or Apple's container service.
@@ -272,7 +275,14 @@ export async function startContainerRuntime(
   platform: NodeJS.Platform = process.platform,
   waitMs = 180_000,
 ): Promise<void> {
-  const attempts: Array<[string, string[]]> = runtime === "podman" ? [["podman", ["machine", "start"]]]
+  // Podman Desktop may not have made its machine yet, and the default one is
+  // too small for the 4 GB desktop: make it, size it, start it. Each step
+  // that does not apply fails quietly; the wait below decides.
+  const attempts: Array<[string, string[]]> = runtime === "podman" ? [
+    ["podman", ["machine", "init", "--cpus", "2", "--memory", String(PODMAN_MACHINE_MEMORY_MB)]],
+    ["podman", ["machine", "set", "--memory", String(PODMAN_MACHINE_MEMORY_MB)]],
+    ["podman", ["machine", "start"]],
+  ]
     : runtime === "container" ? [["container", ["system", "start"]]]
     : await installed("colima", runner, platform) ? [["colima", ["start"]]]
     : platform === "darwin" ? [["open", ["-a", "Docker"]]] : [];

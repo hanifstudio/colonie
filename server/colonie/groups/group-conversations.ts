@@ -452,7 +452,7 @@ export function createGroupConversations(deps: {
      * (an approval, a question, a secret, a sign-in) is copied into the conversation,
      * answered there by whoever asked, and kept in step as it is answered. */
     relayWork(threadId: string, message: Message) {
-      const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk) || Boolean(message.signInAsk);
+      const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk) || Boolean(message.signInAsk) || Boolean(message.computerAsk);
       if (!isCard) return;
       const key = `${threadId}:${message.id}`;
       const copy = relayed.get(key);
@@ -460,7 +460,7 @@ export function createGroupConversations(deps: {
       if (copy) {
         const record = records.find((entry) => Object.values(entry.botThreads).includes(threadId));
         if (!record) return;
-        store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk, signInAsk: message.signInAsk });
+        store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk, signInAsk: message.signInAsk, computerAsk: message.computerAsk });
         // answered: the bot carries on
         const pending = work.pending(threadId);
         const settled = message.secretAsk ? message.secretAsk.saved : message.signInAsk ? Boolean(message.signInAsk.outcome) : message.card?.answered || message.card?.dismissed;
@@ -477,6 +477,7 @@ export function createGroupConversations(deps: {
         role: "bot", kind: message.kind, text: message.text ?? "",
         ...(message.card ? { card: message.card } : {}), ...(message.secretAsk ? { secretAsk: message.secretAsk } : {}),
         ...(message.signInAsk ? { signInAsk: message.signInAsk } : {}),
+        ...(message.computerAsk ? { computerAsk: message.computerAsk } : {}),
         from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
         relay: { threadId, messageId: message.id, askedBy: pending.askerKey, askedByName: pending.asker },
       });

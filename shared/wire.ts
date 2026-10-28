@@ -394,6 +394,9 @@ export interface WireMessage {
   /** A bot asking the person to sign in, pass a CAPTCHA, or enter a code in
    * its browser (shared/sign-in-request.ts); Done or Cancel resumes it. */
   signInAsk?: SignInAsk;
+  /** A bot offering to set up its computer: this Mac lacks the free app it
+   * needs. Show me how opens the Computer panel; Not now stops the offers. */
+  computerAsk?: { botId: string; reason?: string; outcome?: "later" };
   /** In a group or DM: the bot's own work thread, where a card waits for a
    * person (colonie/groups needsPerson). */
   workThread?: { botId: string; threadId: string };

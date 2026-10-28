@@ -28,6 +28,7 @@ import {
   MultiplicationSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
+import { ComputerInstallCard } from "./ComputerInstallCard";
 import { api, currentTaskBot, useStore, type Bot, type ConfigStatus } from "@/state/store";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { ComputerFilesPane } from "./ComputerFilesPane";
@@ -97,6 +98,8 @@ type Phase =
 interface LocalVmStatus {
   /** The installed container runtime, or null when none is. */
   runtime?: string | null;
+  /** This machine's memory, for the offer to install. */
+  host_memory_bytes?: number;
   /** Optional: a hosted server can lag behind this app. */
   resumable?: boolean;
   stop_reason?: "idle" | null;
@@ -210,11 +213,14 @@ export function ComputerPanel({
   const connectionKey = `${profileBot.id}:${profileBot.threadId}:${livePlace}:${threadBot.modelSelection.instanceId}`;
   const [autoSurface, setAutoSurface] = useState<{ key: string; surface: Bot["computer"] } | null>(null);
   const autoSurfaceCurrent = autoSurface?.key === connectionKey;
-  const surfaceReady = livePlace !== "auto" || autoSurfaceCurrent;
+  const advanced = useAdvancedMode();
+  const surfaceReady = livePlace !== "auto" || autoSurfaceCurrent || !advanced;
   // Profile defaults still belong to the Works on picker below. The screen
   // and capability checks belong to the selected conversation, not that default.
+  // Simple mode has no place to choose: a bot left on Auto works on its
+  // computer, the Local VM (owner, October 29). Advanced keeps Auto.
   const bot = { ...threadBot, computer: livePlace === "auto"
-    ? autoSurfaceCurrent ? autoSurface.surface : undefined : livePlace };
+    ? advanced ? autoSurfaceCurrent ? autoSurface.surface : undefined : "vm" as const : livePlace };
   const viewerConnectionKey = `${bot.id}:${bot.threadId}:${bot.computer}`;
   const viewerConnection = useRef(viewerConnectionKey);
   viewerConnection.current = viewerConnectionKey;
@@ -308,7 +314,6 @@ export function ComputerPanel({
   const browserEnabled = builtInBrowserEnabled(state.config) && bot.browser !== false
     && (browserAvailableHere || state.config?.browserEngine?.installable === true);
   // The Computer panel shows the bot's computer, as in OpenMausBot (shownComputerPanelView).
-  const advanced = useAdvancedMode();
   const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser";
   const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
   const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop });
@@ -500,6 +505,11 @@ export function ComputerPanel({
                 setError(cause instanceof Error ? cause.message : String(cause));
                 setPhase("vm-unavailable");
               });
+          }
+          else if (!advanced && !status.runtime) {
+            // no container app on this Mac: the install card says what to do
+            setError(null);
+            setPhase("vm-unavailable");
           }
           else {
             const canCreateHere =
@@ -892,13 +902,8 @@ export function ComputerPanel({
     else if (mode === "browser") updateComputerSelection({ computer: mode, browser: true });
     else updateComputerSelection({ computer: mode });
   };
-  // A pin that keeps this chat away from the grid's choice and will not move
-  // with it: a person's, or one older than the server's record of who set
-  // it. An auto pin moves with the next Works on change, one that matches
-  // Works on changes nothing, and Off wins over any pin.
-  const heldPin = liveTask?.surface && !liveTask.surfaceAuto && profileBot.computer !== "off"
-    && liveTask.surface !== profileBot.computer ? liveTask.surface : undefined;
 
+  const installNeeded = !advanced && phase === "vm-unavailable" && vmStatus !== null && !vmStatus.runtime;
   const tabClass = (active: boolean) => cn(
     "flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] transition-colors",
     active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
@@ -1066,6 +1071,9 @@ export function ComputerPanel({
             {phase === "local" && <span className="text-[11px]">{t("computer.badge.local")}</span>}
             {phase === "vm" && <span className="text-[11px]">{t("vm.dest.vm")}</span>}
         </div>
+        {installNeeded ? (
+          <div className="overflow-hidden rounded-xl bg-card"><ComputerInstallCard botName={bot.name} memoryBytes={vmStatus?.host_memory_bytes} onCheck={() => { vmSetupTried.current.delete(`${bot.id}:${bot.threadId}`); setRetry((n) => n + 1); }} /></div>
+        ) : (
         <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-xl bg-card">
           {frameSrc && previewOpensDesktop ? (
             <button
@@ -1170,6 +1178,7 @@ export function ComputerPanel({
             </div>
           )}
         </div>
+        )}
 
         {errorText && (
           <div className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12px] text-danger">
@@ -1362,63 +1371,7 @@ export function ComputerPanel({
           </span>
           <span className="text-ink-secondary" aria-hidden="true">→</span>
         </button>
-        </> : (
-          <div className="mt-4 rounded-xl bg-card p-4" data-testid="where-works">
-            <div className="text-[15px] font-medium text-ink">{t("computer.simple.whereWorks", { name: bot.name })}</div>
-            <div role="group" aria-label={t("computer.destinationAria")} className="mt-3 grid grid-cols-3 gap-2">
-              {placeOptions.map(({ mode, Icon, selected, disabled, unavailableTitle, simpleLabel, issue, view }) => (
-                <button
-                  key={mode ?? "auto"}
-                  type="button"
-                  disabled={disabled}
-                  title={unavailableTitle}
-                  aria-pressed={selected}
-                  onClick={() => selectPlace(mode)}
-                  className={cn(
-                    "flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-1.5 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                    selected
-                      ? "border-accent/60 bg-accent/10 text-ink"
-                      : "border-hairline/50 bg-panel/30 text-ink-secondary",
-                    disabled ? "cursor-not-allowed opacity-50" : "hover:border-accent/40 hover:bg-control/60",
-                  )}
-                >
-                  <HIcon icon={Icon} size={16} className={cn("shrink-0", selected ? "text-accent" : "text-ink-secondary")} aria-hidden="true" />
-                  <span className="w-full truncate text-[12px] font-medium leading-4">{simpleLabel}</span>
-                  {issue && <span className="w-full truncate text-[10.5px] leading-3 text-ink-secondary">{view.short}</span>}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 text-[11.5px] leading-5 text-ink-secondary" data-testid="place-line">
-              {worksOnView.line}
-              {placeActionButton(worksOnView, "mt-1 block font-medium text-accent hover:underline")}
-            </div>
-            {/* Simple has no composer chip, so a held pin is named here, in
-                the grid's words, with the way back to the grid's choice. An
-                auto pin gets no note: the person never set it. */}
-            {heldPin && (
-              <div className="mt-2 flex items-center gap-2">
-                <p className="min-w-0 flex-1 text-[11.5px] leading-5 text-ink-secondary" data-testid="place-pinned-note">
-                  {t("place.pinnedNoteSimple", {
-                    place: placeOptions.find(({ mode }) => mode === heldPin)?.simpleLabel ?? t(placeLabelKey(heldPin)),
-                  })}
-                </p>
-                {/* The server refuses a busy thread's place change (409). */}
-                <button
-                  type="button"
-                  disabled={Boolean(bot.busy)}
-                  title={bot.busy ? t("place.busy") : undefined}
-                  onClick={() => dispatch({ type: "updateTask", botId: profileBot.id, threadId: profileBot.threadId, patch: { surface: null } })}
-                  className="shrink-0 rounded-md px-2 py-0.5 text-[11.5px] font-medium leading-5 text-accent-text transition-colors hover:bg-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent"
-                  data-testid="place-unpin"
-                >
-                  {t("place.unpinSimple", {
-                    place: placeOptions.find(({ selected }) => selected)?.simpleLabel ?? t(placeLabelKey(profileBot.computer ?? "auto")),
-                  })}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        </> : null /* Simple mode offers no place to choose: a bot's computer is its Local VM (owner, October 29). */}
       </div>
       )}
 

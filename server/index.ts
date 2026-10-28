@@ -122,7 +122,7 @@ import {createWebhookManager} from "./colonie/routines/webhook-wiring.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBoot} from "./colonie/skills/skills-library-migration.ts";
 import { createPresetStore } from "./colonie/bots/presets.ts";
-import {autoLocalVmAttachable, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
+import {autoLocalVmAttachable, containerRuntimeStatus, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
 import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
 import { PlaceUnavailableError, placeUnavailable, surfaceLabel, type PlaceSource, type Surface } from "./surface.ts";
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
@@ -946,6 +946,29 @@ const colonieChief = new ColonieChief({
     });
     groupConversations.needsPerson(threadId, `the secret ${name}`);
     return { state: "waiting for the person", summary: `A button under your reply asks the person to save ${name}. You will not see the value; on their next message it is in your secrets file.` };
+  },
+  // A bot asking for its computer (use_computer). With the container app
+  // installed, this turn ends and the request resumes on the started computer
+  // (continueComputerSelection); without it, the person gets one offer card,
+  // never again after "Not now".
+  useComputer: async (botId, threadId, reason) => {
+    if (store.taskByThread(botId, threadId)?.surface === "vm") return { state: "already", summary: "You already work on your computer in this conversation; use its tools." };
+    const runtime = await containerRuntimeStatus();
+    if (!runtime.runtime) {
+      if (cfg.localVm?.offerDeclined) return { state: "declined", summary: "The person chose not to install the free app your computer needs. Carry on with your other tools and say plainly what you could not do; do not offer it again." };
+      const bot = store.bot(botId);
+      store.appendMessage(threadId, {
+        role: "bot", kind: "text", text: "",
+        ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
+        computerAsk: { botId, ...(reason ? { reason: reason.slice(0, 240) } : {}) },
+      });
+      return { state: "offered", summary: "This Mac lacks the free app your computer needs; a card offers it to the person. End your turn now, saying in one line what needs the computer." };
+    }
+    const selection = computerSelectionTurns.get(threadId);
+    if (!selection) return { state: "unavailable", summary: "Your computer cannot be started from this request; ask the person to send it again." };
+    selection.selected = "vm";
+    selection.previousSurface = store.taskByThread(botId, threadId)?.surface;
+    return { state: "pending", summary: "End your turn now without more tool calls. Colonie starts your computer (the first time takes a few minutes) and resumes the person's request on it." };
   },
   // A bot asking the person to sign in or pass a check in its browser: a card
   // whose Open shows the bot's browser in the person's control, and whose

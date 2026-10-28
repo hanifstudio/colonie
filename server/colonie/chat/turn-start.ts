@@ -372,7 +372,7 @@ async function startTurn(
   directTurnBots.set(threadId, bot);
   beginInternalCapabilityGeneration(threadId, dispatchClaimId);
   if (!opts?.computerSelectionContinuation && !opts?.cardContinuation && !opts?.automationSource && !opts?.unattended &&
-      !opts?.commsDepth && bot.computer !== "off" && agentsMounted) {
+      !opts?.commsDepth && bot.computer !== "off" && (agentsMounted || isColonieAcpDriver(instance.driverKind))) {
     const source = store.activePath(threadId).findLast((message: any) => message.id === userMessage?.id && message.role === "user" && !message.peerAsk);
     if (source) computerSelectionTurns.set(threadId, { generation: dispatchClaimId, botId: bot.id, source, text });
   }

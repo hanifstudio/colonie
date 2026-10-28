@@ -36,10 +36,10 @@ test("docker without Colima on a Mac opens Docker Desktop", async () => {
   expect(ran).toEqual(["open -a Docker"]);
 });
 
-test("Podman starts its machine", async () => {
+test("Podman makes and sizes its machine for the desktop, then starts it", async () => {
   const { runner, ran } = host(["podman"]);
   await startContainerRuntime("podman", runner, "darwin", 5_000);
-  expect(ran).toEqual(["podman machine start"]);
+  expect(ran).toEqual(["podman machine init --cpus 2 --memory 6144", "podman machine set --memory 6144", "podman machine start"]);
 });
 
 test("a daemon that never comes up says what was tried", async () => {

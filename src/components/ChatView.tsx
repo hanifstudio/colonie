@@ -63,6 +63,7 @@ import type { MentionPeer } from "@/lib/mentions";
 import { PersonAvatar } from "./PersonAvatar";
 import { SecretAsk } from "./Secrets";
 import { SignInAsk } from "./SignInAsk";
+import { ComputerAsk } from "./ComputerAsk";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { normalizeState, stateForBot } from "@/lib/mascot";
@@ -518,6 +519,11 @@ const Bubble = memo(function Bubble({
       onSaved={(name) => { if (!message.secretAsk?.saved) conversation?.onSecretSaved(name, message.secretAsk!.botId); }} />;
     return <SecretAsk message={message} threadId={threadId}
       onSaved={(name) => { if (!message.secretAsk?.saved) dispatch({ type: "send", botId, threadId, text: `I saved ${name}. Please continue.` }); }} />;
+  }
+  // a bot offering to set up its computer (this Mac lacks the free app)
+  if (message.computerAsk) {
+    if (message.relay) return <ComputerAsk message={{ ...message, id: message.relay.messageId }} threadId={message.relay.threadId} />;
+    return <ComputerAsk message={message} threadId={threadId} />;
   }
   // a bot asking the person to do one step in its browser; Done or Cancel
   // sends the person's words that resume it

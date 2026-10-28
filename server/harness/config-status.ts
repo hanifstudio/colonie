@@ -1,4 +1,5 @@
 // Server status and settings: local-VM payloads and readiness, edition/settings status, access filtering, MCP server persistence, instance description/persistence and provider reload.
+import { totalmem } from "node:os";
 import * as tts from "../tts/index.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { type BotRecord } from "../persistence/store.ts";
@@ -50,6 +51,8 @@ async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
     idle_timeout_ms: localVmIdleMs(),
     mode: localVmMode(cfg),
     max_instances: localVmMaxInstances(cfg),
+    // what the offer to install says the computer will cost this machine
+    host_memory_bytes: totalmem(),
   };
 }
 

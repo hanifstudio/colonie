@@ -172,6 +172,7 @@ export interface Message {
   notice?: true;
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
   signInAsk?: SignInAsk;
+  computerAsk?: { botId: string; reason?: string; outcome?: "later" };
   workThread?: { botId: string; threadId: string };
   working?: true;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };

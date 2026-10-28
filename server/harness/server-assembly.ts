@@ -369,6 +369,10 @@ ROUTES.push(createSignInAskRoutes({
     const caller = deps.conversationCaller(auth);
     return Boolean(caller && deps.groupConversations?.worksFor(caller, threadId));
   },
+  declineComputerOffers: () => {
+    saveConfig({ localVm: { ...cfg.localVm, offerDeclined: true } });
+    Object.assign(cfg, loadConfig());
+  },
 }));
 // Once per turn the app opens the bot's panel where it works, on the view it
 // is using: its browser, or its computer's desktop.

@@ -20,9 +20,13 @@ registerHooks({
       const ready = (target) => { mkdirSync(target.workspaceDir, { recursive: true }); return { runtime: "podman", daemonUp: true, image: true, create_supported: true, managed: true,
         container: "running", ready: true, imageMatches: true, network: "loopback", security: "hardened", persistence: "durable", resumable: false,
         stopped_at: null, problem: null, container_name: target.containerName, target_key: target.key, workspace_path: target.workspaceDir }; };
-      export async function containerRuntimeStatus() { return { runtime: "podman", daemonUp: true }; }
+      // COLONIE_TEST_VM_RUNTIME=none: a Mac with no container app installed
+      const none = process.env.COLONIE_TEST_VM_RUNTIME === "none";
+      export async function containerRuntimeStatus() { return none ? { runtime: null, daemonUp: false } : { runtime: "podman", daemonUp: true }; }
       export async function containerComputerExists() { return true; }
-      export async function containerComputerStatus(_run, _platform, target = SHARED_LOCAL_VM_TARGET) { return ready(target); }
+      export async function containerComputerStatus(_run, _platform, target = SHARED_LOCAL_VM_TARGET) {
+        return none ? { ...ready(target), runtime: null, daemonUp: false, ready: false, container: "missing", problem: "Install a supported container runtime first" } : ready(target);
+      }
       export async function containerComputerAction(_action, _run, _platform, target = SHARED_LOCAL_VM_TARGET) { return ready(target); }
       export async function containerComputerFrame() { throw new Error("no frames in this fixture"); }
       export function containerComputerMcp(_runtime, control) {

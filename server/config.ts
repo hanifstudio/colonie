@@ -48,7 +48,9 @@ export const MIN_LOCAL_VM_MAX_INSTANCES = 1;
 export const MAX_LOCAL_VM_MAX_INSTANCES = 8;
 /** Idle window before a Local VM's disposable container is recycled. The
  * default keeps the historical 8-hour window for existing configs. */
-export const DEFAULT_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 480;
+// Short enough that a person's Mac gets its memory back soon after the bot
+// stops working (owner, October 29); a turn always restarts it.
+export const DEFAULT_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 30;
 export const MIN_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 5;
 export const MAX_LOCAL_VM_IDLE_TIMEOUT_MINUTES = 1_440;
 
@@ -106,6 +108,9 @@ const localVmConfigSchema = z.object({
     .min(MIN_LOCAL_VM_IDLE_TIMEOUT_MINUTES)
     .max(MAX_LOCAL_VM_IDLE_TIMEOUT_MINUTES)
     .optional(),
+  /** The person answered "Not now" to installing the computer's free app:
+   * bots stop offering it (they still can from the Computer panel). */
+  offerDeclined: z.boolean().optional(),
 });
 /** A named, shareable browser session ("Work", "Client A"). The id names a
  * durable Electron partition; user-controlled characters never reach it. */
@@ -599,7 +604,7 @@ export interface AppConfig {
   /** Shared preserves the historical singleton. Per-bot gives every bot a
    * separate container, durable workspace, viewer and lease. Pool runs N
    * seats shared by all conversations, with per-thread affinity (#1654). */
-  localVm?: { mode?: "shared" | "per-bot" | "pool"; maxInstances?: number; idleTimeoutMinutes?: number };
+  localVm?: { mode?: "shared" | "per-bot" | "pool"; maxInstances?: number; idleTimeoutMinutes?: number; offerDeclined?: boolean };
   /** Opt-in product experiments. Every flag defaults to disabled. */
   features?: { skillAuthoring?: boolean; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; llmThreadTitles?: boolean; autoRecall?: boolean; routinesInConversation?: boolean; skillsLibrary?: boolean };
   /** First-run progress; see onboardingConfigSchema. */
