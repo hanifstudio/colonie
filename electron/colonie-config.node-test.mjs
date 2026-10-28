@@ -2,10 +2,12 @@
 // list) and where a workspace keeps its data. The launcher reads the first
 // without Electron, so the mirror has to answer the way Electron answers.
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { colonieAppData, colonieDataDir, colonieHome, colonieUserData, developmentData } from "./colonie-config.mjs";
+import { colonieAppData, colonieDataDir, colonieHome, colonieUserData, developmentData, initializeColonieData } from "./colonie-config.mjs";
 
 const HOME = path.join(path.sep, "home", "you");
 
@@ -45,4 +47,12 @@ test("a development run gets its own data unless real data is asked for", () => 
 test("workspaces sit under the development home when one is set, the real home otherwise", () => {
   assert.equal(colonieHome(HOME, {}), HOME);
   assert.equal(colonieHome(HOME, { COLONIE_HOME: "/dev" }), "/dev");
+});
+
+test("a new workspace keeps tool steps out of the transcript, as the setting says", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "colonie-config-"));
+  try {
+    initializeColonieData(dir);
+    assert.equal(JSON.parse(readFileSync(path.join(dir, "config.json"), "utf8")).features.showToolCalls, false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

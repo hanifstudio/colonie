@@ -52,7 +52,9 @@ export function initializeColonieData(dataDir) {
     // inherited flow) hid onboarding from every new user.
     language: "en", onboarding: { completedAt: "", version: 0, reelSeen: false, hintsSeen: [] },
     defaultModelSelection: { instanceId: "codex-acp", model: "agent-default" },
-    features: { showToolCalls: true, llmThreadTitles: false, autoRecall: false, skillAuthoring: false, skillsLibrary: false },
+    // Tool steps stay out of the transcript, as in OpenMausBot (Settings,
+    // Appearance, Tool calls turns them on).
+    features: { showToolCalls: false, llmThreadTitles: false, autoRecall: false, skillAuthoring: false, skillsLibrary: false },
     instances: {
       "codex-acp": { driver: "codex-acp", displayName: "Codex · ACP", icon: { kind: "preset", preset: "openai" } },
       "claude-acp": { driver: "claude-acp", displayName: "Claude · ACP", icon: { kind: "preset", preset: "anthropic" } },
