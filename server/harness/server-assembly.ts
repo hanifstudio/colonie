@@ -44,6 +44,7 @@ import { createBotDefaultRoutes } from "../routes/bot-defaults.ts";
 import { createBotMemoryRoutes } from "../routes/bot-memory.ts";
 import { createBotMessagesRoutes } from "../routes/bot-messages.ts";
 import { createBotPresetRoutes } from "../routes/bot-presets.ts";
+import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
 import { createBotReadRoutes } from "../routes/bot-read.ts";
@@ -353,6 +354,7 @@ ROUTES.push(createAcpSettingsRoutes({
   },
 }));
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
+ROUTES.push(createConversationFilesRoutes({ conversations: deps.groupConversations, caller: deps.conversationCaller }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording, ownThreadIds }));

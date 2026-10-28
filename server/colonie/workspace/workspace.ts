@@ -8,8 +8,8 @@
 // memory/ holds topic files the bot reads on demand with its ordinary
 // file tools. Plain markdown on purpose — the user can open, edit, or
 // delete anything the bot believes.
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 
 import { writeFileAtomic } from "../../persistence/atomic.ts";
 import { alwaysCore, isExpired, isMemoryDate, parseMemoryEntries, untilMark, withoutExpired, type MemoryEntryLine } from "../memory/memory-entries.ts";
@@ -21,6 +21,7 @@ import { DATA_DIR } from "../../config.ts";
 
 export const WORKSPACES_DIR = join(DATA_DIR, "workspaces");
 export const TASK_WORKSPACES_DIR = join(DATA_DIR, "task-workspaces");
+export const CONVERSATION_FOLDERS_DIR = join(DATA_DIR, "conversation-files");
 
 /** MCP support does not imply native filesystem tools or a local working directory. */
 export function supportsWorkspaceFiles(driverKind: string): boolean {
@@ -36,6 +37,84 @@ export function ensureTaskWorkspace(botId: string, threadId: string): string {
   const dir = join(TASK_WORKSPACES_DIR, botId, threadId);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   return dir;
+}
+
+/** A group's or DM's project folder: every bot in the conversation works in
+ * it and its people see its files (owner, October 28). */
+export function conversationFolder(conversationId: string, root = CONVERSATION_FOLDERS_DIR): string {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(conversationId)) throw new Error("Invalid conversation id for a project folder.");
+  return join(root, conversationId);
+}
+
+export function ensureConversationFolder(conversationId: string, root?: string): string {
+  const dir = conversationFolder(conversationId, root);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  return dir;
+}
+
+/** Deleting the conversation deletes its files. */
+export function removeConversationFolder(conversationId: string, root?: string): void {
+  rmSync(conversationFolder(conversationId, root), { recursive: true, force: true });
+}
+
+/** Whether `path` is this bot's private folder for that thread, the only
+ * folder whose files may be moved into a conversation's folder. */
+export function isTaskWorkspace(path: string, botId: string, threadId: string, root = TASK_WORKSPACES_DIR): boolean {
+  return path === join(root, botId, threadId);
+}
+
+/** Move a bot's earlier files for a conversation into its project folder.
+ * A name already taken there goes under "<bot> earlier files/" instead, so
+ * nothing another bot made is replaced. Moves within one data folder. */
+export function moveIntoConversationFolder(from: string, to: string, botName: string): void {
+  let entries: string[];
+  try { entries = readdirSync(from); } catch { return; }
+  const aside = join(to, `${botName.replace(/[\\/:\0]/g, "-").trim() || "Bot"} earlier files`);
+  for (const entry of entries) {
+    const target = existsSync(join(to, entry)) ? join(aside, entry) : join(to, entry);
+    if (target.startsWith(aside + sep)) mkdirSync(aside, { recursive: true, mode: 0o700 });
+    if (existsSync(target)) continue;
+    renameSync(join(from, entry), target);
+  }
+  try { rmdirSync(from); } catch { /* something stayed behind; leave it */ }
+}
+
+export interface ConversationFile { path: string; bytes: number; modifiedAt: number }
+const MAX_LISTED_FILES = 500;
+/** Every file in a project folder, newest first, by path relative to it.
+ * Hidden files and folders (an engine's own `.git`, `.claude`) and links are
+ * left out: a link could point outside the folder. */
+export function listConversationFiles(dir: string): { files: ConversationFile[]; truncated: boolean } {
+  const files: ConversationFile[] = [];
+  let truncated = false;
+  const walk = (folder: string) => {
+    let entries: string[];
+    try { entries = readdirSync(folder); } catch { return; }
+    for (const name of entries) {
+      if (name.startsWith(".")) continue;
+      if (files.length >= MAX_LISTED_FILES) { truncated = true; return; }
+      const full = join(folder, name);
+      const stat = lstatSync(full, { throwIfNoEntry: false });
+      if (stat?.isDirectory()) walk(full);
+      else if (stat?.isFile()) files.push({ path: relative(dir, full).split(sep).join("/"), bytes: stat.size, modifiedAt: stat.mtimeMs });
+    }
+  };
+  walk(dir);
+  return { files: files.sort((a, b) => b.modifiedAt - a.modifiedAt), truncated };
+}
+
+/** The absolute path of one listed file, or null when `path` is not a
+ * regular, visible file inside the folder (no "..", no links on the way). */
+export function conversationFilePath(dir: string, path: string): string | null {
+  const parts = path.split("/");
+  if (!path || path.length > 1024 || parts.some((part) => !part || part === "." || part === ".." || part.startsWith(".") || part.includes("\\") || part.includes("\0"))) return null;
+  let current = dir;
+  for (const part of parts) {
+    current = join(current, part);
+    const stat = lstatSync(current, { throwIfNoEntry: false });
+    if (!stat || stat.isSymbolicLink()) return null;
+  }
+  return lstatSync(current).isFile() ? current : null;
 }
 
 /** The load budget: only this much of MEMORY.md rides into the system

@@ -1,16 +1,6 @@
 # Handover
 
-## Now: bots in a group share the group's project folder
-
-Every bot in a group, or in a DM between people, works in one folder that
-belongs to the conversation. Its members see the files and download them from
-the conversation; deleting the group deletes the folder. A bot that already
-worked in a group moves its files there and starts a fresh session briefed
-from the group. Prove with unit tests, an isolated fixture with a simulated
-engine, and `pnpm check`. Out of scope: DMs with one bot, routines' folders,
-and two bots editing one file at the same moment.
-
-## After that: verify routines, guides, and group replies with real engines
+## Now: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
@@ -76,6 +66,9 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
   real window. The app's restart into another workspace has never been run.
 - The owner's two stuck conversations, "Motion" and "Biscuit", should now
   rebuild their session. The next message sent in either one is the real check.
+- A group's Files panel was never seen in a window, and no real engine has yet
+  written into a group's project folder. A file a bot links in a group answer
+  still opens only through the old per-bot rule, not the project folder.
 
 ## Queue after the current task
 

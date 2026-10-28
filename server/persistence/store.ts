@@ -2198,6 +2198,19 @@ export class Store {
     return task.cwd;
   }
 
+  /** Work a task in another folder (a conversation's project folder). An
+   * engine session belongs to the folder it began in, so a session begun
+   * elsewhere is forgotten and the next turn starts a fresh one. */
+  moveTaskFolder(botId: string, threadId: string, cwd: string): void {
+    const task = this.taskByThread(botId, threadId);
+    if (!task || task.cwd === cwd) return;
+    const sessionElsewhere = Object.keys(task.resumeCursors).length > 0;
+    task.cwd = cwd;
+    if (sessionElsewhere) task.resumeCursors = {};
+    this.saveBots();
+    this.emit({ type: "bot", botId });
+  }
+
 
   // ── tasks ─────────────────────────────────────────────────────────────
   project(botId: string, projectId: string): BotProjectRecord | undefined {

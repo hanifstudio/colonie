@@ -14,6 +14,7 @@ import { commandReceipt } from "../../commands.ts";
 import { conversationWork, deleteConversationRecord, loadConversationRecords, saveConversationRecords, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { createConversationWork, type ConversationAsk } from "./conversation-work.ts";
 import { mentionedBots, type Message, type Store } from "../../persistence/store.ts";
+import { conversationFilePath, conversationFolder, listConversationFiles, removeConversationFolder } from "../workspace/workspace.ts";
 
 export interface GroupConversation {
   id: string;
@@ -76,6 +77,8 @@ export function createGroupConversations(deps: {
   /** Membership or a record changed: who sees which thread is recomputed. */
   onChange?: () => void;
   now?: () => number;
+  /** Where project folders live; tests point it at a temporary folder. */
+  foldersRoot?: string;
 }) {
   const now = deps.now ?? Date.now;
   let records = loadConversationRecords<GroupConversation>(deps.file);
@@ -179,6 +182,7 @@ export function createGroupConversations(deps: {
       `People: ${people.join(", ")}.`,
       `Bots: ${bots.join(", ")}.`,
       ...(bots.length > 1 ? ["To hand part of the work to another bot here, @mention it by name in your answer; it answers after you."] : []),
+      `Your working folder is this ${record.kind === "dm" ? "conversation" : "group"}'s project folder. Everyone here sees its files${bots.length > 1 ? ", and the other bots here work in it too: build on their files rather than redoing them" : ""}. Put files for this ${record.kind === "dm" ? "conversation" : "group"} there.`,
       ...(record.instructions?.trim() ? ["", "Instructions for this group:", record.instructions.trim()] : []),
     ];
     const text = lines.join("\n");
@@ -354,8 +358,24 @@ export function createGroupConversations(deps: {
       store.deleteConversationThread(record.threadId);
       deleteConversationRecord(id);
       records = records.filter((entry) => entry.id !== id);
+      removeConversationFolder(id, deps.foldersRoot);
       changed();
       return { status: 200, body: { ok: true } };
+    },
+
+    /** The files in the conversation's project folder, for its people. */
+    files(caller: Caller, id: string): Answer {
+      const record = mine(caller, id);
+      if (!record) return fail(404, "no such conversation");
+      return { status: 200, body: listConversationFiles(conversationFolder(record.id, deps.foldersRoot)) };
+    },
+
+    /** One file of the project folder to download, for its people. */
+    file(caller: Caller, id: string, path: unknown): Answer | { status: 200; path: string } {
+      const record = mine(caller, id);
+      if (!record) return fail(404, "no such conversation");
+      const found = typeof path === "string" ? conversationFilePath(conversationFolder(record.id, deps.foldersRoot), path) : null;
+      return found ? { status: 200, path: found } : fail(404, "no such file");
     },
 
     async leave(caller: Caller, id: string): Promise<Answer> {

@@ -44,7 +44,7 @@ import { renderSkillInstructions, selectBundledSkills } from "../../colonie/skil
 import { skillsSystemPrompt } from "../../colonie/skills/skills.ts";
 import { chiefOfStaffSystemPrompt } from "../../colonie/teams/chief-of-staff.ts";
 import { sectionContextSystemPrompt } from "../../colonie/teams/section-context.ts";
-import { ensureTaskWorkspace, ensureWorkspace, memorySystemPrompt, SESSION_SEARCH_SYSTEM_PROMPT, supportsWorkspaceFiles, workspaceLocationsPrompt } from "../../colonie/workspace/workspace.ts";
+import { ensureConversationFolder, ensureTaskWorkspace, ensureWorkspace, isTaskWorkspace, memorySystemPrompt, moveIntoConversationFolder, SESSION_SEARCH_SYSTEM_PROMPT, supportsWorkspaceFiles, workspaceLocationsPrompt } from "../../colonie/workspace/workspace.ts";
 import { builtInBrowserEnabled, claudeUserMcpEnabled, DATA_DIR, instanceConfigs, llmThreadTitlesEnabled, localVmMode, maxConcurrentBotThreads, mcpCallTimeoutMinutes, skillAuthoringEnabled, skillsLibraryEnabled } from "../../config.ts";
 import { TurnNotStartedError } from "../../contracts.ts";
 import { installedPlaybookInstructions } from "../../installed-playbooks.ts";
@@ -276,6 +276,14 @@ async function startTurn(
   const effort = bot.modelSelection.effort;
   const variant = bot.modelSelection.variant;
   if (instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(threadId)) throw Object.assign(new Error("The native settings are being prepared. Wait for that operation before sending."), { status: 409 });
+  // A conversation's bots all work in its one project folder (owner, October
+  // 28). A bot that worked in its own folder there brings its files along and,
+  // briefed from the conversation, starts a fresh session in the new folder.
+  const conversationCwd = isColonieAcpDriver(instance.driverKind) && task.forConversation ? ensureConversationFolder(task.forConversation) : undefined;
+  if (conversationCwd && task.cwd !== conversationCwd && opts?.providerRecoveryPrompt?.trim()) {
+    if (typeof task.cwd === "string" && isTaskWorkspace(task.cwd, bot.id, threadId)) moveIntoConversationFolder(task.cwd, conversationCwd, bot.name);
+    store.moveTaskFolder(bot.id, threadId, conversationCwd);
+  }
   const nativeConflict = isColonieAcpDriver(instance.driverKind) && nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message: any) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors });
   // Group history belongs to the conversation, not the selected agent. Only
   // the group's worker supplies a full briefing from that transcript; use it
@@ -402,7 +410,7 @@ async function startTurn(
         // A scheduled run, a webhook and a teammate's handoff all run forward
         // in the bot's own native session like any other turn, so they take
         // this path too.
-        const privateCwd = ensureTaskWorkspace(bot.id, threadId);
+        const privateCwd = conversationCwd && task.cwd === conversationCwd ? conversationCwd : ensureTaskWorkspace(bot.id, threadId);
         const cwd = store.pinTaskCwd(bot.id, threadId, privateCwd) ?? privateCwd;
         const contextConfig = instanceConfigs(cfg)[instanceId]?.config as { instructions?: string } | undefined;
         const acpContext = contextCandidate(bot, instanceId, contextConfig?.instructions ?? "", !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length));

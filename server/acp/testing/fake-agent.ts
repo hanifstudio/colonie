@@ -2,6 +2,7 @@
 import { agent, methods, ndJsonStream, PROTOCOL_VERSION, RequestError, type RequestPermissionRequest, type RequestPermissionResponse } from "@agentclientprotocol/sdk";
 import { Readable, Writable } from "node:stream";
 import { readFileSync, writeFileSync, mkdirSync, rmdirSync } from "node:fs";
+import { join } from "node:path";
 import type { McpServer } from "@agentclientprotocol/sdk";
 import { fixtureMcpClient, type FixtureMcpClient } from "./mcp-client.ts";
 
@@ -38,6 +39,8 @@ function currentState(): State {
 }
 const active = new Map<string, () => void>();
 const mounts = new Map<string, McpServer[]>();
+/** The folder each session works in, as the client opened or loaded it. */
+const cwds = new Map<string, string>();
 const peers = new Map<string, Promise<FixtureMcpClient>>();
 const peer = (sessionId: string, name: string) => {
   const server = mounts.get(sessionId)?.find((server) => server.name === name);
@@ -86,12 +89,14 @@ agent({ name: "Colonie deterministic fixture" })
     // can prove Colonie isolates it from the user's own CLI state.
     state.environment = { CODEX_HOME: process.env.CODEX_HOME ?? null, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? null };
     mounts.set(sessionId, params.mcpServers);
+    cwds.set(sessionId, params.cwd);
     return { sessionId, ...sessionState(sessionId) };
   }))
   .onRequest(methods.agent.session.load, ({ params }) => transaction(() => {
     if (!state.sessions[params.sessionId]) throw RequestError.invalidParams("Unknown saved session");
     state.loads++;
     mounts.set(params.sessionId, params.mcpServers);
+    cwds.set(params.sessionId, params.cwd);
     return sessionState(params.sessionId);
   }))
   .onRequest(methods.agent.session.setMode, async ({ params, client }) => {
@@ -197,6 +202,12 @@ agent({ name: "Colonie deterministic fixture" })
         finally { active.delete(params.sessionId); }
       } else result = `MCP permission: ${outcome}`;
       await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: toolCall.toolCallId, status: outcome === "yes-once" ? "completed" : "failed", content: [{ type: "content", content: { type: "text", text: result } }] } });
+    }
+    // "write file NAME TEXT": a file in the session's working folder
+    const write = /^write file ([\w.-]+) (.*)$/.exec(/\n@\S+ (write file [^\n]*)$/.exec(text)?.[1] ?? text);
+    if (write) {
+      writeFileSync(join(cwds.get(params.sessionId)!, write[1]!), write[2]!);
+      result = `Wrote ${write[1]}`;
     }
     // a group mention wraps the person's words in a brief; they are its last line
     if (text.startsWith("permission") || /\n@\S+ permission[^\n]*$/.test(text)) {

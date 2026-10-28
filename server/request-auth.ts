@@ -320,6 +320,7 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["POST"], path: /^\/api\/conversations\/[\w-]+\/(read|members|stop)$/ },
   { methods: ["PATCH", "DELETE"], path: /^\/api\/conversations\/[\w-]+$/ },
   { methods: ["DELETE"], path: /^\/api\/conversations\/[\w-]+\/members\/me$/ },
+  { methods: ["GET"], path: /^\/api\/conversations\/[\w-]+\/files(?:\/content)?$/ },
   // Secrets: each person reads and changes only their own (see the handler)
   { methods: ["GET"], path: /^\/api\/secrets$/ },
   { methods: ["PUT", "PATCH", "DELETE"], path: /^\/api\/secrets\/[A-Z][A-Z0-9_]{1,63}$/ },

@@ -15,8 +15,8 @@ import { PersonAvatar } from "../PersonAvatar";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { cn } from "@/lib/cn";
 import {
-  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, deleteGroup, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
-  postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
+  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, deleteGroup, updateConversation, asChatMessages, conversationFiles, conversationMessages, downloadConversationFile, leaveConversation, markConversationRead,
+  postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ConversationFile, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
@@ -38,6 +38,7 @@ export function ConversationView({ id }: { id: string }) {
   const conversation = conversations?.find((entry) => entry.id === id);
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [stopError, setStopError] = useState("");
   const threadId = conversation?.threadId;
@@ -101,6 +102,10 @@ export function ConversationView({ id }: { id: string }) {
         }} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-50">
           {stopping ? "Stopping…" : "Stop my work"}
         </button>}
+        <button type="button" onClick={() => setFilesOpen((open) => !open)} aria-expanded={filesOpen}
+          className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
+          Files
+        </button>
         <button type="button" onClick={() => setMembersOpen((open) => !open)} aria-expanded={membersOpen}
           className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
           {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
@@ -112,6 +117,7 @@ export function ConversationView({ id }: { id: string }) {
           {stopError && <p role="alert" className="px-4 py-2 text-sm text-ink-secondary">{stopError}</p>}
           {membersOpen && <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots}
             onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
+          {filesOpen && <ProjectFiles conversation={conversation} messages={messages} />}
           {!messages && <div className="flex justify-center py-8"><HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" /></div>}
         </>
       ),
@@ -265,6 +271,45 @@ function Members({ conversation, memberBots, bots, onLeft }: {
             setDeleting(false); setError(cause instanceof Error ? cause.message : String(cause));
           }).finally(() => setBusy(false));
         }} />
+    </div>
+  );
+}
+
+const fileSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+/** The conversation's project folder: every bot here works in it, and
+ * everyone here can download its files. Read again as messages arrive, so a
+ * file a bot just made shows up. */
+function ProjectFiles({ conversation, messages }: { conversation: Conversation; messages: Message[] | null }) {
+  const [listing, setListing] = useState<{ files: ConversationFile[]; truncated: boolean } | null>(null);
+  const [error, setError] = useState("");
+  const latest = messages?.at(-1)?.id;
+  useEffect(() => {
+    void conversationFiles(conversation.id).then((next) => { setListing(next); setError(""); })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
+  }, [conversation.id, latest]);
+  const place = conversation.kind === "dm" ? "conversation" : "group";
+  return (
+    <div className="mx-auto w-full max-w-[42rem] rounded-2xl border border-hairline/40 bg-panel px-4 py-3 text-[12.5px]">
+      <p className="mb-2 text-ink-secondary">The bots in this {place} work in one project folder. Everyone here can download its files.</p>
+      {!listing && !error && <HIcon icon={Loading02Icon} size={14} className="animate-spin text-ink-secondary" />}
+      {listing && listing.files.length === 0 && <p className="text-ink-tertiary">No files yet. Ask a bot here to make one.</p>}
+      {listing && listing.files.length > 0 && (
+        <ul className="max-h-64 overflow-y-auto">
+          {listing.files.map((file) => (
+            <li key={file.path} className="flex items-center gap-3 py-1">
+              <span className="min-w-0 flex-1 truncate text-ink" title={file.path}>{file.path}</span>
+              <span className="shrink-0 text-ink-tertiary">{fileSize(file.bytes)}</span>
+              <button type="button" className="shrink-0 text-accent hover:underline"
+                onClick={() => void downloadConversationFile(conversation.id, file.path).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))}>
+                Download
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {listing?.truncated && <p className="mt-1 text-ink-tertiary">Showing the newest 500 files.</p>}
+      {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
     </div>
   );
 }

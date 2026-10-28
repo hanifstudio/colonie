@@ -49,6 +49,25 @@ export const updateConversation = (id: string, input: { instructions: string }) 
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
 export const deleteGroup = (id: string) => api(`/api/conversations/${id}`, { method: "DELETE" });
 export const stopConversation = (id: string) => api(`/api/conversations/${id}/stop`, { method: "POST" });
+/** A file in a conversation's project folder, by its path inside it. */
+export interface ConversationFile { path: string; bytes: number; modifiedAt: number }
+export const conversationFiles = (id: string) => api<{ files: ConversationFile[]; truncated: boolean }>(`/api/conversations/${id}/files`);
+/** Save one project file to the person's computer. */
+export async function downloadConversationFile(id: string, path: string): Promise<void> {
+  const response = await fetch(`/api/conversations/${id}/files/content?path=${encodeURIComponent(path)}`);
+  if (!response.ok) throw new Error(((await response.json().catch(() => null)) as { error?: string } | null)?.error ?? "The file could not be downloaded.");
+  const url = URL.createObjectURL(await response.blob());
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = path.split("/").at(-1) ?? "file";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
 export const workspacePeople = async () => (await api<{ people: Array<{ email: string; name: string }> }>("/api/people")).people;
 
 /** Apply one live frame to a conversation's messages. */

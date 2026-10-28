@@ -4,7 +4,7 @@
 // DM between two people, and nobody else seeing any of it. Then a Local
 // workspace, where its owner makes a group with their bots.
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -264,6 +264,38 @@ describe("a group with several bots", () => {
     // the stand-in echoes every mention back, so it would go on: one ask and three hand-offs at most
     expect(mine.length).toBeLessThanOrEqual(4);
   }, 120_000);
+
+  test("the group's bots work in one project folder that its people can download from", async () => {
+    // both bots already worked here in their own folders: each moves into the group's
+    const answered = async (botId: string, text: string) => {
+      await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text } });
+      return until(lines, (messages) => {
+        const last = messages.filter((message) => message.from?.botId === botId && !message.relay).at(-1);
+        return Boolean(last && !last.working && last.text.includes("Wrote"));
+      }, "a bot writing a file");
+    };
+    await answered(bot.id, `@${bot.name} write file plan.md Launch plan`);
+    await answered(second.id, `@${second.name} write file notes.md Notes from Quill`);
+    const folder = join(ws.dataDir, "conversation-files", crew.id);
+    expect(readFileSync(join(folder, "plan.md"), "utf8")).toBe("Launch plan");
+    expect(readFileSync(join(folder, "notes.md"), "utf8")).toBe("Notes from Quill");
+    const listed = await ws.as(BOB, `/api/conversations/${crew.id}/files`);
+    expect(listed.status).toBe(200);
+    expect(listed.body.files.map((file: any) => file.path).sort()).toEqual(["notes.md", "plan.md"]);
+    const downloaded = await ws.as(BOB, `/api/conversations/${crew.id}/files/content?path=plan.md`);
+    expect(downloaded).toEqual({ status: 200, body: "Launch plan" });
+    // nobody outside the group, and nothing outside the folder
+    expect((await ws.as(CICI, `/api/conversations/${crew.id}/files`)).status).toBe(404);
+    expect((await ws.as(CICI, `/api/conversations/${crew.id}/files/content?path=plan.md`)).status).toBe(404);
+    expect((await ws.as(BOB, `/api/conversations/${crew.id}/files/content?path=${encodeURIComponent("../group-conversations.json")}`)).status).toBe(404);
+  }, 90_000);
+
+  test("deleting the group deletes its project folder", async () => {
+    const folder = join(ws.dataDir, "conversation-files", crew.id);
+    expect(existsSync(folder)).toBe(true);
+    expect((await ws.as(ADA, `/api/conversations/${crew.id}`, { method: "DELETE" })).status).toBe(200);
+    expect(existsSync(folder)).toBe(false);
+  }, 30_000);
 });
 
 test("a member stops only their own group work while the bot's personal chat stays unchanged", async () => {
