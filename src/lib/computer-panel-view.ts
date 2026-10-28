@@ -31,3 +31,15 @@ export function writeComputerPanelView(
     // The in-memory React state still preserves the choice for this mount.
   }
 }
+
+/** The tab the panel shows. One Computer panel shows what the bot uses
+ * (owner, October 28): Simple mode is Browser | Files, plus Desktop only for
+ * a bot that has one; Advanced keeps Desktop | Routines | Android | Browser.
+ * A view stored by the other mode, or a desktop the bot does not have, reads
+ * as the bot's browser (its files when it has no browser) instead of an
+ * empty pane. */
+export function shownComputerPanelView(stored: ComputerPanelView, options: { advanced: boolean; hasDesktop: boolean; browser: boolean }): ComputerPanelView {
+  if (options.advanced) return stored === "files" ? "computer" : stored;
+  const simple = stored === "routines" || stored === "android" ? "computer" : stored;
+  return simple === "computer" && !options.hasDesktop ? (options.browser ? "browser" : "files") : simple;
+}

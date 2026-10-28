@@ -751,7 +751,7 @@
   "computer.phase.error": "Impossible de joindre l'ordinateur",
   "computer.resizeAria": "Redimensionner le panneau",
   "computer.botSettings": "Réglages du bot",
-  "computer.tab.computer": "Ordinateur",
+  "computer.tab.computer": "Bureau",
   "computer.tab.android": "Android",
   "computer.tab.browser": "Navigateur",
   "computer.screenOf": "Écran de {name}",

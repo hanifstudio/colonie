@@ -1,21 +1,13 @@
 # Handover
 
-## Now: step into a bot's browser
-
-A bot that hits a sign-in or CAPTCHA asks with a card (Open, Done, Cancel),
-and the person keeps the browser until Done. Then the Browser panel opens by
-itself when a bot browses, and one Computer panel replaces the two tabs.
-Proof: e2e on a throwaway workspace, then the owner in a window. Out of scope:
-Telegram and Slack, and members who are not admins controlling a browser.
-
-## Next: verify routines, guides, and group replies with real engines
+## Now: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
 Out of scope: event triggers and the owner's real data.
 
-## After that: prepare the first public release
+## Next: prepare the first public release
 
 1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
@@ -77,8 +69,10 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
-- A real Claude bot browsed redBus on the owner's Mac; nobody has watched or
-  taken over its Browser panel, or checked logins kept between turns. The
+- A real Claude bot browsed redBus on the owner's Mac. Never seen in a
+  window: its sign-in card and the browser held until Done, the panel opening
+  by itself, the panel without an empty Desktop tab; logins kept between turns
+  unchecked. Members who are not admins cannot open a bot's browser. The
   950 MB Shared image with the browser has not run on a droplet.
 
 ## Queue after the current task

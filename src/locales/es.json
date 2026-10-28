@@ -751,7 +751,7 @@
   "computer.phase.error": "No se pudo contactar con el equipo",
   "computer.resizeAria": "Cambiar el tamaño del panel",
   "computer.botSettings": "Ajustes del bot",
-  "computer.tab.computer": "Equipo",
+  "computer.tab.computer": "Escritorio",
   "computer.tab.android": "Android",
   "computer.tab.browser": "Navegador",
   "computer.screenOf": "Pantalla de {name}",

@@ -53,6 +53,7 @@ import {
 } from "@/lib/local-computer";
 import {
   readComputerPanelView,
+  shownComputerPanelView,
   writeComputerPanelView,
   type ComputerPanelView,
 } from "@/lib/computer-panel-view";
@@ -295,21 +296,18 @@ export function ComputerPanel({
   const [viewerOpen, setViewerOpen] = useState(false);
   const [error, setError] = useState<Error | string | null>(null);
   const errorText = panelErrorText(error);
-  // Simple mode shows Computer | Browser | Files; Advanced keeps Computer |
-  // Routines | Android | Browser. A view stored by the other mode reads as
-  // the Computer tab instead of an empty pane.
-  const advanced = useAdvancedMode();
-  const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
-  const panelView: ComputerPanelView = advanced
-    ? storedPanelView === "files" ? "computer" : storedPanelView
-    : storedPanelView === "routines" || storedPanelView === "android" ? "computer" : storedPanelView;
-  const androidStatus = useAndroidUsbDevices();
-  const androidConnected = androidStatus.devices.length > 0;
   // Keep installation reachable before the engine is ready. Actual browser
   // operations below still require browserAvailableHere.
   const browserAvailableHere = browserAvailable(state.config);
   const browserEnabled = builtInBrowserEnabled(state.config) && bot.browser !== false
     && (browserAvailableHere || state.config?.browserEngine?.installable === true);
+  // One Computer panel, as Hermes' one screen (shownComputerPanelView).
+  const advanced = useAdvancedMode();
+  const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser";
+  const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
+  const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop, browser: browserEnabled });
+  const androidStatus = useAndroidUsbDevices();
+  const androidConnected = androidStatus.devices.length > 0;
   // bumped when a Local VM action completes, to re-run the resolve flow
   const [retry, setRetry] = useState(0);
   // Auto is a server decision (including an existing Local VM). Do not guess
@@ -941,14 +939,14 @@ export function ComputerPanel({
             </button>
           )}
           <div className="mx-9 flex min-w-0 flex-wrap justify-center gap-0.5 rounded-full bg-inset p-0.5" data-tour="computer-tabs" data-testid="computer-tabs" aria-label="Bot panel view">
-            <button
+            {(advanced || hasDesktop) && <button
               onClick={() => selectPanelView("computer")}
               aria-pressed={panelView === "computer"}
               className={tabClass(panelView === "computer")}
             >
               <HIcon icon={MonitorIcon} size={13} /> {t("computer.tab.computer")}
               {placeLive && isComputerPlace(livePlace) && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="computer-tab-live" />}
-            </button>
+            </button>}
             {advanced && (
             <button
               type="button"
