@@ -183,6 +183,13 @@ Steps, in order. Each one is safe on its own:
   can use it through that bot.
 - Every bot in a Shared workspace is shared with all its members. No private
   bots and no hiding bots; personal accounts belong in a Local workspace.
+- Browsing follows Grok Bot (owner, October 28). A connected app comes
+  first; otherwise the bot picks between its engine's own web reading and its
+  browser, with no rule or label for the person to learn. Proof is the bot's
+  screen: its Browser panel opens from any conversation it works in, groups
+  included. Opening, reading, and ordinary clicks run without asking;
+  submitting a form, buying, and signing in wait for approval; passwords,
+  codes, and CAPTCHAs are handed to the person.
 - Grok Bot differs here on purpose: its computer and access belong to each
   person, and a bot has no identity of its own. In Colonie bots are members,
   like colleagues.

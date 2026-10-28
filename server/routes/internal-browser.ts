@@ -3,9 +3,11 @@
 // authority: it names the bot, the thread and the browser session, and is
 // honoured only while that turn runs. Each call goes to the bot's own
 // session; a call waits for no other thread, it is refused while another
-// thread holds the same browser.
+// thread holds the same browser. The fetch-style read tool is not offered
+// (BROWSER_TOOLS_HIDDEN): the engine's own web reading does that job.
 import type { IncomingMessage } from "node:http";
 
+import { BROWSER_TOOLS_HIDDEN } from "../colonie/computer/browser-engine.ts";
 import type { BrowserRuntime, BrowserSpawnSpec } from "../colonie/computer/browser-runtime.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -36,6 +38,7 @@ export function createInternalBrowserRoute(deps: {
     const browser = await deps.browserIntegration(bot!.id, bot!.browserProfile);
     if (!browser || browser.session !== capability.browserSession) return json(res, 409, { error: "this browser profile changed; start a new turn" });
     if (body?.method !== "tools/list" && body?.method !== "tools/call") return json(res, 400, { error: "unsupported browser method" });
+    if (body.method === "tools/call" && BROWSER_TOOLS_HIDDEN.has(String(body.params?.name))) return json(res, 404, { error: "no such browser tool" });
     const result = await deps.runtime.agentRpc(browser.session, browser.spec, body.method, body.params, () => {
       if (!deps.isActive(capability)) throw expired();
       const current = deps.bot(capability.botId);
@@ -47,6 +50,10 @@ export function createInternalBrowserRoute(deps: {
       }
     });
     if (!deps.isActive(capability)) throw expired();
+    const listed = result as { tools?: Array<{ name?: string }> } | null;
+    if (body.method === "tools/list" && Array.isArray(listed?.tools)) {
+      return json(res, 200, { result: { ...listed, tools: listed.tools.filter((tool) => !BROWSER_TOOLS_HIDDEN.has(String(tool.name))) } });
+    }
     return json(res, 200, { result });
   };
 }

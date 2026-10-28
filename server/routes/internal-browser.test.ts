@@ -7,7 +7,7 @@ import { callRoute } from "../testing/route-context.ts";
 import { createInternalBrowserRoute } from "./internal-browser.ts";
 
 const BEARER = "Bearer good";
-function setup(overrides: { kind?: string; browser?: boolean; session?: string; active?: boolean; claim?: boolean } = {}) {
+function setup(overrides: { kind?: string; browser?: boolean; session?: string; active?: boolean; claim?: boolean; result?: unknown } = {}) {
   const calls: string[] = [];
   const capability = { botId: "b1", threadId: "t1", generation: "g1", kind: overrides.kind ?? "browser", browserSession: "s1" };
   const route = createInternalBrowserRoute({
@@ -18,7 +18,7 @@ function setup(overrides: { kind?: string; browser?: boolean; session?: string; 
     browserIntegration: async () => ({ session: overrides.session ?? "s1", spec: { command: "agent-browser", args: [], env: {} } }),
     currentBrowserSession: () => overrides.session ?? "s1",
     claimTurnResource: (_owner, resource) => { calls.push(`claim ${resource}`); return overrides.claim ?? true; },
-    runtime: { agentRpc: async (session, _spec, method, _params, before) => { before?.(); calls.push(`${method} ${session}`); return { ok: true }; } },
+    runtime: { agentRpc: async (session, _spec, method, _params, before) => { before?.(); calls.push(`${method} ${session}`); return overrides.result ?? { ok: true }; } },
   });
   return { route, calls };
 }
@@ -49,6 +49,14 @@ test("another thread holding the same browser refuses the call", async () => {
   const { route, calls } = setup({ claim: false });
   expect((await call(route))?.status).toBe(409);
   expect(calls).toEqual(["claim browser:s1"]);
+});
+
+test("the fetch-style read tool is neither listed nor callable", async () => {
+  const listed = await call(setup({ result: { tools: [{ name: "agent_browser_open" }, { name: "agent_browser_read" }] } }).route, { authorization: BEARER }, { method: "tools/list" });
+  expect(listed).toEqual({ status: 200, body: { result: { tools: [{ name: "agent_browser_open" }] } } });
+  const { route, calls } = setup();
+  expect((await call(route, { authorization: BEARER }, { method: "tools/call", params: { name: "agent_browser_read" } }))?.status).toBe(404);
+  expect(calls).toEqual([]);
 });
 
 test("only tool listing and calls pass through", async () => {

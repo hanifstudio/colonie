@@ -1,13 +1,21 @@
 # Handover
 
-## Now: verify routines, guides, and group replies with real engines
+## Now: browse the way Grok Bot does
+
+A bot opens, reads, and clicks in its browser without an approval card for
+each step; `eval` still asks. Its overlapping quick-read tool is gone, so web
+reading is the engine's own. Its Browser panel opens from a group it works in.
+Proof: tests on the browser mount and route, and a real Claude bot browsing in
+a disposable workspace. Out of scope: an automated reviewer like Auto Review.
+
+## Next: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
 Out of scope: event triggers and the owner's real data.
 
-## Next: prepare the first public release
+## After that: prepare the first public release
 
 1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
@@ -69,10 +77,9 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
-- No real Claude or Codex bot has browsed yet (a simulated engine drove the
-  real browser), the Browser panel was never watched or taken over for one, and
-  logins kept between turns were not checked. The Shared image is now about
-  950 MB with the browser; it built and answered, but no droplet has run it.
+- A real Claude bot browsed redBus on the owner's Mac; nobody has watched or
+  taken over its Browser panel, or checked logins kept between turns. The
+  950 MB Shared image with the browser has not run on a droplet.
 
 ## Queue after the current task
 
