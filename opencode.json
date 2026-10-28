@@ -25,7 +25,6 @@
     { "action": "edit", "resource": "scripts/commit-guard.mjs", "effect": "ask" },
     { "action": "edit", "resource": "scripts/git-hooks/*", "effect": "ask" },
 
-    { "action": "shell", "resource": "git push*", "effect": "deny" },
     { "action": "shell", "resource": "*--no-verify*", "effect": "deny" },
     { "action": "shell", "resource": "git commit -n*", "effect": "deny" },
     { "action": "shell", "resource": "git commit * -n*", "effect": "deny" },

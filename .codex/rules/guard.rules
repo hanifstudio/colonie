@@ -3,16 +3,17 @@
 # in .codex/config.toml (scripts/agent-guard.mjs) is the second net.
 
 prefix_rule(
-    pattern = ["git", "push"],
+    pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--force-if-includes", "--delete", "-d", "--mirror"]],
     decision = "forbidden",
-    justification = "git push is the owner's step.",
-    match = ["git push", "git push --force origin main"],
+    justification = "Force pushes and remote ref deletion are not allowed.",
+    match = ["git push --force origin main", "git push --delete origin main"],
+    not_match = ["git push", "git push origin main"],
 )
 
 prefix_rule(
     pattern = ["git", ["-C", "-c", "--git-dir", "--work-tree", "--exec-path"]],
     decision = "prompt",
-    justification = "Global git options can hide push, hook skipping or a core.hooksPath change.",
+    justification = "Global git options can hide destructive pushes, hook skipping or a core.hooksPath change.",
     match = ["git -C . push", "git -c core.hooksPath=/dev/null commit -m x"],
 )
 

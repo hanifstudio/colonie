@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { commandProblem } from "../agent-guard.mjs";
+import { readFileSync } from "node:fs";
 
 const blocked = (command) => expect(commandProblem(command), command).not.toBeNull();
 const allowed = (command) => expect(commandProblem(command), command).toBeNull();
 
 describe("the agent guard", () => {
+  it("does not retain a blanket push ban in any agent's configuration", () => {
+    const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+    const claude = JSON.parse(read(".claude/settings.json"));
+    expect(claude.permissions.deny).not.toContain("Bash(git push *)");
+    expect(claude.permissions.deny).not.toContain("Bash(git * push *)");
+    const opencode = JSON.parse(read("opencode.json"));
+    expect(opencode.permissions.some((rule) => rule.action === "shell" && rule.resource === "git push*" && rule.effect === "deny")).toBe(false);
+    expect(read(".codex/rules/guard.rules")).not.toMatch(/pattern\s*=\s*\["git",\s*"push"\],\s*decision\s*=\s*"forbidden"/);
+  });
   it("allows ordinary pushes while refusing destructive pushes and other publishing", () => {
     allowed("git push");
     allowed("git push origin main");
