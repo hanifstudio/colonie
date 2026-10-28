@@ -1,19 +1,13 @@
 # Handover
 
-## Now: give Claude and Codex bots a real computer
-
-A Claude or Codex bot works on its Local VM desktop and browses there, as in
-OpenMausBot; the Computer panel shows that desktop. First restore the deleted
-computer-control route, then mount the VM for ACP bots instead of the separate
-browser. Proof: tests, then a real container. Not now: Shared servers, the Mac.
-
-## Next: verify routines, guides, and group replies with real engines
+## Now: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
+Out of scope: event triggers and the owner's real data.
 
-## After that: prepare the first public release
+## Next: prepare the first public release
 
 1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
@@ -75,6 +69,9 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
+- A Local VM set itself up from one click (Colima started, desktop shown) and
+  its Firefox opened OLX, on a throwaway profile; no signed-in Claude bot has
+  worked on that desktop from chat yet.
 - A real Claude bot browsed redBus on the owner's Mac. Never seen in a
   window: its sign-in card and the browser held until Done, the panel opening
   by itself, the panel without an empty Desktop tab; logins kept between turns
