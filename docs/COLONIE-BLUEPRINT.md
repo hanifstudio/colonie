@@ -131,10 +131,10 @@ Steps, in order. Each one is safe on its own:
   people (a bot joins when @mentioned), and a group: a named room of
   several people and several bots. Only members see a conversation, admins
   included. For the first release: bots answer in a group when @mentioned;
-  groups are by invitation; any member creates groups and adds bots they
-  can see; a bot that needs permission asks the person who asked it.
+  groups are by invitation; any member creates groups and adds any of the
+  workspace's bots; a bot that needs permission asks the person who asked it.
   Later: a lead bot per group, bots working with each other in the open,
-  open groups, files and pins, threaded replies.
+  open groups, pins, threaded replies.
 - Every new Local workspace gets its own engine sign-in and connections. It
   never borrows another workspace's credentials or history.
 - The first-run welcome flow stays as it is. One step was added: it explains
@@ -160,6 +160,30 @@ Steps, in order. Each one is safe on its own:
 - Approval levels map straight onto each engine's own modes. If an engine
   lacks a level, the app falls back to Ask, never to more access.
 
+### Computers (owner, October 28)
+
+- One computer per workspace. A Local workspace's computer is the person's
+  own Mac; a Shared workspace's computer is its server. No per-bot choice of
+  where a bot works.
+- On that computer each bot has its own desk: its own screen and its own
+  browser with its own logins. Bots do not wait for each other;
+  a bot does one screen task at a time. On a Local Mac, using the Mac's own
+  apps means sharing the person's one screen: one at a time, and the person
+  always wins.
+- Work files belong to the conversation, not the bot. A group has one
+  project folder that every bot in it works in and every member sees; a DM
+  has its own. Files stay when a bot leaves and go when the conversation is
+  deleted. Grok Bot shares one unsorted computer; Colonie sorts by project.
+- Access belongs to the bot, not to whoever is asking. An account given to a
+  bot is the bot's, and it uses it for anyone it works with. Connecting an
+  account to a bot in a Shared workspace says that everyone in the workspace
+  can use it through that bot.
+- Every bot in a Shared workspace is shared with all its members. No private
+  bots and no hiding bots; personal accounts belong in a Local workspace.
+- Grok Bot differs here on purpose: its computer and access belong to each
+  person, and a bot has no identity of its own. In Colonie bots are members,
+  like colleagues.
+
 ### Working together (for Shared workspaces)
 
 - Members are people and bots. A group is visible only to its members; a direct
@@ -177,7 +201,7 @@ Steps, in order. Each one is safe on its own:
   API key, which is the compliant fallback.
 - The owner controls membership, workspace credentials, and risky approvals.
 - To get a bot's attention, name it. Stop applies to the selected task and
-  everything it handed off. Bots wanting the same screen or browser wait in line.
+  everything it handed off. Two tasks wanting the same bot's screen wait in line.
 
 ### Removed on purpose
 
@@ -276,4 +300,4 @@ Researched October 21 (developers.cloudflare.com, neon.com, resend.com):
 
 - Measure the default droplet size on a real browser-and-computer workload.
 - How Grok Bot behaves where its documentation is silent (who replies in a
-  group, what Stop cancels, how a shared screen is shared).
+  group, what Stop cancels).

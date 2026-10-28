@@ -1,6 +1,16 @@
 # Handover
 
-## Now: verify routines, guides, and group replies with real engines
+## Now: bots in a group share the group's project folder
+
+Every bot in a group, or in a DM between people, works in one folder that
+belongs to the conversation. Its members see the files and download them from
+the conversation; deleting the group deletes the folder. A bot that already
+worked in a group moves its files there and starts a fresh session briefed
+from the group. Prove with unit tests, an isolated fixture with a simulated
+engine, and `pnpm check`. Out of scope: DMs with one bot, routines' folders,
+and two bots editing one file at the same moment.
+
+## After that: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
@@ -71,18 +81,19 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 1. A person installs Colonie on a clean Mac from a `.dmg` and completes the
    first run in a real window, with throwaway data.
-2. Gaps in the engine connection, each needing a decision before code:
+2. Each bot browses with its own browser and logins, on ACP. A person logs
+   in for it once, watches it, and can take over. Local and Shared servers
+   (which have no browser yet). Screen control of desktop apps comes later.
+3. Gaps in the engine connection, each needing a decision before code:
    - A message cannot be sent into a turn that is already running (no steering
      on the ACP engines).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
      fresh engine session for the branch and give it that branch's history.
-   - Bots do not get the "this computer" tool on ACP; the code that built it
-     only runs on the removed drivers.
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-3. Small fix: email sign-in answers 502 saying the accounts-service address
+4. Small fix: email sign-in answers 502 saying the accounts-service address
    "is set" when it is not set at all.
-4. Remove the leftover brand word `maus`: first the unused `runOn` setting on
+5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
-5. Tidy the interface code into feature folders, one feature at a time.
+6. Tidy the interface code into feature folders, one feature at a time.
