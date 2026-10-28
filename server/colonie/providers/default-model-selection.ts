@@ -10,7 +10,7 @@ export interface SelectableInstance {
 }
 
 const claudeFirst = (instances: readonly SelectableInstance[]) =>
-  instances.find((instance) => instance.driverKind === "claudeAgent") ?? instances[0];
+  instances.find((instance) => instance.driverKind === "claude-acp" || instance.driverKind === "claudeAgent") ?? instances[0];
 
 /** Installed and waiting on a sign-in. A custom endpoint brings its own
  * credential, so its sign-in state does not count. */
@@ -27,24 +27,23 @@ export function readyToRun(instance: SelectableInstance): boolean {
 /** The engine a new bot gets, and the one a bot moved off a removed engine
  * gets (computer-engine-removal.ts): one picker for both.
  *
- * A saved choice is intentional: an unavailable provider or removed model
- * sends new bots to setup instead of silently changing their provider.
- * Without one, an engine that can run a turn now wins (Claude first), then the
- * first available one. */
+ * A saved choice wins while it can run. When it cannot (signed out,
+ * unavailable, or its model removed), new bots take an engine that can run a
+ * turn now: the app offers no place to change the saved choice, so holding to
+ * it left a person with a signed-in engine unable to create any bot. With
+ * none that can run, the saved choice still sends new bots to setup.
+ * Without a saved choice, an engine that can run a turn now wins (Claude
+ * first), then the first available one. */
 export function selectDefaultModelSelection(
   instances: readonly SelectableInstance[],
   preferred?: ModelSelection,
 ): ModelSelection {
-  if (preferred) {
-    const instance = instances.find((candidate) => candidate.instanceId === preferred.instanceId);
-    if (
-      instance?.snapshot.state !== "available" ||
-      instance.snapshot.authenticated === false ||
-      (preferred.variant !== undefined && !instance.capabilities?.modelVariants) ||
-      !(instance.models.default === preferred.model || instance.models.options.some((model) => model.id === preferred.model))
-    ) {
-      return { instanceId: "", model: "" };
-    }
+  const instance = preferred && instances.find((candidate) => candidate.instanceId === preferred.instanceId);
+  if (
+    preferred && instance && instance.snapshot.state === "available" && instance.snapshot.authenticated !== false &&
+    (preferred.variant === undefined || instance.capabilities?.modelVariants) &&
+    (instance.models.default === preferred.model || instance.models.options.some((model) => model.id === preferred.model))
+  ) {
     const selection = { ...preferred };
     // A saved effort can outlive driver support. Keep the intentional model,
     // but let the provider use its own effort default instead of failing turn 1.
@@ -53,7 +52,7 @@ export function selectDefaultModelSelection(
   }
   const available = instances.filter((instance) => instance.snapshot.state === "available");
   const ready = available.filter((instance) => readyToRun(instance));
-  const pick = claudeFirst(ready) ?? claudeFirst(available);
+  const pick = claudeFirst(ready) ?? (preferred ? undefined : claudeFirst(available));
   return { instanceId: pick?.instanceId ?? "", model: pick?.models.default ?? "" };
 }
 
