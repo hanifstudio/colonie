@@ -501,14 +501,34 @@ export function withChallengeNote(result: unknown): unknown {
  * was minted for, and it stays the same while the thread's grants do, so the
  * revision (and with it the engine process) does not change every turn. */
 export function browserToolMount(proxy: { command: string; args: string[]; env: Record<string, string> }): import("../connections/contracts.ts").AcpToolMount {
-  const servers = [{ name: "browser", command: proxy.command, args: proxy.args, env: Object.entries(proxy.env).map(([name, value]) => ({ name, value })) }];
+  return processToolMount("browser", proxy, { trustedTools: BROWSER_TOOLS_WITHOUT_APPROVAL });
+}
+
+/** The bot's own computer (the Local VM desktop) as an ACP tool mount: the
+ * stdio bridge into Cua Driver that the other engines mount, which asks the
+ * computer-control route before each action. Every action runs without an
+ * approval card, as browsing does: the desktop is the bot's own sandbox and
+ * the person can take it over. */
+export function computerToolMount(proxy: { command: string; args: string[]; env: Record<string, string> }): import("../connections/contracts.ts").AcpToolMount {
+  return processToolMount("computer", proxy, { trustedServers: ["computer"] });
+}
+
+function processToolMount(name: string, proxy: { command: string; args: string[]; env: Record<string, string> }, trust: { trustedTools?: readonly string[]; trustedServers?: readonly string[] }): import("../connections/contracts.ts").AcpToolMount {
+  const servers = [{ name, command: proxy.command, args: proxy.args, env: Object.entries(proxy.env).map(([key, value]) => ({ name: key, value })) }];
   const revision = createHash("sha256").update(JSON.stringify(servers)).digest("hex");
   return {
-    servers, revision, trustedTools: BROWSER_TOOLS_WITHOUT_APPROVAL,
-    receipt: { policyHash: revision, composioToolkits: [], servers: [{ name: "browser", source: "colonie", transport: "stdio" }] },
+    servers, revision, ...trust,
+    receipt: { policyHash: revision, composioToolkits: [], servers: [{ name, source: "colonie", transport: "stdio" }] },
     activate() {}, deactivate() {}, release() {}, calls: () => [],
   };
 }
+
+/** What a bot on its own computer is told (OpenMausBot's Local VM paragraph,
+ * without the tools only the other engines have): a Linux desktop it drives
+ * through the computer tools, where it browses with the browser on that
+ * desktop and hands a person-only step to the person with request_sign_in. */
+export const LOCAL_VM_SYSTEM_PROMPT =
+  " You have your own computer: a Linux desktop in an isolated container (a Cua sandbox), which the person can watch and take over. Use the computer tools to see the screen, click, type, and open apps. Browse the web with the browser on this desktop (open it from the desktop or its menu if it is not running), not with web-reading tools, when the page needs looking at or interacting with. Only /home/cua/workspace is durable; everything else on the desktop is disposable, and your own file tools cannot reach it. Take a screenshot before acting and after each step that changes the screen, prefer accessibility targets over raw coordinates, and work carefully. When a page needs a login you do not have, shows a CAPTCHA or human check, a passkey, a code you cannot read, or consent only the person can give, call request_sign_in with the site and end your turn: the person does that step on your desktop. Never try to solve a CAPTCHA yourself." + SIGN_IN_PROMPT;
 
 /** Give the session's browser the standard page size, launching it with the
  * session's own launch environment if it is not running yet. Best effort:

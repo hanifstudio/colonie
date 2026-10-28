@@ -1613,6 +1613,8 @@ const acpSecrets = (botId: string, threadId: string, senderKey?: string) => {
     ? `Secrets you may use: ${prepared.names.join(", ")}, in ${prepared.file} as NAME='value' lines. Load them in your scripts (for example: set -a; . "${prepared.file}"; set +a) and never print their values.`
     : "";
 };
+// The turn module calls these as the functions themselves, so each forwards
+// to its implementation (defined further down) when called, not hands it back.
 const startTurn = createStartTurn({
   acpSituation,
   acpSecrets,
@@ -1662,13 +1664,13 @@ const startTurn = createStartTurn({
   directTurnClaimIsCurrent,
   directTurnDispatchClaims,
   directTurnGenerationByThread,
-  drainComputerResumes: () => drainComputerResumes,
-  drainConnectorResumes: () => drainConnectorResumes,
+  drainComputerResumes: () => drainComputerResumes(),
+  drainConnectorResumes: () => drainConnectorResumes(),
   drainDelegationWakes,
   drainQueuedSends,
-  drainSecretResumes: () => drainSecretResumes,
-  drainTeamSetupResumes: () => drainTeamSetupResumes,
-  engineMcpServers: () => engineMcpServers,
+  drainSecretResumes: () => drainSecretResumes(),
+  drainTeamSetupResumes: () => drainTeamSetupResumes(),
+  engineMcpServers: (...args: Parameters<typeof engineMcpServers>) => engineMcpServers(...args),
   enginesRead: () => enginesRead,
   forgetTurnCheckpoint,
   generateThreadTitle,
@@ -1700,9 +1702,9 @@ const startTurn = createStartTurn({
   pendingCancelledProviderHandshakes,
   providerFleetReloading: () => providerFleetReloading,
   providerInstancesChanging: () => providerInstancesChanging,
-  readyLocalVmForTurn: () => readyLocalVmForTurn,
+  readyLocalVmForTurn: (...args: Parameters<typeof readyLocalVmForTurn>) => readyLocalVmForTurn(...args),
   recentWorkSources,
-  registerComputerResume: () => registerComputerResume,
+  registerComputerResume: (...args: Parameters<typeof registerComputerResume>) => registerComputerResume(...args),
   registry,
   releaseLocalVmThread,
   releaseTurnResources,

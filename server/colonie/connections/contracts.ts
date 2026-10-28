@@ -13,4 +13,7 @@ export interface AcpToolMount {
   /** Tools of this mount that never need the engine's permission prompt:
    * Colonie's own, each confirmed by its own card or Undo. */
   trustedTools?: readonly string[];
+  /** Servers of this mount whose every tool runs without the engine's
+   * prompt: the bot's own computer, where the person can take over. */
+  trustedServers?: readonly string[];
 }

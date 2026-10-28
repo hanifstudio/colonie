@@ -186,7 +186,9 @@ agent({ name: "Colonie deterministic fixture" })
     if (mcpCall) {
       const serverName = mcpCall[1]!; const name = mcpCall[2]!;
       const args = JSON.parse(mcpCall[3] ?? "{}");
-      const toolCall = { toolCallId: crypto.randomUUID(), title: name, kind: "other" as const, status: "pending" as const };
+      // Real adapters name an MCP tool by its server as well (Claude:
+      // mcp__<server>__<tool>); the title stays the bare tool.
+      const toolCall = { toolCallId: crypto.randomUUID(), title: name, name: `mcp__${serverName}__${name}`, kind: "other" as const, status: "pending" as const };
       await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "tool_call", ...toolCall } });
       const answer = await client.request<RequestPermissionResponse, RequestPermissionRequest>(methods.client.session.requestPermission, {
         sessionId: params.sessionId, toolCall, options: [{ kind: "allow_once", optionId: "yes-once", name: "Allow once" }, { kind: "reject_once", optionId: "no", name: "Deny" }],

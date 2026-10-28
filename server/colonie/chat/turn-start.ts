@@ -33,7 +33,7 @@ import * as checkpoints from "./checkpoints.ts";
 import * as composio from "../mcp/composio.ts";
 import { extractTurnImages } from "../../colonie/chat/turn-images.ts";
 import { turnStartLogLine } from "../../colonie/chat/turn-log.ts";
-import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
+import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT, computerToolMount, LOCAL_VM_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
 import { removedComputerInstanceIds } from "../../colonie/computer/computer-engine-removal.ts";
 import { autoLocalVmAttachable, containerComputerFrame, containerComputerMcp, containerComputerStatus, poolLocalVmTarget, type LocalVmTarget, type Runtime} from "../../colonie/computer/container-computer.ts";
 import { withMcpSignIn } from "../../colonie/mcp/mcp-oauth.ts";
@@ -401,312 +401,9 @@ async function startTurn(
         await enginesRead();
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped while the engines were read");
       }
-      if (isColonieAcpDriver(instance.driverKind)) {
-        // Independent execution path: branch before compaction, persona,
-        // memory, recall, setup/learn rewriting, skills, and MCP assembly.
-        if (task.rewound || opts?.editedMessageId || opts?.compactOnly) {
-          throw new Error("Native ACP session editing/branch replay is not available. Start a new thread for a different history; use /compact for agent-native compaction.");
-        }
-        // A scheduled run, a webhook and a teammate's handoff all run forward
-        // in the bot's own native session like any other turn, so they take
-        // this path too.
-        const privateCwd = conversationCwd && task.cwd === conversationCwd ? conversationCwd : ensureTaskWorkspace(bot.id, threadId);
-        const cwd = store.pinTaskCwd(bot.id, threadId, privateCwd) ?? privateCwd;
-        const contextConfig = instanceConfigs(cfg)[instanceId]?.config as { instructions?: string } | undefined;
-        const acpContext = contextCandidate(bot, instanceId, contextConfig?.instructions ?? "", !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length));
-        runningTurnEngines.set(threadId, instance);
-        const mounts = await acpToolMount(bot.id, threadId, instanceId);
-        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
-        // Each bot browses in its own browser, with its own logins (owner,
-        // October 28): the same session the Browser panel shows and a person
-        // can take over. No engine installed yet means no browser tools, and a
-        // browser that cannot start never stops the bot from answering.
-        const browsingBot = store.bot(bot.id);
-        let browserProblem = "";
-        const browser = browsingBot && builtInBrowserEnabled(cfg) && browsingBot.browser !== false
-          ? await browserIntegration(bot.id, browsingBot.browserProfile, { threadId, generation: dispatchClaimId }).catch((error: unknown) => {
-            browserProblem = error instanceof Error ? error.message : String(error);
-            console.warn(`[browser] ${bot.name}'s browser could not be prepared: ${browserProblem}`);
-            return null;
-          })
-          : null;
-        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during browser setup"); }
-        const acpBrowserTools = browser ? browserToolMount(browser.integration) : undefined;
-        const acpMemory = colonieMemory().recall(bot.id, providerText) ?? undefined;
-        const acpSkills = colonieSkills.context(bot.id);
-        const acpAssignment = opts?.colonieAssignment ?? undefined;
-        // Bot memory learns from every person; a signed message teaches this
-        // bot only, under the sender's name (memory/ledger/capture.ts).
-        if (!userMessage.peerAsk && !acpAssignment && !(task.forConversation && commsDepth > 0)) colonieMemorySources.set(threadId, {
-          botId: bot.id, threadId, messageId: userMessage.id, text: userMessage.text ?? text, at: new Date(userMessage.at).toISOString(),
-          ...(userMessage.sender?.name ? { speaker: userMessage.sender.name } : {}),
-        });
-        // Wait immediately before dispatch: resources are already claimed, but
-        // the engine cannot edit the project until the snapshot has settled.
-        // The ACP path takes the same pre-turn checkpoint the other path does,
-        // or the turn's own digest has no files to name at settle time.
-        // snapshot() absorbs failures, so checkpointing may delay but never
-        // fail a turn.
-        const checkpointCwd = cwd !== privateCwd ? cwd : undefined;
-        if (checkpointCwd) {
-          const before = await checkpoints.snapshot(bot.id, checkpointCwd, `turn ${threadId.slice(0, 8)}`, undefined, { pin: dispatchClaimId });
-          if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
-            if (before) void checkpoints.release(bot.id, checkpointCwd, dispatchClaimId);
-            throw new DirectTurnSetupCancelled("turn stopped during checkpoint");
-          }
-          forgetTurnCheckpoint(threadId);
-          if (before) turnCheckpoints.set(threadId, { botId: bot.id, cwd: checkpointCwd, hash: before, pin: dispatchClaimId });
-        }
-        // The snapshot awaits git, so a stop can land in between: do not start
-        // an engine for a turn that is already gone (the other path's guard).
-        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
-          throw new DirectTurnSetupCancelled("turn stopped before dispatch");
-        }
-        const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpBrowserTools, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
-          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id), acpBrowserTools ? BUILT_IN_BROWSER_SYSTEM_PROMPT.trim() : undefined,
-            browserProblem ? `Your browser could not start for this request (${browserProblem}). If the request needs a browser, say so; do not look for another way to browse.` : undefined].filter(Boolean).join(" ") || undefined,
-          cwd, model, approvalMode: approvalModeForTurn(bot, false),
-          resumeCursor: rebuildGroupSession ? undefined : task.resumeCursors[instanceId],
-          sessionReset: rebuildGroupSession,
-        }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
-          await instance.adapter.interruptTurn(threadId).catch(() => {});
-        });
-        if (dispatch.cancelled) {
-          retireProviderTurn(dispatch.value.turnId);
-          throw new DirectTurnSetupCancelled("turn stopped during ACP setup");
-        }
-        colonieTurnByThread.set(threadId, dispatch.value.turnId);
-        const requestOwner = directRequestOwners.get(threadId);
-        if (requestOwner?.generation === dispatchClaimId) requestOwner.turnId = dispatch.value.turnId;
-        clearDirectTurnDispatch(threadId, dispatchClaimId);
-        store.markTaskDispatched(bot.id, threadId, instanceId);
-        return;
-      }
-      // Readiness can wait on the network. Admit the task first so its busy
-      // state, Stop action and watchdog own that wait just like VM setup.
-      await compactConversation({ bot, threadId, generation: dispatchClaimId, instance, model,
-        excludedIds: new Set([userMessage.id, ...(opts?.excludeMessageIds ?? [])]), manual: opts?.compactOnly === true });
-      if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped during context setup");
-      if (opts?.compactOnly) {
-        clearDirectTurnDispatch(threadId, dispatchClaimId);
-        revokeInternalCapabilityGeneration(threadId, dispatchClaimId);
-        settleDirectFollowup(dispatchClaimId);
-        releaseTurnResources(resourceOwner);
-        store.setTaskActivity(bot.id, threadId, "idle");
-        watchdog.settle(threadId);
-        directTurnBots.delete(threadId);
-        retryDelegationsWaitingOn(bot.id);
-        drainQueuedSends();
-        drainConnectorResumes();
-        drainComputerResumes();
-        drainSecretResumes();
-        drainTeamSetupResumes();
-        drainDelegationWakes();
-        return;
-      }
-      // Keep the full branch order for delivery bookkeeping, but select actual
-      // replay entries by bytes. A compacted prefix is represented by its record.
-      const skipTranscript = new Set<string>([userMessage.id, ...(opts?.excludeMessageIds ?? [])]);
-      const activeMessages = store.activePath(threadId);
-      const context = directContext(bot, threadId, activeMessages);
-      const contextOrder = context.map((m: any) => m.id);
-      const replayable = context.filter((m: any) => !skipTranscript.has(m.id));
-      const record = latestCompaction(activeMessages);
-      const selection = selectReplay(context, { budgetBytes: cfg.context?.rebuildBytes ?? DEFAULT_REBUILD_BYTES, excludedIds: skipTranscript, compaction: record });
-      const transcript = selection.transcript.map(({ role, text }) => ({ role, text }));
-      const contextReset = selection.compacted > 0 && record?.id !== task.appliedCompactionId;
-      // The record is durable even if a crash occurs before this bookkeeping.
-      // A retry then sees the unapplied record again and rebuilds safely.
-      if (contextReset) store.patchTask(bot.id, threadId, { resumeCursors: {} });
-
-      // After a rewind (edit / branch switch) the provider's native session
-      // still contains the abandoned branch: start a fresh session instead of
-      // resuming, and for cursor-resuming drivers replay the surviving path
-      // inline (transcript-replay drivers get it via transcript). The flag is
-      // cleared only once the turn is actually dispatched — clearing it here
-      // would cost the next attempt its history if this dispatch fails.
-      const rewound = Boolean(task.rewound);
-      // A fresh engine — the user switched this bot's model mid-thread — has no
-      // current session here either, so it gets the same replay. Distinct from
-      // rewound: the OTHER instances' cursors are left alone (a rewind wipes
-      // them all), and "fresh" is decided by who ran the last turn, not by
-      // whether we hold a cursor — see engineIsFresh.
-      const externalContextMarker = isExternalContextMarker(task.lastInstanceId)
-        ? task.lastInstanceId
-        : undefined;
-      const fresh =
-        !rewound &&
-        !externalContextMarker &&
-        engineIsFresh({ instanceId, lastInstanceId: task.lastInstanceId, resumeCursors: task.resumeCursors, transcript: replayable });
-      // An engine that records what its session was handed resumes it with only
-      // the context messages outside that record. A record of another session
-      // (the one it replaced) or one that no longer lines up with the branch is
-      // not trusted: the session is rebuilt by the same replay as any other.
-      const strictResume = instance.adapter.capabilities.strictResume === true;
-      const cursor = task.resumeCursors[instanceId];
-      const handed = strictResume && !rewound && !contextReset && !fresh && !externalContextMarker && cursor !== undefined
-        ? task.handedMessages?.[instanceId] : undefined;
-      const unseen = handed && handedStateUsable(handed, cursor, contextOrder) ? unseenMessages(replayable, contextOrder, handed) : undefined;
-      // A teammate's result or reply: without records this turn would replay.
-      const externalUpdate = Boolean(unseen?.some((m) => m.keep));
-      // What a resumed session keeps from its launch: the standing instructions
-      // (tools, servers and — for Claude — the model are passed on every launch),
-      // plus settings that a live turn cannot change. Codex now reasserts its
-      // model/provider on resume, but an in-flight turn and an omitted effort
-      // retain the prior selection, so both still belong to the session here. An
-      // external update that finds any of it changed since the session started
-      // gets the fresh session and replay it always got, rather than a resume.
-      const persistentConfig = [bot.name, bot.title, bot.description, sectionContextSystemPrompt(bot.section),
-        ...(instance.driverKind === "codex" ? [model, effort ?? null] : [])];
-      const sessionConfig = (soul: string | undefined) =>
-        createHash("sha256").update(JSON.stringify([...persistentConfig, soul])).digest("hex").slice(0, 16);
-      const plannedConfig = sessionConfig(bot.soul);
-      // Agent-tool gate shared by skill authoring, the /setup turn-text rewrite,
-      // the setup prompt block, and the peer-comms integration below: a driver
-      // that never mounts agent tools (or a turn already at the comms-depth cap)
-      // must not be steered into — or told about — tools it cannot call.
-      const skillAuthoring = skillAuthoringEnabled(cfg) && agentsMounted;
-      // Setup mode's turn-text rewrite (parseSetupCommand/expandSetupTurnText)
-      // must not run ahead of a system prompt that can't explain it: a driver
-      // without agent tools sees the user's literal "/setup ..." message. The
-      // gate on whether the coaching block itself is active — setupModeActive,
-      // which also depends on the bot's soul/description — is decided below,
-      // from the same bot snapshot the prompt's soul is built from.
-      const setupText = agentsMounted ? expandSetupTurnText(providerText) : providerText;
-      const userTurnText = promptWithReply(
-        skillAuthoring ? expandLearnTurnText(setupText) : setupText,
-        opts?.replyTo,
-        cfg.profile?.name?.trim() || "User",
-      );
-      // Decided again at dispatch when setup outlasted a soul edit (config).
-      const decideContext = (config: string) => {
-        // A Codex thread keeps the last effort it was sent and no turn can clear
-        // one: back on the default, a thread that holds a level is rebuilt from
-        // the transcript rather than resumed on that level.
-        const effortHeld = !effort && typeof handed?.effort === "string";
-        const handedStale = Boolean(handed && (!unseen || effortHeld || (externalUpdate && handed.config !== config)));
-        const { block: unseenBlock, placed } = unseen && !handedStale ? renderUnseen(unseen) : { block: "", placed: [] };
-        const { turnText: contextTurnText, resume } = buildTurnContext({
-          text: userTurnText,
-          transcript,
-          rewound,
-          fresh: fresh || contextReset,
-          externallyUpdated: Boolean(externalContextMarker) || handedStale,
-          replaysNatively: NATIVELY_REPLAYING_DRIVER_KINDS.includes(instance.driverKind),
-        });
-        // Snapshot the cursor alongside the context decision. An external result
-        // can arrive during async computer/setup work and clear the task cursor;
-        // this already-built turn must either keep its old session or replay on the
-        // following turn, never start a blank session with no transcript.
-        const resumeCursor = resume ? task.resumeCursors[instanceId] : undefined;
-        // A cursor the provider no longer honours must not brick the thread: the
-        // driver may fall back to ONE fresh session, and this is what it sends
-        // there, so the new session is not blank (server/resume-recovery.ts). A
-        // turn carrying an external update gets the replay it would have had.
-        const recoveryIsReplay = resumeCursor !== undefined && externalUpdate && transcript.length > 0;
-        const recoveryText = resumeCursor === undefined ? undefined : recoveryIsReplay
-          ? buildTurnContext({ text: userTurnText, transcript, rewound: false, fresh: false, externallyUpdated: true, replaysNatively: false }).turnText
-          : buildRecoveryText({ text: userTurnText, transcript });
-        // What this turn puts in front of the provider, for each session it can end
-        // up in (server/delta-context.ts). buildTurnContext prepends a replay only
-        // when it replays, so a changed text means the transcript was sent.
-        const carried = [...skipTranscript];
-        const windowIds = selection.representedIds;
-        return {
-          turnText: withUnseenMessages(unseenBlock, contextTurnText),
-          resumeCursor, sessionReset: !resume, recoveryText, recoveryIsReplay,
-          handoff: strictResume ? {
-            botId: bot.id, instanceId, config, resumeCursor: typeof resumeCursor === "string" ? resumeCursor : undefined,
-            ...(instance.driverKind === "codex" ? { effort: effort ?? null } : {}),
-            started: sessionStart(contextOrder, contextTurnText !== userTurnText ? windowIds : [], carried),
-            recovery: sessionStart(contextOrder, recoveryText !== undefined ? windowIds : [], carried),
-            resumed: sessionStart(contextOrder, [], [...placed, ...carried]),
-            placed, carried, own: [userMessage.id, ...(opts?.excludeMessageIds ?? [])],
-          } : undefined,
-        };
-      };
-      let dispatchContext = decideContext(plannedConfig);
-
-      const persona = [
-        `You are ${bot.name}, a personal bot in Colonie.`,
-        bot.title && `Role: ${bot.title}.`,
-        bot.description && `About: ${bot.description}`,
-      ]
-        .filter(Boolean)
-        .join(" ");
-
-      // The SOUL.md mirror is checked here, at dispatch, and only reported:
-      // the prompt below reads bot.soul, never the file.
-      {
-        const drift = checkSoulDrift(bot.id, bot.soul ?? "", bot.soulHash ?? "");
-        if (drift.drift !== Boolean(bot.soulDrift)) store.patchBot(bot.id, { soulDrift: drift.drift });
-      }
-      if (dispatchContext.handoff) handoffs.begin(threadId, dispatchClaimId, dispatchContext.handoff);
-
+      // Where this turn's hands may land, shared by the ACP engines and the
+      // others: the Local VM claim and attach below (moved up so both reach it).
       const integrations: Record<string, any> = {};
-      let browser: Awaited<ReturnType<typeof browserIntegration>> = null;
-      const selectedSkills = selectBundledSkills(
-        providerText,
-        skillAuthoring ? ["skillAuthoring"] : [],
-        availableSkills(),
-      );
-      // the user's connected apps, but only to a driver that can mount
-      // them — a key in the config says the connections exist, not that
-      // this engine can reach them — and only to a bot the user has not
-      // switched off: the key is workspace-wide, the grant is per bot.
-      if (bot.composio !== false && composio.configured(cfg) && instance.adapter.capabilities.composioMcp === true) {
-        const connection = await connectedAppsIntegration(bot, threadId, dispatchClaimId);
-        if (connection) integrations.composio = connection;
-      }
-      // user-configured MCP servers (config.json mcpServers): same rule as
-      // composio — only to a driver that can mount them. Their tools are
-      // never pre-allowed, so every call rides the normal permission flow.
-      if (instance.adapter.capabilities.customMcp === true) {
-        const custom = await withMcpSignIn(engineMcpServers(bot), mcpOAuth);
-        if (Object.keys(custom).length) integrations.custom = custom;
-      }
-      // CLI engines work inside the bot's own workspace directory rather
-      // than the user's home: a bot with file tools and acceptEdits gets a
-      // desk, not the whole house — and the workspace is where its
-      // MEMORY.md lives. API/box engines have no local filesystem story.
-      const worksInWorkspace = supportsWorkspaceFiles(instance.driverKind);
-      if (worksInWorkspace) {
-        ensureWorkspace(bot.id);
-        // baseline for the journal's turn-boundary diff (see the bus hook)
-        if (bot.memoryEnabled !== false) beginMemoryTurn(bot.id, threadId);
-      }
-      const privateWorkspace = worksInWorkspace ? ensureTaskWorkspace(bot.id, threadId) : undefined;
-      const skillInstructions = renderSkillInstructions(selectedSkills, {
-        includeRoot: worksInWorkspace,
-      });
-      const packagePlaybooks = installedPlaybookInstructions(providerText, bot.playbooks);
-      // An explicit working folder wins for new tasks; otherwise they use
-      // the private bot workspace. A legacy task with an existing provider
-      // session deliberately pins to null (the old home-folder behavior),
-      // because moving a live session would break resume.
-      // A cloud run keeps the bot's own engine on this host, with the cloud
-      // computer as one more tool, so it works in the same folder as any
-      // other turn.
-      const pinnedCwd =
-        privateWorkspace
-          ? store.pinTaskCwd(bot.id, threadId, privateWorkspace)
-          : null;
-      // A bot's threads run side by side in one project folder, like several
-      // Claude Code or Codex sessions open in one repo: the folder is never a
-      // turn-long claim. What truly needs one writer queues on its own — the
-      // per-turn snapshot per folder (server/checkpoints.ts), memory through
-      // memory_update — and the engines key their sessions by id, not folder.
-      const cwd = pinnedCwd ?? undefined;
-      // Checkpoint explicit project folders, where a bot can overwrite the
-      // user's work. Its private Colonie workspace is app-owned and changes
-      // on nearly every ordinary chat; snapshotting it would add hidden disk
-      // and process overhead without a user project to list changes for.
-      const checkpointCwd = cwd && cwd !== privateWorkspace ? cwd : undefined;
-      // dweb is opt-in: without an explicit daemon URL, do not advertise
-      // tools that would fail on every call or spawn an unnecessary proxy.
-      const dwebUrl = process.env.DWEB_URL?.trim();
-      if (dwebUrl) integrations.dweb = { url: dwebUrl };
       const mountsComputerMcp = instance.adapter.capabilities.computerMcp === true;
       const mountsLocalComputer = instance.adapter.capabilities.localComputerMcp === true;
       // Where this turn's hands may land. The bot's "Works on" choice is
@@ -986,6 +683,329 @@ async function startTurn(
           return false;
         }
       };
+      if (isColonieAcpDriver(instance.driverKind)) {
+        // Independent execution path: branch before compaction, persona,
+        // memory, recall, setup/learn rewriting, skills, and MCP assembly.
+        if (task.rewound || opts?.editedMessageId || opts?.compactOnly) {
+          throw new Error("Native ACP session editing/branch replay is not available. Start a new thread for a different history; use /compact for agent-native compaction.");
+        }
+        // A scheduled run, a webhook and a teammate's handoff all run forward
+        // in the bot's own native session like any other turn, so they take
+        // this path too.
+        const privateCwd = conversationCwd && task.cwd === conversationCwd ? conversationCwd : ensureTaskWorkspace(bot.id, threadId);
+        const cwd = store.pinTaskCwd(bot.id, threadId, privateCwd) ?? privateCwd;
+        const contextConfig = instanceConfigs(cfg)[instanceId]?.config as { instructions?: string } | undefined;
+        const acpContext = contextCandidate(bot, instanceId, contextConfig?.instructions ?? "", !contextPin(threadId) && Boolean(task.lastInstanceId || inputReceipts(threadId).length));
+        runningTurnEngines.set(threadId, instance);
+        const mounts = await acpToolMount(bot.id, threadId, instanceId);
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
+        // A bot with a computer works on it, as in OpenMausBot (owner,
+        // October 29): Works on "Local VM" is strict, and Auto takes a Local
+        // VM this bot already has, through the same attach the other engines
+        // use. It then browses with the browser on that desktop, so the
+        // separate built-in browser below is not mounted.
+        try {
+          if (wants === "vm" ? await attachLocalVm(true) : wants === undefined && await attachLocalVm(false)) computerKind = "vm";
+        } catch (error) {
+          mounts.tools.deactivate(); mounts.extra?.deactivate();
+          if (!namedPlace || !placeSource) throw error;
+          throw await asPlaceFailure(error, namedPlace, placeSource, bot);
+        }
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during computer setup"); }
+        const acpComputerTools = computerKind === "vm" && integrations.localComputer ? computerToolMount(integrations.localComputer) : undefined;
+        // Without a computer, each bot browses in its own browser, with its
+        // own logins (owner, October 28): the same session the Browser panel
+        // shows and a person can take over. No engine installed yet means no
+        // browser tools, and a browser that cannot start never stops the bot
+        // from answering.
+        const browsingBot = acpComputerTools ? undefined : store.bot(bot.id);
+        let browserProblem = "";
+        const browser = browsingBot && builtInBrowserEnabled(cfg) && browsingBot.browser !== false
+          ? await browserIntegration(bot.id, browsingBot.browserProfile, { threadId, generation: dispatchClaimId }).catch((error: unknown) => {
+            browserProblem = error instanceof Error ? error.message : String(error);
+            console.warn(`[browser] ${bot.name}'s browser could not be prepared: ${browserProblem}`);
+            return null;
+          })
+          : null;
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during browser setup"); }
+        const acpBrowserTools = browser ? browserToolMount(browser.integration) : undefined;
+        const acpMemory = colonieMemory().recall(bot.id, providerText) ?? undefined;
+        const acpSkills = colonieSkills.context(bot.id);
+        const acpAssignment = opts?.colonieAssignment ?? undefined;
+        // Bot memory learns from every person; a signed message teaches this
+        // bot only, under the sender's name (memory/ledger/capture.ts).
+        if (!userMessage.peerAsk && !acpAssignment && !(task.forConversation && commsDepth > 0)) colonieMemorySources.set(threadId, {
+          botId: bot.id, threadId, messageId: userMessage.id, text: userMessage.text ?? text, at: new Date(userMessage.at).toISOString(),
+          ...(userMessage.sender?.name ? { speaker: userMessage.sender.name } : {}),
+        });
+        // Wait immediately before dispatch: resources are already claimed, but
+        // the engine cannot edit the project until the snapshot has settled.
+        // The ACP path takes the same pre-turn checkpoint the other path does,
+        // or the turn's own digest has no files to name at settle time.
+        // snapshot() absorbs failures, so checkpointing may delay but never
+        // fail a turn.
+        const checkpointCwd = cwd !== privateCwd ? cwd : undefined;
+        if (checkpointCwd) {
+          const before = await checkpoints.snapshot(bot.id, checkpointCwd, `turn ${threadId.slice(0, 8)}`, undefined, { pin: dispatchClaimId });
+          if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
+            if (before) void checkpoints.release(bot.id, checkpointCwd, dispatchClaimId);
+            throw new DirectTurnSetupCancelled("turn stopped during checkpoint");
+          }
+          forgetTurnCheckpoint(threadId);
+          if (before) turnCheckpoints.set(threadId, { botId: bot.id, cwd: checkpointCwd, hash: before, pin: dispatchClaimId });
+        }
+        // The snapshot awaits git, so a stop can land in between: do not start
+        // an engine for a turn that is already gone (the other path's guard).
+        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
+          throw new DirectTurnSetupCancelled("turn stopped before dispatch");
+        }
+        const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
+          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpBrowserTools, acpComputerTools, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id), acpComputerTools ? LOCAL_VM_SYSTEM_PROMPT.trim() : undefined, acpBrowserTools ? BUILT_IN_BROWSER_SYSTEM_PROMPT.trim() : undefined,
+            browserProblem ? `Your browser could not start for this request (${browserProblem}). If the request needs a browser, say so; do not look for another way to browse.` : undefined].filter(Boolean).join(" ") || undefined,
+          cwd, model, approvalMode: approvalModeForTurn(bot, false),
+          resumeCursor: rebuildGroupSession ? undefined : task.resumeCursors[instanceId],
+          sessionReset: rebuildGroupSession,
+        }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
+          await instance.adapter.interruptTurn(threadId).catch(() => {});
+        });
+        if (dispatch.cancelled) {
+          retireProviderTurn(dispatch.value.turnId);
+          throw new DirectTurnSetupCancelled("turn stopped during ACP setup");
+        }
+        colonieTurnByThread.set(threadId, dispatch.value.turnId);
+        const requestOwner = directRequestOwners.get(threadId);
+        if (requestOwner?.generation === dispatchClaimId) requestOwner.turnId = dispatch.value.turnId;
+        clearDirectTurnDispatch(threadId, dispatchClaimId);
+        store.markTaskDispatched(bot.id, threadId, instanceId);
+        // The desktop's live frames for the Computer panel, as the other
+        // engines publish them (a lazily claimed VM starts them on its claim).
+        if (previewCapture && threadBusy(bot.id, threadId)) startScreenPoller(bot.id, threadId, { computer: previewCapture });
+        return;
+      }
+      // Readiness can wait on the network. Admit the task first so its busy
+      // state, Stop action and watchdog own that wait just like VM setup.
+      await compactConversation({ bot, threadId, generation: dispatchClaimId, instance, model,
+        excludedIds: new Set([userMessage.id, ...(opts?.excludeMessageIds ?? [])]), manual: opts?.compactOnly === true });
+      if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped during context setup");
+      if (opts?.compactOnly) {
+        clearDirectTurnDispatch(threadId, dispatchClaimId);
+        revokeInternalCapabilityGeneration(threadId, dispatchClaimId);
+        settleDirectFollowup(dispatchClaimId);
+        releaseTurnResources(resourceOwner);
+        store.setTaskActivity(bot.id, threadId, "idle");
+        watchdog.settle(threadId);
+        directTurnBots.delete(threadId);
+        retryDelegationsWaitingOn(bot.id);
+        drainQueuedSends();
+        drainConnectorResumes();
+        drainComputerResumes();
+        drainSecretResumes();
+        drainTeamSetupResumes();
+        drainDelegationWakes();
+        return;
+      }
+      // Keep the full branch order for delivery bookkeeping, but select actual
+      // replay entries by bytes. A compacted prefix is represented by its record.
+      const skipTranscript = new Set<string>([userMessage.id, ...(opts?.excludeMessageIds ?? [])]);
+      const activeMessages = store.activePath(threadId);
+      const context = directContext(bot, threadId, activeMessages);
+      const contextOrder = context.map((m: any) => m.id);
+      const replayable = context.filter((m: any) => !skipTranscript.has(m.id));
+      const record = latestCompaction(activeMessages);
+      const selection = selectReplay(context, { budgetBytes: cfg.context?.rebuildBytes ?? DEFAULT_REBUILD_BYTES, excludedIds: skipTranscript, compaction: record });
+      const transcript = selection.transcript.map(({ role, text }) => ({ role, text }));
+      const contextReset = selection.compacted > 0 && record?.id !== task.appliedCompactionId;
+      // The record is durable even if a crash occurs before this bookkeeping.
+      // A retry then sees the unapplied record again and rebuilds safely.
+      if (contextReset) store.patchTask(bot.id, threadId, { resumeCursors: {} });
+
+      // After a rewind (edit / branch switch) the provider's native session
+      // still contains the abandoned branch: start a fresh session instead of
+      // resuming, and for cursor-resuming drivers replay the surviving path
+      // inline (transcript-replay drivers get it via transcript). The flag is
+      // cleared only once the turn is actually dispatched — clearing it here
+      // would cost the next attempt its history if this dispatch fails.
+      const rewound = Boolean(task.rewound);
+      // A fresh engine — the user switched this bot's model mid-thread — has no
+      // current session here either, so it gets the same replay. Distinct from
+      // rewound: the OTHER instances' cursors are left alone (a rewind wipes
+      // them all), and "fresh" is decided by who ran the last turn, not by
+      // whether we hold a cursor — see engineIsFresh.
+      const externalContextMarker = isExternalContextMarker(task.lastInstanceId)
+        ? task.lastInstanceId
+        : undefined;
+      const fresh =
+        !rewound &&
+        !externalContextMarker &&
+        engineIsFresh({ instanceId, lastInstanceId: task.lastInstanceId, resumeCursors: task.resumeCursors, transcript: replayable });
+      // An engine that records what its session was handed resumes it with only
+      // the context messages outside that record. A record of another session
+      // (the one it replaced) or one that no longer lines up with the branch is
+      // not trusted: the session is rebuilt by the same replay as any other.
+      const strictResume = instance.adapter.capabilities.strictResume === true;
+      const cursor = task.resumeCursors[instanceId];
+      const handed = strictResume && !rewound && !contextReset && !fresh && !externalContextMarker && cursor !== undefined
+        ? task.handedMessages?.[instanceId] : undefined;
+      const unseen = handed && handedStateUsable(handed, cursor, contextOrder) ? unseenMessages(replayable, contextOrder, handed) : undefined;
+      // A teammate's result or reply: without records this turn would replay.
+      const externalUpdate = Boolean(unseen?.some((m) => m.keep));
+      // What a resumed session keeps from its launch: the standing instructions
+      // (tools, servers and — for Claude — the model are passed on every launch),
+      // plus settings that a live turn cannot change. Codex now reasserts its
+      // model/provider on resume, but an in-flight turn and an omitted effort
+      // retain the prior selection, so both still belong to the session here. An
+      // external update that finds any of it changed since the session started
+      // gets the fresh session and replay it always got, rather than a resume.
+      const persistentConfig = [bot.name, bot.title, bot.description, sectionContextSystemPrompt(bot.section),
+        ...(instance.driverKind === "codex" ? [model, effort ?? null] : [])];
+      const sessionConfig = (soul: string | undefined) =>
+        createHash("sha256").update(JSON.stringify([...persistentConfig, soul])).digest("hex").slice(0, 16);
+      const plannedConfig = sessionConfig(bot.soul);
+      // Agent-tool gate shared by skill authoring, the /setup turn-text rewrite,
+      // the setup prompt block, and the peer-comms integration below: a driver
+      // that never mounts agent tools (or a turn already at the comms-depth cap)
+      // must not be steered into — or told about — tools it cannot call.
+      const skillAuthoring = skillAuthoringEnabled(cfg) && agentsMounted;
+      // Setup mode's turn-text rewrite (parseSetupCommand/expandSetupTurnText)
+      // must not run ahead of a system prompt that can't explain it: a driver
+      // without agent tools sees the user's literal "/setup ..." message. The
+      // gate on whether the coaching block itself is active — setupModeActive,
+      // which also depends on the bot's soul/description — is decided below,
+      // from the same bot snapshot the prompt's soul is built from.
+      const setupText = agentsMounted ? expandSetupTurnText(providerText) : providerText;
+      const userTurnText = promptWithReply(
+        skillAuthoring ? expandLearnTurnText(setupText) : setupText,
+        opts?.replyTo,
+        cfg.profile?.name?.trim() || "User",
+      );
+      // Decided again at dispatch when setup outlasted a soul edit (config).
+      const decideContext = (config: string) => {
+        // A Codex thread keeps the last effort it was sent and no turn can clear
+        // one: back on the default, a thread that holds a level is rebuilt from
+        // the transcript rather than resumed on that level.
+        const effortHeld = !effort && typeof handed?.effort === "string";
+        const handedStale = Boolean(handed && (!unseen || effortHeld || (externalUpdate && handed.config !== config)));
+        const { block: unseenBlock, placed } = unseen && !handedStale ? renderUnseen(unseen) : { block: "", placed: [] };
+        const { turnText: contextTurnText, resume } = buildTurnContext({
+          text: userTurnText,
+          transcript,
+          rewound,
+          fresh: fresh || contextReset,
+          externallyUpdated: Boolean(externalContextMarker) || handedStale,
+          replaysNatively: NATIVELY_REPLAYING_DRIVER_KINDS.includes(instance.driverKind),
+        });
+        // Snapshot the cursor alongside the context decision. An external result
+        // can arrive during async computer/setup work and clear the task cursor;
+        // this already-built turn must either keep its old session or replay on the
+        // following turn, never start a blank session with no transcript.
+        const resumeCursor = resume ? task.resumeCursors[instanceId] : undefined;
+        // A cursor the provider no longer honours must not brick the thread: the
+        // driver may fall back to ONE fresh session, and this is what it sends
+        // there, so the new session is not blank (server/resume-recovery.ts). A
+        // turn carrying an external update gets the replay it would have had.
+        const recoveryIsReplay = resumeCursor !== undefined && externalUpdate && transcript.length > 0;
+        const recoveryText = resumeCursor === undefined ? undefined : recoveryIsReplay
+          ? buildTurnContext({ text: userTurnText, transcript, rewound: false, fresh: false, externallyUpdated: true, replaysNatively: false }).turnText
+          : buildRecoveryText({ text: userTurnText, transcript });
+        // What this turn puts in front of the provider, for each session it can end
+        // up in (server/delta-context.ts). buildTurnContext prepends a replay only
+        // when it replays, so a changed text means the transcript was sent.
+        const carried = [...skipTranscript];
+        const windowIds = selection.representedIds;
+        return {
+          turnText: withUnseenMessages(unseenBlock, contextTurnText),
+          resumeCursor, sessionReset: !resume, recoveryText, recoveryIsReplay,
+          handoff: strictResume ? {
+            botId: bot.id, instanceId, config, resumeCursor: typeof resumeCursor === "string" ? resumeCursor : undefined,
+            ...(instance.driverKind === "codex" ? { effort: effort ?? null } : {}),
+            started: sessionStart(contextOrder, contextTurnText !== userTurnText ? windowIds : [], carried),
+            recovery: sessionStart(contextOrder, recoveryText !== undefined ? windowIds : [], carried),
+            resumed: sessionStart(contextOrder, [], [...placed, ...carried]),
+            placed, carried, own: [userMessage.id, ...(opts?.excludeMessageIds ?? [])],
+          } : undefined,
+        };
+      };
+      let dispatchContext = decideContext(plannedConfig);
+
+      const persona = [
+        `You are ${bot.name}, a personal bot in Colonie.`,
+        bot.title && `Role: ${bot.title}.`,
+        bot.description && `About: ${bot.description}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      // The SOUL.md mirror is checked here, at dispatch, and only reported:
+      // the prompt below reads bot.soul, never the file.
+      {
+        const drift = checkSoulDrift(bot.id, bot.soul ?? "", bot.soulHash ?? "");
+        if (drift.drift !== Boolean(bot.soulDrift)) store.patchBot(bot.id, { soulDrift: drift.drift });
+      }
+      if (dispatchContext.handoff) handoffs.begin(threadId, dispatchClaimId, dispatchContext.handoff);
+
+      let browser: Awaited<ReturnType<typeof browserIntegration>> = null;
+      const selectedSkills = selectBundledSkills(
+        providerText,
+        skillAuthoring ? ["skillAuthoring"] : [],
+        availableSkills(),
+      );
+      // the user's connected apps, but only to a driver that can mount
+      // them — a key in the config says the connections exist, not that
+      // this engine can reach them — and only to a bot the user has not
+      // switched off: the key is workspace-wide, the grant is per bot.
+      if (bot.composio !== false && composio.configured(cfg) && instance.adapter.capabilities.composioMcp === true) {
+        const connection = await connectedAppsIntegration(bot, threadId, dispatchClaimId);
+        if (connection) integrations.composio = connection;
+      }
+      // user-configured MCP servers (config.json mcpServers): same rule as
+      // composio — only to a driver that can mount them. Their tools are
+      // never pre-allowed, so every call rides the normal permission flow.
+      if (instance.adapter.capabilities.customMcp === true) {
+        const custom = await withMcpSignIn(engineMcpServers(bot), mcpOAuth);
+        if (Object.keys(custom).length) integrations.custom = custom;
+      }
+      // CLI engines work inside the bot's own workspace directory rather
+      // than the user's home: a bot with file tools and acceptEdits gets a
+      // desk, not the whole house — and the workspace is where its
+      // MEMORY.md lives. API/box engines have no local filesystem story.
+      const worksInWorkspace = supportsWorkspaceFiles(instance.driverKind);
+      if (worksInWorkspace) {
+        ensureWorkspace(bot.id);
+        // baseline for the journal's turn-boundary diff (see the bus hook)
+        if (bot.memoryEnabled !== false) beginMemoryTurn(bot.id, threadId);
+      }
+      const privateWorkspace = worksInWorkspace ? ensureTaskWorkspace(bot.id, threadId) : undefined;
+      const skillInstructions = renderSkillInstructions(selectedSkills, {
+        includeRoot: worksInWorkspace,
+      });
+      const packagePlaybooks = installedPlaybookInstructions(providerText, bot.playbooks);
+      // An explicit working folder wins for new tasks; otherwise they use
+      // the private bot workspace. A legacy task with an existing provider
+      // session deliberately pins to null (the old home-folder behavior),
+      // because moving a live session would break resume.
+      // A cloud run keeps the bot's own engine on this host, with the cloud
+      // computer as one more tool, so it works in the same folder as any
+      // other turn.
+      const pinnedCwd =
+        privateWorkspace
+          ? store.pinTaskCwd(bot.id, threadId, privateWorkspace)
+          : null;
+      // A bot's threads run side by side in one project folder, like several
+      // Claude Code or Codex sessions open in one repo: the folder is never a
+      // turn-long claim. What truly needs one writer queues on its own — the
+      // per-turn snapshot per folder (server/checkpoints.ts), memory through
+      // memory_update — and the engines key their sessions by id, not folder.
+      const cwd = pinnedCwd ?? undefined;
+      // Checkpoint explicit project folders, where a bot can overwrite the
+      // user's work. Its private Colonie workspace is app-owned and changes
+      // on nearly every ordinary chat; snapshotting it would add hidden disk
+      // and process overhead without a user project to list changes for.
+      const checkpointCwd = cwd && cwd !== privateWorkspace ? cwd : undefined;
+      // dweb is opt-in: without an explicit daemon URL, do not advertise
+      // tools that would fail on every call or spawn an unnecessary proxy.
+      const dwebUrl = process.env.DWEB_URL?.trim();
+      if (dwebUrl) integrations.dweb = { url: dwebUrl };
       // An explicit place that cannot be attached fails the turn with its
       // cause and the next action; it never quietly moves the work elsewhere.
       try {

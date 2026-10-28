@@ -120,6 +120,8 @@ export interface SendTurnInput {
   acpExtraTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
   /** The built-in browser, when this bot browses (colonie/computer). */
   acpBrowserTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
+  /** The bot's own computer (the Local VM desktop), when it works on one. */
+  acpComputerTools?: import("./colonie/connections/contracts.ts").AcpToolMount;
   /** Fresh scoped skills index, separate from stable persona/SOUL pins. */
   acpSkills?: import("../shared/colonie-skills.ts").AcpSkillsContext;
   /** Present only on a delegated Chief assignment turn: its exact ownership. */

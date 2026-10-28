@@ -216,8 +216,10 @@ export class AcpRuntime implements ProviderAdapter {
     nativeImageInput: true,
     strictResume: true,
     // Keep tools, project context and native compaction owned by Codex.
-    // The one Colonie tool beside them: the bot's own built-in browser.
+    // Colonie's tools beside them: the bot's own computer (the Local VM
+    // desktop) or, without one, its built-in browser.
     browserMcp: true,
+    computerMcp: true,
   };
   private readonly sessions = new Map<string, LiveSession>();
   private readonly listeners = new Set<RuntimeEventListener>();
@@ -333,9 +335,11 @@ export class AcpRuntime implements ProviderAdapter {
     // Colonie's own tools (request_secret, schedule_routine, ...) carry their
     // own confirmation; the engine's prompt would only ask a second time.
     const trusted = session.mounts.flatMap((mount) => mount.trustedTools ?? []);
+    const trustedServers = session.mounts.flatMap((mount) => mount.trustedServers ?? []);
     const named = [request.toolCall.title, (request.toolCall as { name?: string }).name].filter((value): value is string => typeof value === "string");
     const allow = request.options.find((option) => option.kind === "allow_once") ?? request.options.find((option) => option.kind === "allow_always");
-    if (allow && named.some((value) => trusted.some((tool) => value === tool || value.endsWith(`__${tool}`) || value.endsWith(`.${tool}`) || value.includes(`colonie_workspace`) && value.includes(tool)))) {
+    const fromTrustedServer = (value: string) => trustedServers.some((server) => value.startsWith(`mcp__${server}__`) || value.startsWith(`${server}.`) || value.startsWith(`${server}__`));
+    if (allow && named.some((value) => fromTrustedServer(value) || trusted.some((tool) => value === tool || value.endsWith(`__${tool}`) || value.endsWith(`.${tool}`) || value.includes(`colonie_workspace`) && value.includes(tool)))) {
       return Promise.resolve({ outcome: { outcome: "selected", optionId: allow.optionId } });
     }
     const requestId = newId();
@@ -583,7 +587,7 @@ export class AcpRuntime implements ProviderAdapter {
    * separate lease; the runtime activates/releases each, so neither wrapper can
    * release a lease the other still holds. */
   private mountsOf(input: SendTurnInput): AcpToolMount[] {
-    return [input.acpTools, input.acpExtraTools, input.acpBrowserTools].filter((mount): mount is AcpToolMount => Boolean(mount));
+    return [input.acpTools, input.acpExtraTools, input.acpBrowserTools, input.acpComputerTools].filter((mount): mount is AcpToolMount => Boolean(mount));
   }
   private mountRevision(mounts: readonly AcpToolMount[]): string {
     return mounts.map((mount) => mount.revision).join("+");
