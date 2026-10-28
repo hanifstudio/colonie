@@ -1,4 +1,4 @@
-// When a bot starts using its browser, the Browser panel opens by itself
+// When a bot starts using its browser or its computer, its panel opens by itself
 // where the person is watching it work, as Hermes' "Open Screen when the bot
 // uses it" does: once per turn, so a panel they closed stays closed until the
 // bot's next run, and never over a panel already open.

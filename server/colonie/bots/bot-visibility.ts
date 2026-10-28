@@ -493,7 +493,7 @@ export function frameForMember(payload: Record<string, unknown>, ctx: FrameConte
     case "computer":
     case "computer-control":
       return visible.bot(str(payload.botId)) ? payload : undefined;
-    case "browser-use":
+    case "computer-use":
       return visible.bot(str(payload.botId)) ? payload : undefined;
     case "config":
     case "routine.deleted":

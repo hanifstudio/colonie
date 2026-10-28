@@ -72,6 +72,8 @@ export function createInternalComputerControlRoute(deps: Parameters<typeof compu
   /** The bot asks the person to take over: the app shows it and buzzes. */
   requestHelp: (botId: string, threadId: string, reason: unknown) => { held: boolean; helpOpen: boolean; requestId: string };
   expireHelp: (botId: string, requestId: unknown) => { held: boolean; helpOpen: boolean };
+  /** The bot is acting on its computer: the app may open its panel. */
+  announce?: (capability: Capability) => void;
 }): RouteHandler {
   return async ({ req, res, url, path, method, json, readBody }) => {
     if (path !== "/api/internal/computer-control") return PASS;
@@ -81,7 +83,11 @@ export function createInternalComputerControlRoute(deps: Parameters<typeof compu
     const claimed = url.searchParams.get("botId");
     if (claimed !== null && claimed !== capability.botId) return json(res, 403, { error: "the internal capability belongs to a different bot" });
     if (!deps.isActive(capability)) return json(res, 401, { error: "the internal turn capability has expired" });
-    if (method === "GET") return json(res, 200, await computerCallGate(capability, deps));
+    if (method === "GET") {
+      const gate = await computerCallGate(capability, deps);
+      if (!gate.held) deps.announce?.(capability);
+      return json(res, 200, gate);
+    }
     if (method !== "POST" && method !== "DELETE") return json(res, 405, { error: "method not allowed" });
     const body = (await readBody(req)) ?? {};
     // Authorization at header time is not a lease: a turn that settled while

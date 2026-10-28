@@ -53,6 +53,7 @@ import {
 } from "@/lib/local-computer";
 import {
   readComputerPanelView,
+  offersBrowserTab,
   shownComputerPanelView,
   writeComputerPanelView,
   type ComputerPanelView,
@@ -964,7 +965,7 @@ export function ComputerPanel({
               <HIcon icon={SmartphoneIcon} size={13} /> {t("computer.tab.android")}
             </button>
             )}
-            <button
+            {offersBrowserTab({ advanced, hasDesktop }) && <button
               data-tour="computer-browser"
               onClick={() => {
                 setError(null);
@@ -975,7 +976,7 @@ export function ComputerPanel({
             >
               <HIcon icon={GlobeIcon} size={13} /> {t("computer.tab.browser")}
               {placeLive && livePlace === "browser" && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="browser-tab-live" />}
-            </button>
+            </button>}
             {!advanced && (
             <button
               type="button"

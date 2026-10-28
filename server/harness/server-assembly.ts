@@ -369,26 +369,29 @@ ROUTES.push(createSignInAskRoutes({
     return Boolean(caller && deps.groupConversations?.worksFor(caller, threadId));
   },
 }));
-const announcedBrowserTurns = new Set<string>();
+// Once per turn the app opens the bot's panel where it works, on the view it
+// is using: its browser, or its computer's desktop.
+const announcedComputerTurns = new Set<string>();
+const announceComputerUse = (capability: { botId: string; threadId: string; generation: string }, view: "browser" | "computer") => {
+  if (announcedComputerTurns.has(capability.generation)) return;
+  announcedComputerTurns.add(capability.generation);
+  if (announcedComputerTurns.size > 500) announcedComputerTurns.delete(announcedComputerTurns.values().next().value!);
+  const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
+  broadcast({ kind: "computer-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, view, ...(conversationId ? { conversationId } : {}) });
+};
 ROUTES.push(createInternalBrowserRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
   bot: (id) => store.bot(id), browserEnabled: () => builtInBrowserEnabled(cfg),
   browserIntegration: (botId, profile) => browserIntegration(botId, profile),
   currentBrowserSession: (botId, profile) => currentBrowserSession(botId, profile),
   claimTurnResource: deps.claimTurnResource, runtime: browserRuntime,
-  // once per turn: the app opens the Browser panel where the bot works
-  announce: (capability) => {
-    if (announcedBrowserTurns.has(capability.generation)) return;
-    announcedBrowserTurns.add(capability.generation);
-    if (announcedBrowserTurns.size > 500) announcedBrowserTurns.delete(announcedBrowserTurns.values().next().value!);
-    const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
-    broadcast({ kind: "browser-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, ...(conversationId ? { conversationId } : {}) });
-  },
+  announce: (capability) => announceComputerUse(capability, "browser"),
 }));
 ROUTES.push(createInternalComputerControlRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
   bot: (id) => store.bot(id), snapshot: (botId) => botComputerControlSnapshot(botId),
   claimTurnResource: deps.claimTurnResource, ...deps.computerGate,
+  announce: (capability) => announceComputerUse(capability, "computer"),
 }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));

@@ -24,6 +24,7 @@ function setup(overrides: { kind?: string; held?: boolean; active?: boolean; cla
     claimTurnResource: () => overrides.claim ?? true,
     requestHelp: (botId, threadId, reason) => { calls.push(`help ${botId} ${threadId} ${String(reason)}`); return { held: false, helpOpen: true, requestId: "r1" }; },
     expireHelp: (_botId, requestId) => { calls.push(`expire ${String(requestId)}`); return { held: false, helpOpen: false }; },
+    announce: (capability) => calls.push(`announce ${capability.generation}`),
     graceMs: 10,
   });
   return { route, calls };
@@ -60,4 +61,13 @@ test("a bot asks the person to take over, and withdraws an unanswered ask", asyn
   expect((await call(route, "DELETE", { requestId: "r1" }))?.body).toEqual({ held: false, helpOpen: false });
   expect((await call(route, "POST", { reason: "x", threadId: "t2" }))?.status).toBe(403);
   expect(calls).toEqual(["help b1 t1 CAPTCHA on the page", "expire r1"]);
+});
+
+test("an action let through tells the app the bot is on its computer; a refused one does not", async () => {
+  const free = setup();
+  await call(free.route);
+  expect(free.calls).toEqual(["announce g1"]);
+  const held = setup({ held: true });
+  await call(held.route);
+  expect(held.calls).toEqual([]);
 });

@@ -32,14 +32,20 @@ export function writeComputerPanelView(
   }
 }
 
-/** The tab the panel shows. One Computer panel shows what the bot uses
- * (owner, October 28): Simple mode is Browser | Files, plus Desktop only for
- * a bot that has one; Advanced keeps Desktop | Routines | Android | Browser.
- * A view stored by the other mode, or a desktop the bot does not have, reads
- * as the bot's browser (its files when it has no browser) instead of an
- * empty pane. */
+/** The tab the panel shows. The Computer panel shows the bot's computer
+ * (owner, October 29, as in OpenMausBot): a bot with a desktop sees
+ * Desktop | Files and browses on that desktop; a bot without one sees
+ * Browser | Files. Advanced keeps Desktop | Routines | Android | Browser.
+ * A view stored by the other mode or for the other kind of bot reads as the
+ * one this bot has (its files when it has neither) instead of an empty pane. */
 export function shownComputerPanelView(stored: ComputerPanelView, options: { advanced: boolean; hasDesktop: boolean; browser: boolean }): ComputerPanelView {
   if (options.advanced) return stored === "files" ? "computer" : stored;
   const simple = stored === "routines" || stored === "android" ? "computer" : stored;
-  return simple === "computer" && !options.hasDesktop ? (options.browser ? "browser" : "files") : simple;
+  if (options.hasDesktop) return simple === "browser" ? "computer" : simple;
+  return simple === "computer" ? (options.browser ? "browser" : "files") : simple;
+}
+
+/** Whether Simple mode offers the Browser tab: only to a bot without a desktop. */
+export function offersBrowserTab(options: { advanced: boolean; hasDesktop: boolean }): boolean {
+  return options.advanced || !options.hasDesktop;
 }

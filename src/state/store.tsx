@@ -1311,7 +1311,7 @@ function optimisticUserMessage(
   };
 }
 
-/** The turn each thread last opened the Browser panel for (the browser-use frame). */
+/** The turn each thread last opened the bot's panel for (the computer-use frame). */
 const browserAutoOpened = new Map<string, string>();
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -3471,11 +3471,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         case "computer":
           rawDispatch({ type: "computerStart", botId: frame.botId, start: { state: frame.state } });
           break;
-        case "browser-use": {
+        case "computer-use": {
           // Hermes' rule (browser-auto-open.ts); opening never takes focus.
           if (!shouldOpenBrowserPanel(stateRef.current, frame, browserAutoOpened.get(frame.threadId))) break;
           browserAutoOpened.set(frame.threadId, frame.turn);
-          writeComputerPanelView(frame.botId, "browser");
+          writeComputerPanelView(frame.botId, frame.view);
           rawDispatch({ type: "toggleComputer", open: true, botId: frame.botId });
           break;
         }
