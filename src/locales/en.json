@@ -1862,7 +1862,7 @@
   "computer.phase.error": "Couldn't reach the computer",
   "computer.resizeAria": "Resize panel",
   "computer.botSettings": "Bot settings",
-  "computer.tab.computer": "Desktop",
+  "computer.tab.computer": "Computer",
   "computer.tab.routines": "Routines",
   "routines.list": "Routine list",
   "routines.logs": "Run logs",

@@ -4,12 +4,12 @@ import { expect, test } from "vitest";
 
 import { offersBrowserTab, shownComputerPanelView } from "./computer-panel-view";
 
-const simple = { advanced: false, hasDesktop: false, browser: true };
+const simple = { advanced: false, hasDesktop: false };
 
-test("a bot without a desktop shows its browser, or its files with no browser", () => {
-  expect(shownComputerPanelView("computer", simple)).toBe("browser");
-  expect(shownComputerPanelView("android", simple)).toBe("browser");
-  expect(shownComputerPanelView("computer", { ...simple, browser: false })).toBe("files");
+test("the Computer tab is always there, where a person gives the bot a computer", () => {
+  expect(shownComputerPanelView("computer", simple)).toBe("computer");
+  expect(shownComputerPanelView("android", simple)).toBe("computer");
+  expect(shownComputerPanelView("browser", simple)).toBe("browser");
   expect(shownComputerPanelView("files", simple)).toBe("files");
 });
 

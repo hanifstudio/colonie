@@ -105,10 +105,7 @@ export function openPlaceAction(
     case "open-tools": dispatch({ type: "toggleSettings", open: true, section: "access", botId: target.botId }); return true;
     case "change-routine": dispatch({ type: "toggleSettings", open: true, section: "routines", botId: target.botId }); return true;
     case "sign-in": appSettings("engines"); return true;
-    case "open-vm-settings":
-      window.sessionStorage?.setItem("colonie.settings.section", "computer");
-      appSettings("computer");
-      return true;
+    case "open-vm-settings": appSettings("computer"); return true;
     case "clear-pin":
       if (!target.threadId) return false;
       dispatch({ type: "updateTask", botId: target.botId, threadId: target.threadId, patch: { surface: null } });

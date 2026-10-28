@@ -764,7 +764,7 @@
   "computer.phase.error": "Não foi possível alcançar o computador",
   "computer.resizeAria": "Redimensionar painel",
   "computer.botSettings": "Configurações do bot",
-  "computer.tab.computer": "Área de trabalho",
+  "computer.tab.computer": "Computador",
   "computer.tab.android": "Android",
   "computer.tab.browser": "Navegador",
   "computer.screenOf": "Tela de {name}",

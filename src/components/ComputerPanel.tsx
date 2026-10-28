@@ -302,11 +302,11 @@ export function ComputerPanel({
   const browserAvailableHere = browserAvailable(state.config);
   const browserEnabled = builtInBrowserEnabled(state.config) && bot.browser !== false
     && (browserAvailableHere || state.config?.browserEngine?.installable === true);
-  // One Computer panel, as Hermes' one screen (shownComputerPanelView).
+  // The Computer panel shows the bot's computer, as in OpenMausBot (shownComputerPanelView).
   const advanced = useAdvancedMode();
   const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser";
   const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
-  const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop, browser: browserEnabled });
+  const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop });
   const androidStatus = useAndroidUsbDevices();
   const androidConnected = androidStatus.devices.length > 0;
   // bumped when a Local VM action completes, to re-run the resolve flow
@@ -763,10 +763,7 @@ export function ComputerPanel({
     }
   };
 
-  const openVmSettings = () => {
-    window.sessionStorage.setItem("colonie.settings.section", "computer");
-    dispatch({ type: "toggleAppSettings", open: true });
-  };
+  const openVmSettings = () => dispatch({ type: "toggleAppSettings", open: true, section: "computer" });
 
   // Simple mode's Browser tab when the browser is off: the same installation
   // switch as Settings → Computers → Built-in browser, plus this bot's own
@@ -940,14 +937,14 @@ export function ComputerPanel({
             </button>
           )}
           <div className="mx-9 flex min-w-0 flex-wrap justify-center gap-0.5 rounded-full bg-inset p-0.5" data-tour="computer-tabs" data-testid="computer-tabs" aria-label="Bot panel view">
-            {(advanced || hasDesktop) && <button
+            <button
               onClick={() => selectPanelView("computer")}
               aria-pressed={panelView === "computer"}
               className={tabClass(panelView === "computer")}
             >
               <HIcon icon={MonitorIcon} size={13} /> {t("computer.tab.computer")}
               {placeLive && isComputerPlace(livePlace) && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="computer-tab-live" />}
-            </button>}
+            </button>
             {advanced && (
             <button
               type="button"

@@ -811,7 +811,8 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
-    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "secrets", "backups", "profile"].includes(entry.id) || (colonieInvites && entry.id === "people"))
+    // Claude and Codex bots use the Local VM (owner, October 29), so its setup shows
+    .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "secrets", "backups", "profile", "computer"].includes(entry.id) || (colonieInvites && entry.id === "people"))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
     .filter((entry) => entry.id !== "people" || colonieInvites || !window.colonie)
     // the activity log belongs to a workspace served to a browser, and to its admins
