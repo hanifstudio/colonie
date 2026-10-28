@@ -1,32 +1,22 @@
 # Handover
 
-## Now: publish Colonie 0.3.8
+## Now: verify routines, guides, and group replies with real engines
 
-People can update their workspace to receive the group-agent continuation fix.
-Raise the package version, then push main through the normal GitHub workflows.
-Prove CI, the versioned server image, and its health check before announcing
-availability. Ordinary pushes are owner-authorized; destructive pushes and
-commit/data safeguards stay protected. No real-data testing or unrelated changes.
+Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
+Prove scheduling and changing a routine, its report in the originating group,
+saving a guide from chat, and a group reply with the right person's approval.
+Out of scope: event triggers and the owner's real data.
 
-## Next: everything a first public release with Shared workspaces needs
+## Next: prepare the first public release
 
-Owner, October 21: keep going until release. Done: privacy by person, Colonie
-Cloud with invite by link, the server image (`deploy/`, tried in Docker
-against the live cloud), engine sign-in from the admin's browser. In order:
-
-1. **Current: verify routines, guides, and group replies with real engines.**
-   Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
-   Prove scheduling and changing a routine, its report in the originating group,
-   saving a guide from chat, and a group reply with the right person's approval.
-   Out of scope: event triggers and the owner's real data.
-2. **Next: the team code leaves the server.** Teams are gone from the app
+1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared
    instructions, team memory, the section boundary between bots, a Chief
    per section, team routes, library, import and package code, and their
    tests. One Chief for the workspace, no boundary; prepared by the agent,
    committed by the owner (the hook keeps test deletions for the owner).
-3. A lifetime license for Shared, bought once (owner decision); later.
-4. Release: a signed, notarized `.dmg` (friends get an unsigned build from
+2. A lifetime license for Shared, bought once (owner decision); later.
+3. Release: a signed, notarized `.dmg` (friends get an unsigned build from
    GitHub Releases, tag `friends-<version>`, so the legacy updater mirror
    skips it), the Colonie Cloud domain; the server image's last 600 MB
    (web-app-only packages, Next.js via better-auth).
@@ -44,7 +34,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | Server 0.3.7 is published; 0.3.8 is prepared locally. A raised package.json version on main publishes the image and Shared admins see Update |
+| A version number and an update path | Server 0.3.8 is published. A raised package.json version on main publishes the image and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
@@ -57,6 +47,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 
 ## Known broken
+
+- The desktop Release workflow needs `RELEASES_PAT` for the legacy updater bridge.
 
 - `pnpm test:electron`: two tests (`mac-updater`, `vendor-updater`) import
   scripts that were deleted.
