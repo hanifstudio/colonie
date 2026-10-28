@@ -363,6 +363,12 @@ export function createGroupConversations(deps: {
       return { status: 200, body: { ok: true } };
     },
 
+    /** Whether this person is in the conversation a bot's work thread serves:
+     * they may settle a card relayed from it. */
+    worksFor(caller: Caller, workThreadId: string): boolean {
+      return records.some((record) => record.people.includes(caller.key) && Object.values(record.botThreads).includes(workThreadId));
+    },
+
     /** The files in the conversation's project folder, for its people. */
     files(caller: Caller, id: string): Answer {
       const record = mine(caller, id);
@@ -443,10 +449,10 @@ export function createGroupConversations(deps: {
     },
 
     /** A message in a bot's work for a conversation: a card for a person
-     * (an approval, a question, a secret) is copied into the conversation,
+     * (an approval, a question, a secret, a sign-in) is copied into the conversation,
      * answered there by whoever asked, and kept in step as it is answered. */
     relayWork(threadId: string, message: Message) {
-      const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk);
+      const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk) || Boolean(message.signInAsk);
       if (!isCard) return;
       const key = `${threadId}:${message.id}`;
       const copy = relayed.get(key);
@@ -454,10 +460,10 @@ export function createGroupConversations(deps: {
       if (copy) {
         const record = records.find((entry) => Object.values(entry.botThreads).includes(threadId));
         if (!record) return;
-        store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk });
+        store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk, signInAsk: message.signInAsk });
         // answered: the bot carries on
         const pending = work.pending(threadId);
-        const settled = message.secretAsk ? message.secretAsk.saved : message.card?.answered || message.card?.dismissed;
+        const settled = message.secretAsk ? message.secretAsk.saved : message.signInAsk ? Boolean(message.signInAsk.outcome) : message.card?.answered || message.card?.dismissed;
         const bot = pending && store.bot(pending.botId);
         if (settled && pending?.messageId && bot) store.patchMessage(record.threadId, pending.messageId, { text: `${bot.name} is working on it…`, working: true });
         return;
@@ -470,6 +476,7 @@ export function createGroupConversations(deps: {
       const line = store.appendMessage(record.threadId, {
         role: "bot", kind: message.kind, text: message.text ?? "",
         ...(message.card ? { card: message.card } : {}), ...(message.secretAsk ? { secretAsk: message.secretAsk } : {}),
+        ...(message.signInAsk ? { signInAsk: message.signInAsk } : {}),
         from: { botId: bot.id, name: bot.name, color: bot.color ?? "" },
         relay: { threadId, messageId: message.id, askedBy: pending.askerKey, askedByName: pending.asker },
       });

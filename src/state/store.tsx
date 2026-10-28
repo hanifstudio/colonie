@@ -17,6 +17,7 @@ import {
 import { flushSync } from "react-dom";
 import type { BotVisibility, CardAnswerer, ConnectorToolGrant, EffortLevel, LiveCallState, LiveSettings, ServerFrame, SteerQueueReason } from "../../shared/wire";
 import type { TurnDigest } from "../../shared/digest.ts";
+import type { SignInAsk } from "../../shared/sign-in-request.ts";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
 import type { MausColor, MausMotion } from "@/lib/mascot";
@@ -168,6 +169,7 @@ export interface Message {
   /** A line about a group or DM itself ("Ana added Bob"), not anyone's words. */
   notice?: true;
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
+  signInAsk?: SignInAsk;
   workThread?: { botId: string; threadId: string };
   working?: true;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };

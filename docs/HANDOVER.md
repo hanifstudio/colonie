@@ -1,12 +1,12 @@
 # Handover
 
-## Now: browse the way Grok Bot does
+## Now: step into a bot's browser
 
-A bot opens, reads, and clicks in its browser without an approval card for
-each step; `eval` still asks. Its overlapping quick-read tool is gone, so web
-reading is the engine's own. Its Browser panel opens from a group it works in.
-Built and tested in code. Left: a real bot browsing with no card, and the
-group's Browser button in a window. Out of scope: an Auto Review-style reviewer.
+A bot that hits a sign-in or CAPTCHA asks with a card (Open, Done, Cancel),
+and the person keeps the browser until Done. Then the Browser panel opens by
+itself when a bot browses, and one Computer panel replaces the two tabs.
+Proof: e2e on a throwaway workspace, then the owner in a window. Out of scope:
+Telegram and Slack, and members who are not admins controlling a browser.
 
 ## Next: verify routines, guides, and group replies with real engines
 

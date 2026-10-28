@@ -45,6 +45,7 @@ import { createBotMemoryRoutes } from "../routes/bot-memory.ts";
 import { createBotMessagesRoutes } from "../routes/bot-messages.ts";
 import { createBotPresetRoutes } from "../routes/bot-presets.ts";
 import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
+import { createSignInAskRoutes } from "../routes/sign-in-ask.ts";
 import { createInternalBrowserRoute } from "../routes/internal-browser.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
@@ -356,6 +357,17 @@ ROUTES.push(createAcpSettingsRoutes({
 }));
 ROUTES.push(createBotPresetRoutes({ presets: presetStore }));
 ROUTES.push(createConversationFilesRoutes({ conversations: deps.groupConversations, caller: deps.conversationCaller }));
+ROUTES.push(createSignInAskRoutes({
+  store: () => store,
+  // the person's own thread with the bot, or a group they are in that the
+  // bot's work thread serves
+  mayAct: (auth, threadId) => {
+    if (auth.kind === "loopback") return true;
+    if (visibleTo(viewerFor(auth)).thread(threadId)) return true;
+    const caller = deps.conversationCaller(auth);
+    return Boolean(caller && deps.groupConversations?.worksFor(caller, threadId));
+  },
+}));
 ROUTES.push(createInternalBrowserRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
   bot: (id) => store.bot(id), browserEnabled: () => builtInBrowserEnabled(cfg),

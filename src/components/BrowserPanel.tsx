@@ -8,6 +8,7 @@ import { BrowserProfilesManager } from "./BrowserProfilesManager";
 import { BrowserViewport, type BrowserFrame } from "./BrowserViewport";
 import { createBrowserInputQueue } from "@/lib/browser-input-queue";
 import { createBrowserControl, type BrowserInteraction, type BrowserTakeStatus } from "@/lib/browser-control";
+import { useBrowserHelp } from "@/lib/browser-help";
 
 interface BrowserTab { tabId: string; title: string; url: string; active: boolean }
 type ViewerFrame = BrowserFrame & { viewerId: string; generation: number };
@@ -56,11 +57,15 @@ export function LiveBrowser({ bot }: { bot: Bot }) {
   const profileName = bot.browserProfile === "guest" ? "Temporary browser"
     : state.config?.browserProfiles?.find((profile) => profile.id === bot.browserProfile)?.name ?? `${bot.name}’s own browser`;
   useEffect(() => { if (showProfiles) profilesDialog.current?.showModal(); else profilesDialog.current?.close(); }, [showProfiles]);
+  // A sign-in card is waiting on this person: keep control until Done.
+  const helping = useBrowserHelp(bot.id);
+  const holding = useRef(false);
+  holding.current = showTyping || helping;
   useEffect(() => {
     // Typed text goes to the field the person picked, so keep control while they write it.
-    browserControl.current?.hold(showTyping);
+    browserControl.current?.hold(showTyping || helping);
     if (showTyping) typingDialog.current?.showModal(); else typingDialog.current?.close();
-  }, [showTyping]);
+  }, [showTyping, helping]);
 
   const action = useCallback(async (body: Record<string, unknown>, expected = viewer.current) => {
     if (!expected) throw new Error("Open the browser connection first.");
@@ -134,6 +139,7 @@ export function LiveBrowser({ bot }: { bot: Bot }) {
         onError: setError,
         onHalted: () => setError(haltMessage.current),
       });
+      browserControl.current.hold(holding.current);
       setConnected(true);
     });
     // A ready event alone is not recovery: a flapping stream can open and

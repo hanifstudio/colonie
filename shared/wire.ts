@@ -15,6 +15,7 @@ import type { TurnDigest } from "./digest.ts";
 import type { BotAvatarCrop } from "./bot-avatar.ts";
 import type { MascotBodyId } from "./mascot-bodies.ts";
 import type { CredentialTargetId } from "./credential-request.ts";
+import type { SignInAsk } from "./sign-in-request.ts";
 import type { TeamSetupRequest } from "./team-setup.ts";
 import type { RoutineRequestCardData } from "./routine-request.ts";
 import type { ProfileRequestCardData } from "./profile-request.ts";
@@ -390,6 +391,9 @@ export interface WireMessage {
   /** A bot asking the person for a secret (server/colonie/secrets): a button
    * under its reply opens a form; the value never enters the chat. */
   secretAsk?: { name: string; description: string; botId: string; saved?: boolean };
+  /** A bot asking the person to sign in, pass a CAPTCHA, or enter a code in
+   * its browser (shared/sign-in-request.ts); Done or Cancel resumes it. */
+  signInAsk?: SignInAsk;
   /** In a group or DM: the bot's own work thread, where a card waits for a
    * person (colonie/groups needsPerson). */
   workThread?: { botId: string; threadId: string };

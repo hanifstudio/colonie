@@ -59,6 +59,14 @@ test("the fetch-style read tool is neither listed nor callable", async () => {
   expect(calls).toEqual([]);
 });
 
+test("a page showing a CAPTCHA tells the bot to hand it to the person", async () => {
+  const captcha = { content: [{ type: "text", text: "- iframe \"Widget containing a Cloudflare security challenge\" src=https://challenges.cloudflare.com/x" }] };
+  const answered = (await call(setup({ result: captcha }).route)) as { body: { result: { content: Array<{ text: string }> } } };
+  expect(answered.body.result.content.at(-1)?.text).toContain("request_sign_in");
+  const plain = { content: [{ type: "text", text: "Jakarta to Cirebon, Rp 125.000" }] };
+  expect(await call(setup({ result: plain }).route)).toEqual({ status: 200, body: { result: plain } });
+});
+
 test("only tool listing and calls pass through", async () => {
   expect((await call(setup().route, { authorization: BEARER }, { method: "resources/list" }))?.status).toBe(400);
 });

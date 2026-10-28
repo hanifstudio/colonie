@@ -7,7 +7,7 @@
 // (BROWSER_TOOLS_HIDDEN): the engine's own web reading does that job.
 import type { IncomingMessage } from "node:http";
 
-import { BROWSER_TOOLS_HIDDEN } from "../colonie/computer/browser-engine.ts";
+import { BROWSER_TOOLS_HIDDEN, withChallengeNote } from "../colonie/computer/browser-engine.ts";
 import type { BrowserRuntime, BrowserSpawnSpec } from "../colonie/computer/browser-runtime.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -54,6 +54,6 @@ export function createInternalBrowserRoute(deps: {
     if (body.method === "tools/list" && Array.isArray(listed?.tools)) {
       return json(res, 200, { result: { ...listed, tools: listed.tools.filter((tool) => !BROWSER_TOOLS_HIDDEN.has(String(tool.name))) } });
     }
-    return json(res, 200, { result });
+    return json(res, 200, { result: body.method === "tools/call" ? withChallengeNote(result) : result });
   };
 }

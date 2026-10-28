@@ -2,7 +2,7 @@
 // as with a bot (ChatView: header pill, bubbles, composer pill): your own
 // messages on the right, everyone else's on the left under their face and
 // name. @mentioning a bot asks it to answer here.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp01Icon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { ChatView, CHATHEAD_PILL } from "../ChatView";
@@ -65,17 +65,20 @@ export function ConversationView({ id }: { id: string }) {
   const shown = useMemo(() => conversation && messages ? asChatMessages(messages, conversation.people) : [], [conversation, messages]);
   const mentionPeople = useMemo(() => conversation?.people.map((person) => person.name) ?? [], [conversation?.people]);
   const viewerKey = conversation?.people.find((person) => person.you)?.key;
-  // a secret saved from a bot's card: tell the bot here, so it carries on
+  // a card settled for a bot (a secret saved, a sign-in done): tell the bot
+  // here, in the person's words, so it carries on
+  const continueBot = useCallback((text: string, botId: string) => {
+    const botName = state.bots.find((bot) => bot.id === botId)?.name;
+    if (!botName) return;
+    void postToConversation(id, `@${botName} ${text}`)
+      .then(({ message }) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message })))
+      .catch(() => {});
+  }, [state.bots, id, threadId]);
   const relay = useMemo(() => ({
     viewerKey,
-    onSecretSaved: (name: string, botId: string) => {
-      const botName = state.bots.find((bot) => bot.id === botId)?.name;
-      if (!botName) return;
-      void postToConversation(id, `@${botName} I saved ${name}. Please continue.`)
-        .then(({ message }) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message })))
-        .catch(() => {});
-    },
-  }), [viewerKey, state.bots, id, threadId]);
+    onSecretSaved: (name: string, botId: string) => continueBot(`I saved ${name}. Please continue.`, botId),
+    continueBot,
+  }), [viewerKey, continueBot]);
   if (!conversation) {
     return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
   }

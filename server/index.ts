@@ -142,6 +142,7 @@ import { LOCAL_PERSON, createGroupConversations, type Caller } from "./colonie/g
 import { createDesktopAccount } from "./colonie/accounts/desktop-account.ts";
 import { accountPhoto } from "./colonie/accounts/colonie-oauth.ts";
 import { createSecrets, SECRET_NAME } from "./colonie/secrets/secrets.ts";
+import { normalizeSignInSite } from "../shared/sign-in-request.ts";
 import { createServerUpdate } from "./colonie/deploy/server-update.ts";
 import {cookieMaxAgeSeconds} from "./sessions.ts";
 import { SessionRegistry } from "./sessions.ts";
@@ -945,6 +946,22 @@ const colonieChief = new ColonieChief({
     });
     groupConversations.needsPerson(threadId, `the secret ${name}`);
     return { state: "waiting for the person", summary: `A button under your reply asks the person to save ${name}. You will not see the value; on their next message it is in your secrets file.` };
+  },
+  // A bot asking the person to sign in or pass a check in its browser: a card
+  // whose Open shows the bot's browser in the person's control, and whose
+  // Done or Cancel sends the person's words that resume it
+  // (src/components/SignInAsk.tsx).
+  requestSignIn: (botId, threadId, input) => {
+    const target = normalizeSignInSite(input.site);
+    if (!target) throw new Error("Name the page as a web address or a domain, such as redbus.id.");
+    const bot = store.bot(botId);
+    store.appendMessage(threadId, {
+      role: "bot", kind: "text", text: "",
+      ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
+      signInAsk: { site: target.site, url: target.url, ...(input.reason ? { reason: input.reason.slice(0, 240) } : {}), botId },
+    });
+    groupConversations.needsPerson(threadId, `a step on ${target.site}`);
+    return { state: "waiting for the person", summary: `A card asks the person to take over your browser for ${target.site}. End your turn now; their Done or Cancel arrives as their next message.` };
   },
   // Routines from chat; the scheduler and request service start further down
   // and are only read when a tool is called.

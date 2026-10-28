@@ -190,6 +190,18 @@ Steps, in order. Each one is safe on its own:
   included. Opening, reading, and ordinary clicks run without asking;
   submitting a form, buying, and signing in wait for approval; passwords,
   codes, and CAPTCHAs are handed to the person.
+- A person can step into a bot's browser, copying the open-source Grok Bot
+  alternatives rather than inventing it (owner, October 28). A bot that hits
+  a sign-in, CAPTCHA, or code it cannot do asks with a card, as OpenMausBot
+  does; the person opens the browser, does that step, and presses Done, which
+  resumes the bot. While the card waits, the browser stays in the person's
+  hands. The panel opens by itself when a bot starts browsing and stays
+  closed once the person closes it, as in Hermes. One Computer panel shows
+  what the bot uses; a desktop appears only where the bot has one.
+- The pause and Done live on the server, so a future Telegram or Slack bot
+  sends the same card with buttons and a link to the browser, as Hermes and
+  OpenClaw do for approvals. The link needs the person signed in; forwarding
+  it grants nothing.
 - Grok Bot differs here on purpose: its computer and access belong to each
   person, and a bot has no identity of its own. In Colonie bots are members,
   like colleagues.

@@ -78,6 +78,8 @@ export interface ChiefDeps {
   /** Ask the person for a secret: a button under the reply opens a form;
    * the value never comes back here (colonie/secrets). */
   requestSecret?(botId: string, threadId: string, input: { name: string; description: string }): unknown;
+  /** A card asking the person to sign in or pass a check in the bot's browser. */
+  requestSignIn?(botId: string, threadId: string, input: { site: string; reason?: string }): unknown;
 }
 
 interface Lease {
@@ -140,6 +142,7 @@ const selfSkillTools: ToolDef[] = [
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "request_secret", description: "Ask the person for a key, password or token a task needs (an API key, an app password). A button under your reply lets them save it privately; you never see the value. Once saved, it is in the secrets file named in your context on their next message: load it in your scripts and never print it. Never ask for a secret in the chat itself. Prefer a connected app (Apps) when one covers the service. After calling, say in one line what it is for and end your turn.", inputSchema: { type: "object", properties: { name: { type: "string", description: "An environment-variable name, e.g. GMAIL_APP_PASSWORD." }, description: { type: "string", description: "What it is and where the person finds it, in a sentence." }, requestId: { type: "string" } }, required: ["name", "description", "requestId"], additionalProperties: false } },
+  { name: "request_sign_in", description: "Ask the person to do a step only they can do in your browser: sign in where you have no login, pass a CAPTCHA or \"are you human\" check, use a passkey, or enter a code you cannot read. They get a card in this chat, take over your browser, do just that step, and press Done. Never try to solve a CAPTCHA yourself and never ask for a password or code in chat. After calling, say in one line what you need and end your turn; their Done or Cancel arrives as their next message, then check the page and continue.", inputSchema: { type: "object", properties: { site: { type: "string", description: "The page or domain, e.g. redbus.id." }, reason: { type: "string", description: "One short sentence on what it is for." }, requestId: { type: "string" } }, required: ["site", "requestId"], additionalProperties: false } },
   { name: "save_my_skill", description: "Save a way of working as one of your guides, when the person asks (\"save what we just did as a skill\") or agrees to your offer after a task went well. A guide says when to use it, what it needs, the steps, how to check the result and what to hand back. The person confirms it on a card in the chat; until then nothing is saved. After calling, tell the person the card is there and end your turn. To change a guide you saved before, save it again under the same name.", inputSchema: { type: "object", properties: { name: { type: "string", description: "lowercase-with-hyphens, e.g. weekly-launch-report" }, description: { type: "string", description: "When to use it, one or two sentences." }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
 ];
 
@@ -484,6 +487,12 @@ export class ColonieChief {
         if (!requestSecret) throw new ToolError("Secrets are not available here.");
         const input = { name: this.requiredString(args, "name"), description: this.requiredString(args, "description") };
         return this.mutate(lease, name, args, () => safeText(requestSecret(lease.botId, lease.threadId, input)));
+      }
+      case "request_sign_in": {
+        const requestSignIn = this.deps.requestSignIn;
+        if (!requestSignIn) throw new ToolError("Sign-in requests are not available here.");
+        const input = { site: this.requiredString(args, "site"), ...(typeof args.reason === "string" && args.reason.trim() ? { reason: args.reason.trim() } : {}) };
+        return this.mutate(lease, name, args, () => safeText(requestSignIn(lease.botId, lease.threadId, input)));
       }
       case "save_my_skill": {
         const propose = this.deps.skills.propose;

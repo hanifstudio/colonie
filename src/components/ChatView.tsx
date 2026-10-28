@@ -62,6 +62,7 @@ import { BotAvatar } from "./Avatar";
 import type { MentionPeer } from "@/lib/mentions";
 import { PersonAvatar } from "./PersonAvatar";
 import { SecretAsk } from "./Secrets";
+import { SignInAsk } from "./SignInAsk";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { normalizeState, stateForBot } from "@/lib/mascot";
@@ -517,6 +518,14 @@ const Bubble = memo(function Bubble({
       onSaved={(name) => { if (!message.secretAsk?.saved) conversation?.onSecretSaved(name, message.secretAsk!.botId); }} />;
     return <SecretAsk message={message} threadId={threadId}
       onSaved={(name) => { if (!message.secretAsk?.saved) dispatch({ type: "send", botId, threadId, text: `I saved ${name}. Please continue.` }); }} />;
+  }
+  // a bot asking the person to do one step in its browser; Done or Cancel
+  // sends the person's words that resume it
+  if (message.signInAsk) {
+    // relayed into a group: settled on the bot's own work, by whoever asked
+    if (message.relay) return <SignInAsk message={{ ...message, id: message.relay.messageId }} threadId={message.relay.threadId}
+      canAnswer={conversation?.viewerKey === message.relay.askedBy} onSettled={(text) => conversation?.continueBot(text, message.signInAsk!.botId)} />;
+    return <SignInAsk message={message} threadId={threadId} onSettled={(text) => dispatch({ type: "send", botId, threadId, text })} />;
   }
 
   if (user && editing && !webhookView && !hasAttachments) {
@@ -1142,7 +1151,7 @@ export interface AccountConversationControls {
   mentionPeople?: readonly string[];
   /** Cards a bot relayed from its work: who may answer, and how a saved
    * secret lets the bot carry on. */
-  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void };
+  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void; continueBot: (text: string, botId: string) => void };
   identity?: ReactNode;
   actions?: ReactNode;
   beforeMessages?: ReactNode;
