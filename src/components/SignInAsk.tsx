@@ -55,7 +55,7 @@ export function SignInAsk({ message, threadId, onSettled, canAnswer = true }: {
               </span>}
             </div>
             <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-secondary">
-              {ask.reason ? `${ask.reason} ` : ""}{outcome ? "" : `Open ${botName}’s browser, do just this step (a sign-in, a CAPTCHA, a code), then press Done.`}
+              {ask.reason ? `${ask.reason} ` : ""}{outcome ? "" : `Open ${botName}’s browser, do just this step (a sign-in, a CAPTCHA, a code, a box only you can tick), then press Done.`}
             </p>
             {canAnswer && !outcome && (
               <div className="mt-3 flex flex-wrap gap-2">
