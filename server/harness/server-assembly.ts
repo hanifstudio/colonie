@@ -47,6 +47,7 @@ import { createBotPresetRoutes } from "../routes/bot-presets.ts";
 import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
 import { createSignInAskRoutes } from "../routes/sign-in-ask.ts";
 import { createInternalComputerControlRoute } from "../routes/internal-computer-control.ts";
+import { createLocalVmSetupRoute } from "../routes/local-vm-setup.ts";
 import { createInternalBrowserRoute } from "../routes/internal-browser.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
@@ -392,6 +393,14 @@ ROUTES.push(createInternalComputerControlRoute({
   bot: (id) => store.bot(id), snapshot: (botId) => botComputerControlSnapshot(botId),
   claimTurnResource: deps.claimTurnResource, ...deps.computerGate,
   announce: (capability) => announceComputerUse(capability, "computer"),
+}));
+ROUTES.push(createLocalVmSetupRoute({
+  bot: (id) => store.bot(id),
+  target: (botId) => localVmTargetForBot(botId),
+  busy: (target) => localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(target.key)
+    || localVmActiveThreads.has(target.key) || Boolean(localVmLeaseFor(target).current(localVmOwnerBusy)),
+  ready: (botId, target) => deps.readyLocalVmForTurn(botId, target),
+  seen: (target) => { localVmSeen.add(target.key); },
 }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));

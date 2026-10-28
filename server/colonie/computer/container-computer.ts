@@ -262,6 +262,35 @@ export interface ContainerRuntimeStatus {
 
 /** Inspect only the host runtime. Unlike a full Local VM status check, this
  * never opens a container, calls Cua, or reads a desktop screenshot. */
+/** Start an installed container runtime whose daemon is down, so a person
+ * who chose Local VM never has to open a terminal: Colima (or Docker
+ * Desktop) for docker, the Podman machine, or Apple's container service.
+ * Waits until the daemon answers, or throws what was tried. */
+export async function startContainerRuntime(
+  runtime: Runtime,
+  runner: CommandRunner = sh,
+  platform: NodeJS.Platform = process.platform,
+  waitMs = 180_000,
+): Promise<void> {
+  const attempts: Array<[string, string[]]> = runtime === "podman" ? [["podman", ["machine", "start"]]]
+    : runtime === "container" ? [["container", ["system", "start"]]]
+    : await installed("colima", runner, platform) ? [["colima", ["start"]]]
+    : platform === "darwin" ? [["open", ["-a", "Docker"]]] : [];
+  if (!attempts.length) throw new Error(`Start ${runtime} first`);
+  const tried: string[] = [];
+  for (const [command, args] of attempts) {
+    tried.push([command, ...args].join(" "));
+    try { await runner(command, args, waitMs); } catch { /* the wait below decides */ }
+  }
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    const status = await containerRuntimeStatus(runner, platform);
+    if (status.runtime === runtime && status.daemonUp) return;
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+  throw new Error(`${runtime} did not start (tried: ${tried.join(", ")})`);
+}
+
 export async function containerRuntimeStatus(
   runner: CommandRunner = sh,
   platform: NodeJS.Platform = process.platform,

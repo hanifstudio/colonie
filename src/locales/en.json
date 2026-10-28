@@ -1849,6 +1849,7 @@
   "computer.confirm.deleteVm": "Delete {name}'s Local VM? Its private durable folder will remain.",
   "computer.confirm.replaceVm": "Replace {name}'s Local VM? Its private durable folder will remain.",
   "computer.phase.checking": "Checking…",
+  "computer.phase.settingUp": "Setting up {name}'s computer. The first time takes a few minutes.",
   "computer.phase.starting": "Starting your bot's computer…",
   "computer.phase.localUnavailable": "Local computer control isn't ready.",
   "computer.mac.permission.requiredOne": "{permission} is required for Colonie to use this computer. Grant it in System Settings → Privacy & Security, then relaunch Colonie.",

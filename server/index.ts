@@ -2150,6 +2150,7 @@ const { server, liveCalls } = createServerAssembly({
   internalCapabilityIsActive,
   claimTurnResource,
   computerGate: { autoVmClaims, turnComputerResources, requestHelp: requestComputerHelp, expireHelp: expireComputerHelp },
+  readyLocalVmForTurn: (...args: Parameters<typeof readyLocalVmForTurn>) => readyLocalVmForTurn(...args),
   desktopAccount,
   serverUpdate,
   ownThreads,

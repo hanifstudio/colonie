@@ -4,7 +4,7 @@ import * as composio from "../colonie/mcp/composio.ts";
 import { type BotRecord } from "../persistence/store.ts";
 import { failedTurnTool } from "../../shared/failed-turn.ts";
 import { avatarImageStatus } from "../colonie/bots/avatar-image.ts";
-import { containerComputerAction, containerComputerStatus, containerRuntimeStatus, localVmWakeAction, perBotLocalVmTarget, setupCommands, type ContainerComputerStatus, type LocalVmTarget, type Runtime} from "../colonie/computer/container-computer.ts";
+import { containerComputerAction, containerComputerStatus, containerRuntimeStatus, localVmWakeAction, perBotLocalVmTarget, setupCommands, startContainerRuntime, type ContainerComputerStatus, type LocalVmTarget, type Runtime} from "../colonie/computer/container-computer.ts";
 import { localVmViewerStatus } from "../colonie/computer/desktop-viewer-targets.ts";
 import { discoverExistingPerBotLocalVms } from "../colonie/computer/local-vm-inventory.ts";
 import { localVmStopReason } from "../colonie/computer/local-vm-stop-reason.ts";
@@ -55,7 +55,35 @@ async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
 
 /** Wake an idle desktop, or recreate a missing one from an already prepared
  * image. Incompatible or unsafe containers still require an explicit decision. */
+/** One start of the container runtime and one image preparation at a time,
+ * however many turns or panels ask for the computer at once. */
+let runtimeStarting: Promise<void> | null = null;
+let imagePreparing: Promise<ContainerComputerStatus> | null = null;
+
+/** What a person who chose Local VM would otherwise do by hand (owner,
+ * October 29: setting up a bot's computer is one choice, not a terminal):
+ * start the installed container runtime, then prepare the Cua desktop image
+ * the first time. A runtime that is not installed stays the person's step. */
+async function prepareLocalVmHost(botId: string, target: LocalVmTarget): Promise<void> {
+  let status = await containerComputerStatus(undefined, undefined, target);
+  if (!status.runtime) return;
+  if (!status.daemonUp) {
+    broadcast({ kind: "computer", botId, state: "provisioning" });
+    const runtime = status.runtime;
+    runtimeStarting ??= startContainerRuntime(runtime).finally(() => { runtimeStarting = null; });
+    await runtimeStarting;
+    status = await containerComputerStatus(undefined, undefined, target);
+  }
+  if (status.daemonUp && !status.image) {
+    broadcast({ kind: "computer", botId, state: "provisioning" });
+    imagePreparing ??= containerComputerAction("pull", undefined, undefined, target).finally(() => { imagePreparing = null; });
+    await imagePreparing;
+  }
+}
+
 async function readyLocalVmForTurn(botId: string, target: LocalVmTarget, isCurrent = () => true) {
+  await prepareLocalVmHost(botId, target);
+  if (!isCurrent()) return containerComputerStatus(undefined, undefined, target);
   localVmLifecycleBusy.add(target.key);
   // Fence this target, and the cross-target capacity decision for creates,
   // before the first await — the same synchronous-fence-then-count shape

@@ -84,6 +84,7 @@ function panelErrorText(error: Error | string | null): string | null {
 
 type Phase =
   | "checking"
+  | "setting-up"
   | "vm"
   | "vm-unavailable"
   | "local"
@@ -94,6 +95,8 @@ type Phase =
   | "error";
 
 interface LocalVmStatus {
+  /** The installed container runtime, or null when none is. */
+  runtime?: string | null;
   /** Optional: a hosted server can lag behind this app. */
   resumable?: boolean;
   stop_reason?: "idle" | null;
@@ -234,6 +237,8 @@ export function ComputerPanel({
   // from it (shared/place-view.ts), the same as the chip and a failed row.
   const placeSeat = usePlaceSeat(capabilities.host.platform);
   const [phase, setPhase] = useState<Phase>("checking");
+  // The bot+thread keys this panel already ran the one-step setup for.
+  const vmSetupTried = useRef(new Set<string>());
   const [persistedComputerSelection, setPersistedComputerSelection] = useState<{
     botId: string;
     computer: Bot["computer"];
@@ -475,6 +480,26 @@ export function ComputerPanel({
             setError(null);
             setPhase("checking");
             retryTimer = window.setTimeout(() => setRetry((n) => n + 1), 2000);
+          }
+          else if (status.runtime && !vmSetupTried.current.has(`${bot.id}:${bot.threadId}`)) {
+            // Choosing Local VM is the whole setup (owner, October 29): the
+            // server starts the container runtime, prepares the desktop the
+            // first time, and starts it; once per panel, then the status says
+            // what is left. No runtime installed stays the person's step.
+            vmSetupTried.current.add(`${bot.id}:${bot.threadId}`);
+            setError(null);
+            setPhase("setting-up");
+            api(`/api/bots/${encodeURIComponent(bot.id)}/local-computer/setup`, { method: "POST", body: "{}", timeoutMs: 20 * 60_000 })
+              .then(() => {
+                // the chat's "Setting up this bot's computer" line ends here;
+                // without a turn no screen frame would ever clear it
+                dispatch({ type: "computerStart", botId: bot.id, start: null });
+                setRetry((n) => n + 1);
+              })
+              .catch((cause: unknown) => {
+                setError(cause instanceof Error ? cause.message : String(cause));
+                setPhase("vm-unavailable");
+              });
           }
           else {
             const canCreateHere =
@@ -881,6 +906,7 @@ export function ComputerPanel({
 
   const emptyState = {
     checking: t("computer.phase.checking"),
+    "setting-up": t("computer.phase.settingUp", { name: bot.name }),
     "auto-unavailable": autoView.line,
     "local-unavailable": localDisabledReason ?? t("computer.phase.localUnavailable"),
     "vm-unavailable": t("computer.phase.vmUnavailable"),
@@ -1069,7 +1095,7 @@ export function ComputerPanel({
             />
           ) : (
             <div className="flex flex-col items-center gap-2 px-6 text-center text-ink-secondary">
-              {phase === "checking" || phase === "vm" || (phase === "local" && !isLinux) ? (
+              {phase === "checking" || phase === "setting-up" || phase === "vm" || (phase === "local" && !isLinux) ? (
                 <HIcon icon={Loading02Icon} size={18} className="animate-spin" />
               ) : phase === "off" ? (
                 <HIcon icon={PowerIcon} size={22} />
