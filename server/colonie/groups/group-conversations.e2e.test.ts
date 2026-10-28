@@ -4,8 +4,12 @@
 // DM between two people, and nobody else seeing any of it. Then a Local
 // workspace, where its owner makes a group with their bots.
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { startSharedWorkspace, type SharedWorkspace } from "../../testing/shared-workspace.ts";
+import { removeTempDir } from "../../testing/cleanup.ts";
 
 const ADA = "ada@x.com"; // admin
 const BOB = "bob@x.com";
@@ -267,3 +271,64 @@ test("a member stops only their own group work while the bot's personal chat sta
   expect(after.threadId).toBe(before.threadId);
   expect(after.messages).toEqual(before.messages);
 }, 60_000);
+
+
+test("a group continues across agent changes, including a return to a warm agent", async () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "colonie-group-agents-"));
+  const instance = (driver: string) => ({ driver, displayName: driver, environment: { COLONIE_FAKE_STATE: join(stateDir, `${driver}.json`), COLONIE_FAKE_PROVIDER: driver === "claude-acp" ? "claude" : "codex" },
+    config: { cli: process.execPath, args: ["--experimental-strip-types", join(import.meta.dirname, "../../acp/testing/fake-agent.ts")] } });
+  const workspace = await startSharedWorkspace([{ email: ADA, admin: true }, { email: BOB }, { email: CICI }], {
+    instances: { "codex-acp": instance("codex-acp"), "claude-acp": instance("claude-acp") },
+  }).catch(async (error) => { await removeTempDir(stateDir); throw error; });
+  try {
+    const profile = (await workspace.as(ADA, "/api/bots")).body.bots[0];
+    const made = await workspace.as(ADA, "/api/conversations", { method: "POST", body: { name: "Agent changes", emails: [BOB], bots: [profile.id] } });
+    expect(made.status).toBe(201);
+    const id = made.body.id;
+    const ask = async (text: string) => {
+      expect((await workspace.as(BOB, `/api/conversations/${id}/messages`, { method: "POST", body: { text } })).status).toBe(201);
+      const end = Date.now() + 20_000;
+      while (Date.now() < end) {
+        const messages = (await workspace.as(BOB, `/api/conversations/${id}/messages`)).body.messages;
+        const answer = messages.at(-1);
+        if (answer?.from?.botId === profile.id && !answer.working) {
+          expect(answer.text, workspace.log().slice(-1500)).not.toMatch(/could not/);
+          return answer.text as string;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw new Error(`Group reply timed out: ${workspace.log().slice(-1500)}`);
+    };
+    const select = async (instanceId: string) => {
+      const result = await workspace.as(ADA, `/api/bots/${profile.id}`, { method: "PATCH", body: { modelSelection: { instanceId, model: "agent-default" } } });
+      expect(result.status, JSON.stringify(result.body)).toBe(200);
+    };
+    await ask(`@${profile.name} the launch is Friday`);
+    const worker = (await workspace.as(BOB, "/api/bots")).body.bots.find((entry: any) => entry.id === profile.id).tasks.find((task: any) => task.forConversation === id);
+    const receipts = () => JSON.parse(readFileSync(join(workspace.dataDir, "acp-inputs", `${worker.threadId}.json`), "utf8")) as Array<{ instanceId: string; sessionId: string; prompt: Array<{ type: string; text?: string }> }>;
+    const firstSession = receipts().at(-1)!.sessionId;
+    await select("claude-acp");
+    expect(await ask(`@${profile.name} what changed?`)).toContain("the launch is Friday");
+    const switched = receipts().at(-1)!;
+    expect(switched.instanceId).toBe("claude-acp");
+    const after = (await workspace.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.id === profile.id);
+    expect(after.threadId).toBe(profile.threadId);
+    expect(after.messages).toEqual(profile.messages);
+    expect((await workspace.as(CICI, `/api/conversations/${id}/messages`)).status).toBe(404);
+    await ask(`@${profile.name} follow-up on the venue`);
+    expect(receipts().at(-1)!.sessionId).toBe(switched.sessionId);
+    expect(receipts().at(-1)!.prompt.map((block) => block.text ?? "").join("\n")).not.toContain("the launch is Friday");
+    await select("codex-acp");
+    expect(await ask(`@${profile.name} final plan?`)).toContain("follow-up on the venue");
+    const returned = receipts().at(-1)!;
+    expect(returned.instanceId).toBe("codex-acp");
+    expect(returned.sessionId).not.toBe(firstSession);
+    expect(returned.sessionId).not.toBe(switched.sessionId);
+    await ask(`@${profile.name} thanks`);
+    expect(receipts().at(-1)!.sessionId).toBe(returned.sessionId);
+    const execution = (await workspace.as(BOB, `/api/threads/${worker.threadId}/messages`)).body.messages;
+    expect(execution.filter((message: any) => message.role === "user").map((message: any) => message.text)).toEqual([
+      `@${profile.name} the launch is Friday`, `@${profile.name} what changed?`, `@${profile.name} follow-up on the venue`, `@${profile.name} final plan?`, `@${profile.name} thanks`,
+    ]);
+  } finally { await workspace.stop(); await removeTempDir(stateDir); }
+}, 90_000);

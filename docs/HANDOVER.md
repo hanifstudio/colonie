@@ -1,11 +1,13 @@
 # Handover
 
-## Now: publish Colonie 0.3.7
+## Now: continue group chats after changing agents and publish Colonie 0.3.7
 
-Allow ordinary Git pushes at the owner's explicit request, while retaining commit,
-credential, real-data, and destructive-command protections; prove the guard rules.
-Commit and push local main through the normal GitHub workflows. Prove CI, the
-versioned server image, and its health check before announcing availability.
+A mentioned bot can answer in the existing group after its selected agent changes,
+with the group's transcript supplied to a fresh native session. Preserve user text,
+private DMs, approvals, and the group's history. Prove agent changes in both
+directions, resumed follow-ups, and isolation with a throwaway simulated workspace.
+Allow owner-requested ordinary pushes while retaining commit and data protections.
+Push main and prove CI, the versioned server image, and its health check.
 No real-data testing or unrelated changes.
 
 ## Next: everything a first public release with Shared workspaces needs

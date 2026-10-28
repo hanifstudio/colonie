@@ -276,11 +276,16 @@ async function startTurn(
   const effort = bot.modelSelection.effort;
   const variant = bot.modelSelection.variant;
   if (instance.adapter instanceof AcpRuntime && instance.adapter.isConfiguring(threadId)) throw Object.assign(new Error("The native settings are being prepared. Wait for that operation before sending."), { status: 409 });
-  if (isColonieAcpDriver(instance.driverKind) && nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message: any) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors })) {
+  const nativeConflict = isColonieAcpDriver(instance.driverKind) && nativeHistoryConflict({ hasUserHistory: store.activePath(threadId).some((message: any) => message.role === "user" && message.kind === "text"), selectedInstanceId: instance.instanceId, lastInstanceId: task.lastInstanceId, cursors: task.resumeCursors });
+  // Group history belongs to the conversation, not the selected agent. Only
+  // the group's worker supplies a full briefing from that transcript; use it
+  // in a fresh native session instead of resuming another agent's history.
+  const rebuildGroupSession = nativeConflict && Boolean(task.forConversation && opts?.providerRecoveryPrompt?.trim());
+  if (nativeConflict && !rebuildGroupSession) {
     throw Object.assign(new Error("This conversation belongs to another agent's native history. Start a new thread for the selected agent, or select the original agent to continue."), { status: 409 });
   }
-  // An ACP session belongs to the adapter that opened it: Colonie can neither
-  // rewind it nor hand it another bot's history. A scheduled run, a webhook or
+  // An ACP session belongs to the adapter that opened it: Colonie cannot
+  // rewind it or resume it with another adapter. A scheduled run, a webhook or
   // a teammate's handoff runs forward in the bot's own thread on the bot's own
   // engine, so it is a plain turn and is allowed — only the rewinding kinds
   // are refused.
@@ -435,10 +440,11 @@ async function startTurn(
           throw new DirectTurnSetupCancelled("turn stopped before dispatch");
         }
         const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
           acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id)].filter(Boolean).join(" ") || undefined,
           cwd, model, approvalMode: approvalModeForTurn(bot, false),
-          resumeCursor: task.resumeCursors[instanceId],
+          resumeCursor: rebuildGroupSession ? undefined : task.resumeCursors[instanceId],
+          sessionReset: rebuildGroupSession,
         }), () => !directTurnClaimExists(bot.id, dispatchClaimId, threadId), async () => {
           await instance.adapter.interruptTurn(threadId).catch(() => {});
         });
