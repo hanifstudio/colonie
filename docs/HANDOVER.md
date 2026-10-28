@@ -5,8 +5,8 @@
 A bot opens, reads, and clicks in its browser without an approval card for
 each step; `eval` still asks. Its overlapping quick-read tool is gone, so web
 reading is the engine's own. Its Browser panel opens from a group it works in.
-Proof: tests on the browser mount and route, and a real Claude bot browsing in
-a disposable workspace. Out of scope: an automated reviewer like Auto Review.
+Built and tested in code. Left: a real bot browsing with no card, and the
+group's Browser button in a window. Out of scope: an Auto Review-style reviewer.
 
 ## Next: verify routines, guides, and group replies with real engines
 

@@ -1122,7 +1122,7 @@ export type Action =
   | { type: "togglePlugins"; open?: boolean; surface?: "apps" | "mcp" }
   | { type: "toggleTriggers"; open?: boolean }
   | { type: "toggleNewBot"; open?: boolean }
-  | { type: "toggleComputer"; open?: boolean }
+  | { type: "toggleComputer"; open?: boolean; botId?: string }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "toggleActivity"; open?: boolean }
   | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string } }
@@ -1836,6 +1836,8 @@ export function reducer(state: AppState, action: Action): AppState {
       const open = action.open ?? !state.computerOpen;
       return {
         ...state,
+        // A group opens one of its bots' computers beside the conversation.
+        ...(action.botId ? { selectedId: action.botId } : {}),
         computerOpen: open,
         settingsOpen: open ? false : state.settingsOpen,
         inspectorOpen: open ? false : state.inspectorOpen,

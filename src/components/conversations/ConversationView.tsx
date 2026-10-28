@@ -21,6 +21,7 @@ import {
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
+import { writeComputerPanelView } from "@/lib/computer-panel-view";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -102,6 +103,10 @@ export function ConversationView({ id }: { id: string }) {
         }} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-50">
           {stopping ? "Stopping…" : "Stop my work"}
         </button>}
+        {memberBots.length > 0 && <BotBrowserButton bots={memberBots} onOpen={(botId) => {
+          writeComputerPanelView(botId, "browser");
+          dispatch({ type: "toggleComputer", open: true, botId });
+        }} />}
         <button type="button" onClick={() => setFilesOpen((open) => !open)} aria-expanded={filesOpen}
           className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
           Files
@@ -271,6 +276,33 @@ function Members({ conversation, memberBots, bots, onLeft }: {
             setDeleting(false); setError(cause instanceof Error ? cause.message : String(cause));
           }).finally(() => setBusy(false));
         }} />
+    </div>
+  );
+}
+
+/** A bot's screen, opened beside the conversation (owner, October 28, as
+ * Grok Bot's computer preview): watch it browse, or take over. With several
+ * bots, the one working now is listed first. */
+function BotBrowserButton({ bots, onOpen }: { bots: Bot[]; onOpen: (botId: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ordered = [...bots].sort((a, b) => Number(Boolean(b.busy)) - Number(Boolean(a.busy)));
+  const button = "rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised";
+  if (ordered.length === 1) return <button type="button" className={button} onClick={() => onOpen(ordered[0]!.id)}>Browser</button>;
+  return (
+    <div className="relative">
+      <button type="button" className={button} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>Browser</button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1.5 shadow-2xl shadow-black/60">
+          {ordered.map((bot) => (
+            <button key={bot.id} type="button" role="menuitem" onClick={() => { setOpen(false); onOpen(bot.id); }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink hover:bg-raised/70">
+              <BotAvatar bot={bot} state="happy" size={18} motion="none" motionKey={0} animated={false} />
+              <span className="min-w-0 flex-1 truncate">{bot.name}</span>
+              {bot.busy && <span className="text-[11px] text-ink-tertiary">working</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
