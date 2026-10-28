@@ -47,6 +47,7 @@ export const addToConversation = (id: string, input: { emails?: string[]; bots?:
 export const updateConversation = (id: string, input: { instructions: string }) =>
   api<Conversation>(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
+export const deleteGroup = (id: string) => api(`/api/conversations/${id}`, { method: "DELETE" });
 export const stopConversation = (id: string) => api(`/api/conversations/${id}/stop`, { method: "POST" });
 export const workspacePeople = async () => (await api<{ people: Array<{ email: string; name: string }> }>("/api/people")).people;
 

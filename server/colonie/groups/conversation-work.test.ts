@@ -38,6 +38,61 @@ function fixture() {
   return { store, bot, file, calls, stopped, service, group, make, reply };
 }
 
+test("only an admin in the group can delete it, including its transcript and durable record", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "Private group message", "delete-test");
+  expect(f.service.delete(caller, f.group.id).status).toBe(403);
+  expect(f.service.delete({ ...caller, key: "other", canDeleteGroup: true }, f.group.id).status).toBe(404);
+  expect(f.service.delete({ ...caller, canDeleteGroup: true }, f.group.id).status).toBe(200);
+  expect(f.service.messages(caller, f.group.id).status).toBe(404);
+  expect(f.store.messagesFor(f.group.threadId)).toEqual([]);
+  expect(f.make().messages(caller, f.group.id).status).toBe(404);
+  expect(commandReceipt("conversation.message", JSON.stringify([f.group.id, caller.key, "delete-test"]))).toBeNull();
+});
+
+test("the group deletion endpoint refuses direct messages", () => {
+  const f = fixture();
+  const dm = f.service.create(caller, { kind: "dm", emails: ["person@example.com"] }).body as { id: string };
+  expect(f.service.delete({ ...caller, canDeleteGroup: true }, dm.id).status).toBe(400);
+  expect(f.service.messages(caller, dm.id).status).toBe(200);
+});
+
+test("a group imported from an older conversation file can be deleted", () => {
+  const f = fixture();
+  const oldFile = join(DATA_DIR, `old-groups-${randomUUID()}.json`);
+  const id = randomUUID();
+  const threadId = randomUUID();
+  writeFileSync(oldFile, JSON.stringify([{ id, threadId, kind: "group", name: "Older group", people: [caller.key], bots: [], createdBy: caller.key, createdAt: 1, updatedAt: 1, readAt: {}, botThreads: {} }]));
+  const make = () => createGroupConversations({ file: oldFile, store: () => f.store, directory: () => [], isMember: () => true, keyOf: (email) => email, runBotTurn: async () => {} });
+  const service = make();
+  expect(service.messages(caller, id).status).toBe(200);
+  expect(service.delete({ ...caller, canDeleteGroup: true }, id).status).toBe(200);
+  expect(make().messages(caller, id).status).toBe(404);
+});
+
+test("a group with running work cannot be deleted", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} work`, "busy-delete");
+  await settle(() => f.calls.length === 1);
+  expect(f.service.delete({ ...caller, canDeleteGroup: true }, f.group.id).status).toBe(409);
+  f.reply(f.service, "Finished");
+  await settle(() => conversationWork(f.group.id)[0]?.status === "completed");
+  const botThread = f.calls[0]!.threadId;
+  expect(f.service.delete({ ...caller, canDeleteGroup: true }, f.group.id).status).toBe(200);
+  expect(f.store.messagesFor(botThread)).toEqual([]);
+  expect(conversationWork(f.group.id)).toEqual([]);
+});
+
+test("a group with a routine reporting to it cannot be deleted", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} work`, "routine-delete");
+  await settle(() => f.calls.length === 1);
+  expect(f.service.attachRoutine(f.bot.id, f.calls[0]!.threadId, "routine-1")).toBe(true);
+  f.reply(f.service, "Finished");
+  await settle(() => conversationWork(f.group.id)[0]?.status === "completed");
+  expect(f.service.delete({ ...caller, canDeleteGroup: true }, f.group.id).status).toBe(409);
+});
+
 test("a retried group send is one message and one execution; context never becomes the user's words", async () => {
   const f = fixture();
   const text = `  @${f.bot.name} investigate this bug\n `;

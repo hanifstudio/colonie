@@ -40,6 +40,18 @@ const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, wha
 };
 const messagesOf = async (email: string) => (await ws.as(email, `/api/conversations/${group.id}/messages`)).body.messages as Array<any>;
 
+test("an admin can delete a group for every member; a member or outsider cannot", async () => {
+  const made = await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Temporary group", emails: [BOB], bots: [] } });
+  expect(made.status).toBe(201);
+  const id = made.body.id;
+  await ws.as(BOB, `/api/conversations/${id}/messages`, { method: "POST", body: { text: "A private message" } });
+  expect((await ws.as(BOB, `/api/conversations/${id}`, { method: "DELETE" })).status).toBe(403);
+  expect((await ws.as(CICI, `/api/conversations/${id}`, { method: "DELETE" })).status).toBe(404);
+  expect((await ws.as(ADA, `/api/conversations/${id}`, { method: "DELETE" })).status).toBe(200);
+  expect((await ws.as(BOB, `/api/conversations/${id}/messages`)).status).toBe(404);
+  expect((await ws.as(BOB, "/api/conversations")).body.conversations.map((item: any) => item.id)).not.toContain(id);
+});
+
 test("a person makes a group with another person and a bot; both see it in their list", async () => {
   const people = await ws.as(BOB, "/api/people");
   expect(people.body.people.map((person: any) => person.email)).toEqual(expect.arrayContaining([ADA, BOB, CICI]));

@@ -1183,6 +1183,11 @@ export class Store {
     this.emit({ type: "thread.deleted", threadId });
   }
 
+  /** Remove the transcript belonging to a group conversation. */
+  deleteConversationThread(threadId: string) {
+    this.deleteThreadRecord(threadId);
+  }
+
   // ── stored room tasks (read-only: search and transcript titles) ──────
   groupTaskByThread(groupId: string, threadId: string): GroupTaskRecord | undefined {
     const group = this.group(groupId);

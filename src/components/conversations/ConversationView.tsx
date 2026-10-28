@@ -12,13 +12,15 @@ import { ComposerMenuRow } from "../ComposerMenuRow";
 import { PendingApprovalActions, PendingApprovalPanel, pendingApprovals } from "../PendingApproval";
 import { BotAvatar } from "../Avatar";
 import { PersonAvatar } from "../PersonAvatar";
+import { ConfirmDialog } from "../ConfirmDialog";
 import { cn } from "@/lib/cn";
 import {
-  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
+  CONVERSATIONS_CHANGED, THREAD_FRAME, addToConversation, deleteGroup, updateConversation, asChatMessages, conversationMessages, leaveConversation, markConversationRead,
   postToConversation, stopConversation, useConversations, withFrame, workspacePeople, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
+import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -211,6 +213,9 @@ function Members({ conversation, memberBots, bots, onLeft }: {
   const { id: conversationId, kind, people } = conversation;
   const [everyone, setEveryone] = useState<Array<{ email: string; name: string }>>([]);
   const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canDelete = useOwnerOrAdmin();
   useEffect(() => { void workspacePeople().then(setEveryone).catch(() => {}); }, []);
   const changed = () => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
   const add = async (input: { emails?: string[]; bots?: string[] }) => {
@@ -248,9 +253,18 @@ function Members({ conversation, memberBots, bots, onLeft }: {
         <button type="button" className="text-danger hover:underline" onClick={() => void leaveConversation(conversationId).then(() => { window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)); onLeft(); })}>
           Leave this {kind === "dm" ? "DM" : "group"}
         </button>
+        {kind === "group" && canDelete && <button type="button" className="text-danger hover:underline" onClick={() => setDeleting(true)}>Delete group</button>}
       </div>
       {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
       {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
+      <ConfirmDialog open={deleting} title="Delete group?" body={`“${conversation.title}” and its conversation will be deleted for everyone. This cannot be undone.`}
+        tone="danger" pending={busy} confirmLabel={busy ? "Deleting…" : "Delete group"} onCancel={() => setDeleting(false)} onConfirm={() => {
+          if (busy) return;
+          setBusy(true); setError("");
+          void deleteGroup(conversationId).then(() => { changed(); onLeft(); }).catch((cause: unknown) => {
+            setDeleting(false); setError(cause instanceof Error ? cause.message : String(cause));
+          }).finally(() => setBusy(false));
+        }} />
     </div>
   );
 }

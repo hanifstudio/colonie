@@ -11,7 +11,7 @@
 import { randomUUID } from "node:crypto";
 
 import { commandReceipt } from "../../commands.ts";
-import { conversationWork, loadConversationRecords, saveConversationRecords, type ConversationWork } from "../../persistence/conversation-db.ts";
+import { conversationWork, deleteConversationRecord, loadConversationRecords, saveConversationRecords, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { createConversationWork, type ConversationAsk } from "./conversation-work.ts";
 import { mentionedBots, type Message, type Store } from "../../persistence/store.ts";
 
@@ -50,7 +50,7 @@ export interface GroupConversation {
 }
 
 /** Who is asking: a person of a Shared workspace, or this computer's owner. */
-export interface Caller { key: string; name: string; seesBot: (botId: string) => boolean }
+export interface Caller { key: string; name: string; seesBot: (botId: string) => boolean; canDeleteGroup?: boolean }
 
 export const LOCAL_PERSON = "owner";
 const CONTEXT_MESSAGES = 30;
@@ -67,6 +67,8 @@ export function createGroupConversations(deps: {
   /** Whether this address may sign in to the workspace. */
   isMember: (email: string) => boolean;
   keyOf: (email: string) => string;
+  /** Routines reporting here must be removed before their destination. */
+  hasRoutine?: (id: string) => boolean;
   /** Start (or queue) a bot's turn in one of its threads. */
   /** The sender names who asked (and, by id, whose secrets the bot may use). */
   runBotTurn: (work: ConversationWork, threadId: string, prompt: string, recoveryPrompt: string) => Promise<void>;
@@ -338,6 +340,22 @@ export function createGroupConversations(deps: {
     async stop(caller: Caller, id: string): Promise<Answer> {
       if (!mine(caller, id)) return fail(404, "no such conversation");
       return { status: 200, body: { stopped: await work.cancel(id, caller.key) } };
+    },
+
+    delete(caller: Caller, id: string): Answer {
+      const record = mine(caller, id);
+      if (!record) return fail(404, "no such conversation");
+      if (record.kind !== "group") return fail(400, "Only groups can be deleted.");
+      if (!caller.canDeleteGroup) return fail(403, "Only a workspace admin can delete a group.");
+      if (conversationWork(id).some((entry) => entry.status === "queued" || entry.status === "running")) return fail(409, "Wait for the group's work to finish before deleting it.");
+      if (record.routines?.some((routineId) => deps.hasRoutine?.(routineId) ?? true)) return fail(409, "Delete this group's routines before deleting the group.");
+      const store = deps.store();
+      for (const [botId, threadId] of Object.entries(record.botThreads)) store.deleteTask(botId, threadId);
+      store.deleteConversationThread(record.threadId);
+      deleteConversationRecord(id);
+      records = records.filter((entry) => entry.id !== id);
+      changed();
+      return { status: 200, body: { ok: true } };
     },
 
     async leave(caller: Caller, id: string): Promise<Answer> {

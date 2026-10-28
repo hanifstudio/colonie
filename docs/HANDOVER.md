@@ -1,13 +1,22 @@
 # Handover
 
-## Now: verify routines, guides, and group replies with real engines
+## Now: show the Shared workspace address and delete a group
+
+People can see and copy their Shared workspace's browser address in Settings → General.
+Workspace admins and the Local owner can delete a group and its conversation for
+all members after confirming. Prove access and deletion with an isolated fixture,
+and run `pnpm check`. The isolated server and `pnpm check` pass; `pnpm build`
+cannot replace `dist/assets` because the operation is denied.
+Out of scope: changing invitations and deleting DMs.
+
+## After that: verify routines, guides, and group replies with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
 Out of scope: event triggers and the owner's real data.
 
-## Next: prepare the first public release
+## Then: prepare the first public release
 
 1. **The team code leaves the server.** Teams are gone from the app
    (owner, October 23). Left on the server: sections and their shared

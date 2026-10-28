@@ -40,7 +40,7 @@ import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { readEnvironment } from "@/lib/session";
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BrowserProfilesManager } from "./BrowserProfilesManager";
-import { Card, SettingRow, Switch } from "./SettingsPrimitives";
+import { Card, CommandLine, SettingRow, Switch } from "./SettingsPrimitives";
 import { PersonAvatar } from "./PersonAvatar";
 import { SecretsSettings } from "./Secrets";
 import { openPhotoPage, useSignedInAccount } from "./SidebarProfileMenu";
@@ -95,7 +95,7 @@ export const SECTIONS: Array<{
   icon: IconSvgElement;
   keywords: string[];
 }> = [
-  { id: "general", group: "you", labelKey: "settings.section.general", icon: UserIcon, keywords: ["profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
+  { id: "general", group: "you", labelKey: "settings.section.general", icon: UserIcon, keywords: ["workspace", "address", "url", "profile", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule"] },
   { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: PaletteIcon, keywords: ["skin", "theme", "appearance", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "density", "compact", "comfortable", "avatars", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "top"] },
   { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: TerminalIcon, keywords: ["models", "model providers", "engines", "claude", "codex", "grok", "providers", "cli", "sign in", "subscription"] },
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
@@ -775,6 +775,13 @@ function DiagnosticsRow() {
   );
 }
 
+export function SharedWorkspaceAddress({ shared, origin }: { shared: boolean; origin: string }) {
+  if (!shared) return null;
+  return <Card title="Workspace address" subtitle="Open this address in a browser. New members need an invitation to join.">
+    <CommandLine command={origin} copyLabel="Copy workspace address" />
+  </Card>;
+}
+
 export function SettingsModal({ workspace }: { workspace?: { general: ReactNode; connections: ReactNode } } = {}) {
   const { state, dispatch } = useStore();
   const advanced = useAdvancedMode();
@@ -904,6 +911,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
         </>;
         return (
           <>
+            <SharedWorkspaceAddress shared={colonieSignIn} origin={window.location.origin} />
             <div>
               <AdvancedModeRow />
               {colonieFleet && advanced && <DeveloperToolsRow />}

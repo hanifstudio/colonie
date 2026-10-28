@@ -446,13 +446,13 @@ const workspaceDirectory = () => {
 const conversationCaller = (auth: RequestAuth): Caller | null => {
   if (!workspaceKind.shared()) {
     if (auth.kind !== "loopback") return null;
-    return { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true };
+    return { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true, canDeleteGroup: true };
   }
   const key = personOf(auth);
   if (!key || auth.kind !== "session") return null;
   const email = auth.session.email?.trim().toLowerCase() ?? "";
   const name = colonieSignIn.members().find((member) => member.email.toLowerCase() === email)?.name || email || "Someone";
-  return { key, name, seesBot: (botId) => visibleTo(viewerFor(auth)).bot(botId) };
+  return { key, name, seesBot: (botId) => visibleTo(viewerFor(auth)).bot(botId), canDeleteGroup: auth.session.scopes.includes("admin") };
 };
 /** A person's keys and passwords for their bots (colonie/secrets). */
 const secrets = createSecrets({ dir: join(DATA_DIR, "secrets") });
@@ -462,6 +462,7 @@ const groupConversations = createGroupConversations({
   directory: workspaceDirectory,
   isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
   keyOf: (email) => personKey({ id: "", email }),
+  hasRoutine: (id) => routines?.listRoutines().some((routine) => routine.id === id) ?? true,
   runBotTurn: async (work, threadId, prompt, recoveryPrompt) => { await startTurn(work.botId, work.text, { threadId, providerPrompt: prompt, providerRecoveryPrompt: recoveryPrompt, commsDepth: work.depth, sendId: work.id, sender: { name: work.asker, id: work.askerKey } }); },
   interruptBotTurn: (botId, threadId) => interruptDirectThread(botId, threadId),
   onChange: () => forgetVisibility(),

@@ -687,6 +687,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         else if (method === "POST") { const body = await readBody(req); answer = await groupConversations.post(caller, m[1], body?.text, body?.sendId); }
       } else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/read$/))) answer = groupConversations.read(caller, m[1]);
       else if (method === "PATCH" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.update(caller, m[1], (await readBody(req)) ?? {});
+      else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.delete(caller, m[1]);
       else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members$/))) answer = groupConversations.add(caller, m[1], (await readBody(req)) ?? {});
       else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/stop$/))) answer = await groupConversations.stop(caller, m[1]);
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members\/me$/))) answer = await groupConversations.leave(caller, m[1]);

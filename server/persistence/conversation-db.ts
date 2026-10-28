@@ -62,6 +62,16 @@ export function saveConversationRecords(records: readonly { id: string }[]): voi
   });
 }
 
+/** Remove a conversation and its execution intents from the durable index. */
+export function deleteConversationRecord(id: string): void {
+  repository((db) => {
+    db.prepare("DELETE FROM conversation_work WHERE conversation_id = ?").run(id);
+    db.prepare("DELETE FROM conversation_records WHERE id = ?").run(id);
+    db.prepare("DELETE FROM command_receipts WHERE kind = 'conversation.message' AND json_extract(key, '$[0]') = ?").run(id);
+    db.prepare("DELETE FROM command_receipts WHERE kind = 'conversation.routine-result' AND json_extract(key, '$[0]') = ?").run(id);
+  });
+}
+
 export function enqueueConversationWork(work: ConversationWork): ConversationWork {
   return repository((db) => {
     db.prepare("INSERT INTO conversation_work(id, conversation_id, source_message_id, bot_id, status, document) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(conversation_id, source_message_id, bot_id) DO NOTHING")
