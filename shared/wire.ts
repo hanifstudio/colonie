@@ -732,6 +732,9 @@ export type ServerFrame =
    * one progress line until its first screen frame. */
   | { kind: "computer"; botId: string; state: "provisioning" | "waking" }
   | { kind: "computer-control"; botId: string; held: boolean; helpReason: string | null }
+  /** A bot started using its browser in a turn (once per turn), so the app
+   * can open the Browser panel beside the chat where it works. */
+  | { kind: "browser-use"; botId: string; threadId: string; turn: string; conversationId?: string }
   | { kind: "bot.deleted"; botId: string }
   | { kind: "live.call"; botId: string; threadId: string; call: LiveCallState | null }
   /** The config status object spread flat into the frame; its full typing

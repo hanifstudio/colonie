@@ -368,12 +368,21 @@ ROUTES.push(createSignInAskRoutes({
     return Boolean(caller && deps.groupConversations?.worksFor(caller, threadId));
   },
 }));
+const announcedBrowserTurns = new Set<string>();
 ROUTES.push(createInternalBrowserRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
   bot: (id) => store.bot(id), browserEnabled: () => builtInBrowserEnabled(cfg),
   browserIntegration: (botId, profile) => browserIntegration(botId, profile),
   currentBrowserSession: (botId, profile) => currentBrowserSession(botId, profile),
   claimTurnResource: deps.claimTurnResource, runtime: browserRuntime,
+  // once per turn: the app opens the Browser panel where the bot works
+  announce: (capability) => {
+    if (announcedBrowserTurns.has(capability.generation)) return;
+    announcedBrowserTurns.add(capability.generation);
+    if (announcedBrowserTurns.size > 500) announcedBrowserTurns.delete(announcedBrowserTurns.values().next().value!);
+    const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
+    broadcast({ kind: "browser-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, ...(conversationId ? { conversationId } : {}) });
+  },
 }));
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));

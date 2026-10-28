@@ -19,6 +19,7 @@ function setup(overrides: { kind?: string; browser?: boolean; session?: string; 
     currentBrowserSession: () => overrides.session ?? "s1",
     claimTurnResource: (_owner, resource) => { calls.push(`claim ${resource}`); return overrides.claim ?? true; },
     runtime: { agentRpc: async (session, _spec, method, _params, before) => { before?.(); calls.push(`${method} ${session}`); return overrides.result ?? { ok: true }; } },
+    announce: (owner) => calls.push(`announce ${owner.generation}`),
   });
   return { route, calls };
 }
@@ -31,7 +32,13 @@ const call = async (route: ReturnType<typeof setup>["route"], headers: Record<st
 test("a call reaches the bot's own browser session and claims it for the turn", async () => {
   const { route, calls } = setup();
   expect(await call(route)).toEqual({ status: 200, body: { result: { ok: true } } });
-  expect(calls).toEqual(["claim browser:s1", "tools/call s1"]);
+  expect(calls).toEqual(["claim browser:s1", "announce g1", "tools/call s1"]);
+});
+
+test("listing the tools does not announce browser use", async () => {
+  const { route, calls } = setup();
+  await call(route, { authorization: BEARER }, { method: "tools/list" });
+  expect(calls).toEqual(["tools/list s1"]);
 });
 
 test("no bearer, another integration's bearer, or an ended turn is refused", async () => {

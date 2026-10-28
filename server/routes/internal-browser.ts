@@ -22,6 +22,8 @@ export function createInternalBrowserRoute(deps: {
   currentBrowserSession: (botId: string, profile: string | undefined) => string;
   claimTurnResource: (owner: { threadId: string; generation: string }, resource: string) => boolean;
   runtime: Pick<BrowserRuntime, "agentRpc">;
+  /** A turn's browser call is running: the app may open the bot's panel. */
+  announce?: (capability: Capability) => void;
 }): RouteHandler {
   return async ({ req, res, path, method, json, readBody }) => {
     if (path !== "/api/internal/browser/mcp") return PASS;
@@ -48,6 +50,7 @@ export function createInternalBrowserRoute(deps: {
       if (body.method === "tools/call" && !deps.claimTurnResource(capability, `browser:${browser.session}`)) {
         throw Object.assign(new Error("another thread is using this browser — pause browser work until that thread finishes"), { status: 409 });
       }
+      if (body.method === "tools/call") deps.announce?.(capability);
     });
     if (!deps.isActive(capability)) throw expired();
     const listed = result as { tools?: Array<{ name?: string }> } | null;

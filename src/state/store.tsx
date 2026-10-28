@@ -3,6 +3,8 @@
 // stream from the harness server into local state. The reducer stays
 // pure; everything async lives in the wrapped dispatch + SSE fold.
 import { THREAD_FRAME } from "@/lib/conversations";
+import { writeComputerPanelView } from "@/lib/computer-panel-view";
+import { shouldOpenBrowserPanel } from "@/lib/browser-auto-open";
 import { isPersonalThread } from "../../shared/personal-thread";
 import {
   createContext,
@@ -1308,6 +1310,9 @@ function optimisticUserMessage(
     sendId,
   };
 }
+
+/** The turn each thread last opened the Browser panel for (the browser-use frame). */
+const browserAutoOpened = new Map<string, string>();
 
 export function reducer(state: AppState, action: Action): AppState {
   if (action.type === "messageAdded" || action.type === "messagePatched" || action.type === "threadActive" || action.type === "optimisticMessageRemoved") {
@@ -3466,6 +3471,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         case "computer":
           rawDispatch({ type: "computerStart", botId: frame.botId, start: { state: frame.state } });
           break;
+        case "browser-use": {
+          // Hermes' rule (browser-auto-open.ts); opening never takes focus.
+          if (!shouldOpenBrowserPanel(stateRef.current, frame, browserAutoOpened.get(frame.threadId))) break;
+          browserAutoOpened.set(frame.threadId, frame.turn);
+          writeComputerPanelView(frame.botId, "browser");
+          rawDispatch({ type: "toggleComputer", open: true, botId: frame.botId });
+          break;
+        }
         case "computer-control":
           rawDispatch({
             type: "computerControl",
