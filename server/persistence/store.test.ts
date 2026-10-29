@@ -69,6 +69,8 @@ test("the first bot of a workspace is named like any bot, and leads as Chief of 
     expect(first?.name).toBeTruthy();
     expect(first?.name).not.toBe("Codex");
     expect(first?.chiefOfStaff).toBe(true);
+    // it can use its computer like every bot
+    expect(first?.computer).toBeUndefined();
   } finally {
     if (before === undefined) delete process.env.COLONIE_PROFILE; else process.env.COLONIE_PROFILE = before;
   }

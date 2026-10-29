@@ -217,10 +217,12 @@ export function ComputerPanel({
   const surfaceReady = livePlace !== "auto" || autoSurfaceCurrent || !advanced;
   // Profile defaults still belong to the Works on picker below. The screen
   // and capability checks belong to the selected conversation, not that default.
-  // Simple mode has no place to choose: a bot left on Auto works on its
-  // computer, the Local VM (owner, October 29). Advanced keeps Auto.
-  const bot = { ...threadBot, computer: livePlace === "auto"
-    ? advanced ? autoSurfaceCurrent ? autoSurface.surface : undefined : "vm" as const : livePlace };
+  // Simple mode has no place to choose: a bot works on its computer, the
+  // Local VM (owner, October 29), whether it was left on Auto or set earlier
+  // to this Mac, which bots no longer control. Off keeps its own way back and
+  // a browser-only bot keeps its browser. Advanced keeps every place.
+  const bot = { ...threadBot, computer: !advanced && (livePlace === "auto" || livePlace === "local") ? "vm" as const : livePlace === "auto"
+    ? autoSurfaceCurrent ? autoSurface.surface : undefined : livePlace };
   const viewerConnectionKey = `${bot.id}:${bot.threadId}:${bot.computer}`;
   const viewerConnection = useRef(viewerConnectionKey);
   viewerConnection.current = viewerConnectionKey;
@@ -327,7 +329,8 @@ export function ComputerPanel({
   // Auto is a server decision (including an existing Local VM). Do not guess
   // the host surface from desktop capabilities and show a different computer.
   useEffect(() => {
-    if (livePlace !== "auto" || !computerSelectionPersisted) return;
+    // Simple mode reads Auto as the bot's computer and asks nothing here.
+    if (livePlace !== "auto" || !computerSelectionPersisted || !advanced) return;
     const controller = new AbortController();
     setAutoSurface(null);
     void api(threadPath("computer"), { signal: controller.signal }).then((status) => {
@@ -342,7 +345,7 @@ export function ComputerPanel({
       setPhase("error");
     });
     return () => controller.abort();
-  }, [connectionKey, livePlace, computerSelectionPersisted, threadPath, retry]);
+  }, [connectionKey, livePlace, computerSelectionPersisted, threadPath, retry, advanced]);
   const vmResumable = phase === "vm-unavailable" && vmStatus?.resumable === true;
   const vmReadinessAttempts = useRef(0);
   const vmActionController = useRef<AbortController | null>(null);
@@ -1072,7 +1075,7 @@ export function ComputerPanel({
           <div className="mb-1.5 mt-2 flex items-center justify-between text-[13px] text-ink-secondary">
             <span>{t("computer.screenOf", { name: bot.name })}</span>
             {phase === "local" && <span className="text-[11px]">{t("computer.badge.local")}</span>}
-            {phase === "vm" && <span className="text-[11px]">{t("vm.dest.vm")}</span>}
+            {phase === "vm" && advanced && <span className="text-[11px]">{t("vm.dest.vm")}</span>}
         </div>
         {installNeeded ? (
           <div className="overflow-hidden rounded-xl bg-card"><ComputerInstallCard botName={bot.name} memoryBytes={vmStatus?.host_memory_bytes} onCheck={() => { vmSetupTried.current.delete(`${bot.id}:${bot.threadId}`); setRetry((n) => n + 1); }} /></div>
@@ -1132,6 +1135,15 @@ export function ComputerPanel({
                   className="mt-1 rounded-lg bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover"
                 >
                   {t("computer.openSettings")}
+                </button>
+              )}
+              {/* Simple mode has no picker, so a bot set to Off gets its way back */}
+              {phase === "off" && !advanced && (
+                <button
+                  onClick={() => selectPlace(null)}
+                  className="mt-1 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:brightness-110"
+                >
+                  {t("computer.turnOn", { name: bot.name })}
                 </button>
               )}
               {phase === "browser" && browserEnabled && (
@@ -1312,7 +1324,9 @@ export function ComputerPanel({
           </div>
         )}
 
-        {(bot.computer !== undefined || computerStatusCurrent) && <>
+        {/* This computer's own screen: only Advanced, since Simple-mode bots
+            never control the person's own Mac (owner, October 29). */}
+        {advanced && (bot.computer !== undefined || computerStatusCurrent) && <>
           <LocalScreenPreview />
           <LinuxLocalControl />
           <MacLocalControl />

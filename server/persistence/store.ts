@@ -2603,8 +2603,9 @@ export class Store {
     if (!this.needsSeed()) return;
     const bot = this.createBot(colonieProfile() ? { color: "purple" } : {});
     if (colonieProfile()) {
-      this.patchBot(bot.id, { computer: "off" });
-      // Colonie's first bot is the workspace Chief by default.
+      // Colonie's first bot is the workspace Chief by default. It has its
+      // computer like every bot (owner, October 29); Off was from before
+      // Claude and Codex bots could use one.
       this.setChiefOfStaff(bot.id);
     }
   }

@@ -95,8 +95,11 @@ function computerPreviewBot(botId: string, url: URL): BotRecord | null {
 
 async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   const plan = turnSurfacePlan(bot, threadId);
-  if (plan.computer !== undefined) return plan.computer === "off" && plan.browser ? "browser" : plan.computer;
   const instance = registry.get(bot.modelSelection.instanceId);
+  // An engine that cannot control this Mac (Claude and Codex) works on a bot
+  // once set to "This Mac" as on Auto, as its turns do (turn-start.ts).
+  const hostless = plan.computer === "local" && instance?.adapter.capabilities.localComputerMcp !== true;
+  if (plan.computer !== undefined && !hostless) return plan.computer === "off" && plan.browser ? "browser" : plan.computer;
   const target = localVmTargetForStatus(bot.id, threadId);
   if (instance?.adapter.capabilities.computerMcp && localVmSeen.has(target.key)) {
     const vm = await containerComputerStatus(undefined, undefined, target).catch(() => null);

@@ -705,7 +705,9 @@ async function startTurn(
         // use. It then browses with the browser on that desktop, so the
         // separate built-in browser below is not mounted.
         try {
-          if (wants === "vm" ? await attachLocalVm(true) : wants === undefined && await attachLocalVm(false)) computerKind = "vm";
+          // These engines never control the person's own Mac (owner, October
+          // 29), so a bot once set to "This Mac" works like Auto here.
+          if (wants === "vm" ? await attachLocalVm(true) : (wants === undefined || wants === "local") && await attachLocalVm(false)) computerKind = "vm";
         } catch (error) {
           mounts.tools.deactivate(); mounts.extra?.deactivate();
           if (!namedPlace || !placeSource) throw error;
