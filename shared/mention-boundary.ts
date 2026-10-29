@@ -14,3 +14,16 @@ export function isMentionBoundary(text: string, at: number): boolean {
 export function isMentionNameContinuation(value: string | undefined): boolean {
   return value !== undefined && /^[\p{L}\p{N}\p{M}_]/u.test(value);
 }
+
+/** "@here" in a group reaches everyone in it, its bots and its people. */
+export const HERE_MENTION = "here";
+
+/** Whether a message tags @here as a standalone mention. */
+export function mentionsHere(text: string): boolean {
+  const lower = text.toLowerCase();
+  let at = -1;
+  while ((at = lower.indexOf(`@${HERE_MENTION}`, at + 1)) !== -1) {
+    if (isMentionBoundary(text, at) && !isMentionNameContinuation(text.slice(at + 1 + HERE_MENTION.length))) return true;
+  }
+  return false;
+}

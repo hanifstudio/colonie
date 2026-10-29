@@ -135,6 +135,19 @@ try {
     return answered > 0 && !(await text(ana)).includes("is working on it");
   }, "the bot answers in the group, under its face and name", 40_000);
 
+  step = "@here";
+  const answersBefore = await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count();
+  await ana.keyboard.type("@he");
+  const here = ana.locator('[role="listbox"][aria-label="Mention"] [role="option"]', { hasText: "Everyone in this group" });
+  await until(ana, async () => (await here.count()) > 0, "typing @he offers @here, for everyone in the group");
+  await here.first().click();
+  await ana.keyboard.type("standup in five");
+  await ana.keyboard.press("Enter");
+  await until(ana, async () => (await text(ana)).includes("@here standup in five"), "the @here message is sent");
+  check(!(await ana.getByRole("alert").count()), "sending @here shows no error");
+  await until(ana, async () => (await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count()) > answersBefore && !(await text(ana)).includes("is working on it"),
+    "the group's bot answers @here without being named", 40_000);
+
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');
   await until(bob, async () => (await text(bob)).includes("can you check the budget?"), "Bob reads the conversation");

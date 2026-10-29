@@ -14,6 +14,7 @@ import { commandReceipt } from "../../commands.ts";
 import { conversationWork, deleteConversationRecord, loadConversationRecords, saveConversationRecords, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { createConversationWork, type ConversationAsk } from "./conversation-work.ts";
 import { mentionedBots, type Message, type Store } from "../../persistence/store.ts";
+import { mentionsHere } from "../../../shared/mention-boundary.ts";
 import { conversationFilePath, conversationFolder, listConversationFiles, removeConversationFolder } from "../workspace/workspace.ts";
 
 export interface GroupConversation {
@@ -285,13 +286,18 @@ export function createGroupConversations(deps: {
         return { status: 201, body: { message: receipt.result } };
       }
       const store = deps.store();
-      const bots = mentionedBots(text, store.bots.filter((bot) => record.bots.includes(bot.id) || caller.seesBot(bot.id)));
+      const here = record.kind === "group" && mentionsHere(text);
+      const named = mentionedBots(text, store.bots.filter((bot) => record.bots.includes(bot.id) || caller.seesBot(bot.id)));
+      // @here asks every bot in the group, in the order they joined, after any named first
+      const bots = here
+        ? [...named, ...record.bots.map((botId) => store.bot(botId)).filter((bot): bot is NonNullable<typeof bot> => !!bot && !bot.hidden && caller.seesBot(bot.id) && !named.includes(bot))]
+        : named;
       let next = record;
       const message = store.appendMessage(record.threadId, { role: "user", kind: "text", text, sendId: rawSendId as string | undefined, sender: { name: caller.name, id: caller.key } }, command, (message) => {
         next = { ...record, updatedAt: message.at, readAt: { ...record.readAt, [caller.key]: message.at },
           bots: [...new Set([...record.bots, ...bots.map((bot) => bot.id)])], mentionedAt: { ...record.mentionedAt } };
         const people = record.people.filter((key) => key !== caller.key).map((key) => ({ key, name: nameOf(key) }));
-        for (const person of mentionedBots(text, people)) next.mentionedAt![person.key] = message.at;
+        for (const person of here ? people : mentionedBots(text, people)) next.mentionedAt![person.key] = message.at;
         saveConversationRecords(records.map((entry) => entry.id === next.id ? next : entry));
         const ask: ConversationAsk = { asker: caller.name, askerKey: caller.key, depth: 0 };
         work.enqueue(next, message.id, bots, ask, text);

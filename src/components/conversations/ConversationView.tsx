@@ -22,6 +22,7 @@ import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
+import { HERE_MENTION } from "../../../shared/mention-boundary";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -63,7 +64,7 @@ export function ConversationView({ id }: { id: string }) {
 
   const bots = useMemo(() => state.bots.filter((bot) => !bot.hidden), [state.bots]);
   const shown = useMemo(() => conversation && messages ? asChatMessages(messages, conversation.people) : [], [conversation, messages]);
-  const mentionPeople = useMemo(() => conversation?.people.map((person) => person.name) ?? [], [conversation?.people]);
+  const mentionPeople = useMemo(() => [...conversation?.people.map((person) => person.name) ?? [], ...(conversation?.kind === "group" ? [HERE_MENTION] : [])], [conversation?.people, conversation?.kind]);
   const viewerKey = conversation?.people.find((person) => person.you)?.key;
   // a card settled for a bot (a secret saved, a sign-in done): tell the bot
   // here, in the person's words, so it carries on
@@ -152,10 +153,12 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingSend = useRef<{ text: string; id: string } | null>(null);
   const people = useMemo(() => conversation.people.filter((person) => !person.you), [conversation.people]);
+  // @here asks every bot in the group and tells every person
   const mentionable = useMemo(() => [
+    ...(conversation.kind === "group" ? [{ name: HERE_MENTION, kind: "here" as const }] : []),
     ...people.map((person) => ({ name: person.name, kind: "person" as const })),
     ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
-  ], [people, bots]);
+  ], [conversation.kind, people, bots]);
   const mentions = useMentionPicker({ text, choices: mentionable, inputRef, onChange: setText });
   const send = async () => {
     const value = text;
@@ -169,7 +172,8 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
       setText("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };
-  const face = (entry: { name: string; kind: "person" | "bot" }) => {
+  const face = (entry: { name: string; kind: "here" | "person" | "bot" }) => {
+    if (entry.kind === "here") return <span className="flex size-6 items-center justify-center rounded-full bg-control text-ink"><HIcon icon={UserGroupIcon} size={14} /></span>;
     if (entry.kind === "bot") {
       const bot = bots.find((candidate) => candidate.name === entry.name);
       return bot ? <BotAvatar bot={bot} state="happy" size={24} motion="none" motionKey={0} animated={false} /> : null;
@@ -195,7 +199,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
               {mentions.candidates.map((entry, index) => (
                 <ComposerMenuRow key={`${entry.kind}:${entry.name}`} id={mentions.optionId(index)} role="option" tabIndex={-1} aria-selected={index === mentions.highlight} selected={index === mentions.highlight}
                   onMouseDown={(event) => event.preventDefault()} onClick={() => mentions.pick(entry)} onMouseEnter={() => mentions.setHighlight(index)}
-                  icon={face(entry)} name={entry.name} kind={entry.kind === "bot" ? "Bot" : "Person"} />
+                  icon={face(entry)} name={entry.name} description={entry.kind === "here" ? "Everyone in this group" : undefined} kind={entry.kind === "here" ? "Everyone" : entry.kind === "bot" ? "Bot" : "Person"} />
               ))}
             </div>
           )}

@@ -242,6 +242,27 @@ describe("a group with several bots", () => {
     expect(mine.filter((message) => message.from.botId === second.id && message.from && !message.relay)).toHaveLength(1);
   }, 90_000);
 
+  test("@here asks every bot in the group and marks it for every person", async () => {
+    await ws.as(BOB, `/api/conversations/${crew.id}/read`, { method: "POST" });
+    const before = (await lines()).length;
+    expect((await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: "@here quick check-in" } })).status).toBe(201);
+    expect((await ws.as(BOB, "/api/conversations")).body.conversations.find((entry: any) => entry.id === crew.id)).toMatchObject({ mentioned: true });
+    const end = Date.now() + 40_000;
+    let mine: any[] = [];
+    while (Date.now() < end) {
+      mine = (await lines()).slice(before).filter((message) => message.from && !message.notice && !message.relay);
+      if ([bot.id, second.id].every((id) => mine.some((message) => message.from.botId === id && !message.working))) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    expect(mine.filter((message) => message.from.botId === bot.id)).toHaveLength(1);
+    expect(mine.filter((message) => message.from.botId === second.id)).toHaveLength(1);
+    // "@hereafter" or an address is not @here
+    const quiet = (await lines()).length;
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: "@hereafter, mail me at a@here.com" } });
+    await new Promise((r) => setTimeout(r, 1_500));
+    expect((await lines()).slice(quiet).filter((message) => message.from && !message.notice)).toHaveLength(0);
+  }, 90_000);
+
   test("a bot that @mentions another bot hands it on, and the chain stops after three", async () => {
     const before = (await lines()).length;
     // the stand-in answers "hand over to <name>" with "@<name> over to you"
