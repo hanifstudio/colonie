@@ -4,9 +4,10 @@
 
 A new person asks a bot for a site that refuses the simple browser; the bot
 offers its computer; they install one free app; the computer sets itself up
-and the bot finishes the task. No picker in Simple mode; idle stop after 30
-minutes. Proof: that journey in the app window, screenshots at each step.
-Not now: Shared servers (next), the person's own Mac.
+and the bot finishes the task. Built; seen in the desktop app up to the
+desktop showing. Left: a signed-in bot choosing use_computer, Take control's
+viewer (two Local VMs on one Mac both publish 127.0.0.1:6080 and the viewer
+reaches the wrong one), Podman Desktop on a real Mac. Shared servers come next.
 
 ## Next: verify routines, guides, and group replies with real engines
 
@@ -77,9 +78,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
-- The owner used the sign-in card with a real CAPTCHA; logins kept between
-  turns unchecked. Members who are not admins cannot open a bot's browser.
-  The 950 MB Shared image with the browser has not run on a droplet.
+- Logins kept between turns unchecked; members who are not admins cannot open
+  a bot's browser; the 950 MB Shared image has not run on a droplet.
 
 ## Queue after the current task
 
