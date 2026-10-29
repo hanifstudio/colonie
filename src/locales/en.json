@@ -1156,7 +1156,7 @@
   "approvalMode.busy": "Stop this bot's turn before changing its approval level",
   "approvalMode.threadTrustedNotice": "Full and Custom access are managed in bot settings in the desktop app.",
   "approvalMode.menuAria": "Approval mode for {provider}",
-  "approvalMode.question": "How should {provider} actions be approved?",
+  "approvalMode.question": "How should {provider} ask before acting?",
   "approvalMode.learnMore": "Learn more",
   "approvalMode.customLocalOnly": "Custom approval must be changed in the local packaged desktop app",
   "approvalMode.customLocalOnlyDot": "Custom approval must be changed in the local packaged desktop app.",

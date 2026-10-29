@@ -888,7 +888,7 @@ export function Composer({
                 <ApprovalModeSelector
                   approvalMode={modeBot.approvalMode}
                   autoApprove={modeBot.autoApprove}
-                  providerName={approvalEngine.displayName}
+                  providerName={modeBot.name}
                   driverKind={approvalEngine.driverKind}
                   onSelect={setApprovalMode}
                   disabled={Boolean(modeBot.busy)}
