@@ -4,6 +4,7 @@
 // stay pure prop-takers. This hook is the one place in the bot settings
 // dialog that still reaches into useStore.
 import { useDesktopCapabilities } from "../DesktopCapabilities";
+import { useAdminSession } from "@/lib/use-owner-or-admin";
 import { browserAvailable, builtInBrowserEnabled } from "@/lib/feature-flags";
 import { stateForBot } from "@/lib/mascot";
 import { useStore, type Bot } from "@/state/store";
@@ -65,7 +66,9 @@ export function useBotSettingsDerived(bot: Bot) {
   // only autoApprove. Full and Custom need the packaged desktop's trusted
   // channel (SettingsPanel used the same test before the dialog replaced it).
   const approvalMode = approvalModeFor(bot);
-  const trustedModesAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged);
+  const adminSession = useAdminSession();
+  // the installed app's own channel, or a Shared workspace's signed-in admin
+  const trustedModesAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged) || adminSession;
   const canCoordinate = engine?.capabilities?.agentsMcp === true;
   const canUseConnectedApps = engine?.capabilities?.composioMcp === true;
   const connectedAppsConfigured = state.config?.composio?.configured === true;

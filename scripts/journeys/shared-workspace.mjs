@@ -158,6 +158,11 @@ try {
   await level.selectOption("ask");
   await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "ask",
     "choosing Always ask in the group changes the bot");
+  await level.selectOption("full");
+  await ana.getByRole("button", { name: "Enable full access" }).click();
+  await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "full",
+    "the admin turns on Full access from the group, after its warning");
+  check(!(await ana.getByRole("alert").count()), "Full access shows no error");
   await level.selectOption("auto");
   await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "auto",
     "and Ask when risky changes it back");

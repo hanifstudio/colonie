@@ -94,6 +94,9 @@ export function createConversationWork(deps: {
       delete record.toldAbout?.[bot.id];
       saveConversationRecords(deps.records());
     }
+    // the level belongs to the bot (owner, October 29): its work here follows
+    // the bot's current level, not the one copied when the thread was made
+    store.refreshTaskPermissions(bot.id, thread);
     const participants = store.threadParticipants(thread) ?? [];
     if (!participants.includes(work.askerKey)) store.setThreadParticipants(thread, [...participants, work.askerKey]);
     work.threadId = thread;

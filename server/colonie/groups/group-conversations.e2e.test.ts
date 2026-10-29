@@ -250,6 +250,22 @@ describe("a group with several bots", () => {
     await until(lines, (list) => !list.some((message) => message.working), "Ada's waiting work stopped");
   }, 90_000);
 
+  test("a bot's work in the group follows the bot's level, and an admin sets Full access from the app", async () => {
+    const level = async () => (await ws.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.id === second.id);
+    const workLevel = async () => (await level()).tasks.find((task: any) => task.forConversation === crew.id)?.approvalMode;
+    expect((await ws.as(BOB, `/api/bots/${second.id}`, { method: "PATCH", body: { approvalMode: "full" } })).status).toBe(403);
+    expect((await ws.as(ADA, `/api/bots/${second.id}`, { method: "PATCH", body: { approvalMode: "full" } })).status).toBe(200);
+    expect((await level()).approvalMode).toBe("full");
+    expect(await workLevel()).toBe("full");
+    // back to Always ask: the group's existing work thread follows on the next request
+    expect((await ws.as(ADA, `/api/bots/${second.id}`, { method: "PATCH", body: { approvalMode: "ask" } })).status).toBe(200);
+    const before = (await lines()).length;
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${second.name} level check` } });
+    await until(lines, (list) => list.slice(before).some((message) => message.from?.botId === second.id && !message.working), "the bot's answer");
+    expect(await workLevel()).toBe("ask");
+    expect((await ws.as(ADA, `/api/bots/${second.id}`, { method: "PATCH", body: { approvalMode: "auto" } })).status).toBe(200);
+  }, 90_000);
+
   test("@here asks every bot in the group and marks it for every person", async () => {
     await ws.as(BOB, `/api/conversations/${crew.id}/read`, { method: "POST" });
     const before = (await lines()).length;

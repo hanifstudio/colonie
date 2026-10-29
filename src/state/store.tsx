@@ -2349,6 +2349,17 @@ export async function persistBotUpdate(
   if (approvalMode === "full" && confirmFullAccess !== true) {
     throw new Error("Confirm the Full access warning before enabling it");
   }
+  // A Shared workspace has no desktop app beside its server: there a signed-in
+  // admin's request sets Full access, and the server checks that it is one.
+  const remote = typeof window !== "undefined" && window.colonie?.remoteClient?.active === true;
+  if (approvalMode === "full" && !leavesCustom && (remote || !trustedApprovals)) {
+    const result = await request(`/api/bots/${botId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ ...ordinaryPatch, approvalMode }),
+      signal,
+    });
+    return result.bot;
+  }
   if (!trustedApprovals || approvalMode === undefined) {
     throw new Error("This approval-level change requires the packaged desktop app");
   }

@@ -376,7 +376,13 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
         ((requestedApprovalMode === "full" || requestedApprovalMode === "custom") &&
           currentApprovalMode !== requestedApprovalMode) ||
         (currentApprovalMode === "custom" && requestedApprovalMode !== "custom");
-      if (requiresPrivateApprovalTransition) {
+      // A Shared workspace's server is the workspace's own machine and has no
+      // desktop app beside it: there a signed-in admin sets Full access from
+      // the app. A bot never holds an admin session (tokens are hashed at
+      // rest), so it still cannot grant itself this. Custom stays local.
+      const sharedAdminFull = deps.shared?.() === true && auth.kind === "session" && auth.scopes.includes("admin") &&
+        sessions.isLive(auth.session.id) && requestedApprovalMode === "full" && currentApprovalMode !== "custom";
+      if (requiresPrivateApprovalTransition && !sharedAdminFull) {
         return json(res, 403, {
           error: "This approval-level change can only be made from the packaged desktop app",
         });
@@ -604,6 +610,7 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
         bot = store.patchBot(m[1], patch);
       }
       if (!bot) return json(res, 404, { error: "no such bot" });
+      if (sharedAdminFull && requiresPrivateApprovalTransition) bot = store.setAllThreadApprovalMode(bot.id, "full") ?? bot;
       if (body.memoryUpkeep === false || body.memoryEnabled === false) memoryUpkeep.dropBot(bot.id);
       // A defined Works on is the newest explicit choice: this bot's
       // auto-recorded pins that now point elsewhere give way immediately, so

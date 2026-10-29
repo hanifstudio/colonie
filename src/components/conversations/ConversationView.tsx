@@ -20,7 +20,7 @@ import {
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
-import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
+import { useAdminSession, useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
@@ -239,7 +239,8 @@ function Members({ conversation, memberBots, bots, onLeft }: {
   const { dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   // Full access needs the installed app's own channel, as in bot settings
-  const fullAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged);
+  const adminSession = useAdminSession();
+  const fullAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged) || adminSession;
   // Full access is confirmed first, for one bot or for every bot here
   const [fullFor, setFullFor] = useState<string[] | null>(null);
   const { id: conversationId, kind, people } = conversation;

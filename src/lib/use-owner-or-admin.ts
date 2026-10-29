@@ -27,3 +27,18 @@ export function useOwnerOrAdmin(enabled = true): boolean | null {
   }, [enabled]);
   return enabled ? allowed : false;
 }
+
+let pendingSession: Promise<boolean> | null = null;
+
+/** Whether this is a signed-in admin's session, as on a Shared workspace,
+ * where an admin sets Full access from the app (the server checks again). */
+export function useAdminSession(): boolean {
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    pendingSession ??= readSessionState().then((state) => state.kind === "session" && state.scopes.includes("admin"), () => false);
+    void pendingSession.then((value) => { if (alive) setAdmin(value); });
+    return () => { alive = false; };
+  }, []);
+  return admin;
+}
