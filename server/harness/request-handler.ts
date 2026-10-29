@@ -1974,6 +1974,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     return json(res, 404, { error: `no route: ${method} ${path}` });
   } catch (e) {
     const status = (e as any)?.status ?? 500;
+    // an unexpected failure is otherwise only a message in someone's app
+    if (status >= 500) console.error(`[request] ${method} ${path} failed:`, e);
     const candidateCode = (e as { code?: unknown })?.code;
     const code = typeof candidateCode === "string" && ["guarded_busy", "guarded_branch", "guarded_permissions", "guarded_request_changed", "guarded_request_untracked", "outside_workspace"].includes(candidateCode)
       ? candidateCode : undefined;

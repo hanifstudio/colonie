@@ -546,8 +546,10 @@ export const sectionKey = (section?: string | null): string => section?.trim() |
  * "@New Bot 2" never half-matches "New Bot"), hidden bots skipped, results
  * deduped. Callers pre-filter the sender out of `peers`. */
 export function mentionedBots<T extends { name: string; hidden?: boolean }>(text: string, peers: T[]): T[] {
+  // a record saved without a name (older or hand-edited data) is skipped,
+  // never thrown on: one such bot would stop every message in its group
   const candidates = peers
-    .filter((p) => !p.hidden && p.name.trim())
+    .filter((p) => !p.hidden && typeof p.name === "string" && p.name.trim())
     .sort((a, b) => b.name.length - a.name.length);
   const lower = text.toLowerCase();
   const found: T[] = [];

@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { DATA_DIR } from "../config.ts";
 import { workspaceScope, type WorkspaceScope } from "../runtime/scope.ts";
 import type { ModelSelection } from "../contracts.ts";
-import { Store } from "./store.ts";
+import { mentionedBots, Store } from "./store.ts";
 
 // Persistence reads and writes whatever DATA_DIR points at. The vitest setup
 // (server/testing/setup.ts) gives every test file a throwaway home for exactly
@@ -74,4 +74,9 @@ test("the first bot of a workspace is named like any bot, and leads as Chief of 
   } finally {
     if (before === undefined) delete process.env.COLONIE_PROFILE; else process.env.COLONIE_PROFILE = before;
   }
+});
+
+test("a bot saved without a name is never mentioned and never stops a message", () => {
+  const bots = [{ id: "a", name: "Tango" }, { id: "b" } as unknown as { id: string; name: string }];
+  expect(mentionedBots("@Tango and @ hi", bots).map((bot) => bot.id)).toEqual(["a"]);
 });
