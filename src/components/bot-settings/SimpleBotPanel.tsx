@@ -4,7 +4,7 @@
 // the bot has made in this chat. Every field writes through the same path the
 // full fold-out sections use, and "All settings" opens that full view.
 import { useMemo, useState } from "react";
-import { ChevronRightIcon, FileTextIcon, Image01Icon, MultiplicationSignIcon } from "@hugeicons/core-free-icons";
+import { ChevronRightIcon, FileTextIcon, Image01Icon, MultiplicationSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 
 import { cn } from "@/lib/cn";
@@ -238,28 +238,33 @@ export function SimpleBotPanel({
 
             <div>
               <div className={labelCls}>{t("botSettings.simple.beforeActs", { name: bot.name })}</div>
-              <div className="grid grid-cols-3 gap-3">
+              {/* the same three levels as everywhere else, one per row */}
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("botSettings.simple.beforeActs", { name: bot.name })}>
                 {([
-                  { mode: "ask", title: t("approvalMode.ask.label"), hint: t("botSettings.simple.askHint"), offered: true },
-                  { mode: "auto", title: t("approvalMode.auto.label"), hint: t("botSettings.simple.decideHint"), offered: autoOffered },
-                  { mode: "full", title: t("approvalMode.full.label"), hint: t("botSettings.simple.fullHint"), offered: fullOffered },
+                  { mode: "ask", title: t("approvalMode.ask.label"), hint: t("approvalMode.ask.desc"), offered: true },
+                  { mode: "auto", title: t("approvalMode.auto.label"), hint: t("approvalMode.auto.desc"), offered: autoOffered },
+                  { mode: "full", title: t("approvalMode.full.label"), hint: fullOffered ? t("approvalMode.full.desc") : t("approvalMode.trustedLocalOnly"), offered: fullOffered },
                 ] as const).map((choice) => {
                   const selected = displayedApprovalMode === choice.mode;
                   return (
                     <button
                       key={choice.mode}
                       type="button"
+                      role="radio"
                       data-approval-choice={choice.mode}
-                      aria-pressed={selected}
+                      aria-checked={selected}
                       disabled={Boolean(bot.busy) || !choice.offered}
                       onClick={() => chooseMode(choice.mode)}
                       className={cn(
-                        "flex min-w-0 flex-col items-start gap-0.5 rounded-xl border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                         selected ? "border-accent-border bg-raised-hover" : "border-hairline/40 bg-inset enabled:hover:bg-raised",
                       )}
                     >
-                      <span className="text-[14px] font-medium text-ink">{choice.title}</span>
-                      <span className="text-[12px] text-ink-secondary">{choice.hint}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-medium text-ink">{choice.title}</span>
+                        <span className="block text-[12px] text-ink-secondary">{choice.hint}</span>
+                      </span>
+                      {selected && <HIcon icon={Tick01Icon} size={15} className="shrink-0 text-ink" />}
                     </button>
                   );
                 })}

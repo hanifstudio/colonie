@@ -25,6 +25,7 @@ import { writeComputerPanelView } from "@/lib/computer-panel-view";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
 import { FullAccessWarning } from "../FullAccessWarning";
+import { useDesktopCapabilities } from "../DesktopCapabilities";
 import { t } from "@/lib/i18n";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
@@ -236,6 +237,9 @@ function Members({ conversation, memberBots, bots, onLeft }: {
   conversation: Conversation; memberBots: string[]; bots: Bot[]; onLeft: () => void;
 }) {
   const { dispatch } = useStore();
+  const { capabilities } = useDesktopCapabilities();
+  // Full access needs the installed app's own channel, as in bot settings
+  const fullAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged);
   // Full access is confirmed first, for one bot or for every bot here
   const [fullFor, setFullFor] = useState<string[] | null>(null);
   const { id: conversationId, kind, people } = conversation;
@@ -278,7 +282,7 @@ function Members({ conversation, memberBots, bots, onLeft }: {
             <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
               className="rounded-md border border-hairline/40 bg-inset px-1.5 py-0.5 text-[12px] text-ink-secondary disabled:opacity-50"
               value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
-              {LEVELS.map((mode) => <option key={mode} value={mode}>{levelLabel(mode)}</option>)}
+              {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
             </select>
           </li>
         ))}
@@ -289,7 +293,7 @@ function Members({ conversation, memberBots, bots, onLeft }: {
             title={here.some((bot) => bot.busy) ? t("approvalMode.busy") : undefined}
             onChange={(event) => { if (event.target.value) setLevel(here, event.target.value as ApprovalMode); }}>
             <option value="">Choose…</option>
-            {LEVELS.map((mode) => <option key={mode} value={mode}>{levelLabel(mode)}</option>)}
+            {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
           </select>
           <span className="text-[11.5px] text-ink-tertiary">Changes these bots everywhere, not only here.</span>
         </label>

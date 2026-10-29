@@ -143,7 +143,10 @@ export function ApprovalModeSelector({
   const current = approvalModeOptionsFor(driverKind).find((option) => option.mode === mode)
     ?? allOptions.find((option) => option.mode === mode)
     ?? allOptions[0];
-  const visibleOptions = approvalModeOptionsFor(driverKind, trustedModesAvailable);
+  // the same three levels everywhere; Full access shows even where it cannot
+  // be turned on, greyed with the reason, so no place offers only two
+  const visibleOptions = approvalModeOptionsFor(driverKind);
+  const unavailable = (option: ApprovalModeOption) => option.mode === "full" && !trustedModesAvailable;
   const requiresLocalDesktop = approvalModeSelectionRequiresLocalDesktop(
     mode,
     trustedModesAvailable,
@@ -242,24 +245,25 @@ export function ApprovalModeSelector({
             {visibleOptions.map((option) => {
               const selected = option.mode === mode;
               const Icon = option.Icon;
+              const locked = modesDisabled || unavailable(option);
               return (
                 <Fragment key={option.mode}>
                   <button
                     type="button"
                     role="menuitemradio"
                     aria-checked={selected}
-                    disabled={modesDisabled}
+                    disabled={locked}
                     title={
                       disabled ? t("approvalMode.busy") : requiresLocalDesktop ? t("approvalMode.customLocalOnly") : undefined
                     }
                     onClick={() => {
-                      if (modesDisabled) return;
+                      if (locked) return;
                       onSelect(option.mode);
                       setOpen(false);
                     }}
                     className={cn(
                       "flex items-start gap-3 px-4 py-3 text-left hover:bg-raised-hover",
-                      modesDisabled && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                      locked && "cursor-not-allowed opacity-45 hover:bg-transparent",
                     )}
                   >
                     <HIcon icon={Icon} size={18} className="mt-0.5 shrink-0 opacity-80" />
@@ -269,7 +273,7 @@ export function ApprovalModeSelector({
                         {selected && <HIcon icon={Tick01Icon} size={15} className="shrink-0" />}
                       </span>
                       <span className="text-[12.5px] leading-snug text-ink-secondary">
-                        {option.description}
+                        {unavailable(option) ? (trustedModesNotice ?? t("approvalMode.trustedLocalOnly")) : option.description}
                       </span>
                     </span>
                   </button>
@@ -278,7 +282,7 @@ export function ApprovalModeSelector({
               );
             })}
             {!visibleOptions.some((option) => option.mode === "full") && allowlistAction}
-            {!trustedModesAvailable && (trustedModesNotice || driverKind === "codex" || driverKind === "antigravityAgent" || requiresLocalDesktop) && (
+            {!trustedModesAvailable && (driverKind === "antigravityAgent" || requiresLocalDesktop) && (
               <div className="border-t border-hairline/20 px-4 py-2.5 text-[11.5px] leading-snug text-ink-secondary">
                 {trustedModesNotice ?? (requiresLocalDesktop
                   ? t("approvalMode.customLocalOnlyDot")
