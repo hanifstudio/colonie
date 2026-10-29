@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { mentionChoicesForQuery, mentionQueryAt, replaceMentionQuery } from "./mentions";
+import { mentionChoicesForQuery, mentionQueryAt, mentionRanges, replaceMentionQuery } from "./mentions";
 
 test("mention queries follow a collapsed caret, including multiword and long names", () => {
   const text = "Before @Hilmi Anugrah Bela Negara after";
@@ -38,4 +38,10 @@ test("editing inside an existing mention replaces its whole name, keeping punctu
   expect(replaceMentionQuery(text, mentionQueryAt(text, 8)!, "Bob Hartono").text).toBe("Hi @Bob Hartono, thanks");
   const word = "@小林さくら next";
   expect(replaceMentionQuery(word, mentionQueryAt(word, 3)!, "小林さくら").text).toBe("@小林さくら next");
+});
+
+test("a peer without a name is never highlighted or offered, and never breaks the chat", () => {
+  const peers = [{ name: "Tango" }, { name: undefined } as unknown as { name: string }];
+  expect(mentionRanges("@Tango hi", peers)).toHaveLength(1);
+  expect(mentionChoicesForQuery(peers, "").map((peer) => peer.name)).toEqual(["Tango"]);
 });

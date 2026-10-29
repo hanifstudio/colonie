@@ -35,8 +35,8 @@ export function mentionChoicesForQuery<T extends { name: string }>(pool: readonl
   const normalized = query.trim().toLowerCase();
   // "@Scout " is a completed tag, not a new search. Closing here lets Enter
   // send instead of selecting the same bot again.
-  if (/\s$/u.test(query) && pool.some((choice) => choice.name.toLowerCase() === normalized)) return [];
-  return pool.filter((choice) => !normalized || choice.name.toLowerCase().includes(normalized));
+  if (/\s$/u.test(query) && pool.some((choice) => typeof choice.name === "string" && choice.name.toLowerCase() === normalized)) return [];
+  return pool.filter((choice) => typeof choice.name === "string" && (!normalized || choice.name.toLowerCase().includes(normalized)));
 }
 
 /** Second line of a mention row. A bot shows its title. @everyone shows how
@@ -63,7 +63,7 @@ export function mentionRowDescription(detail: MentionRowDetail): string {
 /** Display word-start, longest-name matches without coloring Unicode prefixes.
  * Keep offsets in the original string so casing and Unicode remain intact. */
 export function mentionRanges(text: string, peers: readonly MentionPeer[], everyone = false): MentionRange[] {
-  const candidates = peers.filter((p) => !p.hidden && p.name.trim())
+  const candidates = peers.filter((p) => !p.hidden && typeof p.name === "string" && p.name.trim())
     .sort((a, b) => b.name.length - a.name.length);
   const ranges: MentionRange[] = [];
   let at = -1;

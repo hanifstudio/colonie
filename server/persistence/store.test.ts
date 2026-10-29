@@ -80,3 +80,9 @@ test("a bot saved without a name is never mentioned and never stops a message", 
   const bots = [{ id: "a", name: "Tango" }, { id: "b" } as unknown as { id: string; name: string }];
   expect(mentionedBots("@Tango and @ hi", bots).map((bot) => bot.id)).toEqual(["a"]);
 });
+
+test("a bot saved without a name gets one back when the workspace loads", () => {
+  const scope = scopeWithBots([{ id: "a" } as unknown as { id: string; name: string }, { id: "b", title: "Researcher" } as unknown as { id: string; name: string }]);
+  const bots = new Store(selection, undefined, undefined, scope).bots;
+  expect(bots.map((bot) => [bot.name, bot.title])).toEqual([["Bot", ""], ["Researcher", "Researcher"]]);
+});

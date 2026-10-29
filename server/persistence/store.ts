@@ -682,6 +682,15 @@ export class Store {
         b.soul = "";
         botsMigrated = true;
       }
+      // a bot saved without its words (older or hand-edited data) gets them
+      // back here, so no screen or message trips on a missing name
+      for (const field of ["title", "description"] as const) {
+        if (typeof b[field] !== "string") { b[field] = ""; botsMigrated = true; }
+      }
+      if (typeof b.name !== "string" || !b.name.trim()) {
+        b.name = b.title.trim() || "Bot";
+        botsMigrated = true;
+      }
       if (b.soulHash !== soulHash(b.soul)) {
         b.soulHash = soulHash(b.soul);
         botsMigrated = true;
