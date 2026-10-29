@@ -23,7 +23,7 @@ export function createProcessLifecycle(deps: ProcessLifecycleDeps) {
     DELEGATION_SWEEP_MS, PORT, browserLive, browserRuntime, bus, calendarCalls, colonieChief,
     colonieMemory, commsBus, connectedTools, desktopViewer, drainQueuedSends,
     drainThreadDelegations, enginesRead, expireDelegationsNow,
-    forgetTemporaryBrowser, liveCalls, localVmIdles, mcpOAuth, memoryUpkeep, registry,
+    forgetTemporaryBrowser, liveCalls, localVmIdles, mcpOAuth, memoryUpkeep, registry, stopLocalVmsOnQuit,
     releaseDataDirLeaseAtExit, revokeAllInternalCapabilities, routines, server, sessions,
     sharedComputerControl, sharedComputers, shuttingDown, store, temporaryBrowserSessions,
     watchdog, webhookIngress, workspaceAccessTimer, setFollowupsReady, setShuttingDown
@@ -88,6 +88,7 @@ const gracefulShutdown = createGracefulShutdown({
       webhookIngress()?.server.close();
     },
     async () => { await registry.disposeAll(); },
+    () => stopLocalVmsOnQuit(),
     async () => {
       await Promise.all([...temporaryBrowserSessions.keys()].map((botId) => forgetTemporaryBrowser(botId)));
       await browserRuntime.closeAll();

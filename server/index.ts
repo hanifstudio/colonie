@@ -1400,7 +1400,7 @@ const localVmIdleMs = () => localVmIdleTimeoutMinutes(cfg) * 60_000;
  * status it has rather than hanging on a container that will not come up. */
 const LOCAL_VM_DESKTOP_WAIT_MS = 90_000;
 const localVmIdles = new Map<string, LocalVmIdleTimer>();
-const { botComputerControlKey, botComputerControlSnapshot, teamComputerInUse, mountHostComputer, botHasActiveTurn, turnSurfacePlan, computerPreviewBot, computerPreviewSurface, continueComputerSelection, runningTurnEngines, runningTurnInstance, localVmTargetForBot, localVmPoolSeatHolder, localVmTargetForThread, localVmTargetForStatus, localVmLeaseFor, localVmIdleFor, releaseLocalVmThread, localVmInventoryPayload } = createLocalVmState({
+const { stopLocalVmsOnQuit, botComputerControlKey, botComputerControlSnapshot, teamComputerInUse, mountHostComputer, botHasActiveTurn, turnSurfacePlan, computerPreviewBot, computerPreviewSurface, continueComputerSelection, runningTurnEngines, runningTurnInstance, localVmTargetForBot, localVmPoolSeatHolder, localVmTargetForThread, localVmTargetForStatus, localVmLeaseFor, localVmIdleFor, releaseLocalVmThread, localVmInventoryPayload } = createLocalVmState({
   autoVmClaims,
   bindTurnComputer,
   cfg,
@@ -2456,6 +2456,7 @@ createBootRecovery({
 }
 
 createProcessLifecycle({
+  stopLocalVmsOnQuit,
   DELEGATION_SWEEP_MS,
   PORT,
   browserLive,

@@ -4,10 +4,10 @@
 
 A new person asks a bot for a site that refuses the simple browser; the bot
 offers its computer; they install one free app; the computer sets itself up
-and the bot finishes the task. Built; seen in the desktop app up to the
-desktop showing. Left: a signed-in bot choosing use_computer, Take control's
-viewer (two Local VMs on one Mac both publish 127.0.0.1:6080 and the viewer
-reaches the wrong one), Podman Desktop on a real Mac. Shared servers come next.
+and the bot finishes the task. Built and seen in the desktop app: setup,
+desktop, Take control, the computer stopping when Colonie quits. Left: a
+signed-in bot choosing use_computer, Podman Desktop on a real Mac, quitting
+the packaged app. Shared servers come next.
 
 ## Next: verify routines, guides, and group replies with real engines
 

@@ -2,7 +2,7 @@
 import { type TurnOwner } from "../../colonie/chat/turn-resources.ts";
 import { type LocalVmSeatHolder } from "../../colonie/computer/local-vm-seat-pool.ts";
 import { hasQueuedSteeredMessages } from "../../colonie/chat/steer-queue.ts";
-import { SHARED_LOCAL_VM_TARGET, autoLocalVmAttachable, containerComputerAction, containerComputerStatus, containerRuntimeStatus, localVmWorkspaceExists, perBotLocalVmTarget, poolLocalVmTarget, type LocalVmTarget} from "../../colonie/computer/container-computer.ts";
+import { SHARED_LOCAL_VM_TARGET, autoLocalVmAttachable, containerComputerAction, containerComputerStatus, containerRuntimeStatus, localVmWorkspaceExists, perBotLocalVmTarget, poolLocalVmTarget, stopContainerDetached, type LocalVmTarget} from "../../colonie/computer/container-computer.ts";
 import { LocalVmIdleTimer } from "../../colonie/computer/local-vm-idle.ts";
 import { discoverExistingPerBotLocalVms, discoverExistingPoolLocalVms, localVmInventoryEntry, shouldArmLocalVmIdle } from "../../colonie/computer/local-vm-inventory.ts";
 import { LocalVmLease } from "../../colonie/computer/local-vm-lease.ts";
@@ -180,7 +180,21 @@ function localVmLeaseFor(target: LocalVmTarget): LocalVmLease {
   return localVmLeases.forTarget(target.key);
 }
 
+/** Every desktop this server armed an idle stop for, to stop on quit. */
+const idleTargets = new Map<string, LocalVmTarget>();
+
+/** Colonie is quitting: stop the desktops it may have running, so they do
+ * not hold the person's memory with nothing left to watch them (owner,
+ * October 29: the computer turns itself off when not in use). */
+async function stopLocalVmsOnQuit(): Promise<void> {
+  if (!idleTargets.size) return;
+  const runtime = (await containerRuntimeStatus().catch(() => null))?.runtime;
+  if (!runtime) return;
+  for (const target of idleTargets.values()) stopContainerDetached(runtime, target.containerName);
+}
+
 function localVmIdleFor(target: LocalVmTarget): LocalVmIdleTimer {
+  idleTargets.set(target.key, target);
   let idle = localVmIdles.get(target.key);
   if (idle) return idle;
   idle = new LocalVmIdleTimer(
@@ -308,6 +322,7 @@ async function localVmInventoryPayload() {
 
 
   return {
+    stopLocalVmsOnQuit,
     botComputerControlKey,
     botComputerControlSnapshot,
     teamComputerInUse,

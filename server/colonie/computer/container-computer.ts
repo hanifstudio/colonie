@@ -5,7 +5,7 @@
 // harness. Desktop automation itself is Cua Driver. Agents connect directly to
 // `cua-driver mcp` inside the container; this module never reimplements clicks,
 // typing, screenshots, accessibility, or window discovery.
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -262,6 +262,18 @@ export interface ContainerRuntimeStatus {
 
 /** Inspect only the host runtime. Unlike a full Local VM status check, this
  * never opens a container, calls Cua, or reads a desktop screenshot. */
+/** Stop a Local VM in a process of its own that outlives this server, for
+ * quitting: the desktop's memory goes back to the person's Mac without the
+ * quit waiting on the container's own shutdown. Its home and installed
+ * software stay, as an idle stop keeps them. */
+export function stopContainerDetached(runtime: Runtime, containerName: string): void {
+  if (!/^[a-zA-Z0-9_.-]+$/.test(containerName)) return;
+  const resolved = resolveCliSpawn(runtime, ["stop", containerName]);
+  try {
+    spawn(resolved.command, resolved.args, { detached: true, stdio: "ignore", env: { ...process.env, PATH: augmentedPath() } }).unref();
+  } catch { /* quitting anyway; the next start's idle timer stops it */ }
+}
+
 /** The Podman machine's memory: the 4 GB desktop plus room for the VM itself. */
 const PODMAN_MACHINE_MEMORY_MB = 6144;
 
@@ -1029,7 +1041,10 @@ export function containerRunArgs(
     "-e",
     `VNC_PW=${password}`,
     "-p",
-    target.viewerPort
+    // Only Apple's container needs the fixed host port. Docker and Podman
+    // take a free one, read back from the container, so a second Colonie or
+    // workspace's desktop on this Mac never answers this one's viewer.
+    target.viewerPort && runtime === "container"
       ? `127.0.0.1:${target.viewerPort}:${INTERNAL_VIEWER_PORT}`
       : `127.0.0.1::${INTERNAL_VIEWER_PORT}`,
     IMAGE,
