@@ -314,7 +314,10 @@ export function ComputerPanel({
   const browserEnabled = builtInBrowserEnabled(state.config) && bot.browser !== false
     && (browserAvailableHere || state.config?.browserEngine?.installable === true);
   // The Computer panel shows the bot's computer, as in OpenMausBot (shownComputerPanelView).
-  const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser";
+  // A desktop the bot can use: not while this Mac lacks the container app,
+  // when the bot still browses with its simple browser and needs that tab.
+  const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser"
+    && !(vmStatus !== null && !vmStatus.runtime);
   const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
   const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop });
   const androidStatus = useAndroidUsbDevices();
