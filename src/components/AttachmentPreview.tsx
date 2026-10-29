@@ -24,6 +24,7 @@ import {
 } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
+import { filePreviewKind, previewFilename } from "@/lib/file-preview";
 import { TableFileButton } from "./TableFilePreview";
 
 export interface PreviewImage {
@@ -45,6 +46,8 @@ export interface FilePreviewTarget {
   messageId: string;
   path: string;
   name: string;
+  /** A local Markdown image keeps its existing offset-scoped GET grant. */
+  sourceOffset?: number;
 }
 
 /** Who opens the reading panel for a file link. Null outside chat: the
@@ -52,43 +55,13 @@ export interface FilePreviewTarget {
  * rendering without a store. */
 const FilePreviewScopeContext = createContext<((target: FilePreviewTarget) => void) | null>(null);
 
+export function useFilePreview() { return useContext(FilePreviewScopeContext); }
+
 export function FilePreviewScope({ onPreview, children }: {
   onPreview: (target: FilePreviewTarget) => void;
   children: ReactNode;
 }) {
   return <FilePreviewScopeContext.Provider value={onPreview}>{children}</FilePreviewScopeContext.Provider>;
-}
-
-/** Markdown cap for the in-app reading panel (1 MB). Downloads stay uncapped. */
-// ponytail: ceiling is arbitrary; raise it (and the panel's virtualization) when large-doc preview is requested.
-export const MARKDOWN_PREVIEW_MAX_BYTES = 1_000_000;
-
-/** Only Markdown opens in the reading panel; every other document stays save-only. */
-export function isMarkdownPreviewPath(path: string): boolean {
-  const stem = path.split(/[?#]/, 1)[0] ?? path;
-  return /\.(?:md|markdown)$/i.test(stem);
-}
-
-/** Bounded text read for the reading panel; mirrors the table preview's size guard. */
-export async function readMarkdownResponse(response: Response, signal: AbortSignal): Promise<string> {
-  if (Number(response.headers.get("content-length")) > MARKDOWN_PREVIEW_MAX_BYTES) {
-    await response.body?.cancel(); throw new Error("size");
-  }
-  const reader = response.body?.getReader();
-  if (!reader) return "";
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  let size = 0, text = "";
-  try {
-    for (;;) {
-      signal.throwIfAborted();
-      const part = await reader.read();
-      if (part.done) break;
-      size += part.value.byteLength;
-      if (size > MARKDOWN_PREVIEW_MAX_BYTES) throw new Error("size");
-      text += decoder.decode(part.value, { stream: true });
-    }
-    return text + decoder.decode();
-  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
 export function previewImage(path: string, name = attachmentBasename(path)): PreviewImage | null {
@@ -276,27 +249,6 @@ export async function requestMessageFile(
     throw Object.assign(new Error(body?.error ?? t("attach.downloadFailed")), { code: body?.code });
   }
   return response;
-}
-
-/** A Markdown file's "Preview" button: opens the reading panel instead of downloading. */
-export function MarkdownPreviewButton({ path, name, message }: {
-  path: string;
-  name: string;
-  message: MessageAttachmentContext;
-}) {
-  const onPreview = useContext(FilePreviewScopeContext);
-  if (!onPreview || !isMarkdownPreviewPath(path)) return null;
-  return (
-    <button
-      type="button"
-      className="table-action"
-      title={t("attach.previewFile", { name })}
-      aria-label={t("attach.previewFile", { name })}
-      onClick={() => onPreview({ threadId: message.threadId, messageId: message.messageId, path, name })}
-    >
-      <HIcon icon={EyeIcon} size={14} />
-    </button>
-  );
 }
 
 /** Shared save state for transcript file chips and bot-authored file links. */
@@ -877,6 +829,7 @@ export function MarkdownImagePreview({
   sourceOffset?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const onPreview = useFilePreview();
   const containerRef = useRef<HTMLSpanElement>(null);
   const threadId = message?.threadId;
   const messageId = message?.messageId;
@@ -940,7 +893,11 @@ export function MarkdownImagePreview({
             <HIcon icon={ImageOffIcon} size={17} /> {t("attach.oldImage")}
           </span>
         ) : visibleSource ? (
-          <AttachmentThumbnail key={image.src} image={image} onPreview={() => setOpen(true)} className="max-h-96" eager />
+          <AttachmentThumbnail key={image.src} image={image} onPreview={() => {
+            if (onPreview && localMessageImage && message && filePath && localSourceOffset !== null) {
+              onPreview({ ...message, path: filePath, name: previewFilename(filePath) || name, sourceOffset: localSourceOffset });
+            } else setOpen(true);
+          }} className="max-h-96" eager />
         ) : (
           <span className="flex aspect-[4/3] max-h-96 animate-pulse items-center justify-center rounded-xl border border-hairline/40 bg-inset" role="status">
             <HIcon icon={Loading02Icon} size={17} className="animate-spin text-ink-tertiary" />
@@ -966,6 +923,8 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
   className?: string;
 }) {
   const save = useLocalFileSave(file.path, file.name, message);
+  const onPreview = useFilePreview();
+  const canPreview = Boolean(onPreview && filePreviewKind(file.path));
   const failed = save.state === "failed";
   if (!message || (!file.private && !linked)) {
     return (
@@ -984,10 +943,10 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
       <div className="flex items-center pe-1">
         <button
           type="button"
-          onClick={() => void save.save()}
+          onClick={() => canPreview && message ? onPreview?.({ ...message, path: file.path, name: file.name }) : void save.save()}
           disabled={save.state === "saving"}
           aria-label={
-            failed
+            canPreview ? t("attach.previewFile", { name: file.name }) : failed
               ? t("attach.retrySaveAria", { name: file.name })
               : t("attach.saveAria", { name: file.name })
           }
@@ -995,7 +954,7 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
         >
           <HIcon icon={FileTextIcon} size={14} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
-          {save.state === "saving" ? (
+          {canPreview ? <HIcon icon={EyeIcon} size={13} className="shrink-0" /> : save.state === "saving" ? (
             <HIcon icon={Loading02Icon} size={13} className="shrink-0 animate-spin" />
           ) : save.state === "saved" ? (
             <HIcon icon={Tick01Icon} size={13} className="shrink-0 text-success" />
@@ -1005,7 +964,7 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
             <HIcon icon={Download01Icon} size={13} className="shrink-0" />
           )}
         </button>
-        <MarkdownPreviewButton path={file.path} name={file.name} message={message} />
+        {canPreview && <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className="table-action" title={t("attach.saveAria", { name: file.name })} aria-label={t("attach.saveAria", { name: file.name })}><HIcon icon={Download01Icon} size={14} /></button>}
         <TableFileButton path={file.path} name={file.name} message={message} />
       </div>
       {save.state !== "idle" && (

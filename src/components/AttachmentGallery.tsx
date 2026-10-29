@@ -17,6 +17,7 @@ import {
   previewImage,
   requestMessageFile,
   safeDownloadFilename,
+  useFilePreview,
   type MessageAttachmentContext,
   type PreviewImage,
 } from "./AttachmentPreview";
@@ -322,7 +323,7 @@ function AudioAttachment({ file, message }: { file: GalleryFile; message: Messag
 }
 
 type GalleryItem = { key: string } & (
-  | { kind: "image"; image: PreviewImage }
+  | { kind: "image"; image: PreviewImage; path: string }
   | { kind: "video" | "audio" | "file"; file: GalleryFile }
 );
 
@@ -335,6 +336,7 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
 }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<PreviewImage | null>(null);
+  const onPreview = useFilePreview();
   const items = useMemo(() => {
     const seen = new Set<string>();
     const result: GalleryItem[] = [];
@@ -346,7 +348,7 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
       const image = typeof reference === "string" || reference.private
         ? previewImage(path, typeof reference === "string" ? undefined : reference.name)
         : null;
-      if (image) result.push({ key, kind: "image", image });
+      if (image) result.push({ key, kind: "image", image, path });
       else result.push({ key, kind: "file", file: typeof reference === "string" ? { path, name: attachmentBasename(path) } : reference });
     }
     for (const file of files) {
@@ -370,7 +372,10 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
         <div className={cn("grid gap-2", media.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
           {media.map((item) => item.kind === "image" ? (
             <div key={item.key} className="min-w-0" title={item.image.name}>
-              <AttachmentThumbnail key={item.image.src} image={item.image} eager={eager} onPreview={() => setSelected(item.image)} className="max-h-72 rounded-2xl border-0 bg-transparent" />
+              <AttachmentThumbnail key={item.image.src} image={item.image} eager={eager} onPreview={() => {
+                if (onPreview && message) onPreview({ ...message, path: item.path, name: item.image.name });
+                else setSelected(item.image);
+              }} className="max-h-72 rounded-2xl border-0 bg-transparent" />
             </div>
           ) : item.kind === "video" && message ? (
             <VideoAttachment key={`${message.threadId}:${message.messageId}:${item.key}`} file={item.file} message={message} />

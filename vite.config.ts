@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { hostTimeout } from "./server/testing/host-timeout.ts";
+import { filePreviewAssets } from "./scripts/file-preview-assets.ts";
 
 // The About dialog shows the shipped version; package.json is the one place
 // it is already maintained, so it is inlined at build time rather than
@@ -13,10 +14,13 @@ const { version } = JSON.parse(
 ) as { version: string };
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), filePreviewAssets()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
+  // BetterOffice's document engine and its WASM helpers use module workers.
+  worker: { format: "es" },
+  optimizeDeps: { exclude: ["@betteroffice/docx", "@betteroffice/docx-react", "@betteroffice/fonts"] },
   test: {
     environment: "node",
     include: [

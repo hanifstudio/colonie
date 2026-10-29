@@ -175,6 +175,8 @@ const STATIC_DIR = process.env.COLONIE_STATIC_DIR || null;
 const MIME: Record<string, string> = {
   ".html": "text/html",
   ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".wasm": "application/wasm",
   ".css": "text/css",
   ".txt": "text/plain; charset=utf-8",
   ".svg": "image/svg+xml",
@@ -182,6 +184,8 @@ const MIME: Record<string, string> = {
   ".ico": "image/x-icon",
   ".json": "application/json",
   ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".ttf": "font/ttf",
 };
 
 ensureDirs();

@@ -36,7 +36,8 @@ import { repairMarkdownTables } from "../lib/markdown-tables";
 import { TRANSCRIPT_WINDOW_SIZE } from "../lib/transcript-window";
 import { windowsPathDestinations } from "../../shared/markdown-windows-paths";
 import { looksLikeThreadRefUrl, parseThreadRefUrl, resolveThreadRefAddress, remarkThreadRefs } from "../lib/thread-refs";
-import { MarkdownImagePreview, MarkdownPreviewButton, MessageFolderFiles, OutsideWorkspaceFile, useLocalFileSave, type MessageAttachmentContext } from "./AttachmentPreview";
+import { MarkdownImagePreview, MessageFolderFiles, OutsideWorkspaceFile, useFilePreview, useLocalFileSave, type MessageAttachmentContext } from "./AttachmentPreview";
+import { filePreviewKind, previewFilename } from "@/lib/file-preview";
 import { ThreadLink, ThreadRefsContext, threadLinkFromProps, type ThreadRefsValue } from "./ThreadRefs";
 import { MarkdownTable } from "./MarkdownTable";
 import { TableFileButton } from "./TableFilePreview";
@@ -669,6 +670,9 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 // process' containment check.
 function LocalFileLink({ filePath, children, message }: { filePath: string; children?: ReactNode; message?: MessageAttachmentContext }) {
   const save = useLocalFileSave(filePath, undefined, message);
+  const onPreview = useFilePreview();
+  const canPreview = Boolean(onPreview && filePreviewKind(filePath));
+  const name = previewFilename(filePath);
   if (!message) {
     return <span title="Unavailable legacy file reference" className="break-words text-ink-secondary">{children}</span>;
   }
@@ -683,16 +687,15 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
   return (
     <span dir="ltr" className="inline-flex flex-wrap items-center gap-x-1.5 [unicode-bidi:isolate]">
       <TableFileButton path={filePath} name={filePath.split(/[\\/]/).at(-1) ?? filePath} message={message} />
-      <MarkdownPreviewButton path={filePath} name={filePath.split(/[\\/]/).at(-1) ?? filePath} message={message} />
       <button
         type="button"
-        onClick={() => void save.save()}
-        disabled={save.state === "saving"}
-        title="Save a copy"
+        onClick={() => canPreview ? onPreview?.({ ...message, path: filePath, name }) : void save.save()}
+        disabled={!canPreview && save.state === "saving"}
+        title={canPreview ? t("attach.previewFile", { name }) : "Save a copy"}
         className="inline-flex items-center gap-1 break-words text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait"
       >
         {children}
-        {save.state === "saving" ? (
+        {canPreview ? null : save.state === "saving" ? (
           <HIcon icon={Loading02Icon} size={12} className="shrink-0 animate-spin" aria-hidden="true" />
         ) : save.state === "saved" ? (
           <HIcon icon={Tick01Icon} size={12} className="shrink-0 text-success" aria-hidden="true" />
@@ -702,6 +705,7 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
           <HIcon icon={Download01Icon} size={12} className="shrink-0" aria-hidden="true" />
         )}
       </button>
+      {canPreview && <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className="table-action" title={t("attach.saveAria", { name })} aria-label={t("attach.saveAria", { name })}><HIcon icon={Download01Icon} size={12} /></button>}
       {label && (
         <span
           role={save.state === "failed" ? "alert" : "status"}

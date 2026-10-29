@@ -879,7 +879,7 @@ export interface AppState {
   inspectorOpen: boolean;
   activityOpen: boolean;
   /** a Markdown file opened from chat for in-app reading: which message shared it */
-  filePreview: { threadId: string; messageId: string; path: string; name: string } | null;
+  filePreview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number } | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
   shortcutsOpen: boolean;
@@ -1130,7 +1130,7 @@ export type Action =
   | { type: "toggleComputer"; open?: boolean; botId?: string }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "toggleActivity"; open?: boolean }
-  | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string } }
+  | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number } }
   | { type: "closeFilePreview" }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
@@ -1477,7 +1477,7 @@ export function reducer(state: AppState, action: Action): AppState {
         config: { ...state.config, profile: { name: "", email: "", ...state.config.profile, ...action.profile } },
       } : state;
     case "selectConversation":
-      return { ...state, activeView: "chat", selectedConversationId: action.id ?? undefined };
+      return { ...state, activeView: "chat", selectedConversationId: action.id ?? undefined, filePreview: null };
     case "select": {
       state = { ...state, selectedConversationId: undefined };
       return updateBot(
