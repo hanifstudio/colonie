@@ -115,22 +115,30 @@ export function ConversationView({ id }: { id: string }) {
           writeComputerPanelView(botId, "browser");
           dispatch({ type: "toggleComputer", open: true, botId });
         }} />}
-        <button type="button" onClick={() => setFilesOpen((open) => !open)} aria-expanded={filesOpen}
-          className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
-          Files
-        </button>
-        <button type="button" onClick={() => setMembersOpen((open) => !open)} aria-expanded={membersOpen}
-          className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
-          {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
-        </button>
+        {/* Files and Members open just under their buttons, over the
+            transcript, so a long conversation never hides them up top */}
+        <div className="relative flex items-center gap-2">
+          <button type="button" onClick={() => { setFilesOpen((open) => !open); setMembersOpen(false); }} aria-expanded={filesOpen}
+            className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
+            Files
+          </button>
+          <button type="button" onClick={() => { setMembersOpen((open) => !open); setFilesOpen(false); }} aria-expanded={membersOpen}
+            className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">
+            {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
+          </button>
+          {(membersOpen || filesOpen) && (
+            <div className="absolute right-0 top-full z-40 mt-2 max-h-[70vh] w-[min(42rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl shadow-2xl shadow-black/50">
+              {membersOpen && <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots}
+                onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
+              {filesOpen && <ProjectFiles conversation={conversation} messages={messages} />}
+            </div>
+          )}
+        </div>
         </>
       ),
       beforeMessages: (
         <>
           {stopError && <p role="alert" className="px-4 py-2 text-sm text-ink-secondary">{stopError}</p>}
-          {membersOpen && <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots}
-            onLeft={() => { setMembersOpen(false); dispatch({ type: "selectConversation", id: null }); }} />}
-          {filesOpen && <ProjectFiles conversation={conversation} messages={messages} />}
           {!messages && <div className="flex justify-center py-8"><HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" /></div>}
         </>
       ),
