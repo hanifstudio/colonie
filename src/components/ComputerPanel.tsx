@@ -100,6 +100,8 @@ interface LocalVmStatus {
   runtime?: string | null;
   /** This machine's memory, for the offer to install. */
   host_memory_bytes?: number;
+  /** False on a Shared workspace's server, which runs no bot computer yet. */
+  computer_supported?: boolean;
   /** Optional: a hosted server can lag behind this app. */
   resumable?: boolean;
   stop_reason?: "idle" | null;
@@ -319,7 +321,7 @@ export function ComputerPanel({
   // A desktop the bot can use: not while this Mac lacks the container app,
   // when the bot still browses with its simple browser and needs that tab.
   const hasDesktop = bot.computer !== undefined && bot.computer !== "off" && bot.computer !== "browser"
-    && !(vmStatus !== null && !vmStatus.runtime);
+    && !(vmStatus !== null && (!vmStatus.runtime || vmStatus.computer_supported === false));
   const [storedPanelView, setPanelView] = useState<ComputerPanelView>(() => readComputerPanelView(bot.id));
   const panelView = shownComputerPanelView(storedPanelView, { advanced, hasDesktop });
   const androidStatus = useAndroidUsbDevices();
@@ -512,7 +514,7 @@ export function ComputerPanel({
                 setPhase("vm-unavailable");
               });
           }
-          else if (!advanced && !status.runtime) {
+          else if (!advanced && (!status.runtime || status.computer_supported === false)) {
             // no container app on this Mac: the install card says what to do
             setError(null);
             setPhase("vm-unavailable");
@@ -909,7 +911,8 @@ export function ComputerPanel({
     else updateComputerSelection({ computer: mode });
   };
 
-  const installNeeded = !advanced && phase === "vm-unavailable" && vmStatus !== null && !vmStatus.runtime;
+  const installNeeded = !advanced && phase === "vm-unavailable" && vmStatus !== null && !vmStatus.runtime && vmStatus.computer_supported !== false;
+  const noServerComputer = !advanced && phase === "vm-unavailable" && vmStatus?.computer_supported === false;
   const tabClass = (active: boolean) => cn(
     "flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] transition-colors",
     active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
@@ -1127,6 +1130,7 @@ export function ComputerPanel({
                       : t("computer.capturingLocal")
                     : vmResumable
                       ? t(pending === "vm-start" ? "vm.setup.starting" : "computer.phase.vmStopped")
+                      : noServerComputer ? t("computer.sharedLater", { name: bot.name })
                       : emptyState[phase]}
               </span>
               {phase === "local" && !isLinux && localMisses >= 3 && (
@@ -1158,7 +1162,14 @@ export function ComputerPanel({
                 <p className="text-[12px]">{t(vmStatus?.stop_reason === "idle" ? "vm.stopped.idle" : "vm.stopped.detail")}</p>
               )}
               {phase === "vm-unavailable" && (
-                canManageVm && vmResumable && vmStatus.mode !== "pool" ? (
+                noServerComputer ? (
+                  <button
+                    onClick={() => selectPanelView("browser")}
+                    className="mt-1 rounded-lg bg-control px-3 py-1.5 text-[12px] text-ink hover:bg-raised-hover"
+                  >
+                    {t("computer.openBrowserTab")}
+                  </button>
+                ) : canManageVm && vmResumable && vmStatus.mode !== "pool" ? (
                   <button
                     onClick={() => void runVmAction("vm-start")}
                     disabled={pending !== null}

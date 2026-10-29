@@ -1851,6 +1851,7 @@
   "computer.phase.checking": "Checking…",
   "computer.phase.settingUp": "Setting up {name}'s computer. The first time takes a few minutes.",
   "computer.turnOn": "Let {name} use its computer",
+  "computer.sharedLater": "{name} uses its browser here. Computers for bots on a Shared workspace come later.",
   "computer.ask.title": "{name} needs its own computer for this",
   "computer.ask.body": "With its own computer, {name} can open websites like a person does. It needs one free app on your Mac.",
   "computer.ask.later": "Not now. You can set it up later from the computer button at the top of the chat.",

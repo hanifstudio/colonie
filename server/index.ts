@@ -952,6 +952,7 @@ const colonieChief = new ColonieChief({
   // (continueComputerSelection); without it, the person gets one offer card,
   // never again after "Not now".
   useComputer: async (botId, threadId, reason) => {
+    if (workspaceKind.shared()) return { state: "unavailable", summary: "This Shared workspace's server has no computer for bots yet. Carry on with your browser and other tools, and say plainly what you could not do." };
     if (store.taskByThread(botId, threadId)?.surface === "vm") return { state: "already", summary: "You already work on your computer in this conversation; use its tools." };
     const runtime = await containerRuntimeStatus();
     if (!runtime.runtime) {
@@ -2085,6 +2086,7 @@ bus.subscribe((event: RuntimeEvent) => {
 });
 
 const { localVmPayload, readyLocalVmForTurn, existingPerBotLocalVmCount, perBotLocalVmCountForModeChange, configStatus, configForAccess, engineMcpServers, persistMcpServers, describeInstances, persistProviderInstance, reloadProviders } = createConfigStatus({
+  sharedWorkspace: () => workspaceKind.shared(),
   LOCAL_VM_DESKTOP_WAIT_MS,
   broadcast,
   browserEngineSummary,

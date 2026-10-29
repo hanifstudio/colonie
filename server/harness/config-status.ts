@@ -31,7 +31,7 @@ export interface ConfigStatusDeps {
 
 export function createConfigStatus(deps: ConfigStatusDeps) {
   const {
-    LOCAL_VM_DESKTOP_WAIT_MS, broadcast, browserEngineSummary, cfg, localVmIdleMs,
+    LOCAL_VM_DESKTOP_WAIT_MS, broadcast, browserEngineSummary, cfg, localVmIdleMs, sharedWorkspace,
     localVmLifecycleBusy, localVmProvisionBusy, mcpOAuth, noteLocalVmSeen, providerConfigs,
     registry, retryComputerEngineMove, store, bus,
     cancelDirectTurnDispatch, directTurnBots, drainComputerResumes, drainConnectorResumes,
@@ -53,6 +53,9 @@ async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
     max_instances: localVmMaxInstances(cfg),
     // what the offer to install says the computer will cost this machine
     host_memory_bytes: totalmem(),
+    // A Shared workspace's server runs no bot computer yet (blueprint): its
+    // bots keep their browser, and nobody is told to install anything.
+    ...(sharedWorkspace?.() ? { computer_supported: false } : {}),
   };
 }
 
