@@ -23,6 +23,9 @@ import { useMentionPicker } from "@/lib/use-mention-picker";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
+import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
+import { FullAccessWarning } from "../FullAccessWarning";
+import { t } from "@/lib/i18n";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -225,9 +228,16 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
   );
 }
 
+/** The three approval levels (owner, October 29), as a group shows them. */
+const LEVELS = ["ask", "auto", "full"] as const satisfies readonly ApprovalMode[];
+const levelLabel = (mode: ApprovalMode) => t(mode === "full" ? "approvalMode.full.label" : mode === "auto" ? "approvalMode.auto.label" : "approvalMode.ask.label");
+
 function Members({ conversation, memberBots, bots, onLeft }: {
-  conversation: Conversation; memberBots: string[]; bots: Array<{ id: string; name: string }>; onLeft: () => void;
+  conversation: Conversation; memberBots: string[]; bots: Bot[]; onLeft: () => void;
 }) {
+  const { dispatch } = useStore();
+  // Full access is confirmed first, for one bot or for every bot here
+  const [fullFor, setFullFor] = useState<string[] | null>(null);
   const { id: conversationId, kind, people } = conversation;
   const [everyone, setEveryone] = useState<Array<{ email: string; name: string }>>([]);
   const [error, setError] = useState("");
@@ -241,6 +251,17 @@ function Members({ conversation, memberBots, bots, onLeft }: {
     try { await addToConversation(conversationId, input); changed(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   };
   const inPeople = new Set(people.map((person) => person.email));
+  const here = bots.filter((bot) => memberBots.includes(bot.id));
+  const levelOf = (bot: Bot): ApprovalMode => {
+    const mode = approvalModeFor(bot);
+    return mode === "full" || mode === "auto" ? mode : "ask";
+  };
+  const setLevel = (targets: Bot[], mode: ApprovalMode) => {
+    const changing = targets.filter((bot) => levelOf(bot) !== mode);
+    if (!changing.length) return;
+    if (mode === "full") { setFullFor(changing.map((bot) => bot.id)); return; }
+    for (const bot of changing) dispatch({ type: "updateBot", botId: bot.id, patch: { approvalMode: mode } });
+  };
   return (
     <div className="mx-auto w-full max-w-[42rem] rounded-2xl border border-hairline/40 bg-panel px-4 py-3 text-[12.5px]">
       <ul className="mb-3 flex flex-wrap gap-x-4 gap-y-2">
@@ -249,8 +270,30 @@ function Members({ conversation, memberBots, bots, onLeft }: {
             <PersonAvatar name={person.name} email={person.email} src={person.avatar} size={20} />{person.you ? `${person.name} (you)` : person.name}
           </li>
         ))}
-        {bots.filter((bot) => memberBots.includes(bot.id)).map((bot) => <li key={bot.id} className="text-ink-secondary">{bot.name} · Bot</li>)}
+        {here.map((bot) => (
+          <li key={bot.id} className="flex items-center gap-2 text-ink-secondary">
+            <BotAvatar bot={bot} state="happy" size={20} motion="none" motionKey={0} animated={false} />
+            <span className="text-ink">{bot.name}</span>
+            {/* the level is the bot's own: it acts the same in every group */}
+            <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
+              className="rounded-md border border-hairline/40 bg-inset px-1.5 py-0.5 text-[12px] text-ink-secondary disabled:opacity-50"
+              value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
+              {LEVELS.map((mode) => <option key={mode} value={mode}>{levelLabel(mode)}</option>)}
+            </select>
+          </li>
+        ))}
       </ul>
+      {kind === "group" && here.length > 1 && (
+        <label className="mb-3 flex items-center gap-2 text-ink-secondary">Set every bot here to
+          <select className="rounded-md border border-hairline/40 bg-inset px-2 py-1 text-ink" value="" disabled={here.some((bot) => bot.busy)}
+            title={here.some((bot) => bot.busy) ? t("approvalMode.busy") : undefined}
+            onChange={(event) => { if (event.target.value) setLevel(here, event.target.value as ApprovalMode); }}>
+            <option value="">Choose…</option>
+            {LEVELS.map((mode) => <option key={mode} value={mode}>{levelLabel(mode)}</option>)}
+          </select>
+          <span className="text-[11.5px] text-ink-tertiary">Changes these bots everywhere, not only here.</span>
+        </label>
+      )}
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {kind === "group" && everyone.filter((person) => !inPeople.has(person.email)).length > 0 && (
           <label className="flex items-center gap-2 text-ink-secondary">Add a person
@@ -274,6 +317,11 @@ function Members({ conversation, memberBots, bots, onLeft }: {
         {kind === "group" && canDelete && <button type="button" className="text-danger hover:underline" onClick={() => setDeleting(true)}>Delete group</button>}
       </div>
       {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
+      <FullAccessWarning open={fullFor !== null} allThreads onCancel={() => setFullFor(null)} onConfirm={() => {
+        const targets = fullFor ?? [];
+        setFullFor(null);
+        for (const botId of targets) dispatch({ type: "updateBot", botId, patch: { approvalMode: "full", confirmFullAccess: true, applyToAllThreads: true } });
+      }} />
       {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
       <ConfirmDialog open={deleting} title="Delete group?" body={`“${conversation.title}” and its conversation will be deleted for everyone. This cannot be undone.`}
         tone="danger" pending={busy} confirmLabel={busy ? "Deleting…" : "Delete group"} onCancel={() => setDeleting(false)} onConfirm={() => {

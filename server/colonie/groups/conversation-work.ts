@@ -32,9 +32,15 @@ export function createConversationWork(deps: {
       });
       // a bot already busy here says so at once, instead of staying silent
       // until its current work ends
+      // until its current work ends (after the message that asked, which may
+      // still be being saved)
       if (work.status === "queued" && !work.messageId && active.has(lane(record.id, bot.id))) {
-        deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text: `${bot.name} is finishing something else; this is next.`, working: true,
-          from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } }, undefined, (message) => { saveConversationWork({ ...work, messageId: message.id }); });
+        queueMicrotask(() => {
+          const current = conversationWork(record.id).find((entry) => entry.id === work.id);
+          if (current?.status !== "queued" || current.messageId || !active.has(lane(record.id, bot.id))) return;
+          deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text: `${bot.name} is finishing something else; this is next.`, working: true,
+            from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } }, undefined, (message) => { saveConversationWork({ ...current, messageId: message.id }); });
+        });
       }
     }
   }

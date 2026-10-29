@@ -86,3 +86,21 @@ test("a bot saved without a name gets one back when the workspace loads", () => 
   const bots = new Store(selection, undefined, undefined, scope).bots;
   expect(bots.map((bot) => [bot.name, bot.title])).toEqual([["Bot", ""], ["Researcher", "Researcher"]]);
 });
+
+test("three approval levels: Ask moves once to Ask when risky, Accept edits and Custom become Ask, new bots start on Ask when risky", () => {
+  type Seed = { id: string; name: string };
+  const scope = scopeWithBots([
+    { id: "asks", name: "Asks", approvalMode: "ask" },
+    { id: "edits", name: "Edits", approvalMode: "edits" },
+    { id: "custom", name: "Custom", approvalMode: "custom" },
+    { id: "full", name: "Full", approvalMode: "full" },
+    { id: "mac", name: "Mac", approvalMode: "ask", computer: "local" },
+  ] as unknown as Seed[]);
+  const first = new Store(selection, undefined, undefined, scope);
+  const level = (store: Store) => Object.fromEntries(store.bots.map((bot) => [bot.id, bot.approvalMode]));
+  expect(level(first)).toEqual({ asks: "auto", edits: "ask", custom: "ask", full: "full", mac: "ask" });
+  expect(first.createBot({ name: "New" }).approvalMode).toBe("auto");
+  // a bot the person sets back to Ask afterwards stays on Ask
+  first.patchBot("asks", { approvalMode: "ask" });
+  expect(level(new Store(selection, undefined, undefined, scope)).asks).toBe("ask");
+});

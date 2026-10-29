@@ -143,10 +143,25 @@ try {
   await here.first().click();
   await ana.keyboard.type("standup in five");
   await ana.keyboard.press("Enter");
+  await until(ana, async () => /Working · \d+s/.test(await text(ana)) || (await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count()) > answersBefore,
+    "the bot's line says Working with a clock, not bare dots, while it answers");
   await until(ana, async () => (await text(ana)).includes("@here standup in five"), "the @here message is sent");
   check(!(await ana.getByRole("alert").count()), "sending @here shows no error");
   await until(ana, async () => (await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count()) > answersBefore && !(await text(ana)).includes("is working on it"),
     "the group's bot answers @here without being named", 40_000);
+
+  step = "each bot's approval level in the group";
+  await ana.click('button:has-text("Members")');
+  const level = ana.locator(`select[aria-label="How ${botName} asks for permission"]`);
+  await until(ana, async () => (await level.count()) > 0, "the group lists the bot with its approval level");
+  check(await level.inputValue() === "auto", "a new bot starts on Ask when risky");
+  await level.selectOption("ask");
+  await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "ask",
+    "choosing Always ask in the group changes the bot");
+  await level.selectOption("auto");
+  await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "auto",
+    "and Ask when risky changes it back");
+  await ana.click('button:has-text("Members")');
 
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');

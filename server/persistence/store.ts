@@ -671,6 +671,10 @@ export class Store {
     let botsMigrated = false;
     const browserProfileAliases = loadBrowserProfileIdAliases();
     const chiefSectionsSeen = new Set<string>();
+    // Three approval levels (owner, October 29): this workspace's bots on Ask
+    // move once to Ask when risky, the provider's own review.
+    const threeLevelsMarker = join(this.scope.dataDir, ".approval-three-levels");
+    const moveAskToAuto = botsLoaded && !existsSync(threeLevelsMarker);
     for (const b of this.bots) {
       // transient state never survives a restart — and if a previous
       // process died mid-turn, bots.json still says busy/working; persist
@@ -742,6 +746,22 @@ export class Store {
         }
         }
         delete b.approvalGrant;
+        botsMigrated = true;
+      }
+      // Accept edits and Custom are no longer offered: both become Ask, never
+      // more access. A bot that works on this computer keeps Ask, since Auto
+      // there needs its own warning first.
+      const wasAsk = approvalModeFor(b) === "ask";
+      for (const target of [b, ...(b.tasks ?? [])]) {
+        if (target.approvalMode === "edits" || target.approvalMode === "custom") {
+          target.approvalMode = "ask";
+          target.autoApprove = false;
+          botsMigrated = true;
+        }
+      }
+      if (moveAskToAuto && wasAsk && b.computer !== "local") {
+        b.approvalMode = "auto";
+        b.autoApprove = false;
         botsMigrated = true;
       }
       const avatar = botAvatarProfile(b);
@@ -922,6 +942,7 @@ export class Store {
       b.unread = b.tasks.some(taskCountsAsBotUnread);
     }
     if (botsMigrated) this.saveBots();
+    if (moveAskToAuto) writeFileAtomic(threeLevelsMarker, "1\n");
     if (clearModelCopies) writeFileAtomic(this.scope.threadModelCopiesCleared, "Threads follow their bot's model; the copies older builds made are cleared.\n", { mode: 0o600 });
     // Search reads SQLite directly, so migrate every known legacy transcript
     // at startup rather than waiting until the user happens to open it. Only
@@ -1525,6 +1546,8 @@ export class Store {
       modelSelection: this.newBotSelection(profile.modelSelection),
       resumeCursors: {},
       createdAt: Date.now(),
+      // Ask when risky: ordinary work goes ahead, the provider asks for the rest
+      approvalMode: "auto",
     };
     if (section) bot.section = section;
     if (profile.cwd) bot.cwd = profile.cwd;
@@ -1586,12 +1609,12 @@ export class Store {
         next = { id: operation.botId, threadId: operation.threadId, name: operation.fields.name,
           title: "", description: "", soul: "", notifications: true, color: COLORS[nextBots.length % COLORS.length], unread: false,
           resumeCursors: {}, createdAt, ...operation.fields, modelSelection,
-          approvalMode: "ask", autoApprove: false, composio: false, approvePeerComms: false,
+          approvalMode: "auto", autoApprove: false, composio: false, approvePeerComms: false,
           // A Chief's new teammate is seen by exactly the Chief's audience:
           // a restricted Chief never creates a bot everyone sees.
           ...(chief.visibility && chief.visibility !== "everyone" ? { visibility: structuredClone(chief.visibility) } : {}),
           tasks: [{ threadId: operation.threadId, title: UNTITLED_THREAD, createdAt, updatedAt: createdAt, resumeCursors: {},
-            approvalMode: "ask", autoApprove: false,
+            approvalMode: "auto", autoApprove: false,
             unread: false, activity: "idle", busy: false }],
         };
         // "" is the private-workspace spelling on proposal; the record

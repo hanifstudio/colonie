@@ -17,6 +17,7 @@ import { approvalModeOptionsFor } from "../ApprovalModeSelector";
 import { collectMessageFiles, splitMessageAttachments } from "../AttachmentGallery";
 import { BotAvatar } from "../Avatar";
 import { LocalComputerAutoWarning } from "../LocalComputerAutoWarning";
+import { FullAccessWarning } from "../FullAccessWarning";
 import { ModelPicker } from "../ModelPicker";
 import { ThreadModelsLine } from "../ThreadModelsLine";
 import { Switch } from "../SettingsPrimitives";
@@ -91,6 +92,7 @@ export function SimpleBotPanel({
   const { workspace, readOnly } = useBotEditor();
   const [tab, setTab] = useState<"details" | "library">("details");
   const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
+  const [fullAccessTarget, setFullAccessTarget] = useState<string | null>(null);
   const skills = useManagedSkills(bot, !acp && !workspace);
   const { patch, approvalMode, engine, trustedModesAvailable } = derived;
   // Match the full selector: old Antigravity Auto still executes as Ask.
@@ -99,19 +101,26 @@ export function SimpleBotPanel({
 
   // Ask is always offered; "Decide for me" is the provider's own Auto, which
   // a few engines do not have.
-  const autoOffered = approvalModeOptionsFor(engine?.driverKind ?? "", trustedModesAvailable)
-    .some((option) => option.mode === "auto");
-  const chooseMode = (mode: Extract<ApprovalMode, "ask" | "auto">) => {
+  // The same three levels as Advanced (owner, October 29).
+  const offered = approvalModeOptionsFor(engine?.driverKind ?? "", trustedModesAvailable);
+  const autoOffered = offered.some((option) => option.mode === "auto");
+  const fullOffered = offered.some((option) => option.mode === "full");
+  const chooseMode = (mode: Extract<ApprovalMode, "ask" | "auto" | "full">) => {
     // The same rules as the Permissions section's selector: no change while
-    // a turn runs, and Auto on this computer needs its warning first.
+    // a turn runs, Full access is confirmed, and Auto on this computer needs
+    // its warning first.
     if (bot.busy || mode === approvalMode) return;
+    if (mode === "full") {
+      setFullAccessTarget(bot.id);
+      return;
+    }
     if (mode === "auto" && bot.computer === "local") {
       setLocalAutoWarning(bot.id);
       return;
     }
     patch({ approvalMode: mode });
   };
-  const customMode = displayedApprovalMode !== "ask" && displayedApprovalMode !== "auto";
+  const customMode = displayedApprovalMode !== "ask" && displayedApprovalMode !== "auto" && displayedApprovalMode !== "full";
 
   const library = useMemo(() => (tab === "library" ? botLibraryItems(bot) : []), [tab, bot]);
 
@@ -229,10 +238,11 @@ export function SimpleBotPanel({
 
             <div>
               <div className={labelCls}>{t("botSettings.simple.beforeActs", { name: bot.name })}</div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {([
-                  { mode: "ask", title: t("botSettings.simple.ask"), hint: t("botSettings.simple.askHint"), offered: true },
-                  { mode: "auto", title: t("botSettings.simple.decide"), hint: t("botSettings.simple.decideHint"), offered: autoOffered },
+                  { mode: "ask", title: t("approvalMode.ask.label"), hint: t("botSettings.simple.askHint"), offered: true },
+                  { mode: "auto", title: t("approvalMode.auto.label"), hint: t("botSettings.simple.decideHint"), offered: autoOffered },
+                  { mode: "full", title: t("approvalMode.full.label"), hint: t("botSettings.simple.fullHint"), offered: fullOffered },
                 ] as const).map((choice) => {
                   const selected = displayedApprovalMode === choice.mode;
                   return (
@@ -365,6 +375,17 @@ export function SimpleBotPanel({
           setLocalAutoWarning(null);
           if (!target) return;
           dispatch({ type: "updateBot", botId: target, patch: { approvalMode: "auto", acknowledgeLocalAuto: true } });
+        }}
+      />
+      <FullAccessWarning
+        open={fullAccessTarget !== null}
+        allThreads
+        onCancel={() => setFullAccessTarget(null)}
+        onConfirm={() => {
+          const target = fullAccessTarget;
+          setFullAccessTarget(null);
+          if (!target) return;
+          dispatch({ type: "updateBot", botId: target, patch: { approvalMode: "full", confirmFullAccess: true, applyToAllThreads: true } });
         }}
       />
     </>

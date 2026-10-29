@@ -61,6 +61,9 @@ export function approvalModeOptionsFor(driverKind: string, trustedModesAvailable
     // `supportsApprovalMode` is the single answer to "may this engine expose
     // this level": for both ACP drivers it allows Ask, Accept edits, Auto (the
     // adapter's own reviewer) and Full, and refuses Custom.
+    // three levels everywhere (owner, October 29): Always ask, Ask when
+    // risky, Full access; Accept edits and Custom are no longer offered
+    .filter((option) => option.mode !== "edits" && option.mode !== "custom")
     .filter((option) => supportsApprovalMode(driverKind, option.mode)
       // Antigravity has no native reviewer. Offer its explicit full-access
       // grant as Auto instead of a second choice that actually behaves as Ask.
