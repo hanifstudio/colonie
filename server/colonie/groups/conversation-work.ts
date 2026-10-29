@@ -15,17 +15,28 @@ export function createConversationWork(deps: {
   run: (work: ConversationWork, threadId: string, prompt: string, recoveryPrompt: string) => Promise<void>;
   interrupt?: (botId: string, threadId: string) => Promise<void>;
 }) {
+  /** Lanes running now: one per bot in a conversation, so different bots
+   * work at the same time and one bot takes its own requests in order. */
   const active = new Set<string>();
+  const lane = (conversationId: string, botId: string) => `${conversationId}\n${botId}`;
   const waiting = new Map<string, { work: ConversationWork; done: (finished: boolean) => void }>();
   let retry: ReturnType<typeof setTimeout> | undefined;
   const recordFor = (id: string) => deps.records().find((record) => record.id === id);
 
   function enqueue(record: GroupConversation, sourceMessageId: string, bots: Bot[], ask: ConversationAsk, text: string) {
-    for (const [index, bot] of bots.entries()) enqueueConversationWork({
-      id: randomUUID(), conversationId: record.id, sourceMessageId, botId: bot.id,
-      text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by,
-      upcoming: bots.slice(index + 1).map((entry) => entry.id), visited: [...new Set([...(ask.visited ?? []), ...bots.map((entry) => entry.id)])], status: "queued",
-    });
+    for (const [index, bot] of bots.entries()) {
+      const work = enqueueConversationWork({
+        id: randomUUID(), conversationId: record.id, sourceMessageId, botId: bot.id,
+        text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by,
+        upcoming: bots.slice(index + 1).map((entry) => entry.id), visited: [...new Set([...(ask.visited ?? []), ...bots.map((entry) => entry.id)])], status: "queued",
+      });
+      // a bot already busy here says so at once, instead of staying silent
+      // until its current work ends
+      if (work.status === "queued" && !work.messageId && active.has(lane(record.id, bot.id))) {
+        deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text: `${bot.name} is finishing something else; this is next.`, working: true,
+          from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } }, undefined, (message) => { saveConversationWork({ ...work, messageId: message.id }); });
+      }
+    }
   }
 
   function finish(work: ConversationWork, ok: boolean, failure?: string) {
@@ -51,7 +62,7 @@ export function createConversationWork(deps: {
       const targets = mentionedBots(answer.text, candidates);
       if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, answer.text);
     };
-    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, workThread: undefined, working: undefined }, undefined, commit);
+    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, workThread: undefined, working: undefined, workingSince: undefined }, undefined, commit);
     else commit();
     Object.assign(record, next);
     deps.changed();
@@ -83,12 +94,15 @@ export function createConversationWork(deps: {
     const briefing = deps.brief(record, bot, work);
     work.about = briefing.about;
     work.status = "running";
-    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };
+    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(), from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };
     if (!work.messageId) {
       store.appendMessage(record.threadId, line, undefined, (message) => {
         work.messageId = message.id; work.since = message.at; saveConversationWork(work);
       });
-    } else store.patchMessage(record.threadId, work.messageId, line, undefined, () => saveConversationWork(work));
+    } else {
+      work.since = Date.now();
+      store.patchMessage(record.threadId, work.messageId, line, undefined, () => saveConversationWork(work));
+    }
     const threadId = thread;
     return new Promise<boolean>((resolve) => {
       waiting.set(threadId, { work, done: resolve });
@@ -109,22 +123,24 @@ export function createConversationWork(deps: {
     });
   }
 
-  async function drain(id: string) {
-    if (active.has(id)) return;
-    active.add(id);
+  async function drain(conversationId: string, botId: string) {
+    const key = lane(conversationId, botId);
+    if (active.has(key)) return;
+    active.add(key);
     try {
       for (;;) {
-        const next = conversationWork(id, "queued")[0];
+        const next = conversationWork(conversationId, "queued").find((work) => work.botId === botId);
         if (!next || !(await start(next))) break;
       }
     } catch (error) {
       console.error("Could not advance conversation work:", error);
-    } finally { active.delete(id); }
+    } finally { active.delete(key); }
   }
 
   function wake() {
     queueMicrotask(() => {
-      for (const id of new Set(conversationWork(undefined, "queued").map((work) => work.conversationId))) void drain(id);
+      const lanes = new Map(conversationWork(undefined, "queued").map((work) => [lane(work.conversationId, work.botId), work]));
+      for (const work of lanes.values()) void drain(work.conversationId, work.botId);
     });
   }
 
@@ -134,7 +150,7 @@ export function createConversationWork(deps: {
     for (const work of jobs) {
       const record = recordFor(conversationId);
       const persist = () => saveConversationWork({ ...work, status: "cancelled" });
-      if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workThread: undefined }, undefined, persist);
+      if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workingSince: undefined, workThread: undefined }, undefined, persist);
       else persist();
       const pending = work.threadId ? waiting.get(work.threadId) : undefined;
       if (pending?.work.id === work.id) {

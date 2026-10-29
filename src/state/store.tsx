@@ -175,6 +175,7 @@ export interface Message {
   computerAsk?: { botId: string; reason?: string; outcome?: "later" };
   workThread?: { botId: string; threadId: string };
   working?: true;
+  workingSince?: number;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };
   id: string;
   role: "bot" | "user";

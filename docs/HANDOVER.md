@@ -1,13 +1,14 @@
 # Handover
 
-## Now: every bot's computer is the Local VM, set up without a choice
+## Now: groups feel natural: bots work at once and stop asking for small things
 
-A new person asks a bot for a site that refuses the simple browser; the bot
-offers its computer; they install one free app; the computer sets itself up
-and the bot finishes the task. Built and seen in the desktop app: setup,
-desktop, Take control, the computer stopping when Colonie quits. Left: a
-signed-in bot choosing use_computer, Podman Desktop on a real Mac, quitting
-the packaged app. Shared servers come next.
+Two bots asked in a group start at once and show what they are doing; a
+message to a busy bot says it is next; tests, installs and edits run without a
+card. Three levels everywhere (Always ask, Ask when risky, Full access), Ask
+bots move to Ask when risky, a group sets all its bots at once. Proof: group
+e2e tests, the Shared journey in a browser, one real Codex group task in a
+disposable workspace. Out of scope: lead bots, threads. Left from the computer
+task: use_computer by a signed-in bot, Podman Desktop, the packaged app quitting.
 
 ## Next: verify routines, guides, and group replies with real engines
 
@@ -31,7 +32,6 @@ Out of scope: event triggers and the owner's real data.
    (web-app-only packages, Next.js via better-auth).
 
 Not yet seen in a real window: the installed app opening a `colonie://` link.
-
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
 owner resets the Neon password: `wrangler hyperdrive update
@@ -43,7 +43,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | Server 0.3.10 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A version number and an update path | Server 0.3.13 is published. A raised package.json version on main publishes the image and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |

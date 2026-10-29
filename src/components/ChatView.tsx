@@ -27,7 +27,7 @@ import {
   MultiplicationSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { WorkingDots } from "@/components/WorkingIndicator";
+import { WorkingDots, WorkingTimer } from "@/components/WorkingIndicator";
 import { MessageActions, messageActionClass } from "@/components/MessageActions";
 import { useSpeech } from "@/lib/tts/useSpeech";
 import { localSystemVoiceActive } from "@/lib/local-voice";
@@ -505,10 +505,14 @@ const Bubble = memo(function Bubble({
   // a line about the conversation itself (who made it, who joined)
   if (message.notice) return <div className="py-1 text-center text-[12.5px] text-ink-tertiary">{message.text}</div>;
   // in a group: the bot is still working on its answer; the same dots as a
-  // bot chat, under its face and name
+  // bot chat, under its face and name, saying whether it is at work (and for
+  // how long) or waiting behind its other work
   if (message.working) return <div className="flex w-full flex-col items-start">
     {message.sender && <SenderLine message={message} />}
-    <div className="rounded-2xl bg-card px-4 py-3" role="status" aria-label={message.text}><WorkingDots /></div>
+    <div className="flex items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-[12.5px] text-ink-secondary" role="status" aria-label={message.text}>
+      <WorkingDots />
+      {message.workingSince ? <span>Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
+    </div>
   </div>;
   // a bot asking for a secret: the button opens the private form; once saved
   // the person's short note lets the bot carry on with it

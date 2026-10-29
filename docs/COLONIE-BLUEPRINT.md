@@ -32,8 +32,8 @@ A local Mac app. A person can:
 - sign in to Claude or Codex inside the app, and add more named accounts;
 - create bots with a name, persona, skills, and memory, and chat with them;
 - connect apps (through their own Composio key) and custom MCP servers;
-- run routines and webhooks, with four approval levels (Ask, Accept edits,
-  Auto, Full access);
+- run routines and webhooks, with three approval levels (Always ask, Ask when
+  risky, Full access);
 - create more Local workspaces and switch between them from the profile menu
   in the sidebar (the app restarts into the chosen workspace).
 
@@ -159,6 +159,14 @@ Steps, in order. Each one is safe on its own:
   and reruns that would rewind an engine's session are refused.
 - Approval levels map straight onto each engine's own modes. If an engine
   lacks a level, the app falls back to Ask, never to more access.
+- Three approval levels, the same in Simple and Advanced (owner, October 29):
+  Always ask; Ask when risky, the default, where ordinary work (reading,
+  writing project files, running commands, browsing) goes ahead and the
+  engine's own reviewer asks only for risky actions; and Full access. The
+  level belongs to the bot, so it acts the same in every group; a group shows
+  each bot's level, and one action sets every bot in the group at once.
+  Existing bots on Ask move to Ask when risky; Accept edits and Custom become
+  Always ask, never more access.
 
 ### Computers (owner, October 28)
 
@@ -231,6 +239,9 @@ Steps, in order. Each one is safe on its own:
 - The owner controls membership, workspace credentials, and risky approvals.
 - To get a bot's attention, name it. Stop applies to the selected task and
   everything it handed off. Two tasks wanting the same bot's screen wait in line.
+- In a group, different bots work at the same time; one bot takes its own
+  requests in order and says when a message waits for it (owner, October 29).
+  What each busy bot is doing, and for how long, shows in place of dots.
 
 ### Removed on purpose
 

@@ -108,7 +108,7 @@ export function createGroupConversations(deps: {
           continue;
         }
         if (message.working || message.workThread || message.text === `${message.from.name} is working on it…` || /^\S.* is waiting for .+\)\.$/.test(message.text ?? "")) {
-          store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined, working: undefined });
+          store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined, working: undefined, workingSince: undefined });
         }
       }
     }
@@ -450,7 +450,7 @@ export function createGroupConversations(deps: {
       if (!record || !bot) return;
       // the card itself is relayed below this line (relayWork)
       deps.store().patchMessage(record.threadId, pending.messageId, {
-        text: `${bot.name} is waiting for ${pending.asker} (${what}).`, working: undefined,
+        text: `${bot.name} is waiting for ${pending.asker} (${what}).`, working: undefined, workingSince: undefined,
       });
     },
 

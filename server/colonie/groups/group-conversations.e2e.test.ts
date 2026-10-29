@@ -202,7 +202,7 @@ describe("a group with several bots", () => {
   };
 
   beforeAll(async () => {
-    const made = await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Quill", title: "Researcher" } });
+    const made = await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Zephyrine", title: "Researcher" } });
     second = made.body.bot ?? made.body;
     const first = (await ws.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.id !== second.id);
     bot = { id: first.id, name: first.name };
@@ -221,25 +221,33 @@ describe("a group with several bots", () => {
     expect(answer.text).toContain("Answer in Indonesian.");
   }, 60_000);
 
-  test("two bots in one message answer in turn, the second seeing the first's answer", async () => {
+  test("two bots in one message both answer, once each, without waiting for each other", async () => {
     const before = (await lines()).length;
     await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} @${second.name} plan the launch` } });
     const end = Date.now() + 40_000;
     let mine: any[] = [];
     while (Date.now() < end) {
-      mine = (await lines()).slice(before).filter((message) => message.from && !message.notice);
-      const firstDone = mine.find((message) => message.from.botId === bot.id && !message.working);
-      const secondDone = mine.find((message) => message.from.botId === second.id && !message.working);
-      if (firstDone && secondDone) break;
+      mine = (await lines()).slice(before).filter((message) => message.from && !message.notice && !message.relay);
+      if ([bot.id, second.id].every((id) => mine.some((message) => message.from.botId === id && !message.working))) break;
       await new Promise((r) => setTimeout(r, 200));
     }
-    const firstAnswer = mine.find((message) => message.from.botId === bot.id);
-    const secondAnswer = mine.find((message) => message.from.botId === second.id);
-    expect(mine.indexOf(firstAnswer)).toBeLessThan(mine.indexOf(secondAnswer));
-    // the second was handed what the first said
-    expect(secondAnswer.text).toContain(`${bot.name}: `);
-    // asked once by the message, not again because the first named it
-    expect(mine.filter((message) => message.from.botId === second.id && message.from && !message.relay)).toHaveLength(1);
+    expect(mine.filter((message) => message.from.botId === bot.id)).toHaveLength(1);
+    expect(mine.filter((message) => message.from.botId === second.id)).toHaveLength(1);
+  }, 90_000);
+
+  test("while one bot waits on a person, another bot answers, and a message to the busy bot says it is next", async () => {
+    const before = (await lines()).length;
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
+    await until(lines, (list) => list.slice(before).some((message) => message.from?.botId === bot.id && /is waiting for/.test(message.text ?? "")), "the first bot waiting for Ada");
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} and after that, the budget` } });
+    const queued = await until(lines, (list) => list.slice(before).some((message) => message.from?.botId === bot.id && message.working && !message.workingSince), "a next-in-line note from the busy bot");
+    expect(queued.slice(before).find((message: any) => message.from?.botId === bot.id && message.working).text).toContain("this is next");
+    await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${second.name} are you free?` } });
+    await until(lines, (list) => list.slice(before).some((message) => message.from?.botId === second.id && !message.working && !message.relay && /are you free/.test(message.text ?? "")),
+      "the second bot answering while the first still waits");
+    expect((await lines()).slice(before).some((message) => message.from?.botId === bot.id && /is waiting for/.test(message.text ?? ""))).toBe(true);
+    await ws.as(ADA, `/api/conversations/${crew.id}/stop`, { method: "POST" });
+    await until(lines, (list) => !list.some((message) => message.working), "Ada's waiting work stopped");
   }, 90_000);
 
   test("@here asks every bot in the group and marks it for every person", async () => {
