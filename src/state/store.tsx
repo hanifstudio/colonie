@@ -880,7 +880,9 @@ export interface AppState {
   inspectorOpen: boolean;
   activityOpen: boolean;
   /** a Markdown file opened from chat for in-app reading: which message shared it */
-  filePreview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number } | null;
+  filePreview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } | null;
+  /** A group's right panel (owner, October 30): its project files or its members. */
+  groupPanel: "files" | "members" | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
   shortcutsOpen: boolean;
@@ -1131,8 +1133,9 @@ export type Action =
   | { type: "toggleComputer"; open?: boolean; botId?: string }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "toggleActivity"; open?: boolean }
-  | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number } }
+  | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } }
   | { type: "closeFilePreview" }
+  | { type: "toggleGroupPanel"; tab?: "files" | "members"; open?: boolean }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
   | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection }
@@ -1408,6 +1411,7 @@ export function reducer(state: AppState, action: Action): AppState {
         inspectorOpen: false,
         activityOpen: false,
         filePreview: null,
+        groupPanel: null,
         appSettingsOpen: false,
         pluginsOpen: false,
         triggersOpen: false,
@@ -1478,7 +1482,7 @@ export function reducer(state: AppState, action: Action): AppState {
         config: { ...state.config, profile: { name: "", email: "", ...state.config.profile, ...action.profile } },
       } : state;
     case "selectConversation":
-      return { ...state, activeView: "chat", selectedConversationId: action.id ?? undefined, filePreview: null };
+      return { ...state, activeView: "chat", selectedConversationId: action.id ?? undefined, filePreview: null, groupPanel: action.id ? state.groupPanel : null };
     case "select": {
       state = { ...state, selectedConversationId: undefined };
       return updateBot(
@@ -1488,6 +1492,7 @@ export function reducer(state: AppState, action: Action): AppState {
             activeView: "chat",
             selectedId: action.id,
             filePreview: null,
+            groupPanel: null,
             botSettingsSection: action.id !== state.selectedId ? "overview" : state.botSettingsSection,
           },
           action.id,
@@ -1788,6 +1793,7 @@ export function reducer(state: AppState, action: Action): AppState {
         settingsOpen: open,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
+        groupPanel: open ? null : state.groupPanel,
         botSettingsSection: action.section ?? (selectedId !== state.selectedId ? "overview" : state.botSettingsSection),
         // Mascot / bare open omits `section` → accordion stays fully collapsed.
         // Deep links expand that row even when the panel is already open.
@@ -1852,6 +1858,7 @@ export function reducer(state: AppState, action: Action): AppState {
         inspectorOpen: open ? false : state.inspectorOpen,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
+        groupPanel: open ? null : state.groupPanel,
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
     }
@@ -1864,6 +1871,7 @@ export function reducer(state: AppState, action: Action): AppState {
         computerOpen: open ? false : state.computerOpen,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
+        groupPanel: open ? null : state.groupPanel,
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
     }
@@ -1876,6 +1884,7 @@ export function reducer(state: AppState, action: Action): AppState {
         computerOpen: open ? false : state.computerOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         filePreview: open ? null : state.filePreview,
+        groupPanel: open ? null : state.groupPanel,
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
     }
@@ -1883,6 +1892,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         filePreview: action.preview,
+        groupPanel: null,
         settingsOpen: false,
         computerOpen: false,
         inspectorOpen: false,
@@ -1891,7 +1901,22 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     }
     case "closeFilePreview": {
-      return { ...state, filePreview: null };
+      // a group's file goes back to the group's Files, where it was opened
+      return { ...state, filePreview: null, groupPanel: state.filePreview?.conversationId ? "files" : state.groupPanel };
+    }
+    case "toggleGroupPanel": {
+      const tab = action.tab ?? state.groupPanel ?? "members";
+      const open = action.open ?? !(state.groupPanel === tab);
+      return {
+        ...state,
+        groupPanel: open ? tab : null,
+        settingsOpen: open ? false : state.settingsOpen,
+        computerOpen: open ? false : state.computerOpen,
+        inspectorOpen: open ? false : state.inspectorOpen,
+        activityOpen: open ? false : state.activityOpen,
+        filePreview: open ? null : state.filePreview,
+        appSettingsOpen: open ? false : state.appSettingsOpen,
+      };
     }
     case "toggleAppSettings": {
       const open = action.open ?? !state.appSettingsOpen;
@@ -1900,6 +1925,7 @@ export function reducer(state: AppState, action: Action): AppState {
         appSettingsOpen: open,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
+        groupPanel: open ? null : state.groupPanel,
         appSettingsSection: action.section ?? state.appSettingsSection,
         settingsOpen: open ? false : state.settingsOpen,
         computerOpen: open ? false : state.computerOpen,
@@ -2094,7 +2120,7 @@ export function reducer(state: AppState, action: Action): AppState {
       // Older background frames are already represented by the next server
       // snapshot. Only frames racing that request need replaying over it.
       const { [action.threadId]: _old, ...backgroundThreadEvents } = state.backgroundThreadEvents;
-      return { ...state, backgroundThreadEvents, selectedId: action.botId, activeView: "chat", filePreview: null };
+      return { ...state, backgroundThreadEvents, selectedId: action.botId, activeView: "chat", filePreview: null, groupPanel: null };
     }
     case "renameTask":
       return updateBot(state, action.botId, (bot) => ({
@@ -2171,6 +2197,7 @@ export const initialState: AppState = {
   inspectorOpen: false,
   activityOpen: false,
   filePreview: null,
+  groupPanel: null,
   appSettingsOpen: false,
   appSettingsSection: "general",
   shortcutsOpen: false,

@@ -48,6 +48,8 @@ export interface FilePreviewTarget {
   name: string;
   /** A local Markdown image keeps its existing offset-scoped GET grant. */
   sourceOffset?: number;
+  /** A file in a group's project folder, read with the group's own grant. */
+  conversationId?: string;
 }
 
 /** Who opens the reading panel for a file link. Null outside chat: the

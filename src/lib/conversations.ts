@@ -52,6 +52,12 @@ export const stopConversation = (id: string) => api(`/api/conversations/${id}/st
 /** A file in a conversation's project folder, by its path inside it. */
 export interface ConversationFile { path: string; bytes: number; modifiedAt: number }
 export const conversationFiles = (id: string) => api<{ files: ConversationFile[]; truncated: boolean }>(`/api/conversations/${id}/files`);
+/** One project file's bytes, for its preview: the group's own grant, not a message's. */
+export async function requestConversationFile(id: string, path: string, signal: AbortSignal): Promise<Response> {
+  const response = await fetch(`/api/conversations/${id}/files/content?path=${encodeURIComponent(path)}`, { signal });
+  if (!response.ok) throw new Error(((await response.json().catch(() => null)) as { error?: string } | null)?.error ?? "load");
+  return response;
+}
 /** Save one project file to the person's computer. */
 export async function downloadConversationFile(id: string, path: string): Promise<void> {
   const response = await fetch(`/api/conversations/${id}/files/content?path=${encodeURIComponent(path)}`);

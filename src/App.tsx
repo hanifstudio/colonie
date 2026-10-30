@@ -66,7 +66,8 @@ export function Shell() {
   // A side panel beside the full sidebar leaves the default 1100px window a
   // ~330px chat. Fold the sidebar to its avatar rail for as long as a panel
   // is open and the window is not wide enough for all three.
-  const sidePanelOpen = Boolean(bot) && Boolean(state.settingsOpen || state.computerOpen || state.inspectorOpen || state.activityOpen || state.filePreview);
+  const sidePanelOpen = (Boolean(bot) && Boolean(state.settingsOpen || state.computerOpen || state.inspectorOpen || state.activityOpen || state.filePreview)) ||
+    Boolean(state.groupPanel && state.selectedConversationId);
   const collapseSidebar = sidePanelOpen && !sidebarAndPanelFit;
   const calendarFocus = state.activeView === "routines";
   // Turning Advanced mode off closes the inspector it no longer offers.

@@ -13,6 +13,7 @@ import { messageImagePreviewUrl, OutsideWorkspaceFile, requestMessageFile, useLo
 import { PREVIEW_ACTION, PreviewToolbar } from "./file-preview/PreviewToolbar";
 import { usePreviewPanel } from "./file-preview/use-preview-panel";
 import { PreviewBoundary } from "./file-preview/PreviewBoundary";
+import { downloadConversationFile, requestConversationFile } from "@/lib/conversations";
 
 const DocxPreview = lazy(() => import("./file-preview/DocxPreview"));
 const PdfPreview = lazy(() => import("./file-preview/PdfPreview"));
@@ -27,7 +28,9 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
   const [attempt, setAttempt] = useState(0);
   const [content, setContent] = useState<LoadedFile | null>(null);
   const [error, setError] = useState<PreviewError | null>(null);
-  const save = useLocalFileSave(preview.path, preview.name, preview);
+  const messageSave = useLocalFileSave(preview.path, preview.name, preview);
+  const groupSave = useGroupFileSave(preview.conversationId, preview.path);
+  const save = preview.conversationId ? groupSave : messageSave;
   const close = useCallback(() => dispatch({ type: "closeFilePreview" }), [dispatch]);
   const failRender = useCallback(() => { setContent(null); setError("format"); }, []);
 
@@ -55,7 +58,9 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
     const timer = setTimeout(() => { setError("load"); controller.abort(); }, 30_000);
     void (async () => {
       try {
-        const response = preview.sourceOffset === undefined
+        const response = preview.conversationId
+          ? await requestConversationFile(preview.conversationId, preview.path, controller.signal)
+          : preview.sourceOffset === undefined
           ? await requestMessageFile(preview.path, preview, controller.signal)
           : await fetch(messageImagePreviewUrl(preview, preview.sourceOffset), { signal: controller.signal });
         const bytes = await readPreviewBytes(response, controller.signal, kind === "markdown" || kind === "text" ? TEXT_PREVIEW_MAX_BYTES : DOCUMENT_PREVIEW_MAX_BYTES);
@@ -72,7 +77,7 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
       } finally { clearTimeout(timer); }
     })();
     return () => { clearTimeout(timer); controller.abort(); if (image) URL.revokeObjectURL(image); };
-  }, [preview.threadId, preview.messageId, preview.path, preview.sourceOffset, attempt]);
+  }, [preview.threadId, preview.messageId, preview.path, preview.sourceOffset, preview.conversationId, attempt]);
 
   return <aside ref={panel} aria-label={t("attach.previewFile", { name: preview.name })} className="animate-panel-in relative flex h-full max-w-full shrink-0 flex-col border-l border-hairline/40 bg-panel max-md:absolute max-md:inset-0 max-md:z-40 max-md:w-full!" style={{ width }}>
     <div role="separator" aria-label="Resize file preview" aria-orientation="vertical" aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0} {...resize} className="absolute inset-y-0 left-0 z-10 w-1.5 touch-none cursor-col-resize transition-colors hover:bg-accent/30 focus-visible:bg-accent/50 focus-visible:outline-none max-md:hidden" />
@@ -106,6 +111,20 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
         </div>}
     </Suspense></PreviewBoundary>}
   </aside>;
+}
+
+/** Save for a group's project file: its own download, not a message grant. */
+function useGroupFileSave(conversationId: string | undefined, path: string) {
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [reason, setReason] = useState("");
+  useEffect(() => { setState("idle"); setReason(""); }, [conversationId, path]);
+  const save = useCallback(async () => {
+    if (!conversationId) return;
+    setState("saving"); setReason("");
+    try { await downloadConversationFile(conversationId, path); setState("saved"); }
+    catch (cause) { setReason(cause instanceof Error ? cause.message : String(cause)); setState("failed"); }
+  }, [conversationId, path]);
+  return { state, reason, save };
 }
 
 function PreviewLoading() {

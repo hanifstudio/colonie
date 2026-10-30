@@ -1,0 +1,337 @@
+// A group's right panel (owner, October 30): its project files and its
+// members, beside the conversation like a bot's Computer panel. The Files
+// tab follows T3 Code's file browser (a folder tree with search, expand all
+// and refresh; a file opens in the reading panel), sized for a group's
+// folder, which is small enough to list whole.
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowDown01Icon, ArrowRight01Icon, Download01Icon, FileTextIcon, Folder01Icon, Loading02Icon,
+  MultiplicationSignIcon, RefreshCwIcon, Search01Icon, UnfoldLessIcon, UnfoldMoreIcon, UserGroupIcon,
+} from "@hugeicons/core-free-icons";
+import { HIcon } from "../HIcon";
+import { BotAvatar } from "../Avatar";
+import { PersonAvatar } from "../PersonAvatar";
+import { ConfirmDialog } from "../ConfirmDialog";
+import { FullAccessWarning } from "../FullAccessWarning";
+import { useDesktopCapabilities, useCaptionChrome } from "../DesktopCapabilities";
+import { usePreviewPanel } from "../file-preview/use-preview-panel";
+import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
+import { filePreviewKind } from "@/lib/file-preview";
+import { useAdminSession, useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
+import {
+  CONVERSATIONS_CHANGED, addToConversation, conversationFiles, deleteGroup, downloadConversationFile, leaveConversation, updateConversation, workspacePeople,
+  type Conversation, type ConversationFile,
+} from "@/lib/conversations";
+import { useStore, type Bot, type Message } from "@/state/store";
+import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
+
+export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
+  conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members"; onLeft: () => void;
+}) {
+  const { dispatch } = useStore();
+  const { padClass } = useCaptionChrome();
+  const { panel, width, minimum, maximum, resize } = usePreviewPanel();
+  const memberBots = bots.filter((bot) => conversation.bots.includes(bot.id));
+  const tabClass = (active: boolean) => cn(
+    "flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] transition-colors",
+    active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
+  );
+  const close = () => dispatch({ type: "toggleGroupPanel", open: false });
+  return (
+    <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : "Members"}`}
+      className="animate-panel-in relative flex h-full max-w-full shrink-0 flex-col border-l border-hairline/40 bg-panel max-md:absolute max-md:inset-0 max-md:z-40 max-md:w-full!"
+      style={{ width }}>
+      <div role="separator" aria-label="Resize panel" aria-orientation="vertical" aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0} {...resize}
+        className="absolute inset-y-0 left-0 z-10 w-1.5 touch-none cursor-col-resize transition-colors hover:bg-accent/30 focus-visible:bg-accent/50 focus-visible:outline-none max-md:hidden" />
+      <div className={cn("px-4 py-3", padClass)}>
+        <div className="relative flex min-h-7 items-center justify-center">
+          <div className="mx-9 flex gap-0.5 rounded-full bg-inset p-0.5" aria-label="Group panel view">
+            <button type="button" aria-pressed={tab === "files"} className={tabClass(tab === "files")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "files", open: true })}>
+              <HIcon icon={Folder01Icon} size={13} /> Files
+            </button>
+            <button type="button" aria-pressed={tab === "members"} className={tabClass(tab === "members")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "members", open: true })}>
+              <HIcon icon={UserGroupIcon} size={13} /> Members · {conversation.people.length + memberBots.length}
+            </button>
+          </div>
+          <button type="button" onClick={close} aria-label="Close panel" title="Close panel"
+            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink">
+            <HIcon icon={MultiplicationSignIcon} size={18} />
+          </button>
+        </div>
+      </div>
+      {tab === "files"
+        ? <ProjectFiles conversation={conversation} messages={messages} />
+        : <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots} onLeft={onLeft} />}
+    </aside>
+  );
+}
+
+const fileSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+interface TreeFolder { name: string; path: string; folders: TreeFolder[]; files: ConversationFile[] }
+
+/** The flat listing as folders inside folders, each sorted by name. */
+function treeOf(files: ConversationFile[]): TreeFolder {
+  const root: TreeFolder = { name: "", path: "", folders: [], files: [] };
+  for (const file of files) {
+    const parts = file.path.split("/");
+    let folder = root;
+    for (const part of parts.slice(0, -1)) {
+      const path = folder.path ? `${folder.path}/${part}` : part;
+      let next = folder.folders.find((entry) => entry.name === part);
+      if (!next) { next = { name: part, path, folders: [], files: [] }; folder.folders.push(next); }
+      folder = next;
+    }
+    folder.files.push(file);
+  }
+  const sort = (folder: TreeFolder) => {
+    folder.folders.sort((a, b) => a.name.localeCompare(b.name));
+    folder.files.sort((a, b) => a.path.localeCompare(b.path));
+    folder.folders.forEach(sort);
+  };
+  sort(root);
+  return root;
+}
+
+const foldersIn = (folder: TreeFolder): string[] => folder.folders.flatMap((entry) => [entry.path, ...foldersIn(entry)]);
+
+/** The conversation's project folder: every bot here works in it, and
+ * everyone here can open or save its files. Read again as messages arrive,
+ * so a file a bot just made shows up. */
+function ProjectFiles({ conversation, messages }: { conversation: Conversation; messages: Message[] | null }) {
+  const { dispatch } = useStore();
+  const [listing, setListing] = useState<{ files: ConversationFile[]; truncated: boolean } | null>(null);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const latest = messages?.at(-1)?.id;
+  useEffect(() => {
+    setRefreshing(true);
+    void conversationFiles(conversation.id).then((next) => { setListing(next); setError(""); })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setRefreshing(false));
+  }, [conversation.id, latest, attempt]);
+  const tree = useMemo(() => treeOf(listing?.files ?? []), [listing]);
+  const allFolders = useMemo(() => foldersIn(tree), [tree]);
+  // a small folder opens whole; a big one starts with its top level
+  useEffect(() => { if ((listing?.files.length ?? 0) <= 30) setOpen(new Set(allFolders)); }, [allFolders, listing?.files.length]);
+  const allOpen = allFolders.length > 0 && allFolders.every((path) => open.has(path));
+  const needle = query.trim().toLowerCase();
+  const matches = needle ? (listing?.files ?? []).filter((file) => file.path.toLowerCase().includes(needle)) : [];
+  const show = (file: ConversationFile) => {
+    const name = file.path.split("/").at(-1) ?? file.path;
+    // files the reading panel cannot show are saved instead
+    if (!filePreviewKind(file.path)) { void save(file); return; }
+    dispatch({ type: "openFilePreview", preview: { threadId: conversation.threadId, messageId: "", path: file.path, name, conversationId: conversation.id } });
+  };
+  const save = (file: ConversationFile) => downloadConversationFile(conversation.id, file.path).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)));
+  const row = (file: ConversationFile, depth: number, label: string) => (
+    <li key={file.path} className="group flex items-center rounded-md hover:bg-raised/60">
+      <button type="button" onClick={() => show(file)} title={file.path}
+        className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pr-1 text-left text-[13px] text-ink" style={{ paddingLeft: 8 + depth * 14 + 16 }}>
+        <HIcon icon={FileTextIcon} size={14} className="shrink-0 text-ink-secondary" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="shrink-0 text-[11px] text-ink-tertiary">{fileSize(file.bytes)}</span>
+      </button>
+      <button type="button" onClick={() => void save(file)} aria-label={`Save ${label}`} title="Save a copy"
+        className="mr-1 rounded p-1 text-ink-secondary opacity-0 hover:bg-control hover:text-ink focus-visible:opacity-100 group-hover:opacity-100">
+        <HIcon icon={Download01Icon} size={13} />
+      </button>
+    </li>
+  );
+  const folder = (entry: TreeFolder, depth: number): React.ReactNode => {
+    const expanded = open.has(entry.path);
+    return (
+      <li key={`folder:${entry.path}`}>
+        <button type="button" aria-expanded={expanded} title={entry.path}
+          onClick={() => setOpen((current) => { const next = new Set(current); if (expanded) next.delete(entry.path); else next.add(entry.path); return next; })}
+          className="flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px] text-ink hover:bg-raised/60" style={{ paddingLeft: 8 + depth * 14 }}>
+          <HIcon icon={expanded ? ArrowDown01Icon : ArrowRight01Icon} size={12} className="shrink-0 text-ink-tertiary" />
+          <HIcon icon={Folder01Icon} size={14} className="shrink-0 text-ink-secondary" />
+          <span className="min-w-0 truncate">{entry.name}</span>
+        </button>
+        {expanded && <ul>{entry.folders.map((child) => folder(child, depth + 1))}{entry.files.map((file) => row(file, depth + 1, file.path.split("/").at(-1)!))}</ul>}
+      </li>
+    );
+  };
+  const place = conversation.kind === "dm" ? "conversation" : "group";
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-1 px-3 pb-2">
+        <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-hairline/40 bg-inset px-2.5 py-1.5">
+          <HIcon icon={Search01Icon} size={13} className="shrink-0 text-ink-tertiary" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search files" aria-label="Search files"
+            className="min-w-0 flex-1 bg-transparent text-[12.5px] text-ink placeholder:text-ink-tertiary focus:outline-none" />
+        </label>
+        <button type="button" disabled={!allFolders.length} onClick={() => setOpen(allOpen ? new Set() : new Set(allFolders))}
+          aria-label={allOpen ? "Collapse all folders" : "Expand all folders"} title={allOpen ? "Collapse all folders" : "Expand all folders"}
+          className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40">
+          <HIcon icon={allOpen ? UnfoldLessIcon : UnfoldMoreIcon} size={15} />
+        </button>
+        <button type="button" onClick={() => setAttempt((value) => value + 1)} aria-label="Refresh files" title="Refresh files"
+          className="rounded-md p-1.5 text-ink-secondary hover:bg-control hover:text-ink">
+          <HIcon icon={refreshing ? Loading02Icon : RefreshCwIcon} size={15} className={refreshing ? "animate-spin" : undefined} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {!listing && !error && <div className="flex justify-center py-8"><HIcon icon={Loading02Icon} size={16} className="animate-spin text-ink-secondary" /></div>}
+        {listing && listing.files.length === 0 && <p className="px-3 py-6 text-center text-[12.5px] text-ink-tertiary">No files yet. The bots in this {place} share one project folder; ask one to make a file.</p>}
+        {needle
+          ? <ul>{matches.map((file) => row(file, 0, file.path))}{!matches.length && <li className="px-3 py-4 text-[12.5px] text-ink-tertiary">No file matches “{query}”.</li>}</ul>
+          : <ul>{tree.folders.map((entry) => folder(entry, 0))}{tree.files.map((file) => row(file, 0, file.path))}</ul>}
+        {listing?.truncated && <p className="px-3 pt-2 text-[11.5px] text-ink-tertiary">Showing the newest 500 files.</p>}
+        {error && <p role="alert" className="px-3 pt-2 text-[12px] text-danger">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** The three approval levels (owner, October 29), as a group shows them. */
+const LEVELS = ["ask", "auto", "full"] as const satisfies readonly ApprovalMode[];
+const levelLabel = (mode: ApprovalMode) => t(mode === "full" ? "approvalMode.full.label" : mode === "auto" ? "approvalMode.auto.label" : "approvalMode.ask.label");
+const SELECT = "rounded-md border border-hairline/40 bg-inset px-2 py-1 text-[12px] text-ink disabled:opacity-50";
+const HEADING = "block px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-tertiary";
+
+function Members({ conversation, memberBots, bots, onLeft }: {
+  conversation: Conversation; memberBots: string[]; bots: Bot[]; onLeft: () => void;
+}) {
+  const { dispatch } = useStore();
+  const { capabilities } = useDesktopCapabilities();
+  // Full access needs the installed app's own channel, or a Shared admin
+  const adminSession = useAdminSession();
+  const fullAvailable = Boolean(window.colonie?.approvals && capabilities.host.packaged) || adminSession;
+  // Full access is confirmed first, for one bot or for every bot here
+  const [fullFor, setFullFor] = useState<string[] | null>(null);
+  const { id: conversationId, kind, people } = conversation;
+  const [everyone, setEveryone] = useState<Array<{ email: string; name: string }>>([]);
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canDelete = useOwnerOrAdmin();
+  useEffect(() => { void workspacePeople().then(setEveryone).catch(() => {}); }, []);
+  const changed = () => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
+  const add = async (input: { emails?: string[]; bots?: string[] }) => {
+    setError("");
+    try { await addToConversation(conversationId, input); changed(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+  };
+  const inPeople = new Set(people.map((person) => person.email));
+  const here = bots.filter((bot) => memberBots.includes(bot.id));
+  const levelOf = (bot: Bot): ApprovalMode => {
+    const mode = approvalModeFor(bot);
+    return mode === "full" || mode === "auto" ? mode : "ask";
+  };
+  const setLevel = (targets: Bot[], mode: ApprovalMode) => {
+    const changing = targets.filter((bot) => levelOf(bot) !== mode);
+    if (!changing.length) return;
+    if (mode === "full") { setFullFor(changing.map((bot) => bot.id)); return; }
+    for (const bot of changing) dispatch({ type: "updateBot", botId: bot.id, patch: { approvalMode: mode } });
+  };
+  const addable = everyone.filter((person) => !inPeople.has(person.email));
+  const otherBots = bots.filter((bot) => !memberBots.includes(bot.id));
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 text-[12.5px]">
+      <section className="mb-4">
+        <h3 className={HEADING}>People · {people.length}</h3>
+        <ul className="flex flex-col">
+          {people.map((person) => (
+            <li key={person.email || person.name} className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-[13px] text-ink">
+              <PersonAvatar name={person.name} email={person.email} src={person.avatar} size={24} />
+              <span className="min-w-0 flex-1 truncate">{person.you ? `${person.name} (you)` : person.name}</span>
+            </li>
+          ))}
+        </ul>
+        {kind === "group" && addable.length > 0 && (
+          <select aria-label="Add a person" className={cn(SELECT, "mt-1.5 w-full")} value="" onChange={(event) => void add({ emails: [event.target.value] })}>
+            <option value="">Add a person…</option>
+            {addable.map((person) => <option key={person.email} value={person.email}>{person.name}</option>)}
+          </select>
+        )}
+      </section>
+      <section className="mb-4">
+        <h3 className={HEADING}>Bots · {here.length}</h3>
+        <ul className="flex flex-col">
+          {here.map((bot) => (
+            <li key={bot.id} className="flex items-center gap-2.5 rounded-md px-1 py-1.5">
+              <BotAvatar bot={bot} state="happy" size={24} motion="none" motionKey={0} animated={false} />
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{bot.name}</span>
+              {/* the level is the bot's own: it acts the same in every group */}
+              <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
+                className={SELECT} value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
+                {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
+              </select>
+            </li>
+          ))}
+        </ul>
+        {kind === "group" && here.length > 1 && (
+          <label className="mt-2 flex flex-col gap-1 px-1 text-ink-secondary">
+            <span className="flex items-center justify-between gap-2">Set every bot here to
+              <select className={SELECT} value="" disabled={here.some((bot) => bot.busy)} title={here.some((bot) => bot.busy) ? t("approvalMode.busy") : undefined}
+                onChange={(event) => { if (event.target.value) setLevel(here, event.target.value as ApprovalMode); }}>
+                <option value="">Choose…</option>
+                {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
+              </select>
+            </span>
+            <span className="text-[11.5px] text-ink-tertiary">Changes these bots everywhere, not only here.</span>
+          </label>
+        )}
+        {otherBots.length > 0 && (
+          <select aria-label="Add a bot" className={cn(SELECT, "mt-2 w-full")} value="" onChange={(event) => void add({ bots: [event.target.value] })}>
+            <option value="">Add a bot…</option>
+            {otherBots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
+          </select>
+        )}
+      </section>
+      {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-hairline/40 px-1 pt-3">
+        <button type="button" className="text-danger hover:underline" onClick={() => void leaveConversation(conversationId).then(() => { changed(); onLeft(); })}>
+          Leave this {kind === "dm" ? "DM" : "group"}
+        </button>
+        {kind === "group" && canDelete && <button type="button" className="text-danger hover:underline" onClick={() => setDeleting(true)}>Delete group</button>}
+      </div>
+      {error && <p role="alert" className="mt-2 px-1 text-danger">{error}</p>}
+      <FullAccessWarning open={fullFor !== null} allThreads onCancel={() => setFullFor(null)} onConfirm={() => {
+        const targets = fullFor ?? [];
+        setFullFor(null);
+        for (const botId of targets) dispatch({ type: "updateBot", botId, patch: { approvalMode: "full", confirmFullAccess: true, applyToAllThreads: true } });
+      }} />
+      <ConfirmDialog open={deleting} title="Delete group?" body={`“${conversation.title}” and its conversation will be deleted for everyone. This cannot be undone.`}
+        tone="danger" pending={busy} confirmLabel={busy ? "Deleting…" : "Delete group"} onCancel={() => setDeleting(false)} onConfirm={() => {
+          if (busy) return;
+          setBusy(true); setError("");
+          void deleteGroup(conversationId).then(() => { changed(); onLeft(); }).catch((cause: unknown) => {
+            setDeleting(false); setError(cause instanceof Error ? cause.message : String(cause));
+          }).finally(() => setBusy(false));
+        }} />
+    </div>
+  );
+}
+
+/** What every bot in the group reads ("focus on the IGRS project, answer
+ * in Indonesian"). */
+function GroupInstructions({ conversation, onError }: { conversation: Conversation; onError: (message: string) => void }) {
+  const [text, setText] = useState(conversation.instructions ?? "");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setText(conversation.instructions ?? ""), [conversation.instructions]);
+  const changed = text.trim() !== (conversation.instructions ?? "").trim();
+  const save = async () => {
+    setSaving(true); onError("");
+    try { await updateConversation(conversation.id, { instructions: text }); window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)); }
+    catch (cause) { onError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); }
+  };
+  return (
+    <section>
+      <label className="block">
+        <span className={HEADING}>Instructions for this group</span>
+        <span className="block px-1 text-[12px] text-ink-secondary">Every bot here reads them, for example the project it is about or the language to use.</span>
+        <textarea value={text} onChange={(event) => setText(event.target.value)} rows={4} maxLength={4000}
+          placeholder="Focus on the IGRS project. Answer in Indonesian."
+          className="mt-2 w-full resize-y rounded-lg border border-hairline/40 bg-inset px-3 py-2 text-[13px] text-ink placeholder:text-ink-tertiary focus:border-accent/60 focus:outline-none" />
+      </label>
+      {changed && <button type="button" disabled={saving} onClick={() => void save()}
+        className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-50">{saving ? "Saving…" : "Save instructions"}</button>}
+    </section>
+  );
+}
