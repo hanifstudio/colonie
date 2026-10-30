@@ -1195,6 +1195,10 @@ export function openNotificationTarget(
   target: NotificationTarget,
   state: NotificationRoutingState,
 ) {
+  if (target.conversationId) {
+    dispatch({ type: "selectConversation", id: target.conversationId });
+    return;
+  }
   // Cross-bot routine receipts carry the executing bot but report into the
   // requesting bot's thread: resolve its actual owner before selecting. An
   // unknown/deleted thread falls back to the bot.

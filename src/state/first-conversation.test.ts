@@ -3,13 +3,18 @@
 // card show live instead of after a reload.
 import { describe, expect, it } from "vitest";
 
-import { initialState, reducer, type AppState, type Bot, type Message } from "./store";
+import { initialState, openNotificationTarget, reducer, type AppState, type Bot, type Message } from "./store";
 
 const bot = { id: "b1", name: "Nova", title: "", description: "", threadId: "", messages: [], color: "blue", notifications: true, unread: false,
   modelSelection: { instanceId: "codex-acp", model: "m" }, tasks: [{ threadId: "t1", title: "hi", createdAt: 1, updatedAt: 1 }] } as unknown as Bot;
 const message = (extra: Partial<Message>): Message => ({ id: "m1", at: 1, role: "user", kind: "text", text: "hi", parentId: null, ...extra } as Message);
 
 describe("a person's first conversation with a bot", () => {
+  it("a routine notification opens its originating group rather than the bot's personal DM", () => {
+    const actions: unknown[] = [];
+    openNotificationTarget((action) => actions.push(action), { botId: bot.id, threadId: "group-chat", conversationId: "launch" }, { bots: [bot] });
+    expect(actions).toEqual([{ type: "selectConversation", id: "launch" }]);
+  });
   it("never adopts a group's work as the first personal conversation", () => {
     const work = { ...bot.tasks![0]!, forConversation: "group-1" };
     const before: AppState = { ...initialState, bots: [{ ...bot, tasks: [work] }], selectedId: bot.id, selectedConversationId: "group-1" };

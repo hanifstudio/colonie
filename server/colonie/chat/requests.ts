@@ -250,7 +250,10 @@ const providerLabel = (provider: string): string => {
 function notify(notification: Notification | null) {
   // nested rather than spread — the frame's own `kind` names the frame,
   // exactly like {kind:"message", message} and {kind:"bot", bot}
-  if (notification) broadcast({ kind: "notify", notification });
+  if (notification) {
+    const conversation = deps.conversationForThread?.(notification.threadId);
+    broadcast({ kind: "notify", notification: conversation ? { ...notification, threadId: conversation.threadId, conversationId: conversation.id } : notification });
+  }
 }
 
 // The latest running token totals for the turn in flight on each thread.

@@ -8,13 +8,14 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { startSharedWorkspace, type SharedWorkspace } from "../../testing/shared-workspace.ts";
 
 const ANA = "ana@x.com";
+const BOB = "bob@x.com";
 let ws: SharedWorkspace;
 let botId: string;
 
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 beforeAll(async () => {
-  ws = await startSharedWorkspace([{ email: ANA, admin: true }]);
+  ws = await startSharedWorkspace([{ email: ANA, admin: true }, { email: BOB, admin: true }]);
   botId = (await ws.as(ANA, "/api/bots")).body.bots[0].id;
 }, 90_000);
 afterAll(async () => { await ws?.stop(); });
@@ -48,6 +49,9 @@ test("a bot schedules a routine for itself from chat, and the person sees it wit
   if (!routine) throw new Error(`no routine was made:\n${JSON.stringify((await ws.as(ANA, `/api/threads/${threadId}/messages`)).body.messages?.map((m: any) => m.text ?? m.card?.title)).slice(0, 1500)}\n${ws.log().slice(-3000)}`);
   expect(routine).toMatchObject({ botId, enabled: true, schedule: { type: "daily", time: "08:00", weekdays: [1, 2, 3, 4, 5] } });
   expect(routine.nextRunAt).toBeGreaterThan(Date.now());
+  expect(routine.conversation).toMatchObject({ threadId, requestedBy: { name: ANA } });
+  expect((await ws.as(BOB, "/api/routines")).body.routines.some((entry: any) => entry.id === routine.id)).toBe(false);
+  expect((await ws.as(BOB, `/api/routines/${routine.id}/run`, { method: "POST" })).status).toBe(404);
 
   const messages = (await ws.as(ANA, `/api/threads/${threadId}/messages`)).body.messages ?? [];
   const receipt = messages.find((message: any) => message.card?.routineRequest);
@@ -83,6 +87,8 @@ test("a routine a bot schedules while working for a group reports each run to th
     if (!routine) await settle(200);
   }
   expect(routine).toBeTruthy();
+  expect(routine.conversation).toMatchObject({ id: group.id, threadId: group.threadId });
+  expect((await ws.as(BOB, "/api/routines")).body.routines.some((entry: any) => entry.id === routine.id)).toBe(false);
 
   // a run reports into the group, from the bot, and is announced
   const live = await ws.stream(ANA);
@@ -99,4 +105,26 @@ test("a routine a bot schedules while working for a group reports each run to th
   live.close();
   expect(live.text()).toContain("finished a routine");
   if (!report) throw new Error(`no report in the group:\n${JSON.stringify((await ws.as(ANA, `/api/conversations/${group.id}/messages`)).body.messages?.map((m: any) => m.text)).slice(0, 1500)}`);
+  const runId = report.routineRun?.runId;
+  expect(runId).toBeTruthy();
+  const reports = (await ws.as(ANA, `/api/conversations/${group.id}/messages`)).body.messages.filter((message: any) => message.routineRun?.runId === runId);
+  expect(reports).toHaveLength(1);
+  expect(reports[0].routineRun.status).toBe("completed");
+  const personal = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);
+  for (const task of (personal.tasks ?? []).filter((entry: any) => !entry.forConversation && !entry.routineRunId)) {
+    expect((await ws.as(ANA, `/api/threads/${task.threadId}/messages`)).body.messages.some((message: any) => message.routineRun?.runId === runId)).toBe(false);
+  }
 }, 120_000);
+
+test("a calendar-created routine belongs to its creator's DM, including when another admin uses the same bot", async () => {
+  const bob = await ws.as(BOB, `/api/bots/${botId}/messages`, { method: "POST", body: { text: "Bob's separate DM" } });
+  expect(bob.status).toBeLessThan(300);
+  const bobThread = bob.body.threadId;
+  const input = { name: "Calendar brief", prompt: "Report from the chosen conversation.", botId, schedule: { type: "daily", time: "10:00", weekdays: [1] } };
+  expect((await ws.as(ANA, "/api/routines", { method: "POST", body: { ...input, resultsThreadId: bobThread } })).status).toBe(404);
+  const created = await ws.as(ANA, "/api/routines", { method: "POST", body: input });
+  expect(created.status).toBe(201);
+  expect(created.body.routine.conversation.requestedBy.name).toBe(ANA);
+  expect(created.body.routine.conversation.threadId).not.toBe(bobThread);
+  expect((await ws.as(BOB, "/api/routines")).body.routines.some((entry: any) => entry.id === created.body.routine.id)).toBe(false);
+}, 30_000);

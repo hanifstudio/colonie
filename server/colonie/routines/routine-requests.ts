@@ -11,6 +11,7 @@ import { redactSecretsInText } from "../../redact.ts";
 import { parseJson, schemaIssue, type JsonObject, type JsonValue } from "../../schema.ts";
 import {
   intervalHasRestrictions,
+  routineConversationSchema,
   nextOccurrence,
   type Routine,
   type RoutineInput,
@@ -243,6 +244,8 @@ const storedOperationSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete"), ...storedManageBase }).strict(),
 ]);
 const storedSnapshotSchema = storedDefinitionSchema.extend({
+  conversation: routineConversationSchema.optional(),
+  sourceThreadId: z.string().min(1).max(128).optional(),
   enabled: z.boolean(),
   target: z.literal("room-goal").optional(),
   groupId: z.string().min(1).max(128).optional(),
@@ -333,7 +336,8 @@ export interface RoutineRequestServiceOptions {
   /** Re-authorizes a cross-bot target (the card can sit open while the target
    * bot is deleted or moved to another section). Returns the sentence to
    * refuse with, or null to allow. Checked at propose AND confirm time. */
-  validateTarget?: (proposerBotId: string, target: { botId: string; name: string }) => string | null;
+  validateTarget?: (proposerBotId: string, target: { botId: string; name: string }, threadId: string) => string | null;
+  validateScope?: (botId: string, threadId: string, routineId: string) => string | null;
 }
 
 export interface ProposeRoutineRequestArgs {
@@ -913,6 +917,7 @@ function cardCopy(
       ...(forBot ? [`For: @${redactSecretsInText(forBot.name)} — each run uses that bot's engine and permissions`] : []),
       `Schedule: ${when}`,
       `Next run: ${nextDescription}`,
+      "Reports to: This conversation",
       ...(definition.schedule.type === "cron" && nextRunAt !== null && operation.action !== "run_now"
         ? [`Next 3 runs (${scheduleTimeZone}): ${nextCronRuns(definition.schedule, now, 3).map((at) => formatInstant(at, scheduleTimeZone)).join(" · ")}`]
         : []),
@@ -1026,13 +1031,14 @@ function requestCommit(payload: RoutineRequestCardData, messageId: string): Rout
   };
 }
 
-function revalidateOperation(operation: RoutineRequestOperation, manager: RoutineManager, botId: string, now: number): void {
+function revalidateOperation(operation: RoutineRequestOperation, manager: RoutineManager, botId: string, now: number, inScope: (routine: Routine) => boolean = () => true): void {
   if (operation.action === "create") {
     const definition = operation.routine;
     const owner = operation.forBot?.botId ?? botId;
     const schedule = asSchedule(definition.schedule, now);
     const duplicate = manager.listRoutines().find((routine) => {
-      if (!routine.enabled || routine.target !== "bot" || routine.botId !== owner
+      if (!inScope(routine)) return false;
+      if (!routine.enabled || routine.target !== "bot" || (!routine.conversation?.id && routine.botId !== owner)
         || routine.runOn !== definition.runOn || routine.prompt !== definition.instructions
         || routine.durationMinutes !== definition.durationMinutes
         || routine.timeoutMinutes !== definition.timeoutMinutes
@@ -1121,6 +1127,8 @@ function routineSnapshot(routine: Routine): RoutineRequestSnapshot | undefined {
   if (routine.attachments?.length) return undefined;
   if (redactSecretsInText(routine.name) !== routine.name || redactSecretsInText(routine.prompt) !== routine.prompt) return undefined;
   const snapshot: RoutineRequestSnapshot = {
+    ...(routine.conversation ? { conversation: structuredClone(routine.conversation) } : {}),
+    ...(routine.sourceThreadId ? { sourceThreadId: routine.sourceThreadId } : {}),
     name: routine.name,
     instructions: routine.prompt,
     schedule: structuredClone(routine.schedule),
@@ -1163,6 +1171,7 @@ export class RoutineRequestService {
   private readonly cloudReady?: (botId: string) => Promise<{ ready: boolean; reason?: string }>;
   private readonly canPersist?: RoutineRequestServiceOptions["canPersist"];
   private readonly validateTarget?: RoutineRequestServiceOptions["validateTarget"];
+  private readonly validateScope?: RoutineRequestServiceOptions["validateScope"];
   private readonly autoApply?: RoutineRequestServiceOptions["autoApply"];
 
   constructor(options: RoutineRequestServiceOptions) {
@@ -1173,6 +1182,7 @@ export class RoutineRequestService {
     this.cloudReady = options.cloudReady;
     this.canPersist = options.canPersist;
     this.validateTarget = options.validateTarget;
+    this.validateScope = options.validateScope;
     this.autoApply = options.autoApply;
   }
 
@@ -1197,9 +1207,13 @@ export class RoutineRequestService {
     if (!parsedProposal.success) {
       throw new RoutineRequestError(schemaIssue(parsedProposal.error, "Invalid routine proposal"));
     }
+    if (parsedProposal.data.action !== "create") {
+      const refusal = this.validateScope?.(botId, threadId, parsedProposal.data.routineId);
+      if (refusal) throw new RoutineRequestError(refusal, 404);
+    }
     const operation = normalizedOperation(this.routines, botId, parsedProposal.data, at);
     if (operation.forBot && this.validateTarget) {
-      const refusal = this.validateTarget(botId, operation.forBot);
+      const refusal = this.validateTarget(botId, operation.forBot, threadId);
       if (refusal) throw new RoutineRequestError(refusal, 403);
     }
     await this.requireCloudReadiness(operation, botId);
@@ -1207,7 +1221,7 @@ export class RoutineRequestService {
     // delete the routine while it is in flight, so re-check the captured
     // revision before rendering and persisting the confirmation snapshot.
     const cardAt = this.now();
-    revalidateOperation(operation, this.routines, botId, cardAt);
+    revalidateOperation(operation, this.routines, botId, cardAt, (routine) => !this.validateScope?.(botId, threadId, routine.id));
     const requestId = newId();
     const payload: RoutineRequestCardData = {
       version: 1,
@@ -1407,7 +1421,7 @@ export class RoutineRequestService {
             ...(before.continuity ? { continuity: true } : {}),
             ...(before.overlap === "queue" ? { overlap: "queue" as const } : {}),
             ...(before.resultsThreadId ? { resultsThreadId: before.resultsThreadId } : {}),
-          }).id;
+          }, undefined, { conversation: before.conversation, sourceThreadId: before.sourceThreadId }).id;
           break;
         }
         default:
@@ -1555,9 +1569,13 @@ export class RoutineRequestService {
         this.store.patchMessage(args.threadId, message.id, { card: { ...card, answered: "deny", held: undefined } });
         return { claimed: true, state: "denied" };
       }
-      revalidateOperation(payload.operation, this.routines, payload.botId, this.now());
+      revalidateOperation(payload.operation, this.routines, payload.botId, this.now(), (routine) => !this.validateScope?.(payload.botId, payload.threadId, routine.id));
+      if (payload.operation.action !== "create") {
+        const refusal = this.validateScope?.(payload.botId, payload.threadId, payload.operation.routineId);
+        if (refusal) throw new RoutineRequestError(refusal, 404, { terminal: true });
+      }
       if (payload.operation.forBot && this.validateTarget) {
-        const refusal = this.validateTarget(payload.botId, payload.operation.forBot);
+        const refusal = this.validateTarget(payload.botId, payload.operation.forBot, payload.threadId);
         if (refusal) throw new RoutineRequestError(refusal, 404, { terminal: true });
       }
       const resultId = this.apply(payload, message.id, fingerprint);

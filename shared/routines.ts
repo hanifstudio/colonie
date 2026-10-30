@@ -62,6 +62,13 @@ export interface RoutineContextAttachment {
 
 export type RoutineRunTrigger = "schedule" | "manual" | "webhook";
 
+/** Set by Colonie from the requesting conversation, never by the agent. */
+export interface RoutineConversation {
+  threadId: string;
+  id?: string;
+  requestedBy?: { id: string; name: string };
+}
+
 export type RoutineRunStatus =
   | "queued"
   | "running"
@@ -85,6 +92,9 @@ export function isRoutineProblemRun(run: { status: RoutineRunStatus }): boolean 
 export type RoutineRunStatusFilter = "all" | "problems" | RoutineRunStatus;
 
 export interface Routine {
+  conversation?: RoutineConversation;
+  /** Scheduler's wall-clock zone for daily and restricted interval schedules. */
+  timeZone?: string;
   id: string;
   name: string;
   prompt: string;
@@ -112,6 +122,7 @@ export interface Routine {
 }
 
 export interface RoutineRun {
+  conversation?: RoutineConversation;
   id: string;
   routineId: string;
   routineName: string;

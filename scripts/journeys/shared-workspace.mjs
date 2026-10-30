@@ -14,6 +14,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { verifyChatComposer } from "./chat-composer.mjs";
+import { verifyRoutines } from "./routines.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
 const web = process.argv[2] ?? join(root, "dist");
@@ -42,7 +43,7 @@ const ws = await startSharedWorkspace([], {}, (url) => ({
   COLONIE_STATIC_DIR: web, COLONIE_WORKSPACE_KIND: "shared", COLONIE_PUBLIC_URL: url,
   COLONIE_CLOUD_ISSUER: cloud.url, COLONIE_WORKSPACE_NAME: "Launch Team", COLONIE_OWNER_INVITE_CODE: ownerCode,
 }));
-const browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}), headless: !process.env.COLONIE_JOURNEY_HEADFUL });
+let browser;
 const errors = [];
 
 async function join_(invite, person) {
@@ -80,6 +81,7 @@ async function settle(page) {
 
 let failed = false;
 try {
+  browser = await chromium.launch({ ...(process.env.CHROME ? { executablePath: process.env.CHROME } : {}), headless: !process.env.COLONIE_JOURNEY_HEADFUL });
   step = "the owner joins";
   const ana = await join_(`${ws.url}/invite/${ownerCode}`, { name: "Ana", email: "ana@x.com" });
   check((await text(ana)).includes("ana@x.com"), "the sidebar shows the owner's own account");
@@ -255,6 +257,8 @@ try {
     return await editor.count() > 0 && (await editor.getAttribute("aria-label") ?? "").includes(botName);
   }, "the original bot's DM is open");
   await verifyChatComposer(ana, { name: "Nara Research", label: "bot-dm", check, until });
+  step = "routines in a bot DM and a group";
+  await verifyRoutines(ana, { botId: originalBotId, botName, check, until });
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(" | ")}` : ""}`);
   console.log("Shared workspace journey: passed");
 } catch (error) {
@@ -262,7 +266,7 @@ try {
   console.error(String(error));
   console.error(ws.log().slice(-2000));
 } finally {
-  await browser.close();
+  await browser?.close();
   await ws.stop();
   await cloud.stop();
 }

@@ -46,6 +46,9 @@ export async function startSharedWorkspace(
   /** Start-up settings for the server, given the address it will answer at. */
   extraEnv: (url: string) => Record<string, string> = () => ({}),
 ): Promise<SharedWorkspace> {
+  // Probe before creating homes or sessions: a refused listener must not
+  // leave disposable workspace folders behind.
+  const port = await freePortBlock([0, 1]);
   const home = mkdtempSync(join(tmpdir(), "colonie-shared-home-"));
   const dataDir = mkdtempSync(join(tmpdir(), "colonie-shared-data-"));
   const admins = people.filter((person) => person.admin).map((person) => person.email);
@@ -73,7 +76,6 @@ export async function startSharedWorkspace(
   }
   registry.close();
 
-  const port = await freePortBlock([0, 1]);
   const url = `http://127.0.0.1:${port}`;
   let output = "";
   const child: ChildProcess = spawn(process.execPath, [join(ROOT, "server", "index.ts")], {

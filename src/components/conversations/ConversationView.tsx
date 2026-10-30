@@ -22,6 +22,8 @@ import { useMentionPicker } from "@/lib/use-mention-picker";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { GroupPanel } from "./GroupPanel";
 import { GroupStack } from "./GroupFaces";
+import { ConversationRoutines } from "../routines/ConversationRoutines";
+import { useComposerDraft } from "@/lib/drafts";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -96,6 +98,7 @@ export function ConversationView({ id }: { id: string }) {
       ),
       actions: (
         <>
+        <ConversationRoutines key={conversation.id} threadId={conversation.threadId} conversationId={conversation.id} botId={conversation.leadBotId ?? memberBots[0]?.id ?? bots.find((bot) => bot.chiefOfStaff)?.id ?? bots[0]?.id} />
         {conversation.canStop && <button type="button" disabled={stopping} onClick={() => {
           setStopping(true); setStopError("");
           void stopConversation(id).then(() => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)))
@@ -148,7 +151,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
   // with the same panel as a bot chat, against the bot's own work
   const approval = useMemo(() => pendingApprovals(messages.filter((message) => message.relay?.askedBy === viewerKey))[0], [messages, viewerKey]);
   const approvalBot = approval ? bots.find((bot) => bot.id === approval.message.from?.botId) : undefined;
-  const [text, setText] = useState("");
+  const [text, setText] = useComposerDraft(`conversation:${conversation.id}`);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);

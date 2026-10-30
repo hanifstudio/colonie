@@ -53,7 +53,7 @@ export interface ChiefSkillsDeps {
  * goes through the routine request service: applied with an Undo receipt
  * for the bot's own routines, or left as a card for the person. */
 export interface ChiefRoutinesDeps {
-  list(botId: string): unknown;
+  list(botId: string, threadId: string): unknown;
   propose(botId: string, threadId: string, proposal: unknown, canCommit: () => boolean): Promise<unknown>;
   now(): { time: string; timeZone: string };
 }
@@ -169,9 +169,9 @@ const SCHEDULE = {
 const ROUTINE_OUTCOME = " Read the result: a change to your own routines usually applies at once and the person sees it with an Undo; otherwise it waits for the person's confirmation in the chat. Never claim it is scheduled unless the result says applied.";
 
 const selfRoutineTools: ToolDef[] = [
-  { name: "list_routines", description: "List your routines (scheduled work) with their ids, schedules, whether they are on, and when they run next, plus the current time and timezone. Call it before scheduling anything relative (\"tomorrow\", \"in an hour\") and before changing a routine.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "schedule_routine", description: "Schedule work for yourself when the person asks for recurring or future work (\"every weekday at 8 sum up the news\", \"remind me tomorrow at 3pm\"). Settle the time, timezone and what to do with the person first if anything is unclear. Each run starts fresh with only the instructions, so write them complete: what to do, where to look, what to report. Never approximate a schedule you cannot express; say so instead." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { name: { type: "string", description: "Short name, up to 80 characters." }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean", description: "Carry the previous run's report into the next run." }, requestId: { type: "string" } }, required: ["name", "instructions", "schedule", "requestId"], additionalProperties: false } },
-  { name: "change_routine", description: "Change one of your routines when the person asks: update its name, instructions or schedule, pause, resume, run it now, or delete it. Get the id from list_routines." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { routineId: { type: "string" }, action: { type: "string", enum: ["update", "pause", "resume", "run_now", "delete"] }, name: { type: "string" }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean" }, requestId: { type: "string" } }, required: ["routineId", "action", "requestId"], additionalProperties: false } },
+  { name: "list_routines", description: "List routines in THIS conversation with ids, responsible bots, schedules, whether they are on, and when they run next, plus the current time and timezone. Other conversations' routines are private. Call it before scheduling anything relative (\"tomorrow\", \"in an hour\") and before changing a routine.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "schedule_routine", description: "Schedule work for yourself when the person asks for recurring or future work (\"every weekday at 8 sum up the news\", \"remind me tomorrow at 3pm\"). The routine, results and approvals stay in THIS conversation and its project folder. Call list_routines first to use the actual time and timezone. Settle the time, timezone and what to do with the person first if anything is unclear. Each run starts fresh with only the instructions, so write them complete: what to do, where to look, what to report. On a local Mac, Colonie must be open for it to run; say so when scheduling. Never approximate a schedule you cannot express; say so instead." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { name: { type: "string", description: "Short name, up to 80 characters." }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean", description: "Carry the previous run's report into the next run." }, requestId: { type: "string" } }, required: ["name", "instructions", "schedule", "requestId"], additionalProperties: false } },
+  { name: "change_routine", description: "Change a routine in THIS conversation when the person asks: update its name, instructions or schedule, pause, resume, run it now, or delete it. Get its exact id and responsible bot from list_routines; if several could match, ask which one. Another bot's routine may need the person's confirmation. Every run keeps its responsible bot's permissions." + ROUTINE_OUTCOME, inputSchema: { type: "object", properties: { routineId: { type: "string" }, action: { type: "string", enum: ["update", "pause", "resume", "run_now", "delete"] }, name: { type: "string" }, instructions: { type: "string" }, schedule: SCHEDULE, continuity: { type: "boolean" }, requestId: { type: "string" } }, required: ["routineId", "action", "requestId"], additionalProperties: false } },
 ];
 
 /** Only the fields a schedule of its type takes: a model often adds a
@@ -535,7 +535,7 @@ export class ColonieChief {
         return this.mutate(lease, name, args, () => safeText(propose(lease.botId, lease.threadId, input)));
       }
       case "list_routines":
-        return safeText({ ...this.routineDeps().now(), routines: this.routineDeps().list(lease.botId) });
+        return safeText({ ...this.routineDeps().now(), routines: this.routineDeps().list(lease.botId, lease.threadId) });
       case "schedule_routine": {
         const routine = { name: this.requiredString(args, "name"), instructions: this.requiredString(args, "instructions"), schedule: scheduleOf(args.schedule),
           ...(typeof args.continuity === "boolean" ? { continuity: args.continuity } : {}) };

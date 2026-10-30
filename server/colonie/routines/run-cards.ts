@@ -20,7 +20,17 @@ export function createRoutineRunCards(deps: RoutineRunCardsDeps) {
 // ── routines: persisted definitions → detached bot tasks ───────────────
 // The scheduler owns timing and receipts; the existing harness remains the
 // only owner of provider sessions, approvals, tools, computers and messages.
-function routineSourceOwner(run: Pick<RoutineRun, "botId" | "sourceThreadId" | "resultsThreadId">) {
+function routineSourceOwner(run: Pick<RoutineRun, "botId" | "sourceThreadId" | "resultsThreadId" | "conversation">) {
+  if (run.conversation) {
+    const bot = store.bot(run.botId);
+    if (!bot || bot.hidden) return null;
+    const { id, threadId } = run.conversation;
+    if (id) return deps.conversationOf?.(threadId)?.id === id ? { bot, threadId, conversation: true } : null;
+    const sourceBot = store.botByThread(threadId);
+    const task = sourceBot && store.taskByThread(sourceBot.id, threadId);
+    return sourceBot && !sourceBot.hidden && task && !task.forConversation && !task.routineRunId &&
+      (sourceBot.id === bot.id || canReachPeer(sourceBot, bot)) ? { bot: sourceBot, threadId } : null;
+  }
   if (run.resultsThreadId) {
     const bot = store.bot(run.botId);
     const task = bot && store.taskByThread(bot.id, run.resultsThreadId);
@@ -55,7 +65,7 @@ function routineSourceOwner(run: Pick<RoutineRun, "botId" | "sourceThreadId" | "
  * the one it was created with until that is deleted or archived. Deleting
  * the last one already gives the bot a fresh conversation (Store.deleteTask). */
 function botMainThread(botId: string): string | undefined {
-  const visible: TaskRecord[] = store.tasks(botId).filter((task: TaskRecord) => !task.routineRunId);
+  const visible: TaskRecord[] = store.tasks(botId).filter((task: TaskRecord) => !task.routineRunId && !task.forConversation);
   const open = visible.filter((task: TaskRecord) => task.archivedAt === undefined);
   return (open.length ? open : visible).reduce<TaskRecord | undefined>(
     (oldest, task) => (!oldest || task.createdAt < oldest.createdAt ? task : oldest), undefined,
@@ -75,7 +85,7 @@ function routineSourceThread(run: RoutineRun): string | null {
 
 function routineRunCard(run: RoutineRun): NonNullable<Message["routineRun"]> {
   const visibleSummary = run.status === "waiting" ? run.attention : run.output;
-  const summary = visibleSummary ? redactSecretsInText(visibleSummary).slice(0, 2_000) : undefined;
+  const summary = visibleSummary ? redactSecretsInText(visibleSummary).slice(0, 20_000) : undefined;
   const error = run.error ? redactSecretsInText(run.error).slice(0, 500) : undefined;
   const card: NonNullable<Message["routineRun"]> = {
     runId: run.id,
@@ -131,6 +141,7 @@ function routineRunFallbackText(card: NonNullable<Message["routineRun"]>): strin
 function syncRoutineRunToSource(run: RoutineRun): string | null {
   const source = routineSourceOwner(run);
   if (!source) {
+    if (run.conversation) return null;
     const execution = run.threadId ? store.taskByThread(run.botId, run.threadId) : null;
     if (execution?.routineRunId === run.id) {
       store.patchTask(run.botId, execution.threadId, {
@@ -148,13 +159,14 @@ function syncRoutineRunToSource(run: RoutineRun): string | null {
   );
   const statusChanged = existing?.routineRun?.status !== run.status;
   if (existing) {
-    store.patchMessage(sourceThreadId, existing.id, { text, routineRun: card });
+    store.patchMessage(sourceThreadId, existing.id, { text, routineRun: card, working: undefined, workingSince: undefined });
   } else {
     store.appendMessage(sourceThreadId, {
       role: "bot",
       kind: "routine.run",
       text,
       routineRun: card,
+      ...(source.conversation ? { from: { botId: source.bot.id, name: source.bot.name, color: source.bot.color ?? "" } } : {}),
     });
   }
 
@@ -177,7 +189,7 @@ function syncRoutineRunToSource(run: RoutineRun): string | null {
 
   // Merely queueing/running is ambient progress. Attention and terminal
   // states become unread in the conversation where the user asked for them.
-  if (statusChanged && ["waiting", "completed", "failed", "missed"].includes(run.status)) {
+  if (!source.conversation && statusChanged && ["waiting", "completed", "failed", "missed"].includes(run.status)) {
     store.patchTask(source.bot.id, sourceThreadId, { unread: true });
   }
   return sourceThreadId;

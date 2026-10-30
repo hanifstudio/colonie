@@ -7,7 +7,7 @@
 // only be aimed at a bot or room the caller can see: a hidden target reads
 // as "no such bot"/"no such channel" rather than as a refusal.
 import { routineVisible, type VisibleSet } from "../colonie/bots/bot-visibility.ts";
-import type { RoutineManager } from "../colonie/routines/routines.ts";
+import type { Routine, RoutineInput, RoutineManager } from "../colonie/routines/routines.ts";
 import type { Store } from "../persistence/store.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
@@ -16,6 +16,7 @@ export interface RoutineRouteDeps {
   routines: RoutineManager;
   store: Store;
   visibleFor: (auth: RequestAuth) => VisibleSet;
+  contextForCreate?: (auth: RequestAuth, input: RoutineInput) => Pick<Routine, "sourceThreadId" | "conversation"> | undefined;
 }
 
 /** A member may schedule a routine only for a bot or room they can see. */
@@ -53,7 +54,8 @@ export function createRoutineRoutes(deps: RoutineRouteDeps): RouteHandler {
       const body = await readBody(req);
       const hidden = hiddenRoutineTarget(body, visible, deps.store);
       if (hidden) return json(res, 404, { error: hidden });
-      const routine = deps.routines.create(body);
+      if (typeof body.resultsThreadId === "string" && !visible.thread(body.resultsThreadId)) return json(res, 404, { error: "no such conversation" });
+      const routine = deps.routines.create(body, undefined, deps.contextForCreate?.(auth, body));
       return json(res, 201, { routine });
     }
     // The desktop shell polls this to decide whether to hold the computer
@@ -71,6 +73,7 @@ export function createRoutineRoutes(deps: RoutineRouteDeps): RouteHandler {
       const body = await readBody(req);
       const hidden = hiddenRoutineTarget(body, visible, deps.store);
       if (hidden) return json(res, 404, { error: hidden });
+      if (typeof body.resultsThreadId === "string" && !visible.thread(body.resultsThreadId)) return json(res, 404, { error: "no such conversation" });
       const routine = deps.routines.update(routineMatch![1], body);
       return routine ? json(res, 200, { routine }) : json(res, 404, { error: "no such routine" });
     }
@@ -81,7 +84,7 @@ export function createRoutineRoutes(deps: RoutineRouteDeps): RouteHandler {
         : json(res, 404, { error: "no such routine" });
     }
     if (path === "/api/routine-runs/seen-all" && method === "POST") {
-      return json(res, 200, { runs: deps.routines.markAllSeen() });
+      return json(res, 200, { runs: deps.routines.markAllSeen((run) => routineVisible(run, visible)) });
     }
     const runMatch = path.match(/^\/api\/routine-runs\/([\w-]+)\/(cancel|seen)$/);
     if (runMatch && method === "POST") {

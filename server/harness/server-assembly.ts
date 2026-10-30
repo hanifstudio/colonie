@@ -423,6 +423,16 @@ ROUTES.push(createRoutineRoutes({
   routines: routines()!,
   store,
   visibleFor: (auth) => visibleTo(viewerFor(auth)),
+  contextForCreate: (auth, input) => {
+    const person = deps.conversationCaller(auth);
+    const bot = store.bot(input.botId);
+    if (!person || !bot) return undefined;
+    const threadId = typeof input.resultsThreadId === "string" ? input.resultsThreadId
+      : deps.ownThreads.currentThread(person.key, bot) ?? deps.ownThreads.openThread(person.key, bot);
+    const task = threadId && store.taskByThread(bot.id, threadId);
+    if (!task || task.forConversation || task.routineRunId) throw Object.assign(new Error("Choose one of your direct conversations for this routine."), { status: 400 });
+    return { sourceThreadId: threadId, conversation: { threadId, requestedBy: { id: person.key, name: person.name } } };
+  },
 }));
 ROUTES.push(createCalendarWebhookRoutes({
   calendarCalls: () => calendarCalls()!,

@@ -468,7 +468,7 @@ export function EventEditor({
           // A one-time run has no next run to carry a report into.
           continuity: recurrence !== "none" && continuity,
           attachments: attachments as RoutineContextAttachment[],
-          resultsThreadId,
+          resultsThreadId: existingRoutine?.conversation ? undefined : resultsThreadId,
         };
         const response = await editorRequest(existingRoutine ? `/api/routines/${existingRoutine.id}` : "/api/routines", {
           method: existingRoutine ? "PATCH" : "POST",
@@ -756,7 +756,7 @@ export function EventEditor({
           </label>
         );
   const resultsControl = kind === "routine" && !legacyTeamGoal && <div className={cn(advanced && "ml-8")}>
-            <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} allowCurrent={Boolean(existingRoutine)} onChange={setResultsThreadId} />
+            {existingRoutine?.conversation ? <p className="text-[12.5px] text-ink-secondary">Reports to the conversation where it was scheduled.</p> : <ResultsDestination bot={bots.find((bot) => bot.id === botIds[0])} value={resultsThreadId} allowCurrent={Boolean(existingRoutine)} onChange={setResultsThreadId} />}
           </div>;
   const attachmentsRow = !legacyTeamGoal && (
           <div className="flex items-start gap-4">
@@ -858,7 +858,7 @@ export function EventEditor({
                   <div className="mb-2 text-[12.5px] font-medium text-ink">{kind === "routine" ? (advanced ? "Assign a bot" : t("routines.editor.who")) : "Add guests"}</div>
                   {bots.length > 0 ? (
                 <>
-                  <BotPicker bots={bots} selected={botIds} multiple={kind === "call"} locked={Boolean(lockedBotId)} onChange={selectBots} />
+                  <BotPicker bots={bots} selected={botIds} multiple={kind === "call"} locked={Boolean(lockedBotId || existingRoutine?.conversation)} onChange={selectBots} />
                   <div className="mt-2 text-[11.5px] text-ink-secondary">{kind === "routine" ? "This bot owns each scheduled run." : `${selectedBots.length || "No"} bot${selectedBots.length === 1 ? "" : "s"} invited to the call.`}</div>
                 </>
               ) : (
@@ -1346,11 +1346,12 @@ export function EventDetails({
   const primary = invited[0];
   // A stored team goal's thread belonged to a retired room, so it cannot be opened.
   const executionOwner = isRoomGoal ? undefined : primary;
-  const canOpenExecution = Boolean(executionThreadId && (executionOwner?.threadId === executionThreadId || executionOwner?.tasks?.some((task) => task.threadId === executionThreadId)));
+  const canOpenExecution = Boolean(executionThreadId && !executionOwner?.tasks?.find((task) => task.threadId === executionThreadId)?.forConversation && (executionOwner?.threadId === executionThreadId || executionOwner?.tasks?.some((task) => task.threadId === executionThreadId)));
   // A run snapshots where it reported (older runs: the chat that made the
   // routine). A routine without a chosen thread reports to the main thread.
-  const resultsThreadId = run ? run.resultsThreadId ?? run.sourceThreadId : routine?.resultsThreadId;
-  const canOpenResults = resultsThreadId && state.bots.some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId));
+  const conversation = run?.conversation ?? routine?.conversation;
+  const resultsThreadId = conversation?.threadId ?? (run ? run.resultsThreadId ?? run.sourceThreadId : routine?.resultsThreadId);
+  const canOpenResults = resultsThreadId && (Boolean(conversation?.id) || state.bots.some((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId)));
   const title = call?.name ?? run?.routineName ?? routine?.name ?? "Routine";
   const description = call?.description ?? run?.prompt ?? routine?.prompt ?? "";
   const attachments = call?.attachments ?? run?.attachments ?? routine?.attachments ?? [];
@@ -1426,7 +1427,7 @@ export function EventDetails({
   const resultsOwner = resultsThreadId
     ? state.bots.find((owner) => owner.threadId === resultsThreadId || owner.tasks?.some((task) => task.threadId === resultsThreadId))
     : undefined;
-  const resultsTitle = !resultsThreadId
+  const resultsTitle = conversation?.id ? "Conversation where this was scheduled" : !resultsThreadId
     ? t("routines.results.main")
     : resultsOwner?.tasks?.find((task) => task.threadId === resultsThreadId)?.title ?? resultsOwner?.name ?? t("routines.results.missing");
 
@@ -1495,7 +1496,7 @@ export function EventDetails({
         <div className="flex flex-wrap items-center gap-1">
           {chatBotId && <button onClick={() => onOpenChat(chatBotId)} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-semibold text-accent-ink hover:brightness-110"><HIcon icon={SquareArrowUpRightIcon} size={13} />Open chat</button>}
           {canOpenExecution && <button onClick={openRunTask} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />Open thread</button>}
-          {canOpenResults && resultsThreadId && <button type="button" onClick={() => { openNotificationTarget(dispatch, { botId: botIds[0], threadId: resultsThreadId }, state); onClose(); }} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />{t("routines.results.open")}</button>}
+          {canOpenResults && resultsThreadId && <button type="button" onClick={() => { if (conversation?.id) dispatch({ type: "selectConversation", id: conversation.id }); else openNotificationTarget(dispatch, { botId: botIds[0], threadId: resultsThreadId }, state); onClose(); }} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={SquareArrowUpRightIcon} size={13} />{t("routines.results.open")}</button>}
           {run && ["queued", "running", "waiting"].includes(run.status) && <button onClick={() => void invoke(`/api/routine-runs/${run.id}/cancel`)} disabled={working} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-raised hover:text-ink disabled:opacity-40"><HIcon icon={MultiplicationSignIcon} size={13} />Cancel run</button>}
           <div className="ml-auto flex items-center gap-1">
             {(routine || call) && <button onClick={onEdit} className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-ink hover:bg-raised">{t("routines.edit")}</button>}

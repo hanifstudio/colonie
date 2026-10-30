@@ -30,6 +30,7 @@ export interface Notification {
   botId: string;
   botName: string;
   threadId: string;
+  conversationId?: string;
   title: string;
   body: string;
   /** The bot's stored profile image, when it has one; clients show it as

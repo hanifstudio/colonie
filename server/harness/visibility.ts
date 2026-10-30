@@ -21,7 +21,12 @@ export function createVisibility(deps: VisibilityDeps) {
   /** A conversation of several people and bots that owns this thread, if any. */
   const conversationOf: (threadId: string) => { id: string; people: readonly string[] } | undefined = deps.conversationOf ?? (() => undefined);
   const participantsOf: (threadId: string) => readonly string[] | undefined = deps.participantsOf
-    ?? ((threadId: string) => conversationOf(threadId)?.people ?? store().threadParticipants(threadId));
+    ?? ((threadId: string) => {
+      const bot = store().botByThread(threadId);
+      const task = bot && store().taskByThread(bot.id, threadId);
+      if (task?.forConversation) return deps.conversationById?.(task.forConversation)?.people ?? [];
+      return conversationOf(threadId)?.people ?? store().threadParticipants(threadId);
+    });
 
 
 // ── bot visibility (server/bot-visibility.ts) ──────────────────────────

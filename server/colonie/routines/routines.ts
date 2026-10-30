@@ -11,7 +11,15 @@ import type { GroupGoalRunStatus } from "../../../shared/group-goal-run.ts";
 import type { RoutineRequestOperation } from "../../../shared/routine-request.ts";
 import { normalizeCronSchedule, nextCronRuns, type RoutineCronSchedule } from "../../../shared/routine-schedule.ts";
 import { isRoutineProblemRun } from "../../../shared/routines.ts";
+import type { RoutineConversation } from "../../../shared/routines.ts";
 import { ROUTINE_PARTS, type PartPair, type RoutinePart } from "../teams/package-parts.ts";
+
+export type { RoutineConversation } from "../../../shared/routines.ts";
+export const routineConversationSchema = z.object({
+  threadId: z.string().min(1).max(128),
+  id: z.string().min(1).max(128).optional(),
+  requestedBy: z.object({ id: z.string().min(1).max(200), name: z.string().min(1).max(320) }).strict().optional(),
+}).strict();
 
 export interface RoutineIntervalWindow {
   start: string;
@@ -78,6 +86,8 @@ export type RoutineRunStatus =
   | "missed";
 
 export interface Routine {
+  conversation?: RoutineConversation;
+  timeZone?: string;
   id: string;
   name: string;
   prompt: string;
@@ -143,6 +153,7 @@ function loadInstalledPackage(value: unknown): RoutinePackageStamp | undefined {
 }
 
 export interface RoutineRun {
+  conversation?: RoutineConversation;
   id: string;
   routineId: string;
   routineName: string;
@@ -283,6 +294,10 @@ export interface RoutineManagerOptions {
    * is what lets the server number and replay them. */
   emit?: (payload: Record<string, unknown>) => void;
   botState: (botId: string) => "ready" | "busy" | "missing";
+  conversationForRequest?: (request: RoutineRequestCommit) => RoutineConversation | undefined;
+  recoverConversation?: (routine: Routine) => RoutineConversation | undefined;
+  /** Recheck the original conversation and requester before every dispatch. */
+  canRun?: (run: RoutineRun) => string | null;
   /** A task for one run (it may name who the run is for). */
   createTask: (botId: string, title: string, activate?: boolean, run?: RoutineRun) => { threadId: string } | null;
   /** When set, run this bot's routine in that existing conversation instead of
@@ -447,6 +462,7 @@ function loadGroupId(value: unknown, target: RoutineTarget): string | undefined 
 function cloneRoutine(routine: Routine): Routine {
   return {
     ...routine,
+    ...(routine.conversation ? { conversation: structuredClone(routine.conversation) } : {}),
     schedule: cloneSchedule(routine.schedule),
     attachments: cloneAttachments(routine.attachments),
   };
@@ -455,6 +471,7 @@ function cloneRoutine(routine: Routine): Routine {
 function cloneRun(run: RoutineRun): RoutineRun {
   return {
     ...run,
+    ...(run.conversation ? { conversation: structuredClone(run.conversation) } : {}),
     attachments: cloneAttachments(run.attachments),
     denials: run.denials ? [...run.denials] : undefined,
   };
@@ -807,6 +824,7 @@ export class RoutineManager {
               attachments: loadAttachments(routine.attachments),
               sourceThreadId: persistedSourceThreadId.parse(routine.sourceThreadId),
               resultsThreadId: persistedSourceThreadId.parse(routine.resultsThreadId),
+              conversation: routineConversationSchema.optional().parse(routine.conversation),
               overlap: routine.overlap === "queue" ? "queue" : undefined,
               skippedRuns: Number.isSafeInteger(routine.skippedRuns) && routine.skippedRuns! > 0 ? routine.skippedRuns : undefined,
               lastSkippedAt: Number.isSafeInteger(routine.lastSkippedAt) && routine.lastSkippedAt! >= 0 && routine.lastSkippedAt! <= MAX_DATE_MS ? routine.lastSkippedAt : undefined,
@@ -814,6 +832,7 @@ export class RoutineManager {
             };
             if (loaded.timeoutMinutes === undefined) delete loaded.timeoutMinutes;
             if (loaded.installedPackage === undefined) delete loaded.installedPackage;
+            loaded.conversation ??= options.recoverConversation?.(loaded);
             delete loaded.failureStreak;
             return [loaded];
           })
@@ -831,6 +850,7 @@ export class RoutineManager {
               attachments: loadAttachments(run.attachments),
               sourceThreadId: persistedSourceThreadId.parse(run.sourceThreadId),
               resultsThreadId: persistedSourceThreadId.parse(run.resultsThreadId),
+              conversation: routineConversationSchema.optional().parse(run.conversation),
             };
             if (loaded.timeoutMinutes === undefined) delete loaded.timeoutMinutes;
             return loaded;
@@ -920,6 +940,7 @@ export class RoutineManager {
     const { installedPackage: _installedPackage, unavailableReason: _unavailableReason, ...visible } = cloneRoutine(routine);
     return {
       ...visible,
+      timeZone: routine.schedule.type === "cron" ? routine.schedule.timeZone : Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       ...(failures ? { failureStreak: failures } : {}),
       ...(routine.target === "room-goal" ? { unavailableReason: ROOM_GOAL_UNAVAILABLE } : {}),
     };
@@ -1049,7 +1070,7 @@ export class RoutineManager {
     return run ? cloneRun(run) : null;
   }
 
-  create(input: RoutineInput, request?: RoutineRequestCommitFor<"create">): Routine {
+  create(input: RoutineInput, request?: RoutineRequestCommitFor<"create">, restored?: Pick<Routine, "sourceThreadId" | "conversation">): Routine {
     if (request) {
       const receipt = this.matchingRoutineRequestReceipt(request);
       if (receipt) {
@@ -1070,12 +1091,13 @@ export class RoutineManager {
       ...clean,
       // Only a confirmed chat card supplies `request`; the public calendar
       // API cannot choose an arbitrary transcript as a reporting target.
-      sourceThreadId: request?.threadId,
+      sourceThreadId: request?.threadId ?? restored?.sourceThreadId,
+      conversation: request ? this.options.conversationForRequest?.(request) : restored?.conversation ? structuredClone(restored.conversation) : undefined,
       nextRunAt,
       createdAt: at,
       updatedAt: at,
     };
-    const discardResults = this.applyResultsInput(routine, input.resultsThreadId);
+    const discardResults = routine.conversation ? undefined : this.applyResultsInput(routine, input.resultsThreadId);
     this.commitMutation(() => {
       this.routines.unshift(routine);
       if (request) this.rememberRoutineRequest(request, routine.id, at);
@@ -1099,6 +1121,9 @@ export class RoutineManager {
     const routine = this.routines.find((r) => r.id === id);
     if (!routine) return null;
     const now = this.now();
+    if (routine.conversation && ((patch.botId !== undefined && patch.botId !== routine.botId) || patch.resultsThreadId != null || patch.groupId != null)) {
+      throw new Error("This routine keeps its bot and reporting conversation. Create a new routine to use another destination.");
+    }
     const clean = sanitizeInput({
       name: patch.name ?? routine.name,
       prompt: patch.prompt ?? routine.prompt,
@@ -1385,13 +1410,13 @@ export class RoutineManager {
    * failed/missed run in one committed save, then emit the updated runs so
    * connected clients drop their dots immediately. A failed save rolls the
    * stamps back so a retry still finds the unseen runs. */
-  markAllSeen(): RoutineRun[] {
-    if (!this.runs.some((run) => !run.seenAt && isRoutineProblemRun(run))) return [];
+  markAllSeen(visible: (run: RoutineRun) => boolean = () => true): RoutineRun[] {
+    if (!this.runs.some((run) => !run.seenAt && isRoutineProblemRun(run) && visible(run))) return [];
     const stampAt = this.now();
     const updated: RoutineRun[] = [];
     this.commitMutation(() => {
       for (const run of this.runs) {
-        if (run.seenAt || !isRoutineProblemRun(run)) continue;
+        if (run.seenAt || !isRoutineProblemRun(run) || !visible(run)) continue;
         run.seenAt = stampAt;
         updated.push(run);
       }
@@ -1496,6 +1521,18 @@ export class RoutineManager {
       for (const id of this.runs.map((run) => run.id)) {
         const run = this.runs.find((candidate) => candidate.id === id);
         if (!run || run.status !== "queued") continue;
+        const refusal = this.options.canRun?.(run);
+        if (refusal) {
+          const routine = this.routines.find((entry) => entry.id === run.routineId);
+          if (routine?.enabled) {
+            routine.enabled = false;
+            routine.nextRunAt = null;
+            routine.updatedAt = Math.max(this.now(), routine.updatedAt + 1);
+          }
+          this.failRun(run, refusal);
+          if (routine) this.emitRoutine(routine);
+          continue;
+        }
         // A queued interval represents the latest useful check, not a backlog
         // item. If the bot stayed busy across later occurrences, align this
         // scheduled receipt to the newest due point immediately before it can
@@ -1605,7 +1642,7 @@ export class RoutineManager {
       run.status = "running";
       run.attention = undefined;
     } else if (event.type === "item.completed" && event.itemType === "assistant_text") {
-      run.output = redactSecretsInText(event.text).trim().slice(0, 2_000);
+      run.output = redactSecretsInText(event.text).trim().slice(0, 20_000);
     } else if (event.type === "runtime.error") {
       run.error = redactSecretsInText(event.message).slice(0, 500);
     } else if (event.type === "turn.retrying") {
@@ -1720,6 +1757,7 @@ export class RoutineManager {
       manual,
       triggerSource: manual ? "manual" : "schedule",
       sourceThreadId,
+      conversation: routine.conversation ? structuredClone(routine.conversation) : undefined,
       resultsThreadId: routine.resultsThreadId,
       createdAt: this.now(),
     };

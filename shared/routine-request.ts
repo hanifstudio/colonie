@@ -9,6 +9,7 @@
  */
 
 import type { RoutineCronSchedule } from "./routine-schedule.ts";
+import type { RoutineConversation } from "./routines.ts";
 
 export type RoutineRequestRunOn = "maus" | "cloud";
 
@@ -92,6 +93,8 @@ export type RoutineRequestOperation =
  * can put it back. Room goals keep their room; attachments are not kept, so
  * a routine that has any is not offered an Undo for its update or delete. */
 export interface RoutineRequestSnapshot extends RoutineRequestDefinition {
+  conversation?: RoutineConversation;
+  sourceThreadId?: string;
   enabled: boolean;
   target?: "room-goal";
   groupId?: string;

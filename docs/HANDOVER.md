@@ -1,14 +1,16 @@
 # Handover
 
-## Now: verify routines, guides, and groups with real engines
+## Now: verify routines in direct messages and groups
 
-Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
-Prove scheduling and changing a routine, its report in the originating group,
-saving a guide from chat, and a group reply with the right person's approval.
-Out of scope: event triggers and the owner's real data.
-Also: a group's lead handing work on, and Ask when risky asking only for
-risky actions. Left from the computer task: use_computer by a signed-in bot,
-Podman Desktop, the packaged app quitting.
+People create, review, change, pause, and run routines in their originating
+conversation, with clear schedule receipts, progress, approvals, and results.
+Keep each routine's conversation, project folder, and requesting person bound.
+Finish a real-window review of scheduling, editing, controls, and reports in
+both chat types, then bounded Claude and Codex checks in disposable workspaces.
+Browser launch needs a working macOS session; no in-app browser is available.
+Resolve permission to clean the existing dist output before the standard build.
+Keep this task active until the real-window and real-engine checks pass.
+Out of scope: event triggers, new hosting, and the owner's real data.
 
 ## After that: prepare the first public release
 
@@ -76,9 +78,12 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 ## Queue after the current task
 
-1. A person installs Colonie on a clean Mac from a `.dmg` and completes the
+1. Verify guides and groups with real engines: saving a guide from chat,
+   the lead handing work on, and Ask when risky asking only for risky actions.
+   Also: use_computer by a signed-in bot, Podman Desktop, packaged app quitting.
+2. A person installs Colonie on a clean Mac from a `.dmg` and completes the
    first run in a real window, with throwaway data.
-2. Gaps in the engine connection, each needing a decision before code:
+3. Gaps in the engine connection, each needing a decision before code:
    - A message cannot be sent into a turn that is already running (no steering
      on the ACP engines).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
@@ -86,8 +91,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old readers of `native/<thread>.ndjson` files remain, though nothing
      writes those files anymore. Decide which to keep.
-3. Small fix: email sign-in answers 502 saying the accounts-service address
+4. Small fix: email sign-in answers 502 saying the accounts-service address
    "is set" when it is not set at all.
-4. Remove the leftover brand word `maus`: first the unused `runOn` setting on
+5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
    routines and webhooks, then the mascot's CSS and component names.
-5. Tidy the interface code into feature folders, one feature at a time.
+6. Tidy the interface code into feature folders, one feature at a time.

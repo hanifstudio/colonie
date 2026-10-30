@@ -11,6 +11,13 @@ const build = (over: Record<string, unknown> = {}) =>
     ...over,
   } as never);
 
+test("routine notifications carry the originating group instead of opening the bot's personal DM", () => {
+  const frames: unknown[] = [];
+  const { notify } = build({ broadcast: (frame: unknown) => frames.push(frame), conversationForThread: () => ({ id: "launch", threadId: "launch-chat" }) });
+  notify({ kind: "routine-done", botId: "ada", botName: "Ada", threadId: "routine-work", title: "Finished", body: "Ready" });
+  expect(frames).toEqual([{ kind: "notify", notification: { kind: "routine-done", botId: "ada", botName: "Ada", threadId: "launch-chat", conversationId: "launch", title: "Finished", body: "Ready" } }]);
+});
+
 test("a non-manager may not save a command permission", () => {
   const { commandRememberRefusal } = build({ canManageCommandAllowlist: () => false });
   expect(commandRememberRefusal({} as never, "t1", "r1", "allow"))

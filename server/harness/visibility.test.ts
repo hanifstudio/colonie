@@ -5,6 +5,19 @@ import { createVisibility } from "./visibility.ts";
 
 const build = () => createVisibility({} as never);
 
+test("a routine's work uses current group membership, so leaving revokes old run access", () => {
+  let people = ["ana", "bob"];
+  const bot = { id: "ada", threadId: "main", tasks: [{ threadId: "run-thread" }] };
+  const { visibleTo, forgetVisibility } = createVisibility({
+    store: () => ({ bots: [bot], groups: [], botByThread: () => bot, taskByThread: () => ({ forConversation: "launch" }), threadParticipants: () => ["ana", "bob"] }),
+    conversationById: () => ({ people }),
+  });
+  expect(visibleTo({ kind: "person", key: "ana", admin: true }).thread("run-thread")).toBe(true);
+  people = ["bob"]; forgetVisibility();
+  expect(visibleTo({ kind: "person", key: "ana", admin: true }).thread("run-thread")).toBe(false);
+  expect(visibleTo({ kind: "person", key: "bob", admin: false }).thread("run-thread")).toBe(true);
+});
+
 test("loopback and admin sessions see everything", () => {
   const { viewerFor } = build();
   expect(viewerFor({ kind: "loopback", trust: "owner" } as never)).toEqual({ kind: "all" });

@@ -1,6 +1,7 @@
 
 import { ArrowRight01Icon, Loading02Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
+import { ChatMarkdown } from "./ChatMarkdown";
 import { cn } from "@/lib/cn";
 import { routineDateTime } from "@/lib/routine-display";
 import { t } from "@/lib/i18n";
@@ -101,10 +102,12 @@ export function RoutineRunCard({
           <time dateTime={new Date(run.scheduledFor ?? message.at).toISOString()} className="mt-0.5 block text-[11.5px] text-ink-secondary">
             {routineDateTime(run.scheduledFor ?? message.at)}
           </time>
-          {detail && <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">{detail}</p>}
+          {detail && (run.status === "completed" && run.summary && run.summary.length <= DETAIL_LIMIT
+            ? <div className="mt-1.5 text-[13px] leading-relaxed text-ink"><ChatMarkdown text={run.summary} /></div>
+            : <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">{detail}</p>)}
           {run.status === "completed" && run.summary && run.summary.length > DETAIL_LIMIT && <details className="mt-2 text-[12px] text-ink-secondary">
             <summary className="cursor-pointer font-medium text-ink-secondary hover:text-ink">{t("routines.results.showReport")}</summary>
-            <p className="mt-2 whitespace-pre-wrap leading-relaxed">{run.summary}</p>
+            <div className="mt-2 text-ink"><ChatMarkdown text={run.summary} /></div>
           </details>}
         </div>
         {onOpen && run.executionThreadId && (

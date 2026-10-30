@@ -4,7 +4,7 @@ import { PASS } from "./table.ts";
 import { createRoutineRoutes, type RoutineRouteDeps } from "./routines.ts";
 
 const visibleOnly = (...ids: string[]) =>
-  ({ everything: false, bot: (id: string) => ids.includes(id), group: (id: string) => ids.includes(id) }) as never;
+  ({ everything: false, bot: (id: string) => ids.includes(id), group: (id: string) => ids.includes(id), thread: (id: string) => ids.includes(id) }) as never;
 
 const calls: string[] = [];
 
@@ -103,4 +103,11 @@ test("the shell's wake question is answered by the manager, not guessed here", a
   const { sent } = await call(routes(), "/api/routines/wake");
 
   expect(sent).toEqual([{ status: 200, body: { hold: false, next: null } }]);
+});
+
+test("a results thread must belong to the caller on both create and edit", async () => {
+  const create = await call(routes(), "/api/routines", "POST", { botId: "alpha", resultsThreadId: "private-dm" });
+  const edit = await call(routes(), "/api/routines/mine", "PATCH", { resultsThreadId: "private-dm" });
+  expect(create.sent).toEqual([{ status: 404, body: { error: "no such conversation" } }]);
+  expect(edit.sent).toEqual([{ status: 404, body: { error: "no such conversation" } }]);
 });

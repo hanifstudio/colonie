@@ -26,6 +26,7 @@ import {createVisibility} from "./harness/visibility.ts";
 import {createAdminAudit} from "./harness/admin-audit.ts";
 import {createResumeTables} from "./colonie/chat/resume-tables.ts";
 import {createRoutineRunCards} from "./colonie/routines/run-cards.ts";
+import { createConversationRoutines } from "./colonie/routines/conversation-routines.ts";
 import {createScreenPolling} from "./harness/screen-polling.ts";
 import {ConnectedTools} from "./colonie/connections/manager.ts";
 import {BotAppPolicies} from "./colonie/connections/policy.ts";
@@ -394,6 +395,7 @@ const { viewerFor, visibleTo, ownThreadIds, forgetVisibility, subjectVisible } =
   store: () => store,
   sharedWorkspace: () => workspaceKind.shared(),
   conversationOf: (threadId: string) => groupConversations.byThread(threadId),
+  conversationById: (id: string) => groupConversations.byId(id),
 });
 // Each person's own conversation with each bot, in a Shared workspace.
 const ownThreads = createOwnThreads({ store: () => store, sharedWorkspace: () => workspaceKind.shared(), file: join(DATA_DIR, "person-threads.json") });
@@ -469,6 +471,8 @@ const groupConversations = createGroupConversations({
   localName: () => desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You",
   keyOf: (email) => personKey({ id: "", email }),
   hasRoutine: (id) => routines?.listRoutines().some((routine) => routine.id === id) ?? true,
+  hasRoutinesFor: (id) => routines?.listRoutines().some((routine) => routine.conversation?.id === id) ?? true,
+  routineForThread: (threadId) => routines?.runForThread(threadId) ?? null,
   // a turn that fails before it starts (a mode, a sign-in, a limit) never
   // completes, so the group is told why instead of "working" for good
   runBotTurn: async (work, threadId, prompt, recoveryPrompt) => { await startTurn(work.botId, work.text, { threadId, providerPrompt: prompt, providerRecoveryPrompt: recoveryPrompt, commsDepth: work.depth, sendId: work.id, sender: { name: work.asker, id: work.askerKey },
@@ -859,6 +863,7 @@ const store = new Store(
   (instanceId) => registry.cliTarget(instanceId)?.driverKind,
 );
 groupConversations.initialize();
+const conversationRoutines = createConversationRoutines({ store, groups: groupConversations, local: () => !workspaceKind.shared() });
 const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), ENVIRONMENT_ID);
 const botAppPolicies = new BotAppPolicies(join(DATA_DIR, "connected-apps", "bots"));
 const learnedFacts = new LearnedFacts(join(DATA_DIR, "profile-learned.json"));
@@ -1022,15 +1027,19 @@ const colonieChief = new ColonieChief({
   // Routines from chat; the scheduler and request service start further down
   // and are only read when a tool is called.
   routines: {
-    list: (botId) => (routines?.listRoutines() ?? []).filter((routine) => routine.botId === botId && !routine.groupId).map((routine) => ({
+    list: (botId, threadId) => (routines?.listRoutines() ?? []).filter((routine) => !routine.groupId && conversationRoutines.inThread(routine, botId, threadId)).map((routine) => ({
+      botId: routine.botId, bot: store.bot(routine.botId)?.name,
       id: routine.id, name: routine.name, enabled: routine.enabled, schedule: routine.schedule, instructions: routine.prompt.slice(0, 500),
       nextRunAt: routine.nextRunAt ? new Date(routine.nextRunAt).toISOString() : null,
     })),
     propose: async (botId, threadId, proposal, canCommit) => {
+      const change = proposal as { action?: string; routineId?: string };
+      const routine = change.action !== "create" ? routines?.listRoutines().find((entry) => entry.id === change.routineId) : undefined;
+      if (routine && routine.botId !== botId && conversationRoutines.inThread(routine, botId, threadId)) {
+        proposal = { ...change, forBot: { botId: routine.botId, name: store.bot(routine.botId)?.name ?? "Bot" } };
+      }
       const result = await routineRequests.submit({ botId, threadId, proposal, canCommit });
-      // scheduled while answering in a group or DM: its runs report there
-      const reportsTo = result.result?.action === "create" && groupConversations.attachRoutine(botId, threadId, result.result.resultId);
-      return { ...(reportsTo ? { reportsTo: "this conversation" } : {}), state: result.state, summary: result.summary, nextRunAt: result.nextRunAt ? new Date(result.nextRunAt).toISOString() : null, timeZone: result.timeZone };
+      return { reportsTo: "this conversation", state: result.state, summary: result.summary, nextRunAt: result.nextRunAt ? new Date(result.nextRunAt).toISOString() : null, timeZone: result.timeZone };
     },
     now: () => ({ time: new Date().toISOString(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" }),
   },
@@ -1246,6 +1255,11 @@ const askMessageByRequest = new Map<string, string>(); // threadId:requestId -> 
 const pendingCommandRules = new Map<string, { botId: string; candidate: CommandAllowlistCandidate }>();
 
 const { commandRememberRefusal, answerRequest, respondToCard, closeOpenApprovals, requestBehavior, providerLabel, notify, watchdog, lastReply, sessionModelByThread, nativeReviewNoticed, turnUsage, turnContext, repeats } = createChatRequests({
+  conversationForThread: (threadId: string) => {
+    const bot = store.botByThread(threadId);
+    const id = bot && store.taskByThread(bot.id, threadId)?.forConversation;
+    return id ? groupConversations.byId(id) : groupConversations.byThread(threadId);
+  },
   finalizeDelegationWatch: () => finalizeDelegationWatch,
   answeringCardAs,
   approvalBus: () => approvalBus,
@@ -1798,6 +1812,7 @@ const startTurn = createStartTurn({
 });
 
 const { routineSourceOwner, botMainThread, legacyResultsThread, routineSourceThread, syncRoutineRunToSource } = createRoutineRunCards({
+  conversationOf: (threadId: string) => groupConversations.byThread(threadId),
   routines: () => routines,
   sessions,
   store,
@@ -1817,14 +1832,17 @@ _loadPending();
 
 routines = new RoutineManager({
   emit: broadcast,
+  conversationForRequest: conversationRoutines.bind,
+  recoverConversation: conversationRoutines.recover,
+  canRun: conversationRoutines.canRun,
   hasPendingDelegations: (threadId) => pendingThreads().includes(threadId) ||
     [...delegationWatch.values()].some((watch) => watch.sourceThreadId === threadId) ||
     pendingDelegationWakes.has(threadId),
   botState: unattendedDispatchState,
   // Rooms are retired: RoutineManager keeps a stored room-goal routine
   // paused and never opens a room thread for it.
-  createTask: (botId, title, activate = false) => {
-    const task = store.createTask(botId, title, activate);
+  createTask: (botId, title, activate = false, run) => {
+    const task = conversationRoutines.createTask(botId, title, activate, run);
     // The store's frame announces it. A run's task that stays in the
     // background leaves the open thread alone, so that frame carries no
     // transcript: a whole thread on every scheduled run once passed the phone
@@ -1832,6 +1850,7 @@ routines = new RoutineManager({
     return task;
   },
   joinConversation: (run) => {
+    if (run.conversation) return null;
     if (!routinesInConversationEnabled(cfg) || run.target !== "bot") return null;
     const source = routineSourceOwner(run);
     // Only this bot's own visible chat. A teammate's thread keeps the
@@ -1842,9 +1861,10 @@ routines = new RoutineManager({
   isResultsThread: (botId, threadId) => {
     const bot = store.bot(botId);
     const task = store.taskByThread(botId, threadId);
-    return Boolean(bot && !bot.hidden && task && !task.routineRunId);
+    return Boolean(bot && !bot.hidden && task && !task.routineRunId && !task.forConversation);
   },
   resolveResultsThread: (routine, forceNew) => {
+    if (routine.conversation) return undefined;
     // Every run reports into the routine's bot's main thread, wherever the
     // routine was made (chat, editor, API, or a teammate's request). A run
     // still executes in its own hidden task, which Run logs and Open run use.
@@ -1867,7 +1887,10 @@ routines = new RoutineManager({
     }
   },
   startTurn: async (botId, threadId, prompt, runOn, triggerSource, onDispatchError) => {
-    await startTurn(botId, prompt, { threadId, runOn, automationSource: triggerSource, onDispatchError });
+    const run = routines?.runForThread(threadId);
+    await startTurn(botId, prompt, { threadId, runOn, automationSource: triggerSource, onDispatchError,
+      ...conversationRoutines.turnContext(run, prompt),
+    });
   },
   interruptTurn: async (botId, threadId) => {
     const bot = botForThread(botId, threadId);
@@ -1883,7 +1906,7 @@ routines = new RoutineManager({
   },
   onRunChanged: (run) => {
     const thread = syncRoutineRunToSource(run);
-    const conversationThread = groupConversations.routineRunFinished(run);
+    const conversationThread = run.conversation ? undefined : groupConversations.routineRunFinished(run);
     // a finished run is news once, while it is fresh (a restart replays old
     // runs; those were announced already): what it reported
     if (run.status === "completed" && !notifiedRoutineRuns.has(run.id) && Date.now() - (run.finishedAt ?? 0) < 10 * 60_000) {
@@ -1931,12 +1954,18 @@ const routineRequests = new RoutineRequestService({
   routines,
   autoApply: appliesDirectly,
   canPersist: proposalPersistence,
+  validateScope: (botId, threadId, routineId) => {
+    const routine = routines?.listRoutines().find((entry) => entry.id === routineId);
+    return routine && conversationRoutines.inThread(routine, botId, threadId) ? null : "That routine is not in this conversation. Open the conversation where it was scheduled.";
+  },
   // Cross-bot routines: the confirmation card can sit open indefinitely, so
   // the target is re-authorized when the user confirms, not just at proposal.
-  validateTarget: (proposerBotId, target) => {
+  validateTarget: (proposerBotId, target, threadId) => {
     const proposer = store.bot(proposerBotId);
     const targetBot = store.bot(target.botId);
     if (!targetBot) return `@${target.name} no longer exists, so this routine request cannot be confirmed for it`;
+    const conversationId = store.taskByThread(proposerBotId, threadId)?.forConversation;
+    if (conversationId && groupConversations.byId(conversationId)?.bots.includes(target.botId)) return null;
     if (!proposer || !canReachPeer(proposer, targetBot)) {
       return `@${target.name} is no longer in this section, so this routine request cannot be confirmed for it`;
     }

@@ -168,6 +168,17 @@ Steps, in order. Each one is safe on its own:
   Existing bots on Ask move to Ask when risky; Accept edits and Custom become
   Always ask, never more access.
 
+### Routines
+
+- A routine requested in chat belongs to that DM or group. People schedule,
+  review, change, pause, resume, and run it there, with controls beside the
+  conversation. Status, approvals, and one report per run return there.
+- One bot is responsible. It keeps its normal permissions, uses the
+  conversation's project folder, and asks the person who requested the
+  routine when approval is needed. Other conversations' routines stay private.
+- In a Local workspace, Colonie must be open for routines to run. Interrupted
+  work is reported clearly and is never blindly repeated after a restart.
+
 ### Computers (owner, October 28)
 
 - A bot's computer is always the Local VM, never a choice the person makes

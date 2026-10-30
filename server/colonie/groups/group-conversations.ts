@@ -88,6 +88,8 @@ export function createGroupConversations(deps: {
   keyOf: (email: string) => string;
   /** Routines reporting here must be removed before their destination. */
   hasRoutine?: (id: string) => boolean;
+  hasRoutinesFor?: (conversationId: string) => boolean;
+  routineForThread?: (threadId: string) => { id: string; botId: string; status: string; conversation?: { id?: string; requestedBy?: { id: string; name: string } } } | null;
   /** Start (or queue) a bot's turn in one of its threads. */
   /** The sender names who asked (and, by id, whose secrets the bot may use). */
   runBotTurn: (work: ConversationWork, threadId: string, prompt: string, recoveryPrompt: string) => Promise<void>;
@@ -121,6 +123,15 @@ export function createGroupConversations(deps: {
         if (message.role !== "bot" || !message.from) continue;
         // a relayed card the restart left unanswerable
         if (message.relay && message.card?.requestId && !message.card.answered && !message.card.dismissed) {
+          // Routine proposals belong to Colonie, not a provider process.
+          // Their saved operation remains answerable after a restart.
+          const owner = message.card.routineRequest && store.botByThread(message.relay.threadId);
+          const original = owner && store.taskByThread(owner.id, message.relay.threadId)
+            ? store.messagesFor(message.relay.threadId).find((entry) => entry.id === message.relay!.messageId) : undefined;
+          if (original?.card?.routineRequest && original.card.requestId === message.card.requestId) {
+            store.patchMessage(record.threadId, message.id, { card: original.card });
+            continue;
+          }
           store.patchMessage(record.threadId, message.id, { card: { ...message.card, expired: true } });
           continue;
         }
@@ -260,12 +271,24 @@ export function createGroupConversations(deps: {
     brief: (record, bot, ask) => ({ ...brief(record, bot, ask), recoveryPrompt: brief(record, bot, ask, true).prompt }),
     run: deps.runBotTurn, interrupt: deps.interruptBotTurn });
 
+  function pendingPerson(threadId: string) {
+    const pending = work.pending(threadId);
+    if (pending) return pending;
+    const run = deps.routineForThread?.(threadId);
+    const context = run?.conversation;
+    const record = context?.id ? byId(context.id) : undefined;
+    if (!run || !["running", "waiting"].includes(run.status) || !record || !context?.requestedBy || !record.people.includes(context.requestedBy.id)) return undefined;
+    const message = deps.store().messagesFor(record.threadId).find((entry) => entry.routineRun?.runId === run.id);
+    return { conversationId: record.id, botId: run.botId, askerKey: context.requestedBy.id, asker: context.requestedBy.name, messageId: message?.id, routine: true as const };
+  }
+
   return {
     initialize() { settleLeftovers(); work.initialize(); },
     wake: work.wake,
     byThread(threadId: string): GroupConversation | undefined {
       return records.find((record) => record.threadId === threadId);
     },
+    byId,
 
     list(caller: Caller): Answer {
       settleLeftovers();
@@ -421,7 +444,7 @@ export function createGroupConversations(deps: {
       if (record.kind !== "group") return fail(400, "Only groups can be deleted.");
       if (!caller.canDeleteGroup) return fail(403, "Only a workspace admin can delete a group.");
       if (conversationWork(id).some((entry) => entry.status === "queued" || entry.status === "running")) return fail(409, "Wait for the group's work to finish before deleting it.");
-      if (record.routines?.some((routineId) => deps.hasRoutine?.(routineId) ?? true)) return fail(409, "Delete this group's routines before deleting the group.");
+      if (deps.hasRoutinesFor?.(record.id) || record.routines?.some((routineId) => deps.hasRoutine?.(routineId) ?? true)) return fail(409, "Delete this group's routines before deleting the group.");
       const store = deps.store();
       for (const [botId, threadId] of Object.entries(record.botThreads)) store.deleteTask(botId, threadId);
       store.deleteConversationThread(record.threadId);
@@ -506,8 +529,8 @@ export function createGroupConversations(deps: {
      * in its own work thread, where the card is: the waiting line says so
      * and offers the way there, or the group only ever sees "working on it". */
     needsPerson(threadId: string, what: string) {
-      const pending = work.pending(threadId);
-      if (!pending?.messageId) return;
+      const pending = pendingPerson(threadId);
+      if (!pending?.messageId || "routine" in pending) return;
       const record = byId(pending.conversationId);
       const bot = deps.store().bot(pending.botId);
       if (!record || !bot) return;
@@ -527,17 +550,18 @@ export function createGroupConversations(deps: {
       const copy = relayed.get(key);
       const store = deps.store();
       if (copy) {
-        const record = records.find((entry) => Object.values(entry.botThreads).includes(threadId));
+        const routineConversation = deps.routineForThread?.(threadId)?.conversation?.id;
+        const record = records.find((entry) => entry.id === routineConversation || Object.values(entry.botThreads).includes(threadId));
         if (!record) return;
         store.patchMessage(record.threadId, copy, { card: message.card, secretAsk: message.secretAsk, signInAsk: message.signInAsk, computerAsk: message.computerAsk });
         // answered: the bot carries on
-        const pending = work.pending(threadId);
+        const pending = pendingPerson(threadId);
         const settled = message.secretAsk ? message.secretAsk.saved : message.signInAsk ? Boolean(message.signInAsk.outcome) : message.card?.answered || message.card?.dismissed;
         const bot = pending && store.bot(pending.botId);
-        if (settled && pending?.messageId && bot) store.patchMessage(record.threadId, pending.messageId, { text: `${bot.name} is working on it…`, working: true });
+        if (settled && pending?.messageId && bot && !("routine" in pending)) store.patchMessage(record.threadId, pending.messageId, { text: `${bot.name} is working on it…`, working: true });
         return;
       }
-      const pending = work.pending(threadId);
+      const pending = pendingPerson(threadId);
       if (!pending?.messageId) return;
       const record = byId(pending.conversationId);
       const bot = store.bot(pending.botId);

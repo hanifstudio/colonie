@@ -522,8 +522,13 @@ export function noteSeen(payload: Record<string, unknown>, seen: StreamSeen): vo
 }
 
 /** A routine or run targets a bot, and may run in a room. */
-export function routineVisible(value: { botId?: unknown; groupId?: unknown }, visible: VisibleSet): boolean {
+export function routineVisible(value: { botId?: unknown; groupId?: unknown; conversation?: unknown; sourceThreadId?: unknown; resultsThreadId?: unknown }, visible: VisibleSet): boolean {
   if (visible.everything) return true;
+  if (visible.personal) {
+    const context = value.conversation as { threadId?: unknown } | undefined;
+    const threadId = context?.threadId ?? value.sourceThreadId ?? value.resultsThreadId;
+    return typeof threadId === "string" && visible.thread(threadId) && typeof value.botId === "string" && visible.bot(value.botId);
+  }
   if (typeof value.groupId === "string" && value.groupId) return visible.group(value.groupId);
   return typeof value.botId === "string" && visible.bot(value.botId);
 }

@@ -10,7 +10,7 @@ export function ResultsDestination({ bot, value, allowCurrent = false, onChange 
   onChange: (threadId: string | null | undefined) => void;
 }) {
   const id = useId();
-  const tasks = (bot?.tasks ?? []).filter((task) => !task.routineRunId);
+  const tasks = (bot?.tasks ?? []).filter((task) => !task.routineRunId && !task.forConversation);
   const selectedMissing = typeof value === "string" && !tasks.some((task) => task.threadId === value);
   const groups = [...(bot?.projects ?? []), { id: "", name: t("folder.none") }];
   return <div className="min-w-0 space-y-1.5">
