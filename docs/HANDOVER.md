@@ -1,21 +1,14 @@
 # Handover
 
-## Now: a group always answers: its lead bot takes what names no one
-
-A person writes in a group without naming anyone and the group's lead bot
-answers (Chief of Staff, else the first bot, or the one chosen in Members); it
-may hand parts to others by naming them. Members offers Lead answers, Everyone
-answers, or Only when named. Proof: group e2e tests, the Shared journey in a
-browser. Out of scope: a decision model choosing the bot. Left from earlier:
-real Codex/Claude asking only for risky actions; use_computer by a signed-in
-bot, Podman Desktop, the packaged app quitting.
-
-## Next: verify routines, guides, and group replies with real engines
+## Now: verify routines, guides, and groups with real engines
 
 Use signed-in Claude and Codex in disposable workspaces, with bounded tasks.
 Prove scheduling and changing a routine, its report in the originating group,
 saving a guide from chat, and a group reply with the right person's approval.
 Out of scope: event triggers and the owner's real data.
+Also: a group's lead handing work on, and Ask when risky asking only for
+risky actions. Left from the computer task: use_computer by a signed-in bot,
+Podman Desktop, the packaged app quitting.
 
 ## After that: prepare the first public release
 
@@ -43,7 +36,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | Server 0.3.15 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A version number and an update path | Server 0.3.16 is published. A raised package.json version on main publishes the image and Shared admins see Update |
 | A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
 | First run works in a real window | Never seen in a window |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
