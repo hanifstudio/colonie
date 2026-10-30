@@ -348,6 +348,18 @@ describe("a group with several bots", () => {
     expect(checklist.body).toBe("Venue, catering, invitations");
   }, 120_000);
 
+  test("a member removes a bot from a group; a removed lead gives way to the default", async () => {
+    const room = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Trim", emails: [BOB], bots: [bot.id, second.id] } })).body;
+    expect((await ws.as(ADA, `/api/conversations/${room.id}`, { method: "PATCH", body: { responder: { kind: "lead", botId: second.id } } })).status).toBe(200);
+    const removed = await ws.as(BOB, `/api/conversations/${room.id}/bots/${second.id}`, { method: "DELETE" });
+    expect(removed.status).toBe(200);
+    expect(removed.body).toMatchObject({ bots: [bot.id], responder: { kind: "lead" }, leadBotId: bot.id });
+    expect((await ws.as(BOB, `/api/conversations/${room.id}/bots/${second.id}`, { method: "DELETE" })).status).toBe(404);
+    expect((await ws.as(CICI, `/api/conversations/${room.id}/bots/${bot.id}`, { method: "DELETE" })).status).toBe(404);
+    const notices = (await ws.as(ADA, `/api/conversations/${room.id}/messages`)).body.messages.filter((message: any) => message.notice).map((message: any) => message.text);
+    expect(notices).toContain(`bob@x.com removed ${second.name}.`);
+  }, 30_000);
+
   test("a bot that @mentions another bot hands it on, and the chain stops after three", async () => {
     const before = (await lines()).length;
     // the stand-in answers "hand over to <name>" with "@<name> over to you"
