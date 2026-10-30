@@ -22,7 +22,12 @@ export interface Conversation {
   /** Someone @named the caller since they last read it. */
   mentioned?: boolean;
   canStop?: boolean;
+  /** Who answers a group message that names no one, and the lead it resolves to. */
+  responder?: GroupResponder;
+  leadBotId?: string | null;
 }
+
+export type GroupResponder = { kind: "lead"; botId?: string } | { kind: "everyone" } | { kind: "mentions" };
 
 /** The "@query" being typed at the end of the text, or null. */
 export function mentionQuery(textBeforeCaret: string): string | null {
@@ -44,7 +49,7 @@ export const createConversation = (input: { kind: "group" | "dm"; name?: string;
   api<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(input) });
 export const addToConversation = (id: string, input: { emails?: string[]; bots?: string[] }) =>
   api<Conversation>(`/api/conversations/${id}/members`, { method: "POST", body: JSON.stringify(input) });
-export const updateConversation = (id: string, input: { instructions: string }) =>
+export const updateConversation = (id: string, input: { instructions?: string; responder?: GroupResponder }) =>
   api<Conversation>(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
 export const deleteGroup = (id: string) => api(`/api/conversations/${id}`, { method: "DELETE" });

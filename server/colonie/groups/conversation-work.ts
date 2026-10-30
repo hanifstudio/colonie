@@ -6,7 +6,7 @@ import { mentionedBots, type Store } from "../../persistence/store.ts";
 import type { GroupConversation } from "./group-conversations.ts";
 
 type Bot = NonNullable<ReturnType<Store["bot"]>>;
-export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
+export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth" | "unnamed"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
 export function createConversationWork(deps: {
   store: () => Store;
   records: () => GroupConversation[];
@@ -27,7 +27,7 @@ export function createConversationWork(deps: {
     for (const [index, bot] of bots.entries()) {
       const work = enqueueConversationWork({
         id: randomUUID(), conversationId: record.id, sourceMessageId, botId: bot.id,
-        text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by,
+        text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by, ...(ask.unnamed ? { unnamed: true } : {}),
         upcoming: bots.slice(index + 1).map((entry) => entry.id), visited: [...new Set([...(ask.visited ?? []), ...bots.map((entry) => entry.id)])], status: "queued",
       });
       // a bot already busy here says so at once, instead of staying silent

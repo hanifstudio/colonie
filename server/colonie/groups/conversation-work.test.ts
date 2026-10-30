@@ -40,6 +40,8 @@ function fixture() {
 
 test("only an admin in the group can delete it, including its transcript and durable record", async () => {
   const f = fixture();
+  // a message the lead would answer keeps the group busy; this one is only said
+  f.service.update(caller, f.group.id, { responder: { kind: "mentions" } });
   await f.service.post(caller, f.group.id, "Private group message", "delete-test");
   expect(f.service.delete(caller, f.group.id).status).toBe(403);
   expect(f.service.delete({ ...caller, key: "other", canDeleteGroup: true }, f.group.id).status).toBe(404);

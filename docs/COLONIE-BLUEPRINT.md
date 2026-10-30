@@ -130,10 +130,10 @@ Steps, in order. Each one is safe on its own:
   a bot (private to its people, who can add others), a DM between two
   people (a bot joins when @mentioned), and a group: a named room of
   several people and several bots. Only members see a conversation, admins
-  included. For the first release: bots answer in a group when @mentioned;
+  included. For the first release: a group's lead bot answers what names no one;
   groups are by invitation; any member creates groups and adds any of the
   workspace's bots; a bot that needs permission asks the person who asked it.
-  Later: a lead bot per group, bots working with each other in the open,
+  Later: bots working with each other in the open,
   open groups, pins, threaded replies.
 - Every new Local workspace gets its own engine sign-in and connections. It
   never borrows another workspace's credentials or history.
@@ -239,6 +239,12 @@ Steps, in order. Each one is safe on its own:
 - The owner controls membership, workspace credentials, and risky approvals.
 - To get a bot's attention, name it. Stop applies to the selected task and
   everything it handed off. Two tasks wanting the same bot's screen wait in line.
+- A message in a group that names no one goes to the group's lead bot
+  (owner, October 30, as OpenMausBot's rooms): the Chief of Staff when it is
+  in the group, else the first bot added, or the bot the group chooses. The
+  lead may hand parts to other bots by naming them, within the hop limit. A
+  group can instead have every bot answer, or only bots that are named. A
+  message that names a person, and no bot, wakes no bot.
 - In a group, different bots work at the same time; one bot takes its own
   requests in order and says when a message waits for it (owner, October 29).
   What each busy bot is doing, and for how long, shows in place of dots.

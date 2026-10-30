@@ -16,6 +16,8 @@ export interface ConversationWork {
   upcoming: string[];
   visited?: string[];
   by?: string;
+  /** A message that named no one, answered by the group's lead or every bot. */
+  unnamed?: boolean;
   status: "queued" | "running" | "completed" | "failed" | "interrupted" | "cancelled";
   threadId?: string;
   messageId?: string;

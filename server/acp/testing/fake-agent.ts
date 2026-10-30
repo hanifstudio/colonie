@@ -211,6 +211,13 @@ agent({ name: "Colonie deterministic fixture" })
       writeFileSync(join(cwds.get(params.sessionId)!, write[1]!), write[2]!);
       result = `Wrote ${write[1]}`;
     }
+    // "write file NAME TEXT then ask BOT to write file NAME TEXT": a lead doing
+    // its part and handing the next to another bot, by name, in its answer
+    const handing = /write file ([\w.-]+) (.*?) then ask (\S+) to (write file [^\n]*)$/.exec(text);
+    if (handing) {
+      writeFileSync(join(cwds.get(params.sessionId)!, handing[1]!), handing[2]!);
+      result = `Wrote ${handing[1]}.\n@${handing[3]} ${handing[4]}`;
+    }
     // a group mention wraps the person's words in a brief; they are its last line
     if (text.startsWith("permission") || /\n@\S+ permission[^\n]*$/.test(text)) {
       const toolCall = { toolCallId: crypto.randomUUID(), title: "Write fixture file", kind: "edit" as const, status: "pending" as const };

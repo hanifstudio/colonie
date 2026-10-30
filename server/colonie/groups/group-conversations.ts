@@ -49,6 +49,21 @@ export interface GroupConversation {
   /** What each bot was last told about the group (people, bots,
    * instructions), by bot id: told again only when it changes. */
   toldAbout?: Record<string, string>;
+  /** Who answers a message that names no one; absent is the lead. */
+  responder?: GroupResponder;
+}
+
+/** Who answers a group message that names no one (owner, October 30): its
+ * lead bot (one chosen, or by default the Chief of Staff, else the first bot
+ * added), every bot, or only bots that are named. */
+export type GroupResponder = { kind: "lead"; botId?: string } | { kind: "everyone" } | { kind: "mentions" };
+
+function groupResponder(value: unknown): GroupResponder | null {
+  if (!value || typeof value !== "object") return null;
+  const { kind, botId } = value as { kind?: unknown; botId?: unknown };
+  if (kind === "everyone" || kind === "mentions") return { kind };
+  if (kind === "lead") return typeof botId === "string" && botId ? { kind, botId } : { kind };
+  return null;
 }
 
 /** Who is asking: a person of a Shared workspace, or this computer's owner. */
@@ -120,6 +135,13 @@ export function createGroupConversations(deps: {
     return record && record.people.includes(caller.key) ? record : undefined;
   };
   const known = () => new Map(deps.directory().map((entry) => [deps.keyOf(entry.email), entry]));
+  /** The group's lead: the bot it chose, else its Chief of Staff, else its first bot. */
+  const leadOf = (record: GroupConversation) => {
+    const store = deps.store();
+    const here = record.bots.map((id) => store.bot(id)).filter((bot): bot is NonNullable<typeof bot> => Boolean(bot) && !bot!.hidden);
+    const chosen = record.responder?.kind === "lead" ? record.responder.botId : undefined;
+    return here.find((bot) => bot.id === chosen) ?? here.find((bot) => bot.chiefOfStaff) ?? here[0];
+  };
 
   function wire(record: GroupConversation, caller: Caller) {
     const names = known();
@@ -136,6 +158,7 @@ export function createGroupConversations(deps: {
       id: record.id, threadId: record.threadId, kind: record.kind,
       title: record.kind === "dm" ? others[0]?.name ?? "Direct message" : record.name,
       name: record.name, people, bots: record.bots, instructions: record.instructions ?? "",
+      responder: record.responder ?? { kind: "lead" }, leadBotId: record.kind === "group" ? leadOf(record)?.id ?? null : null,
       lastMessageAt: last?.at ?? record.createdAt,
       // the last thing said, for the sidebar's second line
       preview: said ? `${speaker}: ${said.text!.trim().replace(/\s+/g, " ").slice(0, 120)}` : "",
@@ -182,6 +205,8 @@ export function createGroupConversations(deps: {
       record.kind === "dm" ? "This is a direct message between people." : `This is the group "${record.name}".`,
       `People: ${people.join(", ")}.`,
       `Bots: ${bots.join(", ")}.`,
+      ...(record.kind === "group" && (record.responder?.kind ?? "lead") === "lead" && leadOf(record)?.id === bot.id
+        ? ["You lead this group: messages that name no one come to you. Answer them, or hand a part to the bot here best suited to it."] : []),
       ...(bots.length > 1 ? ["To hand part of the work to another bot here, @mention it by name in your answer; it answers after you."] : []),
       `Your working folder is this ${record.kind === "dm" ? "conversation" : "group"}'s project folder. Everyone here sees its files${bots.length > 1 ? ", and the other bots here work in it too: build on their files rather than redoing them" : ""}. Put files for this ${record.kind === "dm" ? "conversation" : "group"} there.`,
       ...(record.instructions?.trim() ? ["", "Instructions for this group:", record.instructions.trim()] : []),
@@ -214,7 +239,8 @@ export function createGroupConversations(deps: {
     }
     const information = about(record, bot);
     const told = !resume || record.toldAbout?.[bot.id] !== information ? information : null;
-    const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}` : `${ask.asker} mentioned you`;
+    const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}`
+      : ask.unnamed ? `${ask.asker} wrote to the group without naming anyone, so it comes to you` : `${ask.asker} mentioned you`;
     return { about: information, prompt: [
       `${asked}. Everyone here reads your answer; answer briefly and to the point.`,
       ...(told ? ["", told] : []),
@@ -289,17 +315,24 @@ export function createGroupConversations(deps: {
       const here = record.kind === "group" && mentionsHere(text);
       const named = mentionedBots(text, store.bots.filter((bot) => record.bots.includes(bot.id) || caller.seesBot(bot.id)));
       // @here asks every bot in the group, in the order they joined, after any named first
-      const bots = here
-        ? [...named, ...record.bots.map((botId) => store.bot(botId)).filter((bot): bot is NonNullable<typeof bot> => !!bot && !bot.hidden && caller.seesBot(bot.id) && !named.includes(bot))]
+      const groupBots = () => record.bots.map((botId) => store.bot(botId)).filter((bot): bot is NonNullable<typeof bot> => !!bot && !bot.hidden && caller.seesBot(bot.id) && !named.includes(bot));
+      const people = record.people.filter((key) => key !== caller.key).map((key) => ({ key, name: nameOf(key) }));
+      const namedPeople = mentionedBots(text, people);
+      // a message that names no one goes to the group's lead, or every bot;
+      // one that names only a person is for that person
+      const responder = record.responder?.kind ?? "lead";
+      const unnamed = record.kind === "group" && !here && !named.length && !namedPeople.length && responder !== "mentions";
+      const lead = unnamed && responder === "lead" ? leadOf(record) : undefined;
+      const bots = here ? [...named, ...groupBots()]
+        : unnamed ? (responder === "everyone" ? groupBots() : lead && caller.seesBot(lead.id) ? [lead] : [])
         : named;
       let next = record;
       const message = store.appendMessage(record.threadId, { role: "user", kind: "text", text, sendId: rawSendId as string | undefined, sender: { name: caller.name, id: caller.key } }, command, (message) => {
         next = { ...record, updatedAt: message.at, readAt: { ...record.readAt, [caller.key]: message.at },
           bots: [...new Set([...record.bots, ...bots.map((bot) => bot.id)])], mentionedAt: { ...record.mentionedAt } };
-        const people = record.people.filter((key) => key !== caller.key).map((key) => ({ key, name: nameOf(key) }));
-        for (const person of here ? people : mentionedBots(text, people)) next.mentionedAt![person.key] = message.at;
+        for (const person of here ? people : namedPeople) next.mentionedAt![person.key] = message.at;
         saveConversationRecords(records.map((entry) => entry.id === next.id ? next : entry));
-        const ask: ConversationAsk = { asker: caller.name, askerKey: caller.key, depth: 0 };
+        const ask: ConversationAsk = { asker: caller.name, askerKey: caller.key, depth: 0, ...(unnamed ? { unnamed: true } : {}) };
         work.enqueue(next, message.id, bots, ask, text);
       });
       Object.assign(record, next);
@@ -308,10 +341,22 @@ export function createGroupConversations(deps: {
     },
 
     /** A group's instructions, which every bot in it reads. */
-    update(caller: Caller, id: string, input: { instructions?: unknown }): Answer {
+    update(caller: Caller, id: string, input: { instructions?: unknown; responder?: unknown }): Answer {
       const record = mine(caller, id);
       if (!record) return fail(404, "no such conversation");
       if (record.kind !== "group") return fail(400, "Only a group has instructions.");
+      if (input.responder !== undefined) {
+        const responder = groupResponder(input.responder);
+        if (!responder) return fail(400, "responder must be lead (with an optional botId), everyone, or mentions");
+        if (responder.kind === "lead" && responder.botId && !record.bots.includes(responder.botId)) return fail(400, "The lead must be a bot in this group.");
+        record.responder = responder;
+        save();
+        const lead = leadOf(record);
+        notice(record, responder.kind === "everyone" ? `${caller.name} set every bot here to answer messages that name no one.`
+          : responder.kind === "mentions" ? `${caller.name} set bots here to answer only when named.`
+          : `${caller.name} made ${lead?.name ?? "the first bot"} lead this group: it answers messages that name no one.`);
+        if (input.instructions === undefined) return { status: 200, body: wire(record, caller) };
+      }
       if (typeof input.instructions !== "string") return fail(400, "instructions required");
       const instructions = input.instructions.trim().slice(0, 4000);
       if (instructions === (record.instructions ?? "")) return { status: 200, body: wire(record, caller) };

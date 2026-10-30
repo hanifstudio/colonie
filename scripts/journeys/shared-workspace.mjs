@@ -150,11 +150,21 @@ try {
   await until(ana, async () => (await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count()) > answersBefore && !(await text(ana)).includes("is working on it"),
     "the group's bot answers @here without being named", 40_000);
 
+  step = "a message that names no one";
+  const leadAnswersBefore = await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count();
+  check((await ana.locator("main form textarea").getAttribute("placeholder")).includes(`${botName} answers`), "the composer says which bot answers when no one is named");
+  await ana.fill("main form textarea", "what should we do first?");
+  await ana.keyboard.press("Enter");
+  await until(ana, async () => (await ana.locator('[data-testid="sender-line"]', { hasText: "Bot" }).count()) > leadAnswersBefore && !(await text(ana)).includes("is working on it"),
+    "the group's lead bot answers a message that names no one", 40_000);
+
   step = "each bot's approval level in the group";
   await ana.click('button:has-text("Members")');
   const level = ana.locator(`select[aria-label="How ${botName} asks for permission"]`);
   await until(ana, async () => (await level.count()) > 0, "the group lists the bot with its approval level");
   check(await level.inputValue() === "auto", "a new bot starts on Ask when risky");
+  check(/when a message names no one/i.test(await text(ana)) && (await ana.getByRole("radio", { name: /The lead answers/ }).getAttribute("aria-checked")) === "true",
+    "Members shows who answers a message that names no one: the lead");
   await level.selectOption("ask");
   await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "ask",
     "choosing Always ask in the group changes the bot");

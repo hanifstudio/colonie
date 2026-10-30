@@ -65,6 +65,8 @@ test("a person makes a group with another person and a bot; both see it in their
   // A line says what happened, and reaches every member's app as it is written.
   const first = (await messagesOf(BOB))[0];
   expect(first).toMatchObject({ notice: true, text: `ada@x.com made the group with bob@x.com, ${bot.name}.` });
+  // the tests below are about mentions; a lead answering what names no one has its own
+  expect((await ws.as(ADA, `/api/conversations/${group.id}`, { method: "PATCH", body: { responder: { kind: "mentions" } } })).status).toBe(200);
 });
 
 test("@naming a person marks the conversation for them", async () => {
@@ -284,8 +286,67 @@ describe("a group with several bots", () => {
     const quiet = (await lines()).length;
     await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: "@hereafter, mail me at a@here.com" } });
     await new Promise((r) => setTimeout(r, 1_500));
-    expect((await lines()).slice(quiet).filter((message) => message.from && !message.notice)).toHaveLength(0);
+    // it names no one, so at most the group's lead takes it, never every bot
+    expect(new Set((await lines()).slice(quiet).filter((message) => message.from && !message.notice).map((message) => message.from.botId)).size).toBeLessThanOrEqual(1);
   }, 90_000);
+
+  test("a message that names no one goes to the group's lead, which can be chosen; or to every bot; or to none", async () => {
+    const desk = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Desk", emails: [BOB], bots: [bot.id, second.id] } })).body;
+    const deskLines = async () => (await ws.as(ADA, `/api/conversations/${desk.id}/messages`)).body.messages as Array<any>;
+    const answersTo = async (text: string, from: string = ADA) => {
+      const before = (await deskLines()).length;
+      await ws.as(from, `/api/conversations/${desk.id}/messages`, { method: "POST", body: { text } });
+      await new Promise((r) => setTimeout(r, 2_500));
+      const end = Date.now() + 30_000;
+      for (;;) {
+        const fresh = (await deskLines()).slice(before).filter((message) => message.from && !message.notice && !message.relay);
+        if (fresh.every((message) => !message.working) || Date.now() > end) return fresh.map((message) => message.from.botId).sort();
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    };
+    const chief = (await ws.as(ADA, "/api/bots")).body.bots.find((entry: any) => entry.chiefOfStaff)?.id ?? bot.id;
+    const listed = (await ws.as(ADA, "/api/conversations")).body.conversations.find((entry: any) => entry.id === desk.id);
+    expect(listed).toMatchObject({ responder: { kind: "lead" }, leadBotId: chief });
+    expect(await answersTo("who is around today?")).toEqual([chief]);
+    // naming only a person is for that person
+    expect(await answersTo("@bob@x.com can you take this one?")).toEqual([]);
+    const other = chief === bot.id ? second.id : bot.id;
+    expect((await ws.as(BOB, `/api/conversations/${desk.id}`, { method: "PATCH", body: { responder: { kind: "lead", botId: other } } })).status).toBe(200);
+    expect(await answersTo("and now?", BOB)).toEqual([other]);
+    expect((await ws.as(ADA, `/api/conversations/${desk.id}`, { method: "PATCH", body: { responder: { kind: "everyone" } } })).status).toBe(200);
+    expect(await answersTo("everyone, a quick status")).toEqual([bot.id, second.id].sort());
+    expect((await ws.as(ADA, `/api/conversations/${desk.id}`, { method: "PATCH", body: { responder: { kind: "mentions" } } })).status).toBe(200);
+    expect(await answersTo("just thinking out loud")).toEqual([]);
+    expect((await ws.as(ADA, `/api/conversations/${desk.id}`, { method: "PATCH", body: { responder: { kind: "lead", botId: "nobody" } } })).status).toBe(400);
+    expect((await deskLines()).filter((message) => message.notice).map((message) => message.text)).toEqual(expect.arrayContaining([
+      expect.stringContaining("lead this group"), expect.stringContaining("every bot here to answer"), expect.stringContaining("only when named"),
+    ]));
+  }, 150_000);
+
+  test("one request that names no one gets done together: the lead does its part and hands the rest to another bot, and everyone gets the files", async () => {
+    const team = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Launch crew", emails: [BOB], bots: [bot.id, second.id] } })).body;
+    const lead = (await ws.as(ADA, "/api/conversations")).body.conversations.find((entry: any) => entry.id === team.id).leadBotId;
+    const helper = lead === bot.id ? second : bot;
+    const teamLines = async () => (await ws.as(BOB, `/api/conversations/${team.id}/messages`)).body.messages as Array<any>;
+    // Ada names no bot: the lead takes it, writes the plan, and asks the helper for the checklist
+    await ws.as(ADA, `/api/conversations/${team.id}/messages`, { method: "POST", body: {
+      text: `write file plan.md Launch on Friday at the hall then ask ${helper.name} to write file checklist.md Venue, catering, invitations` } });
+    const done = await until(teamLines, (list) => {
+      const answers = list.filter((message) => message.from && !message.notice && !message.relay);
+      return answers.some((message) => message.from.botId === lead && !message.working && /Wrote plan\.md/.test(message.text))
+        && answers.some((message) => message.from.botId === helper.id && !message.working && /Wrote checklist\.md/.test(message.text));
+    }, "the lead's part and the helper's part, both in the group");
+    const answers = done.filter((message: any) => message.from && !message.notice && !message.relay);
+    // in that order, each once, and the helper was handed the lead's words, not Ada's
+    expect(answers.map((message: any) => message.from.botId)).toEqual([lead, helper.id]);
+    expect(answers[0].text).toContain(`@${helper.name} write file checklist.md`);
+    // both files are in the group's project folder, for everyone here
+    const files = (await ws.as(BOB, `/api/conversations/${team.id}/files`)).body.files.map((file: any) => file.path).sort();
+    expect(files).toEqual(["checklist.md", "plan.md"]);
+    const checklist = await ws.as(BOB, `/api/conversations/${team.id}/files/content?path=checklist.md`);
+    expect(checklist.status).toBe(200);
+    expect(checklist.body).toBe("Venue, catering, invitations");
+  }, 120_000);
 
   test("a bot that @mentions another bot hands it on, and the chain stops after three", async () => {
     const before = (await lines()).length;

@@ -1,14 +1,14 @@
 # Handover
 
-## Now: groups feel natural: bots work at once and stop asking for small things
+## Now: a group always answers: its lead bot takes what names no one
 
-Two bots asked in a group start at once and show what they are doing; a
-message to a busy bot says it is next; tests, installs and edits run without a
-card. Three levels everywhere (Always ask, Ask when risky, Full access), Ask
-bots move to Ask when risky, a group sets all its bots at once. Proof: group
-e2e tests, the Shared journey in a browser, one real Codex group task in a
-disposable workspace. Out of scope: lead bots, threads. Left from the computer
-task: use_computer by a signed-in bot, Podman Desktop, the packaged app quitting.
+A person writes in a group without naming anyone and the group's lead bot
+answers (Chief of Staff, else the first bot, or the one chosen in Members); it
+may hand parts to others by naming them. Members offers Lead answers, Everyone
+answers, or Only when named. Proof: group e2e tests, the Shared journey in a
+browser. Out of scope: a decision model choosing the bot. Left from earlier:
+real Codex/Claude asking only for risky actions; use_computer by a signed-in
+bot, Podman Desktop, the packaged app quitting.
 
 ## Next: verify routines, guides, and group replies with real engines
 

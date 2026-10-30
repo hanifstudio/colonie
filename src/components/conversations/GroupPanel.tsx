@@ -21,7 +21,7 @@ import { filePreviewKind } from "@/lib/file-preview";
 import { useAdminSession, useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import {
   CONVERSATIONS_CHANGED, addToConversation, conversationFiles, deleteGroup, downloadConversationFile, leaveConversation, updateConversation, workspacePeople,
-  type Conversation, type ConversationFile,
+  type Conversation, type ConversationFile, type GroupResponder,
 } from "@/lib/conversations";
 import { useStore, type Bot, type Message } from "@/state/store";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
@@ -256,7 +256,9 @@ function Members({ conversation, memberBots, bots, onLeft }: {
           {here.map((bot) => (
             <li key={bot.id} className="flex items-center gap-2.5 rounded-md px-1 py-1.5">
               <BotAvatar bot={bot} state="happy" size={24} motion="none" motionKey={0} animated={false} />
-              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{bot.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{bot.name}
+                {conversation.leadBotId === bot.id && (conversation.responder?.kind ?? "lead") === "lead" && <span className="ml-1.5 rounded bg-accent/15 px-1.5 py-0.5 text-[10.5px] font-medium text-accent">Lead</span>}
+              </span>
               {/* the level is the bot's own: it acts the same in every group */}
               <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
                 className={SELECT} value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
@@ -284,6 +286,7 @@ function Members({ conversation, memberBots, bots, onLeft }: {
           </select>
         )}
       </section>
+      {kind === "group" && <WhoAnswers conversation={conversation} bots={here} onError={setError} />}
       {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
       <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-hairline/40 px-1 pt-3">
         <button type="button" className="text-danger hover:underline" onClick={() => void leaveConversation(conversationId).then(() => { changed(); onLeft(); })}>
@@ -306,6 +309,50 @@ function Members({ conversation, memberBots, bots, onLeft }: {
           }).finally(() => setBusy(false));
         }} />
     </div>
+  );
+}
+
+/** Who answers a message that names no one (owner, October 30): the lead
+ * bot, every bot, or only bots that are named. */
+function WhoAnswers({ conversation, bots, onError }: { conversation: Conversation; bots: Bot[]; onError: (message: string) => void }) {
+  const responder = conversation.responder ?? { kind: "lead" as const };
+  const [saving, setSaving] = useState(false);
+  const choose = async (next: GroupResponder) => {
+    setSaving(true); onError("");
+    try { await updateConversation(conversation.id, { responder: next }); window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)); }
+    catch (cause) { onError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); }
+  };
+  const choices: Array<{ kind: GroupResponder["kind"]; title: string; hint: string }> = [
+    { kind: "lead", title: "The lead answers", hint: "One bot takes it, and hands parts to the others when they fit better" },
+    { kind: "everyone", title: "Every bot answers", hint: "Each bot here answers in turn" },
+    { kind: "mentions", title: "Only when named", hint: "Bots stay quiet until someone types @ and their name" },
+  ];
+  return (
+    <section className="mb-4">
+      <h3 className={HEADING}>When a message names no one</h3>
+      <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="When a message names no one">
+        {choices.map((choice) => {
+          const selected = responder.kind === choice.kind;
+          return (
+            <button key={choice.kind} type="button" role="radio" aria-checked={selected} disabled={saving}
+              onClick={() => { if (!selected) void choose({ kind: choice.kind } as GroupResponder); }}
+              className={cn("flex w-full flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-60",
+                selected ? "border-accent-border bg-raised-hover" : "border-hairline/40 bg-inset hover:bg-raised")}>
+              <span className="text-[13px] font-medium text-ink">{choice.title}</span>
+              <span className="text-[11.5px] text-ink-secondary">{choice.hint}</span>
+            </button>
+          );
+        })}
+      </div>
+      {responder.kind === "lead" && bots.length > 1 && (
+        <label className="mt-2 flex items-center justify-between gap-2 px-1 text-ink-secondary">Lead
+          <select aria-label="Lead bot" className={SELECT} disabled={saving} value={conversation.leadBotId ?? ""}
+            onChange={(event) => void choose({ kind: "lead", botId: event.target.value })}>
+            {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
+          </select>
+        </label>
+      )}
+    </section>
   );
 }
 

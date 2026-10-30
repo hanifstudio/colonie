@@ -134,6 +134,17 @@ export function ConversationView({ id }: { id: string }) {
   </>);
 }
 
+/** What the empty composer says: in a group, who will answer. */
+function placeholderFor(conversation: Conversation, bots: Bot[]): string {
+  const base = `Message ${conversation.title}`;
+  if (conversation.kind !== "group" || !bots.length) return base;
+  const responder = conversation.responder?.kind ?? "lead";
+  const lead = bots.find((bot) => bot.id === conversation.leadBotId);
+  if (responder === "lead" && lead) return `${base} · ${lead.name} answers, or type @ to ask a bot`;
+  if (responder === "everyone") return `${base} · every bot answers, or type @ to ask one`;
+  return `${base} · type @ to ask a bot`;
+}
+
 /** The composer pill of a bot chat, for a conversation: text, and "@" for
  * the people here and the bots one can ask, in the same menu as a bot chat
  * (faces, names, arrows to choose, Enter or Tab to pick, Esc to close). */
@@ -203,7 +214,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
           <div data-tour="composer" className={COMPOSER_PILL}>
             <div data-composer-row className={COMPOSER_ROW}>
               <MentionTextarea {...mentions.inputProps} wrapperClassName="ml-2" inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
-                placeholder={conversation.kind === "group" && bots.length ? `Message ${conversation.title} · type @ to ask a bot` : `Message ${conversation.title}`} aria-label="Message"
+                placeholder={placeholderFor(conversation, bots)} aria-label="Message"
                 onChange={(event) => { setText(event.target.value); mentions.changed(event.currentTarget); }}
                 onKeyDown={(event) => {
                   if (mentions.isComposing(event) || mentions.keyDown(event)) return;
