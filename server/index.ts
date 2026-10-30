@@ -994,6 +994,30 @@ const colonieChief = new ColonieChief({
     groupConversations.needsPerson(threadId, `a step on ${target.site}`);
     return { state: "waiting for the person", summary: `A card asks the person to take over your browser for ${target.site}. End your turn now; their Done or Cancel arrives as their next message.` };
   },
+  // A group the Chief makes for the person it is talking with, as if they
+  // had made it themselves (owner, October 30).
+  createGroup: (threadId, input) => {
+    const sender = store.activePath(threadId).findLast((message: any) => message.role === "user" && message.sender?.id)?.sender;
+    const caller: Caller | null = workspaceKind.shared()
+      ? sender?.id ? { key: sender.id, name: sender.name || "Someone", seesBot: () => true } : null
+      : { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true };
+    if (!caller) throw new Error("This conversation has no person to make the group for.");
+    const made = groupConversations.create(caller, { kind: "group", name: input.name, emails: input.emails, bots: input.botIds });
+    if (made.status !== 201) throw new Error((made.body as { error?: string }).error ?? "The group could not be made.");
+    const group = made.body as { id: string; title: string };
+    if (input.instructions?.trim()) groupConversations.update(caller, group.id, { instructions: input.instructions });
+    return { made: group.title, groupId: group.id, note: "It is in the person's sidebar under groups. Messages there that name no one go to its lead bot." };
+  },
+  setApprovalLevel: (botId, level) => {
+    const bot = store.bot(botId);
+    if (!bot) throw new Error("No such bot.");
+    if (bot.busy) throw new Error(`${bot.name} is working; try again when it finishes.`);
+    // Ask when risky on a bot that works on this computer needs the person to see its warning first
+    if (level === "auto" && bot.computer === "local") throw new Error(`${bot.name} works on this computer; the person turns on Ask when risky in its settings, after a warning.`);
+    if (approvalModeFor(bot) === "full" || approvalModeFor(bot) === "custom") throw new Error(`${bot.name} has a level only the person changes (Full access); they change it in its settings.`);
+    store.patchBot(botId, { approvalMode: level, autoApprove: level === "auto" });
+    return { bot: bot.name, level: level === "auto" ? "Ask when risky" : "Always ask" };
+  },
   // Routines from chat; the scheduler and request service start further down
   // and are only read when a tool is called.
   routines: {

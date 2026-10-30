@@ -8,7 +8,7 @@ import { expect, test } from "vitest";
 
 import { ColonieChief, type ChiefDeps } from "./manager.ts";
 
-function chief(proposals: unknown[]) {
+function chief(proposals: unknown[], extra: Partial<ChiefDeps> = {}) {
   const bots = [{ id: "chief", name: "Sage", title: "", description: "", chiefOfStaff: true, modelSelection: { instanceId: "codex-acp", model: "m" } },
     { id: "b1", name: "Nova", title: "", description: "", modelSelection: { instanceId: "codex-acp", model: "m" } }];
   const deps = {
@@ -21,6 +21,7 @@ function chief(proposals: unknown[]) {
       propose: async (botId: string, threadId: string, proposal: unknown) => { proposals.push({ botId, threadId, proposal }); return { state: "applied", summary: "Scheduled News" }; },
       now: () => ({ time: "2026-10-23T08:00:00.000Z", timeZone: "Asia/Jakarta" }),
     },
+    ...extra,
   } as unknown as ChiefDeps;
   return new ColonieChief(deps, mkdtempSync(join(tmpdir(), "colonie-chief-")));
 }
@@ -64,5 +65,34 @@ test("a bot that is not the Chief, with no guides, can still list and schedule i
 
   await rpc(manager, token, "tools/call", { name: "change_routine", arguments: { routineId: "r1", action: "pause", requestId: "r-2" } });
   expect(proposals.at(-1)).toEqual({ botId: "b1", threadId: "thread-1", proposal: { action: "pause", routineId: "r1" } });
+  manager.dispose();
+});
+
+test("the Chief makes a group for the person and sets a bot's approval level, but never Full access", async () => {
+  const groups: unknown[] = [];
+  const levels: unknown[] = [];
+  const manager = chief([], {
+    createGroup: (threadId, input) => { groups.push({ threadId, ...input }); return { made: input.name, groupId: "g1" }; },
+    setApprovalLevel: (botId, level) => { levels.push({ botId, level }); return { bot: botId, level }; },
+  });
+  const mount = manager.mount("chief", "thread-1", "codex-acp");
+  mount!.activate();
+  const token = (mount!.servers[0] as { headers: Array<{ name: string; value: string }> }).headers.find((header) => header.name === "Authorization")!.value.slice("Bearer ".length);
+  const tools = (await rpc(manager, token, "tools/list")).result.tools!.map((tool) => tool.name);
+  expect(tools).toEqual(expect.arrayContaining(["create_group", "set_approval_level"]));
+
+  const made = await rpc(manager, token, "tools/call", { name: "create_group", arguments: { name: "IGRS", botIds: ["b1"], emails: ["hilmi@x.com"], instructions: "Answer in Indonesian.", requestId: "g-1" } });
+  expect(made.result.isError).toBeUndefined();
+  expect(groups).toEqual([{ threadId: "thread-1", name: "IGRS", botIds: ["b1"], emails: ["hilmi@x.com"], instructions: "Answer in Indonesian." }]);
+  // a bot that is not here is refused before anything is made
+  expect((await rpc(manager, token, "tools/call", { name: "create_group", arguments: { name: "X", botIds: ["nobody"], requestId: "g-2" } })).result.isError).toBe(true);
+  expect(groups).toHaveLength(1);
+
+  expect((await rpc(manager, token, "tools/call", { name: "set_approval_level", arguments: { botId: "b1", level: "auto", requestId: "l-1" } })).result.isError).toBeUndefined();
+  expect(levels).toEqual([{ botId: "b1", level: "auto" }]);
+  const full = await rpc(manager, token, "tools/call", { name: "set_approval_level", arguments: { botId: "b1", level: "full", requestId: "l-2" } });
+  expect(full.result.isError).toBe(true);
+  expect(full.result.content![0]!.text).toContain("Full access is the person's");
+  expect(levels).toHaveLength(1);
   manager.dispose();
 });
