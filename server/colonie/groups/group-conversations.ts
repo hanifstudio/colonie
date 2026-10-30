@@ -549,6 +549,7 @@ export function createGroupConversations(deps: {
 
     /** A bot's turn ended: its answer replaces the oldest waiting line. */
     turnCompleted: work.completed,
+    turnErrored: work.errored,
   };
 }
 

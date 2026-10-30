@@ -245,3 +245,17 @@ test("a malformed legacy conversation file fails closed and remains available fo
   expect(() => createGroupConversations({ file, store: () => f.store, directory: () => [], isMember: () => true, keyOf: (email) => email, runBotTurn: async () => {} })).toThrow("could not import");
   expect(readFileSync(file, "utf8")).toBe("{broken");
 });
+
+test("work whose turn could not start tells the group why, instead of working for good", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} hello`, "dispatch-fails");
+  await settle(() => f.calls.length === 1);
+  const line = () => f.store.messagesFor(f.group.threadId).find((message) => message.from?.botId === f.bot.id);
+  expect(line()?.working).toBe(true);
+  f.service.turnErrored(f.calls[0]!.threadId, "error: Agent does not support mode 'default'");
+  expect(line()).toMatchObject({ text: `${f.bot.name} could not answer: Agent does not support mode 'default'` });
+  expect(line()?.working).toBeUndefined();
+  // the next message for the bot runs; nothing is left waiting
+  await f.service.post(caller, f.group.id, `@${f.bot.name} again`, "after-failure");
+  await settle(() => f.calls.length === 2);
+});

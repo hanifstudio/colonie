@@ -468,7 +468,10 @@ const groupConversations = createGroupConversations({
   isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
   keyOf: (email) => personKey({ id: "", email }),
   hasRoutine: (id) => routines?.listRoutines().some((routine) => routine.id === id) ?? true,
-  runBotTurn: async (work, threadId, prompt, recoveryPrompt) => { await startTurn(work.botId, work.text, { threadId, providerPrompt: prompt, providerRecoveryPrompt: recoveryPrompt, commsDepth: work.depth, sendId: work.id, sender: { name: work.asker, id: work.askerKey } }); },
+  // a turn that fails before it starts (a mode, a sign-in, a limit) never
+  // completes, so the group is told why instead of "working" for good
+  runBotTurn: async (work, threadId, prompt, recoveryPrompt) => { await startTurn(work.botId, work.text, { threadId, providerPrompt: prompt, providerRecoveryPrompt: recoveryPrompt, commsDepth: work.depth, sendId: work.id, sender: { name: work.asker, id: work.askerKey },
+    onDispatchError: (message) => groupConversations.turnErrored(threadId, message) }); },
   interruptBotTurn: (botId, threadId) => interruptDirectThread(botId, threadId),
   onChange: () => forgetVisibility(),
 });

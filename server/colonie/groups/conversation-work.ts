@@ -191,6 +191,18 @@ export function createConversationWork(deps: {
           failed ? undefined : `${bot?.name ?? "The bot"} stopped when Colonie restarted. Mention it again to ask.`);
       }
     },
+    /** A bot's work here could not start (its engine refused the mode, a
+     * sign-in, a limit): no completion follows, so the group is told why
+     * instead of showing "working" for good. */
+    errored(threadId: string, message: string) {
+      const pending = waiting.get(threadId);
+      if (!pending) return;
+      waiting.delete(threadId);
+      const name = deps.store().bot(pending.work.botId)?.name ?? "The bot";
+      const reason = message.trim().replace(/^error:\s*/i, "").slice(0, 300);
+      try { finish(pending.work, false, `${name} could not answer: ${reason}`); } finally { pending.done(true); }
+      wake();
+    },
     completed(threadId: string, ok: boolean) {
       const pending = waiting.get(threadId);
       if (pending) {
