@@ -18,9 +18,9 @@ import { ChatView } from "@/components/ChatView";
 import { SIDEBAR_AND_PANEL_FIT, TWO_SIDE_PANELS_FIT, useMediaQuery } from "@/lib/use-media-query";
 import { PluginsPanel, preloadConnectedApps } from "@/components/PluginsPanel";
 import {
-  ActivityPanel, BotSettingsDialog, ComputerPanel, InspectorPanel, KeyboardShortcutsModal, LocalVmWorkspace, NewBotDialog,
+  ActivityPanel, BotSettingsDialog, BrowserSidePanel, InspectorPanel, KeyboardShortcutsModal, NewBotDialog,
   FilePreviewPanel,
-  preloadScreens, RemoteAgentSettingsPanel, RemoteDesktopPanel, RoutinesPage, SettingsModal, TriggersPanel,
+  preloadScreens, RemoteAgentSettingsPanel, RoutinesPage, SettingsModal, TriggersPanel,
 } from "@/components/lazy-screens";
 import { WorkspaceBackupRecovery } from "@/components/WorkspaceBackupSettings";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -57,16 +57,13 @@ export function Shell() {
     setLocale(language || globalThis.navigator?.language);
     setLocaleEpoch((epoch) => epoch + 1);
   }, [language]);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [localVmWorkspaceBotId, setLocalVmWorkspaceBotId] = useState<string | null>(null);
-  // the Browser tab, expanded into the main column (the small preview in
-  // the panel hands off to this and back)
+  const [, setPaletteOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const bot = state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0];
   // A side panel beside the full sidebar leaves the default 1100px window a
   // ~330px chat. Fold the sidebar to its avatar rail for as long as a panel
   // is open and the window is not wide enough for all three.
-  const sidePanelOpen = (Boolean(bot) && Boolean(state.settingsOpen || state.computerOpen || state.inspectorOpen || state.activityOpen || state.filePreview)) ||
+  const sidePanelOpen = (Boolean(bot) && Boolean(state.settingsOpen || state.browserOpen || state.inspectorOpen || state.activityOpen || state.filePreview)) ||
     Boolean(state.groupPanel && state.selectedConversationId);
   const collapseSidebar = sidePanelOpen && !sidebarAndPanelFit;
   const calendarFocus = state.activeView === "routines";
@@ -118,26 +115,6 @@ export function Shell() {
     setDrawerOpen(false);
   }, [state.selectedId, bot?.threadId, state.activeView, state.pluginsOpen, state.settingsOpen]);
 
-  useEffect(() => {
-    if (
-      localVmWorkspaceBotId &&
-      (state.activeView !== "chat" || state.selectedId !== localVmWorkspaceBotId)
-    ) {
-      setLocalVmWorkspaceBotId(null);
-    }
-  }, [localVmWorkspaceBotId, state.activeView, state.selectedId]);
-
-  const openLocalVmWorkspace = (botId: string) => {
-    dispatch({ type: "toggleComputer", open: false });
-    setLocalVmWorkspaceBotId(botId);
-  };
-
-  const openComputerFromWorkspace = (botId: string) => {
-    setLocalVmWorkspaceBotId(null);
-    dispatch({ type: "select", id: botId });
-    dispatch({ type: "toggleComputer", open: true });
-  };
-
   const closeCalendar = useCallback(() => {
     dispatch({ type: "select", id: state.selectedId });
   }, [dispatch, state.selectedId]);
@@ -145,48 +122,12 @@ export function Shell() {
     dispatch({ type: "select", id });
   }, [dispatch]);
 
-  const nativeViewOverlayOpen =
-    drawerOpen ||
-    paletteOpen ||
-    state.settingsOpen ||
-    state.computerOpen ||
-    state.inspectorOpen ||
-    state.activityOpen ||
-    Boolean(state.filePreview) ||
-    state.appSettingsOpen ||
-    state.pluginsOpen ||
-    state.triggersOpen;
-
   // The macOS app menu's Preferences… item lives in the desktop shell, so the
   // shell signals the request over the bridge (Cmd+, accelerates the item).
   // Local-shell only: remote server pages never receive the channel, and colonie
   // is absent in the browser.
   useEffect(() => {
     return window.colonie?.onOpenAppSettings?.(() => dispatch({ type: "toggleAppSettings", open: true }));
-  }, [dispatch]);
-
-  // The viewer outlives ComputerPanel and can target any bot, so release control
-  // here (always mounted) when a bot's viewer closes. release() is idempotent.
-  useEffect(() => {
-    return window.colonie?.desktopViewer?.onState((viewer) => {
-      if (viewer.open || !viewer.contextId) return;
-      const botId = viewer.contextId;
-      void fetch(`/api/bots/${botId}/computer/control`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "release" }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((snap) => {
-          if (snap) dispatch({ type: "computerControl", botId, held: snap.held === true, helpReason: snap.helpReason ?? null });
-        })
-        .catch(() => {});
-      void fetch(`/api/bots/${botId}/computer/viewer-close`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      }).catch(() => {});
-    });
   }, [dispatch]);
 
   return (
@@ -223,13 +164,6 @@ export function Shell() {
       )}
       {state.activeView === "routines" ? (
         <RoutinesPage onBack={closeCalendar} onOpenChat={openCalendarChat} />
-      ) : !remoteClient && localVmWorkspaceBotId ? (
-        <LocalVmWorkspace
-          primaryBotId={localVmWorkspaceBotId}
-          overlayOpen={nativeViewOverlayOpen}
-          onClose={() => setLocalVmWorkspaceBotId(null)}
-          onOpenComputer={openComputerFromWorkspace}
-        />
       ) : noEngines ? (
         <NoEngines />
       ) : state.selectedConversationId ? (
@@ -264,20 +198,10 @@ export function Shell() {
       <>
       {state.settingsOpen && bot && (
         remoteClient
-          ? <RemoteAgentSettingsPanel bot={bot} overlay={state.computerOpen && !twoSidePanelsFit} />
-          : <BotSettingsDialog key={`settings:${bot.id}`} bot={bot} overlay={(state.inspectorOpen || state.computerOpen) && !twoSidePanelsFit} />
+          ? <RemoteAgentSettingsPanel bot={bot} overlay={state.browserOpen && !twoSidePanelsFit} />
+          : <BotSettingsDialog key={`settings:${bot.id}`} bot={bot} overlay={(state.inspectorOpen || state.browserOpen) && !twoSidePanelsFit} />
       )}
-      {state.computerOpen && bot && (
-        remoteClient ? (
-          <RemoteDesktopPanel key={`computer:${bot.id}`} bot={bot} />
-        ) : (
-          <ComputerPanel
-            key={`computer:${bot.id}`}
-            bot={bot}
-            onOpenVmWorkspace={openLocalVmWorkspace}
-          />
-        )
-      )}
+      {state.browserOpen && bot && <BrowserSidePanel key={`browser:${bot.id}`} bot={bot} />}
       {!remoteClient && state.inspectorOpen && bot && <InspectorPanel key={bot.threadId} bot={bot} />}
       {!remoteClient && state.activityOpen && bot && <ActivityPanel key={`activity:${bot.id}`} bot={bot} />}
       {!remoteClient && state.filePreview && <FilePreviewPanel key={`file:${state.filePreview.threadId}:${state.filePreview.messageId}:${state.filePreview.path}`} preview={state.filePreview} />}

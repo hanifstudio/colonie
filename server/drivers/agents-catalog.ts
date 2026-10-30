@@ -47,7 +47,7 @@ export function catalogProfileFromEnv(env: NodeJS.ProcessEnv): CatalogProfile {
     coordinating: !externalRuntime && env.COLONIE_ROOM_TURN === "1",
     ownThreadCreation: env.COLONIE_OWN_THREAD_CREATION === "1",
     skillAuthoring: env.COLONIE_SKILL_AUTHORING_ENABLED === "1",
-    sharedComputers: env.COLONIE_SHARED_COMPUTERS_ENABLED === "1",
+    sharedComputers: false,
     voiceNotes: env.COLONIE_VOICE_NOTES === "1",
     memoryEnabled: env.COLONIE_MEMORY_ENABLED !== "0",
     chief: env.COLONIE_CHIEF_OF_STAFF === "1",
@@ -235,20 +235,8 @@ const toolDefinitions = (externalRuntime: boolean) => [
       required: ["id"],
     },
   },
-  {
-    name: "list_shared_computers",
-    description: "List online desktop computers explicitly shared with this workspace, and their allowed folders/capabilities. These are the user's computers, not this server. An offline or unshared computer cannot be accessed. Folder paths use opaque folder IDs and relative paths.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
-  },
-  {
-    name: "shared_computer",
-    description: "Use a desktop explicitly shared by the user. Discover computer_id and folder_id with list_shared_computers. list_files/read_file/write_file are confined to chosen folders; paths are relative. read_file returns sha256; overwriting requires expected_sha256. Binary files support base64 encoding. run_command requires a SEPARATE unrestricted terminal grant. computer_tools lists the native computer-control tools; computer_call invokes one with arguments and needs a SEPARATE computer-control grant. Never substitute the server's filesystem when this desktop is offline. Actions are not retried automatically; inspect an uncertain outcome before retrying.",
-    inputSchema: { type: "object", additionalProperties: false, properties: {
-      computer_id: { type: "string" }, action: { type: "string", enum: ["list_files", "read_file", "write_file", "run_command", "computer_tools", "computer_call"] },
-      folder_id: { type: "string" }, path: { type: "string" }, content: { type: "string" }, encoding: { type: "string", enum: ["utf8", "base64"] }, expected_sha256: { type: "string" },
-      command: { type: "string" }, tool_name: { type: "string" }, arguments: { type: "object", additionalProperties: true },
-    }, required: ["computer_id", "action"] },
-  },
+
+
   {
     name: "list_room_targets",
     description: "Discover actual Colonie teammates and rooms in your allowed teams. Works in a normal bot conversation too; no room is required. Returns bot and room IDs, roles and working folders, never other conversations' history. Use these bots, not native coding helpers with similar names, when the user asks their team to work together.",
@@ -345,15 +333,7 @@ const toolDefinitions = (externalRuntime: boolean) => [
       required: ["task_id"],
     },
   },
-  {
-    name: "select_computer",
-    description:
-      "Choose where this conversation does computer work. Call with no arguments to inspect actual available choices and the current place. For a task needing computer interaction, select the requested place, or auto to choose a suitable configured computer without asking the user to use menus. Colonie reuses an existing computer first; with a configured provider it can start or provision one when needed. Do not provision for ordinary chat or just to inspect availability. A pending result means end this turn immediately: Colonie updates the conversation selector and resumes the original request with that computer's real tools. Do not use the old tools after requesting a switch, repeat the task, or claim the action is done. This cannot change permissions, override Off, or switch a teammate/routine/channel.",
-    inputSchema: { type: "object", additionalProperties: false, properties: {
-      surface: { type: "string", enum: ["auto", "cloud", "vm", "local", "browser"],
-        description: "auto = suitable configured computer, cloud = the bot's cloud computer or self-hosted VPS, vm = isolated Local VM, local = user's own desktop, browser = built-in browser. Omit to list." },
-    } },
-  },
+
   {
     name: "list_threads",
     description:

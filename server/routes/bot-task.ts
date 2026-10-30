@@ -5,7 +5,6 @@ import { approvalModeFor } from "../../shared/approval-mode.ts";
 import type { ModelSelection, WireBot, WireTask } from "../../shared/wire.ts";
 import type { RoutineManager } from "../colonie/routines/routines.ts";
 import type { BotRecord, Store, TaskRecord } from "../persistence/store.ts";
-import { parseSurface } from "../surface.ts";
 import type { OwnThreads } from "../colonie/chat/own-threads.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
@@ -126,9 +125,7 @@ export function createBotTaskRoutes(deps: BotTaskRouteDeps): RouteHandler {
         if (!supportsApprovalMode(current.modelSelection, nextMode)) {
           return json(res, 400, { error: "This provider does not support the selected approval level" });
         }
-        if (nextMode === "auto" && current.computer === "local" && approvalModeFor(current) !== "auto" && body.acknowledgeLocalAuto !== true) {
-          return json(res, 400, { error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)" });
-        }
+
         const approvalRank = { ask: 0, edits: 1, auto: 2, full: 3, custom: 4 } as const;
         const widensMode = approvalRank[nextMode] > approvalRank[approvalModeFor(current)];
         const nextAllow = profile.alwaysAllow ?? [];
@@ -165,18 +162,9 @@ export function createBotTaskRoutes(deps: BotTaskRouteDeps): RouteHandler {
         else return json(res, 400, { error: "snoozedUntil must be a timestamp, 0 to snooze until activity, or null to wake now" });
       }
       if (body.surface !== undefined) {
-        if (threadBusy(current.id, current.threadId)) return json(res, 409, { error: "Stop this thread before changing its computer destination." });
-        // Where this conversation works, chosen by the person and recorded as
-        // theirs, so a later Works on change never sweeps it. Null follows the
-        // bot's Works on again. Reachability is the turn's to judge.
-        if (body.surface === null) {
-          patch.surface = undefined;
-          patch.surfaceSource = undefined;
-        } else if (parseSurface(body.surface)) {
-          patch.surface = parseSurface(body.surface);
-          patch.surfaceSource = "user";
-        } else return json(res, 400, { error: "surface must be vm, local, browser, or null to follow the bot" });
+        return json(res, 400, { error: "Computer destinations have been removed. This bot uses its own browser." });
       }
+
       if (body.pinnedMessageId !== undefined) {
         if (body.pinnedMessageId === null || body.pinnedMessageId === "") patch.pinnedMessageId = undefined;
         else if (typeof body.pinnedMessageId === "string" && store.messagesFor(current.threadId).some((message) => message.id === body.pinnedMessageId)) patch.pinnedMessageId = body.pinnedMessageId;
@@ -203,9 +191,7 @@ export function createBotTaskRoutes(deps: BotTaskRouteDeps): RouteHandler {
         if (mode === "auto" && approvalModeFor(current) !== "auto" && auth.kind === "loopback" && !DESKTOP_MANAGED && !req.headers.origin && store.bots.some((bot) => bot.busy)) {
           return json(res, 409, { error: "Change approval mode from the app or a paired device while bots are working." });
         }
-        if (mode === "auto" && current.computer === "local" && approvalModeFor(current) !== "auto" && body.acknowledgeLocalAuto !== true) {
-          return json(res, 400, { error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)" });
-        }
+
         patch.approvalMode = mode;
         patch.autoApprove = mode === "auto";
       }

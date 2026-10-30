@@ -1,4 +1,4 @@
-// The Files tab of the bot's computer panel (Simple mode): where the bot
+// The Files tab beside the bot's browser: where the bot
 // keeps its working files, and the files this conversation's turns created
 // or changed. The list is read from the turn digests the chat already
 // holds, so the tab costs no request of its own.
@@ -35,7 +35,7 @@ function splitPath(path: string): { name: string; folder: string } {
   return cut < 0 ? { name: path, folder: "" } : { name: path.slice(cut + 1), folder: path.slice(0, cut) };
 }
 
-export function ComputerFilesPane({ bot }: { bot: Bot }) {
+export function BotFilesPane({ bot }: { bot: Bot }) {
   const { dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const home = capabilities.host.homeDir;
@@ -54,7 +54,7 @@ export function ComputerFilesPane({ bot }: { bot: Bot }) {
             onClick={() => {
               // Same entry as the Advanced header's gear: the working folder
               // lives in the bot's Access settings.
-              dispatch({ type: "toggleComputer", open: false });
+              dispatch({ type: "toggleBrowser", open: false });
               dispatch({ type: "toggleSettings", open: true, section: "access" });
             }}
             className="shrink-0 rounded-lg bg-control px-2.5 py-1 text-[12px] text-ink hover:bg-raised-hover"

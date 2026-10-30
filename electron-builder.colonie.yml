@@ -11,13 +11,34 @@ files:
   - "!electron/resources/Colonie Speech.app/**"
   - "!**/node_modules/**"
   - package.json
+  - "!electron/cua*"
+  - "!electron/android-device.mjs"
+  - "!electron/desktop-viewer*"
+  - "!electron/desktop-workspace*"
+  - "!electron/lent-screen-tools.mjs"
+  - "!electron/fixtures/**"
 asar: true
 extraResources:
   - from: dist
     to: ui
   - from: dist-server
     to: server
-    filter: ["**/*", "!server/**/*.test.*", "!server/acp/testing/**"]
+    filter:
+      - "**/*"
+      - "!server/**/*.test.*"
+      - "!server/acp/testing/**"
+      - "!**/local-computer*"
+      - "!**/container-mcp*"
+      - "!**/container-computer*"
+      - "!**/local-vm-*"
+      - "!**/desktop-viewer*"
+      - "!**/internal-computer-control*"
+      - "!**/local-vm-setup*"
+      - "!**/shared-computer*"
+      - "!**/computer-selection*"
+      - "!**/computer-wait*"
+      - "!**/turn-computer-binding*"
+      - "!**/auto-vm-claims*"
   - from: dist-colonie/codex-acp
     to: codex-acp
   - from: dist-colonie/codex-acp/node_modules/@openai/codex
@@ -33,16 +54,16 @@ extraResources:
 # Invite pages open the installed app with colonie://join links.
 protocols:
   - name: Colonie
-    schemes: [colonie]
+    schemes: [ colonie ]
 mac:
   # Apple silicon only: every machine on this team is arm64, and a universal
   # binary would make each person download the half they cannot run.
   # dmg is what people install from; zip is what an updater would consume.
   target:
     - target: dmg
-      arch: [arm64]
+      arch: [ arm64 ]
     - target: zip
-      arch: [arm64]
+      arch: [ arm64 ]
   icon: build/colonie.icns
   category: public.app-category.developer-tools
   # No Apple Developer account yet. `identity: "-"` ad-hoc signs the whole

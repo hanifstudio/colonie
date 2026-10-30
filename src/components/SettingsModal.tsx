@@ -10,7 +10,7 @@ import {
   Coins01Icon,
   FlaskConicalIcon,
   Key01Icon,
-  MonitorIcon,
+  GlobeIcon,
   MultiplicationSignIcon,
   PaletteIcon,
   ScrollTextIcon,
@@ -32,7 +32,6 @@ import { AnthropicEveryClaudeBot, ApiKeyRow, OpenAiCompatUrl, OpenCodeProviderKe
 import { useUpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { EnginesSettings } from "./EnginesSettings";
-import { LocalComputerSection } from "./LocalComputerSection";
 import { PeopleSection } from "./PeopleSection";
 import { ColoniePeople } from "./ColoniePeople";
 import { ActivitySection } from "./ActivitySection";
@@ -84,7 +83,7 @@ export type SettingsGroup = "you" | "ai" | "computers" | "account";
 export const SETTINGS_GROUPS: Array<{ id: SettingsGroup; labelKey: LocaleKey }> = [
   { id: "you", labelKey: "settings.group.you" },
   { id: "ai", labelKey: "settings.group.ai" },
-  { id: "computers", labelKey: "settings.group.computers" },
+  { id: "computers", labelKey: "settings.group.browser" },
   { id: "account", labelKey: "settings.group.account" },
 ];
 
@@ -101,7 +100,7 @@ export const SECTIONS: Array<{
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: Key01Icon, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "xai", "mistral", "cerebras", "router", "openrouter", "base url", "openai", "anthropic", "groq", "opencode", "provider"] },
   { id: "secrets", group: "ai", labelKey: "settings.section.secrets", icon: Key01Icon, keywords: ["secrets", "keys", "passwords", "tokens", "env", "environment", "credentials"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen01Icon, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
-  { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: MonitorIcon, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
+  { id: "computer", group: "computers", labelKey: "settings.section.browser", icon: GlobeIcon, keywords: ["browser", "built-in browser", "profiles", "browser profiles"] },
   { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins01Icon, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
   { id: "backups", group: "account", labelKey: "settings.section.backups", icon: ArchiveIcon, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
   { id: "profile", group: "account", labelKey: "settings.profile.title", icon: UserCircleIcon, keywords: ["profile", "name", "email", "photo", "avatar", "about me", "about"] },
@@ -124,7 +123,7 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
   { id: "general", labelKey: "settings.section.general", icon: UserIcon, sections: ["general"] },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon, sections: ["appearance"] },
   { id: "ai", labelKey: "settings.group.ai", icon: SparklesIcon, sections: ["engines", "connections", "secrets"] },
-  { id: "computers", labelKey: "settings.group.computers", icon: MonitorIcon, sections: ["computer"] },
+  { id: "computers", labelKey: "settings.group.browser", icon: GlobeIcon, sections: ["computer"] },
   { id: "account", labelKey: "settings.group.account", icon: UserCircleIcon, sections: ["profile", "people", "activity"] },
 ];
 
@@ -667,9 +666,7 @@ function ExperimentalFeaturesRow() {
   );
 }
 
-/** The installation's built-in browser switch. It lives with the computers
- * a bot can use (Computers in Simple, the top of Local VM in Advanced); the
- * setting and its write are the same `features.browser` it always was. */
+/** The workspace browser switch, shared by Simple and Advanced settings. */
 function BuiltInBrowserRow() {
   const { state, dispatch } = useStore();
   const browser = builtInBrowserEnabled(state.config);
@@ -811,7 +808,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   const colonieFleet = state.instances?.length > 0 && state.instances.every((instance) => isColonieAcpDriver(instance.driverKind));
   const baseSections = SECTIONS.filter((entry) => !remoteActive || entry.id === "appearance")
     .filter((entry) => !workspace || ["general", "appearance", "connections"].includes(entry.id))
-    // Claude and Codex bots use the Local VM (owner, October 29), so its setup shows
+    // Keep browser settings available for Claude and Codex bots.
     .filter((entry) => !colonieFleet || ["general", "appearance", "engines", "connections", "secrets", "backups", "profile", "computer"].includes(entry.id) || (colonieInvites && entry.id === "people"))
     // sign-in by email is a hosted server's; the desktop app pairs devices under Remote access
     .filter((entry) => entry.id !== "people" || colonieInvites || !window.colonie)
@@ -1014,11 +1011,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
       case "backups":
         return <WorkspaceBackupSettings />;
       case "computer":
-        // Advanced: the built-in browser switch heads the Local VM page.
-        // Simple stacks it as its own block after Local VM instead.
-        return advanced
-          ? <><BuiltInBrowserRow /><BrowserProfilesRow /><LocalComputerSection /></>
-          : <LocalComputerSection />;
+        return <><BuiltInBrowserRow /><BrowserProfilesRow /></>;
       case "usage":
         return <UsageSection />;
       case "skills":
@@ -1204,14 +1197,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
                   <section key={id} data-settings-block={id} className="flex scroll-mt-2 flex-col gap-4">
                     {stacked && labelKey ? blockHeading(labelKey) : null}
                     {renderSection(id)}
-                    {/* Simple: the built-in browser is its own block after Local VM. */}
-                    {id === "computer" && (
-                      <div data-settings-block="browser" className="flex flex-col gap-4 pt-2">
-                        {blockHeading("settings.experimental.browser")}
-                        <BuiltInBrowserRow />
-                        <BrowserProfilesRow />
-                      </div>
-                    )}
+
                   </section>
                 );
               })

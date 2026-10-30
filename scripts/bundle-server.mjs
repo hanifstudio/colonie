@@ -12,7 +12,7 @@
 // is invisible until a packaged build is actually launched.
 //
 // Entry points must keep their exact relative paths under dist-server — the
-// server locates each proxy by path (server/index.ts, container-computer.ts),
+// server locates each proxy by path (server/index.ts),
 // preferring the .ts in dev and falling back to the sibling .js in the
 // packaged tree. outbase keeps subdirectories nested; import.meta.url still
 // resolves to the same location, so that lookup is unaffected.
@@ -47,7 +47,7 @@ const yamlEsmPlugin = {
 // Every file run as its own process. Keep in sync with the spawn sites above:
 // the harness locates each spawned file through proxy-paths.ts `resolveProxy`,
 // which builds the path from SERVER_ROOT, so a spawned entry keeps its path
-// relative to server/ however its neighbours are filed. `container-mcp.ts`,
+// relative to server/ however its neighbours are filed.
 // `connector-proxy.ts`, `mcp-gate.ts`, `mcp-remote-proxy.ts` and
 // `harness-mcp-proxy.ts` stay at the server root for that reason, while the MCP
 // libraries they import live in colonie/mcp/.
@@ -64,14 +64,10 @@ const ENTRY_POINTS = [
   // The packaged smoke probe imports this manifest directly. Importing the
   // shared avatar contract widens TypeScript's inferred emit root to the repo,
   // so tsc may place its copy under dist-server/server/. Bundle an explicit
-  // root sibling to keep the packaged runtime contract stable. The Linux
-  // package smoke probe also imports local-computer.js directly.
+  // root sibling to keep the packaged runtime contract stable.
   "proxy-paths.ts",
-  "local-computer.ts",
-  "local-computer-proxy.ts",
   // the hook helper Claude Code runs at PostToolUse/PreCompact/SessionStart/Stop
   "hooks/colonie-hook.ts",
-  "container-mcp.ts",
   "permission-proxy.ts",
   "connector-proxy.ts",
   "mcp-gate.ts",

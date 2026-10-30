@@ -1,9 +1,5 @@
 // The server-side client push, lifted out of index.ts: what a store change broadcasts (which also pages a bot whose active thread moved), the SSE frame numbering and replay buffer, the per-member narrowing of a frame, the desktop viewer manager, and the stream teardown a revoked session uses.
 import { frameForMember, noteSeen } from "../colonie/bots/bot-visibility.ts";
-import { SHARED_LOCAL_VM_TARGET, containerComputerStatus, perBotLocalVmTarget, poolLocalVmTarget } from "../colonie/computer/container-computer.ts";
-import { localDesktopTarget, viewerTargetId } from "../colonie/computer/desktop-viewer-targets.ts";
-import { localVmMaxInstances } from "../config.ts";
-import { createDesktopViewer } from "../routes/desktop-viewer.ts";
 import { type SseClient } from "../routes/events.ts";
 import { deliverSseFrame } from "../sse-fanout.ts";
 import { randomUUID } from "node:crypto";
@@ -20,9 +16,7 @@ export interface ClientStreamsDeps {
 export function createClientStreams(deps: ClientStreamsDeps) {
   const {
     DEFAULT_PAGE, commandAllowlist, directRequestOwners, forgetVisibility, messagePage,
-    publicBotQueuedMessages, routines, slimMessage, store, syncRoutineRunToSource, wireBot,
-    botComputerControlKey, browserLive, cfg, computerControl, lastSeq,
-    localVmIdleFor, localVmTargetForStatus, sessions, configForAccess, configStatus,
+    publicBotQueuedMessages, routines, slimMessage, store, syncRoutineRunToSource, wireBot, browserLive, lastSeq, sessions, configForAccess, configStatus,
     memberFrameContext, visibleTo, setAudienceChangedAt, setLastSeq
   } = deps;
 
@@ -96,35 +90,8 @@ function audienceChanged(): void {
     }
   }
 }
-// Cloud boot can revoke sessions before routes are registered. Create the
-// viewer manager before installing any revocation callbacks.
-const desktopViewer = createDesktopViewer({
-  target: (id) => {
-    const targets = [SHARED_LOCAL_VM_TARGET, ...store.bots.map((bot: any) => perBotLocalVmTarget(bot.id)),
-      ...Array.from({ length: localVmMaxInstances(cfg) }, (_, seat) => poolLocalVmTarget(seat))];
-    const target = targets.find(target => viewerTargetId(target) === id);
-    return target && localDesktopTarget(target, {
-      // A viewer can repair a sick CUA driver; skip desktop health probes.
-      status: target => containerComputerStatus(undefined, undefined, target, { probeDesktop: false }),
-      touch: target => localVmIdleFor()(target).touch(),
-    });
-  },
-  live: auth => auth.kind === "loopback" || sessions.isLive(auth.session.id),
-  // A phone paired with this server directly drives a bot's Local VM through
-  // this proxy under its control lease (see the local-computer join route).
-  // The lease must hold the bot's computer, and that computer must be the
-  // desktop being viewed: a lease on one bot opens no other bot's VM.
-  lease: (id, botId, controlLeaseId, threadId) => {
-    const bot = store.bot(botId);
-    if (!bot || viewerTargetId(localVmTargetForStatus()(bot.id, threadId)) !== id) return;
-    const key = botComputerControlKey()(bot);
-    const holds = () => computerControl.ownsLease(key, controlLeaseId);
-    return holds() ? holds : undefined;
-  },
-});
 function closeSessionStreams(sessionId: string): void {
   browserLive.closeForOwner(sessionId);
-  desktopViewer.closeForOwner(sessionId);
   for (const client of sseClients) {
     if (client.sessionId !== sessionId) continue;
     sseClients.delete(client);
@@ -238,7 +205,6 @@ function memberFrame(client: SseClient, seq: number, payload: Record<string, unk
   return {
     sseClients,
     audienceChanged,
-    desktopViewer,
     closeSessionStreams,
     STREAM_ID,
     SSE_HEARTBEAT_MS,

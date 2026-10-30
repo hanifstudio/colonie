@@ -46,8 +46,6 @@ import { createBotMessagesRoutes } from "../routes/bot-messages.ts";
 import { createBotPresetRoutes } from "../routes/bot-presets.ts";
 import { createConversationFilesRoutes } from "../routes/conversation-files.ts";
 import { createSignInAskRoutes } from "../routes/sign-in-ask.ts";
-import { createInternalComputerControlRoute } from "../routes/internal-computer-control.ts";
-import { createLocalVmSetupRoute } from "../routes/local-vm-setup.ts";
 import { createInternalBrowserRoute } from "../routes/internal-browser.ts";
 import { createBotProfilePatchRoutes } from "../routes/bot-profile-patch.ts";
 import { createBotProfileRoutes } from "../routes/bot-profile.ts";
@@ -100,7 +98,6 @@ export interface ServerAssemblyDeps {
   setBrowserEngineInstall: (value: any) => void,
   setBrowserEngineInstallError: (value: any) => void,
   setCustomDomainRevision: (value: any) => void,
-  setLocalVmProvisionBusy: (value: any) => void,
 }
 
 /** Strip any ".." so a request can never climb out of the built UI's root. */
@@ -119,17 +116,16 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     browserEngineInstallError, browserIntegration, browserLive, browserRuntime, calendarCalls,
     canManageCommandAllowlist, cancelDirectTurnDispatch, cardAnswerRefusal, cfg,
     clearTurnDigestState, clearUnattended, collectTeamSkills, colonieChief, colonieMemory,
-    colonieMemoryStore, colonieSkills, commandAllowlist, commandAllowlistResponse, computerControl,
-    connectedTools, connectorMessage, controlLeaseIdSchema, currentBrowserSession,
+    colonieMemoryStore, colonieSkills, commandAllowlist, commandAllowlistResponse,
+    connectedTools, connectorMessage, currentBrowserSession,
     currentSecretState, cursorSeq, customDomainRevision, customDomainStatus, customDomainVerifier,
     decider, decisionActorFor, defaultsPresetFor, deleteBotWithLifecycle,
-    deliverLateQuestionAnswer, desktopMutationToken, desktopViewer, directRequestOwners,
+    deliverLateQuestionAnswer, desktopMutationToken, directRequestOwners,
     directTurnBots, directTurnDispatchClaims, directTurnGenerationByThread, drainComputerResumes,
     drainConnectorResumes, drainQueuedSends, drainSecretResumes, emailSignIn,
     forgetTemporaryBrowser, generateThreadTitle, guardedRequestSnapshot, guardedSendSchema,
     interruptAllDirectThreads, interruptDirectThread, lastSeq, learnedFacts, lendingEnabled,
-    listBotSkills, localVmActiveThreads, localVmFlags, localVmIdleMs, localVmIdles,
-    localVmLifecycleBusy, localVmOwnerBusy, localVmProvisionBusy, localVmSeen,
+    listBotSkills,
     maybeResumeConnectors, mcpConfigLock, mcpOAuth, memberFrame, memoryUpkeep,
     messageFileRootsForThread, messagePage, messageSender, messageWindow, mintInternalCapability,
     operatorPrices, outboundCounts, packageImportDeps, pageSize, personKey, presetStore,
@@ -137,18 +133,15 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     providerWrite, publicBot, publicBotQueuedMessages, readBotSkillFile, registry,
     rejectDeletedThreadSkillStages, replayBuffer, requestedTaskBot, resolveReplyTarget,
     resumeSecretCard, revokeAllInternalCapabilities, revokeInternalCapabilitiesForThread, routines,
-    savedCustomDomain, secretMessage, sessionLendingPrincipal, sessions, settleDirectFollowup,
-    sharedComputerControl, sharedComputers, sharedWorkspaceFullAccessEnabled, sseClients,
+    savedCustomDomain, secretMessage, sessionLendingPrincipal, sessions, settleDirectFollowup, sharedWorkspaceFullAccessEnabled, sseClients,
     stagedSkillCleanupsForThread, stagedSkillListing, startTurn, starterNotes, store,
     storedAvatarExists, subjectVisible, supportsApprovalMode, teamComputers, teamMemory,
     threadBusy, threadStarters, titleRegenerations, usageTriggerFor, viewerFor, visibleTo, ownThreadIds, wants,
     webhookIngressStatus, webhooks, wireBot, wireTask, workspaceAccess, workspaceMaintenance,
     workspaceRestore, setBrowserEngineInstall, setBrowserEngineInstallError,
-    setCustomDomainRevision, setLocalVmProvisionBusy,
+    setCustomDomainRevision,
     acceptDirectSend,
     answerRequest,
-    botComputerControlKey,
-    botComputerControlSnapshot,
     botHasActiveTurn,
     cancelTeamSetupResumesForThread,
     checkedExportSkillNames,
@@ -156,8 +149,6 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     checkedTaskModelSwitch,
     collectExportSkills,
     commandRememberRefusal,
-    computerPreviewBot,
-    computerPreviewSurface,
     configForAccess,
     configStatus,
     defaultSelection,
@@ -166,16 +157,8 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     directSendRefusal,
     drainDelegationWakes,
     drainTeamSetupResumes,
-    existingPerBotLocalVmCount,
     handoffs,
     healThreadModel,
-    localVmIdleFor,
-    localVmInventoryPayload,
-    localVmLeaseFor,
-    localVmPayload,
-    localVmTargetForBot,
-    localVmTargetForStatus,
-    perBotLocalVmCountForModeChange,
     persistMcpServers,
     persistProviderInstance,
     reloadProviders,
@@ -187,7 +170,6 @@ export function createServerAssembly(deps: ServerAssemblyDeps) {
     resolveAndSendTrust,
     respondToCard,
     runningTurnInstance,
-    teamComputerInUse,
     turnSelection,
     undoAppliedChange,
     watchdog,
@@ -251,19 +233,11 @@ const workspaceBackupAccess = {
       (current.kind !== "session" || (original.kind === "session" && current.session.id === original.session.id)));
   },
   exclusive: <T>(work: () => Promise<T>, keepLocked?: boolean) => workspaceMaintenance.run(async () => {
-    // Recheck inside the exclusive gate: the restore body can arrive slowly
-    // while another client assigns a computer after the initial route check.
-    if (keepLocked && teamComputers.list().some((computer: any) => computer.section !== null)) {
-      throw Object.assign(new Error("Unassign team computers before restoring this workspace"), { status: 409 });
-    }
     return work();
   }, {
     idle: () => !providerFleetReloading() && !providerAuthSessions.active && !browserEngineInstall() &&
       !routines()?.isTicking && !calendarCalls()?.isTicking &&
-      !localVmFlags.imageBusy && !localVmProvisionBusy() && !localVmFlags.modeChangeBusy &&
-      !localVmLifecycleBusy.size &&
-      teamComputers.list().every((computer: any) => !teamComputerInUse(computer)) &&
-      store.bots.every((bot: any) => !botHasActiveTurn(bot.id) && !routines()?.activeRunForBot(bot.id) && !botComputerControlSnapshot(bot.id).held),
+      store.bots.every((bot: any) => !botHasActiveTurn(bot.id) && !routines()?.activeRunForBot(bot.id)),
     pause: () => { routines()?.stop(); calendarCalls()?.stop(); watchdog.stop(); memoryUpkeep.pause(); },
     resume: () => { routines()?.start(); calendarCalls()?.start(); watchdog.start(); memoryUpkeep.resume(); },
     flush: async () => {
@@ -369,20 +343,16 @@ ROUTES.push(createSignInAskRoutes({
     const caller = deps.conversationCaller(auth);
     return Boolean(caller && deps.groupConversations?.worksFor(caller, threadId));
   },
-  declineComputerOffers: () => {
-    saveConfig({ localVm: { ...cfg.localVm, offerDeclined: true } });
-    Object.assign(cfg, loadConfig());
-  },
+
 }));
-// Once per turn the app opens the bot's panel where it works, on the view it
-// is using: its browser, or its computer's desktop.
-const announcedComputerTurns = new Set<string>();
-const announceComputerUse = (capability: { botId: string; threadId: string; generation: string }, view: "browser" | "computer") => {
-  if (announcedComputerTurns.has(capability.generation)) return;
-  announcedComputerTurns.add(capability.generation);
-  if (announcedComputerTurns.size > 500) announcedComputerTurns.delete(announcedComputerTurns.values().next().value!);
+// Once per turn the app opens the bot's browser beside the conversation.
+const announcedBrowserTurns = new Set<string>();
+const announceBrowserUse = (capability: { botId: string; threadId: string; generation: string }) => {
+  if (announcedBrowserTurns.has(capability.generation)) return;
+  announcedBrowserTurns.add(capability.generation);
+  if (announcedBrowserTurns.size > 500) announcedBrowserTurns.delete(announcedBrowserTurns.values().next().value!);
   const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
-  broadcast({ kind: "computer-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, view, ...(conversationId ? { conversationId } : {}) });
+  broadcast({ kind: "computer-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, view: "browser", ...(conversationId ? { conversationId } : {}) });
 };
 ROUTES.push(createInternalBrowserRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
@@ -390,22 +360,10 @@ ROUTES.push(createInternalBrowserRoute({
   browserIntegration: (botId, profile) => browserIntegration(botId, profile),
   currentBrowserSession: (botId, profile) => currentBrowserSession(botId, profile),
   claimTurnResource: deps.claimTurnResource, runtime: browserRuntime,
-  announce: (capability) => announceComputerUse(capability, "browser"),
+  announce: (capability) => announceBrowserUse(capability),
 }));
-ROUTES.push(createInternalComputerControlRoute({
-  authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
-  bot: (id) => store.bot(id), snapshot: (botId) => botComputerControlSnapshot(botId),
-  claimTurnResource: deps.claimTurnResource, ...deps.computerGate,
-  announce: (capability) => announceComputerUse(capability, "computer"),
-}));
-ROUTES.push(createLocalVmSetupRoute({
-  bot: (id) => store.bot(id),
-  target: (botId) => localVmTargetForBot(botId),
-  busy: (target) => localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(target.key)
-    || localVmActiveThreads.has(target.key) || Boolean(localVmLeaseFor(target).current(localVmOwnerBusy)),
-  ready: (botId, target) => deps.readyLocalVmForTurn(botId, target),
-  seen: (target) => { localVmSeen.add(target.key); },
-}));
+
+
 ROUTES.push(createVoiceRoutes({ cfg }));
 ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording, ownThreadIds }));
@@ -620,23 +578,14 @@ ROUTES.push(createConfigRoutes({
   registry,
   sessions,
   providerWrite,
-  localVmFlags,
-  localVmIdles,
-  localVmActiveThreads,
-  localVmLifecycleBusy,
   browserCleanup,
   browserLive,
   browserRuntime,
   decider,
-  sharedComputers,
-  sharedComputerControl,
   broadcast,
   configStatus,
   configForAccess,
   checkedModelSelection,
-  lendingEnabled,
-  localVmIdleMs,
-  perBotLocalVmCountForModeChange,
   reloadProviders,
   revokeAllInternalCapabilities,
   drainComputerResumes,
@@ -702,7 +651,7 @@ ROUTES.push(createAntigravityLeftoverRoutes({
   remove: () => removeAntigravityLeftovers(),
 }));
 
-ROUTES.push(desktopViewer.route);
+
 
 // Live calls (GPT-Live as the voice, the bot as the brain). A client holds
 // the WebRTC audio; the harness creates the session with the key (which
@@ -819,8 +768,6 @@ const handleRequest = createRequestHandler({
   actorKey,
   beginAdminAudit,
   beginInternalCapabilityGeneration,
-  botComputerControlKey,
-  botComputerControlSnapshot,
   broadcast,
   browserEngineInstall: () => browserEngineInstall(),
   setBrowserEngineInstall: (value) => { setBrowserEngineInstall(value); },
@@ -833,13 +780,9 @@ const handleRequest = createRequestHandler({
   cfg,
   checkedModelSelection,
   colonieChief,
-  computerControl,
-  computerPreviewBot,
-  computerPreviewSurface,
   configStatus,
   connectedTools,
   connectorMessage,
-  controlLeaseIdSchema,
   currentBrowserSession,
   currentSecretState,
   customDomainRevision: () => customDomainRevision(),
@@ -848,12 +791,10 @@ const handleRequest = createRequestHandler({
   customDomainVerifier,
   deleteBotWithLifecycle,
   desktopMutationToken: () => desktopMutationToken(),
-  desktopViewer,
   directRequestOwners,
   directTurnBots,
   directTurnDispatchClaims,
   emailSignIn,
-  existingPerBotLocalVmCount,
   generateThreadTitle,
   guardedRequestSnapshot,
   handoffs,
@@ -862,20 +803,6 @@ const handleRequest = createRequestHandler({
   interruptDirectThread,
   lendingEnabled,
   listBotSkills,
-  localVmActiveThreads,
-  localVmFlags,
-  localVmIdleFor,
-  localVmIdleMs,
-  localVmInventoryPayload,
-  localVmLeaseFor,
-  localVmLifecycleBusy,
-  localVmOwnerBusy,
-  localVmPayload,
-  localVmProvisionBusy: () => localVmProvisionBusy(),
-  setLocalVmProvisionBusy: (value) => { setLocalVmProvisionBusy(value); },
-  localVmSeen,
-  localVmTargetForBot,
-  localVmTargetForStatus,
   maybeResumeConnectors,
   mcpOAuth,
   messageFileRootsForThread,
@@ -898,8 +825,6 @@ const handleRequest = createRequestHandler({
   server: () => server,
   sessionLendingPrincipal,
   sessions,
-  sharedComputerControl,
-  sharedComputers,
   sharedWorkspaceFullAccessEnabled,
   stagedSkillListing,
   startTurn,
@@ -923,7 +848,7 @@ const handleRequest = createRequestHandler({
 });
 
 const server = createServer(handleRequest);
-desktopViewer.attach(server, handleRequest);
+
 
 calendarCalls().start();
 

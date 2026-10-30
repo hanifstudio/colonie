@@ -40,12 +40,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
-      - name: Stage the pinned CUA runtime
-        run: pnpm build:cua:linux
-      - name: Prove overlay-free X11 input routing
-        run: dbus-run-session -- xvfb-run -a pnpm smoke:cua-x11-input
-      - name: Package from the verified offline CUA stage
-        run: pnpm package:linux:offline
+      - name: Package the browser-only app
+        run: pnpm package:linux
+      - name: Verify retired Computer helpers are absent
+        run: |
+          for retired in cua-driver cua-sdk cua-linux-x64 android-platform-tools; do
+            test ! -e "release/linux-unpacked/resources/$retired" || {
+              echo "::error::retired Computer helper is packaged: $retired"; exit 1; }
+          done
       - name: Verify package contents and metadata
         run: node scripts/verify-linux-package.mjs
       - name: Match a normal Ubuntu package parent on the ephemeral runner

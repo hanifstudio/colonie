@@ -89,7 +89,7 @@ test("plus prepares a group scheduling request and reveals the composer on a nar
   await act(() => root.render(createElement(ConversationRoutines, { threadId: "launch-chat", conversationId: "launch", botId: "ada" })));
   await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Schedule a routine in chat"]')!.click());
   expect(getDraft(window.localStorage, "conversation:launch")).toBe("@Ada Schedule a routine: ");
-  expect(dispatch.mock.calls).toEqual([[{ type: "toggleComputer", open: false }], [{ type: "toggleGroupPanel", open: false }]]);
+  expect(dispatch.mock.calls).toEqual([[{ type: "toggleBrowser", open: false }], [{ type: "toggleGroupPanel", open: false }]]);
 });
 
 test("deletion confirms inline, can be cancelled with Escape, and preserves reports", async () => {

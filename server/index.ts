@@ -13,7 +13,6 @@ import {createChatInterrupts} from "./colonie/chat/interrupts.ts";
 import {createClientStreams} from "./harness/client-streams.ts";
 import {createProcessLifecycle} from "./harness/process-lifecycle.ts";
 import {createBrowserSessions} from "./colonie/computer/browser-sessions.ts";
-import {createTurnComputerBinding} from "./colonie/computer/turn-computer-binding.ts";
 import {createDirectFlow} from "./colonie/chat/direct-flow.ts";
 import {createTurnIntegrations} from "./harness/turn-integrations.ts";
 import {createBotSettingsView} from "./colonie/bots/settings-view.ts";
@@ -41,10 +40,7 @@ import {existsSync} from "node:fs";
 import {type IncomingMessage} from "node:http";
 import {join} from "node:path";
 
-import {z} from "zod";
 
-import { SharedComputers } from "./colonie/computer/shared-computers.ts";
-import {SharedComputerControl} from "./colonie/computer/shared-computer-control.ts";
 import {DirectHandoffs, type DirectHandoff} from "./colonie/chat/direct-handoffs.ts";
 import { approvalModeFor } from "../shared/approval-mode.ts";
 import {createApprovalModeSupport} from "./harness-capabilities.ts";
@@ -59,10 +55,8 @@ import * as composio from "./colonie/mcp/composio.ts";
 import {createMemoryUpkeepWiring} from "./harness/memory-upkeep-wiring.ts";
 import {LearnedFacts} from "./profile-learned.ts";
 import { canAccessTeam, canReachPeer, peerAllowed } from "./colonie/peers/peer-roster.ts";
-import { type LocalVmTarget } from "./colonie/computer/container-computer.ts";
-import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, localVmIdleTimeoutMinutes, localVmMaxInstances, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, sharedComputersEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
+import { cacheUntilConfigChanges, ensureDirs, instanceConfigs, loadConfig, threadEventLogMaxBytes, maxConcurrentBotThreads, threadEventLogRetentionDays, saveConfig, routinesInConversationEnabled, DATA_DIR, skillsLibraryEnabled, customMcpServers, onConfigSaved } from "./config.ts";
 import {scheduleThreadLogRetention} from "./colonie/chat/thread-retention.ts";
-import {ComputerControl} from "./colonie/computer/computer-control.ts";
 import {registerEnginesBinDir} from "./colonie/providers/engine-install.ts";
 import { type UsageTrigger } from "./colonie/providers/usage-ledger.ts";
 
@@ -105,9 +99,6 @@ import { createColonieMemoryBoot } from "./colonie/memory/memory-boot.ts";
 import { endMemoryTurn, type MemoryJournalEntry } from "./colonie/memory/memory-journal.ts";
 import { resolveBotSkills, listSkills, readSkillFile } from "./colonie/skills/skills.ts";
 
-import {LocalVmIdleTimer} from "./colonie/computer/local-vm-idle.ts";
-import { LocalVmLeasePool } from "./colonie/computer/local-vm-lease.ts";
-import { LocalVmSeatPool } from "./colonie/computer/local-vm-seat-pool.ts";
 import {redactSecretsInText} from "./redact.ts";
 import { RoutineManager, type RoutineRunTrigger } from "./colonie/routines/routines.ts";
 import {CalendarCallManager, type CalendarCall} from "./colonie/routines/calendar-calls.ts";
@@ -123,9 +114,7 @@ import {createWebhookManager} from "./colonie/routines/webhook-wiring.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, readLibrarySkillFile } from "./colonie/skills/skill-library.ts";
 import {runSkillsLibraryBoot} from "./colonie/skills/skills-library-migration.ts";
 import { createPresetStore } from "./colonie/bots/presets.ts";
-import {autoLocalVmAttachable, containerRuntimeStatus, type ContainerComputerStatus} from "./colonie/computer/container-computer.ts";
-import {type AutoVmClaimTable} from "./colonie/computer/auto-vm-claims.ts";
-import { PlaceUnavailableError, placeUnavailable, surfaceLabel, type PlaceSource, type Surface } from "./surface.ts";
+import { type Surface } from "./surface.ts";
 import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-guard.ts";
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, type WorkspaceAccess } from "./enterprise.ts";
@@ -162,7 +151,6 @@ import {createWorkspaceKind, SHARED_WORKSPACE_MARKER} from "./runtime/workspace-
 import {createOwnThreads} from "./colonie/chat/own-threads.ts";
 import {announceWhenModelsLand} from "./harness/model-catalogs.ts";
 import {createCardResolvers} from "./colonie/chat/card-resolvers.ts";
-import {createLocalVmState} from "./colonie/computer/local-vm-state.ts";
 import {createDelegationLifecycle} from "./colonie/peers/delegation-lifecycle.ts";
 import {createChatRequests} from "./colonie/chat/requests.ts";
 import {createModelSelection} from "./colonie/providers/model-selection.ts";
@@ -236,10 +224,7 @@ const sessions = new SessionRegistry({
   },
   portalMembership: hostedWorkspaceConfiguration()?.portalMembership === true,
 });
-const sharedComputers = new SharedComputers(id => sessions.isLive(id));
-/** Lending a computer to this server (the shared-computer routes, the two
- * agent tools, the advertised capability): the maintainer flag in config. */
-const lendingEnabled = () => sharedComputersEnabled(cfg);
+const lendingEnabled = () => false;
 // Who each thread is for, when a signed-in person can be named (server-private).
 const threadStarters = new ThreadStarters(join(DATA_DIR, "thread-starters.json"));
 const commandAllowlist = new CommandAllowlistStore(join(DATA_DIR, "command-allowlist.json"));
@@ -612,7 +597,7 @@ bus.attach(registry.instances());
 // A key the provider refused, or accepted again, changes what Model
 // providers and the picker show; the config event refreshes /api/instances.
 onKeyRejectionChange(() => broadcast({ kind: "config", ...configStatus() }));
-const { activeInternalGenerationByThread, authorizedInternalCapability, beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn, computerSelectionTurns, internalCapabilityIsActive, mintInternalCapability, revokeAllInternalCapabilities, revokeEarlierTurnCapabilities, revokeInternalCapabilitiesForThread, revokeInternalCapabilityForProviderEvent, revokeInternalCapabilityGeneration } = createInternalCapabilities({
+const { activeInternalGenerationByThread, authorizedInternalCapability, beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn, internalCapabilityIsActive, mintInternalCapability, revokeAllInternalCapabilities, revokeEarlierTurnCapabilities, revokeInternalCapabilitiesForThread, revokeInternalCapabilityForProviderEvent, revokeInternalCapabilityGeneration } = createInternalCapabilities({
   botForThread: () => botForThread,
   server: () => server,
 });
@@ -624,7 +609,7 @@ const MAX_WORKSPACE_BOTS = 100;
 // Resolved from the server root — see server/proxy-paths.ts. This descending
 // path happened to survive bundling, but it goes through the same anchor so
 // there is exactly one way proxies are located.
-const { agentsIntegration, browserIntegration, connectedAppsIntegration, controlIntegration, hooksEnabled, hooksIntegration } = createTurnIntegrations({
+const { agentsIntegration, browserIntegration, connectedAppsIntegration, hooksEnabled, hooksIntegration } = createTurnIntegrations({
   PORT,
   botForThread: () => botForThread,
   cfg,
@@ -637,7 +622,7 @@ const { agentsIntegration, browserIntegration, connectedAppsIntegration, control
   setEngineUnavailableLogged: (value) => { engineUnavailableLogged = value; },
 });
 
-const { ComputerWaitParked, DirectTurnSetupCancelled, cancelDirectTurnDispatch, clearCancelledProviderHandshake, clearDirectTurnDispatch, compactionControllers, directTurnClaimExists, directTurnClaimIsCurrent, markDirectTurnDispatching, pendingCancelledProviderHandshakes, purgeTurnAttachmentsForThread, retireProviderTurn, shouldIgnoreProviderEvent, turnAttachmentKey, turnAttachmentsByTurn } = createTurnDispatch({
+const { DirectTurnSetupCancelled, cancelDirectTurnDispatch, clearCancelledProviderHandshake, clearDirectTurnDispatch, compactionControllers, directTurnClaimExists, directTurnClaimIsCurrent, markDirectTurnDispatching, pendingCancelledProviderHandshakes, purgeTurnAttachmentsForThread, retireProviderTurn, shouldIgnoreProviderEvent, turnAttachmentKey, turnAttachmentsByTurn } = createTurnDispatch({
   cancelTeamSetupResumesForThread: () => cancelTeamSetupResumesForThread,
   clearTurnDigestState: () => clearTurnDigestState,
   directTurnDispatchClaims: () => directTurnDispatchClaims,
@@ -657,20 +642,6 @@ function clearFailedAutoPin(botId: string, threadId: string, place: Surface): vo
   }
 }
 
-/** A place the turn was told to use failed to attach, read as one state of
- * shared/place-view.ts by its own words. Its source decides the one way on. A
- * cancelled setup, a parked computer wait and an already-read place failure
- * pass through as they are. The one wrapper for a bot thread and a room turn. */
-async function asPlaceFailure(
-  error: unknown, place: Surface, source: PlaceSource, bot: { id: string; name: string },
-): Promise<unknown> {
-  if (error instanceof DirectTurnSetupCancelled || error instanceof ComputerWaitParked || error instanceof PlaceUnavailableError) return error;
-  const failure = error instanceof Error ? error : new Error(String(error));
-  const cause = failure.message.trim().replace(/[\s.]+$/, "");
-  return placeUnavailable(place, {
-    state: "place-failed", params: { bot: bot.name, cause: `${cause.charAt(0).toUpperCase()}${cause.slice(1)}.` }, source,
-  });
-}
 const directTurnDispatchClaims = new Map<string, DirectTurnDispatchClaim>();
 const directTurnGenerationByThread = new Map<string, string>();
 // Only the latest direct request per thread is retained. A fresh user turn
@@ -704,9 +675,7 @@ const directTurnBots = new Map<string, BotRecord>();
 const turnPromptBytes = new Map<string, { stable: number; volatile: number }>();
 let providerFleetReloading = false;
 const turnResources = new TurnResources();
-const sharedComputerControl = new SharedComputerControl(turnResources, () => store.bots.some(bot => botComputerControlSnapshot(bot.id).held));
 const turnResourceOwners = new Map<string, TurnOwner>();
-const turnComputerResources = new Map<string, { owner: TurnOwner; resource: string }>();
 const settlingResourceOwners = new Map<string, string>();
 
 function claimTurnResource(owner: TurnOwner, resource: string): boolean {
@@ -717,29 +686,12 @@ function claimTurnResource(owner: TurnOwner, resource: string): boolean {
 
 function releaseTurnResources(owner: TurnOwner | undefined): void {
   if (!owner) return;
-  if (autoVmClaims.get(owner.threadId)?.owner.generation === owner.generation) autoVmClaims.delete(owner.threadId);
   if (settlingResourceOwners.get(owner.threadId) === owner.generation) settlingResourceOwners.delete(owner.threadId);
   turnResources.release(owner);
   if (turnResourceOwners.get(owner.threadId)?.generation === owner.generation) turnResourceOwners.delete(owner.threadId);
-  if (turnComputerResources.get(owner.threadId)?.owner.generation === owner.generation) turnComputerResources.delete(owner.threadId);
   // A freed seat is the parked-resume drain's trigger (#1651). Deferred past
   // this synchronous settle so the drain reads post-cleanup state.
-  if (pendingComputerResumes.size > 0) queueMicrotask(drainComputerResumes);
 }
-
-const { bindTurnComputer } = createTurnComputerBinding({
-  COMPUTER_WAIT_MAX_MS: () => COMPUTER_WAIT_MAX_MS,
-  ComputerWaitParked,
-  DirectTurnSetupCancelled,
-  activeInternalGenerationByThread,
-  bus,
-  claimTurnResource,
-  registry,
-  store: () => store,
-  turnComputerResources,
-  turnResourceOwners,
-  turnResources,
-});
 
 const { botForThread, threadBusy, botAtThreadCapacity, hasDirectDispatch, canAdmitDirectTurn, unattendedDispatchState, requestedTaskBot, selectedTaskBot } = createThreadAdmission({
   admit,
@@ -783,27 +735,6 @@ export function browserEngineSummary(): { kind: "engine" | "unavailable"; reason
     ? { kind: "engine", version: status.version, ...progress }
     : { kind: "unavailable", reason: status.reason, installable: status.installable, ...progress };
 }
-
-
-// ── computer control (who is driving) ──────────────────────────────────
-// The person can take the wheel of a bot's computer from the panel; while
-// they hold it, the bot's computer proxies refuse every action. The record
-// lives here; the proxies consult it over loopback with the boot token.
-const computerControlRevision = new Map<string, number>();
-const computerControl = new ComputerControl((key, snapshot) => {
-  for (const botId of [key]) {
-  computerControlRevision.set(botId, (computerControlRevision.get(botId) ?? 0) + 1);
-  // One-way, fail-closed mirror into the Electron process that owns the
-  // native browser. Never send release: a loopback caller can influence the
-  // server record, while only the trusted Browser panel may clear Electron's
-  // local gate after its server-first release succeeds.
-  if (snapshot.held && /^[A-Za-z0-9_-]{1,120}$/.test(botId)) {
-    postDesktopPrivateMessage({ type: "colonie:browser-control", botId, held: true });
-  }
-  broadcast({ kind: "computer-control", botId, held: snapshot.held, helpReason: snapshot.helpReason });
-  }
-});
-const controlLeaseIdSchema = z.string().min(16).max(120).regex(/^[A-Za-z0-9_-]+$/);
 
 
 /** One Chief assignment: run the target's fresh conversation under its own
@@ -960,34 +891,6 @@ const colonieChief = new ColonieChief({
     groupConversations.needsPerson(threadId, `the secret ${name}`);
     return { state: "waiting for the person", summary: `A button under your reply asks the person to save ${name}. You will not see the value; on their next message it is in your secrets file.` };
   },
-  // A bot asking for its computer (use_computer). With the container app
-  // installed, this turn ends and the request resumes on the started computer
-  // (continueComputerSelection); without it, the person gets one offer card,
-  // never again after "Not now".
-  useComputer: async (botId, threadId, reason) => {
-    if (workspaceKind.shared()) return { state: "unavailable", summary: "This Shared workspace's server has no computer for bots yet. Carry on with your browser and other tools, and say plainly what you could not do." };
-    if (store.taskByThread(botId, threadId)?.surface === "vm") return { state: "already", summary: "You already work on your computer in this conversation; use its tools." };
-    const runtime = await containerRuntimeStatus();
-    if (!runtime.runtime) {
-      if (cfg.localVm?.offerDeclined) return { state: "declined", summary: "The person chose not to install the free app your computer needs. Carry on with your other tools and say plainly what you could not do; do not offer it again." };
-      const bot = store.bot(botId);
-      store.appendMessage(threadId, {
-        role: "bot", kind: "text", text: "",
-        ...(bot ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
-        computerAsk: { botId, ...(reason ? { reason: reason.slice(0, 240) } : {}) },
-      });
-      return { state: "offered", summary: "This Mac lacks the free app your computer needs; a card offers it to the person. End your turn now, saying in one line what needs the computer." };
-    }
-    const selection = computerSelectionTurns.get(threadId);
-    if (!selection) return { state: "unavailable", summary: "Your computer cannot be started from this request; ask the person to send it again." };
-    selection.selected = "vm";
-    selection.previousSurface = store.taskByThread(botId, threadId)?.surface;
-    return { state: "pending", summary: "End your turn now without more tool calls. Colonie starts your computer (the first time takes a few minutes) and resumes the person's request on it." };
-  },
-  // A bot asking the person to sign in or pass a check in its browser: a card
-  // whose Open shows the bot's browser in the person's control, and whose
-  // Done or Cancel sends the person's words that resume it
-  // (src/components/SignInAsk.tsx).
   requestSignIn: (botId, threadId, input) => {
     const target = normalizeSignInSite(input.site);
     if (!target) throw new Error("Name the page as a web address or a domain, such as redbus.id.");
@@ -1018,8 +921,6 @@ const colonieChief = new ColonieChief({
     const bot = store.bot(botId);
     if (!bot) throw new Error("No such bot.");
     if (bot.busy) throw new Error(`${bot.name} is working; try again when it finishes.`);
-    // Ask when risky on a bot that works on this computer needs the person to see its warning first
-    if (level === "auto" && bot.computer === "local") throw new Error(`${bot.name} works on this computer; the person turns on Ask when risky in its settings, after a warning.`);
     if (approvalModeFor(bot) === "full" || approvalModeFor(bot) === "custom") throw new Error(`${bot.name} has a level only the person changes (Full access); they change it in its settings.`);
     store.patchBot(botId, { approvalMode: level, autoApprove: level === "auto" });
     return { bot: bot.name, level: level === "auto" ? "Ask when risky" : "Always ask" };
@@ -1203,7 +1104,7 @@ const directHandoffs = new DirectHandoffs(join(DATA_DIR, "room-handoffs.json"));
 // on exactly those frames (one whose open thread was deleted keeps its
 // composer locked until a page arrives). Every other frame stays slim, and
 // clients keep the transcript they hold when a frame carries none.
-const { sseClients, audienceChanged, desktopViewer, closeSessionStreams, STREAM_ID, SSE_HEARTBEAT_MS, broadcast, wants, cursorSeq, memberFrame, streamFrame, replayBuffer } = createClientStreams({
+const { sseClients, audienceChanged, closeSessionStreams, STREAM_ID, SSE_HEARTBEAT_MS, broadcast, wants, cursorSeq, memberFrame, streamFrame, replayBuffer } = createClientStreams({
   DEFAULT_PAGE,
   commandAllowlist,
   directRequestOwners,
@@ -1216,14 +1117,10 @@ const { sseClients, audienceChanged, desktopViewer, closeSessionStreams, STREAM_
   syncRoutineRunToSource: () => syncRoutineRunToSource,
   wireBot,
   setAudienceChangedAt: (value) => { audienceChangedAt = value; },
-  botComputerControlKey: () => botComputerControlKey,
   browserLive,
   cfg,
-  computerControl,
   lastSeq: () => lastSeq,
   setLastSeq: (value) => { lastSeq = value; },
-  localVmIdleFor: () => localVmIdleFor,
-  localVmTargetForStatus: () => localVmTargetForStatus,
   sessions,
   configForAccess: () => configForAccess,
   configStatus: () => configStatus,
@@ -1287,9 +1184,7 @@ const { commandRememberRefusal, answerRequest, respondToCard, closeOpenApprovals
   drainQueuedSends: () => drainQueuedSends,
   drainSecretResumes: () => drainSecretResumes,
   drainTeamSetupResumes: () => drainTeamSetupResumes,
-  localVmThreadTargets: () => localVmThreadTargets,
   pendingDelegationWakes: () => pendingDelegationWakes,
-  releaseLocalVmThread: () => releaseLocalVmThread,
   releaseTurnResources,
   reportIncident: () => reportIncident,
   retireProviderTurn,
@@ -1308,9 +1203,6 @@ const { commandRememberRefusal, answerRequest, respondToCard, closeOpenApprovals
 // a human returns. Past this cap a goal's lead is told the teammate could not
 // free up and reassigns, and a chat round moves on with a chip that says so —
 // the wait ends as data, not as a dead room. Tests shrink it.
-// ADR-2 (#1651): the computer wait has its own ceiling, decoupled from the
-// room cap above, and the deadline parks the turn instead of failing it.
-const COMPUTER_WAIT_MAX_MS = Math.max(1_000, Number(process.env.COLONIE_COMPUTER_WAIT_MAX_MS) || 30 * 60_000);
 // Reassigning around a busy teammate is bounded too: after this many
 // exhausted waits in one run the team is blocked on availability, not stuck.
 registerTurnWatchdog({
@@ -1412,72 +1304,14 @@ let routines: RoutineManager | null = null;
 /** Finished runs already announced, so each is news once per start. */
 const notifiedRoutineRuns = new Set<string>();
 let calendarCalls: CalendarCallManager | null = null;
-const localVmOwnerBusy = (botId: string) => store.bot(botId)?.busy === true;
-const localVmLeases = new LocalVmLeasePool(30 * 60_000);
-// Pool mode (issue #1654) keeps the lease pool as the ownership fence and
-// uses this table only to decide WHICH seat a conversation addresses: a
-// TTL-bounded affinity returns each thread to the desktop holding its login
-// state, and hands the seat back once the conversation has been idle.
-const localVmSeatPool = new LocalVmSeatPool(() => localVmMaxInstances(cfg));
-const localVmLifecycleBusy = new Set<string>();
-const localVmThreadTargets = new Map<string, LocalVmTarget>();
-const localVmActiveThreads = new Map<string, string>();
-// Lazy Auto-VM claims (issue #1361): a thread whose auto-resolved Local VM
-// attach deferred the exclusive claim registers here so the first screen
-// tools/call gate can fire it. Dispatch claims eagerly today, so entries
-// exist only as a no-op handoff to the gate.
-const autoVmClaims: AutoVmClaimTable = new Map();
-/** Local VM targets with a durable workspace or seen ready/recreatable — at
- * boot, in the inventory, or in a turn. Auto probes the container runtime for a VM
- * only when one of these exists, so an ordinary Auto turn on a machine with
- * no VM never pays for a docker or podman call. */
-const localVmSeen = new Set<string>();
-function noteLocalVmSeen(target: LocalVmTarget, status: ContainerComputerStatus | null | undefined): void {
-  if (status && autoLocalVmAttachable(status)) localVmSeen.add(target.key);
+// Provider turns keep their exact running engine when settings change.
+const runningTurnEngines = new Map<string, NonNullable<ReturnType<typeof registry.get>>>();
+function runningTurnInstance(bot: BotRecord | null | undefined, threadId: string) {
+  return runningTurnEngines.get(threadId) ?? (bot ? registry.get(bot.modelSelection.instanceId) : null);
 }
-/** One image pull and one Local VM mode change at a time, shared with the
- * settings write that reports and enforces them (see the config route). */
-const localVmFlags = { imageBusy: false, modeChangeBusy: false };
-let localVmProvisionBusy = false;
-/** The effective idle window, read from config so a Settings change applies
- * to both new and already-armed timers (see the config route). */
-const localVmIdleMs = () => localVmIdleTimeoutMinutes(cfg) * 60_000;
-/** How long a turn waits for Cua Driver after starting the container itself.
- * A cold XFCE desktop needs some seconds; past this the turn reports the
- * status it has rather than hanging on a container that will not come up. */
-const LOCAL_VM_DESKTOP_WAIT_MS = 90_000;
-const localVmIdles = new Map<string, LocalVmIdleTimer>();
-const { stopLocalVmsOnQuit, botComputerControlKey, botComputerControlSnapshot, teamComputerInUse, mountHostComputer, botHasActiveTurn, turnSurfacePlan, computerPreviewBot, computerPreviewSurface, continueComputerSelection, runningTurnEngines, runningTurnInstance, localVmTargetForBot, localVmPoolSeatHolder, localVmTargetForThread, localVmTargetForStatus, localVmLeaseFor, localVmIdleFor, releaseLocalVmThread, localVmInventoryPayload } = createLocalVmState({
-  autoVmClaims,
-  bindTurnComputer,
-  cfg,
-  computerControl,
-  computerSelectionTurns,
-  controlIntegration,
-  directTurnBots,
-  directTurnGenerationByThread,
-  drainQueuedSends: () => drainQueuedSends,
-  hasDirectDispatch,
-  localVmActiveThreads,
-  localVmFlags,
-  localVmIdleMs,
-  localVmIdles,
-  localVmLeases,
-  localVmLifecycleBusy,
-  localVmOwnerBusy,
-  localVmSeatPool,
-  localVmSeen,
-  localVmThreadTargets,
-  noteLocalVmSeen,
-  registry,
-  releaseTurnResources,
-  routines: () => routines,
-  server: () => server,
-  startTurn: () => startTurn,
-  store,
-  teamComputers,
-  threadBusy,
-});
+function botHasActiveTurn(botId: string): boolean {
+  return store.bot(botId)?.busy === true || hasDirectDispatch(botId);
+}
 bus.subscribe(createRuntimeEventSubscriber({
   finalizeDelegationWatch: () => finalizeDelegationWatch,
   SCREEN_SETTLE_TIMEOUT_MS: () => SCREEN_SETTLE_TIMEOUT_MS,
@@ -1489,8 +1323,6 @@ bus.subscribe(createRuntimeEventSubscriber({
   bus,
   clearInternalTurn,
   commandAllowlist,
-  computerSelectionTurns,
-  continueComputerSelection,
   directRequestOwners,
   directTurnBots,
   directTurnDispatchClaims,
@@ -1507,16 +1339,12 @@ bus.subscribe(createRuntimeEventSubscriber({
   isUnattended,
   lastReply,
   liveTurnByThread,
-  localVmIdleFor,
-  localVmLeaseFor,
-  localVmThreadTargets,
   nativeReviewNoticed,
   notify,
   pendingCommandRules,
   pokeScreenPoller: () => pokeScreenPoller,
   providerLabel,
   registry,
-  releaseLocalVmThread,
   releaseTurnResources,
   reportIncident: () => reportIncident,
   retryDelegationsWaitingOn: () => retryDelegationsWaitingOn,
@@ -1631,7 +1459,6 @@ const { directSendRefusal, acceptDirectSend } = createDirectSend({
   store,
   cfg,
   handoffs,
-  computerSelectionTurns,
   sendSequencer,
   startOrQueueDirectMessage,
   clearUnattended,
@@ -1640,13 +1467,10 @@ const { directSendRefusal, acceptDirectSend } = createDirectSend({
 
 
 const { startScreenPoller, pokeScreenPoller, stopScreenPoller, finalScreenFrame, screenPollers, SCREEN_SETTLE_TIMEOUT_MS } = createScreenPolling({
-  botComputerControlSnapshot,
   botForThread,
   broadcast,
-  computerControlRevision,
   currentBrowserSession,
   store,
-  turnComputerResources,
   turnResourceOwners,
   turnResources,
 });
@@ -1688,7 +1512,6 @@ const acpSecrets = (botId: string, threadId: string, senderKey?: string) => {
 const startTurn = createStartTurn({
   acpSituation,
   acpSecrets,
-  ComputerWaitParked,
   DirectTurnSetupCancelled,
   MAX_COMMS_DEPTH,
   acpToolMount,
@@ -1696,13 +1519,10 @@ const startTurn = createStartTurn({
   activeRoutineRunForThread,
   agentsIntegration,
   approvalModeForTurn,
-  asPlaceFailure,
   autoRecallPrompt,
-  autoVmClaims,
   availableSkills,
   beginInternalCapabilityGeneration,
   bindInternalCapabilityToProviderTurn,
-  bindTurnComputer,
   botAtThreadCapacity,
   browserIntegration,
   browserRuntime,
@@ -1721,9 +1541,7 @@ const startTurn = createStartTurn({
   colonieSkills,
   colonieTurnByThread,
   compactConversation,
-  computerSelectionTurns,
   connectedAppsIntegration,
-  controlIntegration,
   delegationWakeBudget,
   directContext,
   directFollowupSettlers,
@@ -1751,32 +1569,17 @@ const startTurn = createStartTurn({
   interruptDirectThread,
   isExternalContextMarker,
   latestCompaction,
-  localVmActiveThreads,
-  localVmFlags,
-  localVmIdleFor,
-  localVmLeaseFor,
-  localVmLifecycleBusy,
-  localVmOwnerBusy,
-  localVmPoolSeatHolder,
-  localVmSeatPool,
-  localVmSeen,
-  localVmTargetForBot,
-  localVmTargetForThread,
-  localVmThreadTargets,
   markDirectTurnDispatching,
   markInternalTurn,
   markUnattended,
   mcpOAuth,
-  mountHostComputer,
   notify,
   pendingCancelledProviderHandshakes,
   providerFleetReloading: () => providerFleetReloading,
   providerInstancesChanging: () => providerInstancesChanging,
-  readyLocalVmForTurn: (...args: Parameters<typeof readyLocalVmForTurn>) => readyLocalVmForTurn(...args),
   recentWorkSources,
   registerComputerResume: (...args: Parameters<typeof registerComputerResume>) => registerComputerResume(...args),
   registry,
-  releaseLocalVmThread,
   releaseTurnResources,
   reportIncident,
   retireProviderTurn,
@@ -1797,12 +1600,10 @@ const startTurn = createStartTurn({
   threadBusy,
   toolScopeForTurn,
   turnCheckpoints,
-  turnComputerResources,
   turnContext,
   turnPromptBytes,
   turnResourceOwners,
   turnResources,
-  turnSurfacePlan,
   turnTriggers,
   turnUsage,
   wants,
@@ -1981,22 +1782,12 @@ const deleteBotWithLifecycle = createBotDeletion({
   cfg,
   clearTurnDigestState,
   commsBus,
-  computerControl,
-  computerControlRevision,
   directTurnBots,
   directTurnGenerationByThread,
   forgetTemporaryBrowser,
   hasDirectDispatch,
   interruptAllDirectThreads,
   lastReply,
-  localVmActiveThreads,
-  localVmFlags,
-  localVmIdles,
-  localVmLeaseFor,
-  localVmLeases,
-  localVmLifecycleBusy,
-  localVmOwnerBusy,
-  localVmSeen,
   pendingTeamSetupResumes: () => pendingTeamSetupResumes,
   purgeTurnAttachmentsForThread,
   revokeInternalCapabilitiesForThread,
@@ -2083,24 +1874,6 @@ function teammateReportContext(requestId: string, readerBotId?: string): string 
 // them — its pending map lives in the module so the two respond endpoints
 // can call resolvePeerComms without holding a reference back to here.
 const approvalBus: ApprovalBus = { store, broadcast, notify, autoApply: fullAccessForSource };
-/** A bot asking the person to take over its computer (the Local VM bridge's
- * request_help, through /api/internal/computer-control): the app shows the
- * ask, and it buzzes, because the bot is blocked on the person's hands. */
-function requestComputerHelp(botId: string, threadId: string, reason: unknown) {
-  const { snapshot, requestId } = computerControl.requestHelpLease(botId, reason);
-  const bot = store.bot(botId);
-  if (bot) {
-    const place = store.taskByThread(bot.id, threadId)?.surface ?? bot.computer;
-    const where = place && place !== "off" ? ` on ${surfaceLabel(place)}` : "";
-    notify(buildNotification("takeover", bot, threadId, `${snapshot.helpReason ?? "asked you to take over"}${where}`));
-  }
-  return { held: snapshot.held, helpOpen: snapshot.helpReason !== null, requestId };
-}
-function expireComputerHelp(botId: string, requestId: unknown) {
-  const snapshot = computerControl.expireHelp(botId, requestId);
-  return { held: snapshot.held, helpOpen: snapshot.helpReason !== null };
-}
-
 // Approvals live only in memory, so any peer card still open on disk is one
 // whose resolver died with the previous process. Left alone it can never be
 // answered, and the composer stays disabled behind it — settle them at boot.
@@ -2146,25 +1919,18 @@ bus.subscribe((event: RuntimeEvent) => {
   }
 });
 
-const { localVmPayload, readyLocalVmForTurn, existingPerBotLocalVmCount, perBotLocalVmCountForModeChange, configStatus, configForAccess, engineMcpServers, persistMcpServers, describeInstances, persistProviderInstance, reloadProviders } = createConfigStatus({
+const { configStatus, configForAccess, engineMcpServers, persistMcpServers, describeInstances, persistProviderInstance, reloadProviders } = createConfigStatus({
   sharedWorkspace: () => workspaceKind.shared(),
-  LOCAL_VM_DESKTOP_WAIT_MS,
   broadcast,
   browserEngineSummary,
   cfg,
   decider,
-  localVmIdleMs,
-  localVmLifecycleBusy,
-  localVmProvisionBusy: () => localVmProvisionBusy,
-  setLocalVmProvisionBusy: (value) => { localVmProvisionBusy = value; },
   mcpOAuth,
-  noteLocalVmSeen,
   providerConfigs,
   registry,
   retryComputerEngineMove,
   server: () => server,
   sessions,
-  sharedComputers,
   store,
   bus,
   cancelDirectTurnDispatch,
@@ -2183,8 +1949,6 @@ const { localVmPayload, readyLocalVmForTurn, existingPerBotLocalVmCount, perBotL
   stopScreenPoller,
   threadBusy,
   turnResourceOwners,
-  localVmIdleFor,
-  releaseLocalVmThread,
   watchdog,
   closeOpenApprovals,
   finalizeDelegationWatch,
@@ -2235,8 +1999,6 @@ const { server, liveCalls } = createServerAssembly({
   authorizedInternalCapability,
   internalCapabilityIsActive,
   claimTurnResource,
-  computerGate: { autoVmClaims, turnComputerResources, requestHelp: requestComputerHelp, expireHelp: expireComputerHelp },
-  readyLocalVmForTurn: (...args: Parameters<typeof readyLocalVmForTurn>) => readyLocalVmForTurn(...args),
   desktopAccount,
   serverUpdate,
   ownThreads,
@@ -2293,10 +2055,8 @@ const { server, liveCalls } = createServerAssembly({
   colonieSkills,
   commandAllowlist,
   commandAllowlistResponse,
-  computerControl,
   connectedTools,
   connectorMessage,
-  controlLeaseIdSchema,
   currentBrowserSession,
   currentSecretState,
   cursorSeq,
@@ -2310,7 +2070,6 @@ const { server, liveCalls } = createServerAssembly({
   deleteBotWithLifecycle,
   deliverLateQuestionAnswer,
   desktopMutationToken: () => desktopMutationToken,
-  desktopViewer,
   directRequestOwners,
   directTurnBots,
   directTurnDispatchClaims,
@@ -2330,15 +2089,6 @@ const { server, liveCalls } = createServerAssembly({
   learnedFacts,
   lendingEnabled,
   listBotSkills,
-  localVmActiveThreads,
-  localVmFlags,
-  localVmIdleMs,
-  localVmIdles,
-  localVmLifecycleBusy,
-  localVmOwnerBusy,
-  localVmProvisionBusy: () => localVmProvisionBusy,
-  setLocalVmProvisionBusy: (value) => { localVmProvisionBusy = value; },
-  localVmSeen,
   maybeResumeConnectors,
   mcpConfigLock,
   mcpOAuth,
@@ -2379,8 +2129,6 @@ const { server, liveCalls } = createServerAssembly({
   sessionLendingPrincipal,
   sessions,
   settleDirectFollowup,
-  sharedComputerControl,
-  sharedComputers,
   sharedWorkspaceFullAccessEnabled,
   sseClients,
   stagedSkillCleanupsForThread,
@@ -2410,8 +2158,6 @@ const { server, liveCalls } = createServerAssembly({
   workspaceRestore: () => workspaceRestore,
   acceptDirectSend,
   answerRequest,
-  botComputerControlKey,
-  botComputerControlSnapshot,
   botHasActiveTurn,
   cancelTeamSetupResumesForThread,
   checkedExportSkillNames,
@@ -2419,8 +2165,6 @@ const { server, liveCalls } = createServerAssembly({
   checkedTaskModelSwitch,
   collectExportSkills,
   commandRememberRefusal,
-  computerPreviewBot,
-  computerPreviewSurface,
   configForAccess,
   configStatus,
   defaultSelection,
@@ -2429,16 +2173,8 @@ const { server, liveCalls } = createServerAssembly({
   directSendRefusal,
   drainDelegationWakes,
   drainTeamSetupResumes,
-  existingPerBotLocalVmCount,
   handoffs,
   healThreadModel,
-  localVmIdleFor,
-  localVmInventoryPayload,
-  localVmLeaseFor,
-  localVmPayload,
-  localVmTargetForBot,
-  localVmTargetForStatus,
-  perBotLocalVmCountForModeChange,
   persistMcpServers,
   persistProviderInstance,
   reloadProviders,
@@ -2450,7 +2186,6 @@ const { server, liveCalls } = createServerAssembly({
   resolveAndSendTrust,
   respondToCard,
   runningTurnInstance,
-  teamComputerInUse,
   turnSelection,
   undoAppliedChange,
   watchdog,
@@ -2507,19 +2242,7 @@ createBootRecovery({
   store,
 });
 
-// Repair known auto pins that conflict with Works on before dispatch starts.
-// Legacy pins have no provenance and may be deliberate person selections:
-// preserve them rather than guessing. The sweep is idempotent.
-{
-  let movedAutoPins = 0;
-  for (const bot of store.bots) {
-    if (bot.computer !== undefined) movedAutoPins += store.clearAutoSurfacePins(bot.id, bot.computer);
-  }
-  if (movedAutoPins) console.log(`Works on: moved ${movedAutoPins} auto-pinned thread(s) to their bot's current Works on`);
-}
-
 createProcessLifecycle({
-  stopLocalVmsOnQuit,
   DELEGATION_SWEEP_MS,
   PORT,
   browserLive,
@@ -2530,7 +2253,6 @@ createProcessLifecycle({
   colonieMemory: () => colonieMemory,
   commsBus,
   connectedTools,
-  desktopViewer,
   drainQueuedSends,
   drainThreadDelegations,
   enginesRead: () => enginesRead,
@@ -2538,7 +2260,6 @@ createProcessLifecycle({
   setFollowupsReady: (value) => { followupsReady = value; },
   forgetTemporaryBrowser,
   liveCalls,
-  localVmIdles,
   mcpOAuth,
   memoryUpkeep,
   registry,
@@ -2547,8 +2268,6 @@ createProcessLifecycle({
   routines: () => routines,
   server,
   sessions,
-  sharedComputerControl,
-  sharedComputers,
   shuttingDown: () => shuttingDown,
   setShuttingDown: (value) => { shuttingDown = value; },
   store,

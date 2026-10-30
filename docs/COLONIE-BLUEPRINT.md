@@ -181,24 +181,17 @@ Steps, in order. Each one is safe on its own:
 - In a Local workspace, Colonie must be open for routines to run. Interrupted
   work is reported clearly and is never blindly repeated after a restart.
 
-### Computers (owner, October 28)
+### Browsers (owner, October 31)
 
-- A bot's computer is always the Local VM, never a choice the person makes
-  (owner, October 29): a Linux desktop in a container, one shared by all bots
-  of the workspace, as in OpenMausBot. In a Local workspace it runs on the
-  person's Mac once they install one free helper app (they decide whether to);
-  in a Shared workspace it runs on the server. Bots never control the
-  person's own Mac, for now.
-- The person never sees "VM", "Docker", or a list of places: the panel shows
-  the bot's computer as ready, being set up, or needing the free app first.
-  The offer to install comes when a bot needs it (a site refuses the simple
-  browser), says it uses about 4 GB of memory while running, and is not
-  repeated after "Not now". The computer stops itself after 30 idle minutes.
-  Without it, bots still chat and use the simple browser, and say so plainly
-  when a site refuses it. Advanced mode keeps the old choices for builders.
-- Every Shared server comes with a browser, even for owners who never have
-  bots browse (owner, October 28). The update is larger, and several bots
-  browsing at once may need the larger server.
+- Each bot has its own browser and saved sign-ins. It opens when needed,
+  and the person can watch, take over, and hand it back. A connected app
+  comes first when it covers the task.
+- Colonie does not provide desktop computer control, containers, remote
+  desktops, or device control. There is no Computer setup or choice in
+  Simple or Advanced mode. Existing desktop settings never start a desktop;
+  browser access follows the bot's browser switch.
+- Project files and the engine's normal file and command tools remain
+  available. Browser-only Colonie does not remove those engine capabilities.
 - Work files belong to the conversation, not the bot. A group has one
   project folder that every bot in it works in and every member sees; a DM
   has its own. Files stay when a bot leaves and go when the conversation is
@@ -223,9 +216,6 @@ Steps, in order. Each one is safe on its own:
   resumes the bot. While the card waits, the browser stays in the person's
   hands. The panel opens by itself when a bot starts browsing and stays
   closed once the person closes it, as in Hermes.
-- A bot with its computer browses with the browser on that desktop, and the
-  Computer panel shows the desktop; the separate built-in browser is only for
-  a bot with no computer, and its tab says Browser, never Computer.
 - The pause and Done live on the server, so a future Telegram or Slack bot
   sends the same card with buttons and a link to the browser, as Hermes and
   OpenClaw do for approvals. The link needs the person signed in; forwarding

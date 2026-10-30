@@ -34,9 +34,9 @@ test("a thread without a bot stops after the public frame", () => {
   expect(broadcasted).toHaveLength(1);
 });
 
-test("a tracked Local VM thread is touched, not resumed", () => {
+test("legacy Local VM tracking is ignored when a provider turn starts", () => {
   const targets = new Map([["t1", { key: "k1" }]]);
   const { subscriber, touched } = deps({ localVmThreadTargets: targets });
   subscriber({ type: "turn.started", threadId: "t1" } as never);
-  expect(touched).toEqual(["lease:t1", "idle"]);
+  expect(touched).toEqual([]);
 });

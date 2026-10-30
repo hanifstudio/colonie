@@ -1,172 +1,36 @@
 // Server status and settings: local-VM payloads and readiness, edition/settings status, access filtering, MCP server persistence, instance description/persistence and provider reload.
-import { totalmem } from "node:os";
 import * as tts from "../tts/index.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { type BotRecord } from "../persistence/store.ts";
 import { failedTurnTool } from "../../shared/failed-turn.ts";
 import { avatarImageStatus } from "../colonie/bots/avatar-image.ts";
-import { containerComputerAction, containerComputerStatus, containerRuntimeStatus, localVmWakeAction, perBotLocalVmTarget, setupCommands, startContainerRuntime, type ContainerComputerStatus, type LocalVmTarget, type Runtime} from "../colonie/computer/container-computer.ts";
-import { localVmViewerStatus } from "../colonie/computer/desktop-viewer-targets.ts";
-import { discoverExistingPerBotLocalVms } from "../colonie/computer/local-vm-inventory.ts";
-import { localVmStopReason } from "../colonie/computer/local-vm-stop-reason.ts";
 import { withoutPendingSignIn } from "../colonie/mcp/mcp-oauth.ts";
 import { claudeAccountInfo, isClaudeAccountDriver } from "../colonie/providers/claude-accounts.ts";
-import { CLAUDE_API_INSTANCE, autoRecallEnabled, builtInBrowserEnabled, claudeUserMcpEnabled, customMcpServers, instanceConfigs, liveSettingsFor, llmThreadTitlesEnabled, localVmIdleTimeoutMinutes, localVmMaxInstances, localVmMode, maxConcurrentBotThreads, mcpCallTimeoutMinutes, openCodeProviderKeys, routinesInConversationEnabled, saveConfig, sharedComputersEnabled, showToolCallsEnabled, skillAuthoringEnabled, skillsLibraryEnabled, threadEventLogMaxBytes, threadEventLogRetentionDays, type AppConfig } from "../config.ts";
+import { CLAUDE_API_INSTANCE, autoRecallEnabled, builtInBrowserEnabled, claudeUserMcpEnabled, customMcpServers, instanceConfigs, liveSettingsFor, llmThreadTitlesEnabled, maxConcurrentBotThreads, mcpCallTimeoutMinutes, openCodeProviderKeys, routinesInConversationEnabled, saveConfig, showToolCallsEnabled, skillAuthoringEnabled, skillsLibraryEnabled, threadEventLogMaxBytes, threadEventLogRetentionDays, type AppConfig } from "../config.ts";
 import { describeDecider } from "../decider/index.ts";
 import { decisionRetentionDays } from "../decision-log.ts";
 import { LICENSE_WARN_DAYS, editionStatus, workspaceMembership, type EditionStatus } from "../enterprise.ts";
-import { type RequestAuth } from "../request-auth.ts";
 import { resetPathCache } from "../runtime/env-path.ts";
 import { announceWhenModelsLand } from "./model-catalogs.ts";
-import { existsSync } from "node:fs";
 
 /** Everything this cluster reaches in the server; see the header. */
 export interface ConfigStatusDeps {
   // ponytail: one permissive shape instead of hand-typed lines for each name;
   // tighten it when this cluster gets tests of its own.
   [name: string]: any;
-  setLocalVmProvisionBusy: (value: any) => void,
   setProviderFleetReloading: (value: any) => void,
 }
 
 export function createConfigStatus(deps: ConfigStatusDeps) {
-  const {
-    LOCAL_VM_DESKTOP_WAIT_MS, broadcast, browserEngineSummary, cfg, localVmIdleMs, sharedWorkspace,
-    localVmLifecycleBusy, localVmProvisionBusy, mcpOAuth, noteLocalVmSeen, providerConfigs,
+  const { broadcast, browserEngineSummary, cfg, mcpOAuth, providerConfigs,
     registry, retryComputerEngineMove, store, bus,
     cancelDirectTurnDispatch, directTurnBots, drainComputerResumes, drainConnectorResumes,
     drainQueuedSends, drainSecretResumes, providerAuthSessions, 
     releaseTurnResources, revokeAllInternalCapabilities, routines, settleDirectFollowup,
-    stopScreenPoller, threadBusy, turnResourceOwners, setLocalVmProvisionBusy,
-    setProviderFleetReloading,
-    localVmIdleFor, releaseLocalVmThread, watchdog, closeOpenApprovals,
+    stopScreenPoller, threadBusy, turnResourceOwners,
+    setProviderFleetReloading, watchdog, closeOpenApprovals,
     finalizeDelegationWatch, retryDelegationsWaitingOn, drainTeamSetupResumes
   } = deps;
-async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
-  const status = await containerComputerStatus(undefined, undefined, target);
-  return {
-    ...localVmViewerStatus(status, auth),
-    stop_reason: localVmStopReason(target.key, status),
-    commands: setupCommands(status.runtime, process.platform, target),
-    idle_timeout_ms: localVmIdleMs(),
-    mode: localVmMode(cfg),
-    max_instances: localVmMaxInstances(cfg),
-    // what the offer to install says the computer will cost this machine
-    host_memory_bytes: totalmem(),
-    // A Shared workspace's server runs no bot computer yet (blueprint): its
-    // bots keep their browser, and nobody is told to install anything.
-    ...(sharedWorkspace?.() ? { computer_supported: false } : {}),
-  };
-}
-
-/** Wake an idle desktop, or recreate a missing one from an already prepared
- * image. Incompatible or unsafe containers still require an explicit decision. */
-/** One start of the container runtime and one image preparation at a time,
- * however many turns or panels ask for the computer at once. */
-let runtimeStarting: Promise<void> | null = null;
-let imagePreparing: Promise<ContainerComputerStatus> | null = null;
-
-/** What a person who chose Local VM would otherwise do by hand (owner,
- * October 29: setting up a bot's computer is one choice, not a terminal):
- * start the installed container runtime, then prepare the Cua desktop image
- * the first time. A runtime that is not installed stays the person's step. */
-async function prepareLocalVmHost(botId: string, target: LocalVmTarget): Promise<void> {
-  let status = await containerComputerStatus(undefined, undefined, target);
-  if (!status.runtime) return;
-  if (!status.daemonUp) {
-    broadcast({ kind: "computer", botId, state: "provisioning" });
-    const runtime = status.runtime;
-    runtimeStarting ??= startContainerRuntime(runtime).finally(() => { runtimeStarting = null; });
-    await runtimeStarting;
-    status = await containerComputerStatus(undefined, undefined, target);
-  }
-  if (status.daemonUp && !status.image) {
-    broadcast({ kind: "computer", botId, state: "provisioning" });
-    imagePreparing ??= containerComputerAction("pull", undefined, undefined, target).finally(() => { imagePreparing = null; });
-    await imagePreparing;
-  }
-}
-
-async function readyLocalVmForTurn(botId: string, target: LocalVmTarget, isCurrent = () => true) {
-  await prepareLocalVmHost(botId, target);
-  if (!isCurrent()) return containerComputerStatus(undefined, undefined, target);
-  localVmLifecycleBusy.add(target.key);
-  // Fence this target, and the cross-target capacity decision for creates,
-  // before the first await — the same synchronous-fence-then-count shape
-  // the panel route uses — so two concurrent turns cannot both pass the
-  // per-bot limit between count and create.
-  // Pool capacity is bounded by its seat indices. Each seat already has
-  // its own lease/lifecycle fence, so independent cold seats can start
-  // together without competing for the per-bot inventory's capacity gate.
-  const pooled = target.key.startsWith("pool:");
-  const ownsProvision = !pooled && !localVmProvisionBusy();
-  if (ownsProvision) setLocalVmProvisionBusy(true);
-  let status: ContainerComputerStatus;
-  try {
-    status = await containerComputerStatus(undefined, undefined, target);
-    noteLocalVmSeen(target, status);
-    if (!isCurrent()) return status;
-    const action = localVmWakeAction(status);
-    if (status.ready || !action || !status.runtime) return status;
-    // Another creation is already mid-flight and its container is not yet
-    // visible to a count, so the safe answer is the inspected status —
-    // exactly what the over-cap path below returns.
-    if (action === "run" && !pooled && !ownsProvision) return status;
-
-    if (action === "run" && target.key.startsWith("bot:")) {
-      const count = await existingPerBotLocalVmCount(status.runtime);
-      if (!isCurrent() || count >= localVmMaxInstances(cfg)) return status;
-    }
-
-    broadcast({ kind: "computer", botId, state: "provisioning" });
-    try {
-      status = await containerComputerAction(action, undefined, undefined, target);
-    } catch {
-      // Keep the inspected status: its `problem` names the real obstacle,
-      // which is more use to the person than "podman run exited non-zero".
-      // `run` can throw after the container exists, so arm the idle
-      // backstop anyway — expiry defers while the target is busy and its
-      // remove step no-ops unless a fresh probe sees a running container.
-      // The problem text stays as inspected: cheaply telling a half-created
-      // container from none here would need another container probe.
-      localVmIdleFor(target).touch();
-      return status;
-    }
-  } finally {
-    if (ownsProvision) setLocalVmProvisionBusy(false);
-    localVmLifecycleBusy.delete(target.key);
-  }
-  localVmIdleFor(target).touch();
-
-  // The container is up before Cua Driver is. Waiting here rather than failing
-  // the turn is the whole point: a person who has been away eight hours should
-  // not have to send their message twice.
-  const deadline = Date.now() + LOCAL_VM_DESKTOP_WAIT_MS;
-  while (isCurrent() && !status.ready && status.container === "running" && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
-    if (!isCurrent()) break;
-    status = await containerComputerStatus(undefined, undefined, target);
-  }
-  return status;
-}
-
-async function existingPerBotLocalVmCount(runtime: Runtime) {
-  return (await discoverExistingPerBotLocalVms(store.bots, runtime)).length;
-}
-
-async function perBotLocalVmCountForModeChange(): Promise<number | null> {
-  const targets = [...new Map(store.bots.map((bot: any) => {
-    const target = perBotLocalVmTarget(bot.id);
-    return [target.key, target] as const;
-  })).values()];
-  if (targets.length === 0) return 0;
-  const runtime = await containerRuntimeStatus();
-  if (!runtime.runtime || !runtime.daemonUp) {
-    return targets.some((target: any) => existsSync(target.workspaceDir)) ? null : 0;
-  }
-  return existingPerBotLocalVmCount(runtime.runtime);
-}
-
 /** What Settings needs about the edition: the features, and, once the key
  * is inside its warning window or grace period, when it lapses. The dates
  * reach admins only (configForAccess strips them for client sessions). */
@@ -232,21 +96,12 @@ function configStatus() {
       ...(eventLogMaxBytes !== null ? { eventLogMaxBytes } : {}),
       ...(eventLogRetentionDays !== null ? { eventLogRetentionDays } : {}),
     },
-    localVm: {
-      mode: localVmMode(cfg),
-      maxInstances: localVmMaxInstances(cfg),
-      idleTimeoutMinutes: localVmIdleTimeoutMinutes(cfg),
-    },
     features: {
       skillAuthoring: skillAuthoringEnabled(cfg),
       skillsLibrary: skillsLibraryEnabled(cfg),
       showToolCalls: showToolCallsEnabled(cfg),
       routinesInConversation: routinesInConversationEnabled(cfg),
       browser: builtInBrowserEnabled(cfg),
-      // Maintainer-only escape hatch, not a Settings toggle: the desktop
-      // shell and the Settings UI read it so they offer nothing this server
-      // would refuse.
-      sharedComputers: sharedComputersEnabled(cfg),
       // Plugins → MCP servers switch: Claude bots also see this machine's
       // own Claude Code MCP servers
       claudeUserMcp: claudeUserMcpEnabled(cfg),
@@ -389,7 +244,6 @@ async function reloadProviders() {
     // Teardown can swallow terminal events; no task may remain busy forever.
     for (const { botId, threadId, owner } of direct) {
       stopScreenPoller(botId, threadId);
-      releaseLocalVmThread(threadId);
       releaseTurnResources(owner);
       watchdog.settle(threadId);
       closeOpenApprovals(threadId);
@@ -419,10 +273,6 @@ async function reloadProviders() {
 
 
   return {
-    localVmPayload,
-    readyLocalVmForTurn,
-    existingPerBotLocalVmCount,
-    perBotLocalVmCountForModeChange,
     configStatus,
     configForAccess,
     engineMcpServers,

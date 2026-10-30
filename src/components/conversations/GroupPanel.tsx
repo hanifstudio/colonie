@@ -25,7 +25,7 @@ import {
 } from "@/lib/conversations";
 import { useStore, type Bot, type Message } from "@/state/store";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
-import { writeComputerPanelView } from "@/lib/computer-panel-view";
+import { writeBotPanelView } from "@/lib/bot-panel-view";
 import { ConversationRoutines } from "../routines/ConversationRoutines";
 
 export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
@@ -217,7 +217,7 @@ function BotScreens({ bots }: { bots: Bot[] }) {
       <p className="px-2 pb-2 text-[12.5px] text-ink-secondary">Watch a bot's browser while it works, or take over to help it.</p>
       {ordered.map((bot) => (
         <button key={bot.id} type="button" className={cn(ROW, "hover:bg-raised/60")}
-          onClick={() => { writeComputerPanelView(bot.id, "browser"); dispatch({ type: "toggleComputer", open: true, botId: bot.id }); }}>
+          onClick={() => { writeBotPanelView(bot.id, "browser"); dispatch({ type: "toggleBrowser", open: true, botId: bot.id }); }}>
           <BotAvatar bot={bot} state="happy" size={36} motion="none" motionKey={0} animated={false} />
           <span className="min-w-0 flex-1 truncate text-[14.5px] text-ink">{bot.name}</span>
           <span className="text-[12px] text-ink-tertiary">{bot.busy ? "Working · open" : "Open"}</span>

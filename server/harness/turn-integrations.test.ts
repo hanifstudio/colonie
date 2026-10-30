@@ -36,7 +36,7 @@ test("the agent proxy env carries the turn's ids, depth and minted token", () =>
   expect(integration.env.COLONIE_THREAD_ID).toBe("t1");
   expect(integration.env.COLONIE_TURN_DEPTH).toBe("3");
   expect(integration.env.COLONIE_COMMS_TOKEN).toBe("tok-agents");
-  expect(integration.env.COLONIE_SHARED_COMPUTERS_ENABLED).toBe("1");
+  expect(integration.env.COLONIE_SHARED_COMPUTERS_ENABLED).toBeUndefined();
 });
 
 test("the agent proxy disables memory when the bot does", () => {
@@ -51,12 +51,11 @@ test("the hook channel mints its own kind and returns the loopback pair", () => 
   expect(mints[0]!.grant.kind).toBe("hooks");
 });
 
-test("computer control mints a per-turn bearer and encodes the bot id", () => {
-  const { integrations, mints } = deps();
-  const integration: any = integrations.controlIntegration("bot/1", "t1", "g1");
-  expect(integration.url).toBe("http://127.0.0.1:12345/api/internal/computer-control?botId=bot%2F1");
-  expect(mints[0]!.grant.kind).toBe("computer");
-  expect(mints[0]!.options).toEqual({ perTurn: true });
+test("desktop control is absent and cannot mint a bearer even when old lending is enabled", () => {
+  const { integrations, mints } = deps({ lendingEnabled: () => true });
+  expect(integrations).not.toHaveProperty("controlIntegration");
+  integrations.agentsIntegration("b1", "t1", 0, false, "g1");
+  expect(mints.map((entry) => entry.grant.kind)).toEqual(["agents"]);
 });
 
 test("the hook channel follows COLONIE_HOOKS", () => {

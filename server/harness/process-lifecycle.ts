@@ -21,11 +21,10 @@ export interface ProcessLifecycleDeps {
 export function createProcessLifecycle(deps: ProcessLifecycleDeps) {
   const {
     DELEGATION_SWEEP_MS, PORT, browserLive, browserRuntime, bus, calendarCalls, colonieChief,
-    colonieMemory, commsBus, connectedTools, desktopViewer, drainQueuedSends,
+    colonieMemory, commsBus, connectedTools, drainQueuedSends,
     drainThreadDelegations, enginesRead, expireDelegationsNow,
-    forgetTemporaryBrowser, liveCalls, localVmIdles, mcpOAuth, memoryUpkeep, registry, stopLocalVmsOnQuit,
-    releaseDataDirLeaseAtExit, revokeAllInternalCapabilities, routines, server, sessions,
-    sharedComputerControl, sharedComputers, shuttingDown, store, temporaryBrowserSessions,
+    forgetTemporaryBrowser, liveCalls, mcpOAuth, memoryUpkeep, registry,
+    releaseDataDirLeaseAtExit, revokeAllInternalCapabilities, routines, server, sessions, shuttingDown, store, temporaryBrowserSessions,
     watchdog, webhookIngress, workspaceAccessTimer, setFollowupsReady, setShuttingDown
   } = deps;
 server.listen(PORT, "127.0.0.1", async () => {
@@ -74,11 +73,7 @@ const gracefulShutdown = createGracefulShutdown({
       // asynchronous shutdown jobs drain. Invalidate their turn bearers before
       // any cleanup function reaches an await.
       revokeAllInternalCapabilities();
-      sharedComputers.close();
-      sharedComputerControl.close();
       browserLive.closeAll();
-      desktopViewer.closeAll();
-      for (const idle of localVmIdles.values()) idle.cancel();
       watchdog.stop();
       routines()?.stop();
       calendarCalls()?.stop();
@@ -88,7 +83,6 @@ const gracefulShutdown = createGracefulShutdown({
       webhookIngress()?.server.close();
     },
     async () => { await registry.disposeAll(); },
-    () => stopLocalVmsOnQuit(),
     async () => {
       await Promise.all([...temporaryBrowserSessions.keys()].map((botId) => forgetTemporaryBrowser(botId)));
       await browserRuntime.closeAll();

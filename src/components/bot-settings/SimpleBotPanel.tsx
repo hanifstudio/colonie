@@ -16,7 +16,6 @@ import type { ApprovalMode } from "../../../shared/approval-mode";
 import { approvalModeOptionsFor } from "../ApprovalModeSelector";
 import { collectMessageFiles, splitMessageAttachments } from "../AttachmentGallery";
 import { BotAvatar } from "../Avatar";
-import { LocalComputerAutoWarning } from "../LocalComputerAutoWarning";
 import { FullAccessWarning } from "../FullAccessWarning";
 import { ModelPicker } from "../ModelPicker";
 import { ThreadModelsLine } from "../ThreadModelsLine";
@@ -91,7 +90,6 @@ export function SimpleBotPanel({
   const { dispatch } = useStore();
   const { workspace, readOnly } = useBotEditor();
   const [tab, setTab] = useState<"details" | "library">("details");
-  const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
   const [fullAccessTarget, setFullAccessTarget] = useState<string | null>(null);
   const skills = useManagedSkills(bot, !acp && !workspace);
   const { patch, approvalMode, engine, trustedModesAvailable } = derived;
@@ -112,10 +110,6 @@ export function SimpleBotPanel({
     if (bot.busy || mode === approvalMode) return;
     if (mode === "full") {
       setFullAccessTarget(bot.id);
-      return;
-    }
-    if (mode === "auto" && bot.computer === "local") {
-      setLocalAutoWarning(bot.id);
       return;
     }
     patch({ approvalMode: mode });
@@ -372,16 +366,6 @@ export function SimpleBotPanel({
           onEnable={() => void skills.enableReviewed()}
         />
       )}
-      <LocalComputerAutoWarning
-        open={localAutoWarning !== null}
-        onCancel={() => setLocalAutoWarning(null)}
-        onConfirm={() => {
-          const target = localAutoWarning;
-          setLocalAutoWarning(null);
-          if (!target) return;
-          dispatch({ type: "updateBot", botId: target, patch: { approvalMode: "auto", acknowledgeLocalAuto: true } });
-        }}
-      />
       <FullAccessWarning
         open={fullAccessTarget !== null}
         allThreads

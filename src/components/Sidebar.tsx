@@ -45,7 +45,6 @@ import { copyText } from "@/lib/copy-text";
 import type { LocaleKey } from "@/locales";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FullAccessWarning } from "./FullAccessWarning";
-import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
 import { WorkingDots } from "./WorkingIndicator";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { MIN_QUERY, SearchResults } from "./SearchResults";
@@ -492,10 +491,7 @@ export function BotThreadList({ bot, selected, density, query, pendingQueued, re
         setPermissionRefresh({ threadId: task.threadId, kind: "full" });
         return;
       }
-      if (mode === "auto" && current.computer === "local" && threadMode !== "auto") {
-        setPermissionRefresh({ threadId: task.threadId, kind: "local-auto" });
-        return;
-      }
+
       dispatch({ type: "refreshTaskPermissions", botId, threadId: task.threadId });
     },
   }), [botId, dispatch, generatedTitles]);
@@ -616,15 +612,7 @@ export function BotThreadList({ bot, selected, density, query, pendingQueued, re
           if (threadId) dispatch({ type: "refreshTaskPermissions", botId: bot.id, threadId });
         }}
       />
-      <LocalComputerAutoWarning
-        open={permissionRefresh?.kind === "local-auto"}
-        onCancel={() => setPermissionRefresh(null)}
-        onConfirm={() => {
-          const threadId = permissionRefresh?.threadId;
-          setPermissionRefresh(null);
-          if (threadId) dispatch({ type: "refreshTaskPermissions", botId: bot.id, threadId, acknowledgeLocalAuto: true });
-        }}
-      />
+
       {projectToEdit && <BotProjectDialog bot={bot} project={projectToEdit} onClose={() => setEditingProject(null)} />}
       </>}
     </div>
@@ -1341,7 +1329,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false, workspace }: {
   const storedDensity = useSidebarDensity();
   const density = collapseToIcons ? "icons" : storedDensity;
   const defaultWidth = density === "compact" ? 272 : 320;
-  const sidePanelOpen = state.computerOpen || state.inspectorOpen;
+  const sidePanelOpen = state.browserOpen || state.inspectorOpen;
   const maxSidebarWidth = sidePanelOpen ? defaultWidth : Math.min(480, window.innerWidth - 320);
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(() => loadSidebarWidth());
   const widthRef = useRef(sidebarWidth);

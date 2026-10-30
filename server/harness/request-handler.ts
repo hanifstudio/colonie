@@ -28,14 +28,11 @@ import { listMessageFolder, messageAttachmentName, messageFileDisposition, messa
 import { cancelSteeredMessage } from "../colonie/chat/steer-queue.ts";
 import { titleConversationExcerpt } from "../colonie/chat/thread-title.ts";
 import { browserEngineStatus, ensureChrome, installAgentBrowserBinary, resolveAgentBrowserBinary } from "../colonie/computer/browser-engine.ts";
-import { SHARED_LOCAL_VM_TARGET, containerComputerAction, containerComputerExists, containerComputerScreenshot, containerComputerStatus, setupCommands } from "../colonie/computer/container-computer.ts";
-import { localVmViewerStatus, viewerTargetId } from "../colonie/computer/desktop-viewer-targets.ts";
-import { sharedComputerRegistration } from "../colonie/computer/shared-computers.ts";
 import { MCP_OAUTH_CALLBACK_PATH } from "../colonie/mcp/mcp-oauth.ts";
 import { fetchSkillFromSource } from "../colonie/skills/skill-fetch.ts";
 import { installSkill, listBotSkillsWithOrigin, listStagedSkillWrites, parseSkillMd, removeSkill, setSkillEnabled } from "../colonie/skills/skills.ts";
 import { isWorkspaceBackupSessionControl } from "../colonie/workspace/workspace-backup-http.ts";
-import { DATA_DIR, builtInBrowserEnabled, llmThreadTitlesEnabled, localVmMaxInstances, localVmMode, saveConfig, sharedComputersEnabled, skillsLibraryEnabled } from "../config.ts";
+import { DATA_DIR, builtInBrowserEnabled, llmThreadTitlesEnabled, saveConfig, skillsLibraryEnabled } from "../config.ts";
 import { assertRequestTarget, requestConflict } from "../guarded-requests.ts";
 import { onJsonBody, json, readBody} from "../harness/http.ts";
 import { searchMessagesAsync } from "../persistence/message-db.ts";
@@ -59,35 +56,27 @@ export interface RequestHandlerDeps {
   setBrowserEngineInstall: (value: any) => void,
   setBrowserEngineInstallError: (value: any) => void,
   setCustomDomainRevision: (value: any) => void,
-  setLocalVmProvisionBusy: (value: any) => void,
 }
 
 export function createRequestHandler(deps: RequestHandlerDeps) {
   const {
     DEFAULT_PAGE, DESKTOP_MANAGED, ENVIRONMENT_ID, HOSTED_WORKSPACE, LOOPBACK, MAX_COMMS_DEPTH,
-    PORT, SESSION_COOKIE, actorKey, beginAdminAudit, beginInternalCapabilityGeneration,
-    botComputerControlKey, botComputerControlSnapshot, broadcast, browserEngineInstall,
+    PORT, SESSION_COOKIE, actorKey, beginAdminAudit, beginInternalCapabilityGeneration, broadcast, browserEngineInstall,
     browserIntegration, browserLive, cancelDirectTurnDispatch,
-    cardAnswerRefusal, cfg, checkedModelSelection, colonieChief, computerControl,
-    computerPreviewBot, computerPreviewSurface, configStatus, connectedTools, connectorMessage,
-    controlLeaseIdSchema, currentBrowserSession, currentSecretState, customDomainRevision,
-    customDomainStatus, customDomainVerifier, deleteBotWithLifecycle, desktopMutationToken,
-    desktopViewer, directRequestOwners, directTurnBots, directTurnDispatchClaims, emailSignIn,
-    existingPerBotLocalVmCount, generateThreadTitle, guardedRequestSnapshot, handoffs,
-    interruptAllDirectThreads, interruptDirectThread, lendingEnabled,
-    listBotSkills, localVmActiveThreads, localVmFlags, localVmIdleFor, localVmIdleMs,
-    localVmInventoryPayload, localVmLeaseFor, localVmLifecycleBusy, localVmOwnerBusy,
-    localVmPayload, localVmProvisionBusy, localVmSeen, localVmTargetForBot, localVmTargetForStatus,
+    cardAnswerRefusal, cfg, checkedModelSelection, colonieChief, configStatus, connectedTools, connectorMessage, currentBrowserSession, currentSecretState, customDomainRevision,
+    customDomainStatus, customDomainVerifier, deleteBotWithLifecycle, desktopMutationToken, directRequestOwners, directTurnBots, directTurnDispatchClaims, emailSignIn, generateThreadTitle, guardedRequestSnapshot, handoffs,
+    interruptDirectThread,
+    listBotSkills,
     maybeResumeConnectors, mcpOAuth, messageFileRootsForThread, messagePage, messageWindow,
     mintInternalCapability, pageSize, personKey, publicBot, publicBotQueuedMessages,
     readBotSkillFile, registry, requestedTaskBot, resolveReplyTarget, resumeSecretCard,
-    revokeInternalCapabilitiesForThread, routines, secretMessage, serveStatic, 
-    sessionLendingPrincipal, sessions, sharedComputerControl, sharedComputers,
+    revokeInternalCapabilitiesForThread, routines, secretMessage, serveStatic,
+    sessions,
     sharedWorkspaceFullAccessEnabled, stagedSkillListing, startTurn, store, subjectVisible,
-    supportsApprovalMode, teamComputers, threadBusy, threadStarters, titleRegenerations,
+    supportsApprovalMode, threadBusy, threadStarters, titleRegenerations,
     turnSelection, usageTriggerFor, viewerFor, visibleTo, wireBot, wireTask,
     workspaceAccess, workspaceBackupRoutes, workspaceMaintenance, setBrowserEngineInstall,
-    setBrowserEngineInstallError, setLocalVmProvisionBusy,
+    setBrowserEngineInstallError,
     setCustomDomainRevision,
   } = deps;
   /** Each person's own conversations in a Shared workspace, and who the
@@ -166,7 +155,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
     if (method === "GET" && path === "/.well-known/colonie/environment") {
-      return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && emailSignIn.enabled(), sharedComputers: lendingEnabled(), colonieSignIn: Boolean(colonieSignIn?.link()) }));
+      return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && emailSignIn.enabled(), colonieSignIn: Boolean(colonieSignIn?.link()) }));
     }
     const domainCheck = /^\/\.well-known\/colonie\/domain-check\/([a-f0-9]{64})$/.exec(path);
     if (method === "GET" && domainCheck) {
@@ -205,7 +194,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       sessions.clearFailures(source);
       const issued = sessions.issue({ label: label.trim() || labelFromUserAgent(req.headers["user-agent"]), scopes: verified.scopes, userId: verified.userId, email: verified.email });
-      const environment = environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: true, sharedComputers: lendingEnabled() });
+      const environment = environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: true });
       const secure = requestOrigin(req)?.startsWith("https://") === true;
       res.setHeader("set-cookie", serializeSessionCookie(SESSION_COOKIE, issued.token, { secure, maxAgeSeconds: cookieMaxAgeSeconds(issued.session) }));
       return json(res, 200, { session: issued.session, environment });
@@ -216,7 +205,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       streamPath: "/api/events",
       url,
       loopbackMutationToken: desktopMutationToken(),
-      features: { sharedComputers: lendingEnabled() },
+      features: { },
       loopbackTrust: LOOPBACK.trust,
     });
     // The browser's cookie carries the term it was set with, and the
@@ -270,13 +259,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     beginAdminAudit(req, res, method, path, auth);
 
-    if (method === "POST" && path === "/api/workspace-backup/restore" && teamComputers.list().some((computer: any) => computer.section !== null)) {
-      return json(res, 409, { error: "Unassign team computers before restoring a workspace; restored team names must not gain access to existing desktops" });
-    }
+
     if (await workspaceBackupRoutes(req, res, path, auth)) return;
     // Count ordinary requests until their asynchronous handler returns, not
     // merely until the browser disconnects. A cancelled upload can still write.
-    if (path.startsWith("/api/") && path !== "/api/events" && path !== "/api/health" && !path.startsWith("/api/shared-computers/") && !isWorkspaceBackupSessionControl(method, path)) {
+    if (path.startsWith("/api/") && path !== "/api/events" && path !== "/api/health" && !isWorkspaceBackupSessionControl(method, path)) {
       releaseWorkspaceRequest = workspaceMaintenance.request();
     }
 
@@ -364,55 +351,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // person's Cloud (docs/cloud-pro.md) needs the lease without the
     // maintainer flag. It grants nothing by itself; it only keeps local bot
     // turns and a remote screen action from using the screen at once.
-    if (method === "POST" && path === "/api/desktop/shared-computer-control" && (sharedComputersEnabled(cfg) || DESKTOP_MANAGED)) {
-      if (auth.kind !== "loopback") return json(res, 403, { error: "Local desktop only" });
-      const body = await readBody(req, 1024);
-      if (!sharedComputersEnabled(cfg) && !DESKTOP_MANAGED) return json(res, 404, { error: `no route: ${method} ${path}` });
-      if (!z.string().uuid().safeParse(body?.id).success || !["acquire", "release", "renew"].includes(body?.action)) return json(res, 400, { error: "Invalid computer lease" });
-      if (body.action === "release") sharedComputerControl.release(body.id);
-      else if (body.action === "renew") sharedComputerControl.renew(body.id);
-      else {
-        sharedComputerControl.acquire(body.id);
-      }
-      return json(res, 200, { ok: true });
-    }
-    // A paired desktop registers only its own outbound connector. A second,
-    // main-process-only secret binds poll/results to that exact desktop.
-    // With features.sharedComputers off the whole family falls through to the
-    // generic "no route" 404, so a probe cannot tell a disabled feature from
-    // a build that never had one.
-    // What the asking person has lent to this server, online or not, with its
-    // scopes (docs/cloud-pro.md, "What the Cloud can see"). Owner-scoped like
-    // the bot routes; no id a session could not already use, and no secret.
-    if (method === "GET" && path === "/api/shared-computers" && lendingEnabled()) {
-      return json(res, 200, { computers: sharedComputers.status(sessionLendingPrincipal(auth)) });
-    }
-    if (method === "POST" && path.startsWith("/api/shared-computers/") && lendingEnabled()) {
-      if (auth.kind !== "session") return json(res, 403, { error: "Pair this desktop first" });
-      if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) return json(res, 415, { error: "JSON required" });
-      const body = await readBody(req, 4_000_000);
-      if (!lendingEnabled()) return json(res, 404, { error: `no route: ${method} ${path}` });
-      if (!sessions.isLive(auth.session.id)) return json(res, 401, { error: "Session ended" });
-      const secret = String(req.headers["x-colonie-computer-secret"] ?? "");
-      if (path === "/api/shared-computers/connect") {
-        const parsed = sharedComputerRegistration.safeParse(body);
-        if (!parsed.success) return json(res, 400, { error: "Invalid computer registration" });
-        const registration = parsed.data;
-        if (registration.environmentId !== ENVIRONMENT_ID) return json(res, 409, { error: "Workspace identity changed. Pair again before sharing this computer." });
-        // A Cloud home is one person's: only their own devices, which the
-        // Admin's pairing signs in with admin scope, may lend to it.
-        sharedComputers.register(registration, { session: auth.session.id, person: personKey(auth.session) }, secret);
-        return json(res, 200, { ok: true });
-      }
-      const route = /^\/api\/shared-computers\/([\w-]+)\/(poll|lease|result|disconnect)$/.exec(path);
-      if (!route) return json(res, 404, { error: "not found" });
-      const [, id, action] = route;
-      if (action === "poll") return json(res, 200, { job: await sharedComputers.poll(id, auth.session.id, secret) });
-      if (action === "lease") return json(res, 200, { active: sharedComputers.liveJob(id, auth.session.id, secret, String(body?.jobId)) });
-      if (action === "result") sharedComputers.complete(id, auth.session.id, secret, String(body?.jobId), body?.result);
-      if (action === "disconnect") sharedComputers.disconnect(id, auth.session.id, secret);
-      return json(res, 200, { ok: true });
-    }
     // Isolated integration fixtures cannot invoke an MCP tool before their
     // fake provider exits, so they mint an exact synthetic turn capability
     // through a per-process high-entropy test key. The route does not exist
@@ -433,7 +371,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const parsed = z.object({
         botId: z.string().regex(/^[\w-]{1,128}$/),
         threadId: z.string().regex(/^[\w-]{1,128}$/),
-        kind: z.enum(["agents", "connectors", "computer"]).default("agents"),
+        kind: z.enum(["agents", "connectors", "browser"]).default("agents"),
         depth: z.number().int().min(0).max(MAX_COMMS_DEPTH).default(0),
         skillAuthoring: z.boolean().default(false),
       }).strict().safeParse(await readBody(req));
@@ -630,12 +568,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }, visible)),
         botQueuedMessages: visible.everything ? queued : Object.fromEntries(Object.entries(queued).filter(([threadId]) => visible.thread(threadId))),
         sections: visible.sections(store.sections),
-        computerControl: Object.fromEntries(
-          shownBots.map((bot: any) => {
-            const snapshot = botComputerControlSnapshot(bot.id);
-            return [bot.id, { held: snapshot.held, helpReason: snapshot.helpReason }];
-          }),
-        ),
+
       });
     }
 
@@ -963,7 +896,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const current = resolveRequestAuth(req, {
         sessions, cookieName: SESSION_COOKIE, streamPath: "/api/events", url,
         loopbackMutationToken: desktopMutationToken(),
-        features: { sharedComputers: lendingEnabled() }, loopbackTrust: LOOPBACK.trust,
+        features: { }, loopbackTrust: LOOPBACK.trust,
       });
       if (!current.auth) return json(res, current.status, { error: current.error });
       const currentVisible = visibleTo(viewerFor(current.auth));
@@ -1146,29 +1079,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, { bot: visible });
     }
 
-    if (method === "POST" && path === "/api/local-computer/interrupt") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      await Promise.allSettled(
-        store.bots
-          .filter((bot: any) => bot.computer === "local")
-          .map(async (bot: any) => {
-            // Cancel the routine run before interrupting direct threads: the
-            // interrupt ends the run's turn, and the routine scheduler would
-            // record that early exit as `failed` before cancelRun could mark
-            // the run `cancelled`. Same order as the bot-wide stop.
-            const routineRun = routines()!.activeBotRunForBot(bot.id);
-            if (routineRun) {
-              if (routineRun.threadId) revokeInternalCapabilitiesForThread(routineRun.threadId);
-              cancelDirectTurnDispatch(bot.id, routineRun.threadId);
-              await routines()!.cancelRun(routineRun.id);
-            }
-            await interruptAllDirectThreads(bot.id);
-          }),
-      );
-      return json(res, 200, { ok: true });
-    }
     m = path.match(/^\/api\/bots\/([\w-]+)$/);
     if (m && method === "DELETE") {
       const result = await deleteBotWithLifecycle(m[1]);
@@ -1545,7 +1455,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const current = store.projectBotForTask(m[1], m[2]);
       if (!current) return json(res, 404, { error: "no such task" });
       if (!llmThreadTitlesEnabled(cfg)) return json(res, 409, { error: "generated thread titles are turned off on this server" });
-      
+
       const instance = registry.get(current.modelSelection.instanceId);
       if (!instance?.generateText) return json(res, 409, { error: "this bot's model can't generate a title — rename the thread instead" });
       if (titleRegenerations.has(m[2])) return json(res, 409, { error: "a new title is already being generated for this thread" });
@@ -1567,206 +1477,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       } finally {
         titleRegenerations.delete(m[2]);
       }
-    }
-
-    // what the user's machine can host: which runtime is installed, whether
-    // its daemon is up, and whether the desktop image and container exist
-    if (method === "GET" && path === "/api/local-computer") {
-      return json(res, 200, await localVmPayload(SHARED_LOCAL_VM_TARGET, auth));
-    }
-    if (method === "GET" && path === "/api/local-computer/instances") {
-      res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, await localVmInventoryPayload());
-    }
-    m = path.match(/^\/api\/local-computer\/(pull|run|start|stop|remove)$/);
-    if (m && method === "POST") {
-      // Requiring JSON makes these localhost lifecycle mutations non-simple
-      // browser requests. A hostile web page cannot submit them with a form,
-      // and its cross-origin JSON request is stopped by the browser preflight
-      // because this server deliberately emits no CORS permission.
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const action = z.enum(["pull", "run", "start", "stop", "remove"]).parse(m[1]);
-      if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key)) {
-        return json(res, 409, { error: "another Local VM setup action is still running" });
-      }
-      if (localVmMode(cfg) === "per-bot" && action === "run") {
-        return json(res, 409, { error: "Per-bot mode creates each desktop from that bot's Computer panel" });
-      }
-      if (localVmMode(cfg) === "pool" && action === "run") {
-        return json(res, 409, { error: "Pool mode creates its desktops automatically from conversation turns" });
-      }
-      const vmOwner = localVmLeaseFor(SHARED_LOCAL_VM_TARGET).current(localVmOwnerBusy);
-      if (vmOwner && (action === "stop" || action === "remove" || action === "run")) {
-        return json(res, 409, { error: "the Local VM is being used by a bot — stop that turn first" });
-      }
-      // A lease can lapse under a long, quiet turn whose thread still holds
-      // the desktop, so stop/remove must also refuse while the thread
-      // registry or a setup action pins it — the same guard bot deletion uses.
-      if ((action === "stop" || action === "remove") && (localVmActiveThreads.has(SHARED_LOCAL_VM_TARGET.key) || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key))) {
-        return json(res, 409, { error: localVmActiveThreads.has(SHARED_LOCAL_VM_TARGET.key) ? "the Local VM is being used by a bot — stop that turn first" : "another Local VM setup action is still running" });
-      }
-      if (action === "pull") localVmFlags.imageBusy = true;
-      else localVmLifecycleBusy.add(SHARED_LOCAL_VM_TARGET.key);
-      try {
-        const status = await containerComputerAction(action, undefined, undefined, SHARED_LOCAL_VM_TARGET);
-        if (action === "run" || action === "start") {
-          localVmSeen.add(SHARED_LOCAL_VM_TARGET.key);
-          localVmIdleFor(SHARED_LOCAL_VM_TARGET).touch();
-        }
-        if (action === "stop" || action === "remove") localVmIdleFor(SHARED_LOCAL_VM_TARGET).cancel();
-        return json(res, 200, {
-          ...localVmViewerStatus(status, auth),
-          commands: setupCommands(status.runtime, process.platform, SHARED_LOCAL_VM_TARGET),
-          idle_timeout_ms: localVmIdleMs(),
-          mode: localVmMode(cfg),
-          max_instances: localVmMaxInstances(cfg),
-        });
-      } finally {
-        if (action === "pull") localVmFlags.imageBusy = false;
-        else localVmLifecycleBusy.delete(SHARED_LOCAL_VM_TARGET.key);
-      }
-    }
-    if (method === "POST" && path === "/api/local-computer/screenshot") {
-      localVmIdleFor(SHARED_LOCAL_VM_TARGET).touch();
-      res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, SHARED_LOCAL_VM_TARGET),
-      });
-    }
-
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer$/);
-    if (m && method === "GET") {
-      const bot = computerPreviewBot(m[1], url);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, await localVmPayload(localVmTargetForStatus(bot.id, bot.threadId), auth));
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/(run|start|stop|remove)$/);
-    if (m && method === "POST") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      const action = z.enum(["run", "start", "stop", "remove"]).parse(m[2]);
-      const target = localVmTargetForBot(bot.id);
-      if (target.key === SHARED_LOCAL_VM_TARGET.key) {
-        return json(res, 409, { error: "Shared mode manages this desktop in App Settings → Computers" });
-      }
-      if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(target.key)) {
-        return json(res, 409, { error: "this bot's Local VM setup action is still running" });
-      }
-      if (action === "run" && localVmProvisionBusy()) {
-        return json(res, 409, { error: "another per-bot Local VM is being created — retry after it finishes" });
-      }
-      const vmOwner = localVmLeaseFor(target).current(localVmOwnerBusy);
-      if (vmOwner) return json(res, 409, { error: "this bot is using its Local VM — stop the turn first" });
-      // Mirrors the shared-target guard above: the lease alone can miss a
-      // long, quiet turn, and a setup action must not be torn down mid-call.
-      if ((action === "stop" || action === "remove") && (localVmActiveThreads.has(target.key) || localVmLifecycleBusy.has(target.key))) {
-        return json(res, 409, { error: localVmActiveThreads.has(target.key) ? "this bot is using its Local VM — stop the turn first" : "this bot's Local VM setup action is still running" });
-      }
-      // Fence this target, and the cross-target capacity decision for creates,
-      // before the first await so two requests cannot both pass the limit.
-      localVmLifecycleBusy.add(target.key);
-      if (action === "run") setLocalVmProvisionBusy(true);
-      try {
-        if (action === "run") {
-          const before = await containerComputerStatus(undefined, undefined, target);
-          if (!before.runtime) return json(res, 409, { error: before.problem ?? "No container runtime is installed" });
-          if (!(await containerComputerExists(before.runtime, target))) {
-            const count = await existingPerBotLocalVmCount(before.runtime);
-            if (count >= localVmMaxInstances(cfg)) {
-              return json(res, 409, {
-                error: `The per-bot Local VM limit is ${localVmMaxInstances(cfg)} — delete an unused bot VM or raise the limit in App Settings`,
-              });
-            }
-          }
-        }
-        const status = await containerComputerAction(action, undefined, undefined, target);
-        if (action === "run" || action === "start") {
-          localVmSeen.add(target.key);
-          localVmIdleFor(target).touch();
-        }
-        if (action === "stop" || action === "remove") localVmIdleFor(target).cancel();
-        return json(res, 200, {
-          ...localVmViewerStatus(status, auth),
-          commands: setupCommands(status.runtime, process.platform, target),
-          idle_timeout_ms: localVmIdleMs(),
-          mode: localVmMode(cfg),
-          max_instances: localVmMaxInstances(cfg),
-        });
-      } finally {
-        if (action === "run") setLocalVmProvisionBusy(false);
-        localVmLifecycleBusy.delete(target.key);
-      }
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/screenshot$/);
-    if (m && method === "POST") {
-      const bot = computerPreviewBot(m[1], url);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (url.searchParams.has("threadId") && await computerPreviewSurface(bot, bot.threadId) !== "vm") {
-        return json(res, 409, { error: "This conversation is not using the Local VM" });
-      }
-      const target = localVmTargetForStatus(bot.id, url.searchParams.has("threadId") ? bot.threadId : undefined);
-      localVmIdleFor(target).touch();
-      res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, target),
-      });
-    }
-    // The Local VM's live desktop for a phone, granted only to the control
-    // lease that holds this bot's computer right now. Two callers:
-    //
-    // The companion sidecar (a loopback caller) gets the VM's own noVNC
-    // address, VNC password included, relays it to a paired phone the owner
-    // has allowed computer access, keeps re-checking the lease with
-    // `action: "check"`, and cuts the relay when it no longer holds.
-    //
-    // A phone paired with this server directly (`colonie serve`, no
-    // sidecar) never sees that address. It gets this server's own
-    // authenticated desktop proxy, bound to its lease: the proxy re-checks
-    // the lease and the session every few seconds and closes the socket when
-    // either lapses. Reaching here at all took the admin scope, which a
-    // chat-only pairing (`colonie pair --client`) does not have, so
-    // computer access is the same explicit choice the owner's browser makes.
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/join$/);
-    if (m && method === "POST") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const bot = computerPreviewBot(m[1], url);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      const threadId = url.searchParams.has("threadId") ? bot.threadId : undefined;
-      if (threadId && await computerPreviewSurface(bot, threadId) !== "vm") {
-        return json(res, 409, { error: "This conversation is not using the Local VM" });
-      }
-      // A bot's human-control hold does not reserve a shared desktop or pool
-      // seat. Another bot could drive it while the phone is holding this bot.
-      if (localVmMode(cfg) !== "per-bot") {
-        return json(res, 409, { error: "Phone control requires a per-bot Local VM. Select per-bot mode in Settings → Computers." });
-      }
-      const lease = controlLeaseIdSchema.safeParse(url.searchParams.get("controlLeaseId") ?? undefined);
-      if (!lease.success) return json(res, 400, { error: "controlLeaseId is required" });
-      const controlBot = store.bot(bot.id);
-      if (!controlBot || !computerControl.ownsLease(botComputerControlKey(controlBot), lease.data)) {
-        return json(res, 409, { error: "Take control of this computer first" });
-      }
-      const target = localVmTargetForStatus(bot.id, threadId);
-      const status = await containerComputerStatus(undefined, undefined, target);
-      if (!status.ready || !status.managed || status.container !== "running" || status.network !== "loopback"
-        || !status.viewer_url) {
-        return json(res, 409, { error: status.problem ?? "The Local VM is not ready" });
-      }
-      localVmIdleFor(target).touch();
-      res.setHeader("cache-control", "private, no-store");
-      if (auth.kind === "loopback") return json(res, 200, { joinUrl: status.viewer_url });
-      const socket = new URLSearchParams({ botId: bot.id, ...(threadId ? { threadId } : {}), controlLeaseId: lease.data });
-      return json(res, 200, {
-        socketPath: `api/desktop-viewer/${viewerTargetId(target)}/websockify?${socket}`,
-        password: new URLSearchParams(new URL(status.viewer_url).hash.slice(1)).get("password"),
-      });
     }
 
     // The bots' browser engine: install it on this machine (agent-browser +
@@ -1907,71 +1617,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 405, { error: "method not allowed" });
     }
 
-    // Who is driving this bot's computer. GET is the panel's initial read;
-    // POST take/release/dismiss-help are the person's three moves. The bot
-    // has no verb here at all — its only voice is the internal help plea.
-    m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/control$/);
-    if (m) {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (method === "GET") return json(res, 200, botComputerControlSnapshot(bot.id));
-      if (method === "POST") {
-        // JSON-only for the same anti-form-POST reason as every other
-        // computer mutation below.
-        if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-          return json(res, 415, { error: "content-type must be application/json" });
-        }
-        const body = await readBody(req);
-        const action = String(body.action ?? "");
-        const currentBot = store.bot(bot.id);
-        if (!currentBot) return json(res, 404, { error: "no such bot" });
-        const controlKey = botComputerControlKey(currentBot);
-        const leaseResult =
-          body.controlLeaseId === undefined
-            ? null
-            : controlLeaseIdSchema.safeParse(body.controlLeaseId);
-        if (leaseResult && !leaseResult.success) {
-          return json(res, 400, { error: "controlLeaseId is invalid" });
-        }
-        const controlLeaseId = leaseResult?.data;
-        if (action === "take" && controlLeaseId) {
-          const result = computerControl.acquireLease(controlKey, controlLeaseId);
-          return json(res, 200, {
-            ...result.snapshot,
-            owned: result.owned,
-            acquired: result.acquired,
-          });
-        }
-        if (action === "release" && controlLeaseId) {
-          const result = computerControl.releaseLease(controlKey, controlLeaseId);
-          return json(res, 200, { ...result.snapshot, released: result.released });
-        }
-        // Read-only: does this lease still hold the wheel? The companion
-        // sidecar asks this while it relays a phone's live Local VM desktop,
-        // and cuts the relay the moment the answer is no.
-        if (action === "check" && controlLeaseId) {
-          return json(res, 200, { ...computerControl.snapshot(controlKey), owned: computerControl.ownsLease(controlKey, controlLeaseId) });
-        }
-        if (action === "take") return json(res, 200, computerControl.take(controlKey));
-        if (action === "release") return json(res, 200, computerControl.release(controlKey));
-        if (action === "dismiss-help") return json(res, 200, computerControl.dismissHelp(controlKey));
-        return json(res, 400, { error: "action must be take, release, check, or dismiss-help" });
-      }
-      return json(res, 405, { error: "method not allowed" });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/viewer-close$/);
-    if (m && method === "POST") {
-      const bot = computerPreviewBot(m[1], url);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      // A directly paired phone's Local VM desktop runs through this server's
-      // own proxy under its lease on this bot; hand-back closes it here, ahead
-      // of the lease re-check. The session's other viewers are left alone.
-      const closedViewers = auth.kind === "session" ? desktopViewer.closeForOwner(auth.session.id, bot.id) : 0;
-      return json(res, 200, { closed: closedViewers > 0 });
-    }
     return json(res, 404, { error: `no route: ${method} ${path}` });
   } catch (e) {
     const status = (e as any)?.status ?? 500;

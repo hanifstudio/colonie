@@ -3,7 +3,7 @@ import { isColonieAcpDriver } from "../../../shared/acp.ts";
 import { describeConnectorScopes } from "../../../shared/connector-scopes.ts";
 import { contextCandidate } from "../../acp/context.ts";
 import { buildBotOverview, connectedAppsFacts, type BotOverview } from "../../colonie/bots/bot-overview.ts";
-import { CREDENTIAL_PROMPT, PROFILE_PROMPT, ROUTINE_PROMPT, TEAM_MEMORY_PROMPT, buildSystemPrompt, composioSystemPrompt, computerPrompt, customMcpPrompt, resolveComputerPromptKind, teamAvailabilityPart, userProfileSystemPrompt } from "../../colonie/bots/system-prompt.ts";
+import { CREDENTIAL_PROMPT, PROFILE_PROMPT, ROUTINE_PROMPT, TEAM_MEMORY_PROMPT, buildSystemPrompt, composioSystemPrompt, customMcpPrompt, teamAvailabilityPart, userProfileSystemPrompt } from "../../colonie/bots/system-prompt.ts";
 import { BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
 import { peerRosterSystemPrompt, reachablePeers } from "../../colonie/peers/peer-roster.ts";
 import { skillsSystemPrompt } from "../../colonie/skills/skills.ts";
@@ -11,10 +11,9 @@ import { chiefOfStaffSystemPrompt } from "../../colonie/teams/chief-of-staff.ts"
 import { sectionContextSystemPrompt } from "../../colonie/teams/section-context.ts";
 import { memorySystemPrompt, supportsWorkspaceFiles } from "../../colonie/workspace/workspace.ts";
 import { type BotRecord } from "../../persistence/store.ts";
-import { builtInBrowserEnabled, instanceConfigs, localVmMode, skillAuthoringEnabled, skillsLibraryEnabled } from "../../config.ts";
+import { builtInBrowserEnabled, instanceConfigs, skillAuthoringEnabled, skillsLibraryEnabled } from "../../config.ts";
 import { flushProfileHistory, readHistory } from "../../profile-versions.ts";
 import { setupModeActive, setupSystemPrompt } from "../../setup-mode.ts";
-import { resolveSurface, surfacePrompt } from "../../surface.ts";
 import * as composio from "../../colonie/mcp/composio.ts";
 
 /** Everything this cluster reaches in the server; see the header. */
@@ -55,11 +54,6 @@ function previewSystemPrompt(bot: BotRecord) {
     .join(" ");
   const instance = registry.get(bot.modelSelection.instanceId);
   const caps = instance?.adapter.capabilities;
-  const previewComputer = bot.computer;
-  const computerPromptKind = resolveComputerPromptKind({
-    kind: previewComputer === "vm" ? "vm" : previewComputer === "local" ? "local" : null,
-    vmPrivate: localVmMode(cfg()) === "per-bot",
-  });
   const peers = reachablePeers(store.bots, bot);
   const coordination = bot.chiefOfStaff
     ? chiefOfStaffSystemPrompt(bot.id, store.bots, true)
@@ -74,10 +68,7 @@ function previewSystemPrompt(bot: BotRecord) {
   // policy, so "what the model sees" cannot drift from what a turn sends.
   // Spelling the browser rule out a second time here is what let Off keep a
   // browser in one place while the preview said it had none.
-  const previewPlan = resolveSurface({
-    destination: previewComputer,
-    browserOn: caps?.browserMcp === true && builtInBrowserEnabled(cfg()) && bot.browser !== false,
-  });
+  const browserOn = caps?.browserMcp === true && builtInBrowserEnabled(cfg()) && bot.browser !== false;
   const privateWorkspace = instance && supportsWorkspaceFiles(instance.driverKind);
   const built = buildSystemPrompt(persona, bot.soul ?? "", [
     { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(cfg().profile) },
@@ -89,16 +80,9 @@ function previewSystemPrompt(bot: BotRecord) {
         cwd: bot.cwd,
       }),
     },
-    { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
-    // Auto cannot know its place until dispatch, so the preview stays silent
-    // there and only carries the note; explicit settings preview the paragraph.
-    { id: "plan", label: "Surface", text: previewPlan.computer === undefined ? "" : surfacePrompt({
-      computer: previewPlan.computer && previewPlan.computer !== "off" && computerPromptKind ? previewPlan.computer : null,
-      browser: previewPlan.computer === undefined ? false : previewPlan.browser,
-    }, { note: previewPlan.note }) },
     { id: "composio", label: "Connected apps", text: caps?.composioMcp && bot.composio !== false && composio.configured(cfg()) ? composioSystemPrompt(bot.connectorTools) + describeConnectorScopes(bot.connectorScopes) : "" },
     { id: "mcp", label: "MCP servers", text: caps?.customMcp ? customMcpPrompt(Object.keys(engineMcpServers()(bot))) : "" },
-    { id: "browser", label: "Browser", text: previewPlan.browser ? BUILT_IN_BROWSER_SYSTEM_PROMPT : "" },
+    { id: "browser", label: "Browser", text: browserOn ? BUILT_IN_BROWSER_SYSTEM_PROMPT : "" },
     { id: "coordination", label: "Team", text: agentsMounted && coordination ? ` ${coordination}` : "" },
     { id: "credential", label: "Credentials", text: agentsMounted ? CREDENTIAL_PROMPT : "" },
     { id: "routine", label: "Routines", text: agentsMounted ? ROUTINE_PROMPT : "" },

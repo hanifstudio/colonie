@@ -1,7 +1,6 @@
-// The per-turn MCP and hook integrations mounted into one ACP session: the agent-tools proxy, the engine lifecycle hook channel, the built-in browser proxy, the connected-apps bridge and the computer-control endpoint. Each mints a turn-scoped internal capability and hands the adapter the command, env or loopback URL it should mount.
+// The per-turn MCP and hook integrations mounted into one ACP session: the agent-tools proxy, the engine lifecycle hook channel, the built-in browser proxy, and the connected-apps bridge. Each mints a turn-scoped internal capability and hands the adapter the command, env or loopback URL it should mount.
 import * as tts from "../tts/index.ts";
 import * as composio from "../colonie/mcp/composio.ts";
-import { type LocalVmTarget } from "../colonie/computer/container-computer.ts";
 import { type BotRecord } from "../persistence/store.ts";
 import { agentBrowserIntegration, browserEngineEncryptionKey, browserEngineStatus, describeBrowserEngine, prepareBrowserSessionState } from "../colonie/computer/browser-engine.ts";
 import { browserEngineAttachCdpUrl, browserProfilePartitionTarget, builtInBrowserEnabled } from "../config.ts";
@@ -18,7 +17,7 @@ export interface TurnIntegrationsDeps {
 
 export function createTurnIntegrations(deps: TurnIntegrationsDeps) {
   const {
-    PORT, botForThread, cfg, lendingEnabled, mintInternalCapability, store,
+    PORT, botForThread, cfg, mintInternalCapability, store,
     activeInternalGenerationByThread, currentBrowserSession, engineUnavailableLogged,
     setEngineUnavailableLogged
   } = deps;
@@ -61,9 +60,6 @@ function agentsIntegration(
       COLONIE_OWN_THREAD_CREATION: ownThreadCreation ? "1" : "0",
       COLONIE_SKILL_AUTHORING_ENABLED: skillAuthoring ? "1" : "0",
       COLONIE_MEMORY_ENABLED: store().bot(botId)?.memoryEnabled === false ? "0" : "1",
-      // The shared-computer tools are advertised only while the workspace
-      // gate is on; the routes behind them refuse regardless.
-      COLONIE_SHARED_COMPUTERS_ENABLED: lendingEnabled() ? "1" : "0",
       // Same capability rule for voice: the tool is offered only when this
       // bot can actually speak, and the route re-checks on every call.
       COLONIE_VOICE_NOTES: (() => {
@@ -154,38 +150,10 @@ function connectedAppsIntegration(bot: Pick<BotRecord, "id" | "connectorTools">,
   });
 }
 
-/** The loopback endpoint a bot's computer proxy polls before acting. The
- * bridge is revoked when the turn ends. This computer runs as long as the
- * app does, so its bridge keeps the thread's bearer like every other
- * integration; any other machine (a Local VM) gets a new bearer each turn. */
-function controlIntegration(
-  botId: string,
-  threadId: string,
-  generation: string,
-  machine: "this computer" | { localVmTarget?: LocalVmTarget } = {},
-) {
-  const { localVmTarget } = machine === "this computer" ? {} : machine;
-  return {
-    url: `http://127.0.0.1:${PORT}/api/internal/computer-control?botId=${encodeURIComponent(botId)}`,
-    token: mintInternalCapability({
-      botId,
-      threadId,
-      generation,
-      depth: 0,
-      kind: "computer",
-      ...(localVmTarget ? { localVmTarget } : {}),
-      skillAuthoring: false,
-      createdBots: 0,
-      openedThreads: 0,
-    }, { perTurn: machine !== "this computer" }),
-  };
-}
-
   return {
     agentsIntegration,
     browserIntegration,
     connectedAppsIntegration,
-    controlIntegration,
     hooksEnabled,
     hooksIntegration,
   };

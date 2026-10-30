@@ -15,7 +15,7 @@ import {
   GaugeIcon,
   CheckListIcon,
   MessageSquareReplyIcon,
-  MonitorIcon,
+  GlobeIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
@@ -31,7 +31,6 @@ import { WorkingDots, WorkingTimer } from "@/components/WorkingIndicator";
 import { MessageActions, messageActionClass } from "@/components/MessageActions";
 import { useSpeech } from "@/lib/tts/useSpeech";
 import { localSystemVoiceActive } from "@/lib/local-voice";
-import { computerStartLine } from "@/lib/computer-start";
 import { useCaptionChrome, useDesktopCapabilities } from "@/components/DesktopCapabilities";
 import { contextChip, contextDetail, contextShare, costCaption, formatUsd, hasFiniteCost, lastTurnDetail, usageChip, usageDetail } from "@/lib/usage";
 import {
@@ -52,8 +51,6 @@ import {
 import { EngineSetup } from "./EngineSetup";
 import { CHATGPT_USAGE_URL } from "./ChatGptPlanStatus";
 import { openExternalLink } from "@/lib/app-links";
-import { MacCuaRecoveryActions } from "./MacCuaRecoveryActions";
-import { macCuaPermissionMessage, missingMacCuaPermissions } from "@/lib/mac-cua-permissions";
 import { failedTurnCause, signedOutEngine } from "@/lib/failed-turn";
 import { openPlaceAction, placeRowViewFor, usePlaceSeat, worksOnSimpleLabel } from "@/lib/place-view";
 import type { PlaceRow } from "../../shared/place-view";
@@ -250,16 +247,7 @@ export function ErrorRow({
   action?: { label: string; onClick: () => void } | null;
   setupInstance?: InstanceInfo;
 }) {
-  const { capabilities, ready } = useDesktopCapabilities();
-  const failedPermissions = missingMacCuaPermissions(message);
-  const currentPermissions = missingMacCuaPermissions(capabilities.localComputer.message);
-  const macCuaReason = ready && capabilities.host.platform === "darwin" &&
-    capabilities.localComputer.available === false && capabilities.localComputer.reasonCode !== "remote-server" &&
-    message.startsWith("CUA Driver is not ready for this computer — ") &&
-    failedPermissions.length > 0 && failedPermissions.join(",") === currentPermissions.join(",")
-    ? macCuaPermissionMessage(currentPermissions)
-    : null;
-  const headline = macCuaReason ?? plainHeadline ?? message;
+  const headline = plainHeadline ?? message;
   return (
     <div className="flex justify-start">
       <div className="w-fit max-w-[min(42rem,78%)] rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-[13.5px] text-danger">
@@ -267,9 +255,8 @@ export function ErrorRow({
           <HIcon icon={Alert02Icon} size={15} className="mt-0.5 shrink-0" />
           <span className="min-w-0 break-words">{headline}</span>
         </div>
-        {headline !== message && <details className="mt-2 text-[12px] text-ink-secondary"><summary className="cursor-pointer">{macCuaReason ? t("computer.mac.permission.driverDetail") : t("chat.error.details")}</summary><p className="mt-1 break-words">{message}</p></details>}
-        {macCuaReason &&
-          <MacCuaRecoveryActions reason={message} />}
+        {headline !== message && <details className="mt-2 text-[12px] text-ink-secondary"><summary className="cursor-pointer">{t("chat.error.details")}</summary><p className="mt-1 break-words">{message}</p></details>}
+
         {message.includes("subscription_sharing_usage_limit_exceeded") ? (
           <a href={CHATGPT_USAGE_URL} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex rounded-lg bg-ink px-3 py-1.5 text-[12.5px] font-medium text-app" onClick={(event) => {
             if (window.colonie?.openExternal) { event.preventDefault(); void openExternalLink(CHATGPT_USAGE_URL); }
@@ -1219,7 +1206,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
   const composerDock = useComposerDockPad(composerDockRef);
   const advanced = useAdvancedMode();
 
-  const computerStarting = computerStartLine(state.computerStarts[bot.id]);
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
   const [findOpen, setFindOpen] = useState(false);
   const [acpContextOpen, setAcpContextOpen] = useState(false);
@@ -1542,14 +1528,14 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, state)} />
           <button
             data-tour="computer"
-            onClick={() => dispatch({ type: "toggleComputer" })}
+            onClick={() => dispatch({ type: "toggleBrowser" })}
             className={cn(
               "rounded-md p-1.5 hover:bg-raised",
-              state.computerOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
+              state.browserOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
             )}
-            title={t("chat.computer")}
+            title="Browser" aria-label="Open browser"
           >
-            <HIcon icon={MonitorIcon} size={18} />
+            <HIcon icon={GlobeIcon} size={18} />
           </button>
           {/* Keep threads reachable even when the sidebar is collapsed.
               Less frequent actions share one menu. */}
@@ -1664,14 +1650,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               >
                 {t("chat.showLater", { count: laterCount })}
               </button>
-            </div>
-          )}
-          {computerStarting && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 rounded-full border border-hairline/40 bg-panel px-3 py-1.5 text-[13px] text-ink-secondary">
-                <WorkingDots size={3.5} />
-                {computerStarting}
-              </div>
             </div>
           )}
           <TurnPresence

@@ -18,7 +18,6 @@ import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { activeLocale, t } from "@/lib/i18n";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
-import { useAdvancedMode } from "@/lib/interface-mode";
 import {
   draftRevision,
   appendDraftAttachments,
@@ -41,8 +40,6 @@ import { ComposerMenuRow } from "./ComposerMenuRow";
 import { MentionTextarea } from "./MentionTextarea";
 import { ComposerAttachments, pathForFile } from "./ComposerAttachments";
 import { splitTranscriptCitations, type CitationAttachment } from "@/lib/citations";
-import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
-import { PlaceChip } from "./PlaceChip";
 import { FullAccessWarning } from "./FullAccessWarning";
 import { ApprovalModeSelector } from "./ApprovalModeSelector";
 import { CommandAllowlistDialog } from "./CommandAllowlistDialog";
@@ -118,7 +115,6 @@ export function Composer({
   const { capabilities } = useDesktopCapabilities();
   // Simple leaves where a conversation works to its bot's Works on (Auto by
   // default); pinning a place per conversation is an Advanced control.
-  const advanced = useAdvancedMode();
   const remoteClient = window.colonie?.remoteClient?.active === true;
   const busy = Boolean(bot?.busy);
   // an engine with a live session takes a message INTO the running turn;
@@ -128,7 +124,6 @@ export function Composer({
   // a pending approval blocks the prompt until it is answered
   const threadId = bot?.threadId ?? "";
   // The conversation's own place, when pinned; the chip reads it next to the bot default.
-  const composerTask = profile?.tasks?.find((task) => task.threadId === threadId);
   // the VISIBLE branch only — an approval left on a branch you edited away
   // from must not keep blocking the composer
   const approvals = pendingApprovals(bot ? visibleMessages(bot) : []);
@@ -479,10 +474,7 @@ export function Composer({
       return;
     }
     // Safe Auto still needs its dedicated warning when it can drive the host.
-    if (mode === "auto" && modeBot.computer === "local") {
-      setApprovalWarning({ mode: "auto", botId: modeBot.id, threadId: modeBot.threadId });
-      return;
-    }
+
     dispatch({ type: "updateTask", botId: modeBot.id, threadId: modeBot.threadId, patch: { approvalMode: mode } });
   };
 
@@ -896,15 +888,6 @@ export function Composer({
                   onManageCommandAllowlist={ownerOrAdmin === true ? () => setCommandAllowlistTarget({ botId: modeBot.id, botName: modeBot.name, threadId: modeBot.threadId }) : undefined}
                 />
               )}
-              {modeBot && !remoteClient && advanced && (
-                <PlaceChip
-                  bot={modeBot}
-                  task={composerTask}
-                  live={Boolean(modeBot.busy)}
-                  disabled={Boolean(modeBot.busy)}
-                  onPin={(surface) => dispatch({ type: "updateTask", botId: modeBot.id, threadId: modeBot.threadId, patch: { surface } })}
-                />
-              )}
             </div>
           )}
           <MentionTextarea
@@ -1075,21 +1058,7 @@ export function Composer({
             patch: { approvalMode: "full", confirmFullAccess: true } });
         }}
       />
-      <LocalComputerAutoWarning
-        open={approvalWarning?.mode === "auto"}
-        onCancel={() => setApprovalWarning(null)}
-        onConfirm={() => {
-          if (approvalWarning?.mode === "auto") {
-            dispatch({
-              type: "updateTask",
-              botId: approvalWarning.botId,
-              threadId: approvalWarning.threadId,
-              patch: { approvalMode: "auto", acknowledgeLocalAuto: true },
-            });
-          }
-          setApprovalWarning(null);
-        }}
-      />
+
       </div>
     </div>
   );

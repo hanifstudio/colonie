@@ -14,7 +14,7 @@ import { normalizeCronSchedule } from "../../shared/routine-schedule.ts";
 
 import { peerName } from "../colonie/peers/peer-roster.ts";
 import { renderPeerDeliveryReceipts, type PeerDeliveryOutcome, type PeerDeliveryReceipt } from "../colonie/peers/peer-delivery.ts";
-import { catalogProfileFromEnv, SHARED_COMPUTER_TOOL_NAMES, WEEKDAYS } from "./agents-catalog.ts";
+import { catalogProfileFromEnv, WEEKDAYS } from "./agents-catalog.ts";
 import { harnessClientFromEnv } from "./agents-client.ts";
 import type { HarnessClient, Json } from "./agents-client.ts";
 import { boundedAgentResult } from "./agents-result.ts";
@@ -439,22 +439,6 @@ export async function callTool(name: string, args: Json, context: ToolCallContex
       text: `Rendered the native options card in this Watcher thread (message ${String(result.messageId ?? "created")}). Wait for the person's click or custom response; the card itself authorizes no external action.`,
     };
   }
-  // Second lock. With sharing off the tool is not in the catalog, so a front
-  // end already refuses the call as an unknown tool — the same answer a build
-  // without the feature gives. This keeps the handler itself refusing if that
-  // list is ever assembled differently.
-  if (SHARED_COMPUTER_TOOL_NAMES.has(name) && !context.sharedComputers) {
-    return { text: "Computer sharing is turned off in this workspace. There are no shared computers to use.", isError: true };
-  }
-  if (name === "list_shared_computers") {
-    return { text: JSON.stringify(await api("/api/internal/shared-computers")) };
-  }
-  if (name === "shared_computer") {
-    const response = await api("/api/internal/shared-computers", { method: "POST", body: JSON.stringify(args) });
-    const result = response.result as Json;
-    if (Array.isArray(result?.content)) return { text: "", passthrough: result };
-    return { text: JSON.stringify(result) };
-  }
   if (name === "tool_result_read") {
     if (typeof args.id !== "string" || !/^r-[0-9a-f-]{36}$/.test(args.id) ||
       (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || Number(args.offset) < 0))) {
@@ -698,15 +682,6 @@ export async function callTool(name: string, args: Json, context: ToolCallContex
       };
     }
     return { text: `Task ${taskId} ended without a reply — ${String(r.status ?? "unknown")}${r.result ? `: ${String(r.result)}` : ""}.`, isError: true };
-  }
-  if (name === "select_computer") {
-    if (args.surface !== undefined && (typeof args.surface !== "string" || !["auto", "cloud", "vm", "local", "browser"].includes(args.surface))) {
-      return { text: "Choose auto, cloud, vm, local or browser; omit surface to inspect connected choices.", isError: true };
-    }
-    const result = await api("/api/internal/computer/select", args.surface === undefined ? undefined : {
-      method: "POST", body: JSON.stringify({ surface: args.surface }),
-    });
-    return { text: JSON.stringify(result) };
   }
   if (name === "list_threads") {
     const query = new URLSearchParams({ fromBotId: BOT_ID, fromThreadId: THREAD_ID });

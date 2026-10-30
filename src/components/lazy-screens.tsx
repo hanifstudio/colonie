@@ -91,21 +91,19 @@ function ScreenUnavailable() {
 
 export const ActivityPanel = lazyScreen("ActivityPanel", async () => (await import("./ActivityPanel")).ActivityPanel);
 export const BotSettingsDialog = lazyScreen("BotSettingsDialog", async () => (await import("./BotSettingsDialog")).BotSettingsDialog);
-export const ComputerPanel = lazyScreen("ComputerPanel", async () => (await import("./ComputerPanel")).ComputerPanel);
+export const BrowserSidePanel = lazyScreen("BrowserSidePanel", async () => (await import("./BrowserSidePanel")).BrowserSidePanel);
 export const FilePreviewPanel = lazyScreen("FilePreviewPanel", async () => (await import("./FilePreviewPanel")).FilePreviewPanel);
 export const InspectorPanel = lazyScreen("InspectorPanel", async () => (await import("./InspectorPanel")).InspectorPanel);
 export const KeyboardShortcutsModal = lazyScreen("KeyboardShortcutsModal", async () => (await import("./KeyboardShortcutsModal")).KeyboardShortcutsModal);
-export const LocalVmWorkspace = lazyScreen("LocalVmWorkspace", async () => (await import("./LocalVmWorkspace")).LocalVmWorkspace);
 export const NewBotDialog = lazyScreen("NewBotDialog", async () => (await import("./NewBotDialog")).NewBotDialog);
 export const RemoteAgentSettingsPanel = lazyScreen("RemoteAgentSettingsPanel", async () => (await import("./RemoteAgentSettingsPanel")).RemoteAgentSettingsPanel);
-export const RemoteDesktopPanel = lazyScreen("RemoteDesktopPanel", async () => (await import("./remote-desktop-panel")).RemoteDesktopPanel);
 export const RoutinesPage = lazyScreen("RoutinesPage", async () => (await import("./RoutinesPage")).RoutinesPage);
 export const SettingsModal = lazyScreen("SettingsModal", async () => (await import("./SettingsModal")).SettingsModal);
 export const TriggersPanel = lazyScreen("TriggersPanel", async () => (await import("./TriggersPanel")).TriggersPanel);
 
 const SCREENS = [
-  ActivityPanel, BotSettingsDialog, ComputerPanel, FilePreviewPanel, InspectorPanel, KeyboardShortcutsModal, LocalVmWorkspace, NewBotDialog,
-  RemoteAgentSettingsPanel, RemoteDesktopPanel, RoutinesPage, SettingsModal, TriggersPanel,
+  ActivityPanel, BotSettingsDialog, BrowserSidePanel, FilePreviewPanel, InspectorPanel, KeyboardShortcutsModal, NewBotDialog,
+  RemoteAgentSettingsPanel, RoutinesPage, SettingsModal, TriggersPanel,
 ];
 
 // A window opened onto Settings (?desktop-settings=…: the desktop app's

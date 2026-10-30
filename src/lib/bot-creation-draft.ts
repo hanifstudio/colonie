@@ -27,6 +27,7 @@ export class BotCreationDraft {
 
   constructor(defaults: NewBotDefaults, readonly changed: () => void, private network: typeof api = api) {
     this.template = structuredClone(defaults);
+    delete this.template.profile.computer;
     this.routines = defaults.routines.map(routine => this.routine({ ...routine, botId: this.id }));
   }
 

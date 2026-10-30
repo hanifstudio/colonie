@@ -9,8 +9,8 @@ const bot = (id: string) => ({ id, name: id, title: "", description: "", threadI
 
 it("opens the named bot's computer and keeps the group open", () => {
   const before: AppState = { ...initialState, bots: [bot("b1"), bot("b2")], selectedId: "b1", selectedConversationId: "group-1" };
-  const state = reducer(before, { type: "toggleComputer", open: true, botId: "b2" });
-  expect(state.computerOpen).toBe(true);
+  const state = reducer(before, { type: "toggleBrowser", open: true, botId: "b2" });
+  expect(state.browserOpen).toBe(true);
   expect(state.selectedId).toBe("b2");
   expect(state.selectedConversationId).toBe("group-1");
 });

@@ -5,12 +5,6 @@
 // Ask-before-contacting ~757-776, Approval level ~990-1010, Review routine
 // approvals ~1013-1050).
 //
-// The Auto branch of LocalComputerAutoWarning (choosing Auto while
-// bot.computer === "local") and the FullAccessWarning live here with their
-// triggers; the Works-on-picker branch (turning computer to "local" while
-// already on Auto) stays with AccessSection, next to that picker. The
-// warnings remember which bot they were opened for, so a bot switch while
-// one is up never applies the choice to the newly selected bot.
 import { useEffect, useState } from "react";
 import { CrownIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
@@ -24,7 +18,6 @@ import { DEFAULT_OUTBOUND_POLICY, type OutboundPolicy } from "../../../shared/ou
 import { ApprovalModeSelector } from "../ApprovalModeSelector";
 import { CommandAllowlistDialog } from "../CommandAllowlistDialog";
 import { FullAccessWarning } from "../FullAccessWarning";
-import { LocalComputerAutoWarning } from "../LocalComputerAutoWarning";
 import { Switch } from "../SettingsPrimitives";
 import { ProposalStatus } from "./ProposalStatus";
 import type { useBotSettingsDerived } from "./useBotSettingsDerived";
@@ -41,7 +34,6 @@ export function PermissionsSection({
   const { dispatch } = useStore();
   const ownerOrAdmin = useOwnerOrAdmin();
   const { draft } = useBotEditor();
-  const [localAutoWarning, setLocalAutoWarning] = useState<string | null>(null);
   const [fullAccessTarget, setFullAccessTarget] = useState<string | null>(null);
   const [allThreads, setAllThreads] = useState(true);
   const [commandAllowlistTarget, setCommandAllowlistTarget] = useState<{ botId: string; botName: string } | null>(null);
@@ -50,10 +42,6 @@ export function PermissionsSection({
     if (mode === "full") {
       setAllThreads(true);
       setFullAccessTarget(bot.id);
-      return;
-    }
-    if (mode === "auto" && bot.computer === "local") {
-      setLocalAutoWarning(bot.id);
       return;
     }
     patch({ approvalMode: mode });
@@ -162,16 +150,6 @@ export function PermissionsSection({
         onClose={() => setCommandAllowlistTarget(null)}
       />}
       {!draft && <OutboundControl key={bot.id} bot={bot} onChange={(outbound) => patch({ outbound })} />}
-      <LocalComputerAutoWarning
-        open={localAutoWarning !== null}
-        onCancel={() => setLocalAutoWarning(null)}
-        onConfirm={() => {
-          const target = localAutoWarning;
-          setLocalAutoWarning(null);
-          if (!target) return;
-          dispatch({ type: "updateBot", botId: target, patch: { approvalMode: "auto", acknowledgeLocalAuto: true } });
-        }}
-      />
       <FullAccessWarning
         open={fullAccessTarget !== null}
         allThreads={allThreads}

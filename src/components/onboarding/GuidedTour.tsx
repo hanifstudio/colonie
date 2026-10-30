@@ -72,10 +72,10 @@ export function GuidedTour() {
     (effect: TourEffect | undefined) => {
       switch (effect) {
         case "openComputer":
-          if (!state.computerOpen) dispatch({ type: "toggleComputer", open: true });
+          if (!state.browserOpen) dispatch({ type: "toggleBrowser", open: true });
           return;
         case "closeComputer":
-          dispatch({ type: "toggleComputer", open: false });
+          dispatch({ type: "toggleBrowser", open: false });
           return;
         case "openTools": {
           // the menu is a toggle: only press it when it is closed
@@ -101,7 +101,7 @@ export function GuidedTour() {
           return;
       }
     },
-    [dispatch, state.computerOpen],
+    [dispatch, state.browserOpen],
   );
 
   const save = useCallback(
@@ -141,12 +141,12 @@ export function GuidedTour() {
     closed.current = true;
     setDismissed(true);
     // leave nothing open behind: the panel, the menu, the Automations page
-    if (state.computerOpen) run("closeComputer");
+    if (state.browserOpen) run("closeComputer");
     if (state.pluginsOpen) run("closeApps");
     run("backToChat");
     void save(true).catch(() => {});
     dispatch({ type: "toggleTour", open: false });
-  }, [state.computerOpen, state.pluginsOpen, run, save, dispatch]);
+  }, [state.browserOpen, state.pluginsOpen, run, save, dispatch]);
 
   const active = !dismissed && Boolean(record?.completedAt) && !state.welcomeOpen && step !== null;
 

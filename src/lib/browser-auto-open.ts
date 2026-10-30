@@ -5,11 +5,11 @@
 export type BrowserUse = { botId: string; threadId: string; turn: string; conversationId?: string };
 
 export function shouldOpenBrowserPanel(
-  view: { selectedId?: string | null; selectedConversationId?: string | null; computerOpen: boolean },
+  view: { selectedId?: string | null; selectedConversationId?: string | null; browserOpen: boolean },
   use: BrowserUse,
   lastTurn: string | undefined,
 ): boolean {
   const watching = use.conversationId ? view.selectedConversationId === use.conversationId
     : !view.selectedConversationId && view.selectedId === use.botId;
-  return watching && !view.computerOpen && lastTurn !== use.turn;
+  return watching && !view.browserOpen && lastTurn !== use.turn;
 }

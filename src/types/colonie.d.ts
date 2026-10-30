@@ -47,13 +47,6 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
     };
   };
 
-  interface DesktopWorkspaceBounds {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }
-
   interface BrowserSurfaceState {
     botId: string;
     open: boolean;
@@ -67,14 +60,6 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
     profile?: string | null;
     mode?: "compact" | "expanded" | null;
     code?: "renderer-gone" | "profile-deleted" | "evicted";
-  }
-
-  interface DesktopWorkspaceState {
-    contextId: string;
-    open: boolean;
-    status: "opening" | "ready" | "error" | "closed";
-    interactive: boolean;
-    code?: "load-failed" | "renderer-gone";
   }
 
   /** Whether the desktop is holding this computer awake for routines. */
@@ -172,20 +157,9 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
             modelSelection?: import("../state/store.tsx").ModelSelection; updateBotDefault?: boolean },
         ): Promise<import("../state/store.tsx").Bot>;
       };
-      localControl: {
-        status(): Promise<LinuxLocalControlStatus>;
-        enable(): Promise<LinuxLocalControlStatus>;
-        disable(): Promise<LinuxLocalControlStatus>;
-        retry(): Promise<LinuxLocalControlStatus>;
-      };
       /** Arms one user-initiated display capture request from this frame. */
       beginScreenPreviewIntent(): boolean;
       screenFrame(): Promise<string | null>;
-      androidDevice?: {
-        status(): Promise<AndroidDeviceStatus>;
-        frame(serial: string): Promise<{ serial: string; dataUrl: string }>;
-        input(serial: string, payload: AndroidDeviceInput): Promise<void>;
-      };
       /** Start native dictation. Call mode supplies endpointMs so silence
        * finalizes a turn; composer dictation omits it and remains manual. */
       speechStart(options?: { endpointMs?: number }): Promise<void>;
@@ -243,32 +217,6 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;
       /** Opens a live desktop as a sandboxed window owned by Colonie. */
-      desktopViewer?: {
-        open(url: string, title: string, contextId: string): Promise<boolean>;
-        /** Closes the live-desktop window, but only when it belongs to this bot. */
-        close(contextId: string): Promise<boolean>;
-        /** The current viewer state, for a panel to initialize from on mount. */
-        currentState(): Promise<{ open: boolean; contextId: string | null }>;
-        onState(cb: (state: { open: boolean; contextId: string | null }) => void): () => void;
-      };
-      /** Two Local VM viewers embedded in one app window. URLs are accepted
-       * only by main-process validation and never return over this bridge. */
-      desktopWorkspace?: {
-        open(input: {
-          contextId: string;
-          url: string;
-          title: string;
-          bounds: DesktopWorkspaceBounds;
-        }): Promise<DesktopWorkspaceState>;
-        layout(items: Array<{
-          contextId: string;
-          bounds: DesktopWorkspaceBounds;
-          visible: boolean;
-        }>): Promise<boolean>;
-        setInteractive(contextId: string | null): Promise<boolean>;
-        close(contextId?: string): Promise<boolean>;
-        onState(cb: (state: DesktopWorkspaceState) => void): () => void;
-      };
       /** Native folder picker; resolves null when the user cancels. */
       pickFolder?(current?: string): Promise<string | null>;
       /** Writes the redacted diagnostics report to a user-chosen file;
@@ -299,19 +247,6 @@ type LocalWorkspaceState = { activeId: string; workspaces: LocalWorkspace[]; nam
       };
     };
   }
-}
-
-export interface LinuxLocalControlStatus {
-  enabled: boolean;
-  status: "disabled" | "checking" | "starting" | "ready" | "error" | "stopped" | "unavailable";
-  reasonCode?: string;
-  message?: string;
-  driverPath?: string;
-  driverVersion?: string;
-  driverSource?: "bundled" | "environment" | "user-local" | "path";
-  session?: "x11" | "wayland" | "headless" | "unknown";
-  compositor?: "gnome-mutter";
-  warnings?: Array<{ label: string; status: string; message: string; detail?: string }>;
 }
 
 export interface UpdaterState {
@@ -350,34 +285,3 @@ export interface CompanionAccountState {
   endpoint?: string;
   message?: string;
 }
-
-export type AndroidUsbDevice = {
-  serial: string;
-  state: string;
-  connection: "usb";
-  model: string;
-  product?: string;
-  transportId?: string;
-};
-
-export type AndroidDeviceStatus = {
-  available: boolean;
-  reasonCode?: "adb-unavailable" | "adb-failed";
-  message?: string;
-  devices: AndroidUsbDevice[];
-};
-
-export type AndroidDeviceInput =
-  | { type: "tap"; x: number; y: number; width: number; height: number }
-  | {
-      type: "swipe";
-      fromX: number;
-      fromY: number;
-      toX: number;
-      toY: number;
-      durationMs: number;
-      width: number;
-      height: number;
-    }
-  | { type: "key"; key: string; width?: number; height?: number }
-  | { type: "text"; text: string; width?: number; height?: number };

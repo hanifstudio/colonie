@@ -782,7 +782,7 @@ export function EventEditor({
               <div className="min-w-0 flex-1">
                 <div className="rounded-xl border border-hairline/50 bg-inset p-3">
                   <div className="text-[12.5px] font-medium text-ink">Bot’s current setup</div>
-                  <div className="mt-1 text-[11px] text-ink-secondary">Keeps its model and configured computer.</div>
+                  <div className="mt-1 text-[11px] text-ink-secondary">Uses its model and browser.</div>
                 </div>
               </div>
             </div>

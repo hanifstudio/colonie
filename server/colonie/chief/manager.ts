@@ -78,9 +78,6 @@ export interface ChiefDeps {
   /** Ask the person for a secret: a button under the reply opens a form;
    * the value never comes back here (colonie/secrets). */
   requestSecret?(botId: string, threadId: string, input: { name: string; description: string }): unknown;
-  /** The bot asks for its computer: start it and resume the request there,
-   * or, with no container app installed, offer the person the free app. */
-  useComputer?(botId: string, threadId: string, reason: string | undefined): unknown;
   /** A card asking the person to sign in or pass a check in the bot's browser. */
   requestSignIn?(botId: string, threadId: string, input: { site: string; reason?: string }): unknown;
   /** A group made for the person this conversation is with (colonie/groups). */
@@ -130,13 +127,14 @@ What a bot can do
 - Routines (scheduled work): list_routines, schedule_routine, change_routine. A run reports in the conversation it was set up from (a group when it came from a group), and the person is notified when it finishes. People also find routines on the Routines page (Advanced mode, foot of the sidebar).
 - Guides (skills): save_my_skill proposes one and the person confirms it on a card; read_skill reads one. The person can type "/" in the message box to pick one of the bot's guides.
 - Memory: Colonie keeps relevant facts from conversations by itself and supplies them when they matter. A bot cannot save a memory directly.
+- Browser: each bot has its own saved browser session. The person opens Browser beside the conversation, can take over for sign-in, then presses Done on the sign-in card.
 - Connected apps: the person adds MCP servers or Composio apps under Apps (puzzle icon by their profile), then chooses which a bot may use in that bot's settings, Access, "Connected apps and tools". When a task needs an app that is not connected, say where to connect it.
 - Secrets: when a task needs a key or password, request_secret puts a button under your reply; the person saves it privately and you get it in a file on their next message, never in the chat. People also manage them in Settings, AI, Secrets.
 - Approvals: risky actions wait for the person's Allow, depending on the bot's approval level (bot settings, Permissions).
 - The Chief of Staff (one per workspace) can also create, change and ask other bots, make a group for the person (create_group), and set a bot to Always ask or Ask when risky (set_approval_level). Full access is only ever the person's to turn on.
 
 What a bot cannot do in Colonie
-- Use a browser window or a desktop of its own beyond the engine's tools.
+- Control a desktop, install a desktop environment, or operate the person's computer. Each bot can use its own Colonie browser when enabled.
 - Edit or branch earlier messages; a new conversation starts fresh.
 - Message other bots, unless it is the Chief.
 
@@ -150,7 +148,6 @@ const selfSkillTools: ToolDef[] = [
   { name: "read_skill", description: "Read the exact text of one of this bot's enabled guides. Only guides selected for this request can be read.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false } },
   { name: "list_my_skills", description: "List this bot's enabled guides by name and description.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "request_secret", description: "Ask the person for a key, password or token a task needs (an API key, an app password). A button under your reply lets them save it privately; you never see the value. Once saved, it is in the secrets file named in your context on their next message: load it in your scripts and never print it. Never ask for a secret in the chat itself. Prefer a connected app (Apps) when one covers the service. After calling, say in one line what it is for and end your turn.", inputSchema: { type: "object", properties: { name: { type: "string", description: "An environment-variable name, e.g. GMAIL_APP_PASSWORD." }, description: { type: "string", description: "What it is and where the person finds it, in a sentence." }, requestId: { type: "string" } }, required: ["name", "description", "requestId"], additionalProperties: false } },
-  { name: "use_computer", description: "Ask for your own computer (a Linux desktop with a real browser) when a task needs one: a website that refuses or breaks your simple browser, or work that needs a real screen. Do not call it for anything your other tools can do. If the result is pending, end your turn at once: Colonie starts your computer and resumes the person's request on it. If the person has not installed the free app it needs, they are offered it; then carry on without it.", inputSchema: { type: "object", properties: { reason: { type: "string", description: "One short sentence: what needs the computer." }, requestId: { type: "string" } }, required: ["requestId"], additionalProperties: false } },
   { name: "request_sign_in", description: "Ask the person to do a step only they can do in your browser: sign in where you have no login, pass a CAPTCHA or \"are you human\" check, use a passkey, enter a code you cannot read, or give consent only they can give (a box agreeing to terms or a declaration, or authorizing a submission in their name; never tick those for them). They get a card in this chat, take over your browser, do just that step, and press Done. Never try to solve a CAPTCHA yourself and never ask for a password or code in chat. After calling, say in one line what you need and end your turn; their Done or Cancel arrives as their next message, then check the page and continue.", inputSchema: { type: "object", properties: { site: { type: "string", description: "The page or domain, e.g. redbus.id." }, reason: { type: "string", description: "One short sentence on what it is for." }, requestId: { type: "string" } }, required: ["site", "requestId"], additionalProperties: false } },
   { name: "save_my_skill", description: "Save a way of working as one of your guides, when the person asks (\"save what we just did as a skill\") or agrees to your offer after a task went well. A guide says when to use it, what it needs, the steps, how to check the result and what to hand back. The person confirms it on a card in the chat; until then nothing is saved. After calling, tell the person the card is there and end your turn. To change a guide you saved before, save it again under the same name.", inputSchema: { type: "object", properties: { name: { type: "string", description: "lowercase-with-hyphens, e.g. weekly-launch-report" }, description: { type: "string", description: "When to use it, one or two sentences." }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
 ];
@@ -515,12 +512,6 @@ export class ColonieChief {
         if (!requestSecret) throw new ToolError("Secrets are not available here.");
         const input = { name: this.requiredString(args, "name"), description: this.requiredString(args, "description") };
         return this.mutate(lease, name, args, () => safeText(requestSecret(lease.botId, lease.threadId, input)));
-      }
-      case "use_computer": {
-        const useComputer = this.deps.useComputer;
-        if (!useComputer) throw new ToolError("A computer is not available here.");
-        const reason = typeof args.reason === "string" && args.reason.trim() ? args.reason.trim() : undefined;
-        return this.mutate(lease, name, args, async () => safeText(await useComputer(lease.botId, lease.threadId, reason)));
       }
       case "request_sign_in": {
         const requestSignIn = this.deps.requestSignIn;

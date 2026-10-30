@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { shouldOpenBrowserPanel } from "./browser-auto-open";
 
 const use = { botId: "b1", threadId: "t1", turn: "g1" };
-const closed = { selectedId: "b1", selectedConversationId: null, computerOpen: false };
+const closed = { selectedId: "b1", selectedConversationId: null, browserOpen: false };
 
 test("opens in the bot's own chat, once per turn", () => {
   expect(shouldOpenBrowserPanel(closed, use, undefined)).toBe(true);
@@ -22,5 +22,5 @@ test("opens in the group the bot works for, and nowhere else", () => {
 });
 
 test("never replaces a panel already open", () => {
-  expect(shouldOpenBrowserPanel({ ...closed, computerOpen: true }, use, undefined)).toBe(false);
+  expect(shouldOpenBrowserPanel({ ...closed, browserOpen: true }, use, undefined)).toBe(false);
 });

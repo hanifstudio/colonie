@@ -1,5 +1,5 @@
 // Starting one bot turn, end to end: the admission decision, the transcript
-// append, the provider run and the computer the turn gets to use. It was the
+// append, the provider run and the browser tools the turn gets to use. It was the
 // largest thing left inside `index.ts` and it touches nearly all of the live
 // state there, so the wiring at the bottom of `index.ts` hands it that state
 // explicitly instead of it reaching out of the file.
@@ -22,7 +22,7 @@ import { nativeHistoryConflict } from "../../acp/native-history.ts";
 import { inputReceipts } from "../../acp/receipts.ts";
 import { recoveryCapabilityError } from "../../automatic-recovery.ts";
 import { checkSoulDrift } from "../../colonie/bots/bot-folder.ts";
-import { buildSystemPrompt, composioSystemPrompt, computerPrompt, CREDENTIAL_PROMPT, customMcpPrompt, LEARN_PROMPT, mentionPrompt, PROFILE_PROMPT, resolveComputerPromptKind, ROUTINE_EXECUTION_PROMPT, ROUTINE_PROMPT, TEAM_MEMORY_PROMPT, teamAvailabilityPart, THREADS_PROMPT, userProfileSystemPrompt, WEBHOOK_PROMPT } from "../../colonie/bots/system-prompt.ts";
+import { buildSystemPrompt, composioSystemPrompt, CREDENTIAL_PROMPT, customMcpPrompt, LEARN_PROMPT, mentionPrompt, PROFILE_PROMPT, ROUTINE_EXECUTION_PROMPT, ROUTINE_PROMPT, TEAM_MEMORY_PROMPT, teamAvailabilityPart, THREADS_PROMPT, userProfileSystemPrompt, WEBHOOK_PROMPT } from "../../colonie/bots/system-prompt.ts";
 import { DEFAULT_REBUILD_BYTES, selectReplay } from "../../colonie/chat/context-rebuild.ts";
 import { handedStateUsable, renderUnseen, sessionStart, unseenMessages, withUnseenMessages } from "../../colonie/chat/delta-context.ts";
 import { assertModelVariantSupported } from "../../colonie/chat/member-turn.ts";
@@ -33,9 +33,8 @@ import * as checkpoints from "./checkpoints.ts";
 import * as composio from "../mcp/composio.ts";
 import { extractTurnImages } from "../../colonie/chat/turn-images.ts";
 import { turnStartLogLine } from "../../colonie/chat/turn-log.ts";
-import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT, computerToolMount, LOCAL_VM_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
+import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
 import { removedComputerInstanceIds } from "../../colonie/computer/computer-engine-removal.ts";
-import { autoLocalVmAttachable, containerComputerFrame, containerComputerMcp, containerComputerStatus, poolLocalVmTarget, type LocalVmTarget, type Runtime} from "../../colonie/computer/container-computer.ts";
 import { withMcpSignIn } from "../../colonie/mcp/mcp-oauth.ts";
 import { beginMemoryTurn, endMemoryTurn } from "../../colonie/memory/memory-journal.ts";
 import { peerName, peerRosterSystemPrompt, reachablePeers } from "../../colonie/peers/peer-roster.ts";
@@ -45,11 +44,9 @@ import { skillsSystemPrompt } from "../../colonie/skills/skills.ts";
 import { chiefOfStaffSystemPrompt } from "../../colonie/teams/chief-of-staff.ts";
 import { sectionContextSystemPrompt } from "../../colonie/teams/section-context.ts";
 import { ensureConversationFolder, ensureTaskWorkspace, ensureWorkspace, isTaskWorkspace, memorySystemPrompt, moveIntoConversationFolder, SESSION_SEARCH_SYSTEM_PROMPT, supportsWorkspaceFiles, workspaceLocationsPrompt } from "../../colonie/workspace/workspace.ts";
-import { builtInBrowserEnabled, claudeUserMcpEnabled, DATA_DIR, instanceConfigs, llmThreadTitlesEnabled, localVmMode, maxConcurrentBotThreads, mcpCallTimeoutMinutes, skillAuthoringEnabled, skillsLibraryEnabled } from "../../config.ts";
+import { builtInBrowserEnabled, claudeUserMcpEnabled, DATA_DIR, instanceConfigs, llmThreadTitlesEnabled, maxConcurrentBotThreads, mcpCallTimeoutMinutes, skillAuthoringEnabled, skillsLibraryEnabled } from "../../config.ts";
 import { TurnNotStartedError } from "../../contracts.ts";
 import { installedPlaybookInstructions } from "../../installed-playbooks.ts";
-import { gatedLocalComputer, readCuaConnection } from "../../local-computer.ts";
-import { shouldMountLocalComputer } from "../../local-routing.ts";
 import { buildNotification } from "../../notify.ts";
 import { mentionedBots, type Message} from "../../persistence/store.ts";
 import { recentWork, recentWorkPrompt } from "../../recent-work.ts";
@@ -57,7 +54,7 @@ import { redactSecretsInText } from "../../redact.ts";
 import { promptWithReply } from "../../replies.ts";
 import { expandSetupTurnText, setupModeActive, setupSystemPrompt } from "../../setup-mode.ts";
 import { assertWithinBudget } from "../../spend.ts";
-import { PlaceUnavailableError, surfaceOfComputerKind, surfacePrompt, type PlaceSource, type Surface} from "../../surface.ts";
+import { PlaceUnavailableError} from "../../surface.ts";
 import { createHash, randomUUID } from "node:crypto";
 
 /** The state and helpers a turn needs; see the header for why some are getters. */
@@ -70,33 +67,28 @@ export interface StartTurnDeps {
 
 export function createStartTurn(deps: StartTurnDeps) {
   const {
-    ComputerWaitParked, DirectTurnSetupCancelled, MAX_COMMS_DEPTH, acpToolMount,
-    activeInternalGenerationByThread, activeRoutineRunForThread, agentsIntegration,
-    approvalModeForTurn, asPlaceFailure, autoRecallPrompt, autoVmClaims, availableSkills,
-    beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn, bindTurnComputer,
+    DirectTurnSetupCancelled, MAX_COMMS_DEPTH, acpToolMount,
+    activeRoutineRunForThread, agentsIntegration,
+    approvalModeForTurn, autoRecallPrompt, availableSkills,
+    beginInternalCapabilityGeneration, bindInternalCapabilityToProviderTurn,
     botAtThreadCapacity, browserIntegration, browserRuntime, cfg, checkedTaskModelSwitch,
     claimTurnResource, clearCancelledProviderHandshake, clearDirectTurnDispatch,
     clearFailedAutoPin, clearInternalTurn, clearTurnDigestState, clearUnattended, colonieMemory,
-    colonieMemorySources, colonieSkills, colonieTurnByThread, compactConversation, acpSituation, acpSecrets,
-    computerSelectionTurns, connectedAppsIntegration, controlIntegration, delegationWakeBudget,
+    colonieMemorySources, colonieSkills, colonieTurnByThread, compactConversation, acpSituation, acpSecrets, connectedAppsIntegration, delegationWakeBudget,
     directContext, directFollowupSettlers, directFollowupTurns, directRequestOwners,
     directTurnBots, directTurnClaimExists, directTurnClaimIsCurrent, directTurnDispatchClaims,
-    directTurnGenerationByThread, drainComputerResumes, drainConnectorResumes,
+    directTurnGenerationByThread, drainConnectorResumes,
     drainDelegationWakes, drainQueuedSends, drainSecretResumes, drainTeamSetupResumes,
     engineMcpServers, enginesRead, forgetTurnCheckpoint, generateThreadTitle, handoffs,
-    healThreadModel, hooksEnabled, hooksIntegration, interruptDirectThread,
-    isExternalContextMarker, latestCompaction, localVmActiveThreads, localVmFlags, localVmIdleFor,
-    localVmLeaseFor, localVmLifecycleBusy, localVmOwnerBusy, localVmPoolSeatHolder,
-    localVmSeatPool, localVmSeen, localVmTargetForThread,
-    localVmThreadTargets, markDirectTurnDispatching, markInternalTurn, markUnattended, mcpOAuth,
-    mountHostComputer, notify, pendingCancelledProviderHandshakes, providerFleetReloading,
-    providerInstancesChanging, readyLocalVmForTurn, recentWorkSources, registerComputerResume,
-    registry, releaseLocalVmThread, releaseTurnResources, reportIncident, retireProviderTurn,
+    healThreadModel, hooksEnabled, hooksIntegration,
+    isExternalContextMarker, latestCompaction, markDirectTurnDispatching, markInternalTurn, markUnattended, mcpOAuth, notify, pendingCancelledProviderHandshakes, providerFleetReloading,
+    providerInstancesChanging, recentWorkSources,
+    registry, releaseTurnResources, reportIncident, retireProviderTurn,
     retryComputerEngineMove, retryDelegationsWaitingOn, revokeEarlierTurnCapabilities,
-    revokeInternalCapabilityGeneration, routines, runningTurnEngines, screenPollers, 
-    settleDirectFollowup, settlingResourceOwners, startScreenPoller, stopScreenPoller, store,
-    teamMemory, threadBusy, toolScopeForTurn, turnCheckpoints, turnComputerResources, turnContext,
-    turnPromptBytes, turnResourceOwners, turnResources, turnSurfacePlan, turnTriggers, turnUsage,
+    revokeInternalCapabilityGeneration, routines, runningTurnEngines,
+    settleDirectFollowup, settlingResourceOwners, startScreenPoller, store,
+    teamMemory, threadBusy, toolScopeForTurn, turnCheckpoints, turnContext,
+    turnPromptBytes, turnResourceOwners, turnTriggers, turnUsage,
     watchdog, withRecalled, workspaceMaintenance
   } = deps;
 async function startTurn(
@@ -117,8 +109,7 @@ async function startTurn(
     excludeMessageIds?: string[];
     /** Routines run in detached tasks; pin the destination for the whole turn. */
     threadId?: string;
-    /** Cloud routines() use the bot's Boat VM, driven by the bot's own engine
-     * through its computer tools. */
+    /** Legacy routine destination, retained while old routines are read. */
     runOn?: RoutineRunOn;
     /** Lets the system prompt put externally supplied payloads behind an
      * explicit untrusted-data boundary without changing ordinary chat. */
@@ -213,8 +204,7 @@ async function startTurn(
   }
   const task = store.taskByThread(bot.id, threadId);
   if (!task) throw Object.assign(new Error("no such task"), { status: 404 });
-  
-  const plan = turnSurfacePlan(bot, threadId);
+
   const instance = registry.get(bot.modelSelection.instanceId);
   if (!instance) {
     // Still on the removed Computer engine: its move failed or found no
@@ -371,14 +361,9 @@ async function startTurn(
   directTurnDispatchClaims.set(threadId, { id: dispatchClaimId, botId, threadId, phase: "setup" });
   directTurnBots.set(threadId, bot);
   beginInternalCapabilityGeneration(threadId, dispatchClaimId);
-  if (!opts?.computerSelectionContinuation && !opts?.cardContinuation && !opts?.automationSource && !opts?.unattended &&
-      !opts?.commsDepth && bot.computer !== "off" && (agentsMounted || isColonieAcpDriver(instance.driverKind))) {
-    const source = store.activePath(threadId).findLast((message: any) => message.id === userMessage?.id && message.role === "user" && !message.peerAsk);
-    if (source) computerSelectionTurns.set(threadId, { generation: dispatchClaimId, botId: bot.id, source, text });
-  }
   store.setTaskActivity(bot.id, threadId, "working");
   // Watch from admission, not dispatch: a turn can wedge in setup — context
-  // compaction that never returns, a hung browser or VM mount — long before
+  // compaction that never returns, a hung browser mount — long before
   // any provider event exists, and a watch armed only at dispatch never saw
   // those. Every setup exit below settles or throws into the catch, which
   // settles under the same generation ownership it already enforces.
@@ -401,288 +386,8 @@ async function startTurn(
         await enginesRead();
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped while the engines were read");
       }
-      // Where this turn's hands may land, shared by the ACP engines and the
-      // others: the Local VM claim and attach below (moved up so both reach it).
       const integrations: Record<string, any> = {};
-      const mountsComputerMcp = instance.adapter.capabilities.computerMcp === true;
-      const mountsLocalComputer = instance.adapter.capabilities.localComputerMcp === true;
-      // Where this turn's hands may land. The bot's "Works on" choice is
-      // strict; a browser-only bot gets no computer at all, and a bot whose
-      // browser is withheld (workspace flag, its own switch, or an engine
-      // without browser tools) gets told so instead of silently falling back
-      // to a desktop it was never meant to touch.
-      // The conversation's own place wins over the bot default: the person
-      // pinned it from the composer, or its first Auto turn recorded where it
-      // landed.
-      const dispatchTask = store.taskByThread(bot.id, threadId);
-      const wants = plan.computer;
-      // Where an explicit place came from, so its failure names the one
-      // control that changes it (and a failed Auto-recorded pin is cleared).
-      // Auto is nobody's per-turn choice.
-      const namedPlace = wants === undefined || wants === "off" ? undefined : wants;
-      const placeSource: PlaceSource | undefined = !namedPlace ? undefined
-        : plan.pinned ? (dispatchTask?.surfaceSource === "auto" ? "auto-pin" : "pin")
-        : "works-on";
-      let previewCapture: (() => Promise<{ png: string; format: string }>) | null = null;
       let browserCapture: (() => Promise<{ png: string; format: string }>) | null = null;
-      let computerKind: "vm" | "local" | null = null;
-      /** The Local VM frame capture for the poller and the settled transcript
-       * screenshot. The shared desktop outlives the turn: once another thread
-       * owns it, a capture still in flight would picture ITS work under this
-       * bot's name — live and in the settled frame, which is taken after the
-       * lease is already released. No owner means the desktop is simply
-       * idle: that final frame is ours to keep. */
-      const localVmPreviewFor = (localVmTarget: LocalVmTarget, claimThreadId: string) => () => {
-        const owner = localVmLeaseFor(localVmTarget).current(localVmOwnerBusy);
-        if (owner && owner.threadId !== claimThreadId) {
-          throw new Error("the Local VM moved on to another turn");
-        }
-        return containerComputerFrame(undefined, undefined, localVmTarget);
-      };
-      /** Pin the conversation at the moment its seat is actually claimed
-       * (issue #1650): the same guards as the dispatch-time pin below, so
-       * a claim landing later in the turn records exactly what a mount-time
-       * pin would have — and a turn that never claims records nothing.
-       * The guard reads live bot and task state because a claim can land
-       * long after dispatch: a Works on change may have swept this
-       * thread's auto pins, or a person may have pinned it meanwhile, and
-       * a deferred claim must resurrect neither nor clobber either. */
-      const autoPinAllowed = () => {
-        const liveBot = store.bot(bot.id);
-        const liveTask = store.taskByThread(bot.id, threadId);
-        return liveBot?.computer === undefined && !plan.pinned &&
-          Boolean(liveTask && liveTask.surfaceSource !== "user");
-      };
-      const pinAutoSurface = (surface: Surface) => {
-        if (autoPinAllowed()) {
-          store.patchTask(bot.id, threadId, { surface, surfaceSource: "auto" });
-        }
-      };
-      /** The exclusive Local VM claim sequence, verbatim from the old inline
-       * attach path, shared by dispatch (eager) and the first-screen-call
-       * gate (issue #1361). Idempotent per turn: the resource claim and the
-       * lease both re-assert the same owner, so a re-entrant call from the
-       * gate no-ops once dispatch has already claimed. A lazy attach pins
-       * the target it mounted the tools against: the claim must lease that
-       * desktop, not whatever localVmTargetForBot resolves to by the time
-       * the first screen call arrives. */
-      const claimAutoLocalVm = async (claimThreadId: string, pinnedTarget?: LocalVmTarget): Promise<{ target: LocalVmTarget; runtime: Runtime }> => {
-        const localVmTarget = pinnedTarget ?? localVmThreadTargets.get(claimThreadId) ?? { ...localVmTargetForThread(bot.id, claimThreadId) };
-        await bindTurnComputer(resourceOwner, `computer:vm:${localVmTarget.key}`, true);
-        if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) {
-          throw new Error("this Local VM is being started, stopped, or replaced — wait for setup to finish");
-        }
-        // Claim before the first await. The lifecycle route performs its
-        // matching check synchronously, so neither side can enter while the
-        // other is between inspection and mutation.
-        if (!localVmLeaseFor(localVmTarget).claim(claimThreadId, bot.id, localVmOwnerBusy)) {
-          throw new Error("this Local VM is already being used by another turn — wait for that turn to finish");
-        }
-        // Only a turn that wins its lease extends pool affinity; a thread
-        // retrying behind a stranger lets the TTL lapse and migrates.
-        if (localVmMode(cfg) === "pool") localVmSeatPool.touch(claimThreadId);
-        localVmThreadTargets.set(claimThreadId, localVmTarget);
-        localVmActiveThreads.set(localVmTarget.key, claimThreadId);
-        localVmIdleFor(localVmTarget).touch();
-        // The lease is held from here. An eager attach that fails below
-        // fails the turn and settle releases it; a lazy claim's rejection is
-        // swallowed into the slot's failed flag and the turn carries on, so
-        // without this the exclusive lease would sit held for the rest of a
-        // turn that never got the VM — the very serialisation #1361 removes.
-        const dropLease = () => {
-          if (localVmThreadTargets.get(claimThreadId) !== localVmTarget) return;
-          localVmLeaseFor(localVmTarget).release(claimThreadId);
-          if (localVmActiveThreads.get(localVmTarget.key) === claimThreadId) localVmActiveThreads.delete(localVmTarget.key);
-          localVmThreadTargets.delete(claimThreadId);
-          // bindTurnComputer above also took the turn-level resource; a
-          // later turn's exclusive bind queues behind it just the same.
-          const resource = `computer:vm:${localVmTarget.key}`;
-          turnResources.releaseOne(resource, resourceOwner);
-          if (turnComputerResources.get(resourceOwner.threadId)?.resource === resource) turnComputerResources.delete(resourceOwner.threadId);
-        };
-        let localVm: Awaited<ReturnType<typeof readyLocalVmForTurn>>;
-        try {
-          localVm = await readyLocalVmForTurn(bot.id, localVmTarget);
-        } catch (error) {
-          dropLease();
-          throw error;
-        }
-        if (!localVm.ready || !localVm.runtime) {
-          dropLease();
-          throw new Error(`${localVm.problem ?? "the Local VM is not ready"} (App Settings → Computers)`);
-        }
-        // The readiness walk can wait minutes for the desktop, and the group
-        // path re-validates its lease afterwards; the direct path needs the
-        // same guard so a turn never attaches MCP to a desktop another turn
-        // now owns.
-        const owner = localVmLeaseFor(localVmTarget).current(localVmOwnerBusy);
-        if (owner?.threadId !== claimThreadId || owner.botId !== bot.id) {
-          dropLease();
-          throw new Error("the Local VM lease expired while preparing the turn");
-        }
-        // Same contract as the Boat and VPS branches below: without this the
-        // poller never starts, so the Local VM publishes no `screen` events
-        // and every client that only has the stream (the phone) waits
-        // forever. The web panel hid the gap by polling the screenshot
-        // route itself.
-        previewCapture = localVmPreviewFor(localVmTarget, claimThreadId);
-        // Pin on use: this runs for the dispatch-time claim of a VM created
-        // for the turn and for the gate-fired claim of a lazily mounted one
-        // alike — either way the conversation remembers the desktop this
-        // turn actually took, not one it merely mounted (issue #1650).
-        pinAutoSurface("vm");
-        return { target: localVmTarget, runtime: localVm.runtime };
-      };
-
-      // Issue #1369: a lazy claim that rejects must not leave its turn busy
-      // behind a gate that can only refuse. Surface the terminal
-      // computer-unavailable error, then end the turn. Fenced to this
-      // dispatch generation and a still-busy thread, so a rejection landing
-      // after settle — or after a newer turn owns the thread — never touches
-      // the newer turn. The gate's refusals stay fail-closed for any screen
-      // call racing this teardown; the turn-failed buzz and incident follow
-      // the dispatch-failure rules (person-started turns only).
-      const surfaceLazyClaimRejection = (label: string) => (failure: string, error?: unknown) => {
-        if (activeInternalGenerationByThread.get(threadId) !== resourceOwner.generation || !threadBusy(bot.id, threadId)) return;
-        // The wait ceiling parked this turn (#1651): register the resume and
-        // settle the live turn. No error entry, no incident — the parked chip
-        // the wait appended is the whole story. The slot still fails, so the
-        // gate keeps refusing screen calls for the rest of this generation
-        // while the interrupt lands.
-        if (resourceOwner.computerParkedOn) {
-          registerComputerResume({
-            botId: bot.id,
-            threadId,
-            resource: resourceOwner.computerParkedOn,
-            generation: resourceOwner.generation,
-            afterMessageId: store.activePath(threadId).findLast((entry: any) => entry.role === "user")?.id,
-          });
-          void interruptDirectThread(bot.id, threadId, { preserveComputerResume: true }).catch(() => {});
-          return;
-        }
-        // A place that failed (mountBotBoat) is already read as its one line
-        // and one way on, and never sticks as an Auto-recorded pin.
-        const placeFailure = error instanceof PlaceUnavailableError ? error : undefined;
-        if (placeFailure) clearFailedAutoPin(bot.id, threadId, placeFailure.place);
-        const message = placeFailure?.message ?? `computer unavailable — ${label} could not be claimed for this turn (${failure})`;
-        store.appendMessage(threadId, {
-          role: "bot",
-          kind: "activity",
-          tool: failedTurnTool(message, placeFailure ? { place: placeFailure.row } : {}),
-        });
-        if (opts?.automationSource === undefined && !opts?.commsDepth && !opts?.cardContinuation) {
-          notify(buildNotification("turn-failed", bot, threadId, redactSecretsInText(message), { avatarUrl: bot.avatarUrl }));
-          reportIncident({ kind: "could-not-start", bot, threadId, detail: message });
-          // Claude settles the interrupt below as exit_before_result; the
-          // completion fold must not report this failure a second time.
-          resourceOwner.lazyClaimFailureReported = true;
-        }
-        // A routine, a delegation or a resume reports this exactly as it
-        // reports a place that failed at dispatch: with this cause, before
-        // the interrupt settles the turn as merely "interrupted".
-        opts?.onDispatchError?.(message);
-        void interruptDirectThread(bot.id, threadId).catch(() => {});
-      };
-
-      // Explicit destinations are strict. In particular, Local VM must never
-      // fall through to host CUA and accidentally click on the user's Mac.
-      // The Local VM attach, shared by explicit "Local VM" and by Auto. Explicit
-      // is strict and throws with the reason. Auto only reaches a VM this bot
-      // already has — ready now, or one whose desktop image is prepared and can
-      // be recreated on demand after idling away — and never creates a first
-      // VM on its own; every failure there is a quiet "not this place".
-      const attachLocalVm = async (strict: boolean): Promise<boolean> => {
-        if (!mountsComputerMcp) {
-          if (!strict) return false;
-          throw new Error("this model cannot use the Local VM — choose Claude or an ACP model provider, or select another computer destination");
-        }
-        if (!strict && localVmMode(cfg) === "pool") {
-          // localVmTargetForThread records pool affinity, so a turn the
-          // fast path is about to skip must not reserve or refresh a seat.
-          // Gate on the side-effect-free candidate assign() would pick —
-          // the automationSource bypass below stays authoritative.
-          const poolCandidate = poolLocalVmTarget(localVmSeatPool.candidate(threadId, localVmPoolSeatHolder));
-          if (!localVmSeen.has(poolCandidate.key) && !opts?.automationSource) return false;
-        }
-        const localVmTarget = { ...localVmTargetForThread(bot.id, threadId) };
-        let lazyReadyVm: { runtime: Runtime } | null = null;
-        if (!strict) {
-          // Nothing this process has ever seen for this target, and nobody is
-          // relying on an unattended run: do not pay for a runtime probe.
-          if (!localVmSeen.has(localVmTarget.key) && !opts?.automationSource) return false;
-          const seen = await containerComputerStatus(undefined, undefined, localVmTarget).catch(() => null);
-          if (!seen || !autoLocalVmAttachable(seen)) return false;
-          if (localVmFlags.imageBusy || localVmFlags.modeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) return false;
-          if (seen.ready && seen.runtime) lazyReadyVm = { runtime: seen.runtime };
-        }
-        try {
-          if (lazyReadyVm) {
-            // Lazy exclusivity (issue #1361): a VM that is ready right now
-            // mounts without claiming — screen-less Auto turns never touch
-            // the lease, and the first screen tools/call fires the claim
-            // through the computer-control gate. A VM that must be created
-            // or recreated first keeps the eager claim below: the bridge
-            // child needs the container to exist, and readyLocalVmForTurn
-            // is what boots it.
-            integrations.localComputer = containerComputerMcp(
-              lazyReadyVm.runtime,
-              controlIntegration(bot.id, threadId, dispatchClaimId),
-              localVmTarget,
-            );
-            autoVmClaims.set(threadId, {
-              owner: resourceOwner,
-              lazy: true,
-              label: "the Local VM",
-              localVm: true,
-              onRejected: surfaceLazyClaimRejection("the Local VM"),
-              claim: async () => {
-                await claimAutoLocalVm(threadId, localVmTarget);
-                // The dispatch-site poller start saw a null previewCapture
-                // (this lazy mount runs before any claim exists), so this
-                // turn would publish no live `screen` events and settle no
-                // final computer frame. Restart the poller with the now-live
-                // computer capture, keeping any browser capture and whether
-                // this turn already touched its screen. Same still-running
-                // guard as dispatch: a poller started after its own
-                // turn.completed would never be torn down.
-                if (previewCapture && threadBusy(bot.id, threadId)) {
-                  const touched = screenPollers.get(threadId)?.touched ?? false;
-                  stopScreenPoller(bot.id, threadId);
-                  startScreenPoller(
-                    bot.id,
-                    threadId,
-                    { computer: previewCapture, ...(browserCapture ? { browser: browserCapture } : {}) },
-                    { screenIsTheWork: touched },
-                  );
-                }
-              },
-            });
-            return true;
-          }
-          const claimed = await claimAutoLocalVm(threadId);
-          integrations.localComputer = containerComputerMcp(
-            claimed.runtime,
-            controlIntegration(bot.id, threadId, dispatchClaimId),
-            claimed.target,
-          );
-          // Hand the same claim to the first-screen-call gate. This eager
-          // path has already claimed, so the gate's fire-once call can only
-          // re-assert the same owner — a no-op (issue #1361).
-          autoVmClaims.set(threadId, {
-            owner: resourceOwner,
-            label: "the Local VM",
-            claim: async () => { await claimAutoLocalVm(threadId); },
-          });
-          return true;
-        } catch (error) {
-          // A wait ceiling settled this turn as parked, not as an unavailable
-          // Auto destination. Let dispatch register its resume instead of
-          // continuing the provider without the requested computer.
-          if (strict || error instanceof ComputerWaitParked) throw error;
-          if (directTurnGenerationByThread.get(threadId) === dispatchClaimId) releaseLocalVmThread(threadId);
-          return false;
-        }
-      };
       if (isColonieAcpDriver(instance.driverKind)) {
         // Independent execution path: branch before compaction, persona,
         // memory, recall, setup/learn rewriting, skills, and MCP assembly.
@@ -699,28 +404,8 @@ async function startTurn(
         runningTurnEngines.set(threadId, instance);
         const mounts = await acpToolMount(bot.id, threadId, instanceId);
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during connected-tool setup"); }
-        // A bot with a computer works on it, as in OpenMausBot (owner,
-        // October 29): Works on "Local VM" is strict, and Auto takes a Local
-        // VM this bot already has, through the same attach the other engines
-        // use. It then browses with the browser on that desktop, so the
-        // separate built-in browser below is not mounted.
-        try {
-          // These engines never control the person's own Mac (owner, October
-          // 29), so a bot once set to "This Mac" works like Auto here.
-          if (wants === "vm" ? await attachLocalVm(true) : (wants === undefined || wants === "local") && await attachLocalVm(false)) computerKind = "vm";
-        } catch (error) {
-          mounts.tools.deactivate(); mounts.extra?.deactivate();
-          if (!namedPlace || !placeSource) throw error;
-          throw await asPlaceFailure(error, namedPlace, placeSource, bot);
-        }
-        if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) { mounts.tools.deactivate(); mounts.extra?.deactivate(); throw new DirectTurnSetupCancelled("turn stopped during computer setup"); }
-        const acpComputerTools = computerKind === "vm" && integrations.localComputer ? computerToolMount(integrations.localComputer) : undefined;
-        // Without a computer, each bot browses in its own browser, with its
-        // own logins (owner, October 28): the same session the Browser panel
-        // shows and a person can take over. No engine installed yet means no
-        // browser tools, and a browser that cannot start never stops the bot
-        // from answering.
-        const browsingBot = acpComputerTools ? undefined : store.bot(bot.id);
+        // Browser sessions belong to bots, regardless of retired desktop settings.
+        const browsingBot = store.bot(bot.id);
         let browserProblem = "";
         const browser = browsingBot && builtInBrowserEnabled(cfg) && browsingBot.browser !== false
           ? await browserIntegration(bot.id, browsingBot.browserProfile, { threadId, generation: dispatchClaimId }).catch((error: unknown) => {
@@ -762,8 +447,8 @@ async function startTurn(
           throw new DirectTurnSetupCancelled("turn stopped before dispatch");
         }
         const dispatch: { cancelled: boolean; value: any } = await guardTurnDispatch(instance.adapter.sendTurn({
-          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpBrowserTools, acpComputerTools, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
-          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id), acpComputerTools ? LOCAL_VM_SYSTEM_PROMPT.trim() : undefined, acpBrowserTools ? BUILT_IN_BROWSER_SYSTEM_PROMPT.trim() : undefined,
+          threadId, botId: bot.id, text: rebuildGroupSession ? opts!.providerRecoveryPrompt! : providerText, recoveryText: opts?.providerRecoveryPrompt, images: turnImages, acpContext, acpTools: mounts.tools, acpExtraTools: mounts.extra, acpBrowserTools, acpMemory, acpSkills, acpAssignment, acpChief: Boolean(bot.chiefOfStaff),
+          acpSituation: [acpSituation?.(userMessage.sender?.name), acpSecrets?.(bot.id, threadId, userMessage.sender?.id), acpBrowserTools ? BUILT_IN_BROWSER_SYSTEM_PROMPT.trim() : undefined,
             browserProblem ? `Your browser could not start for this request (${browserProblem}). If the request needs a browser, say so; do not look for another way to browse.` : undefined].filter(Boolean).join(" ") || undefined,
           cwd, model, approvalMode: approvalModeForTurn(bot, false),
           resumeCursor: rebuildGroupSession ? undefined : task.resumeCursors[instanceId],
@@ -780,13 +465,10 @@ async function startTurn(
         if (requestOwner?.generation === dispatchClaimId) requestOwner.turnId = dispatch.value.turnId;
         clearDirectTurnDispatch(threadId, dispatchClaimId);
         store.markTaskDispatched(bot.id, threadId, instanceId);
-        // The desktop's live frames for the Computer panel, as the other
-        // engines publish them (a lazily claimed VM starts them on its claim).
-        if (previewCapture && threadBusy(bot.id, threadId)) startScreenPoller(bot.id, threadId, { computer: previewCapture });
         return;
       }
       // Readiness can wait on the network. Admit the task first so its busy
-      // state, Stop action and watchdog own that wait just like VM setup.
+      // state, Stop action and watchdog own that wait just like browser setup.
       await compactConversation({ bot, threadId, generation: dispatchClaimId, instance, model,
         excludedIds: new Set([userMessage.id, ...(opts?.excludeMessageIds ?? [])]), manual: opts?.compactOnly === true });
       if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped during context setup");
@@ -801,7 +483,6 @@ async function startTurn(
         retryDelegationsWaitingOn(bot.id);
         drainQueuedSends();
         drainConnectorResumes();
-        drainComputerResumes();
         drainSecretResumes();
         drainTeamSetupResumes();
         drainDelegationWakes();
@@ -1010,59 +691,6 @@ async function startTurn(
       if (dwebUrl) integrations.dweb = { url: dwebUrl };
       // An explicit place that cannot be attached fails the turn with its
       // cause and the next action; it never quietly moves the work elsewhere.
-      try {
-        if (wants === "vm") {
-          if (await attachLocalVm(true)) computerKind = "vm";
-        } else if (wants === "local") {
-          integrations.localComputer = await mountHostComputer(resourceOwner, bot.id, mountsLocalComputer);
-          computerKind = "local";
-        }
-
-      } catch (error) {
-        // Auto and Off name no place; they fail as they are.
-        if (!namedPlace || !placeSource) throw error;
-        throw await asPlaceFailure(error, namedPlace, placeSource, bot);
-      }
-
-      // Auto-only host fallback. Electron owns cua-driver/TCC attribution;
-      // the harness only reads its already-running connection descriptor.
-      // Auto reaches a Local VM this bot already has before it ever touches the
-      // host's own desktop: on a headless server that VM is the only desktop
-      // there is, and a person who prepared one meant it to be used.
-      if (wants === undefined && !integrations.localComputer && await attachLocalVm(false)) computerKind = "vm";
-      if (
-        !integrations.localComputer &&
-        wants === undefined &&
-        shouldMountLocalComputer({
-          requested: undefined,
-          hostPlatform: process.platform,
-          providerSupportsLocal: mountsLocalComputer,
-        })
-      ) {
-        const cua = readCuaConnection();
-        if (cua) {
-          // Lazy host claim (issue #1650): the gated integration mounts
-          // now, but the exclusive computer:host seat is taken only by the
-          // first screen tools/call, through the computer-control gate —
-          // the same seam as the Local VM (#1361). An Auto
-          // turn that never touches the screen holds no desktop seat and
-          // records no pin; a claim that finds the seat held waits behind
-          // the holder like every other seat instead of failing on the
-          // spot.
-          autoVmClaims.set(threadId, {
-            owner: resourceOwner,
-            lazy: true,
-            label: "this computer",
-            onRejected: surfaceLazyClaimRejection("this computer"),
-            claim: async () => {
-              await bindTurnComputer(resourceOwner, "computer:host", true);
-              pinAutoSurface("local");
-            },
-          });
-          integrations.localComputer = gatedLocalComputer(cua, controlIntegration(bot.id, threadId, dispatchClaimId, "this computer"));
-          computerKind = "local";
-        }
-      }
       // Agent control tools include peer comms and the secure credential
       // request card. A comms-invoked turn (depth ≥ cap) gets none — hard recursion
       // stop, so the user's tokens can't be burned by a bot-to-bot loop.
@@ -1148,14 +776,8 @@ async function startTurn(
           description: liveBot?.description ?? bot.description,
           text: providerText,
         });
-      // One place per turn. On Auto the branches above may have reached a
-      // computer; then the built-in browser stays unmounted and web work
-      // happens in that computer's own browser, where the person can see it.
-      const mountedComputer = surfaceOfComputerKind(computerKind);
       if (
         liveBot &&
-        plan.browser &&
-        !(plan.computer === undefined && mountedComputer) &&
         builtInBrowserEnabled(cfg) &&
         liveBot.browser !== false &&
         instance.adapter.capabilities.browserMcp === true
@@ -1163,12 +785,7 @@ async function startTurn(
         const selectedProfile = liveBot.browserProfile;
         browser = await browserIntegration(bot.id, selectedProfile, { threadId, generation: dispatchClaimId });
         if (browser) integrations.browser = browser.integration;
-        // The browser lost its frame source when the Electron surface was
-        // removed: previewCapture is set by the computer branches above, and
-        // nothing replaced it here. A bot with only a browser was pictured
-        // not at all; a bot with both was pictured on its desktop even while
-        // the work was a web page, because agent-browser runs its own headless
-        // Chrome on the host rather than inside that desktop.
+        // Capture this bot's browser session for its live preview.
         if (browser) {
           const frame = { binaryPath: browser.spec.command, env: browser.spec.env };
           const session = browser.session;
@@ -1182,23 +799,6 @@ async function startTurn(
           };
         }
       }
-      // An Auto conversation remembers where its first turn landed, so later
-      // turns stay there and the composer can show it. Explicit settings are
-      // not recorded: an auto pin yields to a later Works on change (which
-      // sweeps it — store.clearAutoSurfacePins); a person's pin does not.
-      // Pin on use (issue #1650): every computer that registers a claim
-      // slot — a ready Local VM, the VPS, the host fallback, a VM created
-      // for this turn — records its pin inside the claim itself, so a turn
-      // that only mounted tools records nothing. The built-in browser (no
-      // seat to claim) pins here.
-      if (autoPinAllowed()) {
-        const claimSlot = autoVmClaims.get(threadId);
-        const pinsAtClaim = claimSlot?.owner.generation === resourceOwner.generation;
-        const used = pinsAtClaim ? null : mountedComputer ?? (integrations.browser ? "browser" : null);
-        if (used) store.patchTask(bot.id, threadId, { surface: used, surfaceSource: "auto" });
-      }
-      const computerSelection = computerSelectionTurns.get(threadId);
-      if (computerSelection) computerSelection.mounted = mountedComputer ?? (integrations.browser ? "browser" : undefined);
       // A cancelled adapter can be between accepting sendTurn and revealing
       // its provider turn id. Never overlap a replacement with that ambiguous
       // pre-id window: wait for the old handshake to settle or for its bounded
@@ -1207,10 +807,6 @@ async function startTurn(
       if (!markDirectTurnDispatching(bot.id, dispatchClaimId, threadId)) {
         throw new DirectTurnSetupCancelled("turn stopped before dispatch");
       }
-      const computerPromptKind = resolveComputerPromptKind({
-        kind: computerKind,
-        vmPrivate: localVmMode(cfg) === "per-bot",
-      });
       const prompt = buildSystemPrompt(persona, liveBot?.soul ?? bot.soul ?? "", [
         { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(cfg.profile) },
         // first after the soul: the block names agent tools, so it only goes
@@ -1218,8 +814,6 @@ async function startTurn(
         // false when they are not — see agentsMounted above)
         { id: "setup", label: "Setup", text: setupSystemPrompt(setupMode, { skills: skillAuthoring, cwd: liveBot?.cwd ?? bot.cwd }) },
         { id: "files", label: "File locations", text: worksInWorkspace ? workspaceLocationsPrompt(bot.id, cwd, liveBot?.cwd ?? bot.cwd) : "" },
-        { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
-        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note, canSelect: computerSelectionTurns.has(threadId) }) },
         // gated on the integration, not the key: the hint only goes to a
         // bot whose driver actually mounted the tools
         { id: "composio", label: "Connected apps", text: integrations.composio ? composioSystemPrompt(liveBot?.connectorTools ?? bot.connectorTools) + describeConnectorScopes((liveBot ?? bot).connectorScopes) : "" },
@@ -1343,11 +937,11 @@ async function startTurn(
       // after its own turn.completed would never be torn down — it would
       // keep polling the boat forever, carrying dead per-turn state. busy
       // is flipped false in the fold, so it is the honest "still running".
-      if ((previewCapture || browserCapture) && threadBusy(bot.id, threadId)) {
+      if (browserCapture && threadBusy(bot.id, threadId)) {
         startScreenPoller(
           bot.id,
           threadId,
-          { ...(previewCapture ? { computer: previewCapture } : {}), ...(browserCapture ? { browser: browserCapture } : {}) },
+          { browser: browserCapture },
         );
       }
       // An adapter may publish completion synchronously just before its
@@ -1359,7 +953,6 @@ async function startTurn(
         retryDelegationsWaitingOn(bot.id);
         drainQueuedSends();
         drainConnectorResumes();
-        drainComputerResumes();
         drainSecretResumes();
         drainTeamSetupResumes();
         drainDelegationWakes();
@@ -1375,7 +968,6 @@ async function startTurn(
         if (!mayRecover) e = new DirectTurnSetupCancelled("turn stopped during provider setup");
       }
       handoffs.abandon(threadId, dispatchClaimId);
-      if (computerSelectionTurns.get(threadId)?.generation === dispatchClaimId) computerSelectionTurns.delete(threadId);
       clearCancelledProviderHandshake(threadId, `direct:${dispatchClaimId}`);
       clearDirectTurnDispatch(threadId, dispatchClaimId);
       revokeInternalCapabilityGeneration(threadId, dispatchClaimId);
@@ -1386,7 +978,6 @@ async function startTurn(
         runningTurnEngines.delete(threadId);
         endMemoryTurn(threadId);
         clearTurnDigestState(threadId);
-        releaseLocalVmThread(threadId);
         watchdog.settle(threadId);
         turnUsage.delete(threadId);
         turnContext.delete(threadId);
@@ -1402,7 +993,6 @@ async function startTurn(
         if (ownsLatestGeneration) {
           drainQueuedSends();
           drainConnectorResumes();
-          drainComputerResumes();
           drainSecretResumes();
           drainTeamSetupResumes();
           drainDelegationWakes();
@@ -1411,31 +1001,6 @@ async function startTurn(
       }
       if (!ownsLatestGeneration) {
         settleDirectFollowup(dispatchClaimId);
-        return;
-      }
-      if (e instanceof ComputerWaitParked) {
-        settleDirectFollowup(dispatchClaimId);
-        registerComputerResume({
-          botId: bot.id,
-          threadId,
-          resource: e.resource,
-          generation: e.generation,
-          afterMessageId: store.activePath(threadId).findLast((entry: any) => entry.role === "user")?.id,
-        });
-        // Settled as parked, not failed (#1651): the chip the wait appended
-        // is the whole transcript story, and the registered resume owns what
-        // happens next on this thread.
-        if (store.taskByThread(bot.id, threadId)?.activity !== "dead") {
-          store.setTaskActivity(bot.id, threadId, "parked.computer");
-        }
-        directTurnBots.delete(threadId);
-        retryDelegationsWaitingOn(bot.id);
-        drainQueuedSends();
-        drainConnectorResumes();
-        drainComputerResumes();
-        drainSecretResumes();
-        drainTeamSetupResumes();
-        drainDelegationWakes();
         return;
       }
       // A failed place never sticks; a person's pin stays, and the message
@@ -1519,7 +1084,6 @@ async function startTurn(
       // drain would strand anything queued behind this turn
       drainQueuedSends();
       drainConnectorResumes();
-      drainComputerResumes();
       drainSecretResumes();
       drainTeamSetupResumes();
       drainDelegationWakes();

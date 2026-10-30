@@ -240,13 +240,10 @@ jobs:
             speech="$res/Colonie Speech.app/Contents/MacOS/speech-helper"
             lipo -archs "$speech" | grep -q "x86_64" || { echo "::error::$speech lacks x86_64"; exit 1; }
             lipo -archs "$speech" | grep -q "arm64" || { echo "::error::$speech lacks arm64"; exit 1; }
-            # every other native payload carries only this app's own CPU slice
-            expected_arch=x86_64
-            case "$app" in *mac-arm64*) expected_arch=arm64 ;; esac
-            for bin in "$res/cua-driver" "$res/cua-sdk/native/libcua_driver_sdk.dylib" \
-              "$res/cua-sdk/native/cua_driver_node_runtime.node" "$res/android-platform-tools/darwin/adb"; do
-              test "$(lipo -archs "$bin")" = "$expected_arch" || {
-                echo "::error::$bin is not the expected $expected_arch executable"; exit 1; }
+            # Retired Computer helpers must never return in a release.
+            for retired in cua-driver cua-sdk cua-linux-x64 android-platform-tools; do
+              test ! -e "$res/$retired" || {
+                echo "::error::retired Computer helper is packaged: $retired"; exit 1; }
             done
           done
 
@@ -391,10 +388,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
-      - name: Stage the pinned CUA runtime
-        run: pnpm build:cua:linux
-      - name: Prove overlay-free X11 input routing
-        run: dbus-run-session -- xvfb-run -a pnpm smoke:cua-x11-input
       - run: pnpm package:linux
       - name: Verify the packaged updater target
         run: |
@@ -402,6 +395,12 @@ jobs:
           test -f "$update" || { echo "::error::missing $update"; exit 1; }
           grep -Eq '^owner: hanifstudio$' "$update" || { echo "::error::wrong update owner"; exit 1; }
           grep -Eq '^repo: colonie$' "$update" || { echo "::error::wrong update repo"; exit 1; }
+      - name: Verify retired Computer helpers are absent
+        run: |
+          for retired in cua-driver cua-sdk cua-linux-x64 android-platform-tools; do
+            test ! -e "release/linux-unpacked/resources/$retired" || {
+              echo "::error::retired Computer helper is packaged: $retired"; exit 1; }
+          done
       - name: Verify package contents and metadata
         run: node scripts/verify-linux-package.mjs
       - name: Match a normal Ubuntu package parent on the ephemeral runner

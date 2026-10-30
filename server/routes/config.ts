@@ -1,8 +1,7 @@
 // Settings: one GET that answers the whole config (credentials reduced to
 // booleans, admin-only where that matters), and one PUT/PATCH that applies a
 // patch, reloads the providers it affects, and drains what the change unblocked.
-// One write at a time, through the shared `providerWrite` flag, and a Local VM
-// mode change holds `localVmFlags.modeChangeBusy` for the same reason: the patch
+// One write at a time, through the shared `providerWrite` flag: the patch
 // is applied to a live fleet, not to a database.
 import { browserSessionId } from "../colonie/computer/browser-engine.ts";
 import * as composio from "../colonie/mcp/composio.ts";
@@ -14,7 +13,7 @@ import { forgetKey } from "../colonie/providers/key-rejections.ts";
 import { parseSkillMd } from "../colonie/skills/skills.ts";
 import {
   type AppConfig, browserProfilePartitionTarget, browserProfileReplacementConflict, builtInBrowserEnabled,
-  loadConfig, localVmMode, mergeOpenCodeProviderKeys, parseConfigPatch, providerReloadKeys, saveConfig,
+  loadConfig, mergeOpenCodeProviderKeys, parseConfigPatch, providerReloadKeys, saveConfig,
   syncCredentialEnv,
 } from "../config.ts";
 import { deciderSavePatch } from "../decider/index.ts";
@@ -32,24 +31,14 @@ export interface ConfigRouteDeps {
   sessions: { revalidateEmailSessions: Helper };
   /** One settings write at a time, shared with the routes that own them. */
   providerWrite: { busy: boolean };
-  /** One Local VM mode change at a time, for the same reason. */
-  localVmFlags: { imageBusy: boolean; modeChangeBusy: boolean };
-  localVmIdles: Map<string, any>;
-  localVmActiveThreads: Map<string, string>;
-  localVmLifecycleBusy: Set<string>;
   browserCleanup: { prepare: Helper; abort: Helper; commit: Helper; ensure: Helper; hasPendingProfile: Helper };
   browserLive: { closeAll: Helper; closeForSession: Helper };
   browserRuntime: { heldBy: Helper };
   decider: { testKey: Helper };
-  sharedComputers: { close: Helper };
-  sharedComputerControl: { close: Helper };
   broadcast: (payload: Record<string, unknown>) => void;
   configStatus: () => Record<string, unknown>;
   configForAccess: Helper;
   checkedModelSelection: Helper;
-  lendingEnabled: Helper;
-  localVmIdleMs: () => number;
-  perBotLocalVmCountForModeChange: Helper;
   reloadProviders: Helper;
   revokeAllInternalCapabilities: Helper;
   drainComputerResumes: Helper;
@@ -63,10 +52,8 @@ export interface ConfigRouteDeps {
 export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
   return async ({ req, res, path, method, url, auth, json, readBody }) => {
     const {
-      store, cfg, registry, sessions, providerWrite, localVmFlags, localVmIdles, localVmActiveThreads,
-      localVmLifecycleBusy, browserCleanup, browserLive, browserRuntime, decider, sharedComputers,
-      sharedComputerControl, broadcast, configStatus, configForAccess, checkedModelSelection,
-      lendingEnabled, localVmIdleMs, perBotLocalVmCountForModeChange, reloadProviders,
+      store, cfg, registry, sessions, providerWrite, browserCleanup, browserLive, browserRuntime, decider, broadcast, configStatus, configForAccess, checkedModelSelection,
+      reloadProviders,
       revokeAllInternalCapabilities, drainComputerResumes, drainConnectorResumes, drainDelegationWakes,
       drainQueuedSends, drainSecretResumes, drainTeamSetupResumes,
     } = deps;
@@ -77,6 +64,9 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
       const body = await readBody(req);
 
       const patch = parseConfigPatch(body);
+      if (patch.localVm !== undefined || patch.features?.sharedComputers !== undefined) {
+        return json(res, 400, { error: "Desktop computer access has been removed. Use the bot's browser settings." });
+      }
       if (patch.newBotDefaults) {
         if (patch.newBotDefaults.profile.modelSelection) {
           const checked = checkedModelSelection(patch.newBotDefaults.profile.modelSelection);
@@ -160,27 +150,7 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
         }
       }
       providerWrite.busy = true;
-      const changingLocalVmMode = patch.localVm?.mode !== undefined && patch.localVm.mode !== localVmMode(cfg);
-      if (changingLocalVmMode) localVmFlags.modeChangeBusy = true;
       try {
-        if (changingLocalVmMode) {
-          if (localVmActiveThreads.size > 0 || localVmLifecycleBusy.size > 0 || localVmFlags.imageBusy) {
-            return json(res, 409, { error: "stop Local VM turns and setup actions before changing the Local VM isolation mode" });
-          }
-          if (localVmMode(cfg) === "per-bot" && patch.localVm?.mode === "shared") {
-            const existing = await perBotLocalVmCountForModeChange();
-            if (existing === null) {
-              return json(res, 409, {
-                error: "start the container runtime and delete every per-bot VM before switching to shared mode",
-              });
-            }
-            if (existing > 0) {
-              return json(res, 409, {
-                error: `delete the ${existing} per-bot Local VM${existing === 1 ? "" : "s"} before switching to shared mode`,
-              });
-            }
-          }
-        }
       // A project key is useful only if it can create/reuse the Session that
       // powers both the connections UI and the agent MCP. Validate it before
       // persisting, and save the non-secret ids needed to reuse that Session.
@@ -317,19 +287,11 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
         throw error;
       }
       for (const key of resetKeys) if (key) forgetKey(key);
-      // Desktops already counting down move to the new window at once, in
-      // every isolation mode; busy work still defers its expiry.
-      if (patch.localVm?.idleTimeoutMinutes !== undefined) {
-        for (const idle of localVmIdles.values()) idle.setIdleMs(localVmIdleMs());
-      }
       let browserReferenceCleanupError: unknown = null;
       if (patch.signIn !== undefined) {
         sessions.revalidateEmailSessions();
       }
-      if (!lendingEnabled()) {
-        sharedComputers.close();
-        sharedComputerControl.close();
-      }
+
       if (disablingBuiltInBrowser) browserLive.closeAll();
       for (const request of browserCleanupRequests) {
         if (request.kind === "profile") browserLive.closeForSession(browserSessionId("", request.partitionId));
@@ -409,7 +371,6 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
       );
       return json(res, 200, finalized.value);
       } finally {
-        if (changingLocalVmMode) localVmFlags.modeChangeBusy = false;
         providerWrite.busy = false;
       }
     }

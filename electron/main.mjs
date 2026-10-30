@@ -1,12 +1,10 @@
-import { app, autoUpdater as nativeAutoUpdater, BrowserWindow, Tray, WebContentsView, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, powerMonitor, powerSaveBlocker, safeStorage, screen, session, shell, systemPreferences, utilityProcess } from "electron";
+import { app, autoUpdater as nativeAutoUpdater, BrowserWindow, Tray, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, powerMonitor, powerSaveBlocker, safeStorage, screen, session, shell, systemPreferences, utilityProcess } from "electron";
 import { createRequire } from "node:module";
 import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { startCua, stopCua, registerCuaIpc, setCuaStateListener } from "./cua.mjs";
-import { createAndroidDeviceController } from "./android-device.mjs";
 import { finishSpeech, startSpeech, stopSpeech } from "./speech.mjs";
 import { openBlankTerminal, openTerminalWithCommand } from "./terminal-launch.mjs";
 import { pasteMenuItem } from "./paste-menu-item.mjs";
@@ -32,7 +30,6 @@ import { createSystemTray } from "./system-tray.mjs";
 let startupScreen = null;
 let desktopTray = null;
 import { collisionFreeDownloadPath, defaultSaveName, revealDownloadWhenDone, revealInFolder, withSavableFile } from "./save-file.mjs";
-import { desktopViewerPermissionAllowed } from "./desktop-viewer-permissions.mjs";
 import { appPermissionHandlers, externalWebUrl } from "./app-permissions.mjs";
 import { writeClipboardText } from "./clipboard-write.mjs";
 import { createSecureCredentialState } from "./secure-credential-state.mjs";
@@ -54,9 +51,6 @@ const require = createRequire(import.meta.url);
 const { createDisplayMediaGuard, invokeDisplayMediaCallback, selectCaptureSource } = require(
   "./screen-preview.cjs",
 );
-const { STAGE_PREFIX: APPIMAGE_CUA_STAGE_PREFIX } = require("./cua-linux-bundle.cjs");
-const { desktopViewerUrl, sameDesktopViewerOrigin } = require("./desktop-viewer.cjs");
-const { createDesktopWorkspaceManager } = require("./desktop-workspace.cjs");
 const { createTrustedApprovalModeCoordinator } = require("./approval-trusted-mode.cjs");
 const { DESKTOP_MUTATION_HEADER, desktopServerHeaders } = require("./desktop-server-auth.cjs");
 const { MIN_BOUNDS, normalizeUnreadCount, parseWindowState, resolveWindowState } = require("./window-state.cjs");
@@ -67,11 +61,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
 let SERVER_PORT = Number(process.env.COLONIE_PORT) || 8799;
 const APP_ICON = path.join(__dirname, "resources/colonie-icon.png");
-let desktopViewerWindow = null;
-let desktopViewerOwner = null;
-let desktopViewerContextId = null;
-let desktopWorkspaceManager = null;
-let desktopWorkspaceOwner = null;
 let pendingPackageInstallUrl = packageUrlFromCommandLine(process.argv);
 let mainWindow = null;
 const serverUnavailableWindows = new WeakSet();
@@ -434,8 +423,8 @@ import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from 
 /** IPC that controls this computer, its files, its logins or its updater is
  * answered only for the local server's UI (electron/local-origin.cjs). A
  * remote server's page gets a reduced bridge (preload.cjs) in the first
- * place; this is the second wall, shared with cua.mjs, updater.mjs and
- * android-device.mjs. Declared before any handler registration below: a
+ * place; this is the second wall, also used by updater.mjs.
+ * Declared before any handler registration below: a
  * const declared later would be in its temporal dead zone at module load.
  */
 const { isLocalSender: senderIsLocal, localOnly, localOnlySync, setLocalOrigin } = localOriginModule;
@@ -807,8 +796,7 @@ function buildErrorPage({ allPortsOccupied }) {
 // which used to surface as the misleading "ports are busy" page.
 const SERVER_BOOT_TIMEOUT_MS = 60_000;
 
-let cuaReady = Promise.resolve({ mode: "unavailable", reason: "not-started" });
-const androidDevice = createAndroidDeviceController({ resourcesPath: process.resourcesPath });
+const desktopControlUnavailable = Promise.resolve({ mode: "unavailable", reason: "desktop-control-removed" });
 const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
 
@@ -825,202 +813,6 @@ function respondToDisplayMediaRequest(callback, response) {
     console.error("[screen-preview] failed to deliver selected source:", error);
   }
 }
-
-function notifyDesktopViewer(open) {
-  if (!desktopViewerOwner?.isDestroyed()) {
-    desktopViewerOwner.send("desktop-viewer:state", {
-      open,
-      contextId: desktopViewerContextId,
-    });
-  }
-}
-
-function desktopViewerErrorPage(message, retryUrl) {
-  const escape = (value) =>
-    String(value)
-      .replaceAll("&", "&amp;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-  return (
-    "data:text/html;charset=utf-8," +
-    encodeURIComponent(`<!doctype html><meta name="color-scheme" content="dark"><title>Desktop unavailable</title>
-      <body style="margin:0;display:grid;place-items:center;height:100vh;background:#070707;color:#f5f5f5;font:14px -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">
-        <main style="max-width:420px;padding:32px;text-align:center"><h2 style="margin:0 0 10px;font-size:18px">Couldn't open the live desktop</h2>
-        <p style="margin:0 0 20px;color:#a1a1aa;line-height:1.5">${escape(message)}</p>
-        <a href="${escape(retryUrl)}" target="_blank" rel="noreferrer" style="display:inline-block;border-radius:9px;background:#fff;color:#111;padding:9px 14px;text-decoration:none;font-weight:600">Open in browser</a></main>
-      </body>`)
-  );
-}
-
-function openDesktopViewer(owner, rawUrl, rawTitle, contextId) {
-  if (!owner || owner.isDestroyed()) throw new Error("The Colonie window is unavailable");
-  const url = desktopViewerUrl(rawUrl);
-  const titleCandidate = Object.prototype.toString.call(rawTitle) === "[object String]" ? rawTitle.trim() : "";
-  const title = titleCandidate ? titleCandidate.slice(0, 80) : "Live desktop";
-
-  const nextContextId =
-    Object.prototype.toString.call(contextId) === "[object String]" ? contextId.slice(0, 120) : null;
-
-  // Desktop URLs contain rotating access tokens. A newly minted URL replaces
-  // the old viewer instead of being retained anywhere after its window closes.
-  // Clear the ref first so the stale window's close handler no-ops; on a bot
-  // change, tell the previous bot to release (same-bot reopen stays quiet).
-  if (desktopViewerWindow && !desktopViewerWindow.isDestroyed()) {
-    const previous = desktopViewerWindow;
-    const previousOwner = desktopViewerOwner;
-    const previousContextId = desktopViewerContextId;
-    desktopViewerWindow = null;
-    previous.close();
-    if (previousContextId !== nextContextId && previousOwner && !previousOwner.isDestroyed()) {
-      previousOwner.send("desktop-viewer:state", { open: false, contextId: previousContextId });
-    }
-  }
-  desktopViewerOwner = owner.webContents;
-  desktopViewerContextId = nextContextId;
-
-  const viewer = new BrowserWindow({
-    width: 1220,
-    height: 820,
-    minWidth: 760,
-    minHeight: 520,
-    parent: owner,
-    // Not modal: the person still needs the app's "Hand control back" button
-    // while the desktop is open. `parent` keeps it floating above the app.
-    modal: false,
-    show: false,
-    title,
-    icon: APP_ICON,
-    backgroundColor: "#070707",
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      // Keep provider cookies away from the app renderer and discard them on
-      // app exit. The secret-bearing URL is sufficient to authenticate.
-      partition: "colonie-desktop-viewer",
-    },
-  });
-  desktopViewerWindow = viewer;
-  const viewerOrigin = url.origin;
-
-  // VNC needs rendering, keyboard/mouse input and WebSockets, plus the few
-  // permission-gated input capabilities a viewer page asks for: keyboard and
-  // pointer capture, the clipboard for paste, full screen. Those go to the
-  // viewer's own origin only — never camera, microphone, geolocation,
-  // notifications, USB, or any other privileged browser capability in this
-  // remote-content window (see desktop-viewer-permissions.mjs).
-  viewer.webContents.session.setPermissionCheckHandler((_webContents, permission, requestingOrigin) =>
-    desktopViewerPermissionAllowed(permission, requestingOrigin, viewerOrigin),
-  );
-  viewer.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) =>
-    callback(desktopViewerPermissionAllowed(permission, details?.requestingUrl || webContents.getURL(), viewerOrigin)),
-  );
-
-  // A child window floats above the app but does not take the keyboard until
-  // it is focused: clicks land in the VNC canvas either way, keystrokes only
-  // reach the key window. Left unfocused, typing "into the VM" lands in the
-  // composer and ⌘1–9 switch bots while the mouse appears to work.
-  viewer.once("ready-to-show", () => {
-    if (viewer.isDestroyed()) return;
-    viewer.show();
-    viewer.focus();
-    viewer.webContents.focus();
-  });
-  viewer.on("closed", () => {
-    if (desktopViewerWindow !== viewer) return;
-    desktopViewerWindow = null;
-    // The panel drops its "viewer open" state and releases control on this.
-    notifyDesktopViewer(false);
-    desktopViewerOwner = null;
-    desktopViewerContextId = null;
-  });
-  viewer.on("page-title-updated", (event) => {
-    event.preventDefault();
-    viewer.setTitle(title);
-  });
-  viewer.webContents.setWindowOpenHandler(({ url: target }) => {
-    try {
-      const external = desktopViewerUrl(target);
-      void shell.openExternal(external.toString());
-    } catch {
-      // Ignore non-web and insecure URLs from the remote viewer.
-    }
-    return { action: "deny" };
-  });
-  viewer.webContents.on("will-navigate", (event, target) => {
-    if (sameDesktopViewerOrigin(target, viewerOrigin)) return;
-    event.preventDefault();
-    try {
-      void shell.openExternal(desktopViewerUrl(target).toString());
-    } catch {
-      // Keep privileged or malformed navigation out of the viewer.
-    }
-  });
-  viewer.webContents.on("did-fail-load", (_event, code, description, failedUrl, isMainFrame) => {
-    if (!isMainFrame || code === -3 || viewer.isDestroyed() || failedUrl.startsWith("data:")) return;
-    void viewer.loadURL(desktopViewerErrorPage(description || "The viewer did not respond.", url.toString()));
-  });
-
-  notifyDesktopViewer(true);
-  void viewer.loadURL(url.toString()).catch((error) => {
-    if (viewer.isDestroyed()) return;
-    void viewer.loadURL(desktopViewerErrorPage(error?.message ?? "The viewer did not respond.", url.toString()));
-  });
-  return true;
-}
-
-function ensureDesktopWorkspace(owner) {
-  if (!owner || owner.isDestroyed()) throw new Error("The Colonie window is unavailable");
-  if (desktopWorkspaceManager) {
-    if (desktopWorkspaceOwner !== owner) {
-      throw new Error("The two-desktop view belongs to another app window");
-    }
-    return desktopWorkspaceManager;
-  }
-
-  desktopWorkspaceOwner = owner;
-  const manager = createDesktopWorkspaceManager({
-    owner,
-    createView: (options) => new WebContentsView(options),
-    partitionPrefix: `colonie-desktop-workspace-${randomUUID()}`,
-    notify: (state) => {
-      if (!owner.isDestroyed() && !owner.webContents.isDestroyed()) {
-        owner.webContents.send("desktop-workspace:state", state);
-      }
-    },
-  });
-  desktopWorkspaceManager = manager;
-
-  // Native child views outlive the renderer DOM unless we explicitly tear
-  // them down. Reloads, renderer crashes and owner destruction all close both
-  // panes without retaining their secret-bearing noVNC URLs.
-  owner.webContents.on("did-start-navigation", (_event, _url, isInPlace, isMainFrame) => {
-    if (isMainFrame && !isInPlace) manager.closeAll();
-  });
-  owner.webContents.on("render-process-gone", () => manager.closeAll());
-  owner.once("closed", () => {
-    manager.closeAll();
-    if (desktopWorkspaceManager === manager) {
-      desktopWorkspaceManager = null;
-      desktopWorkspaceOwner = null;
-    }
-  });
-  return manager;
-}
-
-function desktopWorkspaceForEvent(event, create = false) {
-  const owner = mainWindow;
-  if (!owner || owner.isDestroyed() || event.sender !== owner.webContents) {
-    throw new Error("The two-desktop view is available only to the main app window");
-  }
-  if (desktopWorkspaceManager && desktopWorkspaceOwner !== owner) {
-    throw new Error("The two-desktop view belongs to another app window");
-  }
-  return create ? ensureDesktopWorkspace(owner) : desktopWorkspaceManager;
-}
-
 
 ipcMain.on("screen:preview-intent", localOnlySync("screen:preview-intent", (event) => {
   event.returnValue = displayMediaGuard.begin(event.senderFrame);
@@ -1378,21 +1170,6 @@ function createWindow() {
         const result = await win.webContents.executeJavaScript(`
           (async () => {
             if (!window.colonie?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
-            let crashPromise = null;
-            if (${JSON.stringify(process.env.COLONIE_SMOKE_CUA === "1")}) {
-              crashPromise = new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                  unsubscribe?.();
-                  reject(new Error("timed out waiting for CUA crash invalidation"));
-                }, 10000);
-                const unsubscribe = window.colonie.onCapabilitiesChanged((next) => {
-                  if (next.localComputer.reasonCode !== "daemon-exited") return;
-                  clearTimeout(timeout);
-                  unsubscribe();
-                  resolve(next.localComputer.reasonCode);
-                });
-              });
-            }
             const [initialCapabilities, healthResponse, ownerMutationResponse] = await Promise.all([
               window.colonie.getCapabilities(),
               fetch("/api/health"),
@@ -1407,22 +1184,9 @@ function createWindow() {
                 \`desktop mutation capability failed: \${ownerMutationResponse.status} \${ownerMutationResponse.statusText}\`,
               );
             }
-            let capabilities = initialCapabilities;
-            let cuaCrashReason = null;
-            let cuaRetryStatus = null;
-            if (crashPromise) {
-              if (!initialCapabilities.localComputer.available) {
-                throw new Error("CUA was not ready before the simulated crash");
-              }
-              cuaCrashReason = await crashPromise;
-              cuaRetryStatus = await window.colonie.localControl.retry();
-              capabilities = await window.colonie.getCapabilities();
-            }
             return {
               initialCapabilities,
-              capabilities,
-              cuaCrashReason,
-              cuaRetryStatus,
+              capabilities: initialCapabilities,
               health,
               location: window.location.href,
               title: document.title,
@@ -1434,38 +1198,6 @@ function createWindow() {
           throw new Error(
             `unexpected packaged renderer URL: ${result.location} (expected ${expectedLocation})`,
           );
-        }
-        if (process.env.COLONIE_SMOKE_BUNDLED_CUA === "1") {
-          const connection = await cuaReady;
-          const expectedDriver = path.join(
-            process.resourcesPath,
-            "cua-linux-x64",
-            "cua-driver",
-          );
-          let exactBundledPath = false;
-          try {
-            exactBundledPath =
-              Boolean(connection?.driver?.path) &&
-              fs.realpathSync(connection.driver.path) === fs.realpathSync(expectedDriver);
-          } catch {}
-          result.cuaRuntime = {
-            driverSource: connection?.driver?.source,
-            exactBundledPath,
-            appImagePrivateStage:
-              Boolean(process.env.APPIMAGE) &&
-              connection?.driver?.path !== expectedDriver &&
-              path.basename(path.dirname(connection?.driver?.path ?? "")).startsWith(
-                APPIMAGE_CUA_STAGE_PREFIX,
-              ),
-            driverPath: connection?.driver?.path,
-            driverVersion: connection?.driver?.version,
-            daemonPid: connection?.daemon?.pid,
-            socketPath: connection?.daemon?.socketPath,
-            pidFile: connection?.daemon?.socketPath
-              ? path.join(path.dirname(connection.daemon.socketPath), "driver.pid")
-              : undefined,
-            mcpEnv: connection?.mcp?.env,
-          };
         }
         result.hardwareAccelerationEnabled = app.isHardwareAccelerationEnabled();
         result.displayMediaRequests = displayMediaRequestCount;
@@ -1659,51 +1391,6 @@ ipcMain.handle("desktop:open-external", localOnly("desktop:open-external", async
   await shell.openExternal(externalWebUrl(rawUrl));
   return true;
 }));
-
-// The Boat VNC viewer must be a top-level page for its token exchange. A
-// sandboxed modal BrowserWindow satisfies that requirement while keeping the
-// live desktop inside Colonie instead of sending the person to a browser.
-ipcMain.handle("desktop-viewer:open", localOnly("desktop-viewer:open", (event, rawUrl, title, contextId) => {
-  const owner = BrowserWindow.fromWebContents(event.sender);
-  return openDesktopViewer(owner, rawUrl, title, contextId);
-}));
-
-// Two Local VM desktops share the existing app BrowserWindow. The renderer
-// supplies only layout and intent; URL validation, sandboxing, session
-// isolation and the one-interactive-pane invariant stay in the main process.
-ipcMain.handle("desktop-workspace:open", localOnly("desktop-workspace:open", (event, input) =>
-  desktopWorkspaceForEvent(event, true).open(input),
-));
-ipcMain.handle("desktop-workspace:layout", localOnly("desktop-workspace:layout", (event, items) => {
-  const manager = desktopWorkspaceForEvent(event);
-  if (!manager) return false;
-  return manager.layout(items);
-}));
-ipcMain.handle("desktop-workspace:set-interactive", localOnly("desktop-workspace:set-interactive", (event, contextId) => {
-  const manager = desktopWorkspaceForEvent(event);
-  if (!manager) return contextId == null;
-  return manager.setInteractive(contextId);
-}));
-ipcMain.handle("desktop-workspace:close", localOnly("desktop-workspace:close", (event, contextId) => {
-  const manager = desktopWorkspaceForEvent(event);
-  if (!manager) return true;
-  return manager.close(contextId);
-}));
-
-// Close only when the caller owns the current viewer — otherwise one bot's
-// "Hand control back" would close (and release) another bot's viewer.
-ipcMain.handle("desktop-viewer:close", localOnly("desktop-viewer:close", (_event, contextId) => {
-  const scoped = Object.prototype.toString.call(contextId) === "[object String]" ? contextId : null;
-  if (scoped !== desktopViewerContextId) return false;
-  if (desktopViewerWindow && !desktopViewerWindow.isDestroyed()) desktopViewerWindow.close();
-  return true;
-}));
-
-// Lets a (re)mounted panel seed viewer-open state instead of defaulting to false.
-ipcMain.handle("desktop-viewer:state-now", localOnly("desktop-viewer:state-now", () => ({
-  open: Boolean(desktopViewerWindow && !desktopViewerWindow.isDestroyed()),
-  contextId: desktopViewerContextId,
-})));
 
 // The session's permission handlers (app-permissions.mjs), set once the app
 // is ready. perm:status asks them, so `pageMic` is the very rule that decides
@@ -2033,7 +1720,7 @@ ipcMain.handle("desktop:capabilities", async (event) =>
     platform: process.platform,
     env: process.env,
     packaged: app.isPackaged,
-    localConnection: await cuaReady,
+    localConnection: await desktopControlUnavailable,
   }),
 );
 
@@ -2116,31 +1803,6 @@ ipcMain.handle("approvals:set-trusted-mode", localOnly("approvals:set-trusted-mo
   }
   return trustedApprovalMode.request(serverProc, botId, mode, options);
 }));
-
-async function broadcastDesktopCapabilities() {
-  const localConnection = await cuaReady;
-  const build = (remote) =>
-    desktopCapabilities({ remote, platform: process.platform, env: process.env, packaged: app.isPackaged, localConnection });
-  const local = build(false);
-  let redacted = null;
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (window.isDestroyed()) continue;
-    let isLocal = false;
-    try {
-      isLocal = new URL(window.webContents.getURL()).origin === rendererOrigin();
-    } catch {}
-    if (!isLocal) redacted ??= build(true);
-    window.webContents.send("desktop:capabilities-changed", isLocal ? local : redacted);
-  }
-}
-
-setCuaStateListener((connection) => {
-  cuaReady = Promise.resolve(connection);
-  void broadcastDesktopCapabilities().catch((error) => {
-    console.error("[desktop] capability broadcast failed:", error);
-  });
-});
-
 
 app.whenReady().then(async () => {
   // Invite pages open the installed app with colonie://join links.
@@ -2280,19 +1942,7 @@ app.whenReady().then(async () => {
       { useSystemPicker: false },
     );
   }
-  registerCuaIpc();
-  androidDevice.registerIpc(ipcMain);
   registerUpdaterIpc({ pageAllowed: updaterPageAllowed });
-  // Start the CUA daemon before the window so the harness can pick up the
-  // connection descriptor on first render. Never blocks window creation on
-  // failure — computer use degrades to "unavailable", the rest still works.
-  cuaReady =
-    process.env.COLONIE_PROFILE !== "1" && (process.platform === "darwin" || process.platform === "linux" || process.platform === "win32")
-      ? startCua().catch((e) => {
-          console.error("[cua] start failed:", e);
-          return { mode: "unavailable", reason: String(e) };
-        })
-      : Promise.resolve({ mode: "unavailable", reason: "unsupported-platform" });
   if (app.isPackaged) {
     await startServerPackaged();
   }
@@ -2339,8 +1989,7 @@ const allWindowsClosedQuit = createAllWindowsClosedQuit({
 // EMBEDDING.md lifecycle rule: defer the first quit until the embedded
 // daemon's async cleanup completes — it can't run after the host exits.
 // Cap the defer so a wedged daemon cannot keep the app alive forever.
-const CUA_STOP_TIMEOUT_MS = 2500;
-let cuaCleanedUp = false;
+let shutdownComplete = false;
 let signalQuitRequested = false;
 
 // Package managers, desktop watchdogs, and terminal launchers commonly stop
@@ -2360,7 +2009,7 @@ process.once("SIGTERM", requestSignalQuit);
 app.on("before-quit", (e) => {
   desktopShutdownStarted = true;
   startupScreen?.dispose();
-  if (cuaCleanedUp) return;
+  if (shutdownComplete) return;
   e.preventDefault();
   // Cancel a scheduled recovery before yielding, and stop the owned child
   // even if it has not passed its boot probe yet.
@@ -2369,18 +2018,11 @@ app.on("before-quit", (e) => {
   // a live dictation session runs its own helper child that holds the mic —
   // stop it here so quitting never orphans a recording process
   if (nativeActions.appleSpeech) stopSpeech();
-  const ownedHelperCleanup = Promise.race([
-    stopCua().catch(() => {}),
-    new Promise((resolve) => setTimeout(resolve, CUA_STOP_TIMEOUT_MS).unref()),
-  ]);
-  const cleanup = Promise.all([
-    ownedHelperCleanup,
-    stoppingServer.then((stopped) => {
-      if (!stopped) slog("server child did not stop before desktop exit; retaining the data-directory lease");
-    }),
-  ]);
+  const cleanup = stoppingServer.then((stopped) => {
+    if (!stopped) slog("server child did not stop before desktop exit; retaining the data-directory lease");
+  });
   cleanup.then(() => {
-    cuaCleanedUp = true;
+    shutdownComplete = true;
     app.quit();
   });
 });

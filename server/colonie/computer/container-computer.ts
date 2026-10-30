@@ -15,7 +15,7 @@ import { promisify } from "node:util";
 
 import { augmentedPath, resolveCliSpawn } from "../../runtime/env-path.ts";
 import { DATA_DIR } from "../../config.ts";
-import { SPAWNED_PROXIES } from "../../proxy-paths.ts";
+import { resolveProxy } from "../../proxy-paths.ts";
 
 const run = promisify(execFile);
 const SCREENSHOT_STATUS_TTL_MS = 10_000;
@@ -1225,7 +1225,7 @@ const screenshotStatusCache = new Map<
   { status: ContainerComputerStatus; expiresAt: number }
 >();
 
-const containerMcpPath = SPAWNED_PROXIES.containerMcp;
+const containerMcpPath = resolveProxy("container-mcp");
 
 export interface ContainerExecResult {
   exitCode: number;

@@ -3,7 +3,7 @@
 // stream from the harness server into local state. The reducer stays
 // pure; everything async lives in the wrapped dispatch + SSE fold.
 import { THREAD_FRAME } from "@/lib/conversations";
-import { writeComputerPanelView } from "@/lib/computer-panel-view";
+import { writeBotPanelView } from "@/lib/bot-panel-view";
 import { shouldOpenBrowserPanel } from "@/lib/browser-auto-open";
 import { isPersonalThread } from "../../shared/personal-thread";
 import {
@@ -875,7 +875,7 @@ export interface AppState {
   newBotOpen: boolean;
   /** Creation continues even when the role picker is dismissed. */
   botCreationPending: boolean;
-  computerOpen: boolean;
+  browserOpen: boolean;
   /** the per-thread event inspector (runtime stream + native protocol tee) */
   inspectorOpen: boolean;
   activityOpen: boolean;
@@ -1130,7 +1130,7 @@ export type Action =
   | { type: "togglePlugins"; open?: boolean; surface?: "apps" | "mcp" }
   | { type: "toggleTriggers"; open?: boolean }
   | { type: "toggleNewBot"; open?: boolean }
-  | { type: "toggleComputer"; open?: boolean; botId?: string }
+  | { type: "toggleBrowser"; open?: boolean; botId?: string }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "toggleActivity"; open?: boolean }
   | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } }
@@ -1411,7 +1411,7 @@ export function reducer(state: AppState, action: Action): AppState {
         activeView: "routines",
         routinesFocus: { section: action.section, view: action.view, botId: action.botId, routineId: action.routineId, runStatus: action.runStatus, nonce: state.routinesFocus.nonce + 1 },
         settingsOpen: false,
-        computerOpen: false,
+        browserOpen: false,
         inspectorOpen: false,
         activityOpen: false,
         filePreview: null,
@@ -1851,13 +1851,13 @@ export function reducer(state: AppState, action: Action): AppState {
     case "focusMessageConsumed":
       if (!state.focusMessage || state.focusMessage.nonce !== action.nonce) return state;
       return { ...state, focusMessage: { ...state.focusMessage, consumed: true } };
-    case "toggleComputer": {
-      const open = action.open ?? !state.computerOpen;
+    case "toggleBrowser": {
+      const open = action.open ?? !state.browserOpen;
       return {
         ...state,
-        // A group opens one of its bots' computers beside the conversation.
+        // A group opens one of its bots' browsers beside the conversation.
         ...(action.botId ? { selectedId: action.botId } : {}),
-        computerOpen: open,
+        browserOpen: open,
         settingsOpen: open ? false : state.settingsOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         activityOpen: open ? false : state.activityOpen,
@@ -1872,7 +1872,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         inspectorOpen: open,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
+        browserOpen: open ? false : state.browserOpen,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
         groupPanel: open ? null : state.groupPanel,
@@ -1885,7 +1885,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         activityOpen: open,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
+        browserOpen: open ? false : state.browserOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         filePreview: open ? null : state.filePreview,
         groupPanel: open ? null : state.groupPanel,
@@ -1898,7 +1898,7 @@ export function reducer(state: AppState, action: Action): AppState {
         filePreview: action.preview,
         groupPanel: null,
         settingsOpen: false,
-        computerOpen: false,
+        browserOpen: false,
         inspectorOpen: false,
         activityOpen: false,
         appSettingsOpen: false,
@@ -1915,7 +1915,7 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         groupPanel: open ? tab : null,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
+        browserOpen: open ? false : state.browserOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         activityOpen: open ? false : state.activityOpen,
         filePreview: open ? null : state.filePreview,
@@ -1932,7 +1932,7 @@ export function reducer(state: AppState, action: Action): AppState {
         groupPanel: open ? null : state.groupPanel,
         appSettingsSection: action.section ?? state.appSettingsSection,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
+        browserOpen: open ? false : state.browserOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         pluginsOpen: open ? false : state.pluginsOpen,
         triggersOpen: open ? false : state.triggersOpen,
@@ -2197,7 +2197,7 @@ export const initialState: AppState = {
   triggersOpen: false,
   newBotOpen: false,
   botCreationPending: false,
-  computerOpen: false,
+  browserOpen: false,
   inspectorOpen: false,
   activityOpen: false,
   filePreview: null,
@@ -3519,8 +3519,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Hermes' rule (browser-auto-open.ts); opening never takes focus.
           if (!shouldOpenBrowserPanel(stateRef.current, frame, browserAutoOpened.get(frame.threadId))) break;
           browserAutoOpened.set(frame.threadId, frame.turn);
-          writeComputerPanelView(frame.botId, frame.view);
-          rawDispatch({ type: "toggleComputer", open: true, botId: frame.botId });
+          writeBotPanelView(frame.botId, "browser");
+          rawDispatch({ type: "toggleBrowser", open: true, botId: frame.botId });
           break;
         }
         case "computer-control":

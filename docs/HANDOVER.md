@@ -1,14 +1,15 @@
 # Handover
 
-## Now: verify routines beside the conversation
+## Now: verify browser panels and conversation routines
 
-Review the compact Routines list in both right panels: name and schedule,
-plus to ask in chat, and inline controls, including on a narrow window.
-Verify group scope while watching a bot's computer, preserved drafts, and
-scheduling and reports with bounded Claude and Codex tasks in disposable
-workspaces. Never use the owner's running app, data, or credentials.
-Browser launch needs a working macOS session; no in-app browser is available.
-Resolve permission to clean the existing dist output before the standard build.
+Review Browser, Files, and the compact Routines list in both right panels,
+including on a narrow window. Verify group scope while watching a bot's
+browser, preserved drafts, and scheduling and reports with bounded Claude
+and Codex tasks in disposable workspaces. Never use the owner's running
+app, data, or credentials. Check browser takeover in the packaged app.
+Browser launch needs a working macOS session; the fixture Chromium closes
+before opening. The standard build cannot clean the existing dist output;
+leave it intact and resolve that permission before packaging.
 Keep this task active until the real-window and real-engine checks pass.
 Out of scope: scheduler changes, event triggers, hosting, and real user data.
 
@@ -80,7 +81,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 1. Verify guides and groups with real engines: saving a guide from chat,
    the lead handing work on, and Ask when risky asking only for risky actions.
-   Also: use_computer by a signed-in bot, Podman Desktop, packaged app quitting.
+   Also: browser takeover by a signed-in bot and packaged app quitting.
 2. A person installs Colonie on a clean Mac from a `.dmg` and completes the
    first run in a real window, with throwaway data.
 3. Gaps in the engine connection, each needing a decision before code:

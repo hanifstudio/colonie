@@ -31,7 +31,7 @@ type Phase = "chat" | "panel" | "awake" | "moving" | "clicked" | "done" | "reply
 const ORDER: Phase[] = ["chat", "panel", "awake", "moving", "clicked", "done", "reply"];
 const reached = (phase: Phase, target: Phase) => ORDER.indexOf(phase) >= ORDER.indexOf(target);
 
-const TABS = ["Computer", "Android", "Browser", "Routines"];
+const TABS = ["Browser", "Files"];
 
 export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
   const still = reducedMotion() || !playing;
@@ -98,7 +98,7 @@ export function Hands({ playing, onCue, onEnded, label }: SceneProps) {
                 <div className="min-w-0">
                   <div className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors duration-300", done ? "bg-success/15 text-success" : "bg-raised text-ink-secondary")}>
                     {done ? <HIcon icon={Tick01Icon} size={10} strokeWidth={3} /> : <HIcon icon={Loading02Icon} size={10} className="animate-spin" />}
-                    {done ? "clicked Book" : clicked ? "clicking Book…" : "using the computer"}
+                    {done ? "clicked Book" : clicked ? "clicking Book…" : "using the browser"}
                   </div>
                   {replied && (
                     <div className="animate-spot-in mt-1.5 max-w-[210px] rounded-2xl rounded-tl-md border border-hairline/40 bg-card px-3 py-2 text-[11.5px] leading-relaxed text-ink shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)]">

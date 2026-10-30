@@ -28,13 +28,11 @@ export function createRuntimeEventSubscriber(deps: RuntimeEventSubscriberDeps) {
   const {
     finalizeDelegationWatch,
     SCREEN_SETTLE_TIMEOUT_MS, approvalModeForTurn, askMessageByRequest, bookTurnUsage,
-    botForThread, broadcast, clearInternalTurn, commandAllowlist, computerSelectionTurns,
-    continueComputerSelection, directRequestOwners, directTurnBots, directTurnDispatchClaims,
+    botForThread, broadcast, clearInternalTurn, commandAllowlist, directRequestOwners, directTurnBots, directTurnDispatchClaims,
     directTurnGenerationByThread, drainComputerResumes, drainConnectorResumes,
     drainDelegationWakes, drainQueuedSends, drainSecretResumes, drainTeamSetupResumes,
-    finalScreenFrame, handoffs, isInternalTurn, isUnattended, lastReply, liveTurnByThread,
-    localVmIdleFor, localVmLeaseFor, localVmThreadTargets, nativeReviewNoticed, notify,
-    pendingCommandRules, pokeScreenPoller, providerLabel, registry, releaseLocalVmThread,
+    finalScreenFrame, handoffs, isInternalTurn, isUnattended, lastReply, liveTurnByThread, nativeReviewNoticed, notify,
+    pendingCommandRules, pokeScreenPoller, providerLabel, registry,
     releaseTurnResources, reportIncident, retryDelegationsWaitingOn, routineSourceOwner,
     routineSourceThread, routines, scheduleTurnDigest, screenPollers, sessionModelByThread,
     settleTrackedRequest, settleWaitingOnPersonChips, settlingResourceOwners,
@@ -44,14 +42,6 @@ export function createRuntimeEventSubscriber(deps: RuntimeEventSubscriberDeps) {
   } = deps;
 return (event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
-  const localVmTarget = localVmThreadTargets.get(event.threadId);
-  if (localVmTarget) {
-    localVmLeaseFor(localVmTarget).touch(event.threadId);
-    localVmIdleFor(localVmTarget).touch();
-  }
-  if (event.type === "turn.completed" && !store.botByThread(event.threadId)) {
-    releaseLocalVmThread(event.threadId);
-  }
   const privateImageEvent = event.type === "item.completed" && event.itemType === "assistant_image";
   // The durable message patch below is the public frame. Sending raw base64
   // through runtime SSE would multiply large bytes across every app window.
@@ -503,7 +493,6 @@ return (event: RuntimeEvent) => {
           const ownsResources = resourceOwner &&
             turnResourceOwners.get(event.threadId)?.generation === resourceOwner.generation;
           if (ownsResources) {
-            releaseLocalVmThread(event.threadId);
           }
           releaseTurnResources(resourceOwner);
           if (!isCurrent()) return;
@@ -511,7 +500,6 @@ return (event: RuntimeEvent) => {
             store.setTaskActivity(bot.id, event.threadId, resourceOwner?.computerParkedOn !== undefined ? "parked.computer" : "idle");
           }
           directTurnBots.delete(event.threadId);
-          if (continueComputerSelection(event.threadId, generation, event.ok)) return;
           // Ordinary completion still drains from the existing bus subscribers.
           // An asynchronous screenshot finishes after those subscribers ran.
           if (resumeQueued) {
@@ -593,7 +581,7 @@ return (event: RuntimeEvent) => {
         // A failed peer turn stays a chip too. The bot that delegated is woken
         // with the failure and answers the person in its own thread — buzzing
         // here as well would ring twice for one piece of news.
-        if ((!routineRun || routineRun.status === "completed") && !internal && !computerSelectionTurns.get(event.threadId)?.selected) {
+        if ((!routineRun || routineRun.status === "completed") && !internal) {
           // the frame carries the bot's avatar so every desktop client can
           // show the notification under that bot's own face
           const completionDetail = routineRun

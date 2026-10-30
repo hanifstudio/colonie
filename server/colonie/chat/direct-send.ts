@@ -26,7 +26,7 @@ export interface DirectSendDeps {
   cfg: AppConfig;
   handoffs: Pick<Handoffs, "current" | "steered">;
   /** Threads whose computer the person chose by hand, not by default. */
-  computerSelectionTurns: Map<string, any>;
+  computerSelectionTurns?: Map<string, any>;
   sendSequencer: { run: Helper };
   startOrQueueDirectMessage: Helper;
   clearUnattended: (threadId: string) => void;
@@ -52,7 +52,7 @@ export class DirectSendRefused extends Error {
 
 export function createDirectSend(deps: DirectSendDeps) {
   const {
-    store, cfg, handoffs, computerSelectionTurns, sendSequencer, startOrQueueDirectMessage,
+    store, cfg, handoffs, sendSequencer, startOrQueueDirectMessage,
     clearUnattended, runningTurnInstance,
   } = deps;
 /** The refusals a direct send meets before it is sequenced, or null. */
@@ -148,7 +148,7 @@ async function acceptDirectSend(
         const steerTarget = handoffs.current(threadId);
         const busyAdmission = admit("direct-busy", {
           carriesImages,
-          pendingComputerSelection: Boolean(computerSelectionTurns.get(threadId)?.selected),
+          pendingComputerSelection: false,
           engineCanSteer: Boolean(instance?.adapter.capabilities.queueing && instance.adapter.steer),
         });
         // steer was offered only when a live instance could take it;

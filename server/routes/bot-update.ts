@@ -60,9 +60,9 @@ export interface BotUpdateRouteDeps {
 export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
   return async ({ req, res, path, method, auth, json, readBody }) => {
     const {
-      store, cfg, registry, sessions, routines, memoryUpkeep, browserLive, browserRuntime,
+      store, cfg, registry, sessions, memoryUpkeep, browserLive, browserRuntime,
       broadcast, wireBot, requestedTaskBot, threadBusy, checkedModelSelection, supportsApprovalMode,
-      audienceChanged, currentBrowserSession, interruptAllDirectThreads, forgetTemporaryBrowser,
+      audienceChanged, currentBrowserSession, forgetTemporaryBrowser,
       storedAvatarExists,
     } = deps;
     const DESKTOP_MANAGED = deps.desktopManaged;
@@ -145,23 +145,8 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
       for (const key of ["unread", "color", "mascotExpression", "mascotBody", "pinned", "hidden"] as const) {
         if (body[key] !== undefined) patch[key] = body[key];
       }
-      const computerSpecified = Object.prototype.hasOwnProperty.call(body, "computer");
-      let requestedComputer = existingBot?.computer;
-      if (computerSpecified) {
-        if (body.computer === null) {
-          // Auto is represented by an absent durable field. JSON needs a
-          // concrete clear value, so clients send null at the PATCH boundary.
-          requestedComputer = undefined;
-          patch.computer = undefined;
-        } else if (
-          typeof body.computer === "string" &&
-          ["vm", "local", "browser", "off"].includes(body.computer)
-        ) {
-          requestedComputer = body.computer;
-          patch.computer = body.computer;
-        } else {
-          return json(res, 400, { error: "computer must be null (Auto), vm, local, browser, or off" });
-        }
+      if (body.computer !== undefined) {
+        return json(res, 400, { error: "Desktop computer selection has been removed. Use the browser switch." });
       }
       if (normalizedSelection) patch.modelSelection = normalizedSelection;
       // one pinned message per thread; null/"" clears. The id is not
@@ -387,21 +372,6 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
           error: "This approval-level change can only be made from the packaged desktop app",
         });
       }
-      // "Auto on this Mac" hands a bot the user's real session, so the grant
-      // must prove a human saw the warning. The desktop dialog is the only
-      // caller that sends acknowledgeLocalAuto; without it a PATCH that would
-      // create the combination — a bot curling the loopback API from a tool
-      // call, a script, a stale client — is refused. The renderer dialog
-      // alone is not a boundary; this check is.
-      const wantsComputer = computerSpecified ? requestedComputer : existingBot?.computer;
-      const wantsAuto = requestedApprovalMode === "auto";
-      const alreadyGranted =
-        existingBot?.computer === "local" && approvalModeFor(existingBot) === "auto";
-      if (wantsComputer === "local" && wantsAuto === true && !alreadyGranted && body.acknowledgeLocalAuto !== true) {
-        return json(res, 400, {
-          error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)",
-        });
-      }
       if (body.approvePeerComms !== undefined) {
         if (typeof body.approvePeerComms !== "boolean") {
           return json(res, 400, { error: "approvePeerComms must be true or false" });
@@ -539,11 +509,6 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
         }
         console.warn(`bot ${m[1]}: ${loosened.join(", ")} loosened by ${requestSource(req)} through the local API with no paired session`);
       }
-      if (existingBot?.computer === "local" && computerSpecified && requestedComputer !== "local") {
-        await interruptAllDirectThreads(existingBot.id);
-        const routine = routines()!.activeBotRunForBot(existingBot.id);
-        if (routine) await routines()!.cancelRun(routine.id);
-      }
       const chiefMovedSections =
         Boolean(existingBot?.chiefOfStaff) &&
         body.chiefOfStaff !== false &&
@@ -612,11 +577,6 @@ export function createBotUpdateRoutes(deps: BotUpdateRouteDeps): RouteHandler {
       if (!bot) return json(res, 404, { error: "no such bot" });
       if (sharedAdminFull && requiresPrivateApprovalTransition) bot = store.setAllThreadApprovalMode(bot.id, "full") ?? bot;
       if (body.memoryUpkeep === false || body.memoryEnabled === false) memoryUpkeep.dropBot(bot.id);
-      // A defined Works on is the newest explicit choice: this bot's
-      // auto-recorded pins that now point elsewhere give way immediately, so
-      // the next turn on each thread follows the new setting. Person-set pins
-      // and pins that already match stay; returning to Auto sweeps nothing.
-      if (computerSpecified && requestedComputer !== undefined) store.clearAutoSurfacePins(m[1], requestedComputer);
       // A new bot model moves every thread that follows the bot; the selected
       // thread follows it from now on too.
       if (normalizedSelection && selectedTask) store.patchTask(bot.id, selectedTask.threadId, { modelSelection: undefined });

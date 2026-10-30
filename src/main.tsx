@@ -21,12 +21,8 @@ setAnalyticsEnabled(false);
 applySkin(readSkin());
 applyFont(readFont());
 
-/** The Local VM's own page is the one route that is not the app shell. */
+/** Choose the app shell or the sign-in page. */
 async function chooseRoot(): Promise<React.ReactNode> {
-  if (location.pathname === "/desktop-viewer") {
-    const { DesktopViewer } = await import("./components/DesktopViewer");
-    return <DesktopViewer />;
-  }
   // A browser that the server does not know (a Shared workspace opened
   // without signing in) gets the sign-in page instead of an app that cannot
   // load. The desktop app's own window is the owner and skips the question.

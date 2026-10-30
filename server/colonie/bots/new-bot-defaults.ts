@@ -124,5 +124,6 @@ export function resolveBotCreationDefaults(saved: NewBotDefaults | undefined, bo
   const resolved = botDefaultsProfileSchema.safeParse(profile);
   if (!resolved.success) throw Object.assign(new Error(resolved.error.message), { status: 400 });
   if (!resolved.data.name?.trim()) delete resolved.data.name;
-  return { ...template, profile: resolved.data };
+  const { computer: _legacyComputer, ...browserProfile } = resolved.data;
+  return { ...template, profile: browserProfile };
 }

@@ -26,7 +26,7 @@ export function ConversationRoutines({ threadId, botId, conversationId }: { thre
     appendComposerDraft(draftId, `${conversationId && bot ? `@${bot.name} ` : ""}${text}`);
     // On a narrow window the side panel covers the composer.
     if (window.matchMedia("(max-width: 767px)").matches) {
-      dispatch({ type: "toggleComputer", open: false });
+      dispatch({ type: "toggleBrowser", open: false });
       dispatch({ type: "toggleGroupPanel", open: false });
     }
     requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('main [data-tour="composer"] textarea')?.focus());

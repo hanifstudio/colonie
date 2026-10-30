@@ -109,13 +109,16 @@ test("a signal tears the server down in order and exits 0", async () => {
   expect(followups).toEqual([true, false]);
   expect(shutting).toEqual([true]);
   for (const step of [
-    "revokeAll", "sharedComputers.close", "sharedComputerControl.close", "browserLive.closeAll",
-    "desktopViewer.closeAll", "idle.cancel", "watchdog.stop", "routines.stop", "memoryUpkeep.stop",
+    "revokeAll", "browserLive.closeAll",
+    "watchdog.stop", "routines.stop", "memoryUpkeep.stop",
     "colonieMemory.stop", "colonieChief.dispose", "registry.disposeAll", "forget:b1",
     "browserRuntime.closeAll", "liveCalls.shutdown", "colonieMemory.idle", "sessions.close",
     "bus.flush", "mcpOAuth.dispose", "connectedTools.dispose", "releaseLease",
   ]) {
     expect(calls, step).toContain(step);
+  }
+  for (const retired of ["sharedComputers.close", "sharedComputerControl.close", "desktopViewer.closeAll", "idle.cancel"]) {
+    expect(calls, retired).not.toContain(retired);
   }
 });
 

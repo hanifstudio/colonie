@@ -15,7 +15,6 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { mcpServersForBot, useMcpServers } from "@/lib/mcp-servers";
-import { placeFacts, placeViewFor, usePlaceSeat } from "@/lib/place-view";
 import { shortPath } from "@/lib/short-path";
 import { useDesktopCapabilities } from "../DesktopCapabilities";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -530,11 +529,6 @@ export function AccessSection({
     browserEnabled,
   } = derived;
   const browserInstallable = state.config?.browserEngine?.installable === true;
-  const { capabilities } = useDesktopCapabilities();
-  const placeSeat = usePlaceSeat(capabilities.host?.platform ?? "other");
-  const worksOn = placeViewFor(placeFacts({
-    bot, place: bot.computer ?? "auto", seat: placeSeat, config: state.config, instances: state.instances,
-  }));
   const [inventory, setInventory] = useState<ConnectorInventory | null>(null);
 
   useEffect(() => {
@@ -557,23 +551,6 @@ export function AccessSection({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Where it works is chosen in one place, the Computer panel; here is
-          its one line (shared/place-view.ts), the same words the panel uses. */}
-      <div className="rounded-xl bg-card p-4" data-testid="access-works-on">
-        <div className="text-[15px] font-medium text-ink">{t("access.worksOn", { name: bot.name, short: worksOn.short })}</div>
-        <ProposalStatus bot={bot} kind="owner" />
-        <button
-          type="button"
-          onClick={() => {
-            dispatch({ type: "toggleSettings", open: false });
-            dispatch({ type: "toggleComputer", open: true });
-          }}
-          className="mt-3 rounded-lg bg-control px-3 py-1.5 text-[13px] text-ink hover:bg-raised-hover"
-        >
-          {t("place.action.openComputerPanel")}
-        </button>
-      </div>
-
       <WorkingFolder bot={bot} />
 
       <div className="rounded-xl bg-card p-4">
@@ -644,26 +621,22 @@ export function AccessSection({
                 ? "Not available on this Windows machine yet: install the browser engine with `colonie browser install`."
                 : browserUnavailableReason(state.config)
               : !browserFeature
-                ? "The built-in browser is switched off under App Settings → Computers."
+                ? "The built-in browser is switched off under App Settings → Browser."
                 : !canUseBrowser
                   ? "This bot's current model cannot use the built-in browser."
-                  : bot.computer === "off"
-                    ? "Works on is set to Off, so this bot has no browser. Choose another place in the Computer panel to give it one."
-                    : browserEnabled
+                  : browserEnabled
                       ? "This bot has its own browser with its own logins."
                       : "Keep the built-in browser unavailable to this bot."}
           </div>
           <ProposalStatus bot={bot} kind="owner" />
         </div>
         <Switch
-          checked={browserEnabled && bot.computer !== "off"}
+          checked={browserEnabled}
           aria-label="Give this bot a built-in browser"
           disabled={
-            bot.computer === "off" ||
             (!browserEnabled && ((!desktopBrowser && !browserInstallable) || !browserFeature || !canUseBrowser))
           }
           onClick={() => patch({ browser: !browserAllowed })}
-          title={bot.computer === "off" ? "Works on is set to Off, so this bot has no browser" : undefined}
           className="disabled:cursor-not-allowed"
         />
       </div>

@@ -1,4 +1,4 @@
-// Live screen: the per-thread poller that captures the bot's computer/browser while it works, the poke/stop helpers, the settled-frame hash gate, and the one-last-frame turn end.
+// Live screen: the per-thread poller that captures the bot's browser while it works, the poke/stop helpers, the settled-frame hash gate, and the one-last-frame turn end.
 import { screenFrameHash, settledFrameIsNews } from "../colonie/computer/screen-frame-gate.ts";
 import { createScreenFrameSource, type ScreenCapture } from "../colonie/computer/screen-frame-source.ts";
 
@@ -11,12 +11,11 @@ export interface ScreenPollingDeps {
 
 export function createScreenPolling(deps: ScreenPollingDeps) {
   const {
-    botComputerControlSnapshot, botForThread, broadcast, computerControlRevision, currentBrowserSession, store,
-    turnComputerResources, turnResourceOwners, turnResources
+    botForThread, broadcast, currentBrowserSession, store, turnResourceOwners, turnResources
   } = deps;
 
 
-// ── live screen: poll the bot's computer while it works ───────────────
+// ── live screen: poll the bot's browser while it works ───────────────
 // Frames stream to clients as SSE {kind:'screen'} (the "Bot's screen"
 // panel); the final frame is folded into the transcript on turn end.
 type Frame = { png: string; mime: string };
@@ -53,13 +52,12 @@ const SCREEN_SETTLE_TIMEOUT_MS = 10_000;
 function startScreenPoller(
   botId: string,
   threadId: string,
-  captures: { computer?: ScreenCapture; browser?: ScreenCapture },
+  captures: { browser?: ScreenCapture },
   { screenIsTheWork = false } = {},
 ) {
-  if (!captures.computer && !captures.browser) return;
+  if (!captures.browser) return;
   if (screenPollers.has(threadId)) return;
   const owner = turnResourceOwners.get(threadId);
-  const computer = turnComputerResources.get(threadId);
   const browserSession = currentBrowserSession(botId, botForThread(botId, threadId)?.browserProfile);
   const guarded = (capture: ScreenCapture | undefined, resource: string | undefined): ScreenCapture | undefined =>
     capture && owner && resource ? async () => {
@@ -74,13 +72,11 @@ function startScreenPoller(
   // hides a stale frame as soon as the selected surface changes.
   const entry = Object.assign(createScreenFrameSource({
     captures: {
-      computer: guarded(captures.computer, computer?.resource),
       browser: guarded(captures.browser, browserSession ? `browser:${browserSession}` : undefined),
     },
-    control: () => ({
-      held: botComputerControlSnapshot(botId).held,
-      revision: computerControlRevision.get(botId) ?? 0,
-    }),
+    // The capture runs through BrowserRuntime.withAgentAction, which drops
+    // a frame if human takeover starts before it completes.
+    control: () => ({ held: false, revision: 0 }),
     onFrame: (frame) => broadcast({ kind: "screen", botId, threadId, ...frame }),
     minGapMs: SCREEN_MIN_GAP_MS,
   }), {

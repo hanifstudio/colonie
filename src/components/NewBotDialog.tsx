@@ -26,7 +26,6 @@ import { BotEditorContext } from "./bot-settings/BotEditorContext";
 import { inputCls } from "./bot-settings/field";
 import { RoutineEditor } from "./RoutinesPage";
 import { FullAccessWarning } from "./FullAccessWarning";
-import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
 import { SharePresetDialog } from "./SharePresetDialog";
 
 const SECTIONS = ["Identity", "Soul", "Skills", "Memory", "Routines", "Access", "Model", "Permissions", "Voice & alerts"] as const;
@@ -101,6 +100,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
       .then(result => {
         if (cancelled) return;
         const defaults = structuredClone(result.defaults);
+        delete defaults.profile.computer;
         defaults.profile.modelSelection ??= result.modelSelection;
         // No engine can run a turn yet (none signed in): guide to setup
         // instead of submitting an empty model and failing validation.
@@ -140,7 +140,6 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
   const save = async () => {
     if (!ready || needsSetup || savingRef.current || parent.state.botCreationPending) return;
     if (!defaultsMode && draft.bot.approvalMode === "full" && !draft.consent.confirmFullAccess) { setWarning("full"); return; }
-    if (!defaultsMode && draft.bot.approvalMode === "auto" && draft.bot.computer === "local" && !draft.consent.acknowledgeLocalAuto) { setWarning("local"); return; }
     const visibility = choosesVisibility ? visibilityFromForm(audience, people) : null;
     if (visibility && !visibility.ok) { setError(t("botSettings.visibility.needPeople")); return; }
     savingRef.current = true; setSaving(true); setError("");
@@ -245,7 +244,7 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
         </button>
       </div>
       <FullAccessWarning open={warning === "full"} onCancel={() => setWarning(null)} onConfirm={() => { draft.consent.confirmFullAccess = true; setWarning(null); void save(); }} />
-      <LocalComputerAutoWarning open={warning === "local"} onCancel={() => setWarning(null)} onConfirm={() => { draft.consent.acknowledgeLocalAuto = true; setWarning(null); void save(); }} />
+
     </div>
   </div>;
 }

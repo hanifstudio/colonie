@@ -20,3 +20,8 @@ test("every spawned proxy resolves to a file inside SERVER_ROOT", () => {
     expect(existsSync(path), `${name}: ${path}`).toBe(true);
   }
 });
+
+test("the packaged process manifest contains no retired desktop helper", () => {
+  expect(SPAWNED_PROXIES).not.toHaveProperty("localComputer");
+  expect(SPAWNED_PROXIES).not.toHaveProperty("containerMcp");
+});

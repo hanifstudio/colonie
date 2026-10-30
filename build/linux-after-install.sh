@@ -2,9 +2,7 @@
 set -eu
 
 # dpkg preserves an existing directory's mode during an in-place upgrade.
-# Colonie 0.1.7 installed the application ancestors as 0775, which makes
-# the bundled Cua Driver correctly reject its own executable path. A configured
-# DEB also needs Electron's Chromium sandbox to be root-owned and setuid. The
+# A configured DEB needs Electron's Chromium sandbox root-owned and setuid. The
 # bot's separate Chrome uses its normal user-namespace sandbox, with an exact
 # root-owned AppArmor allowlist on Ubuntu 24.04. Never disable the sandbox or
 # change the machine-wide user-namespace restriction.
@@ -176,12 +174,8 @@ install_browser_apparmor_profile() {
   "$APPARMOR_PARSER" -r "$target"
 }
 
-CUA_ROOT=$APP_ROOT/resources/cua-linux-x64
 repair_directory "$APP_ROOT"
 repair_directory "$APP_ROOT/resources"
-repair_directory "$CUA_ROOT"
-repair_executable "$CUA_ROOT/cua-driver"
-repair_executable "$CUA_ROOT/cua-cursor-theme"
 repair_chromium_sandbox "$APP_ROOT/chrome-sandbox"
 BROWSER_ROOT=$APP_ROOT/resources/browser-engine
 repair_directory "$BROWSER_ROOT"
