@@ -63,7 +63,7 @@ export async function verifyRoutines(page, { botId, botName, check, until }) {
   await section().getByRole('button', { name: 'Run now', exact: true }).click();
   await until(page, async () => (await runState()).some((run) => run.routineId === groupRoutine.id && run.status === 'completed'), 'the group routine completes');
   await page.getByRole('button', { name: 'Browser', exact: true }).click();
-  await page.locator('aside').getByRole('button', { name: new RegExp(botName) }).click();
+  await page.getByRole('complementary', { name: 'Launch: Browser', exact: true }).getByRole('button', { name: new RegExp(botName) }).click();
   await until(page, async () => section().count() === 1 && (await section().innerText()).includes('Launch roundup'), 'watching a bot from a group keeps the group routine visible');
   check(!(await section().innerText()).includes('Later brief'), 'the computer panel keeps the group scope instead of the bot DM');
   await page.getByRole('button', { name: 'Show conversation details', exact: true }).click();
