@@ -24,3 +24,8 @@ test("a bot with a desktop, or Advanced mode, keeps the Desktop tab", () => {
   expect(shownComputerPanelView("computer", { ...simple, advanced: true })).toBe("computer");
   expect(shownComputerPanelView("files", { ...simple, advanced: true })).toBe("computer");
 });
+
+test("an old Routines tab preference opens the computer with its inline routines", () => {
+  expect(shownComputerPanelView("routines", simple)).toBe("computer");
+  expect(shownComputerPanelView("routines", { ...simple, advanced: true })).toBe("computer");
+});

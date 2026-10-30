@@ -162,7 +162,7 @@ try {
 
   step = "each bot's approval level in the group";
   // one button opens the group's panel on Members; a bot opens to its settings
-  await ana.click('button[aria-label="Show members and files"]');
+  await ana.click('button[aria-label="Show conversation details"]');
   await until(ana, async () => (await ana.locator('aside[aria-label$="Members"] button[aria-expanded]', { hasText: botName }).count()) > 0, "the group's panel lists its members");
   check((await ana.locator('aside[aria-label$="Members"]').innerText()).includes("Ask when risky"), "each bot shows its approval level in the list");
   await ana.locator('aside[aria-label$="Members"] button[aria-expanded]', { hasText: botName }).click();

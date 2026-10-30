@@ -171,8 +171,10 @@ Steps, in order. Each one is safe on its own:
 ### Routines
 
 - A routine requested in chat belongs to that DM or group. People schedule,
-  review, change, pause, resume, and run it there, with controls beside the
-  conversation. Status, approvals, and one report per run return there.
+  review, change, pause, resume, and run it there. The existing computer or
+  group side panel lists each name and schedule; controls expand inline,
+  and plus prepares a chat request. Status, approvals, and one report per
+  run return to the conversation.
 - One bot is responsible. It keeps its normal permissions, uses the
   conversation's project folder, and asks the person who requested the
   routine when approval is needed. Other conversations' routines stay private.

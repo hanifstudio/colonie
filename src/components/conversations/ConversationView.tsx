@@ -22,7 +22,6 @@ import { useMentionPicker } from "@/lib/use-mention-picker";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { GroupPanel } from "./GroupPanel";
 import { GroupStack } from "./GroupFaces";
-import { ConversationRoutines } from "../routines/ConversationRoutines";
 import { useComposerDraft } from "@/lib/drafts";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
@@ -98,7 +97,6 @@ export function ConversationView({ id }: { id: string }) {
       ),
       actions: (
         <>
-        <ConversationRoutines key={conversation.id} threadId={conversation.threadId} conversationId={conversation.id} botId={conversation.leadBotId ?? memberBots[0]?.id ?? bots.find((bot) => bot.chiefOfStaff)?.id ?? bots[0]?.id} />
         {conversation.canStop && <button type="button" disabled={stopping} onClick={() => {
           setStopping(true); setStopError("");
           void stopConversation(id).then(() => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)))
@@ -109,7 +107,7 @@ export function ConversationView({ id }: { id: string }) {
         </button>}
         {/* Members, Files and each bot's screen live in one right panel, as Grok Bot's */}
         <button type="button" onClick={() => dispatch({ type: "toggleGroupPanel", tab: state.groupPanel ?? "members" })}
-          aria-pressed={Boolean(state.groupPanel)} aria-label={state.groupPanel ? "Hide group panel" : "Show members and files"} title={state.groupPanel ? "Hide group panel" : "Members and files"}
+          aria-pressed={Boolean(state.groupPanel)} aria-label={state.groupPanel ? "Hide group panel" : "Show conversation details"} title={state.groupPanel ? "Hide group panel" : "Members, files, and routines"}
           className={cn("flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-control hover:text-ink", state.groupPanel && "bg-control text-ink")}>
           <HIcon icon={InformationCircleIcon} size={18} />
         </button>

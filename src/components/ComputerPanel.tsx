@@ -12,7 +12,6 @@ import { z } from "zod";
 import { waitForLocalVmReady } from "@/lib/local-vm-readiness";
 import {
   BoxIcon,
-  CalendarClockIcon,
   FolderOpenIcon,
   GlobeIcon,
   HandIcon,
@@ -37,8 +36,8 @@ import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
 import { usePageVisible } from "@/lib/page-visible";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
-import { RoutinesSection } from "./bot-settings/RoutinesSection";
-import { routineRunLabel, routineRunTone } from "@/lib/routine-display";
+import { ConversationRoutines } from "./routines/ConversationRoutines";
+import { useConversations } from "@/lib/conversations";
 import { AndroidDevicePanel, useAndroidUsbDevices } from "./AndroidDevicePanel";
 import { BrowserPanel } from "./BrowserPanel";
 import { browserAvailable, browserUnavailableReason, builtInBrowserEnabled } from "@/lib/feature-flags";
@@ -207,6 +206,8 @@ export function ComputerPanel({
     onResizeBy(widen);
   };
   const { state, dispatch, flushBotPatches } = useStore();
+  const { conversations } = useConversations();
+  const conversation = conversations?.find((entry) => entry.id === state.selectedConversationId);
   // Where this bot's current conversation works and whether a turn is acting
   // there now: the tab for that place carries the live dot.
   const liveTask = profileBot.tasks?.find((task) => task.threadId === profileBot.threadId);
@@ -413,12 +414,6 @@ export function ComputerPanel({
   const vmSupported = Boolean(
     selectedInstance?.snapshot.state === "available" &&
       selectedInstance.capabilities?.computerMcp,
-  );
-  const botRoutines = state.routines
-    .filter((routine) => routine.botId === bot.id)
-    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || (a.nextRunAt ?? Infinity) - (b.nextRunAt ?? Infinity));
-  const activeRoutineRun = state.routineRuns.find(
-    (run) => run.botId === bot.id && ["queued", "running", "waiting"].includes(run.status),
   );
   // Resolve the mode on open. Other tabs own their surfaces, so this never
   // provisions a VM or churns preview state while reading routine history.
@@ -929,6 +924,13 @@ export function ComputerPanel({
     error: t("computer.phase.error"),
   } satisfies Record<Exclude<Phase, "local" | "vm">, string>;
 
+  // Watching a bot from a group still shows that group's routines. While
+  // its details load, never substitute the bot's private DM.
+  const conversationRoutines = (!state.selectedConversationId || conversation) && (
+    <ConversationRoutines key={conversation?.threadId ?? bot.threadId} threadId={conversation?.threadId ?? bot.threadId}
+      conversationId={conversation?.id} botId={conversation?.leadBotId ?? bot.id} />
+  );
+
   return (
     <>
     <aside
@@ -985,14 +987,6 @@ export function ComputerPanel({
               <HIcon icon={MonitorIcon} size={13} /> {t("computer.tab.computer")}
               {placeLive && isComputerPlace(livePlace) && <span className="size-1.5 animate-pulse rounded-full bg-success" role="img" aria-label={t("place.live")} data-testid="computer-tab-live" />}
             </button>
-            {advanced && (
-            <button
-              type="button"
-              onClick={() => selectPanelView("routines")}
-              aria-pressed={panelView === "routines"}
-              className={tabClass(panelView === "routines")}
-            ><HIcon icon={CalendarClockIcon} size={13} />{t("computer.tab.routines")}</button>
-            )}
             {advanced && androidConnected && (
             <button
               onClick={() => selectPanelView("android")}
@@ -1036,11 +1030,8 @@ export function ComputerPanel({
         </div>
       </div>
 
-      {panelView === "routines" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          <RoutinesSection key={bot.id} bot={bot} routines={botRoutines} runs={state.routineRuns} defaultRunOn="maus" />
-        </div>
-      ) : panelView === "browser" && browserEnabled ? (
+      <div className="flex min-h-0 flex-1 flex-col">
+      {panelView === "browser" && browserEnabled ? (
         <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
           {browserSwitchRow}
           <BrowserPanel bot={bot} />
@@ -1335,6 +1326,8 @@ export function ComputerPanel({
           </div>
         )}
 
+        {conversationRoutines && <div className="mt-5 border-t border-hairline/40 pt-3">{conversationRoutines}</div>}
+
         {/* This computer's own screen: only Advanced, since Simple-mode bots
             never control the person's own Mac (owner, October 29). */}
         {advanced && (bot.computer !== undefined || computerStatusCurrent) && <>
@@ -1390,19 +1383,14 @@ export function ComputerPanel({
           </div>
         </div>
 
-        {/* A compact entry beneath the computer; the tab owns the full list. */}
-        <button type="button" onClick={() => selectPanelView("routines")} className="mt-4 flex w-full items-start gap-3 rounded-xl bg-card p-4 text-left hover:bg-raised">
-          <HIcon icon={CalendarClockIcon} size={17} className="mt-0.5 shrink-0 text-accent" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-medium text-ink">{t("computer.tab.routines")} <span className="ml-1 text-[11px] text-ink-secondary">{botRoutines.length}</span></span>
-            <span className={cn("mt-1 block truncate text-[11.5px]", activeRoutineRun ? routineRunTone(activeRoutineRun) : "text-ink-secondary")}>{activeRoutineRun ? `${activeRoutineRun.routineName} · ${routineRunLabel(activeRoutineRun)}` : t("computer.routines.openTitle")}</span>
-          </span>
-          <span className="text-ink-secondary" aria-hidden="true">→</span>
-        </button>
         </> : null /* Simple mode offers no place to choose: a bot's computer is its Local VM (owner, October 29). */}
       </div>
       )}
-
+      </div>
+      {/* Browser and Files keep their own scroll area above the same list. */}
+      {conversationRoutines && (panelView === "browser" || panelView === "files" || (panelView === "android" && androidConnected)) && <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-hairline/40 px-5 py-3">
+        {conversationRoutines}
+      </div>}
     </aside>
     <LocalComputerAutoWarning
       open={localAutoWarningTarget !== null}

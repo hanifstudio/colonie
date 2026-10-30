@@ -1,16 +1,16 @@
 # Handover
 
-## Now: verify routines in direct messages and groups
+## Now: verify routines beside the conversation
 
-People create, review, change, pause, and run routines in their originating
-conversation, with clear schedule receipts, progress, approvals, and results.
-Keep each routine's conversation, project folder, and requesting person bound.
-Finish a real-window review of scheduling, editing, controls, and reports in
-both chat types, then bounded Claude and Codex checks in disposable workspaces.
+Review the compact Routines list in both right panels: name and schedule,
+plus to ask in chat, and inline controls, including on a narrow window.
+Verify group scope while watching a bot's computer, preserved drafts, and
+scheduling and reports with bounded Claude and Codex tasks in disposable
+workspaces. Never use the owner's running app, data, or credentials.
 Browser launch needs a working macOS session; no in-app browser is available.
 Resolve permission to clean the existing dist output before the standard build.
 Keep this task active until the real-window and real-engine checks pass.
-Out of scope: event triggers, new hosting, and the owner's real data.
+Out of scope: scheduler changes, event triggers, hosting, and real user data.
 
 ## After that: prepare the first public release
 

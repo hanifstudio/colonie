@@ -89,7 +89,6 @@ import { ReplyQuote } from "./ReplyQuote";
 import { ConnectorCard } from "./ConnectorCard";
 import { SecretRequestCard } from "./SecretRequestCard";
 import { hasRoutineExecutionTask, RoutineRunCard } from "./RoutineRunCard";
-import { ConversationRoutines } from "./routines/ConversationRoutines";
 import { AttachmentGallery, collectMessageFiles, splitMessageAttachments } from "./AttachmentGallery";
 import { FilePreviewScope } from "./AttachmentPreview";
 import { ScreenFrame } from "./ScreenFrame";
@@ -1537,7 +1536,6 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
             </button>
           )}
           {accountConversation ? <>{accountConversation.actions}<ChatHeaderMenu bot={bot} messages={messages} findOpen={findOpen} onFind={() => setFindOpen((open) => !open)} accountWorkspace /></> : <>
-          <ConversationRoutines key={bot.threadId} threadId={bot.threadId} botId={bot.id} />
           {!remoteClient && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
           {codexAcp && developerTools && <button onClick={() => setAcpContextOpen(true)} aria-label="Inspect ACP context" className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised">ACP context</button>}
           {/* below md the sidebar (and its Live call pill) is hidden */}

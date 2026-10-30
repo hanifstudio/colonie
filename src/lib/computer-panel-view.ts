@@ -36,12 +36,13 @@ export function writeComputerPanelView(
  * (owner, October 29, as in OpenMausBot): the Computer tab is always there,
  * where a person gives the bot one (Works on) or watches its desktop. A bot
  * with a desktop browses on it, so its Browser view opens the desktop; a bot
- * without one also has the separate Browser tab. Advanced keeps Computer |
- * Routines | Android | Browser. A view stored by the other mode reads as the
- * Computer tab instead of an empty pane. */
+ * without one also has the separate Browser tab. Routines live below the
+ * active view. Advanced keeps Computer | Android | Browser. A view stored
+ * by the other mode reads as Computer instead of an empty pane. */
 export function shownComputerPanelView(stored: ComputerPanelView, options: { advanced: boolean; hasDesktop: boolean }): ComputerPanelView {
+  if (stored === "routines") return "computer";
   if (options.advanced) return stored === "files" ? "computer" : stored;
-  const simple = stored === "routines" || stored === "android" ? "computer" : stored;
+  const simple = stored === "android" ? "computer" : stored;
   return options.hasDesktop && simple === "browser" ? "computer" : simple;
 }
 

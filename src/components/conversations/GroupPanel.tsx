@@ -26,6 +26,7 @@ import {
 import { useStore, type Bot, type Message } from "@/state/store";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
+import { ConversationRoutines } from "../routines/ConversationRoutines";
 
 export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members" | "browser"; onLeft: () => void;
@@ -64,10 +65,16 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
           </button>
         </div>
       </div>
+      <div className="flex min-h-0 flex-1 flex-col">
       {tab === "files"
         ? <ProjectFiles conversation={conversation} messages={messages} />
         : tab === "browser" ? <BotScreens bots={memberBots} />
         : <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots} onLeft={onLeft} />}
+      </div>
+      <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-hairline/40 px-4 py-3">
+        <ConversationRoutines key={conversation.id} threadId={conversation.threadId} conversationId={conversation.id}
+          botId={conversation.leadBotId ?? memberBots[0]?.id ?? bots.find((bot) => bot.chiefOfStaff)?.id ?? bots[0]?.id} />
+      </div>
     </aside>
   );
 }
