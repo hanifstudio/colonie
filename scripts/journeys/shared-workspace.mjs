@@ -159,7 +159,11 @@ try {
     "the group's lead bot answers a message that names no one", 40_000);
 
   step = "each bot's approval level in the group";
-  await ana.click('button:has-text("Members")');
+  // one button opens the group's panel on Members; a bot opens to its settings
+  await ana.click('button[aria-label="Show members and files"]');
+  await until(ana, async () => (await ana.locator('aside[aria-label$="Members"] button[aria-expanded]', { hasText: botName }).count()) > 0, "the group's panel lists its members");
+  check((await ana.locator('aside[aria-label$="Members"]').innerText()).includes("Ask when risky"), "each bot shows its approval level in the list");
+  await ana.locator('aside[aria-label$="Members"] button[aria-expanded]', { hasText: botName }).click();
   const level = ana.locator(`select[aria-label="How ${botName} asks for permission"]`);
   await until(ana, async () => (await level.count()) > 0, "the group lists the bot with its approval level");
   check(await level.inputValue() === "auto", "a new bot starts on Ask when risky");
@@ -176,7 +180,7 @@ try {
   await level.selectOption("auto");
   await until(ana, async () => (await ana.evaluate(async (name) => (await (await fetch("/api/bots")).json()).bots.find((bot) => bot.name === name).approvalMode, botName)) === "auto",
     "and Ask when risky changes it back");
-  await ana.click('button:has-text("Members")');
+  await ana.click('button[aria-label="Hide group panel"]');
 
   step = "Bob reads the group";
   await bob.click('section[aria-label="Groups and people"] button:has-text("Launch")');

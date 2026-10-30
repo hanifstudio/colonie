@@ -12,7 +12,8 @@ import {
   CONVERSATIONS_CHANGED, OPEN_NEW_CONVERSATION, createConversation, useConversations, workspacePeople, type Conversation,
 } from "@/lib/conversations";
 import { useShowThreads } from "@/lib/thread-preferences";
-import { useStore } from "@/state/store";
+import { useStore, type Bot } from "@/state/store";
+import { GroupTile } from "./GroupFaces";
 
 export interface Person { email: string; name: string; avatar?: string }
 export type SidebarRow = { kind: "conversation"; conversation: Conversation } | { kind: "person"; person: Person };
@@ -44,8 +45,10 @@ export function rowMetrics(density: "compact" | "comfortable" | string, showThre
   };
 }
 
-function Face({ conversation, person, size }: { conversation?: Conversation; person?: Person; size: number }) {
+function Face({ conversation, person, size, bots = [] }: { conversation?: Conversation; person?: Person; size: number; bots?: readonly Bot[] }) {
   const other = person ?? (conversation?.kind === "dm" ? conversation.people.find((entry) => !entry.you) : undefined);
+  // a group shows who is in it, as Grok Bot's channels do
+  if (!other && conversation) return <GroupTile conversation={conversation} bots={bots} size={size} />;
   return other
     ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={size} />
     : <span className="flex shrink-0 items-center justify-center rounded-full bg-raised text-ink-secondary" style={{ width: size, height: size }}>
@@ -53,8 +56,10 @@ function Face({ conversation, person, size }: { conversation?: Conversation; per
     </span>;
 }
 
-export function ConversationListView({ conversations, people = [], selectedId, density = "comfortable", showThreads = true, onSelect, onPerson = () => {} }: {
+export function ConversationListView({ conversations, people = [], bots = [], selectedId, density = "comfortable", showThreads = true, onSelect, onPerson = () => {} }: {
   conversations: Conversation[];
+  /** The workspace's bots, for a group's faces. */
+  bots?: readonly Bot[];
   /** Everyone else in the workspace. */
   people?: Person[];
   selectedId: string | undefined;
@@ -90,7 +95,7 @@ export function ConversationListView({ conversations, people = [], selectedId, d
         <button key={row.conversation.id} type="button" onClick={() => onSelect(row.conversation.id)}
           aria-current={row.conversation.id === selectedId ? "page" : undefined}
           className={cn(metrics.row, row.conversation.id === selectedId ? "bg-raised/70" : "hover:bg-raised/40")}>
-          <Face conversation={row.conversation} size={metrics.avatar} />
+          <Face conversation={row.conversation} size={metrics.avatar} bots={bots} />
           {line(row.conversation.title,
             row.conversation.preview || (row.conversation.kind === "group" ? `${row.conversation.people.length + row.conversation.bots.length} members` : "Send a message"),
             row.conversation.unread, row.conversation.mentioned)}
@@ -134,7 +139,7 @@ export function SidebarConversations({ density }: { density: string }) {
     } catch { window.dispatchEvent(new Event(OPEN_NEW_CONVERSATION)); }
   };
   return (
-    <ConversationListView conversations={conversations} people={people} selectedId={state.selectedConversationId}
+    <ConversationListView conversations={conversations} people={people} bots={state.bots} selectedId={state.selectedConversationId}
       density={density} showThreads={showThreads}
       onSelect={(id) => dispatch({ type: "selectConversation", id })}
       onPerson={(email) => void openDm(email)} />

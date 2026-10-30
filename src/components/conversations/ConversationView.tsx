@@ -3,7 +3,7 @@
 // messages on the right, everyone else's on the left under their face and
 // name. @mentioning a bot asks it to answer here.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp01Icon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, InformationCircleIcon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { ChatView, CHATHEAD_PILL } from "../ChatView";
 import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
@@ -19,9 +19,9 @@ import {
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
-import { writeComputerPanelView } from "@/lib/computer-panel-view";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { GroupPanel } from "./GroupPanel";
+import { GroupStack } from "./GroupFaces";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -90,7 +90,7 @@ export function ConversationView({ id }: { id: string }) {
         <span className={cn(CHATHEAD_PILL, "pr-3.5")} title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
           {other
             ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={24} />
-            : <span className="flex size-6 items-center justify-center rounded-full bg-raised text-ink-secondary"><HIcon icon={UserGroupIcon} size={14} /></span>}
+            : <GroupStack conversation={conversation} bots={bots} size={24} />}
           <span className="min-w-0 truncate text-[14px] font-semibold">{conversation.title}</span>
         </span>
       ),
@@ -104,18 +104,11 @@ export function ConversationView({ id }: { id: string }) {
         }} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-50">
           {stopping ? "Stopping…" : "Stop my work"}
         </button>}
-        {memberBots.length > 0 && <BotBrowserButton bots={memberBots} onOpen={(botId) => {
-          writeComputerPanelView(botId, "browser");
-          dispatch({ type: "toggleComputer", open: true, botId });
-        }} />}
-        {/* Files and Members open the group's right panel, like a bot's Computer panel */}
-        <button type="button" onClick={() => dispatch({ type: "toggleGroupPanel", tab: "files" })} aria-pressed={state.groupPanel === "files"}
-          className={cn("rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised", state.groupPanel === "files" && "bg-raised text-ink")}>
-          Files
-        </button>
-        <button type="button" onClick={() => dispatch({ type: "toggleGroupPanel", tab: "members" })} aria-pressed={state.groupPanel === "members"}
-          className={cn("rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised", state.groupPanel === "members" && "bg-raised text-ink")}>
-          {conversation.kind === "dm" ? "Details" : `Members · ${conversation.people.length + memberBots.length}`}
+        {/* Members, Files and each bot's screen live in one right panel, as Grok Bot's */}
+        <button type="button" onClick={() => dispatch({ type: "toggleGroupPanel", tab: state.groupPanel ?? "members" })}
+          aria-pressed={Boolean(state.groupPanel)} aria-label={state.groupPanel ? "Hide group panel" : "Show members and files"} title={state.groupPanel ? "Hide group panel" : "Members and files"}
+          className={cn("flex size-8 items-center justify-center rounded-full text-ink-secondary hover:bg-control hover:text-ink", state.groupPanel && "bg-control text-ink")}>
+          <HIcon icon={InformationCircleIcon} size={18} />
         </button>
         </>
       ),
@@ -230,32 +223,5 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
         </div>
       </div>
     </form>
-  );
-}
-
-/** A bot's screen, opened beside the conversation (owner, October 28, as
- * Grok Bot's computer preview): watch it browse, or take over. With several
- * bots, the one working now is listed first. */
-function BotBrowserButton({ bots, onOpen }: { bots: Bot[]; onOpen: (botId: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ordered = [...bots].sort((a, b) => Number(Boolean(b.busy)) - Number(Boolean(a.busy)));
-  const button = "rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised";
-  if (ordered.length === 1) return <button type="button" className={button} onClick={() => onOpen(ordered[0]!.id)}>Browser</button>;
-  return (
-    <div className="relative">
-      <button type="button" className={button} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>Browser</button>
-      {open && (
-        <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-hairline/50 bg-menu py-1.5 shadow-2xl shadow-black/60">
-          {ordered.map((bot) => (
-            <button key={bot.id} type="button" role="menuitem" onClick={() => { setOpen(false); onOpen(bot.id); }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink hover:bg-raised/70">
-              <BotAvatar bot={bot} state="happy" size={18} motion="none" motionKey={0} animated={false} />
-              <span className="min-w-0 flex-1 truncate">{bot.name}</span>
-              {bot.busy && <span className="text-[11px] text-ink-tertiary">working</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

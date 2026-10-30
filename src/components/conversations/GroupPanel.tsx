@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown01Icon, ArrowRight01Icon, Download01Icon, FileTextIcon, Folder01Icon, Loading02Icon,
-  MultiplicationSignIcon, RefreshCwIcon, Search01Icon, UnfoldLessIcon, UnfoldMoreIcon, UserGroupIcon,
+  GlobeIcon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, Search01Icon, UnfoldLessIcon, UnfoldMoreIcon, UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { BotAvatar } from "../Avatar";
@@ -20,14 +20,15 @@ import { t } from "@/lib/i18n";
 import { filePreviewKind } from "@/lib/file-preview";
 import { useAdminSession, useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import {
-  CONVERSATIONS_CHANGED, addToConversation, conversationFiles, deleteGroup, downloadConversationFile, leaveConversation, updateConversation, workspacePeople,
+  CONVERSATIONS_CHANGED, addToConversation, conversationFiles, deleteGroup, downloadConversationFile, leaveConversation, removeBotFromConversation, updateConversation, workspacePeople,
   type Conversation, type ConversationFile, type GroupResponder,
 } from "@/lib/conversations";
 import { useStore, type Bot, type Message } from "@/state/store";
 import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mode";
+import { writeComputerPanelView } from "@/lib/computer-panel-view";
 
 export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
-  conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members"; onLeft: () => void;
+  conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members" | "browser"; onLeft: () => void;
 }) {
   const { dispatch } = useStore();
   const { padClass } = useCaptionChrome();
@@ -39,7 +40,7 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   );
   const close = () => dispatch({ type: "toggleGroupPanel", open: false });
   return (
-    <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : "Members"}`}
+    <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : tab === "browser" ? "Browser" : "Members"}`}
       className="animate-panel-in relative flex h-full max-w-full shrink-0 flex-col border-l border-hairline/40 bg-panel max-md:absolute max-md:inset-0 max-md:z-40 max-md:w-full!"
       style={{ width }}>
       <div role="separator" aria-label="Resize panel" aria-orientation="vertical" aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0} {...resize}
@@ -47,12 +48,15 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
       <div className={cn("px-4 py-3", padClass)}>
         <div className="relative flex min-h-7 items-center justify-center">
           <div className="mx-9 flex gap-0.5 rounded-full bg-inset p-0.5" aria-label="Group panel view">
+            <button type="button" aria-pressed={tab === "members"} className={tabClass(tab === "members")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "members", open: true })}>
+              <HIcon icon={UserGroupIcon} size={13} /> Members
+            </button>
             <button type="button" aria-pressed={tab === "files"} className={tabClass(tab === "files")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "files", open: true })}>
               <HIcon icon={Folder01Icon} size={13} /> Files
             </button>
-            <button type="button" aria-pressed={tab === "members"} className={tabClass(tab === "members")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "members", open: true })}>
-              <HIcon icon={UserGroupIcon} size={13} /> Members · {conversation.people.length + memberBots.length}
-            </button>
+            {memberBots.length > 0 && <button type="button" aria-pressed={tab === "browser"} className={tabClass(tab === "browser")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "browser", open: true })}>
+              <HIcon icon={GlobeIcon} size={13} /> Browser
+            </button>}
           </div>
           <button type="button" onClick={close} aria-label="Close panel" title="Close panel"
             className="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink">
@@ -62,6 +66,7 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
       </div>
       {tab === "files"
         ? <ProjectFiles conversation={conversation} messages={messages} />
+        : tab === "browser" ? <BotScreens bots={memberBots} />
         : <Members conversation={conversation} memberBots={memberBots.map((bot) => bot.id)} bots={bots} onLeft={onLeft} />}
     </aside>
   );
@@ -194,7 +199,30 @@ const LEVELS = ["ask", "auto", "full"] as const satisfies readonly ApprovalMode[
 const levelLabel = (mode: ApprovalMode) => t(mode === "full" ? "approvalMode.full.label" : mode === "auto" ? "approvalMode.auto.label" : "approvalMode.ask.label");
 const SELECT = "rounded-md border border-hairline/40 bg-inset px-2 py-1 text-[12px] text-ink disabled:opacity-50";
 const HEADING = "block px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-tertiary";
+const ROW = "group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left";
 
+/** Each bot's screen (owner, October 28): watch it browse, or take over. */
+function BotScreens({ bots }: { bots: Bot[] }) {
+  const { dispatch } = useStore();
+  const ordered = [...bots].sort((a, b) => Number(Boolean(b.busy)) - Number(Boolean(a.busy)));
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <p className="px-2 pb-2 text-[12.5px] text-ink-secondary">Watch a bot's browser while it works, or take over to help it.</p>
+      {ordered.map((bot) => (
+        <button key={bot.id} type="button" className={cn(ROW, "hover:bg-raised/60")}
+          onClick={() => { writeComputerPanelView(bot.id, "browser"); dispatch({ type: "toggleComputer", open: true, botId: bot.id }); }}>
+          <BotAvatar bot={bot} state="happy" size={36} motion="none" motionKey={0} animated={false} />
+          <span className="min-w-0 flex-1 truncate text-[14.5px] text-ink">{bot.name}</span>
+          <span className="text-[12px] text-ink-tertiary">{bot.busy ? "Working · open" : "Open"}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The members, as Grok Bot lists them: a face and a name per row, Remove on
+ * hover, Add member at the end. A bot opens to its approval level and to
+ * leading the group; the group's own settings follow the list. */
 function Members({ conversation, memberBots, bots, onLeft }: {
   conversation: Conversation; memberBots: string[]; bots: Bot[]; onLeft: () => void;
 }) {
@@ -210,12 +238,14 @@ function Members({ conversation, memberBots, bots, onLeft }: {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [openBot, setOpenBot] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const canDelete = useOwnerOrAdmin();
   useEffect(() => { void workspacePeople().then(setEveryone).catch(() => {}); }, []);
   const changed = () => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
-  const add = async (input: { emails?: string[]; bots?: string[] }) => {
+  const act = async (run: () => Promise<unknown>) => {
     setError("");
-    try { await addToConversation(conversationId, input); changed(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    try { await run(); changed(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   };
   const inPeople = new Set(people.map((person) => person.email));
   const here = bots.filter((bot) => memberBots.includes(bot.id));
@@ -229,72 +259,101 @@ function Members({ conversation, memberBots, bots, onLeft }: {
     if (mode === "full") { setFullFor(changing.map((bot) => bot.id)); return; }
     for (const bot of changing) dispatch({ type: "updateBot", botId: bot.id, patch: { approvalMode: mode } });
   };
-  const addable = everyone.filter((person) => !inPeople.has(person.email));
-  const otherBots = bots.filter((bot) => !memberBots.includes(bot.id));
+  const leads = kind === "group" && (conversation.responder?.kind ?? "lead") === "lead";
+  const addablePeople = kind === "group" ? everyone.filter((person) => !inPeople.has(person.email)) : [];
+  const addableBots = bots.filter((bot) => !memberBots.includes(bot.id));
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 text-[12.5px]">
-      <section className="mb-4">
-        <h3 className={HEADING}>People · {people.length}</h3>
-        <ul className="flex flex-col">
-          {people.map((person) => (
-            <li key={person.email || person.name} className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-[13px] text-ink">
-              <PersonAvatar name={person.name} email={person.email} src={person.avatar} size={24} />
-              <span className="min-w-0 flex-1 truncate">{person.you ? `${person.name} (you)` : person.name}</span>
+    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 text-[12.5px]">
+      <h3 className={cn(HEADING, "px-2 text-[12px] normal-case tracking-normal text-ink-secondary")}>Members · {people.length + here.length}</h3>
+      <ul className="flex flex-col">
+        {here.map((bot) => {
+          const expanded = openBot === bot.id;
+          const lead = leads && conversation.leadBotId === bot.id;
+          return (
+            <li key={bot.id} className={cn("rounded-xl", expanded && "bg-raised/50")}>
+              <div className={cn(ROW, !expanded && "hover:bg-raised/50")}>
+                <button type="button" aria-expanded={expanded} onClick={() => setOpenBot(expanded ? null : bot.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <BotAvatar bot={bot} state="happy" size={36} motion="none" motionKey={0} animated={false} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-[14.5px] text-ink">{bot.name}</span>
+                      {lead && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10.5px] font-medium text-accent">Lead</span>}
+                    </span>
+                    <span className="block truncate text-[11.5px] text-ink-tertiary">{levelLabel(levelOf(bot))}</span>
+                  </span>
+                </button>
+                <button type="button" onClick={() => void act(() => removeBotFromConversation(conversationId, bot.id))}
+                  className="shrink-0 rounded-md px-2 py-1 text-[12px] text-danger opacity-0 hover:bg-danger/10 focus-visible:opacity-100 group-hover:opacity-100">Remove</button>
+              </div>
+              {expanded && (
+                <div className="flex flex-col gap-2 px-3 pb-3 pl-[58px]">
+                  <label className="flex items-center justify-between gap-2 text-ink-secondary">Asks for permission
+                    {/* the level is the bot's own: it acts the same in every group */}
+                    <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
+                      className={SELECT} value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
+                      {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
+                    </select>
+                  </label>
+                  {kind === "group" && !lead && (
+                    <button type="button" className="self-start text-[12px] text-accent hover:underline"
+                      onClick={() => void act(() => updateConversation(conversationId, { responder: { kind: "lead", botId: bot.id } }))}>
+                      Make {bot.name} the lead
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
-          ))}
-        </ul>
-        {kind === "group" && addable.length > 0 && (
-          <select aria-label="Add a person" className={cn(SELECT, "mt-1.5 w-full")} value="" onChange={(event) => void add({ emails: [event.target.value] })}>
-            <option value="">Add a person…</option>
-            {addable.map((person) => <option key={person.email} value={person.email}>{person.name}</option>)}
+          );
+        })}
+        {people.map((person) => (
+          <li key={person.email || person.name} className={cn(ROW, "hover:bg-raised/50")}>
+            <PersonAvatar name={person.name} email={person.email} src={person.avatar} size={36} />
+            <span className="min-w-0 flex-1 truncate text-[14.5px] text-ink">{person.you ? `${person.name} (you)` : person.name}</span>
+          </li>
+        ))}
+      </ul>
+      {(addablePeople.length > 0 || addableBots.length > 0) && (adding
+        ? <select autoFocus aria-label="Add a member" className={cn(SELECT, "mt-1 w-full py-2 text-[13px]")} value=""
+            onBlur={() => setAdding(false)}
+            onChange={(event) => {
+              const [what, value] = event.target.value.split(":", 2) as [string, string];
+              setAdding(false);
+              void act(() => addToConversation(conversationId, what === "bot" ? { bots: [value] } : { emails: [value] }));
+            }}>
+            <option value="">Choose who to add…</option>
+            {addableBots.map((bot) => <option key={bot.id} value={`bot:${bot.id}`}>{bot.name} (bot)</option>)}
+            {addablePeople.map((person) => <option key={person.email} value={`person:${person.email}`}>{person.name}</option>)}
           </select>
-        )}
-      </section>
-      <section className="mb-4">
-        <h3 className={HEADING}>Bots · {here.length}</h3>
-        <ul className="flex flex-col">
-          {here.map((bot) => (
-            <li key={bot.id} className="flex items-center gap-2.5 rounded-md px-1 py-1.5">
-              <BotAvatar bot={bot} state="happy" size={24} motion="none" motionKey={0} animated={false} />
-              <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{bot.name}
-                {conversation.leadBotId === bot.id && (conversation.responder?.kind ?? "lead") === "lead" && <span className="ml-1.5 rounded bg-accent/15 px-1.5 py-0.5 text-[10.5px] font-medium text-accent">Lead</span>}
+        : <button type="button" onClick={() => setAdding(true)} className={cn(ROW, "text-ink-secondary hover:bg-raised/50 hover:text-ink")}>
+            <span className="flex size-9 items-center justify-center"><HIcon icon={PlusSignIcon} size={18} /></span>
+            <span className="text-[14px]">Add member</span>
+          </button>)}
+
+      {kind === "group" && (
+        <div className="mt-5 border-t border-hairline/40 px-1 pt-4">
+          <WhoAnswers conversation={conversation} bots={here} onError={setError} />
+          {here.length > 1 && (
+            <label className="mb-4 flex flex-col gap-1 text-ink-secondary">
+              <span className="flex items-center justify-between gap-2">Set every bot here to
+                <select className={SELECT} value="" disabled={here.some((bot) => bot.busy)} title={here.some((bot) => bot.busy) ? t("approvalMode.busy") : undefined}
+                  onChange={(event) => { if (event.target.value) setLevel(here, event.target.value as ApprovalMode); }}>
+                  <option value="">Choose…</option>
+                  {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
+                </select>
               </span>
-              {/* the level is the bot's own: it acts the same in every group */}
-              <select aria-label={`How ${bot.name} asks for permission`} disabled={Boolean(bot.busy)} title={bot.busy ? t("approvalMode.busy") : undefined}
-                className={SELECT} value={levelOf(bot)} onChange={(event) => setLevel([bot], event.target.value as ApprovalMode)}>
-                {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
-              </select>
-            </li>
-          ))}
-        </ul>
-        {kind === "group" && here.length > 1 && (
-          <label className="mt-2 flex flex-col gap-1 px-1 text-ink-secondary">
-            <span className="flex items-center justify-between gap-2">Set every bot here to
-              <select className={SELECT} value="" disabled={here.some((bot) => bot.busy)} title={here.some((bot) => bot.busy) ? t("approvalMode.busy") : undefined}
-                onChange={(event) => { if (event.target.value) setLevel(here, event.target.value as ApprovalMode); }}>
-                <option value="">Choose…</option>
-                {LEVELS.map((mode) => <option key={mode} value={mode} disabled={mode === "full" && !fullAvailable}>{levelLabel(mode)}</option>)}
-              </select>
-            </span>
-            <span className="text-[11.5px] text-ink-tertiary">Changes these bots everywhere, not only here.</span>
-          </label>
-        )}
-        {otherBots.length > 0 && (
-          <select aria-label="Add a bot" className={cn(SELECT, "mt-2 w-full")} value="" onChange={(event) => void add({ bots: [event.target.value] })}>
-            <option value="">Add a bot…</option>
-            {otherBots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
-          </select>
-        )}
-      </section>
-      {kind === "group" && <WhoAnswers conversation={conversation} bots={here} onError={setError} />}
-      {kind === "group" && <GroupInstructions conversation={conversation} onError={setError} />}
-      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-hairline/40 px-1 pt-3">
+              <span className="text-[11.5px] text-ink-tertiary">Changes these bots everywhere, not only here.</span>
+            </label>
+          )}
+          <GroupInstructions conversation={conversation} onError={setError} />
+        </div>
+      )}
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-hairline/40 px-2 pt-3">
         <button type="button" className="text-danger hover:underline" onClick={() => void leaveConversation(conversationId).then(() => { changed(); onLeft(); })}>
           Leave this {kind === "dm" ? "DM" : "group"}
         </button>
         {kind === "group" && canDelete && <button type="button" className="text-danger hover:underline" onClick={() => setDeleting(true)}>Delete group</button>}
       </div>
-      {error && <p role="alert" className="mt-2 px-1 text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-2 px-2 text-danger">{error}</p>}
       <FullAccessWarning open={fullFor !== null} allThreads onCancel={() => setFullFor(null)} onConfirm={() => {
         const targets = fullFor ?? [];
         setFullFor(null);

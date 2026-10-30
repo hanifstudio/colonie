@@ -106,7 +106,8 @@ export function remarkMentions({ peers, everyone = false }: { peers: readonly Me
         for (const range of ranges) {
           if (range.start > end) result.push({ type: "text", value: text.slice(end, range.start) });
           result.push({ type: "mention", data: { hName: "span", hProperties: {
-            className: "mention-highlight",
+            // in a message (never the editor's mirror) a mention is a chip
+            className: "mention-highlight mention-chip",
             ...(range.color ? { style: `--mention-color:${range.color}` } : {}),
           } },
             children: [{ type: "text", value: text.slice(range.start, range.end) }] });

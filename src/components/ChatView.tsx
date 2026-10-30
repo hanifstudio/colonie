@@ -66,7 +66,7 @@ import { SignInAsk } from "./SignInAsk";
 import { ComputerAsk } from "./ComputerAsk";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
-import { normalizeState, stateForBot } from "@/lib/mascot";
+import { MAUS_COLORS, normalizeState, stateForBot, type MausColor } from "@/lib/mascot";
 import { peerLine, type PeerLine } from "@/lib/peer-message";
 import { showWorkingDots } from "@/lib/turn-tail";
 import { liveActivityLabel } from "@/lib/live-activity";
@@ -508,10 +508,13 @@ const Bubble = memo(function Bubble({
   // bot chat, under its face and name, saying whether it is at work (and for
   // how long) or waiting behind its other work
   if (message.working) return <div className="flex w-full flex-col items-start">
-    {message.sender && <SenderLine message={message} />}
-    <div className="flex items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-[12.5px] text-ink-secondary" role="status" aria-label={message.text}>
-      <WorkingDots />
-      {message.workingSince ? <span>Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
+    {message.sender && <SenderName message={message} />}
+    <div className="flex items-end gap-2.5">
+      <SenderFace message={message} />
+      <div className="flex items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-[13px] text-ink-secondary" role="status" aria-label={message.text}>
+        <WorkingDots />
+        {message.workingSince ? <span>Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
+      </div>
     </div>
   </div>;
   // a bot asking for a secret: the button opens the private form; once saved
@@ -561,9 +564,11 @@ const Bubble = memo(function Bubble({
       {/* who wrote it: a signed-in person's own words carry their name too, so a
           conversation with several people reads like one */}
       {/* your own messages need no name; others' carry their face and name */}
-      {message.sender && !user && <SenderLine message={message} />}
+      {message.sender && !user && (accountWorkspace ? <SenderName message={message} /> : <SenderLine message={message} />)}
       {peer && <PeerLabel peer={peer} />}
-      <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
+      <div className={cn("flex w-full gap-1.5", user ? "justify-end" : "justify-start", accountWorkspace && !user ? "items-end" : "items-center")}>
+        {/* in a group, as Grok Bot: the sender's face beside its words */}
+        {accountWorkspace && !user && <SenderFace message={message} />}
         {user && (
           <MessageActions side="user">
             {/* editing rewinds the thread, so it waits for the turn to end —
@@ -779,6 +784,38 @@ const Bubble = memo(function Bubble({
  * bubble. */
 /** Who wrote a message on the left side, with their face: a bot's mascot or
  * photo, a person's photo or initial. */
+/** A group's sender, as Grok Bot shows one: the name above the words, in the
+ * bot's own color, set in from the face column. */
+function SenderName({ message }: { message: Message }) {
+  const { bots } = useChatRows();
+  const sender = message.sender!;
+  const bot = sender.kind === "bot" ? bots.find((b) => b.id === message.from?.botId) ?? bots.find((b) => b.name === sender.name) : undefined;
+  const colorKey = bot?.color ?? message.from?.color;
+  const color = sender.kind === "bot" && colorKey && Object.hasOwn(MAUS_COLORS, colorKey) ? MAUS_COLORS[colorKey as MausColor] : undefined;
+  return (
+    <div className="mb-1 ml-[46px] flex items-center gap-1.5" data-testid="sender-line">
+      <span className={cn("text-[13.5px] font-medium", !color && "text-ink-secondary")} style={color ? { color } : undefined}>{sender.name}</span>
+      {sender.kind === "bot" && <span className="sr-only">Bot</span>}
+    </div>
+  );
+}
+
+/** The face column of a group: the sender's face on the first of its lines,
+ * an empty column of the same width under it. */
+function SenderFace({ message }: { message: Message }) {
+  const { bots } = useChatRows();
+  const sender = message.sender;
+  if (!sender) return <span aria-hidden className="w-9 shrink-0" />;
+  const bot = sender.kind === "bot" ? bots.find((b) => b.id === message.from?.botId) ?? bots.find((b) => b.name === sender.name) : undefined;
+  return (
+    <span className="mb-0.5 flex w-9 shrink-0 justify-center">
+      {sender.kind === "bot"
+        ? <BotAvatar bot={bot ?? { name: sender.name, color: message.from?.color ?? "blue" }} state="happy" size={32} motion="none" motionKey={0} animated={false} />
+        : <PersonAvatar name={sender.name} email={sender.email} src={sender.avatar} size={32} />}
+    </span>
+  );
+}
+
 function SenderLine({ message }: { message: Message }) {
   const { bots } = useChatRows();
   const sender = message.sender!;

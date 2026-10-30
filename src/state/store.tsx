@@ -882,7 +882,7 @@ export interface AppState {
   /** a Markdown file opened from chat for in-app reading: which message shared it */
   filePreview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } | null;
   /** A group's right panel (owner, October 30): its project files or its members. */
-  groupPanel: "files" | "members" | null;
+  groupPanel: "files" | "members" | "browser" | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
   shortcutsOpen: boolean;
@@ -1135,7 +1135,7 @@ export type Action =
   | { type: "toggleActivity"; open?: boolean }
   | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } }
   | { type: "closeFilePreview" }
-  | { type: "toggleGroupPanel"; tab?: "files" | "members"; open?: boolean }
+  | { type: "toggleGroupPanel"; tab?: "files" | "members" | "browser"; open?: boolean }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
   | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection }

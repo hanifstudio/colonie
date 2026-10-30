@@ -392,6 +392,18 @@ export function createGroupConversations(deps: {
       return { status: 200, body: wire(record, caller) };
     },
 
+    /** Take a bot out of the group: it answers here no more; what it said stays. */
+    removeBot(caller: Caller, id: string, botId: string): Answer {
+      const record = mine(caller, id);
+      if (!record) return fail(404, "no such conversation");
+      if (!record.bots.includes(botId)) return fail(404, "That bot is not in this conversation.");
+      record.bots = record.bots.filter((entry) => entry !== botId);
+      if (record.responder?.kind === "lead" && record.responder.botId === botId) record.responder = { kind: "lead" };
+      save();
+      notice(record, `${caller.name} removed ${deps.store().bot(botId)?.name ?? "a bot"}.`);
+      return { status: 200, body: wire(record, caller) };
+    },
+
     async stop(caller: Caller, id: string): Promise<Answer> {
       if (!mine(caller, id)) return fail(404, "no such conversation");
       return { status: 200, body: { stopped: await work.cancel(id, caller.key) } };

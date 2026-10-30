@@ -22,6 +22,22 @@
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+/* In a sent message, as Grok Bot: a named bot is a chip with its color. */
+.mention-chip {
+  font-weight: 600;
+  padding: 0.05em 0.4em;
+  white-space: nowrap;
+}
+.mention-chip[style*="--mention-color"]::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.3em;
+  border-radius: 9999px;
+  background: var(--mention-color);
+  vertical-align: 0.02em;
+}
 ::highlight(search-result-text) {
   color: var(--color-ink);
   background-color: color-mix(in srgb, var(--color-accent) 35%, transparent);

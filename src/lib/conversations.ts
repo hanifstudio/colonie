@@ -51,6 +51,7 @@ export const addToConversation = (id: string, input: { emails?: string[]; bots?:
   api<Conversation>(`/api/conversations/${id}/members`, { method: "POST", body: JSON.stringify(input) });
 export const updateConversation = (id: string, input: { instructions?: string; responder?: GroupResponder }) =>
   api<Conversation>(`/api/conversations/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export const removeBotFromConversation = (id: string, botId: string) => api<Conversation>(`/api/conversations/${id}/bots/${encodeURIComponent(botId)}`, { method: "DELETE" });
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
 export const deleteGroup = (id: string) => api(`/api/conversations/${id}`, { method: "DELETE" });
 export const stopConversation = (id: string) => api(`/api/conversations/${id}/stop`, { method: "POST" });
