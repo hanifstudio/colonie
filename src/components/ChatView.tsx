@@ -1443,7 +1443,10 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
             when room is short it takes it from the empty side, which slides
             the name left rather than under the controls. */}
         <div data-chathead-row className="flex items-center justify-between @max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]">
-        <div data-chathead-identity className="flex min-w-0 items-center gap-2 @max-[30rem]/chathead:basis-full @min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center" style={headerNoDragStyle}>
+        {/* a group or DM sits at the start, as Grok Bot's channels do; a bot's
+            own chat keeps its name centred */}
+        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2 @max-[30rem]/chathead:basis-full",
+          accountConversation ? "@min-[30rem]/chathead:col-span-2 @min-[30rem]/chathead:col-start-1 @min-[30rem]/chathead:justify-self-start" : "@min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center")} style={headerNoDragStyle}>
           {/* The bot as one pill, the same shape as the model chip across the
               header: avatar and name together, opening the bot's settings.
               Simple mode makes the whole pill that one button; Advanced keeps

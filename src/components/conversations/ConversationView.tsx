@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp01Icon, InformationCircleIcon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
-import { ChatView, CHATHEAD_PILL } from "../ChatView";
+import { ChatView } from "../ChatView";
 import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
 import { MentionTextarea } from "../MentionTextarea";
 import { ComposerMenuRow } from "../ComposerMenuRow";
@@ -87,11 +87,11 @@ export function ConversationView({ id }: { id: string }) {
       mentionPeople,
       relay,
       identity: (
-        <span className={cn(CHATHEAD_PILL, "pr-3.5")} title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
+        <span className="flex min-w-0 items-center gap-2.5 py-0.5" title={[...conversation.people.map((person) => person.you ? "You" : person.name), ...memberBots.map((bot) => bot.name)].join(", ")}>
           {other
             ? <PersonAvatar name={other.name} email={other.email} src={other.avatar} size={24} />
-            : <GroupStack conversation={conversation} bots={bots} size={24} />}
-          <span className="min-w-0 truncate text-[14px] font-semibold">{conversation.title}</span>
+            : <GroupStack conversation={conversation} bots={bots} size={28} />}
+          <span className="min-w-0 truncate text-[16px] font-semibold text-ink">{conversation.title}</span>
         </span>
       ),
       actions: (
@@ -101,7 +101,7 @@ export function ConversationView({ id }: { id: string }) {
           void stopConversation(id).then(() => window.dispatchEvent(new Event(CONVERSATIONS_CHANGED)))
             .catch((error: unknown) => setStopError(error instanceof Error ? error.message : String(error)))
             .finally(() => setStopping(false));
-        }} className="rounded-lg border border-hairline bg-panel px-3 py-1.5 text-xs text-ink-secondary hover:bg-raised disabled:opacity-50">
+        }} className="rounded-full px-2.5 py-1 text-[13px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50">
           {stopping ? "Stopping…" : "Stop my work"}
         </button>}
         {/* Members, Files and each bot's screen live in one right panel, as Grok Bot's */}

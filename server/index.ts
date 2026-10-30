@@ -466,6 +466,7 @@ const groupConversations = createGroupConversations({
   store: () => store,
   directory: workspaceDirectory,
   isMember: (email) => allowedScopes(email, signInAllowList()) !== null,
+  localName: () => desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You",
   keyOf: (email) => personKey({ id: "", email }),
   hasRoutine: (id) => routines?.listRoutines().some((routine) => routine.id === id) ?? true,
   // a turn that fails before it starts (a mode, a sign-in, a limit) never

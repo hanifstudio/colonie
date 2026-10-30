@@ -83,6 +83,8 @@ export function createGroupConversations(deps: {
   directory: () => Array<{ email: string; name?: string; avatar?: string }>;
   /** Whether this address may sign in to the workspace. */
   isMember: (email: string) => boolean;
+  /** This computer's owner, on a Local workspace, where no directory names them. */
+  localName?: () => string;
   keyOf: (email: string) => string;
   /** Routines reporting here must be removed before their destination. */
   hasRoutine?: (id: string) => boolean;
@@ -168,7 +170,11 @@ export function createGroupConversations(deps: {
     };
   }
 
-  const nameOf = (key: string) => { const entry = known().get(key); return entry?.name || entry?.email || "Someone"; };
+  const nameOf = (key: string) => {
+    if (key === LOCAL_PERSON) return deps.localName?.() || "You";
+    const entry = known().get(key);
+    return entry?.name || entry?.email || "Someone";
+  };
   /** A line about the conversation itself; it also tells every member's app. */
   const notice = (record: GroupConversation, text: string) =>
     deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text, notice: true });

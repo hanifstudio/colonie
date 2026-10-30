@@ -33,10 +33,18 @@ export function GroupTile({ conversation, bots, size }: { conversation: Conversa
     </span>;
   }
   if (members.length === 1) return <span className="shrink-0"><Face member={members[0]!} size={size} /></span>;
-  const cell = Math.round(size * 0.52);
+  // as Grok Bot's channel tile: the faces fill the square, slightly
+  // overlapping; two sit on a diagonal, three in a triangle
+  const cell = Math.round(size * (members.length === 2 ? 0.62 : 0.56));
+  const far = size - cell;
+  const spots = members.length === 2 ? [[0, 0], [far, far]]
+    : members.length === 3 ? [[far / 2, 0], [0, far], [far, far]]
+    : [[0, 0], [far, 0], [0, far], [far, far]];
   return (
-    <span aria-hidden className="grid shrink-0 grid-cols-2 place-items-center" style={{ width: size, height: size, gap: Math.max(0, size - cell * 2) }}>
-      {members.map((member, index) => <span key={index} className={members.length === 3 && index === 2 ? "col-span-2" : undefined}><Face member={member} size={cell} /></span>)}
+    <span aria-hidden className="relative shrink-0" style={{ width: size, height: size }}>
+      {members.map((member, index) => (
+        <span key={index} className="absolute" style={{ left: spots[index]![0], top: spots[index]![1] }}><Face member={member} size={cell} /></span>
+      ))}
     </span>
   );
 }
@@ -48,7 +56,7 @@ export function GroupStack({ conversation, bots, size = 26 }: { conversation: Co
   return (
     <span aria-hidden className="flex shrink-0 items-center">
       {shown.map((member, index) => (
-        <span key={index} className="rounded-full ring-2 ring-app" style={{ marginLeft: index ? -Math.round(size * 0.3) : 0, zIndex: shown.length - index }}>
+        <span key={index} className="relative" style={{ marginLeft: index ? -Math.round(size * 0.28) : 0, zIndex: shown.length - index }}>
           <Face member={member} size={size} />
         </span>
       ))}
