@@ -1,15 +1,10 @@
 # Handover
 
-## Now: publish browser-only Colonie 0.3.18
+## Now: verify browser panels and conversation routines
 
-Publish current commits and backup, the Shared image, and a Mac early build.
-Verify routine report counts, GitHub CI, package smoke, and asset hashes.
-Out of scope: signing credentials, new platforms, and live workspace data.
-
-## Next: verify browser panels and conversation routines
-
-Review Browser, Files, routines, group scope, and drafts on narrow panels.
-Use bounded Claude/Codex requests in throwaway workspaces; check browser takeover.
+Review Browser and Files with a person, including narrow windows.
+Use bounded Claude/Codex routine requests in throwaway workspaces; check
+sign-ins and browser takeover in the packaged app.
 Local Chromium closes on launch; existing dist output cannot be cleaned.
 Keep this task until real-window and real-engine checks pass. Never use the
 owner's app, data, or credentials. Scheduler and hosting changes are out of scope.
@@ -39,16 +34,16 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 | What must be true | Status |
 |---|---|
-| CI passes on `main` | Green on GitHub: `pnpm check` and the Shared workspace journey |
-| A version number and an update path | Server 0.3.17 is published. A raised package.json version on main publishes the image and Shared admins see Update |
-| A Mac app built from this branch | Built unpacked; no `.dmg`; never installed on a clean Mac |
-| First run works in a real window | Never seen in a window |
+| CI passes on `main` | Release commit passes `pnpm check`, the Shared browser journey, and the selected desktop shell tests on GitHub |
+| A version number and an update path | Server 0.3.18 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A Mac app built from this branch | Early-build 0.3.18 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
+| First run works in a real window | Isolated packaged startup checked; clean-Mac onboarding untested |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
 | A bot answers through a real engine | Works in the owner's own data; never on a clean install |
 | Creating and switching workspaces works by clicking | Tested in code only; never clicked |
 | Conversations from the 0.2.0 build still work after upgrading | Not tested |
-| The download is signed and notarized | Blocked: no Apple Developer account |
-| The download page points to the new build | Not started |
+| The download is signed and notarized | Ad-hoc signed; Developer ID and notarization blocked by no Apple Developer account |
+| The download page points to the new build | GitHub latest is `friends-0.3.18`; a public launch page is still needed |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
 | A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 
