@@ -259,3 +259,70 @@ test("work whose turn could not start tells the group why, instead of working fo
   await f.service.post(caller, f.group.id, `@${f.bot.name} again`, "after-failure");
   await settle(() => f.calls.length === 2);
 });
+
+test("a bot starts visible group work in its own name, with membership checks and one execution per receipt", async () => {
+  const f = fixture();
+  const lead = f.store.createBot({ name: `Lead-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [lead.id] });
+  const assignment = `@${f.bot.name} inspect the project and report here`;
+  expect(f.service.postAsBot({ ...caller, key: "outsider" }, lead.id, f.group.id, assignment, "start").status).toBe(404);
+  const stranger = f.store.createBot({ name: "Not a member" });
+  expect(f.service.postAsBot(caller, stranger.id, f.group.id, assignment, "start").status).toBe(404);
+  const first = f.service.postAsBot(caller, lead.id, f.group.id, assignment, "start");
+  expect(first.status).toBe(201);
+  expect(first.body).toMatchObject({ state: "accepted" });
+  expect(f.service.postAsBot(caller, lead.id, f.group.id, assignment, "start").status).toBe(200);
+  expect(f.service.postAsBot(caller, lead.id, f.group.id, "changed", "start").status).toBe(409);
+  await settle(() => f.calls.length === 1);
+  const visible = f.store.messagesFor(f.group.threadId).find((message) => message.text === assignment)!;
+  expect(visible).toMatchObject({ role: "bot", from: { botId: lead.id } });
+  expect(visible.sender).toBeUndefined();
+  expect(f.calls[0]!.work).toMatchObject({ by: lead.name, askerKey: caller.key, botId: f.bot.id });
+  expect(f.calls[0]!.prompt).toContain("Everyone here reads your answer");
+  f.reply(f.service, "Inspected");
+});
+
+test("group progress and final results stay attributed and linked; late progress cannot replace a stopped task", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "Please inspect", "progress");
+  await settle(() => f.calls.length === 1);
+  const threadId = f.calls[0]!.threadId;
+  const progress = f.store.appendMessage(threadId, { role: "bot", kind: "text", text: "Reproduced the issue; checking recovery." });
+  f.service.relayWork(threadId, progress);
+  expect(f.store.messagesFor(f.group.threadId).at(-1)).toMatchObject({ text: progress.text, working: true, from: { botId: f.bot.id }, workThread: { threadId } });
+  const tool = f.store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: "Internal tool details", ok: true } });
+  f.service.relayWork(threadId, tool);
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe(progress.text);
+  f.reply(f.service, "Verified result");
+  expect(f.store.messagesFor(f.group.threadId).at(-1)).toMatchObject({ text: "Verified result", workThread: { threadId } });
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.working).toBeUndefined();
+  // Reopening after a restart must not mistake a finished link for live work.
+  f.make().initialize();
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Verified result");
+  await f.service.post(caller, f.group.id, "Another task", "stop-progress");
+  await settle(() => f.calls.length === 2);
+  await f.service.stop(caller, f.group.id);
+  f.service.relayWork(threadId, progress);
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Stopped by the person who asked.");
+});
+
+test("the lead can hand work to a maker and reviewer and receive their result once", async () => {
+  const f = fixture();
+  const maker = f.store.createBot({ name: `Maker-${randomUUID()}` });
+  const reviewer = f.store.createBot({ name: `Reviewer-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [maker.id, reviewer.id] });
+  await f.service.post(caller, f.group.id, "Build and review", "chain");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, `@${maker.name} implement the change.`);
+  await settle(() => f.calls.length === 2);
+  f.reply(f.service, `Implemented. @${reviewer.name} verify the result.`);
+  await settle(() => f.calls.length === 3);
+  f.reply(f.service, `Verified. @${f.bot.name} here is the result.`);
+  await settle(() => f.calls.length === 4);
+  expect(f.calls.map((call) => call.work.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
+  expect(f.calls[3]!.prompt).toContain("Verified.");
+  f.reply(f.service, `All done. @${maker.name} thanks.`);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
+  expect(f.calls).toHaveLength(4);
+  expect(f.store.messagesFor(f.group.threadId).filter((message) => message.from).map((message) => message.from!.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
+});

@@ -82,6 +82,9 @@ export interface ChiefDeps {
   requestSignIn?(botId: string, threadId: string, input: { site: string; reason?: string }): unknown;
   /** A group made for the person this conversation is with (colonie/groups). */
   createGroup?(threadId: string, input: { name: string; botIds: string[]; emails: string[]; instructions?: string }): unknown;
+  groupForThread?(threadId: string): { id: string; name: string } | undefined;
+  listGroups?(threadId: string): unknown;
+  sendGroupMessage?(botId: string, sourceThreadId: string, groupId: string, message: string, requestId: string): unknown;
   /** A bot's approval level: Always ask or Ask when risky. Full access stays a
    * person's choice, so no bot can grant it. */
   setApprovalLevel?(botId: string, level: "ask" | "auto"): unknown;
@@ -131,12 +134,13 @@ What a bot can do
 - Connected apps: the person adds MCP servers or Composio apps under Apps (puzzle icon by their profile), then chooses which a bot may use in that bot's settings, Access, "Connected apps and tools". When a task needs an app that is not connected, say where to connect it.
 - Secrets: when a task needs a key or password, request_secret puts a button under your reply; the person saves it privately and you get it in a file on their next message, never in the chat. People also manage them in Settings, AI, Secrets.
 - Approvals: risky actions wait for the person's Allow, depending on the bot's approval level (bot settings, Permissions).
-- The Chief of Staff (one per workspace) can also create, change and ask other bots, make a group for the person (create_group), and set a bot to Always ask or Ask when risky (set_approval_level). Full access is only ever the person's to turn on.
+- The Chief of Staff (one per workspace) can also create, change and consult other bots privately, make a group for the person (create_group), list_groups and send_group_message to start work there. Include yourself when you will coordinate. Creating a group only prepares it: send an explicit assignment to start work, and report only the returned state. Full access is only ever the person's to turn on.
+- Group collaboration: the lead coordinates, and every member contributes under its own name. @mention a member with a concrete assignment in your answer to hand work to it; report results or blockers back to the lead. Progress and approvals appear in the group. People can address any member directly. Group assignments keep running when your reply ends; never promise unattended progress just because a group or assignment exists.
 
 What a bot cannot do in Colonie
 - Control a desktop, install a desktop environment, or operate the person's computer. Each bot can use its own Colonie browser when enabled.
 - Edit or branch earlier messages; a new conversation starts fresh.
-- Message other bots, unless it is the Chief.
+- Start private consultations with other bots, unless it is the Chief. Every group member can hand work to another member in the group's conversation.
 
 Where things are for the person
 - New bot or new group: the + at the top of the sidebar.
@@ -187,10 +191,12 @@ const chiefTools: ToolDef[] = [
   { name: "read_bot", description: "Read one bot's name, title and description.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, required: ["botId"], additionalProperties: false } },
   { name: "create_bot", description: "Create a new bot.", inputSchema: { type: "object", properties: { name: { type: "string" }, title: { type: "string" }, description: { type: "string" }, soul: { type: "string" }, modelSelection: { type: "object", properties: { instanceId: { type: "string" }, model: { type: "string" } }, required: ["instanceId", "model"] }, requestId: { type: "string" } }, required: ["name", "requestId"], additionalProperties: false } },
   { name: "update_bot", description: "Change an existing bot's profile.", inputSchema: { type: "object", properties: { botId: { type: "string" }, name: { type: "string" }, title: { type: "string" }, description: { type: "string" }, soul: { type: "string" }, modelSelection: { type: "object", properties: { instanceId: { type: "string" }, model: { type: "string" } }, required: ["instanceId", "model"] }, requestId: { type: "string" } }, required: ["botId", "requestId"], additionalProperties: false } },
-  { name: "create_group", description: "Make a group for the person you are talking with: a named room where they and the bots you list (and people of the workspace, by email) work together. Its bots share one project folder; instructions, if given, are what every bot there reads.", inputSchema: { type: "object", properties: { name: { type: "string" }, botIds: { type: "array", items: { type: "string" } }, emails: { type: "array", items: { type: "string" } }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "botIds", "requestId"], additionalProperties: false } },
+  { name: "create_group", description: "Make a group for the person you are talking with. Include yourself among botIds when you will coordinate. Its bots share one project folder and instructions. This only creates the group; when the person asked to start work there, call send_group_message next with an explicit @member assignment. Share only the context needed for that request, never the whole private conversation.", inputSchema: { type: "object", properties: { name: { type: "string" }, botIds: { type: "array", items: { type: "string" } }, emails: { type: "array", items: { type: "string" } }, instructions: { type: "string" }, requestId: { type: "string" } }, required: ["name", "botIds", "requestId"], additionalProperties: false } },
+  { name: "list_groups", description: "List groups shared by the person making this request. Use their exact ids to start work in a group they asked to use. This does not start work.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "send_group_message", description: "Start the work the person asked to do in a group, from this private conversation. You and the person must both belong to the group. Post a concrete @member assignment in your own name, sharing only the task context the person asked to move there. Returns accepted, not a completed result; progress, approvals and results appear in the group. Do not ask the person to copy the assignment manually.", inputSchema: { type: "object", properties: { groupId: { type: "string" }, message: { type: "string" }, requestId: { type: "string" } }, required: ["groupId", "message", "requestId"], additionalProperties: false } },
   { name: "set_approval_level", description: "Set how a bot asks for permission: \"ask\" (Always ask) or \"auto\" (Ask when risky: ordinary work goes ahead, the engine asks before risky actions). Full access is only the person's to turn on, in the group's Members or the bot's settings.", inputSchema: { type: "object", properties: { botId: { type: "string" }, level: { type: "string", enum: ["ask", "auto"] }, requestId: { type: "string" } }, required: ["botId", "level", "requestId"], additionalProperties: false } },
   { name: "delete_bot", description: "Delete another bot. The current Chief must be transferred before it can be deleted.", inputSchema: { type: "object", properties: { botId: { type: "string" }, requestId: { type: "string" } }, required: ["botId", "requestId"], additionalProperties: false } },
-  { name: "ask_bot", description: "Give another bot one task in a fresh conversation and wait for its result.", inputSchema: { type: "object", properties: { targetBotId: { type: "string" }, message: { type: "string" }, context: { type: "string" }, requestId: { type: "string" } }, required: ["targetBotId", "message", "requestId"], additionalProperties: false } },
+  { name: "ask_bot", description: "Ask another bot a short private question from this DM and wait up to two minutes for its result. For work the person wants in a group, use send_group_message instead. Inside a group, hand work to a member by @mention in your answer. This is not an unattended background job.", inputSchema: { type: "object", properties: { targetBotId: { type: "string" }, message: { type: "string" }, context: { type: "string" }, requestId: { type: "string" } }, required: ["targetBotId", "message", "requestId"], additionalProperties: false } },
   { name: "list_skills", description: "List a bot's guides.", inputSchema: { type: "object", properties: { botId: { type: "string" } }, additionalProperties: false } },
   { name: "save_skill", description: "Create or replace a guide on a bot.", inputSchema: { type: "object", properties: { botId: { type: "string" }, name: { type: "string" }, description: { type: "string" }, instructions: { type: "string" }, enabled: { type: "boolean" }, expectedSha256: { type: "string" }, requestId: { type: "string" } }, required: ["name", "description", "instructions", "requestId"], additionalProperties: false } },
   { name: "set_skill_enabled", description: "Turn one of a bot's guides on or off.", inputSchema: { type: "object", properties: { botId: { type: "string" }, name: { type: "string" }, enabled: { type: "boolean" }, expectedRevision: { type: "string" }, requestId: { type: "string" } }, required: ["name", "enabled", "expectedRevision", "requestId"], additionalProperties: false } },
@@ -408,7 +414,9 @@ export class ColonieChief {
 
   private toolsFor(lease: Lease): ToolDef[] {
     const routines = this.deps.routines ? selfRoutineTools : [];
-    return lease.chief ? [...chiefTools, ...selfSkillTools, ...routines] : [...selfSkillTools, ...routines];
+    const inGroup = Boolean(this.deps.groupForThread?.(lease.threadId));
+    const tools = chiefTools.filter((tool) => !inGroup || !["ask_bot", "send_group_message"].includes(tool.name));
+    return lease.chief ? [...tools, ...selfSkillTools, ...routines] : [...selfSkillTools, ...routines];
   }
 
   private async call(lease: Lease, name: string, args: Record<string, unknown>): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: true }> {
@@ -448,6 +456,15 @@ export class ColonieChief {
         return safeText(this.deps.bots().filter((bot) => !bot.hidden).map((bot) => ({ id: bot.id, name: bot.name, title: bot.title })));
       case "read_bot":
         return safeText(this.requireBot(this.requiredString(args, "botId")));
+      case "list_groups":
+        if (!this.deps.listGroups) throw new ToolError("Groups are not available here.");
+        return safeText(this.deps.listGroups(lease.threadId));
+      case "send_group_message": {
+        if (!this.deps.sendGroupMessage) throw new ToolError("Group assignments are not available here.");
+        const groupId = this.requiredString(args, "groupId");
+        const message = this.boundedString(args, "message", MAX_MESSAGE);
+        return this.mutate(lease, name, args, () => safeText(this.deps.sendGroupMessage!(lease.botId, lease.threadId, groupId, message, this.requestId(args))));
+      }
       case "create_bot": {
         const input = this.profileInput(args, true);
         return this.mutate(lease, name, args, async (signal) => safeText(await this.deps.createBot({ ...input, name: input.name ?? "" }, signal)));
@@ -586,7 +603,8 @@ export class ColonieChief {
     this.store.createAssignment(job);
     const controller = new AbortController();
     this.jobs.set(job.id, { job, controller });
-    const timer = setTimeout(() => controller.abort(), ASSIGNMENT_TIMEOUT_MS);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, ASSIGNMENT_TIMEOUT_MS);
     try {
       this.store.updateAssignment(job.id, { status: "running" });
       const result = await this.deps.runAssignment({ ...job, status: "running" }, controller.signal);
@@ -598,8 +616,9 @@ export class ColonieChief {
       return text;
     } catch (error) {
       const stopped = controller.signal.aborted || (error as Error).name === "AbortError";
-      const text = stopped ? "The task was stopped before it finished." : messageOf(error);
-      this.store.updateAssignment(job.id, { status: stopped ? "cancelled" : "failed", error: text });
+      const text = timedOut ? "The private consultation reached its two-minute limit. Its result is unconfirmed; check the task before retrying. Use a group assignment for longer work."
+        : stopped ? "The task was stopped before it finished." : messageOf(error);
+      this.store.updateAssignment(job.id, { status: stopped && !timedOut ? "cancelled" : "failed", error: text });
       this.store.settleOperation(this.keyFor(lease, requestId), "failed", { error: bound(redactSecretsInText(text)) });
       if (error instanceof ToolError) throw error;
       throw new ToolError(text);

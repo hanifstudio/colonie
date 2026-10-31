@@ -1,13 +1,11 @@
 # Handover
 
-## Now: verify browser panels and conversation routines
+## Now: verify collaboration, browser panels, and conversation routines
 
-Review Browser and Files with a person, including narrow windows.
-Use bounded Claude/Codex routine requests in throwaway workspaces; check
-sign-ins and browser takeover in the packaged app.
-Local Chromium closes on launch; existing dist output cannot be cleaned.
-Keep this task until real-window and real-engine checks pass. Never use the
-owner's app, data, or credentials. Scheduler and hosting changes are out of scope.
+Review group handoffs, progress, Work controls, Browser, and Files with a
+person; check bounded Claude/Codex routines, sign-ins, and browser takeover
+in disposable workspaces. Local Chromium cannot launch (macOS permission
+denied); real-window and real-engine checks remain. Never use owner data.
 
 ## After that: prepare the first public release
 

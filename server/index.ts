@@ -816,6 +816,16 @@ const chiefBot = (bot: NonNullable<ReturnType<typeof store.bot>>): ChiefBot => (
 });
 /** The turn id currently running on a thread, tracked at ACP dispatch. */
 const colonieTurnByThread = new Map<string, string>();
+/** Resolve the real requesting person, including a group's internal turn.
+ * A peer's text never supplies another person's identity. */
+function chiefGroupCaller(threadId: string): Caller {
+  const pending = groupConversations.requester(threadId);
+  const sender = store.activePath(threadId).findLast((message) => message.role === "user" && message.sender?.id)?.sender;
+  if (!workspaceKind.shared()) return { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true };
+  const key = pending?.askerKey ?? sender?.id;
+  if (!key || !store.threadParticipants(threadId)?.includes(key)) throw new Error("This conversation has no requesting person.");
+  return { key, name: pending?.asker ?? sender?.name ?? "Someone", seesBot: () => true };
+}
 const colonieChief = new ColonieChief({
   origin: `http://127.0.0.1:${PORT}`,
   bots: () => store.bots.map(chiefBot),
@@ -906,16 +916,24 @@ const colonieChief = new ColonieChief({
   // A group the Chief makes for the person it is talking with, as if they
   // had made it themselves (owner, October 30).
   createGroup: (threadId, input) => {
-    const sender = store.activePath(threadId).findLast((message: any) => message.role === "user" && message.sender?.id)?.sender;
-    const caller: Caller | null = workspaceKind.shared()
-      ? sender?.id ? { key: sender.id, name: sender.name || "Someone", seesBot: () => true } : null
-      : { key: LOCAL_PERSON, name: desktopAccount?.account()?.name || cfg.profile?.name?.trim() || "You", seesBot: () => true };
-    if (!caller) throw new Error("This conversation has no person to make the group for.");
+    const caller = chiefGroupCaller(threadId);
     const made = groupConversations.create(caller, { kind: "group", name: input.name, emails: input.emails, bots: input.botIds });
     if (made.status !== 201) throw new Error((made.body as { error?: string }).error ?? "The group could not be made.");
     const group = made.body as { id: string; title: string };
     if (input.instructions?.trim()) groupConversations.update(caller, group.id, { instructions: input.instructions });
-    return { made: group.title, groupId: group.id, note: "It is in the person's sidebar under groups. Messages there that name no one go to its lead bot." };
+    return { made: group.title, groupId: group.id, state: "created", note: "The group is ready; no work has started. Call send_group_message with an explicit @member assignment to start the requested work there." };
+  },
+  groupForThread: (threadId) => groupConversations.forWorkThread(threadId),
+  listGroups: (threadId) => {
+    const current = groupConversations.forWorkThread(threadId);
+    const listed = groupConversations.list(chiefGroupCaller(threadId)).body as { conversations: Array<{ id: string; kind: string; title: string; bots: string[]; leadBotId: string | null }> };
+    return listed.conversations.filter((group) => group.kind === "group" && (!current || group.id === current.id))
+      .map(({ id, title, bots, leadBotId }) => ({ id, name: title, bots, leadBotId }));
+  },
+  sendGroupMessage: (botId, threadId, groupId, message, requestId) => {
+    const result = groupConversations.postAsBot(chiefGroupCaller(threadId), botId, groupId, message, `${threadId}:${requestId}`);
+    if (result.status >= 400) throw new Error((result.body as { error: string }).error);
+    return result.body;
   },
   setApprovalLevel: (botId, level) => {
     const bot = store.bot(botId);

@@ -29,6 +29,48 @@ beforeAll(async () => {
 }, 90_000);
 afterAll(async () => { await ws?.stop(); await local?.stop(); });
 
+test("the Chief creates and starts work in a group from a DM without copying private history or impersonating the person", async () => {
+  const ws = await startSharedWorkspace([{ email: ADA, admin: true }, { email: CICI }]);
+  try {
+  const chief = (await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Coordinator" } })).body.bot;
+  const engineer = (await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Builder" } })).body.bot;
+  expect(chief?.id).toBeTruthy();
+  const role = (await ws.as(ADA, "/api/colonie/chief")).body;
+  expect((await ws.as(ADA, "/api/colonie/chief", { method: "PUT", body: { botId: chief.id, expectedRevision: role.revision } })).status).toBe(200);
+  async function ask(text: string) {
+    const sent = await ws.as(ADA, `/api/bots/${chief.id}/messages`, { method: "POST", body: { text } });
+    expect(sent.status).toBe(202);
+    const thread = sent.body.threadId;
+    const approved = new Set<string>();
+    const result = await until(async () => {
+      const messages = (await ws.as(ADA, `/api/threads/${thread}/messages`)).body.messages as Array<any>;
+      const at = messages.findLastIndex((message) => message.role === "user" && message.text === text);
+      for (const message of messages.slice(at + 1)) {
+        const id = message.card?.requestId;
+        if (id && !message.card.answered && !approved.has(id)) {
+          approved.add(id);
+          expect((await ws.as(ADA, `/api/threads/${thread}/respond`, { method: "POST", body: { behavior: "allow", requestId: id } })).status).toBe(200);
+        }
+      }
+      return messages.slice(at + 1).find((message) => message.turnTerminal)?.text;
+    }, (answer) => typeof answer === "string", "the Chief's tool result");
+    return result as string;
+  }
+  await ask("PRIVATE_ONLY_CONTEXT: a personal note that must stay in this DM");
+  const made = JSON.parse(await ask(`mcp call colonie_workspace create_group ${JSON.stringify({ name: "Visible project", botIds: [chief.id, engineer.id], requestId: "make-project" })}`));
+  expect(made.state).toBe("created");
+  const accepted = JSON.parse(await ask(`mcp call colonie_workspace send_group_message ${JSON.stringify({ groupId: made.groupId, message: `@${engineer.name} inspect this project and report here`, requestId: "start-project" })}`));
+  expect(accepted.state).toBe("accepted");
+  const messages = await until(async () => (await ws.as(ADA, `/api/conversations/${made.groupId}/messages`)).body.messages as Array<any>,
+    (rows) => rows.some((message) => message.from?.botId === engineer.id && !message.working), "the Engineer's answer in the new group");
+  expect(messages.find((message) => message.from?.botId === chief.id)).toMatchObject({ role: "bot", text: `@${engineer.name} inspect this project and report here` });
+  expect(messages.some((message) => message.role === "user")).toBe(false);
+  expect(JSON.stringify(messages)).not.toContain("PRIVATE_ONLY_CONTEXT");
+  expect(messages.find((message) => message.from?.botId === engineer.id)?.workThread?.threadId).toBeTruthy();
+  expect((await ws.as(CICI, `/api/conversations/${made.groupId}/messages`)).status).toBe(404);
+  } finally { await ws.stop(); }
+}, 90_000);
+
 const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, what: string): Promise<T> => {
   const end = Date.now() + 30_000;
   for (;;) {

@@ -135,7 +135,7 @@ export function createGroupConversations(deps: {
           store.patchMessage(record.threadId, message.id, { card: { ...message.card, expired: true } });
           continue;
         }
-        if (message.working || message.workThread || message.text === `${message.from.name} is working on it…` || /^\S.* is waiting for .+\)\.$/.test(message.text ?? "")) {
+        if (message.working || message.text === `${message.from.name} is working on it…` || /^\S.* is waiting for .+\)\.$/.test(message.text ?? "")) {
           store.patchMessage(record.threadId, message.id, { text: `${message.from.name} stopped when Colonie restarted. Mention it again to ask.`, workThread: undefined, working: undefined, workingSince: undefined });
         }
       }
@@ -224,7 +224,8 @@ export function createGroupConversations(deps: {
       `Bots: ${bots.join(", ")}.`,
       ...(record.kind === "group" && (record.responder?.kind ?? "lead") === "lead" && leadOf(record)?.id === bot.id
         ? ["You lead this group: messages that name no one come to you. Answer them, or hand a part to the bot here best suited to it."] : []),
-      ...(bots.length > 1 ? ["To hand part of the work to another bot here, @mention it by name in your answer; it answers after you."] : []),
+      ...(bots.length > 1 ? ["To hand part of the work to another bot here, @mention it by name in your answer with a concrete assignment; it answers after you. Keep group work here, not in private ask_bot conversations.",
+        `When you finish a delegated part, report its result or blocker to the lead (${leadOf(record)?.name ?? "the first bot"}) using an @mention in your answer, or hand the next step to the appropriate member. Never claim another member has started or finished without a recorded result. Creating a group or accepting work does not prove it is running or safe to leave unattended.`] : []),
       `Your working folder is this ${record.kind === "dm" ? "conversation" : "group"}'s project folder. Everyone here sees its files${bots.length > 1 ? ", and the other bots here work in it too: build on their files rather than redoing them" : ""}. Put files for this ${record.kind === "dm" ? "conversation" : "group"} there.`,
       ...(record.instructions?.trim() ? ["", "Instructions for this group:", record.instructions.trim()] : []),
     ];
@@ -267,7 +268,7 @@ export function createGroupConversations(deps: {
     ].join("\n") };
   }
 
-  const work = createConversationWork({ store: deps.store, records: () => records, changed,
+  const work = createConversationWork({ store: deps.store, records: () => records, changed, lead: leadOf,
     brief: (record, bot, ask) => ({ ...brief(record, bot, ask), recoveryPrompt: brief(record, bot, ask, true).prompt }),
     run: deps.runBotTurn, interrupt: deps.interruptBotTurn });
 
@@ -289,6 +290,10 @@ export function createGroupConversations(deps: {
       return records.find((record) => record.threadId === threadId);
     },
     byId,
+    forWorkThread(threadId: string) {
+      return records.find((record) => Object.values(record.botThreads).includes(threadId));
+    },
+    requester: pendingPerson,
 
     list(caller: Caller): Answer {
       settleLeftovers();
@@ -367,6 +372,38 @@ export function createGroupConversations(deps: {
       Object.assign(record, next);
       changed(); work.wake();
       return { status: 201, body: { message } };
+    },
+
+    /** An explicit bot assignment, never a fabricated message from a person.
+     * Both the requesting person and the speaking bot must belong here. */
+    postAsBot(caller: Caller, botId: string, id: string, text: string, sendId: string): Answer {
+      const record = mine(caller, id);
+      const store = deps.store();
+      const bot = store.bot(botId);
+      if (!record || record.kind !== "group" || !record.bots.includes(botId) || !bot || !caller.seesBot(botId)) return fail(404, "No group available for this bot and person.");
+      if (!text.trim() || text.length > 20_000) return fail(400, "A message of 1–20000 characters is required.");
+      const command = { kind: "conversation.bot-message", key: JSON.stringify([id, caller.key, botId, sendId]) };
+      const receipt = commandReceipt<Message>(command.kind, command.key);
+      if (receipt) {
+        if (receipt.result.text !== text) return fail(409, "requestId already belongs to another message");
+        work.wake();
+        return { status: 200, body: { state: "accepted", groupId: id, messageId: receipt.result.id } };
+      }
+      const candidates = record.bots.filter((id) => id !== botId && caller.seesBot(id)).map((id) => store.bot(id)).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry) && !entry!.hidden);
+      const named = mentionedBots(text, candidates);
+      const lead = leadOf(record);
+      const targets = named.length ? named : lead && lead.id !== botId && caller.seesBot(lead.id) ? [lead] : [];
+      if (!targets.length) return fail(400, "Name a bot in this group to assign the work to.");
+      let next = record;
+      const message = store.appendMessage(record.threadId, { role: "bot", kind: "text", text,
+        from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } }, command, (message) => {
+        next = { ...record, updatedAt: message.at };
+        saveConversationRecords(records.map((entry) => entry.id === next.id ? next : entry));
+        work.enqueue(next, message.id, targets, { asker: caller.name, askerKey: caller.key, by: bot.name, depth: 0, visited: [bot.id] }, text);
+      });
+      Object.assign(record, next);
+      changed(); work.wake();
+      return { status: 201, body: { state: "accepted", groupId: id, messageId: message.id, bots: targets.map((entry) => entry.name), note: "The assignment is queued in the group. Progress, questions and results appear there. Accepted does not mean completed." } };
     },
 
     /** A group's instructions, which every bot in it reads. */
@@ -544,6 +581,7 @@ export function createGroupConversations(deps: {
      * (an approval, a question, a secret, a sign-in) is copied into the conversation,
      * answered there by whoever asked, and kept in step as it is answered. */
     relayWork(threadId: string, message: Message) {
+      work.progress(threadId, message);
       const isCard = (message.kind === "options" && Boolean(message.card?.requestId)) || Boolean(message.secretAsk) || Boolean(message.signInAsk) || Boolean(message.computerAsk);
       if (!isCard) return;
       const key = `${threadId}:${message.id}`;

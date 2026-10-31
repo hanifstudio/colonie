@@ -133,8 +133,7 @@ Steps, in order. Each one is safe on its own:
   included. For the first release: a group's lead bot answers what names no one;
   groups are by invitation; any member creates groups and adds any of the
   workspace's bots; a bot that needs permission asks the person who asked it.
-  Later: bots working with each other in the open,
-  open groups, pins, threaded replies.
+  Bots work with each other in the open. Later: open groups, pins, threaded replies.
 - Every new Local workspace gets its own engine sign-in and connections. It
   never borrows another workspace's credentials or history.
 - The first-run welcome flow stays as it is. One step was added: it explains
@@ -251,6 +250,15 @@ Steps, in order. Each one is safe on its own:
 - In a group, different bots work at the same time; one bot takes its own
   requests in order and says when a message waits for it (owner, October 29).
   What each busy bot is doing, and for how long, shows in place of dots.
+- Group collaboration (owner, October 31): the lead coordinates, each bot
+  contributes under its own name, and people can address any member directly.
+  Assignments, progress, blockers, approvals, and results appear in the group;
+  execution details open from there. A request to create a group and start work
+  there produces a visible assignment in that group. Private consultation from
+  a DM stays in that DM, with a visible handoff and result. Closing the Work
+  view hides it without stopping tasks; Stop is a separate action. Accepted,
+  running, waiting, completed, and interrupted work are distinct, and a finished
+  reply alone never proves that delegated work succeeded or can run unattended.
 
 ### Removed on purpose
 

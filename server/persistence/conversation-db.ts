@@ -70,6 +70,7 @@ export function deleteConversationRecord(id: string): void {
     db.prepare("DELETE FROM conversation_work WHERE conversation_id = ?").run(id);
     db.prepare("DELETE FROM conversation_records WHERE id = ?").run(id);
     db.prepare("DELETE FROM command_receipts WHERE kind = 'conversation.message' AND json_extract(key, '$[0]') = ?").run(id);
+    db.prepare("DELETE FROM command_receipts WHERE kind = 'conversation.bot-message' AND json_extract(key, '$[0]') = ?").run(id);
     db.prepare("DELETE FROM command_receipts WHERE kind = 'conversation.routine-result' AND json_extract(key, '$[0]') = ?").run(id);
   });
 }

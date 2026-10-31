@@ -3,7 +3,8 @@
 // document is visible, guards against a stale response from a sibling
 // conversation, and opens the target bot/task through the existing store
 // navigation. It never shows transport or hash details.
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useId, useReducer, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 
 import { api, openThread, useStore } from "@/state/store";
 import type { ChiefAssignment, ChiefAssignmentStatus, ChiefView } from "../../shared/colonie-chief";
@@ -40,14 +41,15 @@ export function assignmentStatusLabel(status: ChiefAssignmentStatus): string {
     case "running":
       return "Working";
     case "waiting":
-      return "Needs your approval";
+      return "Needs your input";
     case "completed":
       return "Done";
     case "failed":
       return "Failed";
     case "cancelled":
-    case "interrupted":
       return "Stopped";
+    case "interrupted":
+      return "Interrupted";
   }
 }
 
@@ -63,6 +65,8 @@ export function ChiefActivity({ botId, threadId }: { botId: string; threadId: st
   const { state: appState, dispatch: appDispatch } = useStore();
   const [state, dispatch] = useReducer(chiefActivityReducer, initialChiefActivityState);
   const seq = useRef(0);
+  const [expandedThread, setExpandedThread] = useState<string | null>(null);
+  const detailsId = useId();
 
   const load = useCallback(async () => {
     const current = ++seq.current;
@@ -91,12 +95,26 @@ export function ChiefActivity({ botId, threadId }: { botId: string; threadId: st
 
   const assignments = state.view?.assignments ?? [];
   if (!assignments.length && !state.error) return null;
+  const expanded = expandedThread === threadId;
+  const working = assignments.filter((entry) => entry.status === "running" || entry.status === "queued").length;
+  const waiting = assignments.filter((entry) => entry.status === "waiting").length;
+  const summary = [working ? `${working} active` : "", waiting ? `${waiting} needs input` : ""].filter(Boolean).join(" · ") || `${assignments.length} past ${assignments.length === 1 ? "task" : "tasks"}`;
 
   return (
-    <div className="rounded-xl border border-hairline/40 bg-card p-3">
-      <div className="text-[13px] font-medium text-ink">Chief work</div>
-      {state.error ? <p className="mt-1 text-[12.5px] text-danger">{state.error}</p> : null}
-      <ul className="mt-2 space-y-2">
+    <section aria-label="Delegated work" className="rounded-xl border border-hairline/40 bg-card px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpandedThread(expanded ? null : threadId)}
+          className="flex min-w-0 items-center gap-2 text-[13px] text-ink-secondary hover:text-ink">
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span className="font-medium text-ink">Work</span>
+          <span>{state.error ? "Could not refresh" : summary}</span>
+        </button>
+        {expanded && <button type="button" aria-label="Close work" title="Hide work; tasks keep running" onClick={() => setExpandedThread(null)}
+          className="rounded p-1 text-ink-secondary hover:bg-control hover:text-ink"><X size={14} /></button>}
+      </div>
+      {expanded && <div id={detailsId}>
+      {state.error ? <p role="alert" className="mt-1 text-[12.5px] text-danger">{state.error}</p> : null}
+      <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto">
         {assignments.map((assignment) => {
           const name = appState.bots.find((bot) => bot.id === assignment.targetBotId)?.name ?? assignment.targetBotId;
           const preview = assignmentPreview(assignment);
@@ -114,13 +132,14 @@ export function ChiefActivity({ botId, threadId }: { botId: string; threadId: st
                   className="mt-1 text-[12.5px] text-accent hover:underline"
                   onClick={() => openThread(appDispatch, { botId: assignment.targetBotId, threadId: assignment.targetThreadId! }, appState)}
                 >
-                  Open task
+                  View work
                 </button>
               ) : null}
             </li>
           );
         })}
       </ul>
-    </div>
+      </div>}
+    </section>
   );
 }

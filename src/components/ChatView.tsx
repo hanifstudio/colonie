@@ -451,7 +451,7 @@ const Bubble = memo(function Bubble({
   replyTarget?: Message;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch, conversation } = useChatRows();
+  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, bots, mentionPeers, focus, dispatch, onBranch, conversation } = useChatRows();
   const remoteClient = window.colonie?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
@@ -500,7 +500,12 @@ const Bubble = memo(function Bubble({
       <SenderFace message={message} />
       <div className="flex items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-[13px] text-ink-secondary" role="status" aria-label={message.text}>
         <WorkingDots />
-        {message.workingSince ? <span>Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
+        <div className="min-w-0">
+          <p className="line-clamp-3 whitespace-pre-wrap">{message.text}</p>
+          {message.workingSince ? <span className="text-[11px]">Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
+          {message.workThread && <button type="button" className="ml-2 text-[12px] text-accent hover:underline"
+            onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
+        </div>
       </div>
     </div>
   </div>;
@@ -691,6 +696,8 @@ const Bubble = memo(function Bubble({
               ) : null}
             </MessageBoundary>
           )}
+          {!user && message.workThread && <button type="button" className="mt-2 block text-[12px] text-accent hover:underline"
+            onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
         </div>
         {!user && (
           <MessageActions side="bot" forceOpen={viewRaw || speaking}>

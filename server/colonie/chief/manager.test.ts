@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import { ColonieChief, type ChiefDeps } from "./manager.ts";
 
@@ -95,4 +95,56 @@ test("the Chief makes a group for the person and sets a bot's approval level, bu
   expect(full.result.content![0]!.text).toContain("Full access is the person's");
   expect(levels).toHaveLength(1);
   manager.dispose();
+});
+
+test("a DM can start a group assignment once, and a group cannot create a hidden private consultation", async () => {
+  const assignments: unknown[] = [];
+  const manager = chief([], {
+    listGroups: () => [{ id: "group-1", name: "Project" }],
+    groupForThread: (threadId) => threadId === "group-work" ? { id: "group-1", name: "Project" } : undefined,
+    sendGroupMessage: (botId, sourceThreadId, groupId, message) => {
+      assignments.push({ botId, sourceThreadId, groupId, message });
+      return { state: "accepted", groupId };
+    },
+  });
+  const mount = manager.mount("chief", "private-dm", "codex-acp")!;
+  mount.activate();
+  const tokenOf = (entry: typeof mount) => (entry.servers[0] as { headers: Array<{ name: string; value: string }> }).headers[0]!.value.slice("Bearer ".length);
+  const token = tokenOf(mount);
+  expect((await rpc(manager, token, "tools/call", { name: "list_groups" })).result.content![0]!.text).toContain("Project");
+  const params = { name: "send_group_message", arguments: { groupId: "group-1", message: "@Nova inspect the project", requestId: "begin" } };
+  expect((await rpc(manager, token, "tools/call", params)).result.content![0]!.text).toContain("accepted");
+  await rpc(manager, token, "tools/call", params);
+  expect(assignments).toEqual([{ botId: "chief", sourceThreadId: "private-dm", groupId: "group-1", message: "@Nova inspect the project" }]);
+  // Ending the DM's turn has no cancellation authority over the accepted group work.
+  mount.deactivate();
+  expect(assignments).toHaveLength(1);
+  const group = manager.mount("chief", "group-work", "codex-acp")!;
+  group.activate();
+  const tools = (await rpc(manager, tokenOf(group), "tools/list")).result.tools!.map((tool) => tool.name);
+  expect(tools).not.toContain("ask_bot");
+  expect(tools).not.toContain("send_group_message");
+  expect((await rpc(manager, tokenOf(group), "tools/call", { name: "ask_bot", arguments: { targetBotId: "b1", message: "hidden", requestId: "private" } })).result.isError).toBe(true);
+  manager.dispose();
+});
+
+test("a private consultation deadline reports an unconfirmed result, distinct from a person's Stop", async () => {
+  vi.useFakeTimers();
+  const manager = chief([], {
+    createAssignmentThread: () => "consultation",
+    runAssignment: (_job, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("Stopped"), { name: "AbortError" })), { once: true });
+    }),
+  });
+  try {
+    const mount = manager.mount("chief", "private-dm", "codex-acp")!;
+    mount.activate();
+    const token = (mount.servers[0] as { headers: Array<{ value: string }> }).headers[0]!.value.slice("Bearer ".length);
+    const result = rpc(manager, token, "tools/call", { name: "ask_bot", arguments: { targetBotId: "b1", message: "Short question", requestId: "consult" } });
+    await vi.advanceTimersByTimeAsync(120_000);
+    const response = await result;
+    expect(response.result.isError).toBe(true);
+    expect(response.result.content![0]!.text).toContain("two-minute limit");
+    expect(manager.view("private-dm").assignments[0]).toMatchObject({ status: "failed", error: expect.stringContaining("unconfirmed") });
+  } finally { manager.dispose(); vi.useRealTimers(); }
 });

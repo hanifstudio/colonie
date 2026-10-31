@@ -11,6 +11,7 @@ export function createConversationWork(deps: {
   store: () => Store;
   records: () => GroupConversation[];
   changed: () => void;
+  lead: (record: GroupConversation) => Bot | undefined;
   brief: (record: GroupConversation, bot: Bot, work: ConversationWork) => { prompt: string; recoveryPrompt: string; about: string };
   run: (work: ConversationWork, threadId: string, prompt: string, recoveryPrompt: string) => Promise<void>;
   interrupt?: (botId: string, threadId: string) => Promise<void>;
@@ -64,11 +65,15 @@ export function createConversationWork(deps: {
       saveConversationWork({ ...work, status: ok && answer ? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
       saveConversationRecords(deps.records().map((entry) => entry.id === next.id ? next : entry));
       if (!ok || !answer?.text || !bot || work.depth >= 3) return;
-      const candidates = record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) && !work.visited?.includes(id)).map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry));
+      // A specialist can report back to the lead once. The depth cap still
+      // ends the exchange, including a lead → maker → reviewer → lead chain.
+      const lead = deps.lead(record)?.id;
+      const candidates = record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
+        (!work.visited?.includes(id) || (id === lead && (work.depth > 0 || Boolean(work.by))))).map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry));
       const targets = mentionedBots(answer.text, candidates);
       if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, answer.text);
     };
-    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, workThread: undefined, working: undefined, workingSince: undefined }, undefined, commit);
+    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined }, undefined, commit);
     else commit();
     Object.assign(record, next);
     deps.changed();
@@ -103,7 +108,8 @@ export function createConversationWork(deps: {
     const briefing = deps.brief(record, bot, work);
     work.about = briefing.about;
     work.status = "running";
-    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(), from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };
+    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(),
+      workThread: { botId: bot.id, threadId: thread }, from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };
     if (!work.messageId) {
       store.appendMessage(record.threadId, line, undefined, (message) => {
         work.messageId = message.id; work.since = message.at; saveConversationWork(work);
@@ -175,6 +181,15 @@ export function createConversationWork(deps: {
 
   return {
     enqueue, wake, cancel,
+    progress(threadId: string, message: { role: string; kind: string; text?: string }) {
+      const pending = waiting.get(threadId)?.work;
+      const record = pending && recordFor(pending.conversationId);
+      if (!pending?.messageId || !record || message.role !== "bot" || message.kind !== "text" || !message.text?.trim()) return;
+      // Keep tool details in the execution thread. Public assistant progress
+      // appears under its actual author while the answer is still being made.
+      const current = deps.store().messagesFor(record.threadId).find((entry) => entry.id === pending.messageId);
+      if (current?.working && current.text !== message.text) deps.store().patchMessage(record.threadId, pending.messageId, { text: message.text });
+    },
     pending: (threadId: string) => waiting.get(threadId)?.work,
     initialize() {
       // Running provider calls are indeterminate after a process loss. Never
