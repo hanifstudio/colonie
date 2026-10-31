@@ -60,6 +60,34 @@ test("a bot schedules a routine for itself from chat, and the person sees it wit
   expect(JSON.stringify(messages)).toMatch(/applied/);
 }, 60_000);
 
+test("a completed DM routine retains its report card on the active branch", async () => {
+  const routine = (await ws.as(ANA, "/api/routines")).body.routines.find((entry: any) => entry.name === "Morning news");
+  const live = await ws.stream(ANA);
+  expect((await ws.as(ANA, `/api/routines/${routine.id}/run`, { method: "POST" })).status).toBeLessThan(300);
+  const until = Date.now() + 30_000;
+  while (Date.now() < until) {
+    const page = (await ws.as(ANA, `/api/threads/${routine.conversation.threadId}/messages`)).body;
+    const report = page.messages.find((message: any) => message.routineRun?.routineId === routine.id && message.routineRun?.status === "completed");
+    if (report) {
+      expect(report.kind).toBe("routine.run");
+      const publicBot = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);
+      expect(publicBot.messages.find((message: any) => message.id === report.id)).toMatchObject({ kind: "routine.run", routineRun: { status: "completed" } });
+      const frames = live.text().split("\n").filter((line) => line.startsWith("data: ")).map((line) => JSON.parse(line.slice(6)));
+      const frame = frames.findLast((frame) => frame.message?.id === report.id);
+      live.close();
+      expect(frame.message).toMatchObject({ kind: "routine.run", routineRun: { status: "completed" } });
+      const byId = new Map(page.messages.map((message: any) => [message.id, message]));
+      let cursor: any = byId.get(page.activeLeafId);
+      const path = [];
+      while (cursor) { path.push(cursor.id); cursor = byId.get(cursor.parentId); }
+      expect(path).toContain(report.id);
+      return;
+    }
+    await settle(100);
+  }
+  throw new Error(`No DM report card:\n${ws.log().slice(-2000)}`);
+}, 60_000);
+
 test("a routine a bot schedules while working for a group reports each run to that group", async () => {
   const group = (await ws.as(ANA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Launch", emails: [], bots: [botId] } })).body;
   const bot = (await ws.as(ANA, "/api/bots")).body.bots.find((entry: any) => entry.id === botId);

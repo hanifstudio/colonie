@@ -264,6 +264,20 @@ try {
 } catch (error) {
   failed = true;
   console.error(String(error));
+  console.error(`Page errors: ${errors.join(" | ")}`);
+  for (const context of browser?.contexts() ?? []) for (const page of context.pages()) {
+    if (!page.url().startsWith(ws.url)) continue;
+    const diagnostics = await page.evaluate(async () => ({
+      url: location.href,
+      main: document.querySelector("main")?.innerText?.slice(-5000),
+      sections: [...document.querySelectorAll("section[aria-label]")].map((node) => node.getAttribute("aria-label")),
+      bots: (await (await fetch("/api/bots")).json()).bots.map((bot) => ({
+        id: bot.id, threadId: bot.threadId, activeLeafId: bot.activeLeafId,
+        messages: bot.messages.map((message) => ({ id: message.id, kind: message.kind, routineRun: message.routineRun })),
+      })),
+    })).catch((failure) => `Fixture diagnostics unavailable: ${failure}`);
+    console.error(JSON.stringify(diagnostics));
+  }
   console.error(ws.log().slice(-2000));
 } finally {
   await browser?.close();
