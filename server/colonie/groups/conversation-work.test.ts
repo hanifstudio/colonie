@@ -301,6 +301,8 @@ test("group progress and final results stay attributed and linked; late progress
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Verified result");
   await f.service.post(caller, f.group.id, "Another task", "stop-progress");
   await settle(() => f.calls.length === 2);
+  f.service.relayWork(threadId, progress);
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).not.toBe(progress.text);
   await f.service.stop(caller, f.group.id);
   f.service.relayWork(threadId, progress);
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Stopped by the person who asked.");

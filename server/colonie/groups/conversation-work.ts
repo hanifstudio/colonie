@@ -65,7 +65,7 @@ export function createConversationWork(deps: {
       saveConversationWork({ ...work, status: ok && answer ? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
       saveConversationRecords(deps.records().map((entry) => entry.id === next.id ? next : entry));
       if (!ok || !answer?.text || !bot || work.depth >= 3) return;
-      // A specialist can report back to the lead once. The depth cap still
+      // A specialist can report back to the lead. The depth cap still
       // ends the exchange, including a lead → maker → reviewer → lead chain.
       const lead = deps.lead(record)?.id;
       const candidates = record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
@@ -181,12 +181,16 @@ export function createConversationWork(deps: {
 
   return {
     enqueue, wake, cancel,
-    progress(threadId: string, message: { role: string; kind: string; text?: string }) {
+    progress(threadId: string, message: { id: string; role: string; kind: string; text?: string }) {
       const pending = waiting.get(threadId)?.work;
       const record = pending && recordFor(pending.conversationId);
       if (!pending?.messageId || !record || message.role !== "bot" || message.kind !== "text" || !message.text?.trim()) return;
+      const path = deps.store().activePath(threadId);
+      const askAt = path.findIndex((entry) => entry.role === "user" && entry.sendId === pending.id);
+      if (askAt < 0 || !path.slice(askAt + 1).some((entry) => entry.id === message.id)) return;
       // Keep tool details in the execution thread. Public assistant progress
       // appears under its actual author while the answer is still being made.
+      // A late patch to an earlier answer cannot become this task's progress.
       const current = deps.store().messagesFor(record.threadId).find((entry) => entry.id === pending.messageId);
       if (current?.working && current.text !== message.text) deps.store().patchMessage(record.threadId, pending.messageId, { text: message.text });
     },
