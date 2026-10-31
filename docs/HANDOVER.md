@@ -1,11 +1,16 @@
 # Handover
 
-## Now: verify collaboration, browser panels, and conversation routines
+## Now: publish Colonie 0.3.19
 
-Review group handoffs, progress, Work controls, Browser, and Files with a
-person; check bounded Claude/Codex routines, sign-ins, and browser takeover
-in disposable workspaces. Local Chromium cannot launch (macOS permission
-denied); real-window and real-engine checks remain. Never use owner data.
+Publish the collaboration commits, Shared image, and Mac early build.
+Prove pinned CI, the browser journey, packaged startup, and asset hashes.
+Live data, credentials, new platforms, and notarized signing are out of scope.
+
+## Next: verify collaboration, browser panels, and conversation routines
+
+Review group handoffs, Work, Browser, and Files with a person; use bounded
+Claude/Codex tasks in disposable workspaces. Local Chromium cannot launch
+(macOS permission denied); real-engine and real-window checks remain.
 
 ## After that: prepare the first public release
 

@@ -89,9 +89,12 @@ jobs:
           cat > release-notes.md <<EOF
           Early build for Mac with Apple silicon. Not notarized yet: after opening it once, go to System Settings → Privacy & Security and click Open Anyway.
 
-          - Each bot has its own browser. Desktop Computer access and setup have been removed.
-          - Browser and Files remain beside the conversation, with routines and their controls.
-          - Routines and reports stay in the DM or group where they were requested.
+          - Start group assignments from a private conversation with the Chief; the assignment appears under the Chief's name in the group.
+          - See each member's progress and results in the group, and open execution details with View work.
+          - Keep Work compact or close it without stopping tasks. Distinguish interrupted work and consultation time limits.
+          - Keep delayed updates with their original task and private assignment details visible only to conversation participants.
+
+          Validation uses simulated engines, a real-browser journey, and isolated packaged startup. Real Claude/Codex collaboration and clean-Mac installation remain unverified.
 
           Built from commit $RELEASE_SHA. The Shared workspace image is ghcr.io/hanifstudio/colonie-workspace:$VERSION.
           EOF
