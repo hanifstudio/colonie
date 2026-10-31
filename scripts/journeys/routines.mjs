@@ -50,7 +50,7 @@ export async function verifyRoutines(page, { botId, botName, check, until }) {
   await section().getByRole('button', { name: 'Run now', exact: true }).click();
   await until(page, async () => (await runState()).some((run) => run.routineId === personal.id && run.status === 'completed'), 'Run now completes through the app scheduler');
   await page.locator('main [data-tour="computer"]').click();
-  await until(page, async () => page.locator('section[aria-label="Later brief routine run: Completed"]').count() === 1, 'one completed report appears in the originating DM');
+  await until(page, async () => await page.locator('section[aria-label="Later brief routine run: Completed"]').count() === 1, 'one completed report appears in the originating DM');
   check(await page.locator('section[aria-label="Later brief routine run: Completed"] a[href="https://example.com/report"]').count() > 0, 'the routine report keeps its clickable source');
 
   await page.locator('section[aria-label="Groups and people"] button', { hasText: 'Launch' }).first().click();
@@ -64,8 +64,8 @@ export async function verifyRoutines(page, { botId, botName, check, until }) {
   await until(page, async () => (await runState()).some((run) => run.routineId === groupRoutine.id && run.status === 'completed'), 'the group routine completes');
   await page.getByRole('button', { name: 'Browser', exact: true }).click();
   await page.getByRole('complementary', { name: 'Launch: Browser', exact: true }).getByRole('button', { name: new RegExp(botName) }).click();
-  await until(page, async () => section().count() === 1 && (await section().innerText()).includes('Launch roundup'), 'watching a bot from a group keeps the group routine visible');
-  check(!(await section().innerText()).includes('Later brief'), 'the computer panel keeps the group scope instead of the bot DM');
+  await until(page, async () => await section().count() === 1 && (await section().innerText()).includes('Launch roundup'), 'watching a bot from a group keeps the group routine visible');
+  check(!(await section().innerText()).includes('Later brief'), 'the browser panel keeps the group scope instead of the bot DM');
   await page.getByRole('button', { name: 'Show conversation details', exact: true }).click();
   await expand('Launch roundup');
   await shot('group-dark');
@@ -79,7 +79,7 @@ export async function verifyRoutines(page, { botId, botName, check, until }) {
   await page.setViewportSize(viewport);
   await page.evaluate((value) => { if (value) document.documentElement.dataset.skin = value; else delete document.documentElement.dataset.skin; }, skin);
   await page.getByRole('button', { name: 'Close panel', exact: true }).click();
-  await until(page, async () => page.locator('section[aria-label="Launch roundup routine run: Completed"]').count() === 1, 'one report appears in the group');
+  await until(page, async () => await page.locator('section[aria-label="Launch roundup routine run: Completed"]').count() === 1, 'one report appears in the group');
   await open(true);
   await expand('Launch roundup');
   await section().getByRole('button', { name: 'Delete', exact: true }).click();

@@ -3,7 +3,7 @@
 ## Now: publish browser-only Colonie 0.3.18
 
 Publish current commits and backup, the Shared image, and a Mac early build.
-Fix the routine report failure, then prove CI, package smoke, and asset hashes.
+Verify routine report counts, GitHub CI, package smoke, and asset hashes.
 Out of scope: signing credentials, new platforms, and live workspace data.
 
 ## Next: verify browser panels and conversation routines
