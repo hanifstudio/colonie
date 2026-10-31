@@ -1,17 +1,18 @@
 # Handover
 
-## Now: verify browser panels and conversation routines
+## Now: publish browser-only Colonie 0.3.18
 
-Review Browser, Files, and the compact Routines list in both right panels,
-including on a narrow window. Verify group scope while watching a bot's
-browser, preserved drafts, and scheduling and reports with bounded Claude
-and Codex tasks in disposable workspaces. Never use the owner's running
-app, data, or credentials. Check browser takeover in the packaged app.
-Browser launch needs a working macOS session; the fixture Chromium closes
-before opening. The standard build cannot clean the existing dist output;
-leave it intact and resolve that permission before packaging.
-Keep this task active until the real-window and real-engine checks pass.
-Out of scope: scheduler changes, event triggers, hosting, and real user data.
+Publish current commits and backup, the Shared image, and a Mac early build.
+Prove GitHub CI, isolated package smoke, asset hashes, and the image version.
+Out of scope: signing credentials, new platforms, and live workspace data.
+
+## Next: verify browser panels and conversation routines
+
+Review Browser, Files, routines, group scope, and drafts on narrow panels.
+Use bounded Claude/Codex requests in throwaway workspaces; check browser takeover.
+Local Chromium closes on launch; existing dist output cannot be cleaned.
+Keep this task until real-window and real-engine checks pass. Never use the
+owner's app, data, or credentials. Scheduler and hosting changes are out of scope.
 
 ## After that: prepare the first public release
 

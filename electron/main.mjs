@@ -1179,6 +1179,12 @@ function createWindow() {
               throw new Error(\`health request failed: \${healthResponse.status} \${healthResponse.statusText}\`);
             }
             const health = await healthResponse.json();
+            const configResponse = await fetch("/api/config");
+            if (!configResponse.ok) throw new Error("packaged settings are unavailable");
+            const config = await configResponse.json();
+            const browserOnly = !window.colonie.localControl && !window.colonie.androidDevice &&
+              !window.colonie.desktopViewer && !window.colonie.desktopWorkspace &&
+              !("localVm" in config) && !("sharedComputers" in (config.features ?? {}));
             if (!ownerMutationResponse.ok) {
               throw new Error(
                 \`desktop mutation capability failed: \${ownerMutationResponse.status} \${ownerMutationResponse.statusText}\`,
@@ -1188,6 +1194,7 @@ function createWindow() {
               initialCapabilities,
               capabilities: initialCapabilities,
               health,
+              browserOnly,
               location: window.location.href,
               title: document.title,
             };

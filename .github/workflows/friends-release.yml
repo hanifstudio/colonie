@@ -1,0 +1,84 @@
+name: Mac early release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Exact commit to package (must have passing CI)"
+        required: true
+        type: string
+      publish:
+        description: "Publish the verified early build"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: friends-release
+  cancel-in-progress: false
+
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Require passing CI and refuse an existing release
+        run: |
+          sha=$(git rev-parse HEAD)
+          verdict=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$sha" --json status,conclusion --jq '[.[] | select(.status == "completed")][0].conclusion // "missing"')
+          test "$verdict" = success || { echo "::error::CI has not passed on $sha: $verdict"; exit 1; }
+          version=$(node -p "require('./package.json').version")
+          tag="friends-$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::$tag already exists; never replace published bytes"; exit 1
+          fi
+          echo "RELEASE_SHA=$sha" >> "$GITHUB_ENV"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: test "$(node -p process.arch)" = arm64
+      - run: pnpm install --frozen-lockfile
+      - name: Build the Mac Apple silicon early download
+        run: pnpm colonie:dist
+      - name: Verify signature and boot with disposable settings
+        run: |
+          codesign --verify --deep --strict release/colonie/mac-arm64/Colonie.app
+          node scripts/colonie/smoke-packaged.mjs release/colonie/mac-arm64/Colonie.app
+      - name: Prepare checksums and release notes
+        run: |
+          cd release/colonie
+          test -s "Colonie-$VERSION-arm64.dmg"
+          test -s "Colonie-$VERSION-arm64.zip"
+          shasum -a 256 "Colonie-$VERSION-arm64.dmg" "Colonie-$VERSION-arm64.zip" > SHA256SUMS.txt
+          cat > release-notes.md <<EOF
+          Early build for Mac with Apple silicon. Not notarized yet: after opening it once, go to System Settings → Privacy & Security and click Open Anyway.
+
+          - Each bot has its own browser. Desktop Computer access and setup have been removed.
+          - Browser and Files remain beside the conversation, with routines and their controls.
+          - Routines and reports stay in the DM or group where they were requested.
+
+          Built from commit $RELEASE_SHA. The Shared workspace image is ghcr.io/hanifstudio/colonie-workspace:$VERSION.
+          EOF
+      - name: Publish the verified early build
+        env:
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          args=()
+          if [ "$PUBLISH" != true ]; then args+=(--draft); fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" \
+            --title "Colonie $VERSION (early build)" --notes-file release/colonie/release-notes.md \
+            "${args[@]}" release/colonie/Colonie-"$VERSION"-arm64.dmg \
+            release/colonie/Colonie-"$VERSION"-arm64.zip release/colonie/SHA256SUMS.txt
