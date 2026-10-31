@@ -30,26 +30,28 @@ beforeAll(async () => {
 afterAll(async () => { await ws?.stop(); await local?.stop(); });
 
 test("the Chief creates and starts work in a group from a DM without copying private history or impersonating the person", async () => {
-  const ws = await startSharedWorkspace([{ email: ADA, admin: true }, { email: CICI }]);
+  const ws = await startSharedWorkspace([{ email: ADA, admin: true }, { email: CICI, admin: true }, { email: BOB }]);
   try {
   const chief = (await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Coordinator" } })).body.bot;
   const engineer = (await ws.as(ADA, "/api/bots", { method: "POST", body: { name: "Builder" } })).body.bot;
   expect(chief?.id).toBeTruthy();
   const role = (await ws.as(ADA, "/api/colonie/chief")).body;
   expect((await ws.as(ADA, "/api/colonie/chief", { method: "PUT", body: { botId: chief.id, expectedRevision: role.revision } })).status).toBe(200);
-  async function ask(text: string) {
-    const sent = await ws.as(ADA, `/api/bots/${chief.id}/messages`, { method: "POST", body: { text } });
+  let chiefThread = "";
+  async function ask(text: string, person = ADA) {
+    const sent = await ws.as(person, `/api/bots/${chief.id}/messages`, { method: "POST", body: { text } });
     expect(sent.status).toBe(202);
     const thread = sent.body.threadId;
+    chiefThread = thread;
     const approved = new Set<string>();
     const result = await until(async () => {
-      const messages = (await ws.as(ADA, `/api/threads/${thread}/messages`)).body.messages as Array<any>;
+      const messages = (await ws.as(person, `/api/threads/${thread}/messages`)).body.messages as Array<any>;
       const at = messages.findLastIndex((message) => message.role === "user" && message.text === text);
       for (const message of messages.slice(at + 1)) {
         const id = message.card?.requestId;
         if (id && !message.card.answered && !approved.has(id)) {
           approved.add(id);
-          expect((await ws.as(ADA, `/api/threads/${thread}/respond`, { method: "POST", body: { behavior: "allow", requestId: id } })).status).toBe(200);
+          expect((await ws.as(person, `/api/threads/${thread}/respond`, { method: "POST", body: { behavior: "allow", requestId: id } })).status).toBe(200);
         }
       }
       return messages.slice(at + 1).find((message) => message.turnTerminal)?.text;
@@ -68,6 +70,18 @@ test("the Chief creates and starts work in a group from a DM without copying pri
   expect(JSON.stringify(messages)).not.toContain("PRIVATE_ONLY_CONTEXT");
   expect(messages.find((message) => message.from?.botId === engineer.id)?.workThread?.threadId).toBeTruthy();
   expect((await ws.as(CICI, `/api/conversations/${made.groupId}/messages`)).status).toBe(404);
+  await ask(`mcp call colonie_workspace ask_bot ${JSON.stringify({ targetBotId: engineer.id, message: "PRIVATE_CONSULTATION_RESULT", requestId: "private-question" })}`);
+  expect((await ws.as(ADA, `/api/colonie/chief?threadId=${chiefThread}`)).body.assignments).toHaveLength(1);
+  expect((await ws.as(CICI, `/api/colonie/chief?threadId=${chiefThread}`)).status).toBe(404);
+  expect((await ws.as(CICI, "/api/colonie/chief")).body.assignments).toEqual([]);
+  await ask(`mcp call colonie_workspace ask_bot ${JSON.stringify({ targetBotId: engineer.id, message: "Bob's private question", requestId: "member-question" })}`, BOB);
+  const memberWork = await ws.as(BOB, `/api/colonie/chief?threadId=${chiefThread}`);
+  expect(memberWork.status).toBe(200);
+  expect(memberWork.body.assignments).toHaveLength(1);
+  expect(memberWork.body.assignments[0].message).toBe("Bob's private question");
+  expect((await ws.as(BOB, "/api/colonie/chief")).status).toBe(403);
+  expect((await ws.as(BOB, "/api/colonie/chief", { method: "PUT", body: { botId: engineer.id, expectedRevision: role.revision } })).status).toBe(403);
+  expect((await ws.as(ADA, "/api/colonie/chief")).body.assignments.map((assignment: any) => assignment.message)).toEqual(["PRIVATE_CONSULTATION_RESULT"]);
   } finally { await ws.stop(); }
 }, 90_000);
 

@@ -288,6 +288,9 @@ export function clearSessionCookie(name: string): string {
  * filter in the handler (bot and room edits: display fields only). Loopback
  * holds both scopes. */
 export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: RegExp; feature?: "sharedComputers" }> = [
+  // Only work in the requested conversation: the handler checks membership.
+  // Role management and unscoped reads still require an admin.
+  { methods: ["GET"], path: /^\/api\/colonie\/chief$/ },
   // own session
   { methods: ["GET"], path: /^\/api\/auth\/session$/ },
   // who is signed in, for the sidebar: their own name and email

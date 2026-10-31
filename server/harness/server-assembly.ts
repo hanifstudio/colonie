@@ -271,7 +271,8 @@ ROUTES.push(createColonieMemoryRoutes({ service: colonieMemory(), exists: (botId
 ROUTES.push(createColonieSkillsRoutes({ service: colonieSkills, exists: (botId) => Boolean(store.bot(botId)) }));
 // A role transfer emits a bot change per affected bot from the store, so the
 // existing broadcast already refreshes every window; no extra signal is needed.
-ROUTES.push(createChiefRoutes({ chief: colonieChief, exists: (botId) => Boolean(store.bot(botId)) }));
+ROUTES.push(createChiefRoutes({ chief: colonieChief, exists: (botId) => Boolean(store.bot(botId)),
+  canReadThread: (auth, threadId) => visibleTo(viewerFor(auth)).thread(threadId) }));
 ROUTES.push(connectedToolsRoutes({
   policies: botAppPolicies,
   exists: (botId) => Boolean(store.bot(botId)), busy: (botId) => store.tasks(botId).some((task: any) => threadBusy(botId, task.threadId)
