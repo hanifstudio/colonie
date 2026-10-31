@@ -2,7 +2,7 @@
 
 ## Now: publish Colonie 0.3.19
 
-Publish the collaboration commits, Shared image, and Mac early build.
+Publish the collaboration commits, Shared image, and Mac early build on a supported runner.
 Prove pinned CI, the browser journey, packaged startup, and asset hashes.
 Live data, credentials, new platforms, and notarized signing are out of scope.
 
