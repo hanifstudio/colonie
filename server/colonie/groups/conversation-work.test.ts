@@ -30,9 +30,10 @@ function fixture() {
   });
   const service = make(); service.initialize();
   const group = service.create(caller, { name: "IGRS", bots: [bot.id] }).body as { id: string; threadId: string };
-  const reply = (through: typeof service, text: string) => {
+  // A well-behaved bot ends with a status line; pass `raw` to skip it.
+  const reply = (through: typeof service, text: string, raw = false) => {
     const call = calls.at(-1)!;
-    store.appendMessage(call.threadId, { role: "bot", kind: "text", text, turnTerminal: true });
+    store.appendMessage(call.threadId, { role: "bot", kind: "text", text: raw || /Status:/i.test(text) ? text : `${text}\nStatus: done`, turnTerminal: true });
     through.turnCompleted(call.threadId, true);
   };
   return { store, bot, file, calls, stopped, service, group, make, reply };
@@ -139,7 +140,7 @@ test("two groups using the same bot have separate sessions and independent queue
   expect(igrs.prompt).not.toContain("Other only");
   expect(second.prompt).not.toContain("IGRS only");
   for (const call of [igrs, second]) {
-    f.store.appendMessage(call.threadId, { role: "bot", kind: "text", text: call.work.conversationId, turnTerminal: true });
+    f.store.appendMessage(call.threadId, { role: "bot", kind: "text", text: `${call.work.conversationId}\nStatus: done`, turnTerminal: true });
     f.service.turnCompleted(call.threadId, true);
   }
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe(f.group.id);
@@ -150,7 +151,7 @@ test("a result persisted just before a crash is recovered without running the pr
   const f = fixture();
   await f.service.post(caller, f.group.id, `@${f.bot.name} bounded work`, "recover");
   await settle(() => f.calls.length === 1);
-  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "text", text: "Durable answer", turnTerminal: true, turnSucceeded: true });
+  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "text", text: "Durable answer\nStatus: done", turnTerminal: true, turnSucceeded: true });
   const restarted = f.make(); restarted.initialize(); restarted.wake();
   expect(conversationWork(f.group.id)[0]?.status).toBe("completed");
   expect(f.store.messagesFor(f.group.threadId).filter((message) => message.text === "Durable answer")).toHaveLength(1);
@@ -327,4 +328,30 @@ test("the lead can hand work to a maker and reviewer and receive their result on
   await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
   expect(f.calls).toHaveLength(4);
   expect(f.store.messagesFor(f.group.threadId).filter((message) => message.from).map((message) => message.from!.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
+});
+
+test("a reply that only promises to continue is blocked, not completed", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " fix it", "promise-1");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "I'll continue and report back.", true);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  expect(conversationWork(f.group.id)[0].status).toBe("blocked");
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toContain("Ended without a result or a stated blocker.");
+});
+
+test("a stuck reply is blocked and shows what the bot needs; a done reply completes without the status line", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " merge it", "stuck-1");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "Review passed.\nStatus: stuck - Maintainer access to main");
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  expect(conversationWork(f.group.id)[0].status).toBe("blocked");
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Review passed.\n\nStuck: Maintainer access to main");
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " again", "stuck-2");
+  await settle(() => f.calls.length === 2);
+  f.reply(f.service, "Merged.");
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  expect(conversationWork(f.group.id).at(-1)?.status).toBe("completed");
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Merged.");
 });

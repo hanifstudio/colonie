@@ -1,16 +1,19 @@
 # Handover
 
-## Now: publish Colonie 0.3.19
+## Now: bots in a group finish what they take on, or say they are stuck
 
-Publish the collaboration commits, Shared image, and Mac early build on a supported runner.
-Prove pinned CI, the browser journey, packaged startup, and asset hashes.
-Live data, credentials, new platforms, and notarized signing are out of scope.
+A person who asks a bot in a group for something sees one line saying who has
+it. The bot ends with a checkable result or "stuck" and what it needs; "I'll
+continue" no longer counts as done, and nobody has to chase it. Proof: server
+tests for the work states, then a `verify-colonie` fixture with a fake engine
+that answers vaguely; not yet a real engine or a real window. Out of scope: the
+hourly schedule, bots adding members, sharing credentials between bots.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
-Review group handoffs, Work, Browser, and Files with a person; use bounded
-Claude/Codex tasks in disposable workspaces. Local Chromium cannot launch
-(macOS permission denied); real-engine and real-window checks remain.
+Review group handoffs, Work, Browser, and Files with a person, using bounded
+tasks in disposable workspaces. Local Chromium cannot launch (macOS
+permission denied); real-engine and real-window checks remain.
 
 ## After that: prepare the first public release
 
@@ -26,7 +29,7 @@ Claude/Codex tasks in disposable workspaces. Local Chromium cannot launch
    skips it), the Colonie Cloud domain; the server image's last 600 MB
    (web-app-only packages, Next.js via better-auth).
 
-Not yet seen in a real window: the installed app opening a `colonie://` link.
+Not yet seen: the installed app opening a `colonie://` link.
 **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
 owner resets the Neon password: `wrangler hyperdrive update
@@ -53,13 +56,10 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 ## Known broken
 
 - The desktop Release workflow needs `RELEASES_PAT` for the legacy updater bridge.
-
-- `pnpm test:electron`: two tests (`mac-updater`, `vendor-updater`) import
-  scripts that were deleted.
-- `pnpm i18n:check`, `pnpm clean`, and `pnpm check:contrast` call deleted scripts.
-- `electron/fixtures/browser-closed-shadow.cjs` requires a file that does not exist.
-- 72 failing test files were deleted on October 18 by owner decision, so those
-  areas have no tests now.
+- `pnpm test:electron`: `mac-updater` and `vendor-updater` import deleted scripts.
+- `pnpm i18n:check`, `pnpm clean`, `pnpm check:contrast` call deleted scripts;
+  `electron/fixtures/browser-closed-shadow.cjs` requires a missing file.
+- 72 failing test files were deleted October 18 (owner decision); no tests there.
 
 ## Not yet checked by a person
 
@@ -73,11 +73,13 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
-- Logins kept between turns unchecked; members who are not admins cannot open
-  a bot's browser; the 950 MB Shared image has not run on a droplet.
+- Logins kept between turns; non-admins cannot open a bot's browser; the
+  950 MB Shared image has not run on a droplet.
 
 ## Queue after the current task
 
+0. Update a Shared workspace from the error screen (uncommitted in
+   `AppErrorBoundary`); proved by a test only, not seen in a window.
 1. Verify guides and groups with real engines: saving a guide from chat,
    the lead handing work on, and Ask when risky asking only for risky actions.
    Also: browser takeover by a signed-in bot and packaged app quitting.

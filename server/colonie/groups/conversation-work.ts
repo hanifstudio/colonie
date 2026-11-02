@@ -7,6 +7,17 @@ import type { GroupConversation } from "./group-conversations.ts";
 
 type Bot = NonNullable<ReturnType<Store["bot"]>>;
 export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth" | "unnamed"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
+/** A bot must end with "Status: done" or "Status: stuck - what it needs". A
+ * reply with neither (such as "I'll continue") is not a finished result. */
+export function workEnd(reply: string, handedOn = false): { state: "completed" | "blocked"; text: string } {
+  const match = /\n?[ \t]*Status:[ \t]*(done|stuck)\b[ \t:-]*([^\n]*)\s*$/i.exec(reply);
+  if (!match && handedOn) return { state: "completed", text: reply.trim() };
+  if (!match) return { state: "blocked", text: `${reply.trim()}\n\nEnded without a result or a stated blocker.` };
+  const text = reply.slice(0, match.index).trim();
+  if (match[1].toLowerCase() === "done") return { state: "completed", text };
+  return { state: "blocked", text: `${text}\n\nStuck: ${match[2].trim() || "no reason given"}`.trim() };
+}
+
 export function createConversationWork(deps: {
   store: () => Store;
   records: () => GroupConversation[];
@@ -56,21 +67,20 @@ export function createConversationWork(deps: {
     const askAt = path.findIndex((message) => message.role === "user" && message.sendId === work.id);
     const answers = askAt < 0 ? [] : path.slice(askAt + 1).filter((message) => message.role === "bot" && message.kind === "text" && message.text?.trim());
     const answer = answers.findLast((message) => message.turnTerminal) ?? answers.at(-1);
-    const said = ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
+    const lead = deps.lead(record)?.id;
+    const candidates = bot ? record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
+      (!work.visited?.includes(id) || (id === lead && (work.depth > 0 || Boolean(work.by))))).map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry)) : [];
+    const targets = ok && answer?.text && work.depth < 3 ? mentionedBots(answer.text, candidates) : [];
+    const end = ok && answer?.text ? workEnd(answer.text, targets.length > 0) : undefined;
+    const said = end ? end.text : ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
     const next: GroupConversation = ok && answer ? {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
       toldAbout: { ...record.toldAbout, [work.botId]: work.about ?? "" },
     } : record;
     const commit = () => {
-      saveConversationWork({ ...work, status: ok && answer ? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
+      saveConversationWork({ ...work, status: ok && answer ? end?.state ?? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
       saveConversationRecords(deps.records().map((entry) => entry.id === next.id ? next : entry));
       if (!ok || !answer?.text || !bot || work.depth >= 3) return;
-      // A specialist can report back to the lead. The depth cap still
-      // ends the exchange, including a lead → maker → reviewer → lead chain.
-      const lead = deps.lead(record)?.id;
-      const candidates = record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
-        (!work.visited?.includes(id) || (id === lead && (work.depth > 0 || Boolean(work.by))))).map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry));
-      const targets = mentionedBots(answer.text, candidates);
       if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, answer.text);
     };
     if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined }, undefined, commit);
