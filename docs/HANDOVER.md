@@ -2,18 +2,19 @@
 
 ## Now: bots in a group finish what they take on, or say they are stuck
 
-A person who asks a bot in a group for something sees one line saying who has
-it. The bot ends with a checkable result or "stuck" and what it needs; "I'll
-continue" no longer counts as done, and nobody has to chase it. Proof: server
-tests for the work states, then a `verify-colonie` fixture with a fake engine
-that answers vaguely; not yet a real engine or a real window. Out of scope: the
-hourly schedule, bots adding members, sharing credentials between bots.
+Done: a group reply ends "Status: done" or "Status: stuck - need"; a silent
+reply is re-run once, then shown as blocked. Left: (1) a bot that never ends a
+turn is never noticed; give running work a stall limit that does not punish
+long tool runs, then show it as blocked; (2) one line saying who holds
+what; (3) prove with a real engine in a disposable workspace that bots
+follow the status line, and look at it in the window. Out of scope: the hourly
+schedule, bots adding members, sharing credentials between bots.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
-Review group handoffs, Work, Browser, and Files with a person, using bounded
-tasks in disposable workspaces. Local Chromium cannot launch (macOS
-permission denied); real-engine and real-window checks remain.
+Review group handoffs, Work, Browser, and Files with a person, in disposable
+workspaces. Local Chromium cannot launch (macOS permission denied); real-engine
+and real-window checks remain.
 
 ## After that: prepare the first public release
 
@@ -23,7 +24,7 @@ permission denied); real-engine and real-window checks remain.
    per section, team routes, library, import and package code, and their
    tests. One Chief for the workspace, no boundary; prepared by the agent,
    committed by the owner (the hook keeps test deletions for the owner).
-2. A lifetime license for Shared, bought once (owner decision); later.
+2. A lifetime license for Shared, bought once (owner decision).
 3. Release: a signed, notarized `.dmg` (friends get an unsigned build from
    GitHub Releases, tag `friends-<version>`, so the legacy updater mirror
    skips it), the Colonie Cloud domain; the server image's last 600 MB
@@ -73,11 +74,10 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
   still opens only through the old per-bot rule, not the project folder.
-- Logins kept between turns; non-admins cannot open a bot's browser; the
-  950 MB Shared image has not run on a droplet.
+- Logins kept between turns; non-admins and a bot's browser; the 950 MB Shared
+  image on a droplet.
 
 ## Queue after the current task
-
 0. Update a Shared workspace from the error screen (uncommitted in
    `AppErrorBoundary`); proved by a test only, not seen in a window.
 1. Verify guides and groups with real engines: saving a guide from chat,
