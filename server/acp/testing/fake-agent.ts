@@ -235,6 +235,8 @@ agent({ name: "Colonie deterministic fixture" })
         update: { sessionUpdate: "tool_call_update", toolCallId: toolCall.toolCallId,
           status: outcome.startsWith("yes") ? "completed" : "failed", content: [{ type: "content", content: { type: "text", text: result } }] } });
     }
+    // A compliant bot ends a group reply with the status line it was asked for.
+    if (text.includes('End with a last line "Status: done"') && !handOff) result += "\nStatus: done";
     // Delayed chunks make in-flight rendering observable in renderer/desktop fixtures.
     const split = Math.max(1, Math.floor(result.length / 2));
     for (const chunk of [result.slice(0, split), result.slice(split)]) {

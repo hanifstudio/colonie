@@ -9,10 +9,10 @@ type Bot = NonNullable<ReturnType<Store["bot"]>>;
 export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth" | "unnamed"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
 /** A bot must end with "Status: done" or "Status: stuck - what it needs". A
  * reply with neither (such as "I'll continue") is not a finished result. */
-export function workEnd(reply: string, handedOn = false): { state: "completed" | "blocked"; text: string } {
+export function workEnd(reply: string, handedOn = false): { state: "completed" | "blocked"; text: string; missing?: boolean } {
   const match = /\n?[ \t]*Status:[ \t]*(done|stuck)\b[ \t:-]*([^\n]*)\s*$/i.exec(reply);
   if (!match && handedOn) return { state: "completed", text: reply.trim() };
-  if (!match) return { state: "blocked", text: `${reply.trim()}\n\nEnded without a result or a stated blocker.` };
+  if (!match) return { state: "blocked", missing: true, text: `${reply.trim()}\n\nEnded without a result or a stated blocker.` };
   const text = reply.slice(0, match.index).trim();
   if (match[1].toLowerCase() === "done") return { state: "completed", text };
   return { state: "blocked", text: `${text}\n\nStuck: ${match[2].trim() || "no reason given"}`.trim() };
@@ -77,11 +77,19 @@ export function createConversationWork(deps: {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
       toldAbout: { ...record.toldAbout, [work.botId]: work.about ?? "" },
     } : record;
+    if (end?.missing && !work.nudged) {
+      // Ask once more, in the same line, before telling the group it ended.
+      saveConversationWork({ ...work, status: "queued", nudged: true });
+      Object.assign(record, next);
+      deps.changed();
+      wake();
+      return;
+    }
     const commit = () => {
       saveConversationWork({ ...work, status: ok && answer ? end?.state ?? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
       saveConversationRecords(deps.records().map((entry) => entry.id === next.id ? next : entry));
       if (!ok || !answer?.text || !bot || work.depth >= 3) return;
-      if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, answer.text);
+      if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, end?.text ?? answer.text);
     };
     if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined }, undefined, commit);
     else commit();
@@ -117,6 +125,7 @@ export function createConversationWork(deps: {
     work.threadId = thread;
     const briefing = deps.brief(record, bot, work);
     work.about = briefing.about;
+    if (work.nudged) briefing.prompt += `\n\nYour last reply here ended without "Status: done" or "Status: stuck - what you need". Do the work now, or say what blocks you, and end with that status line.`;
     work.status = "running";
     const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(),
       workThread: { botId: bot.id, threadId: thread }, from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };

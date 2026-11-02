@@ -330,14 +330,29 @@ test("the lead can hand work to a maker and reviewer and receive their result on
   expect(f.store.messagesFor(f.group.threadId).filter((message) => message.from).map((message) => message.from!.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
 });
 
-test("a reply that only promises to continue is blocked, not completed", async () => {
+test("a reply with no status is asked once more, then blocked if it still has none", async () => {
   const f = fixture();
   await f.service.post(caller, f.group.id, "@" + f.bot.name + " fix it", "promise-1");
   await settle(() => f.calls.length === 1);
   f.reply(f.service, "I'll continue and report back.", true);
-  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1].prompt).toContain("Status: done");
+  f.reply(f.service, "Still on it.", true);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running" && work.status !== "queued"));
+  expect(f.calls).toHaveLength(2);
   expect(conversationWork(f.group.id)[0].status).toBe("blocked");
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toContain("Ended without a result or a stated blocker.");
+});
+
+test("a reply with no status that is fixed on the second try completes", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " fix it", "promise-2");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "On it.", true);
+  await settle(() => f.calls.length === 2);
+  f.reply(f.service, "Fixed and tested.");
+  await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Fixed and tested.");
 });
 
 test("a stuck reply is blocked and shows what the bot needs; a done reply completes without the status line", async () => {

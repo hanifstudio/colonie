@@ -23,6 +23,8 @@ export interface ConversationWork {
   messageId?: string;
   since?: number;
   about?: string;
+  /** The bot ended without a status; it was asked once more. */
+  nudged?: boolean;
 }
 
 function repository<T>(use: (db: DatabaseSync) => T): T {
