@@ -141,7 +141,10 @@ export function createConversationWork(deps: {
           text: `${bot.name} named ${named.map((entry) => entry.name).join(", ")}, but this chain already passed through ${MAX_CHAIN} bots, so it stopped here. Mention them to continue.` });
       } else if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, end?.text ?? answer.text);
     };
-    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined }, undefined, commit);
+    // an ended-early line offers Continue; a finished one does not
+    const final = ok && answer ? end?.state ?? "completed" : work.status === "interrupted" ? "interrupted" : "failed";
+    const stoppedBy = final === "completed" ? undefined : { botId: work.botId, reason: final as "blocked" | "interrupted" | "failed" };
+    if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined, stoppedBy }, undefined, commit);
     else commit();
     Object.assign(record, next);
     deps.changed();

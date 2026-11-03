@@ -400,6 +400,9 @@ export interface WireMessage {
   /** In a group or DM: the bot's own work thread, where a card waits for a
    * person (colonie/groups needsPerson). */
   workThread?: { botId: string; threadId: string };
+  /** In a group or DM: this bot's work ended early (blocked, cut off, failed, or silent), so the
+   * line offers Continue: it names the bot again and the bot resumes its original ask. */
+  stoppedBy?: { botId: string; reason: "blocked" | "interrupted" | "failed" };
   /** In a group or DM: the bot is still working on this line's answer. */
   working?: true;
   /** When that work started; absent while it waits behind the bot's other work. */

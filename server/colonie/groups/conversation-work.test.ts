@@ -509,3 +509,19 @@ test("a bot that asks a real question waits for the person and is not run again"
   expect(f.calls.length).toBeLessThanOrEqual(2);
   expect(f.calls[1]?.prompt ?? "").not.toContain("Do not ask: carry on");
 });
+
+test("a line whose work ended early offers Continue; a finished line does not", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} fix it`, "stopby-1");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "Reviewed.\nStatus: stuck - need the token");
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  const stopped = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
+  expect(stopped?.stoppedBy).toEqual({ botId: f.bot.id, reason: "blocked" });
+  await f.service.post(caller, f.group.id, `@${f.bot.name} try again`, "stopby-2");
+  await settle(() => f.calls.length === 2);
+  f.reply(f.service, "Merged.");
+  await settle(() => conversationWork(f.group.id).at(-1)?.status === "completed");
+  const done = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
+  expect(done?.stoppedBy).toBeUndefined();
+});

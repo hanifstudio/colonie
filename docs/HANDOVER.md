@@ -6,9 +6,10 @@ Done: status line and one re-ask, a 30-minute stall limit, shared secrets, a nam
 bot always runs (chain up to eight), linked files open in the preview, a reply that
 closes "Status: done" wakes nobody, bots ask with clickable options, every bot reads
 who holds what, a bot named again after a restart gets its original ask, and a bot
-that stops at "shall I continue?" goes on by itself (twice at most). Left: a "Continue"
-button; the group still goes quiet when no bot names another; check a real group
-after the update. Out of scope: bots adding members.
+that stops at "shall I continue?" goes on by itself (twice at most), and a line whose
+work ended early has a Continue button (never seen in a window). Left: the group still
+goes quiet when no bot names another; check a real group after the update. Out of
+scope: bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -56,9 +57,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 ## Known broken
 
-- The desktop Release workflow needs `RELEASES_PAT` for the legacy updater bridge.
-- `pnpm test:electron`: `mac-updater` and `vendor-updater` import deleted scripts.
-- `pnpm i18n:check`, `pnpm clean`, `pnpm check:contrast` call deleted scripts;
+- Release workflow needs `RELEASES_PAT`; `pnpm test:electron` (`mac-updater`, `vendor-updater`),
+  `pnpm i18n:check`, `pnpm clean`, `pnpm check:contrast` call deleted scripts;
   `electron/fixtures/browser-closed-shadow.cjs` requires a missing file.
 - 72 failing test files were deleted October 18 (owner decision); no tests there.
 

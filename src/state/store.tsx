@@ -174,6 +174,8 @@ export interface Message {
   signInAsk?: SignInAsk;
   computerAsk?: { botId: string; reason?: string; outcome?: "later" };
   workThread?: { botId: string; threadId: string };
+  /** In a group: this bot's work ended early, so the line offers Continue. */
+  stoppedBy?: { botId: string; reason: "blocked" | "interrupted" | "failed" };
   working?: true;
   workingSince?: number;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };

@@ -698,6 +698,9 @@ const Bubble = memo(function Bubble({
           )}
           {!user && message.workThread && <button type="button" className="mt-2 block text-[12px] text-accent hover:underline"
             onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
+          {/* its work ended early: one click names the bot again, and it resumes its original ask */}
+          {!user && message.stoppedBy && conversation && <button type="button" className="mt-2 block rounded-lg bg-accent/15 px-2.5 py-1 text-[12px] font-medium text-accent hover:bg-accent/25"
+            onClick={() => conversation.continueBot("Please continue.", message.stoppedBy!.botId)}>Continue</button>}
         </div>
         {!user && (
           <MessageActions side="bot" forceOpen={viewRaw || speaking}>
