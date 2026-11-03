@@ -5,8 +5,8 @@
 Done: status line, one re-ask, a 30-minute stall limit, shared secrets in a group,
 a named bot always runs (chain up to eight), files a bot links open in the
 preview, and a reply that closes "Status: done" no longer wakes a teammate it only
-thanks (the owner's Faceless Studio group showed five "siap" pings). Left: (1) check
-a real group again after the update; (2) one line saying who holds what; (3) the
+thanks (the owner's Faceless Studio group showed five "siap" pings). Bots are also taught to ask with clickable options (every bot's base context). Left:
+(1) check a real group again after the update; (2) one line saying who holds what; (3) the
 group still goes quiet when no bot names another. Out of scope: bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
@@ -76,6 +76,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
   image on a droplet.
 
 ## Queue after the current task
+0. Delete the non-ACP bot path (owner, November 3: ACP only): the old turn, prompt, memory
+   and interrupt code behind `isColonieAcpDriver` in 13 server and UI files, one file at a time.
 0. Update a Shared workspace from the error screen (uncommitted in
    `AppErrorBoundary`); proved by a test only, not seen in a window.
 1. Verify guides and groups with real engines: saving a guide from chat,

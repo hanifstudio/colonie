@@ -32,6 +32,15 @@ test("an ordinary bot is told it can schedule and save guides, not that automati
   expect(all).toContain("call about_colonie rather than guessing");
 });
 
+test("every bot is taught to ask the person with options they can click", () => {
+  for (const bot of [profile(), profile({ chiefOfStaff: true })]) {
+    const pin = pinContext(randomUUID(), contextCandidate(bot, "claude-acp", ""));
+    const all = text(composeContext(pin, "hi", "claude-acp", "", effective).prompt);
+    expect(all).toContain("two to five real options they can click");
+    expect(all).toContain("never ask them to confirm what they already told you");
+  }
+});
+
 test("the Chief is not told its role gives no delegation tools", () => {
   const bot = profile({ chiefOfStaff: true });
   const pin = pinContext(randomUUID(), contextCandidate(bot, "codex-acp", ""));
