@@ -1817,7 +1817,8 @@ export class Store {
   patchBotProfile(id: string, patch: BotProfilePatch & Partial<Pick<BotRecord, "cwd" | "lastProfileRequestId">>): BotRecord | null {
     const bot = this.bot(id);
     if (!bot) return null;
-    const next = { ...bot, ...patch };
+    // A field the caller left undefined means "not changed", never "blank it".
+    const next = { ...bot, ...Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) } as typeof bot;
     if (patch.soul !== undefined) {
       next.soulHash = soulHash(patch.soul);
       next.soulDrift = false;

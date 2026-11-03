@@ -694,7 +694,9 @@ export class ColonieChief {
   private profileInput(args: Record<string, unknown>, requireName: boolean): UpdateBotPatch {
     const parsed = z.object(profileSchema).strict().safeParse({ name: args.name, title: args.title, description: args.description, soul: args.soul, modelSelection: args.modelSelection });
     if (!parsed.success) throw new ToolError(parsed.error.issues[0]?.message ?? "Invalid profile.");
-    const input = parsed.data;
+    // Only what the caller sent: a key left as undefined would overwrite the stored value when the
+    // patch is spread onto the bot, so changing just its model must not blank its name and role.
+    const input = Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined)) as UpdateBotPatch;
     if (requireName && !input.name) throw new ToolError("name is required.");
     return input;
   }

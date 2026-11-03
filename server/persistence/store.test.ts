@@ -104,3 +104,14 @@ test("three approval levels: Ask moves once to Ask when risky, Accept edits and 
   first.patchBot("asks", { approvalMode: "ask" });
   expect(level(new Store(selection, undefined, undefined, scope)).asks).toBe("ask");
 });
+
+test("a profile patch with undefined fields leaves the stored name, role and soul alone", () => {
+  const scope = scopeWithBots([{ id: "b1", name: "Reka" }]);
+  const store = new Store(selection, undefined, undefined, scope);
+  store.patchBotProfile("b1", { title: "Video editor", soul: "Edit with patience." });
+  store.patchBotProfile("b1", { name: undefined, title: undefined, description: undefined, soul: undefined });
+  const bot = store.bot("b1")!;
+  expect(bot.name).toBe("Reka");
+  expect(bot.title).toBe("Video editor");
+  expect(bot.soul).toBe("Edit with patience.");
+});

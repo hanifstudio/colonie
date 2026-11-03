@@ -148,3 +148,18 @@ test("a private consultation deadline reports an unconfirmed result, distinct fr
     expect(manager.view("private-dm").assignments[0]).toMatchObject({ status: "failed", error: expect.stringContaining("unconfirmed") });
   } finally { manager.dispose(); vi.useRealTimers(); }
 });
+
+test("changing only a bot's model sends no other profile field, so its name and role are not wiped", async () => {
+  const patches: Array<Record<string, unknown>> = [];
+  const manager = chief([], {
+    updateBot: async (_botId: string, patch: Record<string, unknown>) => { patches.push(patch); return { id: "b1", name: "Nova", title: "", description: "", modelSelection: { instanceId: "codex-acp", model: "gpt-6.1-sol" } }; },
+  } as Partial<ChiefDeps>);
+  const mount = manager.mount("chief", "thread-1", "codex-acp");
+  mount!.activate();
+  const server = mount!.servers[0] as { headers: Array<{ name: string; value: string }> };
+  const token = server.headers.find((header) => header.name === "Authorization")!.value.slice("Bearer ".length);
+  await rpc(manager, token, "tools/call", { name: "update_bot", arguments: { botId: "b1", modelSelection: { instanceId: "codex-acp", model: "gpt-6.1-sol" }, requestId: "m-1" } });
+  expect(patches).toHaveLength(1);
+  // only what was asked: a key present with undefined would overwrite the stored value
+  expect(Object.keys(patches[0]!)).toEqual(["modelSelection"]);
+});
