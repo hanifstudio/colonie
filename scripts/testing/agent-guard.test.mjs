@@ -11,8 +11,6 @@ describe("the agent guard", () => {
     const claude = JSON.parse(read(".claude/settings.json"));
     expect(claude.permissions.deny).not.toContain("Bash(git push *)");
     expect(claude.permissions.deny).not.toContain("Bash(git * push *)");
-    const opencode = JSON.parse(read("opencode.json"));
-    expect(opencode.permissions.some((rule) => rule.action === "shell" && rule.resource === "git push*" && rule.effect === "deny")).toBe(false);
     expect(read(".codex/rules/guard.rules")).not.toMatch(/pattern\s*=\s*\["git",\s*"push"\],\s*decision\s*=\s*"forbidden"/);
   });
   it("allows ordinary pushes while refusing destructive pushes and other publishing", () => {

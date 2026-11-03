@@ -18,8 +18,6 @@
       "Edit(/scripts/agent-guard.mjs)",
       "Edit(/scripts/git-hooks/**)",
       "Edit(/.claude/settings.json)",
-      "Edit(/opencode.json)",
-      "Edit(/.opencode/**)",
       "Edit(/.codex/**)"
     ]
   },

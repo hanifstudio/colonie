@@ -1,6 +1,5 @@
 // Shell commands an agent may not run in this repo, whichever tool drives it.
-// Claude Code calls this as a PreToolUse hook (.claude/settings.json); OpenCode
-// calls commandProblem from .opencode/plugins/guard.js. Text matching is a
+// Claude Code calls this as a PreToolUse hook (.claude/settings.json). Text matching is a
 // net for mistakes, not a sandbox: a determined workaround can pass it, which
 // is why the commit hook and CI stand behind it.
 

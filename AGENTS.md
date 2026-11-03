@@ -63,8 +63,8 @@ history, done tasks, or evidence logs in any document.
   weaken or delete a test to get a pass. Only the owner bypasses the hook.
 - Push only when the owner explicitly requests publication. Force pushes and
   remote ref deletion remain blocked.
-- `pnpm install` turns the commit hook on. The agent settings for Claude Code,
-  OpenCode, and Codex block skipping the hook, touching the owner's
+- `pnpm install` turns the commit hook on. The agent settings for Claude Code
+  and Codex block skipping the hook, touching the owner's
   real data or credentials, and recursive deletes outside the repo or temp
   folders (`scripts/agent-guard.mjs`). A blocked command is a stop sign, not a
   puzzle: do not look for a workaround; say what was blocked.

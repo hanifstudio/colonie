@@ -65,8 +65,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 ## Not yet checked by a person
 
 - No reset email has gone through Resend; the reset pages were never opened in a browser.
-- OpenCode's project rules load but were never seen blocking in a live
-  session; Codex runs the project hook only after each person trusts it.
+- Codex runs the project hook only after each person trusts it.
 - The workspace switcher and the new welcome step have never been seen in a
   real window. The app's restart into another workspace has never been run.
 - The owner's two stuck conversations, "Motion" and "Biscuit", should now
