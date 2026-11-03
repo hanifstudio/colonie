@@ -78,3 +78,18 @@ test("a conversation's roots put its pinned folder first, then its workspace", (
   // With no pin the configured folder is the conversation root.
   expect(build({ bot: { id: "b1", threadId: "t1", cwd: "/configured" } }).messageFileRootsForThread("b1", "t1")[0]).toBe("/configured");
 });
+
+test("a file a bot links in a group opens from the group's project folder first", () => {
+  const sources = createConversationSources({
+    fullAccessForSource: () => false,
+    groupFolderOf: (threadId: string) => threadId === "g1" ? "/data/conversation-files/c1" : undefined,
+    store: {
+      bot: () => undefined, botByThread: () => undefined,
+      groupByThread: () => ({ id: "c1", threadId: "g1", cwd: "/configured" }),
+      taskByThread: () => undefined, groupTaskByThread: () => undefined,
+      messagesFor: () => [], activePath: () => [],
+    },
+  } as never);
+  expect(sources.messageFileRootsForThread("b1", "g1")[0]).toBe("/data/conversation-files/c1");
+  expect(sources.messageFileRootsForThread("b1", "other")).not.toContain("/data/conversation-files/c1");
+});

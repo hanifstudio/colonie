@@ -73,7 +73,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
   rebuild their session. The next message sent in either one is the real check.
 - A group's Files panel was never seen in a window, and no real engine has yet
   written into a group's project folder. A file a bot links in a group answer
-  still opens only through the old per-bot rule, not the project folder.
+  now opens from the project folder; never seen in a window.
 - Logins kept between turns; non-admins and a bot's browser; the 950 MB Shared
   image on a droplet.
 

@@ -119,6 +119,7 @@ import { ProviderTurnGenerationRegistry } from "./colonie/chat/turn-dispatch-gua
 import {acquireDataDirLeaseForProcess} from "./runtime/data-dir-lease.ts";
 import { createWorkspaceAccess, describeEdition, editionStatus, hostedWorkspaceConfiguration, hostedWorkspaceConfigured, licenseWarning, sharedWorkspaceFullAccessConfigured, loadEnterpriseLayer, type WorkspaceAccess } from "./enterprise.ts";
 import {loadEnvironmentId, serverVersion} from "./runtime/environment.ts";
+import { conversationFolder } from "./colonie/workspace/workspace.ts";
 import {WorkspaceBackupMaintenance} from "./colonie/workspace/workspace-backup-maintenance.ts";
 import {applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceRestoreResult} from "./colonie/workspace/workspace-backup.ts";
 import {createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain} from "./custom-domain.ts";
@@ -1055,6 +1056,11 @@ const { approvalModeForTurn, fullAccessForSource, appliesDirectly } = createAppr
 const { resolveReplyTarget, messageFileRootsForThread, connectorThread, proposalPersistence } = createConversationSources({
   fullAccessForSource,
   store,
+  // a file a bot links in a group answer opens from the group's project folder
+  groupFolderOf: (threadId: string) => {
+    const id = groupConversations.byThread(threadId)?.id ?? groupConversations.byId(threadId)?.id;
+    return id ? conversationFolder(id) : undefined;
+  },
 });
 
 const { botOverview, previewSystemPrompt } = createBotSettingsView({

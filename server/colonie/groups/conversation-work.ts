@@ -11,6 +11,9 @@ export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "dep
  * reply with neither (such as "I'll continue") is not a finished result. */
 export function workEnd(reply: string, handedOn = false): { state: "completed" | "blocked"; text: string; missing?: boolean } {
   const match = /\n?[ \t]*Status:[ \t]*(done|stuck)\b[ \t:-]*([^\n]*)\s*$/i.exec(reply);
+  // Handing the work to a teammate is progress, not a block: drop a "stuck"
+  // line that sits beside it instead of showing the group a false stop.
+  if (match && handedOn && match[1].toLowerCase() === "stuck") return { state: "completed", text: reply.slice(0, match.index).trim() };
   if (!match && handedOn) return { state: "completed", text: reply.trim() };
   if (!match) return { state: "blocked", missing: true, text: `${reply.trim()}\n\nEnded without a result or a stated blocker.` };
   const text = reply.slice(0, match.index).trim();

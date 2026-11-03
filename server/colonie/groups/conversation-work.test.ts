@@ -411,3 +411,16 @@ test("work silent for over half an hour is stopped and the group is told", async
   expect(f.stopped).toHaveLength(1);
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toContain("stopped responding for 30 minutes");
 });
+
+test("a stuck line beside a hand-off to a teammate is dropped, not shown as a block", async () => {
+  const f = fixture();
+  const other = f.store.createBot({ name: `Other-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [other.id] });
+  await f.service.post(caller, f.group.id, "Get a screenshot", "handoff-stuck");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, `No screenshot yet. @${other.name} please take one.\nStatus: stuck - waiting for it`);
+  await settle(() => f.calls.length === 2);
+  const lead = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
+  expect(lead?.text).not.toContain("Stuck:");
+  expect(conversationWork(f.group.id)[0].status).toBe("completed");
+});

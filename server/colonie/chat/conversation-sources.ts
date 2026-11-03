@@ -19,7 +19,7 @@ export interface ConversationSourcesDeps {
 
 export function createConversationSources(deps: ConversationSourcesDeps) {
   const {
-    fullAccessForSource, store
+    fullAccessForSource, store, groupFolderOf
   } = deps;
 
 function resolveReplyTarget(threadId: string, value: unknown): Message | undefined {
@@ -36,6 +36,8 @@ function resolveReplyTarget(threadId: string, value: unknown): Message | undefin
  * the conversation's pinned or configured working folder, the bot's own
  * workspace, and the private attachment store. */
 function messageFileRootsForThread(senderId: string, threadId: string): string[] {
+  // A group's own project folder: where its bots write and what its people see.
+  const projectFolder = groupFolderOf?.(threadId);
   const directBot = store.botByThread(threadId);
   const group = directBot ? undefined : store.groupByThread(threadId);
   let pinnedCwd: string | null | undefined;
@@ -48,12 +50,13 @@ function messageFileRootsForThread(senderId: string, threadId: string): string[]
     pinnedCwd = task ? task.pinnedCwd : group.threadId === threadId ? group.pinnedCwd : undefined;
     configuredCwd = group.cwd;
   }
-  return messageFileRoots({
+  const roots = messageFileRoots({
     senderWorkspace: workspaceDir(senderId),
     attachments: ATTACHMENTS_DIR,
     pinnedCwd,
     configuredCwd,
   });
+  return projectFolder && !roots.includes(projectFolder) ? [projectFolder, ...roots] : roots;
 }
 
 function connectorThread(botId: string, threadId: string) {
