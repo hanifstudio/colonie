@@ -50,3 +50,15 @@ test("a saved value is masked in anything written down, and names must be enviro
   // a value with quotes stays one shell word
   expect(envLine("A_B", "it's")).toBe("A_B='it'\\''s'");
 });
+
+test("a bot in a group also gets what its group's other bots may use, and only for that group", () => {
+  const secrets = createSecrets({ dir: mkdtempSync(join(tmpdir(), "colonie-secrets-")) });
+  secrets.put("ana", { name: "GITLAB_TOKEN", value: VALUE, botId: "chip" });
+  // outside the group, the other bot gets nothing
+  expect(secrets.prepare("ana", "raka", "t1")).toBeNull();
+  // inside a group that includes the allowed bot, it gets the token
+  expect(secrets.prepare("ana", "raka", "t2", ["chip", "raka"])?.names).toEqual(["GITLAB_TOKEN"]);
+  // a group without the allowed bot gives nothing, and another person never gets it
+  expect(secrets.prepare("ana", "raka", "t3", ["dimas", "raka"])).toBeNull();
+  expect(secrets.prepare("bob", "raka", "t4", ["chip", "raka"])).toBeNull();
+});

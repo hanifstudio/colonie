@@ -1,14 +1,13 @@
 # Handover
 
-## Now: bots in a group finish what they take on, or say they are stuck
+## Now: bots in a group keep going without being called
 
-Done: a group reply ends "Status: done" or "Status: stuck - need"; a silent
-reply is re-run once, then shown as blocked. Left: (1) the 30-minute stall limit
-cuts off a single tool call silent that long; add an engine heartbeat if that
-bites; (2) one line saying who holds
-what; (3) prove with a real engine in a disposable workspace that bots
-follow the status line, and look at it in the window. Out of scope: the hourly
-schedule, bots adding members, sharing credentials between bots.
+Done: status line ("done" or "stuck"), one re-ask, a 30-minute stall limit, and
+bots in a group share each other's secrets there (Raka and Dimas no longer wait
+on Chip for GitLab). Left: (1) one line saying who holds what; (2) prove with
+real engines in a disposable workspace, then a window. The stall limit also cuts
+off one tool call silent that long. Out of scope: the hourly schedule, bots
+adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -42,15 +41,15 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Release commit passes `pnpm check`, the Shared browser journey, and the selected desktop shell tests on GitHub |
-| A version number and an update path | Server 0.3.18 is published. A raised package.json version on main publishes the image and Shared admins see Update |
-| A Mac app built from this branch | Early-build 0.3.18 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
+| A version number and an update path | Server 0.3.20 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A Mac app built from this branch | Early-build 0.3.20 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
 | First run works in a real window | Isolated packaged startup checked; clean-Mac onboarding untested |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
 | A bot answers through a real engine | Works in the owner's own data; never on a clean install |
 | Creating and switching workspaces works by clicking | Tested in code only; never clicked |
 | Conversations from the 0.2.0 build still work after upgrading | Not tested |
 | The download is signed and notarized | Ad-hoc signed; Developer ID and notarization blocked by no Apple Developer account |
-| The download page points to the new build | GitHub latest is `friends-0.3.18`; a public launch page is still needed |
+| The download page points to the new build | GitHub latest is `friends-0.3.20`; a public launch page is still needed |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
 | A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 

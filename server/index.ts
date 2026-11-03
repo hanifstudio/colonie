@@ -1520,7 +1520,7 @@ const acpSituation = (senderName?: string) => {
  * no person behind it (a routine on a Shared workspace) gets none. */
 const acpSecrets = (botId: string, threadId: string, senderKey?: string) => {
   const owner = workspaceKind.shared() ? senderKey : LOCAL_PERSON;
-  const prepared = owner ? secrets.prepare(owner, botId, threadId) : null;
+  const prepared = owner ? secrets.prepare(owner, botId, threadId, groupConversations.byThread(threadId)?.bots ?? []) : null;
   return prepared
     ? `Secrets you may use: ${prepared.names.join(", ")}, in ${prepared.file} as NAME='value' lines. Load them in your scripts (for example: set -a; . "${prepared.file}"; set +a) and never print their values.`
     : "";

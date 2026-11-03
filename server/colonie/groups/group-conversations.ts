@@ -260,7 +260,7 @@ export function createGroupConversations(deps: {
     const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}`
       : ask.unnamed ? `${ask.asker} wrote to the group without naming anyone, so it comes to you` : `${ask.asker} mentioned you`;
     return { about: information, prompt: [
-      `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" when you cannot go on. Never end with only a promise to continue.`,
+      `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" only when a person or access you cannot get yourself blocks you. Work still going is not stuck: keep going until you can write one of the two. Never end with only a promise to continue.`,
       ...(told ? ["", told] : []),
       ...(lines.length ? ["", resume ? "Said since you last spoke:" : "Recent messages:",
         ...(said.length > lines.length ? [`(${said.length - lines.length} earlier messages not shown)`] : []), ...lines] : []),

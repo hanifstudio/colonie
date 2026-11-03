@@ -142,10 +142,11 @@ export function createSecrets(deps: { dir: string; now?: () => number }) {
     /** For one request: the allowed secrets in a private KEY='value' file
      * its scripts load, outside the bot's working folder. Null when there
      * are none (an old file for the thread is removed). */
-    prepare(owner: string, botId: string, threadId: string): { file: string; names: string[] } | null {
+    prepare(owner: string, botId: string, threadId: string, groupBots: readonly string[] = []): { file: string; names: string[] } | null {
       if (!/^[\w-]{1,128}$/.test(threadId)) return null;
       const target = join(runtimeDir, `${threadId}.env`);
-      const allowed = secrets.filter((secret) => secret.owner === owner && secret.bots.includes(botId));
+      // A bot in a group also uses what its group's other bots may use, only here.
+      const allowed = secrets.filter((secret) => secret.owner === owner && (secret.bots.includes(botId) || groupBots.some((id) => secret.bots.includes(id))));
       if (!allowed.length) { rmSync(target, { force: true }); return null; }
       const lines: string[] = [];
       const at = now();
