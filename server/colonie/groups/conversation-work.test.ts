@@ -7,7 +7,7 @@ import { conversationWork, enqueueConversationWork, type ConversationWork } from
 import { Store, type Message } from "../../persistence/store.ts";
 import { commandReceipt } from "../../commands.ts";
 import { createGroupConversations } from "./group-conversations.ts";
-import { stoppedBeforeNextStep } from "./conversation-work.ts";
+import { onlyAcknowledges, stoppedBeforeNextStep } from "./conversation-work.ts";
 
 const caller = { key: "owner", name: "Ana", seesBot: () => true };
 const settle = async (condition: () => boolean) => {
@@ -524,4 +524,28 @@ test("a line whose work ended early offers Continue; a finished line does not", 
   await settle(() => conversationWork(f.group.id).at(-1)?.status === "completed");
   const done = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
   expect(done?.stoppedBy).toBeUndefined();
+});
+
+test("a bare acknowledgement asks nothing, while a real request that names a teammate still does", () => {
+  // the owner's Faceless Studio group, 10:03 PM: five of these in a row
+  for (const ack of ["Siap, @Chip.", "@Reka tercatat.", "@Chip siap.", "Noted, thanks @Alur", "Oke, @Reka", "Terima kasih @Chip"]) {
+    expect(onlyAcknowledges(ack), ack).toBe(true);
+  }
+  for (const request of ["@Alur tulis draft naskah VO Palessi dulu.", "Siap, @Reka tolong cek footage Palessi sekarang.", "@Reka konfirmasi apakah tugas 15 detik pembuka sudah diterima?", "Oke. @Alur revisi bagian akhir: tambahkan satu pertanyaan."]) {
+    expect(onlyAcknowledges(request), request).toBe(false);
+  }
+});
+
+test("two bots that only say 'siap' to each other stop after the first answer", async () => {
+  const f = fixture();
+  const other = f.store.createBot({ name: `Other-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [other.id] });
+  await f.service.post(caller, f.group.id, "Kickoff", "pingpong-1");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, `@${other.name} write the plan.`, true);
+  await settle(() => f.calls.length === 2);
+  // the other bot only acknowledges, naming the first bot, with no status line at all
+  f.reply(f.service, `Siap, @${f.bot.name}.`, true);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running" && work.status !== "queued"));
+  expect(f.calls).toHaveLength(2);
 });

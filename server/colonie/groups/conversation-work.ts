@@ -42,6 +42,18 @@ export function stoppedBeforeNextStep(reply: string): boolean {
   return text.length > 0 && text.length <= NEXT_STEP_MAX_CHARS && NAMES_NEXT_STEP.test(text.slice(-160));
 }
 
+/** A short reply that only acknowledges ("siap", "noted", "tercatat", "sip", "oke", "terima kasih",
+ * "got it") asks nothing. Naming a teammate in it must not wake them, with or without a status line;
+ * otherwise two bots keep answering each other. A reply that asks for something is longer or
+ * carries a task, so it never matches. */
+// What may follow the acknowledging word: only names, politeness, or a short "will do / waiting" closer.
+// Anything else (a verb of work such as "tolong cek", "please write") makes it a request.
+const ACKNOWLEDGES = /^(?:@\S+\s*[,:]?\s*)*(?:siap|sip|oke|ok|okay|noted|tercatat|dicatat|diterima|paham|dipahami|mengerti|baik|baiklah|ya|yes|got it|understood|roger|thanks|thank you|terima kasih|makasih|mantap|sama-sama)\b(?:\s*[,.!]?\s*(?:@\S+|kak|bro|mas|mba|guys|thanks|terima kasih|makasih|ya|nih|deh|banget|sekali|dong|siap|ok|oke|noted|tercatat))*\s*[.!]*$/i;
+export function onlyAcknowledges(reply: string): boolean {
+  const text = body(reply).trim();
+  return text.length > 0 && text.length <= 80 && !/[?？]/.test(text) && ACKNOWLEDGES.test(text.replace(/[*_`>#]/g, "").trim());
+}
+
 const STALL_MS = 30 * 60_000;
 /** Hand-offs in one chain before the group is told it stopped. */
 const MAX_CHAIN = 8;
@@ -104,11 +116,12 @@ export function createConversationWork(deps: {
     // A reply that closes with "Status: done" is an answer, not a request: it may
     // thank or confirm a teammate by name without waking them (no "siap" ping-pong).
     const closes = ok && answer?.text ? /\n?[ \t]*Status:[ \t]*done\b/i.test(answer.text) : false;
-    const named = ok && answer?.text && !closes ? mentionedBots(answer.text, candidates) : [];
+    const named = ok && answer?.text && !closes && !onlyAcknowledges(answer.text) ? mentionedBots(answer.text, candidates) : [];
     const capped = named.length > 0 && work.depth >= MAX_CHAIN;
     const targets = capped ? [] : named;
     // a capped hand-off is still a hand-off: it is not asked again for a status
-    const end = ok && answer?.text ? workEnd(answer.text, named.length > 0) : undefined;
+    // a bare "siap" is a complete reply: it needs no status line, so it is not asked for one
+    const end = ok && answer?.text ? workEnd(answer.text, named.length > 0 || onlyAcknowledges(answer.text)) : undefined;
     const said = end ? end.text : ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
     const next: GroupConversation = ok && answer ? {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },

@@ -25,7 +25,7 @@ For actionable requests, make reasonable progress using available capabilities. 
 
 When a decision is the person's, ask with your question tool: one clear question and two to five real options they can click, and they can always type their own answer. Offer the next step as an option instead of asking in plain text. Do not ask for what you can decide or find out yourself, and never ask them to confirm what they already told you.
 
-Ground claims about capabilities, access, actions, and results in available evidence. Distinguish what you can do, what you have done, and what remains uncertain.
+Ground claims about capabilities, access, actions, and results in available evidence. Distinguish what you can do, what you have done, and what remains uncertain. Say that you opened, ran, saved, sent or fixed something only after a tool result showed it worked; if the tool failed or returned nothing, say it did not work and what you will try instead of saying it is done.
 
 Mention operational details or limitations when they affect the user's request or when the user asks about them. Explain them in plain language.
 
@@ -66,7 +66,7 @@ export function contextCandidate(profile: ContextProfile, instanceId: string, in
   const app = appContextPreferences();
   const bot = botContextPreferences(profile.id);
   const sections = [
-    contextSection("app.identity", "App · Identity", "app", "Colonie factory", appFoundation, app.enabled && !legacyPlain, "colonie.identity.v3"),
+    contextSection("app.identity", "App · Identity", "app", "Colonie factory", appFoundation, app.enabled && !legacyPlain, "colonie.identity.v4"),
     contextSection("app.instructions", "App · Shared instructions", "app", "Workspace owner", app.instructions, app.enabled && !legacyPlain),
     contextSection("bot.persona", "Bot · Persona", "bot", `bot:${profile.id}:profile`,
       [`Name: ${profile.name}`, profile.title && `Role: ${profile.title}`, profile.description && `Description: ${profile.description}`,

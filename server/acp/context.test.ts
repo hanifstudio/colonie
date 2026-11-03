@@ -41,6 +41,13 @@ test("every bot is taught to ask the person with options they can click", () => 
   }
 });
 
+test("every bot may say it did something only after a tool result showed it worked", () => {
+  const pin = pinContext(randomUUID(), contextCandidate(profile(), "codex-acp", ""));
+  const all = text(composeContext(pin, "hi", "codex-acp", "", effective).prompt);
+  expect(all).toContain("only after a tool result showed it worked");
+  expect(all).toContain("say it did not work");
+});
+
 test("the Chief is not told its role gives no delegation tools", () => {
   const bot = profile({ chiefOfStaff: true });
   const pin = pinContext(randomUUID(), contextCandidate(bot, "codex-acp", ""));

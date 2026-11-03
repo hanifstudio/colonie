@@ -1,14 +1,13 @@
 # Handover
 
-## Now: a group's finished video plays in the app, and bots stop pinging "noted"
+## Now: a group's video plays in the app, and bots stop saying "noted" and "done" without proof
 
-The owner's Faceless Studio group (November 3) showed: a 25 MB limit blocks the video a
-bot made ("file exceeds 26214400 bytes"); bots still answered each other "siap" and
-"tercatat" five times; a bot said a Finder window was open when it was not. Plan: (1) a
-group's video streams with Range and plays from its project folder, no 25 MB cap, with a
-Show in Finder button on the desktop; (2) a reply that adds no work wakes nobody, with or
-without a status line; (3) a bot must show proof before saying it did something. Proof:
-server and component tests, then a real group; not yet. Out of scope: the hourly schedule.
+The owner's Faceless Studio group (November 3) showed a 25 MB cap blocking the video a bot
+made, bots answering each other "siap" five times, and a bot saying a Finder window was open
+when it was not. Done: a group's video streams from its folder with no cap and a Show in
+Finder button (never played in a window yet), and a bare "siap" wakes nobody. Left: a bot
+must show proof before it says it opened, ran, or saved something; check a real group.
+Out of scope: the hourly schedule, bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
