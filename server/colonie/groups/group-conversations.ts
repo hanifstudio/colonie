@@ -617,6 +617,7 @@ export function createGroupConversations(deps: {
 
     /** A bot's turn ended: its answer replaces the oldest waiting line. */
     turnCompleted: work.completed,
+    sweepStalled: work.sweepStalled,
     turnErrored: work.errored,
   };
 }

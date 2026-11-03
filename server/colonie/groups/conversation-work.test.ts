@@ -370,3 +370,15 @@ test("a stuck reply is blocked and shows what the bot needs; a done reply comple
   expect(conversationWork(f.group.id).at(-1)?.status).toBe("completed");
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Merged.");
 });
+
+test("work silent for over half an hour is stopped and the group is told", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " fix it", "stall-1");
+  await settle(() => f.calls.length === 1);
+  f.service.sweepStalled(Date.now() + 10 * 60_000);
+  expect(conversationWork(f.group.id)[0].status).toBe("running");
+  f.service.sweepStalled(Date.now() + 31 * 60_000);
+  await settle(() => conversationWork(f.group.id)[0].status === "failed");
+  expect(f.stopped).toHaveLength(1);
+  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toContain("stopped responding for 30 minutes");
+});

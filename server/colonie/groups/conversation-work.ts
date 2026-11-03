@@ -18,6 +18,8 @@ export function workEnd(reply: string, handedOn = false): { state: "completed" |
   return { state: "blocked", text: `${text}\n\nStuck: ${match[2].trim() || "no reason given"}`.trim() };
 }
 
+const STALL_MS = 30 * 60_000;
+
 export function createConversationWork(deps: {
   store: () => Store;
   records: () => GroupConversation[];
@@ -31,7 +33,7 @@ export function createConversationWork(deps: {
    * work at the same time and one bot takes its own requests in order. */
   const active = new Set<string>();
   const lane = (conversationId: string, botId: string) => `${conversationId}\n${botId}`;
-  const waiting = new Map<string, { work: ConversationWork; done: (finished: boolean) => void }>();
+  const waiting = new Map<string, { work: ConversationWork; done: (finished: boolean) => void; at: number }>();
   let retry: ReturnType<typeof setTimeout> | undefined;
   const recordFor = (id: string) => deps.records().find((record) => record.id === id);
 
@@ -139,7 +141,7 @@ export function createConversationWork(deps: {
     }
     const threadId = thread;
     return new Promise<boolean>((resolve) => {
-      waiting.set(threadId, { work, done: resolve });
+      waiting.set(threadId, { work, done: resolve, at: Date.now() });
       void deps.run(work, threadId, briefing.prompt, briefing.recoveryPrompt).catch((error: unknown) => {
         if (waiting.get(threadId)?.work.id !== work.id) return;
         waiting.delete(threadId);
@@ -201,6 +203,8 @@ export function createConversationWork(deps: {
   return {
     enqueue, wake, cancel,
     progress(threadId: string, message: { id: string; role: string; kind: string; text?: string }) {
+      const live = waiting.get(threadId);
+      if (live) live.at = Date.now();
       const pending = waiting.get(threadId)?.work;
       const record = pending && recordFor(pending.conversationId);
       if (!pending?.messageId || !record || message.role !== "bot" || message.kind !== "text" || !message.text?.trim()) return;
@@ -213,8 +217,22 @@ export function createConversationWork(deps: {
       const current = deps.store().messagesFor(record.threadId).find((entry) => entry.id === pending.messageId);
       if (current?.working && current.text !== message.text) deps.store().patchMessage(record.threadId, pending.messageId, { text: message.text });
     },
+    /** Work that has shown no message at all for STALL_MS is stopped and the
+     * group is told. ponytail: one tool call silent that long is also cut off;
+     * add a heartbeat from the engine if that bites. */
+    sweepStalled(now = Date.now()) {
+      for (const [threadId, entry] of waiting) {
+        if (now - entry.at < STALL_MS) continue;
+        waiting.delete(threadId);
+        const name = deps.store().bot(entry.work.botId)?.name ?? "The bot";
+        const stop = Promise.resolve().then(() => deps.interrupt?.(entry.work.botId, threadId)).catch(() => undefined);
+        try { finish(entry.work, false, `${name} stopped responding for ${Math.round(STALL_MS / 60000)} minutes, so its work was stopped. Ask again, or say what it needs.`); } finally { void stop.finally(() => entry.done(true)); }
+      }
+      wake();
+    },
     pending: (threadId: string) => waiting.get(threadId)?.work,
     initialize() {
+      setInterval(() => this.sweepStalled(), 60_000).unref();
       // Running provider calls are indeterminate after a process loss. Never
       // repeat their external effects automatically; safe, undispatched work stays queued.
       for (const work of conversationWork(undefined, "running")) {

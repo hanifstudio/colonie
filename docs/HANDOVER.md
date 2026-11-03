@@ -3,9 +3,9 @@
 ## Now: bots in a group finish what they take on, or say they are stuck
 
 Done: a group reply ends "Status: done" or "Status: stuck - need"; a silent
-reply is re-run once, then shown as blocked. Left: (1) a bot that never ends a
-turn is never noticed; give running work a stall limit that does not punish
-long tool runs, then show it as blocked; (2) one line saying who holds
+reply is re-run once, then shown as blocked. Left: (1) the 30-minute stall limit
+cuts off a single tool call silent that long; add an engine heartbeat if that
+bites; (2) one line saying who holds
 what; (3) prove with a real engine in a disposable workspace that bots
 follow the status line, and look at it in the window. Out of scope: the hourly
 schedule, bots adding members, sharing credentials between bots.
