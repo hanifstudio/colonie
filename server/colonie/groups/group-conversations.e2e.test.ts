@@ -416,7 +416,7 @@ describe("a group with several bots", () => {
     expect(notices).toContain(`bob@x.com removed ${second.name}.`);
   }, 30_000);
 
-  test("a bot that @mentions another bot hands it on, and the chain stops after three", async () => {
+  test("a bot that @mentions another bot hands it on, and the chain is capped", async () => {
     const before = (await lines()).length;
     // the stand-in answers "hand over to <name>" with "@<name> over to you"
     await ws.as(ADA, `/api/conversations/${crew.id}/messages`, { method: "POST", body: { text: `@${bot.name} hand over to ${second.name}` } });
@@ -435,8 +435,8 @@ describe("a group with several bots", () => {
     expect(mine[0].text).toBe(`@${second.name} over to you`);
     const handed = mine.find((message) => message.from.botId === second.id);
     expect(handed.text).toContain(`${bot.name} (a bot) asked you, for`);
-    // the stand-in echoes every mention back, so it would go on: one ask and three hand-offs at most
-    expect(mine.length).toBeLessThanOrEqual(4);
+    // the stand-in echoes every mention back, so it would go on: one ask and eight hand-offs at most
+    expect(mine.length).toBeLessThanOrEqual(10);
   }, 120_000);
 
   test("the group's bots work in one project folder that its people can download from", async () => {

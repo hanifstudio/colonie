@@ -1,13 +1,14 @@
 # Handover
 
-## Now: bots in a group keep going without being called
+## Now: a mentioned bot always runs, and a stopped chain says why
 
-Done: status line ("done" or "stuck"), one re-ask, a 30-minute stall limit, and
-bots in a group share each other's secrets there (Raka and Dimas no longer wait
-on Chip for GitLab). Left: (1) one line saying who holds what; (2) prove with
-real engines in a disposable workspace, then a window. The stall limit also cuts
-off one tool call silent that long. Out of scope: the hourly schedule, bots
-adding members.
+A person sees every bot a teammate names do its part; nothing is skipped in
+silence. Today a mention is ignored when that bot already spoke in the chain, or
+after three hops, with no message. Plan: any group bot may be named again,
+the chain cap rises and, when it is hit, the group says so. Proof: server tests
+(a repeat mention runs; the cap posts a notice), then a real engine in a
+disposable workspace and the window; neither done yet. Out of scope: the hourly
+schedule, bots adding members, a "who holds what" line.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 

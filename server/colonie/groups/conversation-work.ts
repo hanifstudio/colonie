@@ -19,6 +19,8 @@ export function workEnd(reply: string, handedOn = false): { state: "completed" |
 }
 
 const STALL_MS = 30 * 60_000;
+/** Hand-offs in one chain before the group is told it stopped. */
+const MAX_CHAIN = 8;
 
 export function createConversationWork(deps: {
   store: () => Store;
@@ -69,10 +71,15 @@ export function createConversationWork(deps: {
     const askAt = path.findIndex((message) => message.role === "user" && message.sendId === work.id);
     const answers = askAt < 0 ? [] : path.slice(askAt + 1).filter((message) => message.role === "bot" && message.kind === "text" && message.text?.trim());
     const answer = answers.findLast((message) => message.turnTerminal) ?? answers.at(-1);
-    const lead = deps.lead(record)?.id;
+    // Any other bot of the group may be named again (a reviewer is asked twice
+    // across a task); a bot queued behind this one is skipped.
+    // Bots asked together in the same message answer side by side, not in turn.
     const candidates = bot ? record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
-      (!work.visited?.includes(id) || (id === lead && (work.depth > 0 || Boolean(work.by))))).map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry)) : [];
-    const targets = ok && answer?.text && work.depth < 3 ? mentionedBots(answer.text, candidates) : [];
+      !(work.depth === 0 && !work.by && work.visited?.includes(id)))
+      .map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry)) : [];
+    const named = ok && answer?.text ? mentionedBots(answer.text, candidates) : [];
+    const capped = named.length > 0 && work.depth >= MAX_CHAIN;
+    const targets = capped ? [] : named;
     const end = ok && answer?.text ? workEnd(answer.text, targets.length > 0) : undefined;
     const said = end ? end.text : ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
     const next: GroupConversation = ok && answer ? {
@@ -90,8 +97,11 @@ export function createConversationWork(deps: {
     const commit = () => {
       saveConversationWork({ ...work, status: ok && answer ? end?.state ?? "completed" : work.status === "interrupted" ? "interrupted" : "failed" });
       saveConversationRecords(deps.records().map((entry) => entry.id === next.id ? next : entry));
-      if (!ok || !answer?.text || !bot || work.depth >= 3) return;
-      if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, end?.text ?? answer.text);
+      if (!ok || !answer?.text || !bot) return;
+      if (capped) {
+        store.appendMessage(record.threadId, { role: "bot", kind: "text", notice: true,
+          text: `${bot.name} named ${named.map((entry) => entry.name).join(", ")}, but this chain already passed through ${MAX_CHAIN} bots, so it stopped here. Mention them to continue.` });
+      } else if (targets.length) enqueue(record, work.messageId!, targets, { asker: work.asker, askerKey: work.askerKey, depth: work.depth + 1, by: bot.name, visited: work.visited }, end?.text ?? answer.text);
     };
     if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: said, working: undefined, workingSince: undefined }, undefined, commit);
     else commit();

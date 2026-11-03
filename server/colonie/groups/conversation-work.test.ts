@@ -324,10 +324,39 @@ test("the lead can hand work to a maker and reviewer and receive their result on
   await settle(() => f.calls.length === 4);
   expect(f.calls.map((call) => call.work.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
   expect(f.calls[3]!.prompt).toContain("Verified.");
-  f.reply(f.service, `All done. @${maker.name} thanks.`);
+  f.reply(f.service, "All done.");
   await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
   expect(f.calls).toHaveLength(4);
   expect(f.store.messagesFor(f.group.threadId).filter((message) => message.from).map((message) => message.from!.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
+});
+
+test("a bot that already spoke in the chain can be named again", async () => {
+  const f = fixture();
+  const maker = f.store.createBot({ name: `Maker-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [maker.id] });
+  await f.service.post(caller, f.group.id, "Fix and recheck", "again");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, `@${maker.name} fix it.`);
+  await settle(() => f.calls.length === 2);
+  f.reply(f.service, `Fixed. @${f.bot.name} check it.`);
+  await settle(() => f.calls.length === 3);
+  f.reply(f.service, `One more thing. @${maker.name} please add a test.`);
+  await settle(() => f.calls.length === 4);
+  expect(f.calls.map((call) => call.work.botId)).toEqual([f.bot.id, maker.id, f.bot.id, maker.id]);
+});
+
+test("when a chain hits its cap the group is told, not left silent", async () => {
+  const f = fixture();
+  const other = f.store.createBot({ name: `Other-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [other.id] });
+  await f.service.post(caller, f.group.id, "Go back and forth", "cap");
+  const names = [other.name, f.bot.name];
+  for (let hop = 0; hop < 9; hop++) {
+    await settle(() => f.calls.length === hop + 1);
+    f.reply(f.service, `Step ${hop}. @${names[hop % 2]} next.`);
+  }
+  await settle(() => f.store.messagesFor(f.group.threadId).some((message) => message.notice && /stopped here/.test(message.text ?? "")));
+  expect(f.calls).toHaveLength(9);
 });
 
 test("a reply with no status is asked once more, then blocked if it still has none", async () => {
