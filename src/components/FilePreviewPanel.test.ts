@@ -82,3 +82,28 @@ test("switching files cancels the previous read and closing returns keyboard foc
   expect(signals[1]?.aborted).toBe(true);
   expect(document.activeElement).toBe(opener);
 });
+
+test("a group's video plays straight from the group's folder, with no size limit and nothing read into memory", async () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  const group = { threadId: "thread-fixture", messageId: "", path: "Final/2026-11-03_palessi_v02.mp4", name: "palessi.mp4", conversationId: "conv-1" };
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: group })));
+  const video = host.querySelector<HTMLVideoElement>("video");
+  expect(video?.getAttribute("src")).toBe("/api/conversations/conv-1/files/content?path=Final%2F2026-11-03_palessi_v02.mp4");
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(host.textContent).not.toContain("too large");
+});
+
+test("a video that is not in a group's folder is not offered as a preview", async () => {
+  const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: { ...target, path: "/workspace/clip.mp4", name: "clip.mp4" } })));
+  expect(host.querySelector("video")).toBeNull();
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+test("a path inside a group's project folder names the group and the file inside it", async () => {
+  const { groupFileRef } = await import("@/lib/file-preview");
+  expect(groupFileRef("/data/conversation-files/d1b57a7f-3da4/Final/palessi_v02.mp4"))
+    .toEqual({ conversationId: "d1b57a7f-3da4", path: "Final/palessi_v02.mp4" });
+  expect(groupFileRef("/data/Movies/clip.mp4")).toBeNull();
+  expect(groupFileRef("/data/conversation-files/c1/../secret.mp4")).toBeNull();
+});

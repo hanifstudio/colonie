@@ -1,7 +1,7 @@
 // Every byte uses the same exact-message grant as Save; previewing never
 // grants arbitrary file access or sends a document to an Office service.
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Download01Icon, FileTextIcon, Loading02Icon, MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
+import { Download01Icon, FileTextIcon, FolderOpenIcon, Loading02Icon, MultiplicationSignIcon, RefreshCwIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { useStore } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -13,11 +13,11 @@ import { messageImagePreviewUrl, OutsideWorkspaceFile, requestMessageFile, useLo
 import { PREVIEW_ACTION, PreviewToolbar } from "./file-preview/PreviewToolbar";
 import { usePreviewPanel } from "./file-preview/use-preview-panel";
 import { PreviewBoundary } from "./file-preview/PreviewBoundary";
-import { downloadConversationFile, requestConversationFile } from "@/lib/conversations";
+import { conversationFileLocation, downloadConversationFile, requestConversationFile } from "@/lib/conversations";
 
 const DocxPreview = lazy(() => import("./file-preview/DocxPreview"));
 const PdfPreview = lazy(() => import("./file-preview/PdfPreview"));
-type LoadedFile = { kind: FilePreviewKind; bytes: Uint8Array<ArrayBuffer>; text?: string; image?: string };
+type LoadedFile = { kind: FilePreviewKind; bytes: Uint8Array<ArrayBuffer>; text?: string; image?: string; video?: string };
 type PreviewError = "load" | "size" | "format" | "unsupported" | "outside_workspace";
 
 export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
@@ -55,6 +55,13 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
     setContent(null); setError(null);
     const kind = filePreviewKind(preview.path);
     if (!kind) { setError("unsupported"); return; }
+    // A video plays straight from the group's folder (the server serves byte windows), so there is
+    // no size cap and nothing is read into memory. Only a group's project folder offers this.
+    if (kind === "video") {
+      if (!preview.conversationId) { setError("unsupported"); return; }
+      setContent({ kind, bytes: new Uint8Array(0), video: `/api/conversations/${preview.conversationId}/files/content?path=${encodeURIComponent(preview.path)}` });
+      return;
+    }
     const timer = setTimeout(() => { setError("load"); controller.abort(); }, 30_000);
     void (async () => {
       try {
@@ -89,6 +96,8 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
         <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className={PREVIEW_ACTION} title={t("attach.saveAria", { name: preview.name })} aria-label={t("attach.saveAria", { name: preview.name })}><HIcon icon={save.state === "saving" ? Loading02Icon : Download01Icon} size={16} className={save.state === "saving" ? "animate-spin" : undefined} /></button>
+        {preview.conversationId && window.colonie?.revealInFolder && !window.colonie.remoteClient?.active && <button type="button" className={PREVIEW_ACTION} title="Show in Finder" aria-label="Show in Finder"
+          onClick={() => void conversationFileLocation(preview.conversationId!, preview.path).then((path) => window.colonie!.revealInFolder!(path)).catch(() => {})}><HIcon icon={FolderOpenIcon} size={15} /></button>}
         <button type="button" onClick={() => setAttempt((value) => value + 1)} className={PREVIEW_ACTION} title="Refresh preview" aria-label="Refresh preview"><HIcon icon={RefreshCwIcon} size={15} /></button>
         <button type="button" onClick={close} className={PREVIEW_ACTION} title={t("attach.previewClose")} aria-label={t("attach.previewClose")}><HIcon icon={MultiplicationSignIcon} size={18} /></button>
       </div>
@@ -103,6 +112,9 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
       {content.kind === "docx" ? <DocxPreview key={attempt} bytes={content.bytes} name={preview.name} onError={failRender} />
         : content.kind === "pdf" ? <PdfPreview key={attempt} bytes={content.bytes} onError={failRender} />
         : content.kind === "image" ? <ImagePreview src={content.image!} name={preview.name} onError={failRender} />
+        : content.kind === "video" ? <div className="flex min-h-0 flex-1 items-center justify-center bg-black/40 p-3">
+          <video src={content.video} controls playsInline preload="metadata" aria-label={t("attach.previewVideo", { name: preview.name })} className="max-h-full max-w-full" onError={failRender} />
+        </div>
         : <div className="min-h-0 flex-1 overflow-auto px-5 py-5">
           {content.text!.length > 100_000 ? <>
             <p className="mb-4 text-[11px] text-ink-secondary">Showing plain text for this large file.</p>

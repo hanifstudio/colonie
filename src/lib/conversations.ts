@@ -64,6 +64,13 @@ export async function requestConversationFile(id: string, path: string, signal: 
   if (!response.ok) throw new Error(((await response.json().catch(() => null)) as { error?: string } | null)?.error ?? "load");
   return response;
 }
+/** Where a project file is on the computer that runs the server, so the desktop app can show it in Finder. */
+export async function conversationFileLocation(id: string, path: string): Promise<string> {
+  const response = await fetch(`/api/conversations/${id}/files/where?path=${encodeURIComponent(path)}`);
+  const body = (await response.json().catch(() => null)) as { path?: string; error?: string } | null;
+  if (!response.ok || !body?.path) throw new Error(body?.error ?? "The file could not be found.");
+  return body.path;
+}
 /** Save one project file to the person's computer. */
 export async function downloadConversationFile(id: string, path: string): Promise<void> {
   const response = await fetch(`/api/conversations/${id}/files/content?path=${encodeURIComponent(path)}`);

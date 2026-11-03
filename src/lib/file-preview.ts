@@ -1,5 +1,5 @@
 /** Preview only known formats; a file extension never grants access to a file. */
-export type FilePreviewKind = "markdown" | "text" | "pdf" | "docx" | "image";
+export type FilePreviewKind = "markdown" | "text" | "pdf" | "docx" | "image" | "video";
 
 const IMAGE_MIMES: Record<string, string> = {
   png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
@@ -20,6 +20,7 @@ export function filePreviewKind(path: string): FilePreviewKind | null {
   if (extension === "md" || extension === "markdown") return "markdown";
   if (extension === "pdf" || extension === "docx") return extension;
   if (Object.hasOwn(IMAGE_MIMES, extension)) return "image";
+  if (["mp4", "m4v", "webm", "mov"].includes(extension)) return "video";
   if (TEXT_EXTENSIONS.has(extension) || /^(dockerfile|makefile|license|readme|\.gitignore|\.gitattributes|\.editorconfig)(\.|$)/.test(name)) return "text";
   return null;
 }
@@ -68,4 +69,12 @@ export function decodePreviewText(bytes: Uint8Array): string {
   if (bytes.includes(0)) throw new Error("format");
   try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
   catch { throw new Error("format"); }
+}
+
+/** A bot links a file in its group's project folder by its full path on the host
+ * (".../conversation-files/<group id>/Final/clip.mp4"). That names the group and the path inside
+ * it, which the group's own file route serves (and checks the person is in the group). */
+export function groupFileRef(path: string): { conversationId: string; path: string } | null {
+  const match = /\/conversation-files\/([\w-]{1,128})\/(.+)$/.exec(path.replace(/\\/g, "/"));
+  return match && !match[2]!.split("/").some((part) => !part || part === "." || part === "..") ? { conversationId: match[1]!, path: match[2]! } : null;
 }

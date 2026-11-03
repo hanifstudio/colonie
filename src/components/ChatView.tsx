@@ -88,6 +88,7 @@ import { SecretRequestCard } from "./SecretRequestCard";
 import { hasRoutineExecutionTask, RoutineRunCard } from "./RoutineRunCard";
 import { AttachmentGallery, collectMessageFiles, splitMessageAttachments } from "./AttachmentGallery";
 import { FilePreviewScope } from "./AttachmentPreview";
+import { filePreviewKind, groupFileRef } from "@/lib/file-preview";
 import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
 import { RenameTitle } from "./RenameTitle";
@@ -1630,7 +1631,11 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           {accountConversation?.beforeMessages}
           {windowedMessages.length === 0 && !bot.busy && (accountConversation?.empty ?? <EmptyChat bot={bot} />)}
           <ChatRowsContext.Provider value={rows}>
-            <FilePreviewScope onPreview={(target) => dispatch({ type: "openFilePreview", preview: target })}>
+            <FilePreviewScope onPreview={(target) => {
+              // a video a bot linked in its group's folder plays from the group (streamed, no size cap)
+              const grouped = filePreviewKind(target.path) === "video" ? groupFileRef(target.path) : null;
+              dispatch({ type: "openFilePreview", preview: grouped ? { ...target, ...grouped } : target });
+            }}>
             <MessagesList
               messages={windowedMessages}
               transcript={messages}

@@ -531,6 +531,13 @@ export function createGroupConversations(deps: {
       return { status: 200, body: listConversationFiles(conversationFolder(record.id, deps.foldersRoot)) };
     },
 
+    /** Where one project file is on the host, for its people, so the desktop app can show it in the
+     * file manager. Only a window on the same computer may use the answer (main refuses a paired one). */
+    where(caller: Caller, id: string, path: unknown): Answer {
+      const found = this.file(caller, id, path);
+      return "path" in found ? { status: 200, body: { path: found.path } } : found;
+    },
+
     /** One file of the project folder to download, for its people. */
     file(caller: Caller, id: string, path: unknown): Answer | { status: 200; path: string } {
       const record = mine(caller, id);

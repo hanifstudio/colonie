@@ -1,15 +1,14 @@
 # Handover
 
-## Now: group bots work without chatter or being chased
+## Now: a group's finished video plays in the app, and bots stop pinging "noted"
 
-Done: status line and one re-ask, a 30-minute stall limit, shared secrets, a named
-bot always runs (chain up to eight), linked files open in the preview, a reply that
-closes "Status: done" wakes nobody, bots ask with clickable options, every bot reads
-who holds what, a bot named again after a restart gets its original ask, and a bot
-that stops at "shall I continue?" goes on by itself (twice at most), and a line whose
-work ended early has a Continue button (never seen in a window). Left: the group still
-goes quiet when no bot names another; check a real group after the update. Out of
-scope: bots adding members.
+The owner's Faceless Studio group (November 3) showed: a 25 MB limit blocks the video a
+bot made ("file exceeds 26214400 bytes"); bots still answered each other "siap" and
+"tercatat" five times; a bot said a Finder window was open when it was not. Plan: (1) a
+group's video streams with Range and plays from its project folder, no 25 MB cap, with a
+Show in Finder button on the desktop; (2) a reply that adds no work wakes nobody, with or
+without a status line; (3) a bot must show proof before saying it did something. Proof:
+server and component tests, then a real group; not yet. Out of scope: the hourly schedule.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
