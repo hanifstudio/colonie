@@ -435,3 +435,36 @@ test("a reply that closes with done and only thanks a teammate does not wake the
   await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
   expect(f.calls).toHaveLength(1);
 });
+
+test("a bot is told what its teammates hold right now, from the durable work rows", async () => {
+  const f = fixture();
+  const other = f.store.createBot({ name: `Other-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [other.id] });
+  await f.service.post(caller, f.group.id, "Build the report", "board-1");
+  await settle(() => f.calls.length === 1);
+  // the lead is still working: a second ask to the other bot must show it
+  await f.service.post(caller, f.group.id, `@${other.name} check the sources`, "board-2");
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1]!.prompt).toContain("Open work in this group right now");
+  expect(f.calls[1]!.prompt).toMatch(new RegExp(`- ${f.bot.name}: working`));
+});
+
+test("a bot sees no board when nothing else is open", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "Hello", "board-3");
+  await settle(() => f.calls.length === 1);
+  expect(f.calls[0]!.prompt).not.toContain("Open work in this group right now");
+});
+
+test("after a restart cut its work, a bot that is named again is handed the original ask", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} merge the release branch`, "resume-1");
+  await settle(() => f.calls.length === 1);
+  const restarted = f.make(); restarted.initialize();
+  expect(conversationWork(f.group.id)[0].status).toBe("interrupted");
+  await restarted.post(caller, f.group.id, `@${f.bot.name} continue`, "resume-2");
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1]!.prompt).toContain("Your earlier work here stopped before it finished");
+  expect(f.calls[1]!.prompt).toContain("merge the release branch");
+  expect(f.calls[1]!.prompt).toContain("do not redo finished parts or repeat an outside effect");
+});

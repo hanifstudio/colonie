@@ -2,12 +2,13 @@
 
 ## Now: group bots work without chatter or being chased
 
-Done: status line, one re-ask, a 30-minute stall limit, shared secrets in a group,
-a named bot always runs (chain up to eight), files a bot links open in the
-preview, and a reply that closes "Status: done" no longer wakes a teammate it only
-thanks (the owner's Faceless Studio group showed five "siap" pings). Bots are also taught to ask with clickable options (every bot's base context). Left:
-(1) check a real group again after the update; (2) one line saying who holds what; (3) the
-group still goes quiet when no bot names another. Out of scope: bots adding members.
+Done: status line and one re-ask, a 30-minute stall limit, shared secrets, a named
+bot always runs (chain up to eight), linked files open in the preview, a reply that
+closes "Status: done" wakes nobody, bots ask with clickable options, every bot reads
+who holds what, and a bot named again after a restart gets its original ask. Left:
+a "Continue" button; bots that go on by themselves instead of stopping at "want me
+to continue?"; the group still goes quiet when no bot names another; check a real
+group after the update. Out of scope: bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -76,8 +77,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
   image on a droplet.
 
 ## Queue after the current task
-0. Delete the non-ACP bot path (owner, November 3: ACP only): the old turn, prompt, memory
-   and interrupt code behind `isColonieAcpDriver` in 13 server and UI files, one file at a time.
+0. Delete the non-ACP bot path (owner, November 3: ACP only), one file at a time (13 files
+   behind `isColonieAcpDriver`).
 0. Update a Shared workspace from the error screen (uncommitted in
    `AppErrorBoundary`); proved by a test only, not seen in a window.
 1. Verify guides and groups with real engines: saving a guide from chat,
@@ -91,8 +92,7 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
    - Editing an earlier message (branching) does not work on ACP. Plan: open a
      fresh engine session for the branch and give it that branch's history.
    - Full tool results are never kept on ACP, so work summaries show previews only.
-   - Old readers of `native/<thread>.ndjson` files remain, though nothing
-     writes those files anymore. Decide which to keep.
+   - Old `native/<thread>.ndjson` readers remain; nothing writes those files. Decide which to keep.
 4. Small fix: email sign-in answers 502 saying the accounts-service address
    "is set" when it is not set at all.
 5. Remove the leftover brand word `maus`: first the unused `runOn` setting on

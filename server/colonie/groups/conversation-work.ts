@@ -261,7 +261,7 @@ export function createConversationWork(deps: {
         // A final text marker also exists on failed turns. Only the runtime's
         // durable success annotation proves that this answer finished.
         finish({ ...work, status: failed ? "running" : "interrupted" }, terminal?.turnSucceeded === true,
-          failed ? undefined : `${bot?.name ?? "The bot"} stopped when Colonie restarted. Mention it again to ask.`);
+          failed ? undefined : `${bot?.name ?? "The bot"} stopped when Colonie restarted. Name it again to continue; it keeps the original ask.`);
       }
     },
     /** A bot's work here could not start (its engine refused the mode, a

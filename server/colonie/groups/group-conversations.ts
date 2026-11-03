@@ -233,6 +233,31 @@ export function createGroupConversations(deps: {
     return text;
   }
 
+  /** Who holds what right now, from the durable work rows, so a bot never has to guess
+   * what a teammate is doing (the same board every bot reads; openbot's "one owner per topic"). */
+  function board(record: GroupConversation, bot: { id: string }, current: ConversationWork): string {
+    const store = deps.store();
+    // the ask being briefed now is not "open work" to the bot that was just handed it
+    const all = conversationWork(record.id);
+    const open = all.filter((work) => work.id !== current.id && (work.status === "queued" || work.status === "running" || work.status === "blocked"));
+    // this bot's last work here ended early: carry its original ask, so "continue" is enough
+    const mine = all.filter((work) => work.botId === bot.id && work.id !== current.id);
+    const last = mine.at(-1);
+    const unfinished = last && (last.status === "interrupted" || last.status === "failed" || last.status === "blocked") ? last : undefined;
+    const resume = unfinished
+      ? [`Your earlier work here stopped before it finished: "${unfinished.text.replace(/\s+/g, " ").trim().slice(0, 300)}". If the person asks you to continue, resume it: check the current state first and do not redo finished parts or repeat an outside effect.`] : [];
+    if (!open.length) return resume.join("\n");
+    const now = Date.now();
+    const lines = open.slice(-8).map((work) => {
+      const who = work.botId === bot.id ? "you" : store.bot(work.botId)?.name ?? "A bot";
+      const state = work.status === "running" ? "working" : work.status === "queued" ? "waiting its turn" : "stuck";
+      const age = work.since ? `, ${Math.max(1, Math.round((now - work.since) / 60_000))} min` : "";
+      const task = work.text.replace(/\s+/g, " ").trim().slice(0, 90);
+      return `- ${who}: ${state}${age}: ${task}`;
+    });
+    return [...resume, "Open work in this group right now (do not repeat or restart what a teammate holds; ask them if you need it):", ...lines].join("\n");
+  }
+
   /** What a bot is handed when mentioned: about the group when that is
    * new to it, what was said since it last caught up (its engine session
    * holds everything before), then the ask. */
@@ -262,6 +287,7 @@ export function createGroupConversations(deps: {
     return { about: information, prompt: [
       `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" only when a person or access you cannot get yourself blocks you. Work still going is not stuck: keep going until you can write one of the two. To ask a teammate for something, name them and do not close with "Status: done". When you only confirm or thank a teammate, close with "Status: done": that does not wake them. Never end with only a promise to continue.`,
       ...(told ? ["", told] : []),
+      ...(board(record, bot, ask) ? ["", board(record, bot, ask)] : []),
       ...(lines.length ? ["", resume ? "Said since you last spoke:" : "Recent messages:",
         ...(said.length > lines.length ? [`(${said.length - lines.length} earlier messages not shown)`] : []), ...lines] : []),
       "", `${ask.by ?? ask.asker} wrote to you:`, ask.text,
