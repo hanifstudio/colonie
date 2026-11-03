@@ -21,6 +21,27 @@ export function workEnd(reply: string, handedOn = false): { state: "completed" |
   return { state: "blocked", text: `${text}\n\nStuck: ${match[2].trim() || "no reason given"}`.trim() };
 }
 
+/** A reply that only asks whether to go on, or names the next step without doing it, is not a
+ * stop: the bot is run again by itself (at most NEXT_STEP_LIMIT times). A question about a named
+ * action ("Deploy now?") is a real question and waits for the person. Same idea as openbot's
+ * plan continuation (src/backend/agent/plan-continuation.ts), in English and Bahasa Indonesia. */
+const NEXT_STEP_LIMIT = 2;
+const NEXT_STEP_MAX_CHARS = 400;
+const GO_ON = "(?:continue|keep going|go on|carry on|lanjut(?:kan)?|teruskan)";
+const ASKS_TO_GO_ON = new RegExp(String.raw`^(?:[^?？]*[.!]\s+)?(?:(?:(?:shall|should|can|may)\s+i|(?:do\s+you\s+)?want\s+me\s+to|would\s+you\s+like\s+me\s+to|mau\s+(?:saya|aku|gue)|perlu\s+(?:saya|aku|gue)|boleh\s+(?:saya|aku|gue)|apakah\s+(?:saya|aku|gue)\s+perlu)\s+)?${GO_ON}(?:\s+(?:with|to|on|ke|dengan)\s+(?:the\s+)?(?:next(?:\s+(?:steps?|parts?|items?))?|rest(?:\s+of\s+(?:it|the\s+(?:work|steps|list)))?|remaining(?:\s+(?:steps|work|items))?|langkah\s+berikutnya|sisanya))?\s*\?+$`, "i");
+const NAMES_NEXT_STEP = /(?:\blet me now\b|\bnow let me\b|\bi['\u2019]ll now\b|\bi will now\b|\bnext,?\s+i(?:['\u2019]ll| will)\b|\bsekarang\s+(?:saya|aku|gue)\s+(?:akan|bakal)\b|\bselanjutnya\s+(?:saya|aku|gue)\s+(?:akan|bakal)\b)(?!\s+(?:wait|hold|pause|stop|tunggu|berhenti|menunggu)\b)[^.!?\n]{0,100}[.:\u2026]?\s*$/i;
+const WAITS_FOR_PERSON = /\b(?:i['\u2019]ll|i will|let me)\s+(?:now\s+)?(?:wait|hold|pause|stop)\b|\bwaiting\s+(?:for|on)\s+(?:you|your)\b|\b(?:saya|aku|gue)\s+(?:akan\s+)?(?:menunggu|tunggu)\b/i;
+const lastLine = (reply: string) => (reply.trimEnd().split("\n").at(-1) ?? "").replace(/[*_`>#]/g, "").trim();
+/** The reply with its closing "Status:" line removed, as a person reads it. */
+const body = (reply: string) => reply.replace(/\n?[ \t]*Status:[ \t]*(?:done|stuck)\b[^\n]*\s*$/i, "").trim();
+export function stoppedBeforeNextStep(reply: string): boolean {
+  const line = lastLine(body(reply));
+  if (/[?？]/.test(line)) return ASKS_TO_GO_ON.test(line);
+  if (WAITS_FOR_PERSON.test(line)) return false;
+  const text = body(reply);
+  return text.length > 0 && text.length <= NEXT_STEP_MAX_CHARS && NAMES_NEXT_STEP.test(text.slice(-160));
+}
+
 const STALL_MS = 30 * 60_000;
 /** Hand-offs in one chain before the group is told it stopped. */
 const MAX_CHAIN = 8;
@@ -93,6 +114,16 @@ export function createConversationWork(deps: {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
       toldAbout: { ...record.toldAbout, [work.botId]: work.about ?? "" },
     } : record;
+    // "Shall I continue?" or "now I'll run the tests." is not a stop: go on by itself, twice at most.
+    const goesOn = ok && answer?.text && !named.length && !(end?.state === "completed" && /Status:\s*done/i.test(answer.text)) && stoppedBeforeNextStep(answer.text);
+    if (goesOn && (work.continued ?? 0) < NEXT_STEP_LIMIT) {
+      saveConversationWork({ ...work, status: "queued", continued: (work.continued ?? 0) + 1 });
+      if (work.messageId) store.patchMessage(record.threadId, work.messageId, { text: `${bot?.name ?? "The bot"} is continuing (${(work.continued ?? 0) + 1} of ${NEXT_STEP_LIMIT}).`, working: true, workingSince: Date.now() });
+      Object.assign(record, next);
+      deps.changed();
+      wake();
+      return;
+    }
     if (end?.missing && !work.nudged) {
       // Ask once more, in the same line, before telling the group it ended.
       saveConversationWork({ ...work, status: "queued", nudged: true });
@@ -144,6 +175,8 @@ export function createConversationWork(deps: {
     work.threadId = thread;
     const briefing = deps.brief(record, bot, work);
     work.about = briefing.about;
+    // a continuation prompt only for the run that follows a continuation, not for a later status re-ask
+    if (work.continued && !work.nudged) briefing.prompt += `\n\nYour last reply here stopped at the next step or asked whether to continue. Do not ask: carry on with the step you named, then finish with "Status: done" or "Status: stuck - what you need".`;
     if (work.nudged) briefing.prompt += `\n\nYour last reply here ended without "Status: done" or "Status: stuck - what you need". Do the work now, or say what blocks you, and end with that status line.`;
     work.status = "running";
     const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(),

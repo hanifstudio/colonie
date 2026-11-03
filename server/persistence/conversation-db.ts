@@ -25,6 +25,8 @@ export interface ConversationWork {
   about?: string;
   /** The bot ended without a status; it was asked once more. */
   nudged?: boolean;
+  /** How many times it ran again by itself after stopping at "shall I continue?". */
+  continued?: number;
 }
 
 function repository<T>(use: (db: DatabaseSync) => T): T {

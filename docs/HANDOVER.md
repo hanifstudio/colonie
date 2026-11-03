@@ -5,10 +5,10 @@
 Done: status line and one re-ask, a 30-minute stall limit, shared secrets, a named
 bot always runs (chain up to eight), linked files open in the preview, a reply that
 closes "Status: done" wakes nobody, bots ask with clickable options, every bot reads
-who holds what, and a bot named again after a restart gets its original ask. Left:
-a "Continue" button; bots that go on by themselves instead of stopping at "want me
-to continue?"; the group still goes quiet when no bot names another; check a real
-group after the update. Out of scope: bots adding members.
+who holds what, a bot named again after a restart gets its original ask, and a bot
+that stops at "shall I continue?" goes on by itself (twice at most). Left: a "Continue"
+button; the group still goes quiet when no bot names another; check a real group
+after the update. Out of scope: bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 

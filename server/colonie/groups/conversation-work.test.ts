@@ -7,6 +7,7 @@ import { conversationWork, enqueueConversationWork, type ConversationWork } from
 import { Store, type Message } from "../../persistence/store.ts";
 import { commandReceipt } from "../../commands.ts";
 import { createGroupConversations } from "./group-conversations.ts";
+import { stoppedBeforeNextStep } from "./conversation-work.ts";
 
 const caller = { key: "owner", name: "Ana", seesBot: () => true };
 const settle = async (condition: () => boolean) => {
@@ -467,4 +468,44 @@ test("after a restart cut its work, a bot that is named again is handed the orig
   expect(f.calls[1]!.prompt).toContain("Your earlier work here stopped before it finished");
   expect(f.calls[1]!.prompt).toContain("merge the release branch");
   expect(f.calls[1]!.prompt).toContain("do not redo finished parts or repeat an outside effect");
+});
+
+test("a reply that only asks to go on, or names the next step, is a stop to continue; a real question is not", () => {
+  for (const going of ["Step one is done. Want me to continue with the next step?", "Shall I continue?", "Mau saya lanjutkan?", "Sekarang saya akan menjalankan tes.", "Found the cause. Next, I'll run the tests.", "Selesai langkah 1. Mau saya lanjutkan?\nStatus: done"]) {
+    expect(stoppedBeforeNextStep(going), going).toBe(true);
+  }
+  for (const waiting of ["Should I deploy to production now?", "Mau pakai Phantom atau Pepsi?", "I'll now wait for your approval.", "Saya akan menunggu jawaban kamu.", "Here is the full report with the results.", "Proceed?"]) {
+    expect(stoppedBeforeNextStep(waiting), waiting).toBe(false);
+  }
+});
+
+test("a bot that stops at 'shall I continue?' runs again by itself, at most twice, then is shown as it is", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "Fix the bug and test it", "go-on-1");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "Fixed the bug. Shall I continue?", true);
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1]!.prompt).toContain("Do not ask: carry on");
+  f.reply(f.service, "Tests written. Want me to continue with the next step?", true);
+  await settle(() => f.calls.length === 3);
+  f.reply(f.service, "Still going. Shall I continue?", true);
+  // the limit is two: this third stop is not run again as a continuation; it is asked once
+  // for a status, and a bot that still gives none is shown as blocked
+  await settle(() => f.calls.length === 4);
+  expect(f.calls[3]!.prompt).not.toContain("Do not ask: carry on");
+  f.reply(f.service, "Still going. Shall I continue?", true);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running" && work.status !== "queued"));
+  expect(f.calls).toHaveLength(4);
+  expect(conversationWork(f.group.id)[0].status).toBe("blocked");
+});
+
+test("a bot that asks a real question waits for the person and is not run again", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "Pick the story", "go-on-2");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, "Which one do you prefer, Phantom or Pepsi?", true);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running"));
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(f.calls.length).toBeLessThanOrEqual(2);
+  expect(f.calls[1]?.prompt ?? "").not.toContain("Do not ask: carry on");
 });
