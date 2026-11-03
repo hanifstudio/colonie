@@ -243,7 +243,7 @@ export function createGroupConversations(deps: {
     // this bot's last work here ended early: carry its original ask, so "continue" is enough
     const mine = all.filter((work) => work.botId === bot.id && work.id !== current.id);
     const last = mine.at(-1);
-    const unfinished = last && (last.status === "interrupted" || last.status === "failed" || last.status === "blocked") ? last : undefined;
+    const unfinished = last && (last.status === "interrupted" || last.status === "failed" || last.status === "blocked" || last.status === "cancelled") ? last : undefined;
     const resume = unfinished
       ? [`Your earlier work here stopped before it finished: "${unfinished.text.replace(/\s+/g, " ").trim().slice(0, 300)}". If the person asks you to continue, resume it: check the current state first and do not redo finished parts or repeat an outside effect.`] : [];
     if (!open.length) return resume.join("\n");

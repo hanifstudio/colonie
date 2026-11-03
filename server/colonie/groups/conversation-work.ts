@@ -252,7 +252,7 @@ export function createConversationWork(deps: {
     for (const work of jobs) {
       const record = recordFor(conversationId);
       const persist = () => saveConversationWork({ ...work, status: "cancelled" });
-      if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workingSince: undefined, workThread: undefined }, undefined, persist);
+      if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workingSince: undefined, workThread: undefined, stoppedBy: { botId: work.botId, reason: "interrupted" } }, undefined, persist);
       else persist();
       const pending = work.threadId ? waiting.get(work.threadId) : undefined;
       if (pending?.work.id === work.id) {

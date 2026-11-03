@@ -549,3 +549,16 @@ test("two bots that only say 'siap' to each other stop after the first answer", 
   await settle(() => conversationWork(f.group.id).every((work) => work.status !== "running" && work.status !== "queued"));
   expect(f.calls).toHaveLength(2);
 });
+
+test("a stopped line offers Continue, and naming the bot again hands it the ask that was stopped", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} rebuild the Palessi edit from scratch`, "stop-1");
+  await settle(() => f.calls.length === 1);
+  await f.service.stop(caller, f.group.id);
+  const stopped = f.store.messagesFor(f.group.threadId).find((message) => message.text === "Stopped by the person who asked.");
+  expect(stopped?.stoppedBy).toEqual({ botId: f.bot.id, reason: "interrupted" });
+  await f.service.post(caller, f.group.id, `@${f.bot.name} Please continue.`, "stop-2");
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1]!.prompt).toContain("Your earlier work here stopped before it finished");
+  expect(f.calls[1]!.prompt).toContain("rebuild the Palessi edit from scratch");
+});
