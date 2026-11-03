@@ -316,11 +316,11 @@ test("the lead can hand work to a maker and reviewer and receive their result on
   f.service.add(caller, f.group.id, { bots: [maker.id, reviewer.id] });
   await f.service.post(caller, f.group.id, "Build and review", "chain");
   await settle(() => f.calls.length === 1);
-  f.reply(f.service, `@${maker.name} implement the change.`);
+  f.reply(f.service, `@${maker.name} implement the change.`, true);
   await settle(() => f.calls.length === 2);
-  f.reply(f.service, `Implemented. @${reviewer.name} verify the result.`);
+  f.reply(f.service, `Implemented. @${reviewer.name} verify the result.`, true);
   await settle(() => f.calls.length === 3);
-  f.reply(f.service, `Verified. @${f.bot.name} here is the result.`);
+  f.reply(f.service, `Verified. @${f.bot.name} here is the result.`, true);
   await settle(() => f.calls.length === 4);
   expect(f.calls.map((call) => call.work.botId)).toEqual([f.bot.id, maker.id, reviewer.id, f.bot.id]);
   expect(f.calls[3]!.prompt).toContain("Verified.");
@@ -336,11 +336,11 @@ test("a bot that already spoke in the chain can be named again", async () => {
   f.service.add(caller, f.group.id, { bots: [maker.id] });
   await f.service.post(caller, f.group.id, "Fix and recheck", "again");
   await settle(() => f.calls.length === 1);
-  f.reply(f.service, `@${maker.name} fix it.`);
+  f.reply(f.service, `@${maker.name} fix it.`, true);
   await settle(() => f.calls.length === 2);
-  f.reply(f.service, `Fixed. @${f.bot.name} check it.`);
+  f.reply(f.service, `Fixed. @${f.bot.name} check it.`, true);
   await settle(() => f.calls.length === 3);
-  f.reply(f.service, `One more thing. @${maker.name} please add a test.`);
+  f.reply(f.service, `One more thing. @${maker.name} please add a test.`, true);
   await settle(() => f.calls.length === 4);
   expect(f.calls.map((call) => call.work.botId)).toEqual([f.bot.id, maker.id, f.bot.id, maker.id]);
 });
@@ -353,7 +353,7 @@ test("when a chain hits its cap the group is told, not left silent", async () =>
   const names = [other.name, f.bot.name];
   for (let hop = 0; hop < 9; hop++) {
     await settle(() => f.calls.length === hop + 1);
-    f.reply(f.service, `Step ${hop}. @${names[hop % 2]} next.`);
+    f.reply(f.service, `Step ${hop}. @${names[hop % 2]} next.`, true);
   }
   await settle(() => f.store.messagesFor(f.group.threadId).some((message) => message.notice && /stopped here/.test(message.text ?? "")));
   expect(f.calls).toHaveLength(9);
@@ -423,4 +423,15 @@ test("a stuck line beside a hand-off to a teammate is dropped, not shown as a bl
   const lead = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
   expect(lead?.text).not.toContain("Stuck:");
   expect(conversationWork(f.group.id)[0].status).toBe("completed");
+});
+
+test("a reply that closes with done and only thanks a teammate does not wake them", async () => {
+  const f = fixture();
+  const other = f.store.createBot({ name: `Other-${randomUUID()}` });
+  f.service.add(caller, f.group.id, { bots: [other.id] });
+  await f.service.post(caller, f.group.id, "Report back", "thanks");
+  await settle(() => f.calls.length === 1);
+  f.reply(f.service, `Done, thanks @${other.name} for the list.`);
+  await settle(() => conversationWork(f.group.id).every((work) => work.status === "completed"));
+  expect(f.calls).toHaveLength(1);
 });

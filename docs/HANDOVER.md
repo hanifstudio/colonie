@@ -1,14 +1,13 @@
 # Handover
 
-## Now: a mentioned bot always runs, and a stopped chain says why
+## Now: group bots work without chatter or being chased
 
-A person sees every bot a teammate names do its part; nothing is skipped in
-silence. Today a mention is ignored when that bot already spoke in the chain, or
-after three hops, with no message. Plan: any group bot may be named again,
-the chain cap rises and, when it is hit, the group says so. Proof: server tests
-(a repeat mention runs; the cap posts a notice), then a real engine in a
-disposable workspace and the window; neither done yet. Out of scope: the hourly
-schedule, bots adding members, a "who holds what" line.
+Done: status line, one re-ask, a 30-minute stall limit, shared secrets in a group,
+a named bot always runs (chain up to eight), files a bot links open in the
+preview, and a reply that closes "Status: done" no longer wakes a teammate it only
+thanks (the owner's Faceless Studio group showed five "siap" pings). Left: (1) check
+a real group again after the update; (2) one line saying who holds what; (3) the
+group still goes quiet when no bot names another. Out of scope: bots adding members.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 

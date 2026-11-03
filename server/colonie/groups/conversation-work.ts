@@ -80,10 +80,14 @@ export function createConversationWork(deps: {
     const candidates = bot ? record.bots.filter((id) => id !== bot.id && !work.upcoming.includes(id) &&
       !(work.depth === 0 && !work.by && work.visited?.includes(id)))
       .map((id) => store.bot(id)).filter((entry): entry is Bot => Boolean(entry)) : [];
-    const named = ok && answer?.text ? mentionedBots(answer.text, candidates) : [];
+    // A reply that closes with "Status: done" is an answer, not a request: it may
+    // thank or confirm a teammate by name without waking them (no "siap" ping-pong).
+    const closes = ok && answer?.text ? /\n?[ \t]*Status:[ \t]*done\b/i.test(answer.text) : false;
+    const named = ok && answer?.text && !closes ? mentionedBots(answer.text, candidates) : [];
     const capped = named.length > 0 && work.depth >= MAX_CHAIN;
     const targets = capped ? [] : named;
-    const end = ok && answer?.text ? workEnd(answer.text, targets.length > 0) : undefined;
+    // a capped hand-off is still a hand-off: it is not asked again for a status
+    const end = ok && answer?.text ? workEnd(answer.text, named.length > 0) : undefined;
     const said = end ? end.text : ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
     const next: GroupConversation = ok && answer ? {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
