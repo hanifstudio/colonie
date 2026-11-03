@@ -705,7 +705,6 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
           <HIcon icon={Download01Icon} size={12} className="shrink-0" aria-hidden="true" />
         )}
       </button>
-      {canPreview && <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className="table-action" title={t("attach.saveAria", { name })} aria-label={t("attach.saveAria", { name })}><HIcon icon={Download01Icon} size={12} /></button>}
       {label && (
         <span
           role={save.state === "failed" ? "alert" : "status"}

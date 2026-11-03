@@ -966,7 +966,6 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
             <HIcon icon={Download01Icon} size={13} className="shrink-0" />
           )}
         </button>
-        {canPreview && <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className="table-action" title={t("attach.saveAria", { name: file.name })} aria-label={t("attach.saveAria", { name: file.name })}><HIcon icon={Download01Icon} size={14} /></button>}
         <TableFileButton path={file.path} name={file.name} message={message} />
       </div>
       {save.state !== "idle" && (

@@ -703,7 +703,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       const threadId = m[1]!;
       const directBot = store.botByThread(threadId);
-      const group = directBot ? undefined : store.groupByThread(threadId);
+      // A group made in the app (groupConversations) is not the old group record.
+      const group = directBot ? undefined : store.groupByThread(threadId) ?? deps.groupConversations?.byThread(threadId);
       if (!directBot && !group) return json(res, 404, { error: "no such conversation" });
 
       const message = store.messagesFor(threadId).find((candidate: any) => candidate.id === m![2]);

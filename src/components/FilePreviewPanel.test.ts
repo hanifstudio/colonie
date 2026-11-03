@@ -27,7 +27,8 @@ test("clicking a shared DOCX opens its exact message grant without downloading",
   await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Preview Report.docx"]')!.click());
   expect(onPreview).toHaveBeenCalledWith({ threadId: target.threadId, messageId: target.messageId, path: "/workspace/report.docx", name: "Report.docx" });
   expect(fetcher).not.toHaveBeenCalled();
-  expect(host.querySelector('[aria-label="Save a copy of Report.docx"]')).toBeTruthy();
+  // Saving is offered in the preview panel only (owner, November 3), not on the chat row.
+  expect(host.querySelector('[aria-label="Save a copy of Report.docx"]')).toBeNull();
 });
 
 test("legacy attachments do not gain a preview capability", async () => {

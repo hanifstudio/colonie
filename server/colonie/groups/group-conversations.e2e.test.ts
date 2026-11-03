@@ -439,6 +439,17 @@ describe("a group with several bots", () => {
     expect(mine.length).toBeLessThanOrEqual(10);
   }, 120_000);
 
+  test("a file a bot links in a group answer opens for the group's people", async () => {
+    // its own group, so the file it writes does not join the shared crew folder
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Links", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} write file shot.md Linked content and link it` } });
+    const ownLines = async () => (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as Array<any>;
+    const messages = await until(ownLines, (list) => list.some((message) => message.from?.botId === bot.id && !message.working && /shot\.md\]/.test(message.text ?? "")), "a bot linking a file");
+    const answer = messages.findLast((message: any) => message.from?.botId === bot.id && /shot\.md\]/.test(message.text ?? ""));
+    const opened = await ws.as(BOB, `/api/threads/${own.threadId}/messages/${answer.id}/file`, { method: "POST", body: { path: "shot.md" } });
+    expect(opened.status).toBe(200);
+  }, 90_000);
+
   test("the group's bots work in one project folder that its people can download from", async () => {
     // both bots already worked here in their own folders: each moves into the group's
     const answered = async (botId: string, text: string) => {

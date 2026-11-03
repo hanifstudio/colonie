@@ -206,10 +206,12 @@ agent({ name: "Colonie deterministic fixture" })
       await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "tool_call_update", toolCallId: toolCall.toolCallId, status: outcome === "yes-once" ? "completed" : "failed", content: [{ type: "content", content: { type: "text", text: result } }] } });
     }
     // "write file NAME TEXT": a file in the session's working folder
-    const write = /^write file ([\w.-]+) (.*)$/.exec(/\n@\S+ (write file [^\n]*)$/.exec(text)?.[1] ?? text);
+    const write = /^write file ([\w.-]+) (.*?)(?: and link it)?$/.exec(/\n@\S+ (write file [^\n]*)$/.exec(text)?.[1] ?? text);
     if (write) {
       writeFileSync(join(cwds.get(params.sessionId)!, write[1]!), write[2]!);
       result = `Wrote ${write[1]}`;
+      // "... and link it": the answer links the file, as a bot does when it shares one
+      if (/\band link it\b/.test(text)) result += `. [${write[1]}](${write[1]})`;
     }
     // "write file NAME TEXT then ask BOT to write file NAME TEXT": a lead doing
     // its part and handing the next to another bot, by name, in its answer
