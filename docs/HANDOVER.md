@@ -1,13 +1,14 @@
 # Handover
 
-## Now: a group's video plays in the app, and bots stop saying "noted" and "done" without proof
+## Now: attach files and images in a group
 
-The owner's Faceless Studio group (November 3) showed a 25 MB cap blocking the video a bot
-made, bots answering each other "siap" five times, and a bot saying a Finder window was open
-when it was not. Done: a group's video streams from its folder with no cap and a Show in
-Finder button (never played in a window yet), and a bare "siap" wakes nobody. Left: a bot
-must show proof before it says it opened, ran, or saved something; check a real group.
-Out of scope: the hourly schedule, bots adding members.
+Done: a person in a group has a paperclip, picks files or images, and sends them beside the
+words; the message carries one tag per file, as in a bot chat, and the bots read it (tests:
+the tag reaches the bot, a member opens the file, a stranger gets 404), and an image pasted in
+the box is uploaded and sent. Left: a look at a real group with a real file and image (drop is
+the window-wide handler that bot chats use; not tried in a group). Out of scope: the group's
+project folder as the destination, voice notes, files above 25 MB. Release 0.3.24 (video, Reka
+name loss, this) waits for the owner.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -41,15 +42,15 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Release commit passes `pnpm check`, the Shared browser journey, and the selected desktop shell tests on GitHub |
-| A version number and an update path | Server 0.3.22 is published. A raised package.json version on main publishes the image and Shared admins see Update |
-| A Mac app built from this branch | Early-build 0.3.22 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
+| A version number and an update path | Server 0.3.23 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A Mac app built from this branch | Early-build 0.3.23 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
 | First run works in a real window | Isolated packaged startup checked; clean-Mac onboarding untested |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
 | A bot answers through a real engine | Works in the owner's own data; never on a clean install |
 | Creating and switching workspaces works by clicking | Tested in code only; never clicked |
 | Conversations from the 0.2.0 build still work after upgrading | Not tested |
 | The download is signed and notarized | Ad-hoc signed; Developer ID and notarization blocked by no Apple Developer account |
-| The download page points to the new build | GitHub latest is `friends-0.3.22`; a public launch page is still needed |
+| The download page points to the new build | GitHub latest is `friends-0.3.23`; a public launch page is still needed |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
 | A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 

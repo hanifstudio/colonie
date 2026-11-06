@@ -450,6 +450,27 @@ describe("a group with several bots", () => {
     expect(opened.status).toBe(200);
   }, 90_000);
 
+  test("a person attaches a file in a group: the bot receives its tag and a member can open it, a stranger cannot", async () => {
+    // the file goes up first (POST /api/files), then the message carries its tag
+    const up = await ws.as(ADA, "/api/files?name=brief.md&uploadId=" + crypto.randomUUID(), { method: "POST", body: "# Brief\nBe funny." });
+    expect(up.status).toBe(201);
+    // the tag names what the server stored, exactly as the app writes it after an upload
+    const path = up.body.path as string;
+    const name = up.body.name as string;
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Briefs", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    const tag = `<attached-file path="${path}" name="${name}" />`;
+    const sent = await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} read this\n\n${tag}` } });
+    expect(sent.status).toBe(201);
+    const messageId = sent.body.message.id as string;
+    expect(sent.body.message.text).toContain(tag);
+    // a member of the group opens it through the message that shares it
+    const bobReads = await ws.as(BOB, `/api/threads/${own.threadId}/messages/${messageId}/file`, { method: "POST", body: { path } });
+    expect(bobReads.status).toBe(200);
+    // a person outside the group is told there is no such conversation
+    const stranger = await ws.as(CICI, `/api/threads/${own.threadId}/messages/${messageId}/file`, { method: "POST", body: { path } });
+    expect(stranger.status).toBe(404);
+  }, 90_000);
+
   test("the group's bots work in one project folder that its people can download from", async () => {
     // both bots already worked here in their own folders: each moves into the group's
     const answered = async (botId: string, text: string) => {

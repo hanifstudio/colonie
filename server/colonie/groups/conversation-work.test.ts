@@ -562,3 +562,22 @@ test("a stopped line offers Continue, and naming the bot again hands it the ask 
   expect(f.calls[1]!.prompt).toContain("Your earlier work here stopped before it finished");
   expect(f.calls[1]!.prompt).toContain("rebuild the Palessi edit from scratch");
 });
+
+test("an attached image tag in a group message reaches the bot as its own line, so the engine can read it", async () => {
+  const f = fixture();
+  const tag = '<attached-image path="/data/attachments/0a1b2c3d-0000-4000-8000-000000000001.png" name="shot.png" />';
+  await f.service.post(caller, f.group.id, `@${f.bot.name} what is in this?\n\n${tag}`, "attach-1");
+  await settle(() => f.calls.length === 1);
+  // alone on its line, which is the only form the turn accepts as an attachment
+  expect(f.calls[0]!.prompt.split("\n")).toContain(tag);
+  // the person's own words stay as typed, tag and all, in the durable message
+  expect(f.store.messagesFor(f.group.threadId).find((message) => message.role === "user")?.text).toContain(tag);
+});
+
+test("an attached file tag in a group message reaches the bot with its path", async () => {
+  const f = fixture();
+  const tag = '<attached-file path="/data/attachments/report.pdf" name="report.pdf" />';
+  await f.service.post(caller, f.group.id, `@${f.bot.name} summarise this\n\n${tag}`, "attach-2");
+  await settle(() => f.calls.length === 1);
+  expect(f.calls[0]!.prompt).toContain(tag);
+});

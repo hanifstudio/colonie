@@ -3,7 +3,7 @@
 // messages on the right, everyone else's on the left under their face and
 // name. @mentioning a bot asks it to answer here.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp01Icon, InformationCircleIcon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { ArrowUp01Icon, AttachmentIcon, InformationCircleIcon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { ChatView } from "../ChatView";
 import { COMPOSER_INPUT, COMPOSER_PILL, COMPOSER_ROW } from "../Composer";
@@ -22,7 +22,14 @@ import { useMentionPicker } from "@/lib/use-mention-picker";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { GroupPanel } from "./GroupPanel";
 import { GroupStack } from "./GroupFaces";
-import { useComposerDraft } from "@/lib/drafts";
+import { appendDraftAttachments, changeDraftAttachmentPending, replaceDraftAttachment, useComposerDraft, useDraftAttachmentPending } from "@/lib/drafts";
+import {
+  clipboardImageFiles, composeMessage, handoffAttachmentImagePreview, imageAttachmentFromFile, intakeFiles, optimisticImageAttachment,
+  releaseAttachmentImagePreview, type Attachment, type PasteAttachment,
+} from "@/lib/composer-attachments";
+import { ComposerAttachments, pathForFile } from "../ComposerAttachments";
+import type { CitationAttachment } from "@/lib/citations";
+import { t } from "@/lib/i18n";
 
 /** The conversation as the chat view's "bot": its title and messages. Never
  * one of the workspace's bots, so nothing done to a bot reaches it. */
@@ -142,14 +149,18 @@ function placeholderFor(conversation: Conversation, bots: Bot[]): string {
 /** The composer pill of a bot chat, for a conversation: text, and "@" for
  * the people here and the bots one can ask, in the same menu as a bot chat
  * (faces, names, arrows to choose, Enter or Tab to pick, Esc to close). */
-function ConversationComposer({ conversation, bots, messages, viewerKey, onSent }: {
+export function ConversationComposer({ conversation, bots, messages, viewerKey, onSent }: {
   conversation: Conversation; bots: Bot[]; messages: Message[]; viewerKey?: string; onSent: (message: Message) => void;
 }) {
   // a bot's question for this person, relayed from its work: answered here,
   // with the same panel as a bot chat, against the bot's own work
   const approval = useMemo(() => pendingApprovals(messages.filter((message) => message.relay?.askedBy === viewerKey))[0], [messages, viewerKey]);
   const approvalBot = approval ? bots.find((bot) => bot.id === approval.message.from?.botId) : undefined;
-  const [text, setText] = useComposerDraft(`conversation:${conversation.id}`);
+  const draftId = `conversation:${conversation.id}`;
+  const [text, setText, attachments, setAttachments] = useComposerDraft(draftId);
+  const attachmentPending = useDraftAttachmentPending(draftId);
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -162,9 +173,55 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
     ...bots.map((bot) => ({ name: bot.name, kind: "bot" as const })),
   ], [conversation.kind, people, bots]);
   const mentions = useMentionPicker({ text, choices: mentionable, inputRef, onChange: setText });
+  // Bots in a group read images natively; a person may attach one or many files, as in a bot chat.
+  const addAttachments = (added: Attachment[]) => appendDraftAttachments(draftId, added);
+  const removeAttachment = (id: string) => {
+    const removed = attachments.find((attachment) => attachment.id === id);
+    if (removed?.kind === "image") releaseAttachmentImagePreview(removed);
+    setAttachments((previous) => previous.filter((attachment) => attachment.id !== id));
+  };
+  const uploadImage = async (file: File): Promise<Attachment | null> => {
+    const optimistic = optimisticImageAttachment(file);
+    if (!optimistic) return null;
+    appendDraftAttachments(draftId, [optimistic]);
+    try {
+      const completed = await imageAttachmentFromFile(file, optimistic);
+      if (!completed) { replaceDraftAttachment(draftId, optimistic.id, null); releaseAttachmentImagePreview(optimistic); return null; }
+      handoffAttachmentImagePreview(completed.path, completed.previewUrl);
+      if (!replaceDraftAttachment(draftId, optimistic.id, completed)) releaseAttachmentImagePreview(completed);
+      return null; // the draft already holds the finished chip
+    } catch (cause) {
+      replaceDraftAttachment(draftId, optimistic.id, null);
+      releaseAttachmentImagePreview(optimistic);
+      throw cause;
+    }
+  };
+  const pickFiles = async (picked: FileList | null) => {
+    if (!picked?.length) return;
+    changeDraftAttachmentPending(draftId, true);
+    try {
+      const { attachments: added, notice } = await intakeFiles(Array.from(picked), { allowImages: true, getPath: pathForFile, uploadImage });
+      if (added.length) addAttachments(added);
+      if (notice) setAttachmentNotice(notice);
+    } finally { changeDraftAttachmentPending(draftId, false); }
+    inputRef.current?.focus();
+  };
+  // an image pasted from the clipboard becomes an attachment, as in a bot chat
+  const pasteImages = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const images = clipboardImageFiles(event.clipboardData);
+    if (!images.length) return;
+    event.preventDefault();
+    changeDraftAttachmentPending(draftId, true);
+    void Promise.allSettled(images.map(uploadImage)).then((results) => {
+      const failed = results.find((result) => result.status === "rejected") as PromiseRejectedResult | undefined;
+      if (failed) setAttachmentNotice(failed.reason instanceof Error ? failed.reason.message : "image upload failed");
+    }).finally(() => changeDraftAttachmentPending(draftId, false));
+  };
+  const hasContent = Boolean(text.trim()) || attachments.length > 0;
   const send = async () => {
-    const value = text;
-    if (!value.trim() || busy) return;
+    if (!hasContent || busy || attachmentPending) return;
+    // the same message a bot chat sends: the words, then one tag per attachment
+    const value = composeMessage(text, attachments);
     setBusy(true); setError("");
     try {
       if (pendingSend.current?.text !== value) pendingSend.current = { text: value, id: crypto.randomUUID() };
@@ -172,6 +229,7 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
       onSent(message);
       pendingSend.current = null;
       setText("");
+      setAttachments([]);
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };
   const face = (entry: { name: string; kind: "here" | "person" | "bot" }) => {
@@ -205,17 +263,25 @@ function ConversationComposer({ conversation, bots, messages, viewerKey, onSent 
               ))}
             </div>
           )}
+          <ComposerAttachments items={attachments} onAdd={addAttachments} onRemove={removeAttachment}
+            onChangeCitation={(citation: CitationAttachment) => setAttachments((current) => current.map((attachment) => attachment.id === citation.id ? citation : attachment))}
+            onDisplayInChatBox={(attachment: PasteAttachment) => { setText(`${text}${text ? "\n" : ""}${attachment.text}`); setAttachments((current) => current.filter((entry) => entry.id !== attachment.id)); }}
+            notice={attachmentNotice} onNotice={setAttachmentNotice} onPendingChange={(pending) => changeDraftAttachmentPending(draftId, pending)} uploadImage={uploadImage} />
           <div data-tour="composer" className={COMPOSER_PILL}>
             <div data-composer-row className={COMPOSER_ROW}>
+              <input ref={fileInput} type="file" multiple className="hidden" data-testid="group-file-input"
+                onChange={(event) => { void pickFiles(event.target.files); event.target.value = ""; }} />
+              <button type="button" onClick={() => fileInput.current?.click()} aria-label={t("composer.attach")} title={t("composer.attach")}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-control hover:text-ink"><HIcon icon={AttachmentIcon} size={17} /></button>
               <MentionTextarea {...mentions.inputProps} wrapperClassName="ml-2" inputRef={inputRef} peers={mentionable.map((entry) => ({ name: entry.name }))} value={text} rows={1}
-                placeholder={placeholderFor(conversation, bots)} aria-label="Message"
+                placeholder={placeholderFor(conversation, bots)} aria-label="Message" onPaste={pasteImages}
                 onChange={(event) => { setText(event.target.value); mentions.changed(event.currentTarget); }}
                 onKeyDown={(event) => {
                   if (mentions.isComposing(event) || mentions.keyDown(event)) return;
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); }
                 }}
                 className={COMPOSER_INPUT} />
-              <button type="submit" aria-label="Send message" title="Send message" disabled={!text.trim() || busy}
+              <button type="submit" aria-label="Send message" title="Send message" disabled={!hasContent || busy || attachmentPending}
                 className="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-white hover:brightness-110 disabled:opacity-40">
                 {busy ? <HIcon icon={Loading02Icon} size={14} className="animate-spin" /> : <HIcon icon={ArrowUp01Icon} size={17} />}
               </button>
