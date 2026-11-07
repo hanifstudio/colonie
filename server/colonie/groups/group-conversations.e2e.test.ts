@@ -471,6 +471,27 @@ describe("a group with several bots", () => {
     expect(stranger.status).toBe(404);
   }, 90_000);
 
+  test("the person who asked cancels one waiting request from its line; another member cannot", async () => {
+    // its own group, so the busy bot here does not disturb the other tests
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Queue", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    const lines = async () => (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as Array<any>;
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} permission please` } });
+    await until(lines, (list) => list.some((message) => message.from?.botId === bot.id && /is waiting for/.test(message.text ?? "")), "the bot waiting for Ada");
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} and after that, the budget` } });
+    const waiting = (await until(lines, (list) => list.some((message) => message.working && !message.workingSince && /this is next/.test(message.text ?? "")), "a request waiting its turn"))
+      .find((message: any) => message.working && !message.workingSince && /this is next/.test(message.text ?? ""));
+    expect(waiting.askedBy).toBeTruthy();
+    // Bob is in the group but did not ask for it
+    expect((await ws.as(BOB, `/api/conversations/${own.id}/messages/${waiting.id}/stop`, { method: "POST" })).status).toBe(404);
+    expect((await ws.as(CICI, `/api/conversations/${own.id}/messages/${waiting.id}/stop`, { method: "POST" })).status).toBe(404);
+    const stopped = await ws.as(ADA, `/api/conversations/${own.id}/messages/${waiting.id}/stop`, { method: "POST" });
+    expect(stopped.status).toBe(200);
+    expect(stopped.body).toEqual({ stopped: 1 });
+    const after = (await lines()).find((message: any) => message.id === waiting.id);
+    expect(after).toMatchObject({ text: "Stopped by the person who asked.", stoppedBy: { botId: bot.id } });
+    expect(after.working).toBeFalsy();
+  }, 90_000);
+
   test("the group's bots work in one project folder that its people can download from", async () => {
     // both bots already worked here in their own folders: each moves into the group's
     const answered = async (botId: string, text: string) => {

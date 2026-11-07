@@ -4,8 +4,8 @@
 
 Three stages, each released alone. (1) Groups as dependable as 1:1 chats. Done: the 1:1 stall
 watcher covers groups (the group's own sweep is gone), and its handler no longer crashes the
-server (it called two removed Computer functions). Left: queued messages in a group visible and
-cancellable; failure tests (restart, closed laptop, two bots). (2) Easier follow-up: reply to
+server (it called two removed Computer functions); the person who asked can cancel or stop one
+request from its group line (never seen in a window). Left: failure tests (restart, laptop, two bots). (2) Easier follow-up: reply to
 one group message; a side question that does not interrupt the work; the bot's step list as a
 card; reorder the queue. (3) Fewer repeats: several bots' answers arrive together; a "no reply
 needed" mark; blocked reports with evidence; files a bot names attach themselves; quiet

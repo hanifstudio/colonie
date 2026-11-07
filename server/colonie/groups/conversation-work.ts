@@ -90,7 +90,7 @@ export function createConversationWork(deps: {
         queueMicrotask(() => {
           const current = conversationWork(record.id).find((entry) => entry.id === work.id);
           if (current?.status !== "queued" || current.messageId || !active.has(lane(record.id, bot.id))) return;
-          deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text: `${bot.name} is finishing something else; this is next.`, working: true,
+          deps.store().appendMessage(record.threadId, { role: "bot", kind: "text", text: `${bot.name} is finishing something else; this is next.`, working: true, askedBy: work.askerKey,
             from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } }, undefined, (message) => { saveConversationWork({ ...current, messageId: message.id }); });
         });
       }
@@ -202,7 +202,7 @@ export function createConversationWork(deps: {
     if (work.continued && !work.nudged) briefing.prompt += `\n\nYour last reply here stopped at the next step or asked whether to continue. Do not ask: carry on with the step you named, then finish with "Status: done" or "Status: stuck - what you need".`;
     if (work.nudged) briefing.prompt += `\n\nYour last reply here ended without "Status: done" or "Status: stuck - what you need". Do the work now, or say what blocks you, and end with that status line.`;
     work.status = "running";
-    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(),
+    const line = { role: "bot" as const, kind: "text" as const, text: `${bot.name} is working on it…`, working: true as const, workingSince: Date.now(), askedBy: work.askerKey,
       workThread: { botId: bot.id, threadId: thread }, from: { botId: bot.id, name: bot.name, color: bot.color ?? "" } };
     if (!work.messageId) {
       store.appendMessage(record.threadId, line, undefined, (message) => {
@@ -253,28 +253,40 @@ export function createConversationWork(deps: {
     });
   }
 
+  /** Stop one piece of work: its line says so, the turn is interrupted if it is running, the next one may start. */
+  function stopOne(work: ConversationWork): Promise<void>[] {
+    const record = recordFor(work.conversationId);
+    const persist = () => saveConversationWork({ ...work, status: "cancelled" });
+    if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workingSince: undefined, workThread: undefined, stoppedBy: { botId: work.botId, reason: "interrupted" } }, undefined, persist);
+    else persist();
+    const pending = work.threadId ? waiting.get(work.threadId) : undefined;
+    if (pending?.work.id !== work.id) return [];
+    waiting.delete(work.threadId!);
+    return [Promise.resolve().then(() => deps.interrupt?.(work.botId, work.threadId!)).finally(() => pending.done(true))];
+  }
+
   async function cancel(conversationId: string, askerKey: string) {
     const jobs = conversationWork(conversationId).filter((work) => work.askerKey === askerKey && (work.status === "queued" || work.status === "running"));
-    const stops: Promise<void>[] = [];
-    for (const work of jobs) {
-      const record = recordFor(conversationId);
-      const persist = () => saveConversationWork({ ...work, status: "cancelled" });
-      if (record && work.messageId) deps.store().patchMessage(record.threadId, work.messageId, { text: "Stopped by the person who asked.", working: undefined, workingSince: undefined, workThread: undefined, stoppedBy: { botId: work.botId, reason: "interrupted" } }, undefined, persist);
-      else persist();
-      const pending = work.threadId ? waiting.get(work.threadId) : undefined;
-      if (pending?.work.id === work.id) {
-        waiting.delete(work.threadId!);
-        stops.push(Promise.resolve().then(() => deps.interrupt?.(work.botId, work.threadId!)).finally(() => pending.done(true)));
-      }
-    }
+    const stops = jobs.flatMap(stopOne);
     deps.changed();
     await Promise.all(stops);
     wake();
     return jobs.length;
   }
 
+  /** Cancel the one piece of work shown on this line, only for the person who asked for it. */
+  async function cancelLine(conversationId: string, askerKey: string, messageId: string) {
+    const job = conversationWork(conversationId).find((work) => work.messageId === messageId && work.askerKey === askerKey && (work.status === "queued" || work.status === "running"));
+    if (!job) return 0;
+    const stops = stopOne(job);
+    deps.changed();
+    await Promise.all(stops);
+    wake();
+    return 1;
+  }
+
   return {
-    enqueue, wake, cancel,
+    enqueue, wake, cancel, cancelLine,
     progress(threadId: string, message: { id: string; role: string; kind: string; text?: string }) {
       const pending = waiting.get(threadId)?.work;
       const record = pending && recordFor(pending.conversationId);

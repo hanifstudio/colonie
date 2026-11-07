@@ -88,6 +88,7 @@ import { SecretRequestCard } from "./SecretRequestCard";
 import { hasRoutineExecutionTask, RoutineRunCard } from "./RoutineRunCard";
 import { AttachmentGallery, collectMessageFiles, splitMessageAttachments } from "./AttachmentGallery";
 import { FilePreviewScope } from "./AttachmentPreview";
+import { WorkingLineCancel } from "./WorkingLineCancel";
 import { filePreviewKind, groupFileRef } from "@/lib/file-preview";
 import { ScreenFrame } from "./ScreenFrame";
 import { CompactionChip, DigestChip } from "./DigestChip";
@@ -507,6 +508,8 @@ const Bubble = memo(function Bubble({
           {message.workThread && <button type="button" className="ml-2 text-[12px] text-accent hover:underline"
             onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
         </div>
+        {/* only the person who asked may cancel or stop this one request */}
+        <WorkingLineCancel message={message} viewerKey={conversation?.viewerKey} onCancel={conversation?.cancelWork} />
       </div>
     </div>
   </div>;
@@ -1197,7 +1200,7 @@ export interface AccountConversationControls {
   mentionPeople?: readonly string[];
   /** Cards a bot relayed from its work: who may answer, and how a saved
    * secret lets the bot carry on. */
-  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void; continueBot: (text: string, botId: string) => void };
+  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void; continueBot: (text: string, botId: string) => void; cancelWork?: (messageId: string) => Promise<void> };
   identity?: ReactNode;
   actions?: ReactNode;
   beforeMessages?: ReactNode;

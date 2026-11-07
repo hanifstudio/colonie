@@ -176,6 +176,8 @@ export interface Message {
   workThread?: { botId: string; threadId: string };
   /** In a group: this bot's work ended early, so the line offers Continue. */
   stoppedBy?: { botId: string; reason: "blocked" | "interrupted" | "failed" };
+  /** On a working line in a group: the person who asked for it, the only one who may cancel it. */
+  askedBy?: string;
   working?: true;
   workingSince?: number;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };

@@ -594,3 +594,41 @@ test("an attached file tag in a group message reaches the bot with its path", as
   await settle(() => f.calls.length === 1);
   expect(f.calls[0]!.prompt).toContain(tag);
 });
+
+test("cancelling one line stops only that piece of work, and only for the person who asked", async () => {
+  const f = fixture();
+  const member = { ...caller, key: "bob@x.com", name: "Bob" };
+  f.service.add(caller, f.group.id, { emails: [member.key] });
+  await f.service.post(caller, f.group.id, `@${f.bot.name} first`, "line-1");
+  await settle(() => f.calls.length === 1);
+  await f.service.post(caller, f.group.id, `@${f.bot.name} second`, "line-2");
+  await f.service.post(caller, f.group.id, `@${f.bot.name} third`, "line-3");
+  await settle(() => f.store.messagesFor(f.group.threadId).filter((message) => message.working && !message.workingSince).length === 2);
+  const lines = f.store.messagesFor(f.group.threadId).filter((message) => message.working && !message.workingSince);
+  // the line says who asked, so the screen can offer Cancel to that person alone
+  expect(lines.every((line) => line.askedBy === caller.key)).toBe(true);
+  const second = lines[0]!;
+  expect((await f.service.stopLine(member, f.group.id, second.id)).status).toBe(404);
+  expect((await f.service.stopLine({ ...caller, key: "stranger" }, f.group.id, second.id)).status).toBe(404);
+  expect((await f.service.stopLine(caller, f.group.id, second.id)).body).toEqual({ stopped: 1 });
+  expect(conversationWork(f.group.id).map((work) => work.status)).toEqual(["running", "cancelled", "queued"]);
+  expect(f.stopped).toEqual([]);
+  expect(f.store.messagesFor(f.group.threadId).find((message) => message.id === second.id)).toMatchObject({ text: "Stopped by the person who asked.", stoppedBy: { botId: f.bot.id } });
+  // the cancelled one never runs; the third still does, after the first finishes
+  f.reply(f.service, "First done");
+  await settle(() => f.calls.length === 2);
+  expect(f.calls[1]!.work.text).toContain("third");
+  expect(f.calls.some((call) => call.work.text.includes("second"))).toBe(false);
+  // a line already cancelled cannot be cancelled again
+  expect((await f.service.stopLine(caller, f.group.id, second.id)).status).toBe(404);
+});
+
+test("cancelling the line of work that is running interrupts that turn and lets the next one start", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} long job`, "run-1");
+  await settle(() => f.calls.length === 1);
+  const running = f.store.messagesFor(f.group.threadId).find((message) => message.working && message.workingSince)!;
+  expect((await f.service.stopLine(caller, f.group.id, running.id)).body).toEqual({ stopped: 1 });
+  expect(f.stopped).toEqual([f.calls[0]!.threadId]);
+  expect(conversationWork(f.group.id)[0]!.status).toBe("cancelled");
+});

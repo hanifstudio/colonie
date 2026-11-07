@@ -15,7 +15,7 @@ import { PersonAvatar } from "../PersonAvatar";
 import { cn } from "@/lib/cn";
 import {
   CONVERSATIONS_CHANGED, THREAD_FRAME, asChatMessages, conversationMessages, markConversationRead,
-  postToConversation, stopConversation, useConversations, withFrame, type Conversation, type ThreadFrame,
+  postToConversation, stopConversation, stopConversationLine, useConversations, withFrame, type Conversation, type ThreadFrame,
 } from "@/lib/conversations";
 import { api, useStore, type Bot, type Message } from "@/state/store";
 import { useMentionPicker } from "@/lib/use-mention-picker";
@@ -80,11 +80,16 @@ export function ConversationView({ id }: { id: string }) {
       .then(({ message }) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message })))
       .catch(() => {});
   }, [state.bots, id, threadId]);
+  const cancelWork = useCallback(async (messageId: string) => {
+    await stopConversationLine(id, messageId);
+    window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
+  }, [id]);
   const relay = useMemo(() => ({
     viewerKey,
     onSecretSaved: (name: string, botId: string) => continueBot(`I saved ${name}. Please continue.`, botId),
     continueBot,
-  }), [viewerKey, continueBot]);
+    cancelWork,
+  }), [viewerKey, continueBot, cancelWork]);
   if (!conversation) {
     return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
   }

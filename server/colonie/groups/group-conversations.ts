@@ -501,6 +501,13 @@ export function createGroupConversations(deps: {
       return { status: 200, body: { stopped: await work.cancel(id, caller.key) } };
     },
 
+    /** Cancel one queued or running piece of work, by the line that shows it. Only its asker may. */
+    async stopLine(caller: Caller, id: string, messageId: string): Promise<Answer> {
+      if (!mine(caller, id)) return fail(404, "no such conversation");
+      const stopped = await work.cancelLine(id, caller.key, messageId);
+      return stopped ? { status: 200, body: { stopped } } : fail(404, "no such work of yours on that line");
+    },
+
     delete(caller: Caller, id: string): Answer {
       const record = mine(caller, id);
       if (!record) return fail(404, "no such conversation");

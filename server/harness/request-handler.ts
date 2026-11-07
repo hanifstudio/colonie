@@ -623,6 +623,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.delete(caller, m[1]);
       else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members$/))) answer = groupConversations.add(caller, m[1], (await readBody(req)) ?? {});
       else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/stop$/))) answer = await groupConversations.stop(caller, m[1]);
+      else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/messages\/([\w-]+)\/stop$/))) answer = await groupConversations.stopLine(caller, m[1], m[2]);
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/members\/me$/))) answer = await groupConversations.leave(caller, m[1]);
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/bots\/([\w-]+)$/))) answer = groupConversations.removeBot(caller, m[1], m[2]!);
       return answer ? json(res, answer.status, answer.body) : json(res, 405, { error: "method not allowed" });

@@ -55,6 +55,8 @@ export const removeBotFromConversation = (id: string, botId: string) => api<Conv
 export const leaveConversation = (id: string) => api(`/api/conversations/${id}/members/me`, { method: "DELETE" });
 export const deleteGroup = (id: string) => api(`/api/conversations/${id}`, { method: "DELETE" });
 export const stopConversation = (id: string) => api(`/api/conversations/${id}/stop`, { method: "POST" });
+/** Cancel or stop the one request a working line shows (only the person who asked may). */
+export const stopConversationLine = (id: string, messageId: string) => api(`/api/conversations/${id}/messages/${messageId}/stop`, { method: "POST" });
 /** A file in a conversation's project folder, by its path inside it. */
 export interface ConversationFile { path: string; bytes: number; modifiedAt: number }
 export const conversationFiles = (id: string) => api<{ files: ConversationFile[]; truncated: boolean }>(`/api/conversations/${id}/files`);

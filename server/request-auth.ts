@@ -321,6 +321,7 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET", "POST"], path: /^\/api\/conversations$/ },
   { methods: ["GET", "POST"], path: /^\/api\/conversations\/[\w-]+\/messages$/ },
   { methods: ["POST"], path: /^\/api\/conversations\/[\w-]+\/(read|members|stop)$/ },
+  { methods: ["POST"], path: /^\/api\/conversations\/[\w-]+\/messages\/[\w-]+\/stop$/ },
   { methods: ["PATCH", "DELETE"], path: /^\/api\/conversations\/[\w-]+$/ },
   { methods: ["DELETE"], path: /^\/api\/conversations\/[\w-]+\/members\/me$/ },
   { methods: ["DELETE"], path: /^\/api\/conversations\/[\w-]+\/bots\/[\w-]+$/ },
