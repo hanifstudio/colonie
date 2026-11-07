@@ -1,12 +1,16 @@
 # Handover
 
-## Now: saving a file happens in the preview, with progress
+## Now: follow up on a bot's answer as easily as in openbot
 
-Done (owner, November 7): a message row never carries its own download; a file link or card opens
-the preview, whose one save button, for a group file and a message file alike, shows a ring with
-the percent, stops on a press, and retries after a failure. Left: a big real file in a window.
-Next: attach the files a bot names in its answer by themselves (the way openbot does), a
-missing-file card, spreadsheet preview.
+Three stages, each released alone. (1) Groups as dependable as 1:1 chats. Done: the 1:1 stall
+watcher covers groups (the group's own sweep is gone), and its handler no longer crashes the
+server (it called two removed Computer functions). Left: queued messages in a group visible and
+cancellable; failure tests (restart, closed laptop, two bots). (2) Easier follow-up: reply to
+one group message; a side question that does not interrupt the work; the bot's step list as a
+card; reorder the queue. (3) Fewer repeats: several bots' answers arrive together; a "no reply
+needed" mark; blocked reports with evidence; files a bot names attach themselves; quiet
+routines; wait for the quota reset. Proof: a failure test on the fake engine, then a real
+group. Out of scope: steering a running turn (ACP engines cannot), branching from an old message.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -54,9 +58,8 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 
 ## Known broken
 
-- Release workflow needs `RELEASES_PAT`; `pnpm test:electron` (`mac-updater`, `vendor-updater`),
-  `pnpm i18n:check`, `pnpm clean`, `pnpm check:contrast` call deleted scripts;
-  `electron/fixtures/browser-closed-shadow.cjs` requires a missing file.
+- Release workflow needs `RELEASES_PAT`; `pnpm test:electron`, `pnpm i18n:check`, `pnpm clean`,
+  `pnpm check:contrast` and `electron/fixtures/browser-closed-shadow.cjs` use deleted files.
 - 72 failing test files were deleted October 18 (owner decision); no tests there.
 
 ## Not yet checked by a person

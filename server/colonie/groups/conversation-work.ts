@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { conversationWork, enqueueConversationWork, saveConversationRecords, saveConversationWork, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { mentionedBots, type Store } from "../../persistence/store.ts";
+import { failedTurnCause } from "../../../shared/failed-turn.ts";
 import type { GroupConversation } from "./group-conversations.ts";
 
 type Bot = NonNullable<ReturnType<Store["bot"]>>;
@@ -54,7 +55,6 @@ export function onlyAcknowledges(reply: string): boolean {
   return text.length > 0 && text.length <= 80 && !/[?？]/.test(text) && ACKNOWLEDGES.test(text.replace(/[*_`>#]/g, "").trim());
 }
 
-const STALL_MS = 30 * 60_000;
 /** Hand-offs in one chain before the group is told it stopped. */
 const MAX_CHAIN = 8;
 
@@ -71,7 +71,7 @@ export function createConversationWork(deps: {
    * work at the same time and one bot takes its own requests in order. */
   const active = new Set<string>();
   const lane = (conversationId: string, botId: string) => `${conversationId}\n${botId}`;
-  const waiting = new Map<string, { work: ConversationWork; done: (finished: boolean) => void; at: number }>();
+  const waiting = new Map<string, { work: ConversationWork; done: (finished: boolean) => void }>();
   let retry: ReturnType<typeof setTimeout> | undefined;
   const recordFor = (id: string) => deps.records().find((record) => record.id === id);
 
@@ -122,7 +122,14 @@ export function createConversationWork(deps: {
     // a capped hand-off is still a hand-off: it is not asked again for a status
     // a bare "siap" is a complete reply: it needs no status line, so it is not asked for one
     const end = ok && answer?.text ? workEnd(answer.text, named.length > 0 || onlyAcknowledges(answer.text)) : undefined;
-    const said = end ? end.text : ok && answer?.text ? answer.text : failure ?? `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`;
+    // a failed turn already wrote its cause into the bot's work thread ("error: no activity for 20 minutes…"):
+    // say that in the group instead of a generic apology
+    const cause = !ok && !failure && askAt >= 0
+      ? path.slice(askAt + 1).filter((message) => message.kind === "activity" && message.tool?.ok === false)
+        .map((message) => failedTurnCause(message.tool?.name ?? "")).findLast((value): value is string => Boolean(value))
+      : undefined;
+    const said = end ? end.text : ok && answer?.text ? answer.text
+      : failure ?? (cause ? `${bot?.name ?? "The bot"} stopped: ${cause}` : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`);
     const next: GroupConversation = ok && answer ? {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
       toldAbout: { ...record.toldAbout, [work.botId]: work.about ?? "" },
@@ -207,7 +214,7 @@ export function createConversationWork(deps: {
     }
     const threadId = thread;
     return new Promise<boolean>((resolve) => {
-      waiting.set(threadId, { work, done: resolve, at: Date.now() });
+      waiting.set(threadId, { work, done: resolve });
       void deps.run(work, threadId, briefing.prompt, briefing.recoveryPrompt).catch((error: unknown) => {
         if (waiting.get(threadId)?.work.id !== work.id) return;
         waiting.delete(threadId);
@@ -269,8 +276,6 @@ export function createConversationWork(deps: {
   return {
     enqueue, wake, cancel,
     progress(threadId: string, message: { id: string; role: string; kind: string; text?: string }) {
-      const live = waiting.get(threadId);
-      if (live) live.at = Date.now();
       const pending = waiting.get(threadId)?.work;
       const record = pending && recordFor(pending.conversationId);
       if (!pending?.messageId || !record || message.role !== "bot" || message.kind !== "text" || !message.text?.trim()) return;
@@ -283,22 +288,8 @@ export function createConversationWork(deps: {
       const current = deps.store().messagesFor(record.threadId).find((entry) => entry.id === pending.messageId);
       if (current?.working && current.text !== message.text) deps.store().patchMessage(record.threadId, pending.messageId, { text: message.text });
     },
-    /** Work that has shown no message at all for STALL_MS is stopped and the
-     * group is told. ponytail: one tool call silent that long is also cut off;
-     * add a heartbeat from the engine if that bites. */
-    sweepStalled(now = Date.now()) {
-      for (const [threadId, entry] of waiting) {
-        if (now - entry.at < STALL_MS) continue;
-        waiting.delete(threadId);
-        const name = deps.store().bot(entry.work.botId)?.name ?? "The bot";
-        const stop = Promise.resolve().then(() => deps.interrupt?.(entry.work.botId, threadId)).catch(() => undefined);
-        try { finish(entry.work, false, `${name} stopped responding for ${Math.round(STALL_MS / 60000)} minutes, so its work was stopped. Ask again, or say what it needs.`); } finally { void stop.finally(() => entry.done(true)); }
-      }
-      wake();
-    },
     pending: (threadId: string) => waiting.get(threadId)?.work,
     initialize() {
-      setInterval(() => this.sweepStalled(), 60_000).unref();
       // Running provider calls are indeterminate after a process loss. Never
       // repeat their external effects automatically; safe, undispatched work stays queued.
       for (const work of conversationWork(undefined, "running")) {

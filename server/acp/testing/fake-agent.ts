@@ -130,7 +130,8 @@ agent({ name: "Colonie deterministic fixture" })
       return session;
     });
     if (text === "crash") process.exit(3);
-    if (text === "hang") {
+    // a group wraps the person's words in a brief; they are its last line ("@Name hang")
+    if (text === "hang" || /\n@\S+ hang\s*$/.test(text)) {
       await new Promise<void>((resolve) => active.set(params.sessionId, resolve));
       active.delete(params.sessionId);
       return { stopReason: "cancelled" };

@@ -26,8 +26,8 @@ export function createChatRequests(deps: ChatRequestsDeps) {
     pendingCommandRules, registry, runningTurnEngines, sessions, store,
     activeRoutineRunForThread, cancelDirectTurnDispatch, commsBus, directRequestOwners,
     directTurnBots, directTurnGenerationByThread, drainComputerResumes, drainConnectorResumes,
-    drainQueuedSends, drainSecretResumes, drainTeamSetupResumes, localVmThreadTargets,
-    pendingDelegationWakes, releaseLocalVmThread, releaseTurnResources, reportIncident,
+    drainQueuedSends, drainSecretResumes, drainTeamSetupResumes,
+    pendingDelegationWakes, releaseTurnResources, reportIncident,
     retireProviderTurn, retryDelegationsWaitingOn, revokeInternalCapabilitiesForThread, routines,
     runningTurnInstance, settleDirectFollowup, stopScreenPoller, threadBusy, turnResourceOwners,
     finalizeDelegationWatch
@@ -282,7 +282,6 @@ const watchdog = new TurnWatchdog({
     const stalledGeneration = directTurnGenerationByThread.get(turn.threadId);
     const stalledProviderTurn = directRequestOwners.get(turn.threadId);
     cancelDirectTurnDispatch(turn.botId, turn.threadId);
-    const stalledVmTarget = localVmThreadTargets().get(turn.threadId);
     revokeInternalCapabilitiesForThread(turn.threadId);
     repeats.settle(turn.threadId);
     const bot = botForThread(turn.botId, turn.threadId);
@@ -318,9 +317,6 @@ const watchdog = new TurnWatchdog({
         retireProviderTurn(stalledProviderTurn.turnId);
       }
 
-      if (stalledVmTarget && localVmThreadTargets().get(turn.threadId) === stalledVmTarget) {
-        releaseLocalVmThread()(turn.threadId);
-      }
       // A cleared UI busy flag must not strand this finished generation's
       // computer claim. The generation checks above protect replacements.
       releaseTurnResources(stalledResourceOwner);

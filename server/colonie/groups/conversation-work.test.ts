@@ -8,6 +8,7 @@ import { Store, type Message } from "../../persistence/store.ts";
 import { commandReceipt } from "../../commands.ts";
 import { createGroupConversations } from "./group-conversations.ts";
 import { onlyAcknowledges, stoppedBeforeNextStep } from "./conversation-work.ts";
+import { failedTurnTool } from "../../../shared/failed-turn.ts";
 
 const caller = { key: "owner", name: "Ana", seesBot: () => true };
 const settle = async (condition: () => boolean) => {
@@ -401,16 +402,28 @@ test("a stuck reply is blocked and shows what the bot needs; a done reply comple
   expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toBe("Merged.");
 });
 
-test("work silent for over half an hour is stopped and the group is told", async () => {
+test("a turn the stall watchdog stopped shows its cause in the group and offers Continue", async () => {
   const f = fixture();
-  await f.service.post(caller, f.group.id, "@" + f.bot.name + " fix it", "stall-1");
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " rebuild the edit", "stall-1");
   await settle(() => f.calls.length === 1);
-  f.service.sweepStalled(Date.now() + 10 * 60_000);
-  expect(conversationWork(f.group.id)[0].status).toBe("running");
-  f.service.sweepStalled(Date.now() + 31 * 60_000);
+  // what the watchdog does to a wedged turn: it writes the cause into the bot's work thread, then the turn ends as failed
+  f.store.appendMessage(f.calls[0]!.threadId, { role: "bot", kind: "activity", tool: failedTurnTool("no activity for 20 minutes — the turn was stopped") });
+  f.service.turnCompleted(f.calls[0]!.threadId, false);
   await settle(() => conversationWork(f.group.id)[0].status === "failed");
-  expect(f.stopped).toHaveLength(1);
-  expect(f.store.messagesFor(f.group.threadId).at(-1)?.text).toContain("stopped responding for 30 minutes");
+  const line = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
+  expect(line?.text).toContain("stopped: no activity for 20 minutes");
+  expect(line?.stoppedBy).toEqual({ botId: f.bot.id, reason: "failed" });
+});
+
+test("a failed turn with no recorded cause still gets a plain apology and Continue", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, "@" + f.bot.name + " go", "stall-2");
+  await settle(() => f.calls.length === 1);
+  f.service.turnCompleted(f.calls[0]!.threadId, false);
+  await settle(() => conversationWork(f.group.id)[0].status === "failed");
+  const line = f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id).at(-1);
+  expect(line?.text).toContain("could not answer this time");
+  expect(line?.stoppedBy?.reason).toBe("failed");
 });
 
 test("a stuck line beside a hand-off to a teammate is dropped, not shown as a block", async () => {
