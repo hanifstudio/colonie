@@ -492,6 +492,27 @@ describe("a group with several bots", () => {
     expect(after.working).toBeFalsy();
   }, 90_000);
 
+  test("a bot's step list rides on its own line in a group, and in a 1:1 chat it is a card of its own; a subagent's list never replaces it", async () => {
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Steps", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    const lines = async () => (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as Array<any>;
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} make a plan with a subagent` } });
+    const done = await until(lines, (list) => list.some((message) => message.from?.botId === bot.id && !message.working && message.plan?.ended), "the bot's finished line with its steps");
+    const answer = done.findLast((message: any) => message.from?.botId === bot.id && message.plan);
+    expect(answer.plan.steps.map((step: any) => step.text)).toEqual(["Find footage", "Cut to the voice-over", "Render the video"]);
+    expect(answer.plan.steps.map((step: any) => step.status)).toEqual(["completed", "completed", "completed"]);
+    expect(answer.plan).toMatchObject({ ended: true, stopped: false });
+    // the steps are not a row of their own in the group
+    expect(done.some((message: any) => message.kind === "plan")).toBe(false);
+    // 1:1: one card for the turn, replaced in place
+    const sent = await ws.as(ADA, `/api/bots/${bot.id}/messages`, { method: "POST", body: { text: "make a plan" } });
+    const thread = sent.body.threadId as string;
+    const direct = await until(async () => (await ws.as(ADA, `/api/threads/${thread}/messages`)).body.messages as Array<any>,
+      (list) => list.some((message) => message.kind === "plan" && message.plan?.ended), "the plan card in a 1:1 chat");
+    const cards = direct.filter((message: any) => message.kind === "plan");
+    expect(cards).toHaveLength(1);
+    expect(cards[0].text).toBe("- [x] Find footage\n- [x] Cut to the voice-over\n- [x] Render the video");
+  }, 90_000);
+
   test("a member replies to one earlier message: it is stored with the reply, and a message from elsewhere is refused", async () => {
     const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Replies", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
     const elsewhere = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Elsewhere", emails: [BOB], bots: [bot.id] } })).body as { id: string };

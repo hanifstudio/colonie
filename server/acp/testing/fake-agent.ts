@@ -214,6 +214,23 @@ agent({ name: "Colonie deterministic fixture" })
       // "... and link it": the answer links the file, as a bot does when it shares one
       if (/\band link it\b/.test(text)) result += `. [${write[1]}](${write[1]})`;
     }
+    // "make a plan": the bot keeps a three-step list, whole each time, as the engines do, then answers. A group
+    // wraps the person's words in a brief, so the request can also be the last line ("@Name make a plan").
+    // "make a plan with a subagent" also sends a list a subagent made, marked as the Claude adapter marks it.
+    const planning = /(?:^|\n@\S+ )make a plan(?: (with a subagent))?\s*$/.exec(text);
+    if (planning) {
+      const steps = ["Find footage", "Cut to the voice-over", "Render the video"];
+      const entries = (done: number) => steps.map((content, index) => ({ content: index === done ? `${content}…` : content, priority: "medium", status: index < done ? "completed" : index === done ? "in_progress" : "pending" }));
+      for (let done = 0; done <= steps.length; done += 1) {
+        await client.notify(methods.client.session.update, { sessionId: params.sessionId, update: { sessionUpdate: "plan", entries: entries(done) } });
+        if (planning[1] && done === steps.length) {
+          await client.notify(methods.client.session.update, { sessionId: params.sessionId,
+            update: { sessionUpdate: "plan", entries: [{ content: "A subagent's own step", priority: "low", status: "in_progress" }], _meta: { claudeCode: { parentToolUseId: "sub-1" } } } as never });
+        }
+        await new Promise((resolve) => setTimeout(resolve, Number(process.env.COLONIE_FAKE_DELAY_MS) || 150));
+      }
+      result = "The plan is done.";
+    }
     // "write file NAME TEXT then ask BOT to write file NAME TEXT": a lead doing
     // its part and handing the next to another bot, by name, in its answer
     const handing = /write file ([\w.-]+) (.*?) then ask (\S+) to (write file [^\n]*)$/.exec(text);

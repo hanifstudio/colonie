@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { conversationWork, enqueueConversationWork, saveConversationRecords, saveConversationWork, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { mentionedBots, type Store } from "../../persistence/store.ts";
 import { failedTurnCause } from "../../../shared/failed-turn.ts";
+import type { ConversationPlan } from "../../../shared/conversation-plan.ts";
 import type { GroupConversation } from "./group-conversations.ts";
 
 type Bot = NonNullable<ReturnType<Store["bot"]>>;
@@ -287,9 +288,17 @@ export function createConversationWork(deps: {
 
   return {
     enqueue, wake, cancel, cancelLine,
-    progress(threadId: string, message: { id: string; role: string; kind: string; text?: string }) {
+    progress(threadId: string, message: { id: string; role: string; kind: string; text?: string; plan?: ConversationPlan }) {
       const pending = waiting.get(threadId)?.work;
       const record = pending && recordFor(pending.conversationId);
+      if (pending?.messageId && record && message.role === "bot" && message.kind === "plan" && message.plan) {
+        // The step list rides on this bot's own working line, never as a row of its own.
+        const path = deps.store().activePath(threadId);
+        const askAt = path.findIndex((entry) => entry.role === "user" && entry.sendId === pending.id);
+        if (askAt < 0 || !path.slice(askAt + 1).some((entry) => entry.id === message.id)) return;
+        deps.store().patchMessage(record.threadId, pending.messageId, { plan: message.plan });
+        return;
+      }
       if (!pending?.messageId || !record || message.role !== "bot" || message.kind !== "text" || !message.text?.trim()) return;
       const path = deps.store().activePath(threadId);
       const askAt = path.findIndex((entry) => entry.role === "user" && entry.sendId === pending.id);

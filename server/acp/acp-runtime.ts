@@ -25,6 +25,7 @@ import type { AcpInputReceipt } from "../../shared/acp.ts";
 import { inputReceipts, saveInputReceipt } from "./receipts.ts";
 import { composeContext, contextPin, pinContext } from "./context.ts";
 import { redactSecretsInText } from "../redact.ts";
+import { clampPlanSteps } from "../../shared/conversation-plan.ts";
 import { nativePreferences, saveNativePreferences, type NativePreferences } from "./settings.ts";
 import type { NativeSettings, NativeSettingChange, NativeOption } from "../../shared/acp-settings.ts";
 import type { AcpToolMount } from "../colonie/connections/contracts.ts";
@@ -305,6 +306,15 @@ export class AcpRuntime implements ProviderAdapter {
       case "agent_thought_chunk":
         if (update.content.type === "text") this.emit(session, { type: "content.delta", streamKind: "reasoning_text", delta: update.content.text });
         break;
+      case "plan": {
+        // A subagent's own list must not replace the plan of the bot the person is talking to
+        // (the Claude adapter marks it with the subagent's tool call).
+        const parent = (update as { _meta?: { claudeCode?: { parentToolUseId?: unknown } } })._meta?.claudeCode?.parentToolUseId;
+        if (parent) break;
+        this.flushText(session);
+        this.emit(session, { type: "plan.updated", steps: clampPlanSteps(update.entries) });
+        break;
+      }
       case "tool_call":
       case "tool_call_update": {
         this.flushText(session);

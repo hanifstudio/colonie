@@ -12,6 +12,7 @@ import type { ApprovalMode } from "./approval-mode.ts";
 import type { ToolScope } from "./tool-scope.ts";
 import type { CommandAllowlistCandidate } from "./command-allowlist.ts";
 import type { TurnDigest } from "./digest.ts";
+import type { ConversationPlan } from "./conversation-plan.ts";
 import type { BotAvatarCrop } from "./bot-avatar.ts";
 import type { MascotBodyId } from "./mascot-bodies.ts";
 import type { CredentialTargetId } from "./credential-request.ts";
@@ -413,9 +414,11 @@ export interface WireMessage {
    * there by the person who asked (colonie/groups relayWork). */
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };
   role: "bot" | "user";
-  kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
+  kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction" | "plan";
   text?: string;
   digest?: TurnDigest;
+  /** The bot's step list for one turn (kind "plan"); `text` holds the same as a checklist. */
+  plan?: ConversationPlan;
   compaction?: {
     summary: string;
     firstKeptId: string;

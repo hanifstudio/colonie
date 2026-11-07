@@ -10,13 +10,13 @@ between states, which may still change a bot's shape and was not looked at.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 
-Stage 1 left: group failure tests (restart, laptop, two bots). Stage 2: reply to or quote one group
-message, Retry and Edit on a failed send, the line says what holds a bot, a side question, the step
-list as a card, reorder the queue. Stage 3: several bots' answers arrive together, a "no reply
-needed" mark, blocked reports with evidence, files a bot names attach themselves, quiet routines,
-quota-reset waits. Done so far: the stall watcher covers groups; the asker can cancel or stop one
-request from its group line (never seen in a window). Out of scope: steering a running turn,
-branching from an old message.
+Stage 1 left: group failure tests (restart, laptop, two bots). Stage 2: Retry and Edit on a failed
+send, the line says what holds a bot, a side question, reorder the queue. Stage 3: several bots'
+answers arrive together, a "no reply needed" mark, blocked reports with evidence, files a bot names
+attach themselves, quiet routines, quota-reset waits. Done so far: the stall watcher covers groups;
+the asker can cancel or stop one request from its group line; replies and quotes in a group; a bot's
+step list as a card, open while it works, folded after. None of this was seen in a window. Out of
+scope: steering a running turn, branching from an old message.
 
 ## After: verify collaboration, browser panels, and routines
 

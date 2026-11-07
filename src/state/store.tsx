@@ -6,6 +6,7 @@ import { THREAD_FRAME } from "@/lib/conversations";
 import { writeBotPanelView } from "@/lib/bot-panel-view";
 import { shouldOpenBrowserPanel } from "@/lib/browser-auto-open";
 import { isPersonalThread } from "../../shared/personal-thread";
+import type { ConversationPlan } from "../../shared/conversation-plan";
 import {
   createContext,
   useCallback,
@@ -185,8 +186,9 @@ export interface Message {
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };
   id: string;
   role: "bot" | "user";
-  kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction";
+  kind: "text" | "options" | "activity" | "screen" | "connector" | "secret" | "routine.run" | "goal.run" | "digest" | "compaction" | "plan";
   text?: string;
+  plan?: ConversationPlan;
   /** Account workspace attribution; only the display name, never credentials. */
   sender?: { name: string; kind?: "human" | "bot"; id?: string; avatar?: string; email?: string };
   /** digest messages: what the turn did, rendered in `text` and structured here. */

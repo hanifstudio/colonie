@@ -3,6 +3,7 @@
  * store, and the inspector panel cannot drift; server/contracts.ts and
  * server/thread-events.ts re-export these under their historical names. */
 import type { AskQuestion } from "./ask-question.ts";
+import type { PlanStep } from "./conversation-plan.ts";
 
 export type DriverKind = string;
 export type InstanceId = string;
@@ -50,6 +51,12 @@ export type RuntimeEvent = RuntimeEventBase &
     | { type: "session.model-variants"; model: string; variants: ModelVariantState }
     | { type: "session.exited"; reason?: string }
     | { type: "turn.started" }
+    | {
+        /** The step list the bot keeps for this turn, always whole (it replaces the last one). An empty list
+         * means the bot dropped its plan. Never carries a subagent's own list. */
+        type: "plan.updated";
+        steps: PlanStep[];
+      }
     | {
         type: "turn.retrying";
         /** 1-based: the retry about to be launched (1 = first relaunch). */

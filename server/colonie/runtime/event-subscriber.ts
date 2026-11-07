@@ -2,6 +2,7 @@
 import type { RuntimeEvent } from "../../contracts.ts";
 import type { Message } from "../../persistence/store.ts";
 import { isPersistentQuestionCard, shouldSettleRequestCard } from "../../../shared/ask-question.ts";
+import { planText } from "../../../shared/conversation-plan.ts";
 import { failedTurnTool } from "../../../shared/failed-turn.ts";
 import { approvalHeldNote, approvalHeldReason, autoVerdict, deliverFullAccessApproval } from "../../auto-approve.ts";
 import { deleteAttachment, saveImage } from "../../colonie/chat/attachments.ts";
@@ -74,6 +75,16 @@ return (event: RuntimeEvent) => {
     case "turn.started":
       turnStartedAt.set(event.threadId, Date.now());
       break;
+    case "plan.updated": {
+      const existing = [...store.messagesFor(event.threadId)].reverse().find(
+        (message) => message.kind === "plan" && message.turnId === liveTurnId);
+      if (existing) {
+        store.patchMessage(event.threadId, existing.id, { text: planText(event.steps), plan: { steps: event.steps } });
+      } else if (event.steps.length) {
+        pushMessage({ role: "bot", kind: "plan", text: planText(event.steps), plan: { steps: event.steps }, turnId: liveTurnId });
+      }
+      break;
+    }
     case "session.started":
       if (event.sessionId && event.providerInstanceId) {
         store.setResumeCursor(bot.id, event.providerInstanceId, event.sessionId, event.threadId);
@@ -387,6 +398,11 @@ return (event: RuntimeEvent) => {
       }
       break;
     case "turn.completed": {
+      const livePlan = [...store.messagesFor(event.threadId)].reverse().find(
+        (message) => message.kind === "plan" && message.turnId === event.turnId);
+      if (livePlan?.plan) {
+        store.patchMessage(event.threadId, livePlan.id, { plan: { ...livePlan.plan, ended: true, stopped: !event.ok } });
+      }
       settleWaitingOnPersonChips()(event.threadId);
       // A peer-started turn settles as coordination, not as news. What keeps
       // that classification from outliving its turn is the rewrite at

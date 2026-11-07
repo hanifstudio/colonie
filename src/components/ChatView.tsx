@@ -27,6 +27,7 @@ import {
   MultiplicationSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
+import { PlanCard } from "@/components/PlanCard";
 import { WorkingDots, WorkingTimer } from "@/components/WorkingIndicator";
 import { MessageActions, messageActionClass } from "@/components/MessageActions";
 import { useSpeech } from "@/lib/tts/useSpeech";
@@ -492,6 +493,8 @@ export const Bubble = memo(function Bubble({
     if (focusedSearch && collapsible) setExpanded(true);
   }, [focusedSearch, collapsible, focus?.nonce]);
 
+  // the bot's own step list in a 1:1 chat: a card in the flow, no bubble
+  if (message.kind === "plan") return message.plan ? <PlanCard plan={message.plan} /> : null;
   // a line about the conversation itself (who made it, who joined)
   if (message.notice) return <div className="py-1 text-center text-[12.5px] text-ink-tertiary">{message.text}</div>;
   // in a group: the bot is still working on its answer; the same dots as a
@@ -508,6 +511,7 @@ export const Bubble = memo(function Bubble({
           {message.workingSince ? <span className="text-[11px]">Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
           {message.workThread && <button type="button" className="ml-2 text-[12px] text-accent hover:underline"
             onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
+          {message.plan && <PlanCard plan={message.plan} compact />}
         </div>
         {/* only the person who asked may cancel or stop this one request */}
         <WorkingLineCancel message={message} viewerKey={conversation?.viewerKey} onCancel={conversation?.cancelWork} />
@@ -702,6 +706,7 @@ export const Bubble = memo(function Bubble({
               ) : null}
             </MessageBoundary>
           )}
+          {!user && message.plan && <PlanCard plan={message.plan} compact />}
           {!user && message.workThread && <button type="button" className="mt-2 block text-[12px] text-accent hover:underline"
             onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
           {/* its work ended early: one click names the bot again, and it resumes its original ask */}
