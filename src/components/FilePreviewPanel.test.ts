@@ -171,3 +171,10 @@ test("saving a file from a message shows the same progress ring, and stopping it
   await vi.waitFor(() => expect(host.querySelector('[aria-label="Save a copy of archive.zip"]')).toBeTruthy());
   expect(host.querySelector('[role="progressbar"]')).toBeNull();
 });
+
+test("a file the panel cannot draw still opens it, says so, and offers the save there", async () => {
+  vi.stubGlobal("fetch", vi.fn());
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: { ...target, path: "/workspace/bundle.zip", name: "bundle.zip" } })));
+  expect(host.textContent).toContain("Preview is not available for this file type");
+  expect(host.querySelector('[aria-label="Save a copy of bundle.zip"]')).toBeTruthy();
+});
