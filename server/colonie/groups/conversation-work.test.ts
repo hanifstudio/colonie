@@ -682,3 +682,28 @@ test("a reply must point at a message of this conversation, and a retried send k
   expect((await f.service.post(caller, f.group.id, "again", "keep-1", first.message.id)).status).toBe(201);
   expect((await f.service.post(caller, f.group.id, "again", "keep-1")).status).toBe(409);
 });
+
+test("two bots named in one message work at once; one failing leaves the other's answer alone", async () => {
+  const f = fixture();
+  const second = f.store.createBot({ name: `Pixel-${randomUUID()}` });
+  const group = f.service.create(caller, { name: "Pair", bots: [f.bot.id, second.id] }).body as { id: string; threadId: string };
+  await f.service.post(caller, group.id, `@${f.bot.name} @${second.name} both look at the budget`, randomUUID());
+  // other tests leave queued work in the shared database; only this group's calls count
+  const here = () => f.calls.filter((call) => call.work.conversationId === group.id);
+  await settle(() => here().length === 2);
+  const [first, other] = [here().find((call) => call.work.botId === f.bot.id)!, here().find((call) => call.work.botId === second.id)!];
+  expect(first.threadId).not.toBe(other.threadId);
+  const lines = () => f.store.messagesFor(group.threadId).filter((message) => message.working);
+  expect(lines()).toHaveLength(2);
+  // the first answers; the second's turn fails
+  f.store.appendMessage(first.threadId, { role: "bot", kind: "text", text: "Budget is fine.\nStatus: done", turnTerminal: true });
+  f.service.turnCompleted(first.threadId, true);
+  f.service.turnCompleted(other.threadId, false);
+  await settle(() => lines().length === 0);
+  const visible = f.store.messagesFor(group.threadId).filter((message) => message.role === "bot" && message.from?.botId);
+  const mine = visible.find((message) => message.from?.botId === f.bot.id)!;
+  const theirs = visible.find((message) => message.from?.botId === second.id)!;
+  expect(mine.text).toContain("Budget is fine.");
+  expect(mine.stoppedBy).toBeUndefined();
+  expect(theirs.stoppedBy).toMatchObject({ botId: second.id, reason: "failed" });
+});
