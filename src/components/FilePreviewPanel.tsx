@@ -13,7 +13,8 @@ import { messageImagePreviewUrl, OutsideWorkspaceFile, requestMessageFile, useLo
 import { PREVIEW_ACTION, PreviewToolbar } from "./file-preview/PreviewToolbar";
 import { usePreviewPanel } from "./file-preview/use-preview-panel";
 import { PreviewBoundary } from "./file-preview/PreviewBoundary";
-import { conversationFileLocation, downloadConversationFile, requestConversationFile } from "@/lib/conversations";
+import { conversationFileLocation, requestConversationFile } from "@/lib/conversations";
+import { readDownload, saveBlob, type DownloadProgress } from "@/lib/file-download";
 
 const DocxPreview = lazy(() => import("./file-preview/DocxPreview"));
 const PdfPreview = lazy(() => import("./file-preview/PdfPreview"));
@@ -95,7 +96,7 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
         <p className="mt-0.5 text-[11px] text-ink-tertiary">{t("attach.previewTitle")} · Read only</p>
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
-        <button type="button" onClick={() => void save.save()} disabled={save.state === "saving"} className={PREVIEW_ACTION} title={t("attach.saveAria", { name: preview.name })} aria-label={t("attach.saveAria", { name: preview.name })}><HIcon icon={save.state === "saving" ? Loading02Icon : Download01Icon} size={16} className={save.state === "saving" ? "animate-spin" : undefined} /></button>
+        <SaveButton name={preview.name} save={save} />
         {preview.conversationId && window.colonie?.revealInFolder && !window.colonie.remoteClient?.active && <button type="button" className={PREVIEW_ACTION} title="Show in Finder" aria-label="Show in Finder"
           onClick={() => void conversationFileLocation(preview.conversationId!, preview.path).then((path) => window.colonie!.revealInFolder!(path)).catch(() => {})}><HIcon icon={FolderOpenIcon} size={15} /></button>}
         <button type="button" onClick={() => setAttempt((value) => value + 1)} className={PREVIEW_ACTION} title="Refresh preview" aria-label="Refresh preview"><HIcon icon={RefreshCwIcon} size={15} /></button>
@@ -125,18 +126,58 @@ export function FilePreviewPanel({ preview }: { preview: FilePreviewTarget }) {
   </aside>;
 }
 
-/** Save for a group's project file: its own download, not a message grant. */
+/** Save for a group's project file: its own download, read in pieces so it shows its progress. */
 function useGroupFileSave(conversationId: string | undefined, path: string) {
   const [state, setState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [reason, setReason] = useState("");
-  useEffect(() => { setState("idle"); setReason(""); }, [conversationId, path]);
+  const [progress, setProgress] = useState<DownloadProgress | null>(null);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => { request.current?.abort(); request.current = null; setState("idle"); setReason(""); setProgress(null); }, [conversationId, path]);
+  const stop = useCallback(() => { request.current?.abort(); request.current = null; setProgress(null); setState("idle"); }, []);
   const save = useCallback(async () => {
-    if (!conversationId) return;
-    setState("saving"); setReason("");
-    try { await downloadConversationFile(conversationId, path); setState("saved"); }
-    catch (cause) { setReason(cause instanceof Error ? cause.message : String(cause)); setState("failed"); }
+    if (!conversationId || request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    setState("saving"); setReason(""); setProgress(null);
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/files/content?path=${encodeURIComponent(path)}`, { signal: controller.signal });
+      if (!response.ok) throw new Error(((await response.json().catch(() => null)) as { error?: string } | null)?.error ?? "The file could not be downloaded.");
+      const blob = await readDownload(response, controller.signal, setProgress);
+      if (controller.signal.aborted) return;
+      saveBlob(blob, path.split("/").at(-1) ?? "file");
+      setProgress(null); setState("saved");
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      setReason(cause instanceof Error ? cause.message : String(cause)); setProgress(null); setState("failed");
+    } finally { if (request.current === controller) request.current = null; }
   }, [conversationId, path]);
-  return { state, reason, save };
+  return { state, reason, progress, save, stop };
+}
+
+/** The preview's one save button: a ring with the percent while it saves (press to stop), a retry after a
+ * failure, and the plain download icon otherwise. */
+function SaveButton({ name, save }: { name: string; save: { state: "idle" | "saving" | "saved" | "failed"; progress?: DownloadProgress | null; save: () => Promise<void> | void; stop?: () => void } }) {
+  const saving = save.state === "saving";
+  const percent = saving && save.progress && save.progress.total > 0 ? Math.min(100, Math.floor((save.progress.received / save.progress.total) * 100)) : null;
+  if (saving && save.stop) {
+    // "Downloading…", with the percent once the size is known; pressing it stops the save
+    const label = `${t("attach.downloading")}${percent === null ? "" : ` ${percent}%`} ${t("chat.stop")}`;
+    return <button type="button" onClick={save.stop} className={PREVIEW_ACTION} title={label} aria-label={label}>
+      <span className="relative flex size-5 items-center justify-center" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined}>
+        <svg viewBox="0 0 20 20" className="absolute inset-0 -rotate-90" aria-hidden="true">
+          <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2" />
+          <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            strokeDasharray={50.27} strokeDashoffset={50.27 * (1 - (percent ?? 0) / 100)} className={percent === null ? "animate-spin origin-center" : undefined} />
+        </svg>
+        <span className="size-1.5 rounded-[1px] bg-current" aria-hidden="true" />
+      </span>
+    </button>;
+  }
+  const failed = save.state === "failed";
+  const label = failed ? t("attach.retrySaveAria", { name }) : t("attach.saveAria", { name });
+  return <button type="button" onClick={() => void save.save()} disabled={saving} className={PREVIEW_ACTION} title={label} aria-label={label}>
+    <HIcon icon={saving ? Loading02Icon : failed ? RefreshCwIcon : Download01Icon} size={16} className={saving ? "animate-spin" : undefined} /></button>;
 }
 
 function PreviewLoading() {

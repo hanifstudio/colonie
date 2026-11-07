@@ -37,7 +37,7 @@ import { TRANSCRIPT_WINDOW_SIZE } from "../lib/transcript-window";
 import { windowsPathDestinations } from "../../shared/markdown-windows-paths";
 import { looksLikeThreadRefUrl, parseThreadRefUrl, resolveThreadRefAddress, remarkThreadRefs } from "../lib/thread-refs";
 import { MarkdownImagePreview, MessageFolderFiles, OutsideWorkspaceFile, useFilePreview, useLocalFileSave, type MessageAttachmentContext } from "./AttachmentPreview";
-import { filePreviewKind, previewFilename } from "@/lib/file-preview";
+import { previewFilename } from "@/lib/file-preview";
 import { ThreadLink, ThreadRefsContext, threadLinkFromProps, type ThreadRefsValue } from "./ThreadRefs";
 import { MarkdownTable } from "./MarkdownTable";
 import { TableFileButton } from "./TableFilePreview";
@@ -671,7 +671,6 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
 function LocalFileLink({ filePath, children, message }: { filePath: string; children?: ReactNode; message?: MessageAttachmentContext }) {
   const save = useLocalFileSave(filePath, undefined, message);
   const onPreview = useFilePreview();
-  const canPreview = Boolean(onPreview && filePreviewKind(filePath));
   const name = previewFilename(filePath);
   if (!message) {
     return <span title="Unavailable legacy file reference" className="break-words text-ink-secondary">{children}</span>;
@@ -689,13 +688,13 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
       <TableFileButton path={filePath} name={filePath.split(/[\\/]/).at(-1) ?? filePath} message={message} />
       <button
         type="button"
-        onClick={() => canPreview ? onPreview?.({ ...message, path: filePath, name }) : void save.save()}
-        disabled={!canPreview && save.state === "saving"}
-        title={canPreview ? t("attach.previewFile", { name }) : "Save a copy"}
+        onClick={() => onPreview ? onPreview({ ...message, path: filePath, name }) : void save.save()}
+        disabled={!onPreview && save.state === "saving"}
+        title={onPreview ? t("attach.previewFile", { name }) : "Save a copy"}
         className="inline-flex items-center gap-1 break-words text-start text-accent underline decoration-accent/40 hover:decoration-accent disabled:cursor-wait"
       >
         {children}
-        {canPreview ? null : save.state === "saving" ? (
+        {onPreview ? null : save.state === "saving" ? (
           <HIcon icon={Loading02Icon} size={12} className="shrink-0 animate-spin" aria-hidden="true" />
         ) : save.state === "saved" ? (
           <HIcon icon={Tick01Icon} size={12} className="shrink-0 text-success" aria-hidden="true" />

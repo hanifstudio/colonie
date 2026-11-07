@@ -3,7 +3,7 @@
 // through the server's exact-message file authorization.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fromMarkdown } from "mdast-util-from-markdown";
-import { ChevronDownIcon, ChevronUpIcon, Download01Icon, Film01Icon, Loading02Icon, MusicNote01Icon, MultiplicationSignIcon, PlayIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, ChevronUpIcon, Film01Icon, Loading02Icon, MusicNote01Icon, MultiplicationSignIcon, PlayIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { attachmentBasename, FILE_MAX_BYTES, type TranscriptFileAttachment, type TranscriptImageAttachment } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
@@ -313,8 +313,6 @@ function AudioAttachment({ file, message }: { file: GalleryFile; message: Messag
             </button>
           )}
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink" title={file.name}>{file.name}</span>
-        {src && <a href={src} download={file.name} aria-label={t("attach.saveAria", { name: file.name })} title={t("attach.saveAria", { name: file.name })}
-          className="shrink-0 rounded-lg p-1 text-ink-secondary hover:bg-raised hover:text-ink"><HIcon icon={Download01Icon} size={14} /></a>}
       </div>
       {src && !error && <audio src={src} controls autoPlay preload="metadata" aria-label={t("attach.previewAudio", { name: file.name })} onError={() => { setSrc(null); setError(t("attach.audioUnavailable")); }} className="h-9 w-full" />}
       {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}

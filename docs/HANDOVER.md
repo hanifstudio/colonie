@@ -1,14 +1,12 @@
 # Handover
 
-## Now: attach files and images in a group
+## Now: saving a file happens in the preview, with progress
 
-Done: a person in a group has a paperclip, picks files or images, and sends them beside the
-words; the message carries one tag per file, as in a bot chat, and the bots read it (tests:
-the tag reaches the bot, a member opens the file, a stranger gets 404), and an image pasted in
-the box is uploaded and sent. Left: a look at a real group with a real file and image (drop is
-the window-wide handler that bot chats use; not tried in a group). Out of scope: the group's
-project folder as the destination, voice notes, files above 25 MB. Release 0.3.24 (video, Reka
-name loss, this) waits for the owner.
+Done (owner, November 7): a message row never carries its own download; a file link or card opens
+the preview, whose one save button, for a group file and a message file alike, shows a ring with
+the percent, stops on a press, and retries after a failure. Left: a big real file in a window.
+Next: attach the files a bot names in its answer by themselves (the way openbot does), a
+missing-file card, spreadsheet preview.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 

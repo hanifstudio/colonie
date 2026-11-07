@@ -107,3 +107,67 @@ test("a path inside a group's project folder names the group and the file inside
   expect(groupFileRef("/data/Movies/clip.mp4")).toBeNull();
   expect(groupFileRef("/data/conversation-files/c1/../secret.mp4")).toBeNull();
 });
+
+const slowSave = (chunks: number[], total: number, gate: Promise<void>) => {
+  let sent = 0;
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (sent >= chunks.length) return controller.close();
+      if (sent === 1) await gate;
+      controller.enqueue(new Uint8Array(chunks[sent]!)); sent += 1;
+    },
+  });
+  return new Response(body, { headers: { "content-length": String(total), "content-type": "application/octet-stream" } });
+};
+
+test("saving a group file shows a progress ring with the percent, and pressing it stops the save", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const fetcher = vi.fn(async () => slowSave([250, 750], 1000, gate)); vi.stubGlobal("fetch", fetcher);
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }));
+  const group = { threadId: "t", messageId: "", path: "notes.zip", name: "notes.zip", conversationId: "c1" };
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: group })));
+  await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Save a copy of notes.zip"]')!.click(); });
+  await vi.waitFor(() => expect(host.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("25"));
+  const stop = host.querySelector<HTMLButtonElement>('button[aria-label^="Downloading"]')!;
+  expect(stop.getAttribute("aria-label")).toContain("25%");
+  await act(async () => { stop.click(); });
+  release();
+  // stopped: the ring is gone and the plain save button is back, with no error
+  await vi.waitFor(() => expect(host.querySelector('[aria-label="Save a copy of notes.zip"]')).toBeTruthy());
+  expect(host.querySelector('[role="progressbar"]')).toBeNull();
+  expect(host.querySelector('[role="alert"]')?.textContent ?? "").not.toContain("download");
+});
+
+test("a failed save offers a retry on the same button", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "no such file" }), { status: 404 })));
+  const group = { threadId: "t", messageId: "", path: "gone.zip", name: "gone.zip", conversationId: "c1" };
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: group })));
+  await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Save a copy of gone.zip"]')!.click(); });
+  await vi.waitFor(() => expect(host.querySelector('[aria-label="Retry saving gone.zip"]')).toBeTruthy());
+  expect(host.textContent).toContain("no such file");
+});
+
+test("a file row in a message has no save button of its own: it opens the preview, which saves", async () => {
+  const onPreview = vi.fn();
+  await act(() => root.render(createElement(FilePreviewScope, { onPreview, children: createElement(AttachedFileChip, {
+    file: { path: "/workspace/clip.zip", name: "clip.zip", private: true }, message: target,
+  }) })));
+  expect(host.querySelector('[aria-label="Save a copy of clip.zip"]')).toBeNull();
+  await act(() => host.querySelector<HTMLButtonElement>('[aria-label="Preview clip.zip"]')!.click());
+  expect(onPreview).toHaveBeenCalledWith({ threadId: target.threadId, messageId: target.messageId, path: "/workspace/clip.zip", name: "clip.zip" });
+});
+
+test("saving a file from a message shows the same progress ring, and stopping it leaves no error", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const fetcher = vi.fn(async () => slowSave([300, 700], 1000, gate)); vi.stubGlobal("fetch", fetcher);
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }));
+  await act(async () => root.render(createElement(FilePreviewPanel, { preview: { ...target, path: "/workspace/archive.zip", name: "archive.zip" } })));
+  await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Save a copy of archive.zip"]')!.click(); });
+  await vi.waitFor(() => expect(host.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("30"));
+  await act(async () => { host.querySelector<HTMLButtonElement>('button[aria-label^="Downloading"]')!.click(); });
+  release();
+  await vi.waitFor(() => expect(host.querySelector('[aria-label="Save a copy of archive.zip"]')).toBeTruthy());
+  expect(host.querySelector('[role="progressbar"]')).toBeNull();
+});

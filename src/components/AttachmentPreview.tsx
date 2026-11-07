@@ -12,6 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { readDownload, type DownloadProgress } from "@/lib/file-download";
 import { createPortal } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon, Download01Icon, EyeIcon, FileTextIcon, FolderOpenIcon, ImageOffIcon, Loading02Icon, Maximize02Icon, MultiplicationSignIcon, RotateCcwIcon, SquareArrowUpRightIcon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
@@ -24,7 +25,7 @@ import {
 } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { filePreviewKind, previewFilename } from "@/lib/file-preview";
+import { previewFilename } from "@/lib/file-preview";
 import { TableFileButton } from "./TableFilePreview";
 
 export interface PreviewImage {
@@ -265,6 +266,7 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
   const [folder, setFolder] = useState<MessageFolderListing | null>(null);
   const [reason, setReason] = useState("");
   const [savedTo, setSavedTo] = useState("");
+  const [progress, setProgress] = useState<DownloadProgress | null>(null);
   // The server refused because the file sits outside the conversation's
   // workspace; the bot link offers Show in folder for that case alone.
   const [outsideWorkspace, setOutsideWorkspace] = useState(false);
@@ -288,6 +290,7 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
     saving.current = false;
     setReason("");
     setSavedTo("");
+    setProgress(null);
     setOutsideWorkspace(false);
     setFolder(null);
     setState("idle");
@@ -320,7 +323,7 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
         setState("idle");
         return;
       }
-      const blob = await response.blob();
+      const blob = await readDownload(response, controller.signal, (next) => { if (mounted.current) setProgress(next); });
       if (!mounted.current || controller.signal.aborted) return;
       const url = URL.createObjectURL(blob);
       const saved = canonicalDownloadFilename({
@@ -346,6 +349,7 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
       }
       if (!mounted.current || controller.signal.aborted) return;
       setSavedTo(saved);
+      setProgress(null);
       setState("saved");
       if (resetTimer.current) clearTimeout(resetTimer.current);
       resetTimer.current = setTimeout(() => {
@@ -355,6 +359,7 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
       if (!mounted.current || controller.signal.aborted) return;
       setReason(error instanceof Error ? error.message : t("attach.saveFailed"));
       setOutsideWorkspace((error as { code?: unknown } | null)?.code === "outside_workspace");
+      setProgress(null);
       setState("failed");
     } finally {
       if (request.current === controller) {
@@ -364,7 +369,16 @@ export function useLocalFileSave(filePath: string, name?: string, message?: Mess
     }
   }, [filePath, entry, message?.messageId, message?.threadId, name]);
 
-  return { state, reason, savedTo, outsideWorkspace, folder, save };
+  /** Stop a save that is running: the read is cancelled and the row returns to idle. */
+  const stop = useCallback(() => {
+    request.current?.abort();
+    request.current = null;
+    saving.current = false;
+    setProgress(null);
+    setState("idle");
+  }, []);
+
+  return { state, reason, savedTo, outsideWorkspace, folder, save, progress, stop };
 }
 
 function folderFileSize(bytes: number): string {
@@ -926,7 +940,6 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
 }) {
   const save = useLocalFileSave(file.path, file.name, message);
   const onPreview = useFilePreview();
-  const canPreview = Boolean(onPreview && filePreviewKind(file.path));
   const failed = save.state === "failed";
   if (!message || (!file.private && !linked)) {
     return (
@@ -945,18 +958,13 @@ export function AttachedFileChip({ file, message, linked = false, className }: {
       <div className="flex items-center pe-1">
         <button
           type="button"
-          onClick={() => canPreview && message ? onPreview?.({ ...message, path: file.path, name: file.name }) : void save.save()}
-          disabled={save.state === "saving"}
-          aria-label={
-            canPreview ? t("attach.previewFile", { name: file.name }) : failed
-              ? t("attach.retrySaveAria", { name: file.name })
-              : t("attach.saveAria", { name: file.name })
-          }
+          onClick={() => { if (message) { if (onPreview) onPreview({ ...message, path: file.path, name: file.name }); else void save.save(); } }}
+          aria-label={onPreview ? t("attach.previewFile", { name: file.name }) : t("attach.saveAria", { name: file.name })}
           className="flex min-h-10 min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-raised/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60 disabled:cursor-wait disabled:hover:bg-transparent"
         >
           <HIcon icon={FileTextIcon} size={14} className="shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
-          {canPreview ? <HIcon icon={EyeIcon} size={13} className="shrink-0" /> : save.state === "saving" ? (
+          {onPreview ? <HIcon icon={EyeIcon} size={13} className="shrink-0" /> : save.state === "saving" ? (
             <HIcon icon={Loading02Icon} size={13} className="shrink-0 animate-spin" />
           ) : save.state === "saved" ? (
             <HIcon icon={Tick01Icon} size={13} className="shrink-0 text-success" />
