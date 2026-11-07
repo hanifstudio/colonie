@@ -21,3 +21,13 @@ test("every face the picker offers looks different", () => {
   const faces = PICKABLE_STATES.map((state) => bloubFace(state));
   expect(new Set(faces).size).toBe(faces.length);
 });
+
+test("every body the picker offers is drawn differently, and a retired one maps to its twin", async () => {
+  const { PICKABLE_BODY_IDS, bodyChoice, bloubShape } = await import("./BloubAvatar");
+  const shapes = PICKABLE_BODY_IDS.map((id) => bloubShape(id));
+  expect(new Set(shapes).size).toBe(shapes.length);
+  expect(bodyChoice("blob")).toBe("cursor");
+  expect(bodyChoice("shield")).toBe("drop");
+  expect(bodyChoice("diamond")).toBe("squircle");
+  expect(bodyChoice(undefined)).toBe("cursor");
+});

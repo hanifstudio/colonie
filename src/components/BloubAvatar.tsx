@@ -6,6 +6,7 @@ import { EXPRESSION_BY_ID, EXPRESSIONS } from "../../third_party/bloub/src/bot/e
 import { NOTIF_BLUE } from "../../third_party/bloub/src/bot/decor";
 import { bloubViewHalf, useGlobalBloubGaze } from "./bloub-gaze";
 import type { StateId } from "../../third_party/bloub/src/bot/states";
+import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS, type MascotBodyId } from "../../shared/mascot-bodies";
 import type { MausAvatarHandle, MausAvatarProps } from "./Avatar";
 
 const SHAPES: Record<string, string> = { cursor: "galet", blob: "galet", circle: "cercle", squircle: "squircle", capsule: "capsule", drop: "goutte", shield: "goutte", hexagon: "hexagone", diamond: "squircle", star: "nuage" };
@@ -38,6 +39,13 @@ export function bloubState(state = "idle", motion = "none"): StateId {
   return "idle";
 }
 export function bloubShape(body = "cursor") { return SHAPE_BY_ID.get(SHAPES[body] ?? "galet")!; }
+/** The body choice that draws the same shape as `body`; a bot saved as "blob" is drawn as the cursor. */
+export function bodyChoice(body: string | null | undefined): MascotBodyId {
+  const shape = SHAPES[body ?? "cursor"] ?? "galet";
+  return MASCOT_BODY_IDS.find((id) => SHAPES[id] === shape) ?? DEFAULT_MASCOT_BODY;
+}
+/** Bodies a person can pick: one per shape the engine really draws, so every choice looks different. */
+export const PICKABLE_BODY_IDS: readonly MascotBodyId[] = MASCOT_BODY_IDS.filter((id) => bodyChoice(id) === id);
 
 export function BloubFrame({ frame, size, ink, uid, label }: { frame: BotFrame; size: number; ink: string; uid: string; label?: string }) {
   const dots = frame.dots.map((dot, index) => dot.d

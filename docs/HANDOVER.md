@@ -2,11 +2,11 @@
 
 ## Now: a bot looks the same everywhere
 
-A bot keeps the face and body its owner chose on every screen, and the picker offers only choices
-that look different. Steps, one commit each: (1) the chosen face wins over the hardcoded "happy" and
-"idle" at call sites; the face picker lists only faces that differ. (2) The body picker lists only
-bodies the engine really draws (10 choices map to 7 shapes today). Proof: a test per step, then the
-sidebar, chat and settings seen in a window. Out of scope: new bodies, the engine's own morphing.
+Face is done in code (the chosen face wins on every screen). Left: see the sidebar, chat, and bot
+settings in a window, and check that bots saved with a chosen "working", "thinking" or "sleeping"
+now show the default face until their owner picks again. The body picker offers only the 7 bodies
+the engine draws (10 stored values map to 7). Out of scope: new bodies, the engine's own morphing
+between states, which may still change a bot's shape and was not looked at.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 

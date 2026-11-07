@@ -24,7 +24,8 @@ import {
   clampAvatarZoom,
   type BotAvatarCrop,
 } from "../../shared/bot-avatar";
-import { MASCOT_BODIES, MASCOT_BODY_IDS } from "../../shared/mascot-bodies";
+import { MASCOT_BODIES } from "../../shared/mascot-bodies";
+import { PICKABLE_BODY_IDS, bodyChoice } from "./BloubAvatar";
 import { BotAvatar, MausAvatar } from "./Avatar";
 import { AvatarImageGenerator } from "./AvatarImageGenerator";
 
@@ -351,17 +352,17 @@ export function BotProfileAvatarCard({
               Body
             </div>
             <div className="grid grid-cols-5 gap-1.5">
-              {MASCOT_BODY_IDS.map((id) => (
+              {PICKABLE_BODY_IDS.map((id) => (
                 <button
                   key={id}
                   type="button"
                   disabled={busy}
-                  aria-pressed={(bot.mascotBody ?? "cursor") === id}
+                  aria-pressed={bodyChoice(bot.mascotBody) === id}
                   aria-label={`Use the ${MASCOT_BODIES[id].name} body`}
                   onClick={() => onPatch({ mascotBody: id })}
                   className={cn(
                     "flex items-center justify-center rounded-lg py-1.5 disabled:opacity-50",
-                    (bot.mascotBody ?? "cursor") === id
+                    bodyChoice(bot.mascotBody) === id
                       ? "bg-control text-ink"
                       : "text-ink-secondary hover:bg-control/60",
                   )}

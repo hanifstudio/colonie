@@ -8,7 +8,8 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { MAUS_COLOR_NAMES, MAUS_COLORS, type MausColor } from "@/lib/mascot";
 import { api, type Bot } from "@/state/store";
-import { DEFAULT_MASCOT_BODY, MASCOT_BODIES, MASCOT_BODY_IDS, type MascotBodyId } from "../../../../shared/mascot-bodies";
+import { PICKABLE_BODY_IDS, bodyChoice } from "../../BloubAvatar";
+import { DEFAULT_MASCOT_BODY, MASCOT_BODIES, type MascotBodyId } from "../../../../shared/mascot-bodies";
 import { inputClass, PrimaryButton, QuietButton, staggerIndex, type BeatProps } from "./shared";
 
 const SOUL_LINE_LIMIT = 200;
@@ -33,7 +34,7 @@ export function MeetYourBotBeat({
 }) {
   const [name, setName] = useState(bot?.name ?? "");
   const [color, setColor] = useState<MausColor>(bot?.color ?? "green");
-  const [body, setBody] = useState<MascotBodyId>(bot?.mascotBody ?? DEFAULT_MASCOT_BODY);
+  const [body, setBody] = useState<MascotBodyId>(bodyChoice(bot?.mascotBody));
   const [line, setLine] = useState("");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -128,7 +129,7 @@ export function MeetYourBotBeat({
       <div className="animate-rise mt-4" style={staggerIndex(3)}>
         <div className="text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary">{t("onboarding.bot.body")}</div>
         <div role="radiogroup" aria-label={t("onboarding.bot.body")} className="mt-2 grid grid-cols-5 gap-1.5">
-          {MASCOT_BODY_IDS.map((id) => (
+          {PICKABLE_BODY_IDS.map((id) => (
             <button
               key={id}
               type="button"
