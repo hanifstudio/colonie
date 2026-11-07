@@ -193,7 +193,11 @@ export interface StateDef {
    * sur la video, c'est precisement ce qu'on reproduit.
    */
   baseFace: boolean
-  pose(local: number): Pose
+  /**
+   * `shape` = la forme choisie par la personne (ou null). Colonie : un etat qui se relache vers
+   * une boule se relache vers CETTE forme, pas vers un cercle.
+   */
+  pose(local: number, shape?: number[] | null): Pose
 }
 
 /** Onde de pulsation qui parcourt les trois points de gauche a droite. */
@@ -440,7 +444,7 @@ export const STATES: StateDef[] = [
     baseFace: false,
     baseBody: false,
     blinkIn: false,
-    pose: (t) => {
+    pose: (t, shape) => {
       // Rotation mesuree : rampe sur 0.35 s puis 1.25 tour/s (sens antihoraire).
       const ramp = easings.easeInOutCubic(clamp(t / 0.35))
       const rot = -TAU * 1.25 * t * ramp
@@ -448,9 +452,12 @@ export const STATES: StateDef[] = [
       const back = easings.easeInOutCubic(clamp((t - 1.6) / 0.9))
       const tri = spinningTriangle(rot)
       const ball = circle(1, { rot })
+      // Colonie : le corps revient a la forme choisie, et cesse de tourner en y arrivant (une forme
+      // non ronde qui tournerait sans fin ne serait plus la forme choisie).
+      const rest = shape ?? ball.radii
       const sil: Silhouette = {
-        radii: tri.radii.map((r, i) => r + (ball.radii[i]! - r) * back),
-        rot,
+        radii: tri.radii.map((r, i) => r + (rest[i]! - r) * back),
+        rot: shape ? rot * (1 - back) : rot,
         cx: tri.cx * (1 - back),
         cy: tri.cy * (1 - back),
         sx: 1,

@@ -31,3 +31,14 @@ test("every body the picker offers is drawn differently, and a retired one maps 
   expect(bodyChoice("diamond")).toBe("squircle");
   expect(bodyChoice(undefined)).toBe("cursor");
 });
+
+test("while a bot works it settles into the body its owner chose, not a circle", async () => {
+  const { BotEngine } = await import("../../third_party/bloub/src/bot/engine");
+  const { PICKABLE_BODY_IDS, bloubShape } = await import("./BloubAvatar");
+  const body = (id: string, state: "idle" | "orbit", at: number) => {
+    const engine = new BotEngine(100, "idle", bloubShape(id).radii, null);
+    engine.setState(state, 0);
+    return engine.sample(at).bodyPath;
+  };
+  for (const id of PICKABLE_BODY_IDS) expect(body(id, "orbit", 3), id).toBe(body(id, "idle", 3));
+});

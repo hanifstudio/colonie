@@ -2,15 +2,15 @@
 
 ## Now: a bot looks the same everywhere
 
-Face is done in code (the chosen face wins on every screen). Left: see the sidebar, chat, and bot
-settings in a window, and check that bots saved with a chosen "working", "thinking" or "sleeping"
-now show the default face until their owner picks again. The body picker offers only the 7 bodies
-the engine draws (10 stored values map to 7). Out of scope: new bodies, the engine's own morphing
-between states, which may still change a bot's shape and was not looked at.
+Done in code: the chosen face wins on every screen; the body picker offers only the 7 bodies the
+engine draws; while a bot works it settles into its chosen body instead of a circle. Left: see the
+sidebar, chat, and settings in a window, with a bot that works. Bots saved with a chosen "working",
+"thinking" or "sleeping" show the default face until picked again. Thinking and sleeping still
+shrink to a dot on purpose. Out of scope: new bodies.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 
-Stage 1 left: group failure tests (restart, laptop, two bots). Stage 2: Retry and Edit on a failed
+Stage 1 is done (restart, a stalled turn, two bots at once are covered by tests). Stage 2: Retry and Edit on a failed
 send, the line says what holds a bot, a side question, reorder the queue. Stage 3: several bots'
 answers arrive together, a "no reply needed" mark, blocked reports with evidence, files a bot names
 attach themselves, quiet routines, quota-reset waits. Done so far: the stall watcher covers groups;

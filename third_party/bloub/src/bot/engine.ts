@@ -272,7 +272,7 @@ export class BotEngine {
     shape: number[] | null,
     expr: BotExpression | null
   ): Pose {
-    let pose = def.pose(t)
+    let pose = def.pose(t, shape)
     if (def.baseBody && shape) {
       // on garde la pose (rotation, decalage, squash) et on n'echange que le profil
       pose = { ...pose, sil: { ...pose.sil, radii: shape } }
