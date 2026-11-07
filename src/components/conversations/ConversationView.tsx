@@ -22,12 +22,13 @@ import { useMentionPicker } from "@/lib/use-mention-picker";
 import { HERE_MENTION } from "../../../shared/mention-boundary";
 import { GroupPanel } from "./GroupPanel";
 import { GroupStack } from "./GroupFaces";
-import { appendDraftAttachments, changeDraftAttachmentPending, replaceDraftAttachment, useComposerDraft, useDraftAttachmentPending } from "@/lib/drafts";
+import { appendDraftAttachments, changeDraftAttachmentPending, replaceDraftAttachment, useComposerDraft, useDraftAttachmentPending, useReplyDraft } from "@/lib/drafts";
 import {
-  clipboardImageFiles, composeMessage, handoffAttachmentImagePreview, imageAttachmentFromFile, intakeFiles, optimisticImageAttachment,
+  clipboardImageFiles, composeMessage, replyTargetTakesFocus, handoffAttachmentImagePreview, imageAttachmentFromFile, intakeFiles, optimisticImageAttachment,
   releaseAttachmentImagePreview, type Attachment, type PasteAttachment,
 } from "@/lib/composer-attachments";
 import { ComposerAttachments, pathForFile } from "../ComposerAttachments";
+import { ReplyQuote } from "../ReplyQuote";
 import type { CitationAttachment } from "@/lib/citations";
 import { t } from "@/lib/i18n";
 
@@ -80,6 +81,8 @@ export function ConversationView({ id }: { id: string }) {
       .then(({ message }) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: threadId ?? "", message })))
       .catch(() => {});
   }, [state.bots, id, threadId]);
+  // replying to one message: the Reply button on a line chooses it, the composer shows it and sends it
+  const { replyTo, selectReply, clearReply, consumeReply } = useReplyDraft(threadId ?? "", `conversation:${id}`, messages ?? []);
   const cancelWork = useCallback(async (messageId: string) => {
     await stopConversationLine(id, messageId);
     window.dispatchEvent(new Event(CONVERSATIONS_CHANGED));
@@ -89,7 +92,8 @@ export function ConversationView({ id }: { id: string }) {
     onSecretSaved: (name: string, botId: string) => continueBot(`I saved ${name}. Please continue.`, botId),
     continueBot,
     cancelWork,
-  }), [viewerKey, continueBot, cancelWork]);
+    onReply: selectReply,
+  }), [viewerKey, continueBot, cancelWork, selectReply]);
   if (!conversation) {
     return <main className="flex h-full flex-1 items-center justify-center bg-app text-ink-secondary"><HIcon icon={Loading02Icon} size={18} className="animate-spin" /></main>;
   }
@@ -133,6 +137,7 @@ export function ConversationView({ id }: { id: string }) {
       ),
       empty: messages ? <p className="py-10 text-center text-[13px] text-ink-secondary">No messages yet. Say hello, or @mention a bot to ask it.</p> : <></>,
       composer: <ConversationComposer key={conversation.id} conversation={conversation} bots={bots} messages={shown} viewerKey={viewerKey}
+        replyTo={replyTo ? shown.find((entry) => entry.id === replyTo.id) ?? replyTo : null} onClearReply={clearReply} onConsumeReply={consumeReply}
         onSent={(message) => setMessages((current) => withFrame(current ?? [], { kind: "message", threadId: conversation.threadId, message }))} />,
     }} />
     {state.groupPanel && <GroupPanel conversation={conversation} bots={bots} messages={messages} tab={state.groupPanel}
@@ -154,8 +159,10 @@ function placeholderFor(conversation: Conversation, bots: Bot[]): string {
 /** The composer pill of a bot chat, for a conversation: text, and "@" for
  * the people here and the bots one can ask, in the same menu as a bot chat
  * (faces, names, arrows to choose, Enter or Tab to pick, Esc to close). */
-export function ConversationComposer({ conversation, bots, messages, viewerKey, onSent }: {
+export function ConversationComposer({ conversation, bots, messages, viewerKey, onSent, replyTo = null, onClearReply, onConsumeReply }: {
   conversation: Conversation; bots: Bot[]; messages: Message[]; viewerKey?: string; onSent: (message: Message) => void;
+  /** The one earlier message this one answers, shown above the box until it is sent or removed. */
+  replyTo?: Message | null; onClearReply?: () => void; onConsumeReply?: () => void;
 }) {
   // a bot's question for this person, relayed from its work: answered here,
   // with the same panel as a bot chat, against the bot's own work
@@ -169,7 +176,18 @@ export function ConversationComposer({ conversation, bots, messages, viewerKey, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const pendingSend = useRef<{ text: string; id: string } | null>(null);
+  const pendingSend = useRef<{ text: string; replyToId?: string; id: string } | null>(null);
+  // choosing a reply takes you to the box, as in a bot chat (not on a touch screen, where it would raise the keyboard)
+  const replyId = replyTo?.id ?? null;
+  const focusedReply = useRef(replyId);
+  useEffect(() => {
+    const previous = focusedReply.current;
+    focusedReply.current = replyId;
+    if (!replyTargetTakesFocus(previous, replyId)) return;
+    if (window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [replyId]);
   const people = useMemo(() => conversation.people.filter((person) => !person.you), [conversation.people]);
   // @here asks every bot in the group and tells every person
   const mentionable = useMemo(() => [
@@ -229,12 +247,13 @@ export function ConversationComposer({ conversation, bots, messages, viewerKey, 
     const value = composeMessage(text, attachments);
     setBusy(true); setError("");
     try {
-      if (pendingSend.current?.text !== value) pendingSend.current = { text: value, id: crypto.randomUUID() };
-      const { message } = await postToConversation(conversation.id, value, pendingSend.current.id);
+      if (pendingSend.current?.text !== value || pendingSend.current.replyToId !== replyTo?.id) pendingSend.current = { text: value, replyToId: replyTo?.id, id: crypto.randomUUID() };
+      const { message } = await postToConversation(conversation.id, value, pendingSend.current.id, replyTo?.id);
       onSent(message);
       pendingSend.current = null;
       setText("");
       setAttachments([]);
+      onConsumeReply?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setBusy(false); inputRef.current?.focus(); }
   };
   const face = (entry: { name: string; kind: "here" | "person" | "bot" }) => {
@@ -268,6 +287,7 @@ export function ConversationComposer({ conversation, bots, messages, viewerKey, 
               ))}
             </div>
           )}
+          {replyTo && <div className="mb-2 px-1"><ReplyQuote message={replyTo} viewerKey={viewerKey} onClear={onClearReply} /></div>}
           <ComposerAttachments items={attachments} onAdd={addAttachments} onRemove={removeAttachment}
             onChangeCitation={(citation: CitationAttachment) => setAttachments((current) => current.map((attachment) => attachment.id === citation.id ? citation : attachment))}
             onDisplayInChatBox={(attachment: PasteAttachment) => { setText(`${text}${text ? "\n" : ""}${attachment.text}`); setAttachments((current) => current.filter((entry) => entry.id !== attachment.id)); }}

@@ -6,6 +6,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Conversation } from "@/lib/conversations";
+import { citationAttachment, citationDraftId, createCitationTextSelector } from "@/lib/citations";
+import { appendDraftAttachments } from "@/lib/drafts";
 
 const { post, upload } = vi.hoisted(() => ({ post: vi.fn(), upload: vi.fn() }));
 // the file upload is one POST of the bytes to /api/files; answer it as the server does
@@ -92,4 +94,72 @@ test("an image pasted into the group box is uploaded and sent as an image tag", 
   await flush();
   expect(post).toHaveBeenCalledTimes(1);
   expect(post.mock.calls[0]![1]).toContain('<attached-image path="/data/attachments/0a1b2c3d-0000-4000-8000-000000000009.png"');
+});
+
+const bobLine = { id: "m-bob", role: "user", kind: "text", text: "Cut the intro by half?", sender: { id: "bob", name: "Bob" } } as unknown as import("@/state/store").Message;
+const renderReply = (extra: { onClearReply?: () => void; onConsumeReply?: () => void } = {}) =>
+  act(() => root.render(createElement(ConversationComposer, { conversation: group, bots: [], messages: [], viewerKey: "ana", onSent: vi.fn(), replyTo: bobLine, ...extra })));
+const type = async (value: string) => act(async () => {
+  const textarea = host.querySelector<HTMLTextAreaElement>("textarea")!;
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, value);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+});
+const submit = async () => { await act(async () => { host.querySelector<HTMLFormElement>("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); }); await flush(); };
+
+test("replying to a message shows who it is from above the box, and sending carries it", async () => {
+  post.mockResolvedValue({ message: { id: "m9", role: "user", kind: "text", text: "" } });
+  const onConsumeReply = vi.fn();
+  await renderReply({ onConsumeReply });
+  // the quote names Bob and shows what he wrote
+  expect(host.textContent).toContain("Replying to Bob");
+  expect(host.textContent).toContain("Cut the intro by half?");
+  await type("yes, do it");
+  await submit();
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(post.mock.calls[0]![1]).toBe("yes, do it");
+  expect(post.mock.calls[0]![3]).toBe("m-bob");
+  expect(onConsumeReply).toHaveBeenCalledTimes(1);
+});
+
+test("a reply is kept when the send fails, and removed only by the person", async () => {
+  post.mockRejectedValue(new Error("the message being replied to is not in this conversation"));
+  const onConsumeReply = vi.fn();
+  const onClearReply = vi.fn();
+  await renderReply({ onConsumeReply, onClearReply });
+  await type("hello");
+  await submit();
+  // nothing was consumed: the reply stays so the person can try again
+  expect(onConsumeReply).not.toHaveBeenCalled();
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("not in this conversation");
+  expect(host.textContent).toContain("Replying to Bob");
+  await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Cancel reply"]')!.click(); });
+  expect(onClearReply).toHaveBeenCalledTimes(1);
+});
+
+test("with no reply chosen, the message is sent without one", async () => {
+  post.mockResolvedValue({ message: { id: "m10", role: "user", kind: "text", text: "" } });
+  await act(() => root.render(createElement(ConversationComposer, { conversation: group, bots: [], messages: [], viewerKey: "ana", onSent: vi.fn() })));
+  expect(host.textContent).not.toContain("Replying to");
+  await type("plain");
+  await submit();
+  expect(post.mock.calls[0]![3]).toBeUndefined();
+});
+
+test("a passage quoted from the transcript lands in the group's own draft and is sent as a quote", async () => {
+  post.mockResolvedValue({ message: { id: "m11", role: "user", kind: "text", text: "" } });
+  // what the selection toolbar builds for a line of this group: the owner id of the lines is the composer's draft id
+  const source = { ownerType: "bot" as const, ownerId: `conversation:${group.id}`, threadId: group.threadId, messageId: "m-bob" };
+  const selector = createCitationTextSelector("Cut the intro by half?", 0, 7)!;
+  const citation = citationAttachment(source, selector);
+  expect(citationDraftId(source, true)).toBe(`conversation:${group.id}`);
+  expect(citationDraftId(source, false)).toBe(`bot:conversation:${group.id}:${group.threadId}`);
+  appendDraftAttachments(citationDraftId(source, true), [citation]);
+  await render();
+  expect(host.textContent).toContain("Cut the");
+  await type("shorter, yes");
+  await submit();
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(post.mock.calls[0]![1]).toContain("shorter, yes");
+  // the bots read the plain form: "> Quoted message:" then the passage
+  expect(post.mock.calls[0]![1]).toContain("> Quoted message:\n> Cut the");
 });

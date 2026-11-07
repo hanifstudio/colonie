@@ -27,6 +27,8 @@ export interface ConversationWork {
   nudged?: boolean;
   /** How many times it ran again by itself after stopping at "shall I continue?". */
   continued?: number;
+  /** The earlier message of this group that the person replied to, so the bot is shown what they meant. */
+  replyToId?: string;
 }
 
 function repository<T>(use: (db: DatabaseSync) => T): T {

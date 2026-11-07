@@ -206,3 +206,9 @@ export function findCitationText(text: string, selector: CitationTextSelector): 
   }
   return match ?? (quoteCount === 1 ? onlyQuote : null);
 }
+
+/** The draft a quoted selection is added to: in a group or DM the draft is the conversation's own, and its id is the
+ * owner id the lines carry (the composer's `conversation:<id>`); in a bot chat it is that bot's thread. */
+export function citationDraftId(source: { ownerId: string; threadId: string }, inConversation: boolean): string {
+  return inConversation ? source.ownerId : `bot:${source.ownerId}:${source.threadId}`;
+}

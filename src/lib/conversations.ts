@@ -42,8 +42,8 @@ export interface ThreadFrame { kind: "message" | "message.patch"; threadId: stri
 
 export const listConversations = async () => (await api<{ conversations: Conversation[] }>("/api/conversations")).conversations;
 export const conversationMessages = async (id: string) => (await api<{ messages: Message[] }>(`/api/conversations/${id}/messages`)).messages;
-export const postToConversation = (id: string, text: string, sendId: string = crypto.randomUUID()) =>
-  api<{ message: Message }>(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ text, sendId }) });
+export const postToConversation = (id: string, text: string, sendId: string = crypto.randomUUID(), replyToId?: string) =>
+  api<{ message: Message }>(`/api/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ text, sendId, ...(replyToId ? { replyToId } : {}) }) });
 export const markConversationRead = (id: string) => api(`/api/conversations/${id}/read`, { method: "POST" }).catch(() => {});
 export const createConversation = (input: { kind: "group" | "dm"; name?: string; emails: string[]; bots: string[] }) =>
   api<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(input) });
@@ -137,6 +137,8 @@ export function asChatMessages(messages: Message[], people: ConversationPerson[]
       ? { name: message.from?.name ?? "Bot", kind: "bot" as const }
       : { name: person?.name ?? message.sender?.name ?? "Someone", kind: "human" as const, id: message.sender?.id, avatar: person?.avatar, email: person?.email };
     const { sender: _raw, ...rest } = message;
-    return { ...rest, role: "bot", ...(sender ? { sender } : {}) } as Message;
+    // the name shows once per run of lines, but a quote of any line needs its writer, so keep it on every one
+    const authorName = bot ? undefined : person?.name ?? message.sender?.name;
+    return { ...rest, role: "bot", ...(sender ? { sender } : {}), ...(authorName ? { authorName } : {}) } as Message;
   });
 }

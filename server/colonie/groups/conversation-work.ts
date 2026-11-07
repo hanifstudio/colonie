@@ -7,7 +7,7 @@ import { failedTurnCause } from "../../../shared/failed-turn.ts";
 import type { GroupConversation } from "./group-conversations.ts";
 
 type Bot = NonNullable<ReturnType<Store["bot"]>>;
-export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth" | "unnamed"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
+export type ConversationAsk = Pick<ConversationWork, "asker" | "askerKey" | "depth" | "unnamed" | "replyToId"> & { by?: string; upcoming?: readonly string[]; visited?: readonly string[] };
 /** A bot must end with "Status: done" or "Status: stuck - what it needs". A
  * reply with neither (such as "I'll continue") is not a finished result. */
 export function workEnd(reply: string, handedOn = false): { state: "completed" | "blocked"; text: string; missing?: boolean } {
@@ -79,7 +79,7 @@ export function createConversationWork(deps: {
     for (const [index, bot] of bots.entries()) {
       const work = enqueueConversationWork({
         id: randomUUID(), conversationId: record.id, sourceMessageId, botId: bot.id,
-        text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by, ...(ask.unnamed ? { unnamed: true } : {}),
+        text, asker: ask.asker, askerKey: ask.askerKey, depth: ask.depth, by: ask.by, ...(ask.unnamed ? { unnamed: true } : {}), ...(ask.replyToId ? { replyToId: ask.replyToId } : {}),
         upcoming: bots.slice(index + 1).map((entry) => entry.id), visited: [...new Set([...(ask.visited ?? []), ...bots.map((entry) => entry.id)])], status: "queued",
       });
       // a bot already busy here says so at once, instead of staying silent

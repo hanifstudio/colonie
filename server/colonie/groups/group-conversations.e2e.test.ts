@@ -492,6 +492,22 @@ describe("a group with several bots", () => {
     expect(after.working).toBeFalsy();
   }, 90_000);
 
+  test("a member replies to one earlier message: it is stored with the reply, and a message from elsewhere is refused", async () => {
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Replies", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    const elsewhere = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Elsewhere", emails: [BOB], bots: [bot.id] } })).body as { id: string };
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: "hello team" } });
+    const lines = (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as any[];
+    const hello = lines.find((message) => message.text === "hello team");
+    const foreign = (await ws.as(ADA, `/api/conversations/${elsewhere.id}/messages`, { method: "POST", body: { text: "other group" } })).body.message;
+    const replied = await ws.as(BOB, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: "replying to you", replyToId: hello.id } });
+    expect(replied.status).toBe(201);
+    expect(replied.body.message.replyToId).toBe(hello.id);
+    expect((await ws.as(BOB, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: "wrong place", replyToId: foreign.id } })).status).toBe(400);
+    // the stored line is what a reload shows
+    const again = (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as any[];
+    expect(again.find((message) => message.text === "replying to you")?.replyToId).toBe(hello.id);
+  }, 90_000);
+
   test("the group's bots work in one project folder that its people can download from", async () => {
     // both bots already worked here in their own folders: each moves into the group's
     const answered = async (botId: string, text: string) => {

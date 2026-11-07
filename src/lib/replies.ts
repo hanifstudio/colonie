@@ -14,7 +14,14 @@ export function replySnippet(text: string, limit = 160): string {
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
-export function replyAuthor(message: Message, fallback?: string): string {
-  if (message.role === "user") return peerLine(message)?.name ?? t("chat.you");
+/** Who wrote a message, for "Replying to …". In a group several people write, so a person's message names its
+ * sender, and "You" only when it is the viewer's own. Without a viewer (a 1:1 chat) it stays as it always was. */
+export function replyAuthor(message: Message, fallback?: string, viewerKey?: string): string {
+  if (message.authorName) return message.authorName;
+  if (message.role === "user") {
+    const sender = message.sender;
+    if (viewerKey !== undefined && sender?.name && sender.id !== viewerKey) return sender.name;
+    return peerLine(message)?.name ?? t("chat.you");
+  }
   return message.from?.name ?? fallback ?? t("chat.assistant");
 }

@@ -178,6 +178,8 @@ export interface Message {
   stoppedBy?: { botId: string; reason: "blocked" | "interrupted" | "failed" };
   /** On a working line in a group: the person who asked for it, the only one who may cancel it. */
   askedBy?: string;
+  /** In a group: the name of the person who wrote this line (the screen shows it once per run, a quote needs it every time). */
+  authorName?: string;
   working?: true;
   workingSince?: number;
   relay?: { threadId: string; messageId: string; askedBy: string; askedByName?: string };

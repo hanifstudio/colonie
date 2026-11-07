@@ -2,15 +2,15 @@
 
 ## Now: follow up on a bot's answer as easily as in openbot
 
-Three stages, each released alone. (1) Groups as dependable as 1:1 chats. Done: the 1:1 stall
-watcher covers groups (the group's own sweep is gone), and its handler no longer crashes the
-server (it called two removed Computer functions); the person who asked can cancel or stop one
-request from its group line (never seen in a window). Left: failure tests (restart, laptop, two bots). (2) Easier follow-up: reply to
-one group message; a side question that does not interrupt the work; the bot's step list as a
-card; reorder the queue. (3) Fewer repeats: several bots' answers arrive together; a "no reply
-needed" mark; blocked reports with evidence; files a bot names attach themselves; quiet
-routines; wait for the quota reset. Proof: a failure test on the fake engine, then a real
-group. Out of scope: steering a running turn (ACP engines cannot), branching from an old message.
+Three stages, each released alone. (1) Groups as dependable as 1:1 chats. Done: the stall watcher
+covers groups and no longer crashes the server; the asker can cancel or stop one request from its
+group line. Left: failure tests (restart, laptop, two bots). (2) Reply and decide as easily as
+openbot. Done: reply to or quote one group message. Left: a failed send keeps Retry and Edit; the
+line says what holds a bot; a side question; the bot's step list as a card; reorder the queue.
+(3) Fewer repeats: several bots' answers arrive together; a "no reply needed" mark; blocked reports
+with evidence; files a bot names attach themselves; quiet routines; quota-reset waits. Nothing from
+(1) or (2) was seen in a window yet. Proof: failure tests on the fake engine, then a real group.
+Out of scope: steering a running turn (ACP engines cannot), branching from an old message.
 
 ## Next: verify collaboration, browser panels, and conversation routines
 
@@ -44,15 +44,15 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 | What must be true | Status |
 |---|---|
 | CI passes on `main` | Release commit passes `pnpm check`, the Shared browser journey, and the selected desktop shell tests on GitHub |
-| A version number and an update path | Server 0.3.23 is published. A raised package.json version on main publishes the image and Shared admins see Update |
-| A Mac app built from this branch | Early-build 0.3.23 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
+| A version number and an update path | Server 0.3.24 is published. A raised package.json version on main publishes the image and Shared admins see Update |
+| A Mac app built from this branch | Early-build 0.3.24 DMG and ZIP are published; isolated packaged startup passes on GitHub; clean-Mac installation untested |
 | First run works in a real window | Isolated packaged startup checked; clean-Mac onboarding untested |
 | Sign-in inside the app works with a real account | Never tried on a clean install |
 | A bot answers through a real engine | Works in the owner's own data; never on a clean install |
 | Creating and switching workspaces works by clicking | Tested in code only; never clicked |
 | Conversations from the 0.2.0 build still work after upgrading | Not tested |
 | The download is signed and notarized | Ad-hoc signed; Developer ID and notarization blocked by no Apple Developer account |
-| The download page points to the new build | GitHub latest is `friends-0.3.23`; a public launch page is still needed |
+| The download page points to the new build | GitHub latest is `friends-0.3.24`; a public launch page is still needed |
 | A bad release can be pulled back | Guard exists; recovery never rehearsed |
 | A Shared workspace: one-click server, invite by link, people and bots together | Done and used on the owner's server; the Update button not yet used there |
 

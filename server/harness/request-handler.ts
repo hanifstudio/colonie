@@ -617,7 +617,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       else if (method === "POST" && path === "/api/conversations") answer = groupConversations.create(caller, (await readBody(req)) ?? {});
       else if ((m = path.match(/^\/api\/conversations\/([\w-]+)\/messages$/))) {
         if (method === "GET") answer = groupConversations.messages(caller, m[1]);
-        else if (method === "POST") { const body = await readBody(req); answer = await groupConversations.post(caller, m[1], body?.text, body?.sendId); }
+        else if (method === "POST") { const body = await readBody(req); answer = await groupConversations.post(caller, m[1], body?.text, body?.sendId, body?.replyToId); }
       } else if (method === "POST" && (m = path.match(/^\/api\/conversations\/([\w-]+)\/read$/))) answer = groupConversations.read(caller, m[1]);
       else if (method === "PATCH" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.update(caller, m[1], (await readBody(req)) ?? {});
       else if (method === "DELETE" && (m = path.match(/^\/api\/conversations\/([\w-]+)$/))) answer = groupConversations.delete(caller, m[1]);

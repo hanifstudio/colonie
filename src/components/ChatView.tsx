@@ -125,7 +125,7 @@ import { GlassBar, GlassScrollFrame } from "./GlassScrollFrame";
 import { useTranscriptViewport } from "@/hooks/use-transcript-viewport";
 import { appendComposerDraft, appendDraftAttachments, useReplyDraft } from "@/lib/drafts";
 import { dayLabel, localDay, transcriptLookups, type TranscriptLookups } from "@/lib/transcript-derivations";
-import { citationPreviewText, splitTranscriptCitations, type CitationAttachment } from "@/lib/citations";
+import { citationDraftId, citationPreviewText, splitTranscriptCitations, type CitationAttachment } from "@/lib/citations";
 import { highlightCitationSource } from "@/lib/citations-dom";
 import { latestFailure, latestReply, type TranscriptSnapshot } from "@/lib/transcript-announcer";
 import { pendingApprovals } from "./PendingApproval";
@@ -144,7 +144,7 @@ const USER_COLLAPSE_LINES = 8;
  * events that are not theirs: another bot's frame, a tool chip elsewhere in
  * the thread. The rosters keep their identity until a field a row draws
  * changes, the way ThreadRefsProvider keeps the thread list. */
-interface ChatRows {
+export interface ChatRows {
   botId: string;
   threadId: string;
   botName: string;
@@ -174,7 +174,8 @@ interface ChatRows {
   onBranch: (messageId: string) => boolean;
 }
 
-const ChatRowsContext = createContext<ChatRows | null>(null);
+/** Exported for the row tests, which draw one line without the whole chat. */
+export const ChatRowsContext = createContext<ChatRows | null>(null);
 
 function useChatRows(): ChatRows {
   const rows = useContext(ChatRowsContext);
@@ -424,7 +425,7 @@ function BubbleEditor({
  * message, whether it is pinned or being edited) or the chat's ChatRows do,
  * never for the rest of the store. The callbacks take the message they act
  * on, so every row shares the same ones. */
-const Bubble = memo(function Bubble({
+export const Bubble = memo(function Bubble({
   message,
   emerging = false,
   eagerAttachments = false,
@@ -580,7 +581,7 @@ const Bubble = memo(function Bubble({
               </button>
             )}
             {Boolean(visibleText.trim()) && <CopyButton text={visibleText} className="opacity-100" />}
-            {!accountWorkspace && <button
+            {(!accountWorkspace || Boolean(conversation?.onReply)) && <button
               type="button"
               onClick={() => onReply(message)}
               aria-label={t("chat.replyToMessage")}
@@ -619,6 +620,7 @@ const Bubble = memo(function Bubble({
               <ReplyQuote
                 message={replyTarget}
                 fallbackName={botName}
+                viewerKey={conversation?.viewerKey}
                 compact
                 onJump={() =>
                   dispatch({ type: "focusMessage", threadId, messageId: replyTarget.id })
@@ -723,7 +725,7 @@ const Bubble = memo(function Bubble({
                 <HIcon icon={RefreshCwIcon} size={14} />
               </button>
             )}
-            {!accountWorkspace && <button
+            {(!accountWorkspace || Boolean(conversation?.onReply)) && <button
               type="button"
               onClick={() => onReply(message)}
               aria-label={t("chat.replyToMessage")}
@@ -1200,7 +1202,7 @@ export interface AccountConversationControls {
   mentionPeople?: readonly string[];
   /** Cards a bot relayed from its work: who may answer, and how a saved
    * secret lets the bot carry on. */
-  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void; continueBot: (text: string, botId: string) => void; cancelWork?: (messageId: string) => Promise<void> };
+  relay?: { viewerKey?: string; onSecretSaved: (name: string, botId: string) => void; continueBot: (text: string, botId: string) => void; cancelWork?: (messageId: string) => Promise<void>; onReply?: (message: Message) => void };
   identity?: ReactNode;
   actions?: ReactNode;
   beforeMessages?: ReactNode;
@@ -1655,7 +1657,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               onCancelEdit={cancelEdit}
               onSubmitEdit={submitEdit}
               onRegenerate={regenerate}
-              onReply={selectReply}
+              onReply={accountConversation?.relay?.onReply ?? selectReply}
             />
             </FilePreviewScope>
           </ChatRowsContext.Provider>
@@ -1750,13 +1752,12 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
           : undefined}
       />
       )}
-      {!accountConversation && (
+      {/* quote a selection into the next message; in a group the draft is the group's own (its id is the owner id) */}
       <CitationSelectionToolbar
         key={`${bot.id}:${bot.threadId}`}
         viewportRef={scrollRef}
-        onAdd={(citation) => appendDraftAttachments(`bot:${citation.source.ownerId}:${citation.source.threadId}`, [citation])}
+        onAdd={(citation) => appendDraftAttachments(citationDraftId(citation.source, Boolean(accountConversation)), [citation])}
       />
-      )}
       </div>
       </GlassScrollFrame>
 

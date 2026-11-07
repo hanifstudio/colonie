@@ -12,9 +12,12 @@ export function ReplyQuote({
   onJump,
   onClear,
   compact = false,
+  viewerKey,
 }: {
   message: Message;
   fallbackName?: string;
+  /** In a group: whose screen this is, so their own message reads "You" and Bob's reads "Bob". */
+  viewerKey?: string;
   onJump?: () => void;
   onClear?: () => void;
   compact?: boolean;
@@ -23,7 +26,7 @@ export function ReplyQuote({
     <>
       <HIcon icon={MessageSquareReplyIcon} size={compact ? 12 : 14} className="shrink-0 text-accent" />
       <span className="min-w-0 flex-1">
-        <span className="block text-[10.5px] font-medium text-accent">{t("chat.reply.replyingTo", { name: replyAuthor(message, fallbackName) })}</span>
+        <span className="block text-[10.5px] font-medium text-accent">{t("chat.reply.replyingTo", { name: replyAuthor(message, fallbackName, viewerKey) })}</span>
         <span dir="auto" className="block truncate text-[11.5px] text-ink-secondary">{replySnippet(peerLine(message)?.body ?? message.text ?? "")}</span>
       </span>
     </>
