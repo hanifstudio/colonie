@@ -10,6 +10,7 @@ import {
   PICKABLE_STATES,
   MAUS_COLORS,
   MAUS_COLOR_NAMES,
+  normalizeState,
   type MausMotion,
   type MausState,
 } from "@/lib/mascot";
@@ -139,6 +140,7 @@ export function BotProfileAvatarCard({
   const { flushBotPatches } = useStore();
   const { request: api, uploadAvatar, workspace, readOnly } = useBotEditor();
   const fileRef = useRef<HTMLInputElement>(null);
+  const chosenFace = normalizeState(bot.mascotExpression);
   const [uploading, setUploading] = useState(false);
   const [savingConnection, setSavingConnection] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -309,11 +311,11 @@ export function BotProfileAvatarCard({
                   key={expression}
                   type="button"
                   disabled={busy}
-                  aria-pressed={activeState === expression}
+                  aria-pressed={chosenFace === expression}
                   onClick={() => onPatch({ mascotExpression: expression })}
                   className={cn(
                     "flex h-[58px] items-center justify-center rounded-xl bg-inset transition-colors hover:bg-control disabled:opacity-50",
-                    activeState === expression && "ring-2 ring-accent-border",
+                    chosenFace === expression && "ring-2 ring-accent-border",
                   )}
                   title={expression}
                   aria-label={`Use ${expression} expression`}

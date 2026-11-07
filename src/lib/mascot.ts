@@ -125,29 +125,14 @@ export function normalizeState(value: string | null | undefined): MausState | nu
 }
 
 /**
- * The states worth offering in the appearance picker.
- *
- * The engine carries 39, but many are transient beats the app drives itself
- * (`sending`, `alerting`, `powering-down`) and make no sense as a bot's resting
- * face. More importantly, states share resting faces: `happy`, `excited` and
- * `playful` all rest on expression 2, and `curious`, `surprised` and `scared`
- * all rest on 3 — they differ in which faces they *drift* to, which a static
- * swatch cannot show. Offering them all gave 15 buttons showing 8 pictures.
- *
- * Across all 39 states there are only 11 distinct resting faces, so this is one
- * state per face, chosen for the clearest name. Every swatch looks different.
+ * The faces worth offering in the appearance picker: one state per face the avatar really draws
+ * (see `bloubFace`), so every swatch looks different. Transient states such as `working` or
+ * `sleeping` are movements, not faces, and are not offered.
  */
 export const PICKABLE_STATES: MausState[] = [
-  "idle", // expression 0
-  "happy", // 2
-  "curious", // 3
-  "drowsy", // 4
-  "working", // 7
-  "thinking", // 8
-  "listening", // 10
-  "sleeping", // 13
-  "suspicious", // 14
-  "proud", // 15
+  "happy", "excited", "proud", "curious", "listening",
+  "surprised", "confused", "suspicious", "shy", "bored",
+  "drowsy", "sad", "scared", "angry",
 ];
 
 type MascotMessage = {
@@ -174,8 +159,6 @@ export type MascotBotProfile = {
  */
 export function stateForBot(bot: MascotBotProfile): MausState {
   if (bot.activity === "waiting-on-you") return "alerting";
-  const pinned = normalizeState(bot.mascotExpression);
-  if (pinned) return pinned;
 
   // the harness's receipts (digest, compaction) follow every turn; the mood
   // reads the last row a person reads, not the record about it

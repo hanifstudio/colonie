@@ -63,7 +63,7 @@ import { SignInAsk } from "./SignInAsk";
 import { ComputerAsk } from "./ComputerAsk";
 import { TurnPresence } from "./TurnPresence";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
-import { MAUS_COLORS, normalizeState, stateForBot, type MausColor } from "@/lib/mascot";
+import { MAUS_COLORS, stateForBot, type MausColor } from "@/lib/mascot";
 import { peerLine, type PeerLine } from "@/lib/peer-message";
 import { showWorkingDots } from "@/lib/turn-tail";
 import { liveActivityLabel } from "@/lib/live-activity";
@@ -848,7 +848,6 @@ function PeerLabel({ peer }: { peer: PeerLine }) {
     <div className="mb-1 flex items-center gap-1.5 pl-0.5" data-testid="peer-label">
       <BotAvatar
         bot={author ?? { name: peer.name, color: "blue" }}
-        state={normalizeState(author?.mascotExpression) ?? "happy"}
         size={16}
         motion="none"
         motionKey={0}

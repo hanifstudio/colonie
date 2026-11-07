@@ -62,7 +62,6 @@ import {
   type Attachment,
   type PasteAttachment,
 } from "@/lib/composer-attachments";
-import { normalizeState } from "@/lib/mascot";
 import { PendingApprovalActions, PendingApprovalPanel, pendingApprovals } from "./PendingApproval";
 import { CallButton } from "./CallView";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
@@ -771,7 +770,6 @@ export function Composer({
                   icon={
                     <BotAvatar
                       bot={peer.bot}
-                      state={normalizeState(peer.bot.mascotExpression) ?? "happy"}
                       size={24}
                     />
                   }

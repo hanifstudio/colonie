@@ -1,22 +1,27 @@
 # Handover
 
-## Now: follow up on a bot's answer as easily as in openbot
+## Now: a bot looks the same everywhere
 
-Three stages, each released alone. (1) Groups as dependable as 1:1 chats. Done: the stall watcher
-covers groups and no longer crashes the server; the asker can cancel or stop one request from its
-group line. Left: failure tests (restart, laptop, two bots). (2) Reply and decide as easily as
-openbot. Done: reply to or quote one group message. Left: a failed send keeps Retry and Edit; the
-line says what holds a bot; a side question; the bot's step list as a card; reorder the queue.
-(3) Fewer repeats: several bots' answers arrive together; a "no reply needed" mark; blocked reports
-with evidence; files a bot names attach themselves; quiet routines; quota-reset waits. Nothing from
-(1) or (2) was seen in a window yet. Proof: failure tests on the fake engine, then a real group.
-Out of scope: steering a running turn (ACP engines cannot), branching from an old message.
+A bot keeps the face and body its owner chose on every screen, and the picker offers only choices
+that look different. Steps, one commit each: (1) the chosen face wins over the hardcoded "happy" and
+"idle" at call sites; the face picker lists only faces that differ. (2) The body picker lists only
+bodies the engine really draws (10 choices map to 7 shapes today). Proof: a test per step, then the
+sidebar, chat and settings seen in a window. Out of scope: new bodies, the engine's own morphing.
 
-## Next: verify collaboration, browser panels, and conversation routines
+## Next: follow up on a bot's answer as easily as in openbot
 
-Review group handoffs, Work, Browser, and Files with a person, in disposable
-workspaces. Local Chromium cannot launch (macOS permission denied); real-engine
-and real-window checks remain.
+Stage 1 left: group failure tests (restart, laptop, two bots). Stage 2: reply to or quote one group
+message, Retry and Edit on a failed send, the line says what holds a bot, a side question, the step
+list as a card, reorder the queue. Stage 3: several bots' answers arrive together, a "no reply
+needed" mark, blocked reports with evidence, files a bot names attach themselves, quiet routines,
+quota-reset waits. Done so far: the stall watcher covers groups; the asker can cancel or stop one
+request from its group line (never seen in a window). Out of scope: steering a running turn,
+branching from an old message.
+
+## After: verify collaboration, browser panels, and routines
+
+Review group handoffs, Work, Browser, and Files with a person in disposable workspaces. Local
+Chromium cannot launch (macOS permission denied); real-engine and real-window checks remain.
 
 ## After that: prepare the first public release
 
@@ -65,14 +70,11 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
 ## Not yet checked by a person
 
 - No reset email has gone through Resend; the reset pages were never opened in a browser.
-- Codex runs the project hook only after each person trusts it.
-- The workspace switcher and the new welcome step have never been seen in a
-  real window. The app's restart into another workspace has never been run.
+- The workspace switcher, the welcome step, and the restart into another workspace were never run.
 - The owner's two stuck conversations, "Motion" and "Biscuit", should now
   rebuild their session. The next message sent in either one is the real check.
-- A group's Files panel was never seen in a window, and no real engine has yet
-  written into a group's project folder. A file a bot links in a group answer
-  now opens from the project folder; never seen in a window.
+- A group's Files panel was never seen in a window; no real engine has written into a group's
+  project folder, and a file a bot links in a group answer opens from there (also unseen).
 - Logins kept between turns; non-admins and a bot's browser; the 950 MB Shared
   image on a droplet.
 
@@ -93,8 +95,6 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
      fresh engine session for the branch and give it that branch's history.
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old `native/<thread>.ndjson` readers remain; nothing writes those files. Decide which to keep.
-4. Small fix: email sign-in answers 502 saying the accounts-service address
-   "is set" when it is not set at all.
-5. Remove the leftover brand word `maus`: first the unused `runOn` setting on
-   routines and webhooks, then the mascot's CSS and component names.
+4. Small fix: email sign-in says the accounts-service address "is set" when it is not.
+5. Remove the leftover brand word `maus` (`runOn` setting, then mascot CSS and component names).
 6. Tidy the interface code into feature folders, one feature at a time.
