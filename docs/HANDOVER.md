@@ -3,10 +3,10 @@
 ## Now: a bot looks the same everywhere
 
 Done in code: one default face (Excited), a working bot keeps its body (`bloub-motion.ts`), "Generate
-with AI" is gone, and the avatar picker (settings and making a bot) is Upload, Body, then Color. Left:
-see it in a window with a working bot, and confirm browsing sets the bot busy. The saved
-`mascotExpression` field is now unused (queue item 5). A headless server keeps an old `imageGen`
-section in its config file untouched.
+with AI" is gone, the picker (settings and making a bot) is Upload, Body (4 by 2, with Triangle), Color,
+a resting bot is idle (its title no longer picks a state), and each new bot gets its own body and color.
+Left: see it in a window with a working bot, and confirm browsing sets the bot busy. The saved
+`mascotExpression` field is unused (queue item 5). A headless server keeps an old `imageGen` section.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 

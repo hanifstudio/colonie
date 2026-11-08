@@ -141,9 +141,8 @@ export type MascotBotProfile = {
 };
 
 /**
- * Selects a state from live state first, then from what the bot is about.
- * The keyword groups deliberately overlap as little as possible so a bot's
- * visual identity stays stable while its title and description are edited.
+ * Selects a state from what the bot is doing right now, and nothing else. A bot at rest is idle:
+ * its title and description never pick a state, or a "Job Search" bot would look busy forever.
  */
 export function stateForBot(bot: MascotBotProfile): MausState {
   if (bot.activity === "waiting-on-you") return "alerting";
@@ -156,37 +155,6 @@ export function stateForBot(bot: MascotBotProfile): MausState {
   if (bot.busy) return "working";
   if (botShowsUnread(bot)) return "notifying";
   if (last?.kind === "options") return "curious";
-
-  const profile = `${bot.name} ${bot.title ?? ""} ${bot.description ?? ""}`.toLowerCase();
-  const matches = (words: RegExp) => words.test(profile);
-
-  if (matches(/\b(code|coding|developer|development|engineer|engineering|build|debug|program|software)\b/)) {
-    return "working";
-  }
-  if (matches(/\b(research|researcher|search|investigate|strategy|strategist|study|learn|knowledge)\b/)) {
-    return "searching";
-  }
-  if (matches(/\b(marketing|growth|launch|campaign|social|sales|outreach|brand)\b/)) {
-    return "excited";
-  }
-  if (matches(/\b(overnight|night|background|async|queue|batch|long-running)\b/)) {
-    return "drowsy";
-  }
-  if (matches(/\b(monitor|monitoring|incident|alert|watch|status|uptime)\b/)) {
-    return "radar";
-  }
-  if (matches(/\b(review|reviewer|audit|critic|critique|quality|qa|test|legal)\b/)) {
-    return "suspicious";
-  }
-  if (matches(/\b(security|secure|compliance|risk|privacy|finance|financial)\b/)) {
-    return "scared";
-  }
-  if (matches(/\b(design|designer|creative|brainstorm|art|illustration|music|story)\b/)) {
-    return "playful";
-  }
-  if (matches(/\b(support|help|success|onboarding|coach|teacher|guide|welcome)\b/)) {
-    return "happy";
-  }
 
   return "idle";
 }

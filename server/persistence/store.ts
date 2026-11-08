@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 import { writeFileAtomic, writeFileAtomicIfChanged } from "./atomic.ts";
 import { colonieProfile } from "../acp/profile.ts";
+import { PICKABLE_BODY_IDS } from "../../shared/mascot-bodies.ts";
 import { parseToolScope, toolScopeWidens } from "../../shared/tool-scope.ts";
 import { ensureSections, readSections, changeEmptySection } from "../colonie/teams/section-context.ts";
 import type { TeamComputers } from "../colonie/teams/team-computers.ts";
@@ -1538,7 +1539,8 @@ export class Store {
       notifications: true,
       color: profile.color ?? COLORS[this.bots.length % COLORS.length],
       ...(profile.mascotExpression ? { mascotExpression: profile.mascotExpression } : {}),
-      ...(profile.mascotBody ? { mascotBody: profile.mascotBody } : {}),
+      // Each new bot gets its own look: neighbours in the list never share a body or a color.
+      mascotBody: profile.mascotBody ?? PICKABLE_BODY_IDS[this.bots.length % PICKABLE_BODY_IDS.length]!,
       // Restricted from its first frame: no one else is ever told it exists.
       ...(profile.visibility && profile.visibility !== "everyone" ? { visibility: structuredClone(profile.visibility) } : {}),
       ...(toolScope.scope ? { toolScope: toolScope.scope } : {}),
@@ -1607,7 +1609,7 @@ export class Store {
         const createdAt = Date.now();
         const modelSelection = this.newBotSelection(operation.fields.modelSelection);
         next = { id: operation.botId, threadId: operation.threadId, name: operation.fields.name,
-          title: "", description: "", soul: "", notifications: true, color: COLORS[nextBots.length % COLORS.length], unread: false,
+          title: "", description: "", soul: "", notifications: true, color: COLORS[nextBots.length % COLORS.length], mascotBody: PICKABLE_BODY_IDS[nextBots.length % PICKABLE_BODY_IDS.length]!, unread: false,
           resumeCursors: {}, createdAt, ...operation.fields, modelSelection,
           approvalMode: "auto", autoApprove: false, composio: false, approvePeerComms: false,
           // A Chief's new teammate is seen by exactly the Chief's audience:

@@ -8,10 +8,11 @@ import { motionFor } from "./bloub-motion";
 import type { MausMotion, MausState } from "@/lib/mascot";
 import { bloubViewHalf, useGlobalBloubGaze } from "./bloub-gaze";
 import type { StateId } from "../../third_party/bloub/src/bot/states";
-import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS, type MascotBodyId } from "../../shared/mascot-bodies";
+import { BODY_SHAPE, bodyChoice, PICKABLE_BODY_IDS, botMascotBody } from "../../shared/mascot-bodies";
+
+export { bodyChoice, PICKABLE_BODY_IDS };
 import type { MausAvatarHandle, MausAvatarProps } from "./Avatar";
 
-const SHAPES: Record<string, string> = { cursor: "galet", blob: "galet", circle: "cercle", squircle: "squircle", capsule: "capsule", drop: "goutte", shield: "goutte", hexagon: "hexagone", diamond: "squircle", star: "nuage" };
 const FACES: Record<string, string> = { idle: "excite", happy: "heureux", proud: "fier", sad: "triste", scared: "effraye", suspicious: "mefiant", confused: "confus", curious: "curieux", surprised: "surpris", angry: "colere", drowsy: "somnolent", listening: "attentif", excited: "excite", shy: "timide", bored: "blase" };
 // Body inks. Deeper and more saturated than the earlier pastel set so the
 // light `#fcfaff` eyes read clearly: every tone now holds >= 3:1 against the
@@ -30,14 +31,7 @@ export function bloubFace(state: string = "idle"): string {
 export function bloubState(state: MausState = "idle", motion: MausMotion = "none"): StateId {
   return motionFor(state, motion).engine;
 }
-export function bloubShape(body = "cursor") { return SHAPE_BY_ID.get(SHAPES[body] ?? "galet")!; }
-/** The body choice that draws the same shape as `body`; a bot saved as "blob" is drawn as the cursor. */
-export function bodyChoice(body: string | null | undefined): MascotBodyId {
-  const shape = SHAPES[body ?? "cursor"] ?? "galet";
-  return MASCOT_BODY_IDS.find((id) => SHAPES[id] === shape) ?? DEFAULT_MASCOT_BODY;
-}
-/** Bodies a person can pick: one per shape the engine really draws, so every choice looks different. */
-export const PICKABLE_BODY_IDS: readonly MascotBodyId[] = MASCOT_BODY_IDS.filter((id) => bodyChoice(id) === id);
+export function bloubShape(body: string | null | undefined = "cursor") { return SHAPE_BY_ID.get(BODY_SHAPE[botMascotBody(body)])!; }
 
 export function BloubFrame({ frame, size, ink, uid, label }: { frame: BotFrame; size: number; ink: string; uid: string; label?: string }) {
   const dots = frame.dots.map((dot, index) => dot.d

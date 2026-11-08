@@ -236,7 +236,7 @@ export function BotProfileAvatarCard({
             <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
               Body
             </div>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-4 gap-2">
               {PICKABLE_BODY_IDS.map((id) => (
                 <button
                   key={id}
@@ -246,13 +246,13 @@ export function BotProfileAvatarCard({
                   aria-label={`Use the ${MASCOT_BODIES[id].name} body`}
                   onClick={() => onPatch({ mascotBody: id })}
                   className={cn(
-                    "flex items-center justify-center rounded-lg py-1.5 disabled:opacity-50",
+                    "flex items-center justify-center rounded-xl py-3 disabled:opacity-50",
                     bodyChoice(bot.mascotBody) === id
                       ? "bg-control text-ink"
                       : "text-ink-secondary hover:bg-control/60",
                   )}
                 >
-                  <MausAvatar color={bot.color} bodyId={id} size={34} animated={false} trackPointer={false} />
+                  <MausAvatar color={bot.color} bodyId={id} size={52} animated={false} trackPointer={false} />
                 </button>
               ))}
             </div>
@@ -260,7 +260,7 @@ export function BotProfileAvatarCard({
             <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
               Color
             </div>
-            <div className="flex flex-wrap gap-2.5">
+            <div className="flex flex-wrap gap-2">
               {MAUS_COLOR_NAMES.map((color) => (
                 <button
                   key={color}
@@ -269,8 +269,8 @@ export function BotProfileAvatarCard({
                   aria-pressed={bot.color === color}
                   onClick={() => onPatch({ color })}
                   className={cn(
-                    "size-10 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:opacity-50",
-                    bot.color === color && "ring-2 ring-accent-border ring-offset-2 ring-offset-card",
+                    "size-6 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:opacity-50",
+                    bot.color === color && "ring-2 ring-accent-border ring-offset-1 ring-offset-card",
                   )}
                   style={{ backgroundColor: MAUS_COLORS[color] }}
                   title={color}

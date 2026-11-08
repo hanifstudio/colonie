@@ -1,9 +1,8 @@
 /**
  * The mascot bodies a bot can wear.
  *
- * GENERATED FILE — do not hand-edit. Run `pnpm gen:bodies` to rebuild it from
- * `scripts/gen-mascot-bodies.ts`, which solves each face placement against the real
- * expression geometry and verifies that nothing clips.
+ * The outlines below are only names and legacy data: the avatar is drawn by the Bloub engine, and
+ * `BODY_SHAPE` says which Bloub shape each id draws. Add a body here and in `BODY_SHAPE`.
  *
  * Every body carries the same face at the same size: the generator clamps the whole
  * catalog to the smallest face any one body can hold, so the mascot reads as one
@@ -17,7 +16,7 @@
 import { z } from "zod";
 
 /** Every selectable body id, in the order the picker shows them. */
-export const MASCOT_BODY_IDS = ["cursor", "blob", "circle", "squircle", "capsule", "drop", "shield", "hexagon", "diamond", "star"] as const;
+export const MASCOT_BODY_IDS = ["cursor", "blob", "circle", "squircle", "capsule", "triangle", "drop", "shield", "hexagon", "diamond", "star"] as const;
 
 export type MascotBodyId = (typeof MASCOT_BODY_IDS)[number];
 
@@ -81,6 +80,14 @@ export const MASCOT_BODIES: Record<MascotBodyId, MascotBody> = {
     clip: "<path d=\"M100 0C141.42136 0 175 33.57864 175 75C175 91.66667 175 108.33333 175 125C175 166.42136 141.42136 200 100 200C58.57864 200 25 166.42136 25 125C25 108.33333 25 91.66667 25 75C25 33.57864 58.57864 0 100 0Z\"/>",
     anchor: { x: 113.82, y: 131.68, scale: 0.791 },
   },
+  triangle: {
+    id: "triangle",
+    name: "Triangle",
+    fit: "translate(0 0) scale(1.142705)",
+    body: "<path fill=\"{{GRADIENT}}\" d=\"M100 8L192 176L8 176Z\"/>",
+    clip: "<path d=\"M100 8L192 176L8 176Z\"/>",
+    anchor: { x: 113.82, y: 125.43, scale: 0.791 },
+  },
   drop: {
     id: "drop",
     name: "Drop",
@@ -127,3 +134,18 @@ export const MASCOT_BODIES: Record<MascotBodyId, MascotBody> = {
 export function botMascotBody(value: unknown): MascotBodyId {
   return mascotBodySchema.safeParse(value).data ?? DEFAULT_MASCOT_BODY;
 }
+
+/** The Bloub shape each body id draws. Two ids may draw the same shape (older bots keep their value). */
+export const BODY_SHAPE: Record<MascotBodyId, string> = {
+  cursor: "galet", blob: "galet", circle: "cercle", squircle: "squircle", capsule: "capsule",
+  triangle: "triangle", drop: "goutte", shield: "goutte", hexagon: "hexagone", diamond: "squircle", star: "nuage",
+};
+
+/** The body choice that draws the same shape as `body`; a bot saved as "blob" is drawn as the cursor. */
+export function bodyChoice(body: string | null | undefined): MascotBodyId {
+  const id = botMascotBody(body);
+  return MASCOT_BODY_IDS.find((candidate) => BODY_SHAPE[candidate] === BODY_SHAPE[id]) ?? DEFAULT_MASCOT_BODY;
+}
+
+/** Bodies a person can pick: one per shape the engine draws, so every choice looks different. */
+export const PICKABLE_BODY_IDS: readonly MascotBodyId[] = MASCOT_BODY_IDS.filter((id) => bodyChoice(id) === id);

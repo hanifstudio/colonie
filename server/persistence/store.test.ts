@@ -115,3 +115,10 @@ test("a profile patch with undefined fields leaves the stored name, role and sou
   expect(bot.title).toBe("Video editor");
   expect(bot.soul).toBe("Edit with patience.");
 });
+
+test("new bots get different bodies and colors instead of all looking alike", () => {
+  const store = new Store(selection);
+  const bots = Array.from({ length: 8 }, (_, index) => store.createBot({ name: `Bot ${index}` }));
+  expect(new Set(bots.map((bot) => bot.mascotBody)).size).toBe(8);
+  expect(new Set(bots.map((bot) => bot.color)).size).toBe(8);
+});
