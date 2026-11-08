@@ -5,7 +5,6 @@ import { readFileSync, mkdirSync, existsSync, renameSync, statSync } from "node:
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { normalizeImageGenerationUrl, type ImageGenerationConfig } from "../shared/image-generation.ts";
 
 import { writeFileAtomic } from "./persistence/atomic.ts";
 import { acpIsolationDirNames, colonieProfile, colonieInstances } from "./acp/profile.ts";
@@ -485,23 +484,6 @@ const appConfigSchema = z.object({
     readTypedReplies: z.boolean().optional(),
     idleMinutes: z.number().int().min(1).max(60).optional(),
   }).optional(),
-  /** Avatar provider credentials stay separate; choosing a router never reuses a cloud key. */
-  imageGen: z.object({
-    provider: z.enum(["openai", "xai", "custom"]).optional(),
-    key: optionalText,
-    customApiKey: optionalText,
-    customUrl: z.string().trim().max(2048).transform((value, ctx) => {
-      if (!value) return "";
-      try { return normalizeImageGenerationUrl(value); } catch (error) {
-        ctx.addIssue({ code: "custom", message: (error as Error).message });
-        return z.NEVER;
-      }
-    }).optional(),
-    customModel: z.string().trim().max(200).refine(
-      (value) => !["\r", "\n", "\0"].some((character) => value.includes(character)),
-      "Use a model ID without control characters",
-    ).optional(),
-  }).optional(),
   /** Non-secret profile details; aboutMe is shared with every bot. */
   profile: z.object({ name: optionalText, email: optionalText, aboutMe: z.string().max(24_000).optional() }).optional(),
   /** UI language override (BCP-47, lowercase). Empty/absent = follow the
@@ -594,7 +576,6 @@ export interface AppConfig {
   tts?: { key?: string; fishKey?: string; voice?: string; provider?: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai"; baseUrl?: string; model?: string; fishModel?: FishTtsModel };
   /** The decision model; see the schema above and server/decider. */
   decider?: { enabled?: boolean; provider?: "jev" | "off"; key?: string; baseUrl?: string; jobs?: { roomRouting?: boolean } };
-  imageGen?: ImageGenerationConfig;
   live?: { key?: string; voice?: string; readTypedReplies?: boolean; idleMinutes?: number };
   profile?: { name?: string; email?: string; aboutMe?: string };
   mcp?: { callTimeoutMinutes?: number };
@@ -869,7 +850,6 @@ export const FLEET_NEUTRAL_KEYS: ReadonlySet<string> = new Set([
   "tts",
   // no engine reads it: the harness asks it before a turn starts
   "decider",
-  "imageGen",
   "live",
   "threads",
   "automaticRecovery",
@@ -1010,9 +990,6 @@ export function loadConfig(): AppConfig {
   if (process.env.COLONIE_JEV_API_KEY !== undefined) cfg.decider.key = process.env.COLONIE_JEV_API_KEY;
   cfg.live = { ...cfg.live };
   if (process.env.COLONIE_OPENAI_LIVE_KEY !== undefined) cfg.live.key = process.env.COLONIE_OPENAI_LIVE_KEY;
-  cfg.imageGen = { ...cfg.imageGen };
-  if (process.env.COLONIE_OPENAI_IMAGE_KEY !== undefined) cfg.imageGen.key = process.env.COLONIE_OPENAI_IMAGE_KEY;
-  if (process.env.COLONIE_CUSTOM_IMAGE_KEY !== undefined) cfg.imageGen.customApiKey = process.env.COLONIE_CUSTOM_IMAGE_KEY;
   // The sign-in allow-list: env is how a headless box or a container is
   // bootstrapped before anyone can reach Settings.
   const splitEmails = (value: string) => value.split(/[,\s]+/).map((entry) => entry.trim().toLowerCase()).filter(Boolean);
@@ -1072,8 +1049,6 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     [patch.tts?.key, "COLONIE_TTS_KEY"],
     [patch.tts?.fishKey, "COLONIE_FISH_AUDIO_API_KEY"],
     [patch.decider?.key, "COLONIE_JEV_API_KEY"],
-    [patch.imageGen?.key, "COLONIE_OPENAI_IMAGE_KEY"],
-    [patch.imageGen?.customApiKey, "COLONIE_CUSTOM_IMAGE_KEY"],
     [patch.live?.key, "COLONIE_OPENAI_LIVE_KEY"],
   ];
   for (const [value, name] of secrets) {
@@ -1124,6 +1099,7 @@ export const WORKSPACE_CREDENTIAL_ENV = [
   "COLONIE_TTS_KEY",
   "COLONIE_FISH_AUDIO_API_KEY",
   "COLONIE_JEV_API_KEY",
+  // Retired avatar image keys: no longer read, but a leftover must never reach an engine.
   "COLONIE_OPENAI_IMAGE_KEY",
   "COLONIE_CUSTOM_IMAGE_KEY",
   "COLONIE_OPENAI_LIVE_KEY",
@@ -1298,7 +1274,7 @@ export function saveConfig(
   // back after we have successfully recognized the legacy list.
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "onboarding", "browserEngine", "newBots"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "live", "profile", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "onboarding", "browserEngine", "newBots"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

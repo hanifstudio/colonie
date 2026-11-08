@@ -259,8 +259,6 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
           if (persisted.tts?.key !== undefined) persisted.tts.key = "";
           if (persisted.tts?.fishKey !== undefined) persisted.tts.fishKey = "";
           if (persisted.decider?.key !== undefined) persisted.decider.key = "";
-          if (persisted.imageGen?.key !== undefined) persisted.imageGen.key = "";
-          if (persisted.imageGen?.customApiKey !== undefined) persisted.imageGen.customApiKey = "";
           if (persisted.live?.key !== undefined) persisted.live.key = "";
           saveConfig(persisted);
           configWriteCommitted = true;

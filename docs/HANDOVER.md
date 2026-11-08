@@ -2,12 +2,13 @@
 
 ## Now: a bot looks the same everywhere
 
-Done in code: faces and bodies are consistent, a bot with no chosen face shows Excited, and a
-working bot keeps its body (`bloub-motion.ts`). The owner's next steps, one commit each: remove
-"Generate with AI" completely (the app and server code is out; its saved key, settings and desktop
-credential bridge are next); the avatar picker shows only Upload, Body, then Color (no Shape or
-Expression; stored faces are then ignored and the field should go); the same picker when making
-a bot. Then see it in a window with a working bot, and confirm browsing sets the bot busy.
+Done in code: faces and bodies are consistent, a bot with no chosen face shows Excited, a working
+bot keeps its body (`bloub-motion.ts`), and "Generate with AI" is gone (a desktop boot removes an
+older build's saved image keys). The owner's next steps, one commit each: the avatar picker shows
+only Upload, Body, then Color (no Shape or Expression; stored faces are then ignored and the field
+should go); the same picker when making a bot. Then see it in a window with a working bot, and
+confirm browsing sets the bot busy. A headless server keeps an old `imageGen` section in its
+config file untouched (the config writer keeps unknown keys).
 
 ## Next: follow up on a bot's answer as easily as in openbot
 

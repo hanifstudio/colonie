@@ -13,10 +13,15 @@ export const WORKSPACE_CREDENTIALS = [
   { section: "tts", field: "key", name: "ttsKey", env: "COLONIE_TTS_KEY" },
   { section: "tts", field: "fishKey", name: "fishAudioKey", env: "COLONIE_FISH_AUDIO_API_KEY" },
   { section: "decider", field: "key", name: "jevApiKey", env: "COLONIE_JEV_API_KEY" },
-  { section: "imageGen", field: "key", name: "openaiImageApiKey", env: "COLONIE_OPENAI_IMAGE_KEY" },
-  { section: "imageGen", field: "customApiKey", name: "customImageApiKey", env: "COLONIE_CUSTOM_IMAGE_KEY" },
   { section: "live", field: "key", name: "openaiLiveKey", env: "COLONIE_OPENAI_LIVE_KEY" },
   { section: "opencodeGo", field: "apiKey", name: "opencodeGoApiKey", env: "OPENCODE_API_KEY" },
+];
+
+/** Settings that no longer exist (avatar image generation). The boot sweep removes what an older
+ * build saved for them — the config section and the stored secrets — so a retired key does not stay
+ * on disk unused. Add to this list when a credential feature is removed. */
+const RETIRED_CREDENTIALS = [
+  { section: "imageGen", names: ["openaiImageApiKey", "customImageApiKey"] },
 ];
 
 /** One boot-time sweep of config.json: move every plaintext workspace secret
@@ -58,6 +63,17 @@ export function migrateWorkspaceCredentials(config, credentials) {
     }
     delete home[field];
     configChanged = true;
+  }
+  for (const { section, names } of RETIRED_CREDENTIALS) {
+    if (Object.hasOwn(nextConfig, section)) {
+      delete nextConfig[section];
+      configChanged = true;
+    }
+    for (const name of names) {
+      if (!Object.hasOwn(nextCredentials, name)) continue;
+      delete nextCredentials[name];
+      credentialsChanged = true;
+    }
   }
   return { config: nextConfig, credentials: nextCredentials, configChanged, credentialsChanged };
 }
