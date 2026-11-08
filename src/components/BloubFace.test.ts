@@ -10,7 +10,9 @@ test("the chosen face wins over what the state suggests", () => {
 
 test("a bot without a chosen face reads the same on every screen", () => {
   const rest = bloubFace("idle");
-  for (const state of ["happy", "working", "thinking", "searching", "sleeping"]) expect(bloubFace(state)).toBe(rest);
+  expect(rest).toBe("excite");
+  for (const state of ["working", "thinking", "searching", "sleeping"]) expect(bloubFace(state)).toBe(rest);
+  expect(bloubFace("happy")).not.toBe(rest);
 });
 
 test("a chosen face never turns into a movement", () => {

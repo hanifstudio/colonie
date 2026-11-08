@@ -12,7 +12,7 @@ import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS, type MascotBodyId } from "../../s
 import type { MausAvatarHandle, MausAvatarProps } from "./Avatar";
 
 const SHAPES: Record<string, string> = { cursor: "galet", blob: "galet", circle: "cercle", squircle: "squircle", capsule: "capsule", drop: "goutte", shield: "goutte", hexagon: "hexagone", diamond: "squircle", star: "nuage" };
-const FACES: Record<string, string> = { happy: "heureux", proud: "fier", sad: "triste", scared: "effraye", suspicious: "mefiant", confused: "confus", curious: "curieux", surprised: "surpris", angry: "colere", drowsy: "somnolent", listening: "attentif", excited: "excite", shy: "timide", bored: "blase" };
+const FACES: Record<string, string> = { idle: "excite", happy: "heureux", proud: "fier", sad: "triste", scared: "effraye", suspicious: "mefiant", confused: "confus", curious: "curieux", surprised: "surpris", angry: "colere", drowsy: "somnolent", listening: "attentif", excited: "excite", shy: "timide", bored: "blase" };
 // Body inks. Deeper and more saturated than the earlier pastel set so the
 // light `#fcfaff` eyes read clearly: every tone now holds >= 3:1 against the
 // eyes (WCAG non-text minimum; the old set sat at 1.6-3.5:1).
@@ -21,10 +21,11 @@ const COLORS: Record<string, string> = { green: "#1f8a5b", purple: "#6d4ae0", bl
 /**
  * The one rule for a bot's face. The face its owner chose (`face`) always wins. Without one, only a
  * state that is itself a feeling (sad, listening, ...) changes the face; every other state keeps the
- * default, so the same bot reads the same on every screen.
+ * default, so the same bot reads the same on every screen. The default is Excited: big,
+ * clearly readable eyes (Neutral, the reference rest pose, draws them too small at avatar sizes).
  */
 export function bloubFace(state = "idle", face?: string): string {
-  return FACES[face ?? state] ?? FACES.happy!;
+  return FACES[face ?? state] ?? FACES.idle!;
 }
 
 export function bloubState(state: MausState = "idle", motion: MausMotion = "none"): StateId {

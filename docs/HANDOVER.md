@@ -2,7 +2,8 @@
 
 ## Now: a bot looks the same everywhere
 
-Done in code: the chosen face wins on every screen; the body picker offers only the 7 bodies the
+Done in code: the chosen face wins on every screen, and a bot with none shows Excited
+(big eyes) instead of Happy; the body picker offers only the 7 bodies the
 engine draws; `bloub-motion.ts` lists what each state plays, and a test keeps every "bot is there"
 state (rings while working) on the chosen body with the eyes inside it. Left: see the sidebar, chat
 and settings in a window with a working bot, and confirm browsing sets the bot busy (then it plays
