@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEve
 import { Delete02Icon, ImageAdd01Icon, Loading02Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 
-import { useStore, type Bot } from "@/state/store";
+import type { Bot } from "@/state/store";
 import { useBotEditor } from "./bot-settings/BotEditorContext";
 import { imageAttachmentFromFile } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
@@ -27,7 +27,6 @@ import {
 import { MASCOT_BODIES } from "../../shared/mascot-bodies";
 import { PICKABLE_BODY_IDS, bodyChoice } from "./BloubAvatar";
 import { BotAvatar, MausAvatar } from "./Avatar";
-import { AvatarImageGenerator } from "./AvatarImageGenerator";
 
 type AvatarPatch = Partial<
   Pick<Bot, "avatarCrop" | "avatarUrl" | "avatarZoom" | "avatarFocusX" | "avatarFocusY" | "color" | "mascotExpression" | "mascotBody">
@@ -138,18 +137,15 @@ export function BotProfileAvatarCard({
   mascotMotion: { kind: Exclude<MausMotion, "none">; nonce: number } | null;
   onPatch: (patch: AvatarPatch) => void;
 }) {
-  const { flushBotPatches } = useStore();
-  const { request: api, uploadAvatar, workspace, readOnly } = useBotEditor();
+  const { uploadAvatar, readOnly } = useBotEditor();
   const fileRef = useRef<HTMLInputElement>(null);
   const chosenFace = normalizeState(bot.mascotExpression);
   const [uploading, setUploading] = useState(false);
-  const [savingConnection, setSavingConnection] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const crop = bot.avatarCrop ?? "mascot";
   const cropRef = useRef(crop);
   cropRef.current = crop;
-  const busy = uploading || generating || savingConnection || Boolean(readOnly);
+  const busy = uploading || Boolean(readOnly);
 
   const upload = async (file: File | undefined) => {
     if (!file || busy) return;
@@ -184,39 +180,6 @@ export function BotProfileAvatarCard({
       avatarFocusX: AVATAR_FOCUS_CENTER,
       avatarFocusY: AVATAR_FOCUS_CENTER,
     });
-  };
-
-  const generate = async (direction: string) => {
-    if (busy) return;
-    setGenerating(true);
-    setError(null);
-    try {
-      // Generation reads the bot's identity and crop server-side. Commit any
-      // debounced profile edits first, then feed the generated avatar back
-      // through the same serialized mutation lane as upload/remove.
-      const cropAtStart = cropRef.current;
-      await flushBotPatches(bot.id);
-      const result: { avatarUrl: string; bot: Bot } = await api(`/api/bots/${bot.id}/avatar/generate`, {
-        method: "POST",
-        body: JSON.stringify({ prompt: direction.trim() }),
-      });
-      const latestCrop = cropRef.current;
-      onPatch({
-        avatarUrl: result.avatarUrl,
-        // The server owns this crop for generate (server/index.ts picks
-        // "circle" for a mascot bot). The fallback below is never actually
-        // reached, since the server always assigns a crop; "circle" is kept
-        // only as the truthful default if it ever were.
-        avatarCrop:
-          latestCrop === cropAtStart
-            ? (result.bot.avatarCrop ?? "circle")
-            : latestCrop,
-      });
-    } catch (generateError) {
-      setError(generateError instanceof Error ? generateError.message : String(generateError));
-    } finally {
-      setGenerating(false);
-    }
   };
 
   return (
@@ -373,14 +336,6 @@ export function BotProfileAvatarCard({
             </div>
           </>
         )}
-
-        {!workspace && <AvatarImageGenerator
-          botLabel={bot.title || bot.name}
-          disabled={uploading}
-          generating={generating}
-          onGenerate={generate}
-          onSavingChange={setSavingConnection}
-        />}
 
         {error && <div role="alert" className="mt-3 text-[12px] text-danger">{error}</div>}
       </div>

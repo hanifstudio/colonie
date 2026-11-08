@@ -34,11 +34,3 @@ test("a skills preview without a source is a 400", async () => {
 
   expect(sent[0]?.status).toBe(400);
 });
-
-test("an avatar preview with a broken profile is refused before any generation", async () => {
-  const notAnObject = callRoute("/api/bot-defaults/avatar", "POST", { prompt: "a cat", profile: 7 });
-
-  await routes()(notAnObject.ctx);
-
-  expect(notAnObject.sent[0]?.status).toBe(400);
-});

@@ -17,13 +17,11 @@ import { ServerResponse } from "node:http";
 import { IncomingMessage } from "node:http";
 import { isColonieAcpDriver } from "../../shared/acp.ts";
 import { approvalModeFor } from "../../shared/approval-mode.ts";
-import { botAvatarUrlFromStoredPath } from "../../shared/bot-avatar.ts";
 import { credentialIsConfigured, credentialResumeOutcome } from "../../shared/credential-request.ts";
 import { loadBrand } from "../brand.ts";
-import { avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, snapshotAvatarGenerationState } from "../colonie/bots/avatar-image.ts";
 import { memberBody, memberBot, notFoundFor, pathSubject } from "../colonie/bots/bot-visibility.ts";
 import { botSkillTemplateSchema } from "../colonie/bots/new-bot-defaults.ts";
-import { ATTACHMENTS_DIR, deleteAttachment, parseAudioRange, readAttachment, saveImage } from "../colonie/chat/attachments.ts";
+import { ATTACHMENTS_DIR, parseAudioRange, readAttachment } from "../colonie/chat/attachments.ts";
 import { listMessageFolder, messageAttachmentName, messageFileDisposition, messageFileDownloadName, messageFolderEntryName, messageImageTargetAt, messageReferencesFile, openMessageFile, openMessageFolderEntry } from "../colonie/chat/message-file.ts";
 import { cancelSteeredMessage } from "../colonie/chat/steer-queue.ts";
 import { titleConversationExcerpt } from "../colonie/chat/thread-title.ts";
@@ -972,41 +970,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return res.end(lines.join("\n"));
     }
 
-    m = path.match(/^\/api\/bots\/([\w-]+)\/avatar\/generate$/);
-    if (m && method === "POST") {
-      const existing = store.bot(m[1]);
-      if (!existing) return json(res, 404, { error: "no such bot" });
-      // Generation is slow and both desktop and companion clients may edit or
-      // delete this bot while it is in flight. Snapshot the two fields this
-      // request owns before the first await so a late result cannot win.
-      const initialAvatar = snapshotAvatarGenerationState(existing);
-      const parsed = avatarGenerationRequestSchema.safeParse(await readBody(req));
-      if (!parsed.success) {
-        return json(res, 400, { error: `prompt must be at most 400 characters` });
-      }
-      const generated = await generateAvatarImage(cfg, existing, parsed.data.prompt);
-      const current = store.bot(existing.id);
-      if (!current) return json(res, 404, { error: "no such bot" });
-      if (!avatarGenerationStateMatches(initialAvatar, current)) {
-        return json(res, 409, { error: "avatar changed while generation was in progress" });
-      }
-      const saved = saveImage(generated.bytes, generated.mime);
-      const avatarUrl = botAvatarUrlFromStoredPath(saved.path);
-      if (!avatarUrl) throw Object.assign(new Error("Could not store the generated avatar"), { status: 500 });
-      const avatarCrop = initialAvatar.avatarCrop && initialAvatar.avatarCrop !== "mascot"
-        ? initialAvatar.avatarCrop
-        : "circle";
-      const bot = store.patchBot(current.id, { avatarUrl, avatarCrop });
-      if (!bot) {
-        // There are no awaits between the refreshed lookup and this patch, but
-        // keep the attachment invariant explicit if the store ever changes.
-        deleteAttachment(saved.path);
-        return json(res, 404, { error: "no such bot" });
-      }
-      const visible = wireBot(bot);
-      broadcast({ kind: "bot", bot: visible });
-      return json(res, 201, { avatarUrl, bot: visible });
-    }
     m = path.match(/^\/api\/bots\/([\w-]+)\/model$/);
     if (m && method === "PATCH") {
       const body = await readBody(req);

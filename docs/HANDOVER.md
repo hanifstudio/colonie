@@ -2,13 +2,12 @@
 
 ## Now: a bot looks the same everywhere
 
-Done in code: the chosen face wins on every screen, and a bot with none shows Excited
-(big eyes) instead of Happy; the body picker offers only the 7 bodies the
-engine draws; `bloub-motion.ts` lists what each state plays, and a test keeps every "bot is there"
-state (rings while working) on the chosen body with the eyes inside it. Left: see the sidebar, chat
-and settings in a window with a working bot, and confirm browsing sets the bot busy (then it plays
-the rings). Bots saved with a chosen "working", "thinking" or "sleeping" show the default face
-until picked again. Out of scope: new bodies.
+Done in code: faces and bodies are consistent, a bot with no chosen face shows Excited, and a
+working bot keeps its body (`bloub-motion.ts`). The owner's next steps, one commit each: remove
+"Generate with AI" completely (the app and server code is out; its saved key, settings and desktop
+credential bridge are next); the avatar picker shows only Upload, Body, then Color (no Shape or
+Expression; stored faces are then ignored and the field should go); the same picker when making
+a bot. Then see it in a window with a working bot, and confirm browsing sets the bot busy.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 

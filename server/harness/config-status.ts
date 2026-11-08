@@ -3,7 +3,6 @@ import * as tts from "../tts/index.ts";
 import * as composio from "../colonie/mcp/composio.ts";
 import { type BotRecord } from "../persistence/store.ts";
 import { failedTurnTool } from "../../shared/failed-turn.ts";
-import { avatarImageStatus } from "../colonie/bots/avatar-image.ts";
 import { withoutPendingSignIn } from "../colonie/mcp/mcp-oauth.ts";
 import { claudeAccountInfo, isClaudeAccountDriver } from "../colonie/providers/claude-accounts.ts";
 import { CLAUDE_API_INSTANCE, autoRecallEnabled, builtInBrowserEnabled, claudeUserMcpEnabled, customMcpServers, instanceConfigs, liveSettingsFor, llmThreadTitlesEnabled, maxConcurrentBotThreads, mcpCallTimeoutMinutes, openCodeProviderKeys, routinesInConversationEnabled, saveConfig, showToolCallsEnabled, skillAuthoringEnabled, skillsLibraryEnabled, threadEventLogMaxBytes, threadEventLogRetentionDays, type AppConfig } from "../config.ts";
@@ -80,7 +79,6 @@ function configStatus() {
     tts: tts.describeVoice(cfg),
     // the decision model: switches and configured-or-not, never the key
     decider: describeDecider(cfg),
-    imageGen: avatarImageStatus(cfg),
     // Live calls: configured-or-not only; the voice name is a setting
     live: liveSettingsFor(cfg),
     // not a secret — the sidebar shows it

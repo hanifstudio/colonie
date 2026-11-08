@@ -9,8 +9,6 @@ import { newBotDefaultsSchema, botSkillTemplateSchema } from "../colonie/bots/ne
 import { pickBotName } from "../names.ts";
 import { fetchSkillFromSource } from "../colonie/skills/skill-fetch.ts";
 import { parseSkillMd, scanSkillText } from "../colonie/skills/skills.ts";
-import { parseBotProfilePatch } from "../colonie/bots/bot-profile.ts";
-import { avatarGenerationRequestSchema, generateAvatarImage } from "../colonie/bots/avatar-image.ts";
 import type { AppConfig } from "../config.ts";
 import type { Store } from "../persistence/store.ts";
 import type { ModelSelection } from "../../shared/wire.ts";
@@ -52,21 +50,6 @@ export function createBotDefaultRoutes(deps: BotDefaultRouteDeps): RouteHandler 
         skills.push(template.data);
       }
       return json(res, 200, { skills });
-    }
-    if (method === "POST" && path === "/api/bot-defaults/avatar") {
-      const body = await readBody(req);
-      if (!body || typeof body !== "object" || Array.isArray(body)) return json(res, 400, { error: "avatar preview must be a JSON object" });
-      const profile = parseBotProfilePatch(body.profile, true);
-      if (!profile.ok) return json(res, 400, { error: profile.error });
-      const checked = avatarGenerationRequestSchema.safeParse({ prompt: body.prompt });
-      if (!checked.success) return json(res, 400, { error: checked.error.message });
-      const { prompt } = checked.data;
-      const generated = await generateAvatarImage(deps.cfg, {
-        name: profile.patch.name ?? "", title: profile.patch.title ?? "", description: profile.patch.description ?? "",
-      }, prompt);
-      // A preview belongs to the draft. Upload it through the existing image
-      // endpoint only when the user commits the new bot or its defaults.
-      return json(res, 200, { dataUrl: `data:${generated.mime};base64,${generated.bytes.toString("base64")}` });
     }
     return PASS;
   };
