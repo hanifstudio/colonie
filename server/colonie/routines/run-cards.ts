@@ -1,4 +1,5 @@
 // Where a routine's lifecycle card lands: pick the source conversation (results snapshot, else the chat that made the routine, else the bot's oldest open thread), render the card and its fallback line, and upsert one durable card per run.
+import { isQuietReport } from "../../../shared/quiet-report.ts";
 import { canReachPeer } from "../../colonie/peers/peer-roster.ts";
 import { threadTitleFrom, type Message, type TaskRecord } from "../../persistence/store.ts";
 import { redactSecretsInText } from "../../redact.ts";
@@ -84,7 +85,9 @@ function routineSourceThread(run: RoutineRun): string | null {
 }
 
 function routineRunCard(run: RoutineRun): NonNullable<Message["routineRun"]> {
-  const visibleSummary = run.status === "waiting" ? run.attention : run.output;
+  // a group's routine with nothing to tell it keeps its short "completed" record, without the marker as text
+  const quiet = Boolean(run.conversation) && run.status === "completed" && isQuietReport(run.output);
+  const visibleSummary = run.status === "waiting" ? run.attention : quiet ? undefined : run.output;
   const summary = visibleSummary ? redactSecretsInText(visibleSummary).slice(0, 20_000) : undefined;
   const error = run.error ? redactSecretsInText(run.error).slice(0, 500) : undefined;
   const card: NonNullable<Message["routineRun"]> = {

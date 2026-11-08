@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { QUIET_INSTRUCTION } from "../../../shared/quiet-report.ts";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
@@ -1615,7 +1616,7 @@ export class RoutineManager {
           await this.options.startTurn(
             run.botId,
             task.threadId,
-            composeExecutionPrompt(prompt, run.attachments, this.continuityCarry(run)),
+            composeExecutionPrompt(prompt, run.attachments, this.continuityCarry(run)) + (run.conversation ? `\n\n${QUIET_INSTRUCTION}` : ""),
             run.runOn ?? "maus",
             triggerSource,
             (message) => this.failThread(task.threadId, message),

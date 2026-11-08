@@ -722,3 +722,30 @@ test("a bot is told that a stuck line shows what it tried and the exact error or
   expect(line.text).toContain("Stuck: tried export twice; EACCES opening reports/q3.pdf");
   expect(line.stoppedBy).toMatchObject({ botId: f.bot.id, reason: "blocked" });
 });
+
+test("a routine reporting to a group posts what it found, stays quiet when there is nothing, and never hides a failure", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} set up the daily check`, randomUUID());
+  await settle(() => f.calls.some((call) => call.work.conversationId === f.group.id));
+  const call = f.calls.find((entry) => entry.work.conversationId === f.group.id)!;
+  expect(f.service.attachRoutine(f.bot.id, call.threadId, "daily")).toBe(true);
+  const run = (id: string, status: string, output?: string, error?: string) =>
+    f.service.routineRunFinished({ id, routineId: "daily", botId: f.bot.id, routineName: "Daily check", status, output, error });
+  const posted = () => f.store.messagesFor(f.group.threadId).filter((message) => message.from?.botId === f.bot.id && /Daily check|Invoices|Revenue/.test(message.text ?? "") && !message.working);
+  const before = posted().length;
+  run("r1", "completed", "NO_REPLY");
+  run("r2", "completed", "Nothing new.");
+  run("r3", "completed", "");
+  expect(posted().length).toBe(before);
+  run("r4", "completed", "Revenue dropped 12%; 2 invoices are overdue.");
+  expect(posted().at(-1)?.text).toBe("Revenue dropped 12%; 2 invoices are overdue.");
+  run("r5", "failed", undefined, "the report site is down");
+  expect(posted().at(-1)?.text).toBe("Daily check failed: the report site is down");
+  run("r6", "missed");
+  expect(posted().at(-1)?.text).toBe("Daily check was missed.");
+  // a run looked at twice posts once
+  const count = posted().length;
+  run("r4", "completed", "Revenue dropped 12%; 2 invoices are overdue.");
+  run("r1", "completed", "Real news after all");
+  expect(posted().length).toBe(count);
+});

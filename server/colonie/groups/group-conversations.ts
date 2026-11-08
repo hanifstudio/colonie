@@ -8,6 +8,7 @@
 // the writer can see joins on its first mention). Each bot has a private
 // execution session per conversation. Answers and approval cards appear in
 // the conversation. Transcript, metadata, and execution intents share SQLite.
+import { isQuietReport } from "../../../shared/quiet-report.ts";
 import { randomUUID } from "node:crypto";
 
 import { commandReceipt } from "../../commands.ts";
@@ -606,6 +607,13 @@ export function createGroupConversations(deps: {
       if (!["completed", "failed", "missed"].includes(run.status) || record.routineRuns?.[run.id]) return record.threadId;
       const bot = deps.store().bot(run.botId);
       if (!bot) return record.threadId;
+      // a run with nothing to tell the group stays quiet; it is still recorded, so it is never looked at twice
+      if (run.status === "completed" && isQuietReport(run.output)) {
+        const next = { ...record, routineRuns: { ...record.routineRuns, [run.id]: "quiet" } };
+        saveConversationRecords(records.map((entry) => entry.id === next.id ? next : entry));
+        Object.assign(record, next);
+        return record.threadId;
+      }
       const said = run.status === "completed"
         ? run.output?.trim() || `${run.routineName}: done.`
         : `${run.routineName} ${run.status === "missed" ? "was missed" : "failed"}${run.error ? `: ${run.error}` : "."}`;
