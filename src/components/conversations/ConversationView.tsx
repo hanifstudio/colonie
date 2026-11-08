@@ -2,6 +2,7 @@
 // as with a bot (ChatView: header pill, bubbles, composer pill): your own
 // messages on the right, everyone else's on the left under their face and
 // name. @mentioning a bot asks it to answer here.
+import { SendFailure } from "./SendFailure";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp01Icon, AttachmentIcon, InformationCircleIcon, Loading02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
@@ -268,7 +269,7 @@ export function ConversationComposer({ conversation, bots, messages, viewerKey, 
   return (
     <form className="pointer-events-none relative px-5 pb-3" onSubmit={(event) => { event.preventDefault(); void send(); }}>
       <div className="pointer-events-auto relative w-full">
-        {error && <p role="alert" className="mb-2 text-[12px] text-danger">{error}</p>}
+        {error && <SendFailure reason={error} busy={busy} onRetry={() => void send()} />}
         {approval?.message.relay && (
           <div className="mb-2 overflow-hidden rounded-2xl border border-accent/40 bg-card">
             <PendingApprovalPanel pending={approval} count={1} index={0} />
