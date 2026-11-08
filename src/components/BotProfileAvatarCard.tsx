@@ -7,10 +7,8 @@ import { useBotEditor } from "./bot-settings/BotEditorContext";
 import { imageAttachmentFromFile } from "@/lib/composer-attachments";
 import { cn } from "@/lib/cn";
 import {
-  PICKABLE_STATES,
   MAUS_COLORS,
   MAUS_COLOR_NAMES,
-  normalizeState,
   type MausMotion,
   type MausState,
 } from "@/lib/mascot";
@@ -18,18 +16,16 @@ import {
   AVATAR_FOCUS_CENTER,
   AVATAR_ZOOM_MAX,
   AVATAR_ZOOM_MIN,
-  BOT_AVATAR_CROPS,
   botAvatarUrlFromStoredPath,
   clampAvatarFocus,
   clampAvatarZoom,
-  type BotAvatarCrop,
 } from "../../shared/bot-avatar";
 import { MASCOT_BODIES } from "../../shared/mascot-bodies";
 import { PICKABLE_BODY_IDS, bodyChoice } from "./BloubAvatar";
 import { BotAvatar, MausAvatar } from "./Avatar";
 
 type AvatarPatch = Partial<
-  Pick<Bot, "avatarCrop" | "avatarUrl" | "avatarZoom" | "avatarFocusX" | "avatarFocusY" | "color" | "mascotExpression" | "mascotBody">
+  Pick<Bot, "avatarCrop" | "avatarUrl" | "avatarZoom" | "avatarFocusX" | "avatarFocusY" | "color" | "mascotBody">
 >;
 
 const FRAME_SIZE = 168;
@@ -119,13 +115,6 @@ function AvatarFraming({
   );
 }
 
-const CROP_LABEL = {
-  mascot: "Mascot",
-  circle: "Circle",
-  rounded: "Rounded",
-  square: "Square",
-} satisfies Record<BotAvatarCrop, string>;
-
 export function BotProfileAvatarCard({
   bot,
   activeState,
@@ -139,10 +128,10 @@ export function BotProfileAvatarCard({
 }) {
   const { uploadAvatar, readOnly } = useBotEditor();
   const fileRef = useRef<HTMLInputElement>(null);
-  const chosenFace = normalizeState(bot.mascotExpression);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const crop = bot.avatarCrop ?? "mascot";
+  const hasImage = crop !== "mascot" && Boolean(bot.avatarUrl);
   const cropRef = useRef(crop);
   cropRef.current = crop;
   const busy = uploading || Boolean(readOnly);
@@ -188,7 +177,7 @@ export function BotProfileAvatarCard({
         <span className="rounded-lg bg-control px-3 py-1.5 text-[14px] font-medium text-ink">Avatar</span>
         <button
           disabled={busy}
-          onClick={() => onPatch({ avatarCrop: "mascot", color: "green", mascotExpression: null, mascotBody: "cursor" })}
+          onClick={() => onPatch({ avatarCrop: "mascot", color: "green", mascotBody: "cursor" })}
           className="rounded-md px-2 py-1.5 text-[13px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50"
         >
           Reset mascot
@@ -196,7 +185,7 @@ export function BotProfileAvatarCard({
       </div>
 
       <div className="p-3">
-        {crop !== "mascot" && bot.avatarUrl ? (
+        {hasImage ? (
           <AvatarFraming bot={bot} disabled={busy} onPatch={onPatch} />
         ) : (
           <div className="flex justify-center py-3">
@@ -242,49 +231,28 @@ export function BotProfileAvatarCard({
         </div>
         <div className="mt-1.5 text-[11.5px] text-ink-secondary">PNG, JPEG, GIF, or WebP · up to 10 MB</div>
 
-        <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
-          Shape
-        </div>
-        <div className="grid grid-cols-4 overflow-hidden rounded-lg border border-hairline/40">
-          {BOT_AVATAR_CROPS.map((candidate, index) => (
-            <button
-              key={candidate}
-              type="button"
-              disabled={busy}
-              aria-pressed={crop === candidate}
-              onClick={() => onPatch({ avatarCrop: candidate })}
-              className={cn(
-                "py-1.5 text-[12.5px] disabled:opacity-50",
-                index > 0 && "border-l border-hairline/40",
-                crop === candidate ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/60 hover:text-ink",
-              )}
-            >
-              {CROP_LABEL[candidate]}
-            </button>
-          ))}
-        </div>
-
-        {crop === "mascot" && (
+        {!hasImage && (
           <>
             <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
-              Expression
+              Body
             </div>
-            <div className="grid grid-cols-5 gap-2">
-              {PICKABLE_STATES.map((expression) => (
+            <div className="grid grid-cols-5 gap-1.5">
+              {PICKABLE_BODY_IDS.map((id) => (
                 <button
-                  key={expression}
+                  key={id}
                   type="button"
                   disabled={busy}
-                  aria-pressed={chosenFace === expression}
-                  onClick={() => onPatch({ mascotExpression: expression })}
+                  aria-pressed={bodyChoice(bot.mascotBody) === id}
+                  aria-label={`Use the ${MASCOT_BODIES[id].name} body`}
+                  onClick={() => onPatch({ mascotBody: id })}
                   className={cn(
-                    "flex h-[58px] items-center justify-center rounded-xl bg-inset transition-colors hover:bg-control disabled:opacity-50",
-                    chosenFace === expression && "ring-2 ring-accent-border",
+                    "flex items-center justify-center rounded-lg py-1.5 disabled:opacity-50",
+                    bodyChoice(bot.mascotBody) === id
+                      ? "bg-control text-ink"
+                      : "text-ink-secondary hover:bg-control/60",
                   )}
-                  title={expression}
-                  aria-label={`Use ${expression} expression`}
                 >
-                  <MausAvatar color={bot.color} bodyId={bot.mascotBody ?? undefined} state={expression} size={42} animated={false} />
+                  <MausAvatar color={bot.color} bodyId={id} size={34} animated={false} trackPointer={false} />
                 </button>
               ))}
             </div>
@@ -308,30 +276,6 @@ export function BotProfileAvatarCard({
                   title={color}
                   aria-label={`Use ${color} mascot color`}
                 />
-              ))}
-            </div>
-
-            <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
-              Body
-            </div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {PICKABLE_BODY_IDS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  disabled={busy}
-                  aria-pressed={bodyChoice(bot.mascotBody) === id}
-                  aria-label={`Use the ${MASCOT_BODIES[id].name} body`}
-                  onClick={() => onPatch({ mascotBody: id })}
-                  className={cn(
-                    "flex items-center justify-center rounded-lg py-1.5 disabled:opacity-50",
-                    bodyChoice(bot.mascotBody) === id
-                      ? "bg-control text-ink"
-                      : "text-ink-secondary hover:bg-control/60",
-                  )}
-                >
-                  <MausAvatar color={bot.color} bodyId={id} size={34} animated={false} trackPointer={false} />
-                </button>
               ))}
             </div>
           </>

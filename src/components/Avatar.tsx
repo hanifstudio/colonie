@@ -11,7 +11,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { MAUS_COLORS, normalizeState, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
+import { MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
 import { CursorAvatar, type CursorAvatarHandle } from "./CursorAvatar";
 import { BloubAvatar } from "./BloubAvatar";
 import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, type BotAvatarCrop } from "../../shared/bot-avatar";
@@ -83,8 +83,6 @@ export type MausAvatarProps = {
   color: MausColor;
   /** Named behaviour — drives the expression pool, its cadence and blinking. */
   state?: MausState;
-  /** The face the bot's owner chose. It wins over any face the state would suggest. */
-  face?: string;
   /** Pin one of the 25 faces and stop the state's own drift. */
   expression?: number;
   size?: number;
@@ -217,7 +215,6 @@ export type BotAvatarProps = Omit<MausAvatarProps, "color"> & {
     avatarFocusX?: number;
     avatarFocusY?: number;
     mascotBody?: MascotBodyId | null;
-    mascotExpression?: string | null;
   };
 };
 
@@ -269,7 +266,6 @@ export function BotAvatar({ bot, size = 44, label, ...mascotProps }: BotAvatarPr
       <MausAvatar
         bodyId={bot.mascotBody ?? undefined}
         {...mascotProps}
-        face={normalizeState(bot.mascotExpression) ?? undefined}
         color={bot.color}
         size={size}
         label={label ?? bot.name}

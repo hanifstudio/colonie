@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Delete02Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
-import { BotAvatar } from "./Avatar";
-import { MAUS_COLORS } from "@/lib/mascot";
+import { BotProfileAvatarCard } from "./BotProfileAvatarCard";
 import { api, BotEditorStore, useStore, type Bot, type ModelSelection } from "@/state/store";
 import { BotCreationDraft, EMPTY_BOT_DEFAULTS } from "@/lib/bot-creation-draft";
 import { createConfiguredBot, preparedBotTemplate } from "@/lib/create-configured-bot";
@@ -254,21 +253,15 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
  * (skills, memory, model, permissions, voice) waits in the bot's settings. */
 export function SimpleNewBot({ draft }: { draft: BotCreationDraft }) {
   const bot = draft.bot;
-  const colors = Object.keys(MAUS_COLORS) as Array<keyof typeof MAUS_COLORS>;
-  const nextColor = () => colors[(colors.indexOf(bot.color as keyof typeof MAUS_COLORS) + 1) % colors.length]!;
   const name = bot.name.trim() || "this bot";
   return <div className="space-y-5">
-    <div className="flex items-center gap-4">
-      <button type="button" onClick={() => draft.patch({ color: nextColor() })} title="Change look" aria-label="Change look"
-        className="flex shrink-0 flex-col items-center gap-1 rounded-xl p-1 text-[11px] text-ink-secondary hover:bg-control/50 hover:text-ink">
-        <BotAvatar bot={bot} state="happy" size={56} motion="none" motionKey={0} animated={false} />
-        Change look
-      </button>
-      <label className="min-w-0 flex-1 text-[13px] text-ink-secondary">Name
-        <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} autoFocus
-          className={cn(inputCls, "mt-1.5")} />
-      </label>
-    </div>
+    <BotEditorContext.Provider value={{ request: draft.request, draft: true, uploadAvatar: draft.uploadAvatar }}>
+      <BotProfileAvatarCard bot={bot} activeState="idle" mascotMotion={null} onPatch={patch => draft.patch(patch)} />
+    </BotEditorContext.Provider>
+    <label className="block text-[13px] text-ink-secondary">Name
+      <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} autoFocus
+        className={cn(inputCls)} />
+    </label>
     <label className="block text-[13px] text-ink-secondary">What should {name} do?
       <textarea value={bot.soul ?? ""} onChange={event => draft.patch({ soul: event.target.value })} rows={4}
         placeholder="For example: keep our launch on track, remind people of deadlines, and sum up each week."

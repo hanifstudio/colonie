@@ -10,7 +10,6 @@ import {
   MAUS_COLOR_NAMES,
   MAUS_COLORS,
   MAUS_MOTIONS,
-  PICKABLE_STATES,
   STATE_GROUPS,
   type MausColor,
   type MausMotion,
@@ -19,6 +18,9 @@ import {
 import { EXPRESSION_COUNT } from "@/components/CursorAvatar";
 import "./styles.css";
 import "./mascot-preview.css";
+
+/** The states shown in the developer preview matrix (the avatar picker no longer offers faces). */
+const PREVIEW_STATES = ["idle", "happy", "curious", "drowsy", "working", "thinking", "listening", "sleeping", "suspicious", "proud"] as const satisfies readonly MausState[];
 
 interface ScenarioLabels extends Partial<Record<MausState, string>> {}
 
@@ -344,7 +346,7 @@ function Preview() {
         <div className="matrix-wrap">
           <div className="matrix">
             <div className="corner-label">Color ↓ / state →</div>
-            {PICKABLE_STATES.map((s) => (
+            {PREVIEW_STATES.map((s) => (
               <div className="column-label" key={s}>
                 <strong>{s}</strong>
                 <span>{SCENARIOS[s]}</span>
@@ -358,7 +360,7 @@ function Preview() {
                   <strong>{c}</strong>
                   <code>{MAUS_COLORS[c]}</code>
                 </div>
-                {PICKABLE_STATES.map((s) => (
+                {PREVIEW_STATES.map((s) => (
                   <div className="mascot-cell" key={`${c}-${s}`}>
                     <MausAvatar color={c} state={s} size={86} label={`${c} ${s} maus`} />
                   </div>

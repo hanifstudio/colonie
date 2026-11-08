@@ -19,13 +19,12 @@ const FACES: Record<string, string> = { idle: "excite", happy: "heureux", proud:
 const COLORS: Record<string, string> = { green: "#1f8a5b", purple: "#6d4ae0", blue: "#2f74c9", cyan: "#1f8f99", red: "#cf4258", pink: "#c74b86", orange: "#c86a1c", yellow: "#a8841a", teal: "#1f8a80", coral: "#c85a41" };
 
 /**
- * The one rule for a bot's face. The face its owner chose (`face`) always wins. Without one, only a
- * state that is itself a feeling (sad, listening, ...) changes the face; every other state keeps the
- * default, so the same bot reads the same on every screen. The default is Excited: big,
- * clearly readable eyes (Neutral, the reference rest pose, draws them too small at avatar sizes).
+ * The one rule for a bot's face: only a state that is itself a feeling (sad, listening, ...) changes
+ * it; every other state keeps the default, Excited, so the same bot reads the same on every screen.
+ * Big, clearly readable eyes: Neutral, the reference rest pose, draws them too small at avatar sizes.
  */
-export function bloubFace(state = "idle", face?: string): string {
-  return FACES[face ?? state] ?? FACES.idle!;
+export function bloubFace(state: string = "idle"): string {
+  return FACES[state] ?? FACES.idle!;
 }
 
 export function bloubState(state: MausState = "idle", motion: MausMotion = "none"): StateId {
@@ -81,7 +80,7 @@ export const BloubAvatar = memo(forwardRef<MausAvatarHandle, MausAvatarProps>(fu
   const clock = useRef(1);
   const state = bloubState(props.state, props.motion);
   const expression = typeof props.expression === "number" ? EXPRESSIONS[props.expression % EXPRESSIONS.length]
-    : EXPRESSION_BY_ID.get(bloubFace(props.state, props.face));
+    : EXPRESSION_BY_ID.get(bloubFace(props.state));
   const engineRef = useRef<BotEngine | null>(null);
   engineRef.current ??= new BotEngine(100, state, bloubShape(props.bodyId).radii, expression ?? null);
   const engine = engineRef.current;

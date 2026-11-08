@@ -2,13 +2,11 @@
 
 ## Now: a bot looks the same everywhere
 
-Done in code: faces and bodies are consistent, a bot with no chosen face shows Excited, a working
-bot keeps its body (`bloub-motion.ts`), and "Generate with AI" is gone (a desktop boot removes an
-older build's saved image keys). The owner's next steps, one commit each: the avatar picker shows
-only Upload, Body, then Color (no Shape or Expression; stored faces are then ignored and the field
-should go); the same picker when making a bot. Then see it in a window with a working bot, and
-confirm browsing sets the bot busy. A headless server keeps an old `imageGen` section in its
-config file untouched (the config writer keeps unknown keys).
+Done in code: one default face (Excited), a working bot keeps its body (`bloub-motion.ts`), "Generate
+with AI" is gone, and the avatar picker (settings and making a bot) is Upload, Body, then Color. Left:
+see it in a window with a working bot, and confirm browsing sets the bot busy. The saved
+`mascotExpression` field is now unused (queue item 5). A headless server keeps an old `imageGen`
+section in its config file untouched.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 
@@ -96,5 +94,6 @@ a domain, per-IP limits, `/forgot` timing (Turnstile deferred).
    - Full tool results are never kept on ACP, so work summaries show previews only.
    - Old `native/<thread>.ndjson` readers remain; nothing writes those files. Decide which to keep.
 4. Small fix: email sign-in says the accounts-service address "is set" when it is not.
-5. Remove the leftover brand word `maus` (`runOn` setting, then mascot CSS and component names).
+5. Remove the leftover brand word `maus` (`runOn` setting, mascot CSS and component names) and the
+   unused `mascotExpression` field (bots, presets, team packages).
 6. Tidy the interface code into feature folders, one feature at a time.

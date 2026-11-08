@@ -1,27 +1,15 @@
-// A bot's face: the one its owner chose wins everywhere, and the picker offers only faces that differ.
+// A bot's face: the same default everywhere, and only a feeling changes it.
 import { expect, test } from "vitest";
-import { PICKABLE_STATES, stateForBot } from "@/lib/mascot";
 import { bloubFace } from "./BloubAvatar";
 
-test("the chosen face wins over what the state suggests", () => {
-  expect(bloubFace("working", "sad")).toBe(bloubFace("idle", "sad"));
-  expect(bloubFace("idle", "sad")).not.toBe(bloubFace("idle"));
-});
-
-test("a bot without a chosen face reads the same on every screen", () => {
+test("a bot reads the same on every screen: states that are not a feeling keep the default face", () => {
   const rest = bloubFace("idle");
   expect(rest).toBe("excite");
-  for (const state of ["working", "thinking", "searching", "sleeping"]) expect(bloubFace(state)).toBe(rest);
-  expect(bloubFace("happy")).not.toBe(rest);
+  for (const state of ["working", "thinking", "searching", "sleeping", "writing", "notifying"]) expect(bloubFace(state)).toBe(rest);
 });
 
-test("a chosen face never turns into a movement", () => {
-  expect(stateForBot({ name: "Ada", mascotExpression: "thinking" })).toBe("idle");
-});
-
-test("every face the picker offers looks different", () => {
-  const faces = PICKABLE_STATES.map((state) => bloubFace(state));
-  expect(new Set(faces).size).toBe(faces.length);
+test("a state that is itself a feeling changes the face", () => {
+  for (const state of ["sad", "scared", "angry", "listening", "surprised"]) expect(bloubFace(state), state).not.toBe(bloubFace("idle"));
 });
 
 test("every body the picker offers is drawn differently, and a retired one maps to its twin", async () => {

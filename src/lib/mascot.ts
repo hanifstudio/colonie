@@ -124,17 +124,6 @@ export function normalizeState(value: string | null | undefined): MausState | nu
   return LEGACY_STATES[value] ?? null;
 }
 
-/**
- * The faces worth offering in the appearance picker: one state per face the avatar really draws
- * (see `bloubFace`), so every swatch looks different. Transient states such as `working` or
- * `sleeping` are movements, not faces, and are not offered.
- */
-export const PICKABLE_STATES: MausState[] = [
-  "happy", "excited", "proud", "curious", "listening",
-  "surprised", "confused", "suspicious", "shy", "bored",
-  "drowsy", "sad", "scared", "angry",
-];
-
 type MascotMessage = {
   kind: string;
   tool?: { ok?: boolean };
@@ -144,7 +133,6 @@ export type MascotBotProfile = {
   name: string;
   title?: string;
   description?: string;
-  mascotExpression?: string | null;
   busy?: boolean;
   activity?: string;
   unread?: boolean;
