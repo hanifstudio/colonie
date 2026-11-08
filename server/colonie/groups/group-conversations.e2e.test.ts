@@ -523,6 +523,16 @@ describe("a group with several bots", () => {
     expect(cards[0].text).toBe("- [x] Find footage\n- [x] Cut to the voice-over\n- [x] Render the video");
   }, 90_000);
 
+  test("a bot whose engine reports a spent quota says so in the group, in the engine's own words", async () => {
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Quota", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    const lines = async () => (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as Array<any>;
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} use up the quota` } });
+    const done = await until(lines, (list) => list.some((message) => message.from?.botId === bot.id && !message.working && message.stoppedBy), "the bot's stopped line");
+    const line = done.findLast((message: any) => message.from?.botId === bot.id && message.stoppedBy);
+    expect(line.text).toContain("The Claude account has no available quota.");
+    expect(line.stoppedBy).toMatchObject({ botId: bot.id, reason: "failed" });
+  }, 90_000);
+
   test("a member replies to one earlier message: it is stored with the reply, and a message from elsewhere is refused", async () => {
     const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Replies", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
     const elsewhere = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Elsewhere", emails: [BOB], bots: [bot.id] } })).body as { id: string };

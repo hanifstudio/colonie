@@ -70,8 +70,12 @@ const sessionState = (id?: string) => {
 };
 };
 
+let namesFailures = false;
+
 agent({ name: "Colonie deterministic fixture" })
-  .onRequest(methods.agent.initialize, ({ client }) => {
+  .onRequest(methods.agent.initialize, ({ client, params }) => {
+    // as the maintained adapters do: name a failure only for a client that said it understands it
+    namesFailures = JSON.stringify((params as { clientCapabilities?: { _meta?: unknown } }).clientCapabilities?._meta ?? {}).includes('"sessionFailure"');
     const authed = currentState().authenticated !== false;
     void client.notify("_auth/status_update", { authStatus: authed ? { kind: "account", label: "Fixture account" } : { kind: "none", label: "Not logged in" } });
     return { protocolVersion: PROTOCOL_VERSION, agentCapabilities: { loadSession: true, mcpCapabilities: { http: true, sse: claude }, _meta: { authStatus: {} } }, authMethods: authed ? [] : [{ id: "fixture-login", name: "Fixture sign-in" }] };
@@ -135,6 +139,11 @@ agent({ name: "Colonie deterministic fixture" })
       await new Promise<void>((resolve) => active.set(params.sessionId, resolve));
       active.delete(params.sessionId);
       return { stopReason: "cancelled" };
+    }
+    // "use up the quota": the turn ends normally with nothing to say, and the adapter's own failure account
+    // (shaped as the Claude adapter's sessionFailureMeta) says why
+    if (/(?:^|\n@\S+ )use up the quota\s*$/.test(text) && namesFailures) {
+      return { stopReason: "end_turn", _meta: { jetbrains: { air: { version: 1, sessionFailure: { id: "f1", revision: 1, kind: "quota_exhausted", category: "limit", severity: "error", title: "The Claude account has no available quota.", actions: [] } } } } };
     }
     let result = `${session.prompts.length}: ${text}`;
     // a bot in a group handing work on: its answer names the other bot only

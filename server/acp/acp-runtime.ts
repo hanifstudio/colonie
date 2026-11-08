@@ -35,6 +35,7 @@ import { SHELL_TOOL } from "../../shared/tool-name.ts";
 import { ASK_USER_QUESTION_TOOL, askQuestionSummary, questionChoices } from "../../shared/ask-question.ts";
 import { elicitationAnswerContent, parseElicitationAsk, type ElicitationAsk } from "./elicitation.ts";
 import { recoveryPromptFor } from "../resume-recovery.ts";
+import { SESSION_FAILURE_CLIENT_META, sessionFailureOf, type SessionFailure } from "./session-failure.ts";
 
 const require = createRequire(import.meta.url);
 const configSchema = z.object({
@@ -84,7 +85,7 @@ type AuthStatusPush = { kind?: string };
  * URL elicitation is not advertised: this app has no surface that opens the
  * agent's own URL flow, and declining it is honest where a card that cannot
  * complete would not be. */
-const CLIENT_CAPABILITIES: ClientCapabilities = { elicitation: { form: {} } };
+const CLIENT_CAPABILITIES: ClientCapabilities = { elicitation: { form: {} }, _meta: SESSION_FAILURE_CLIENT_META };
 const delay = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 /** Tokens the agent reported for one turn. The maintained adapters put them
  * under `_meta` on the prompt result; some agents report at the root. `input`
@@ -121,6 +122,8 @@ type ActiveTurn = {
   cancelled: boolean;
   finished: boolean;
   receipt?: AcpInputReceipt;
+  /** the engine's own account of why this turn failed, when it gave one */
+  failure?: SessionFailure;
   done: Promise<void>;
   resolveDone: () => void;
 };
@@ -295,6 +298,10 @@ export class AcpRuntime implements ProviderAdapter {
       return;
     }
     if (!session.turn || session.turn.finished) return;
+    if (update.sessionUpdate === "session_info_update") {
+      session.turn.failure = sessionFailureOf((update as { _meta?: unknown })._meta) ?? session.turn.failure;
+      return;
+    }
     switch (update.sessionUpdate) {
       case "agent_message_chunk":
         if (update.content.type === "text") {
@@ -771,7 +778,14 @@ export class AcpRuntime implements ProviderAdapter {
       if (rebuilt) this.emit(session, { type: "runtime.notice", message: "The engine no longer had this conversation's session, so it was rebuilt from this thread's history." });
       this.emit(session, { type: "turn.started" });
       void session.connection.agent.request<PromptResponse, PromptRequest>(methods.agent.session.prompt, { sessionId: session.id!, prompt })
-        .then((result) => this.finish(session, result.stopReason === "end_turn", result.stopReason, undefined, turnUsage(result)))
+        .then((result) => {
+          // An engine can end a turn "normally" after saying it could not do the work (a spent quota):
+          // its own account is the cause, not an empty answer.
+          // A failure reported mid-turn counts only when no answer was written: the engine may have retried past it.
+          const failure = sessionFailureOf((result as { _meta?: unknown })._meta) ?? (turn.item === 0 && !turn.text ? turn.failure : undefined);
+          if (failure && !turn.cancelled) this.finish(session, false, "error", failure.text, turnUsage(result));
+          else this.finish(session, result.stopReason === "end_turn", result.stopReason, undefined, turnUsage(result));
+        })
         .catch((error: Error) => {
           const failure = acpRequestError(error, "session/prompt");
           this.finish(session, false, turn.cancelled ? "cancelled" : "error", failure.cause);
