@@ -455,7 +455,7 @@ export const Bubble = memo(function Bubble({
   replyTarget?: Message;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, bots, mentionPeers, focus, dispatch, onBranch, conversation } = useChatRows();
+  const { botId, threadId, botName, voiceId, tts, localVoice, busy, nativeHistoryOnly, accountWorkspace, mentionPeers, focus, dispatch, onBranch, conversation } = useChatRows();
   const remoteClient = window.colonie?.remoteClient?.active === true;
   // A user-role line another bot delivered (ask_bot, delegate_bot,
   // start_thread) is that bot speaking, not the person: it takes the
@@ -509,8 +509,6 @@ export const Bubble = memo(function Bubble({
         <div className="min-w-0">
           <p className="line-clamp-3 whitespace-pre-wrap">{message.text}</p>
           {message.workingSince ? <span className="text-[11px]">Working · <WorkingTimer since={message.workingSince} /></span> : <span>Next in line</span>}
-          {message.workThread && <button type="button" className="ml-2 text-[12px] text-accent hover:underline"
-            onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
           {message.plan && <PlanCard plan={message.plan} compact />}
         </div>
         {/* only the person who asked may cancel or stop this one request */}
@@ -707,8 +705,6 @@ export const Bubble = memo(function Bubble({
             </MessageBoundary>
           )}
           {!user && message.plan && <PlanCard plan={message.plan} compact />}
-          {!user && message.workThread && <button type="button" className="mt-2 block text-[12px] text-accent hover:underline"
-            onClick={() => openThread(dispatch, message.workThread!, { bots: [...bots] })}>View work</button>}
           {/* its work ended early: one click names the bot again, and it resumes its original ask */}
           {!user && message.stoppedBy && conversation && <button type="button" className="mt-2 block rounded-lg bg-accent/15 px-2.5 py-1 text-[12px] font-medium text-accent hover:bg-accent/25"
             onClick={() => conversation.continueBot("Please continue.", message.stoppedBy!.botId)}>Continue</button>}

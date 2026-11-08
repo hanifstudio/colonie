@@ -18,14 +18,13 @@ beforeEach(() => {
 afterEach(async () => { await act(() => root.unmount()); host.remove(); vi.useRealTimers(); });
 const button = (name: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((entry) => entry.textContent?.trim() === name || entry.getAttribute("aria-label") === name)!;
 
-test("work starts compact, closes without cancelling, stays closed after updates, and can open the exact task", async () => {
+test("work starts compact, closes without cancelling, stays closed after updates, and has no button that opens the task's own thread", async () => {
   await act(() => root.render(createElement(ChiefActivity, { botId: "chief", threadId: "dm" })));
   expect(host.textContent).toContain("1 active");
   expect(host.textContent).not.toContain("Inspect the project");
   await act(() => host.querySelector<HTMLButtonElement>("button[aria-expanded]")!.click());
   expect(host.textContent).toContain("Inspect the project");
-  await act(() => button("View work").click());
-  expect(openThread).toHaveBeenCalledWith(dispatch, { botId: "engineer", threadId: "work" }, expect.anything());
+  expect(button("View work")).toBeUndefined();
   await act(() => button("Close work").click());
   api.mockResolvedValue({ assignments: [{ ...job, status: "completed", result: "Verified" }] });
   await act(() => vi.advanceTimersByTimeAsync(4000));

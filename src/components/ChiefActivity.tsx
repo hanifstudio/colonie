@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useId, useReducer, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 
-import { api, openThread, useStore } from "@/state/store";
+import { api, useStore } from "@/state/store";
 import type { ChiefAssignment, ChiefAssignmentStatus, ChiefView } from "../../shared/colonie-chief";
 
 export interface ChiefActivityState {
@@ -62,7 +62,7 @@ function messageOf(cause: unknown): string {
 }
 
 export function ChiefActivity({ botId, threadId }: { botId: string; threadId: string }) {
-  const { state: appState, dispatch: appDispatch } = useStore();
+  const { state: appState } = useStore();
   const [state, dispatch] = useReducer(chiefActivityReducer, initialChiefActivityState);
   const seq = useRef(0);
   const [expandedThread, setExpandedThread] = useState<string | null>(null);
@@ -126,15 +126,6 @@ export function ChiefActivity({ botId, threadId }: { botId: string; threadId: st
               </div>
               <p className="mt-0.5 truncate text-[12.5px] text-ink-secondary">{assignment.message}</p>
               {preview ? <p className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-secondary">{preview}</p> : null}
-              {assignment.targetThreadId ? (
-                <button
-                  type="button"
-                  className="mt-1 text-[12.5px] text-accent hover:underline"
-                  onClick={() => openThread(appDispatch, { botId: assignment.targetBotId, threadId: assignment.targetThreadId! }, appState)}
-                >
-                  View work
-                </button>
-              ) : null}
             </li>
           );
         })}
