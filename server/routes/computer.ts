@@ -105,13 +105,16 @@ export function createComputerRoutes(deps: {
       || typeof key !== "string" || !/^[A-Za-z0-9+/]{22}==$/.test(key)) {
       return json(res, 400, { error: "Invalid WebSocket handshake" });
     }
+    // noVNC asks for the "binary" subprotocol and a browser drops a connection whose
+    // answer does not name one: offer upstream what the client offered, say back what it chose.
+    const offered = String(req.headers["sec-websocket-protocol"] ?? "").split(",").map((entry) => entry.trim()).filter((entry) => /^[\w.-]{1,40}$/.test(entry)).slice(0, 4);
     const live = () => deps.live(auth) && host.holds(botId);
     if (!live()) return json(res, 401, { error: "Viewer access expired" });
     // Fixed host and path; the port is the container's own published one and the
     // token never leaves the server. No cookie, header or query is forwarded.
     const upstream = request({
       hostname: "127.0.0.1", port: target.port, path: `/websockify?token=${encodeURIComponent(target.token)}`,
-      headers: { Upgrade: "websocket", Connection: "Upgrade", "Sec-WebSocket-Key": key, "Sec-WebSocket-Version": "13" },
+      headers: { Upgrade: "websocket", Connection: "Upgrade", "Sec-WebSocket-Key": key, "Sec-WebSocket-Version": "13", ...(offered.length ? { "Sec-WebSocket-Protocol": offered.join(", ") } : {}) },
     });
     const { socket } = upgrade;
     let peer: Duplex | undefined;
@@ -149,7 +152,9 @@ export function createComputerRoutes(deps: {
       remote.once("close", upgrade.close);
       upgrade.release();
       res.detachSocket(socket);
-      socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+      const chosen = String(answer.headers["sec-websocket-protocol"] ?? "").trim();
+      const protocol = offered.includes(chosen) ? `Sec-WebSocket-Protocol: ${chosen}\r\n` : "";
+      socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n${protocol}\r\n`);
       if (remoteHead.length) socket.write(remoteHead);
       if (upgrade.head.length) remote.write(upgrade.head);
       upgrade.head = Buffer.alloc(0);

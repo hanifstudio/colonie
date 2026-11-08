@@ -185,10 +185,14 @@ Steps, in order. Each one is safe on its own:
 - Each bot has its own browser and saved sign-ins. It opens when needed,
   and the person can watch, take over, and hand it back. A connected app
   comes first when it covers the task.
-- Colonie does not provide desktop computer control, containers, remote
-  desktops, or device control. There is no Computer setup or choice in
-  Simple or Advanced mode. Existing desktop settings never start a desktop;
-  browser access follows the bot's browser switch.
+- The workspace has one computer (owner, November 8), a Linux desktop in a
+  container, with one screen per bot, so bots work at once and the person
+  watches or takes over any screen. The browser lives inside it: the first tab
+  of a bot's panel is Computer, which is the built-in browser until the person
+  turns the computer on, and the bot's own screen after. There is no choice of
+  where it runs and the word VM never appears. It stops itself when idle. Bots
+  never control the person's own Mac. A Shared workspace's server runs no
+  computer yet and keeps the built-in browser.
 - Project files and the engine's normal file and command tools remain
   available. Browser-only Colonie does not remove those engine capabilities.
 - Work files belong to the conversation, not the bot. A group has one

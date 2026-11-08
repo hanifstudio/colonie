@@ -10,13 +10,13 @@ Left: see it in a window with a working bot, and confirm browsing sets the bot b
 
 ## Next: a bot has a computer, and the browser lives inside it
 
-One Computer tab in the side panel holds the browser: one computer per workspace, one screen per bot,
-so bots work at once and the person watches or takes over any screen; a bot with no computer keeps
-the Browser tab. Local: a container on the Mac, on demand. Shared: the same image in
-`deploy/compose.yaml`, viewed through the server. Proved in a throwaway container (arm64): two screens,
-a viewer each, and `cua-driver` 0.20.0 drove both at once with `scope: "desktop"` after `bring_to_front`
-(window scope is ignored by Firefox). Order: a fake computer for tests, Local launcher and panel, then
-Shared (droplet, amd64). Rebuild thin from `backup/before-remove-computer-2026-10-31`, not `bef37f46`.
+Built: a Computer tab holds the browser (the built-in browser until the computer is on, then the
+bot's own live screen); one container, one screen per bot (`colonie-screen`), a viewer per screen
+through the server, the bot's turn mounts its screen's driver. Proved with a real container (arm64,
+`scripts/smoke-computer.ts`) and a throwaway server with the fake engine: two bots held two screens, a
+tool call ran on a screen, the viewer worked as a browser client does. Never seen in a window.
+Left: look at the tab in a window; amd64; a real engine driving it; Shared (compose service,
+droplet); Take over does not pause the bot; each screen's Firefox profile is its own (no shared logins).
 
 ## After: verify collaboration, browser panels, and routines
 

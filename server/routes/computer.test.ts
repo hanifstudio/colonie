@@ -62,7 +62,8 @@ test("a screen opens for a real bot and the viewer carries pixels through the se
   const { port, host } = await app({ viewerPort: upstream.port });
   expect((await fetch(`http://127.0.0.1:${port}/api/computer/screens/botA`, { method: "POST" })).status).toBe(200);
   expect(host.holds("botA")).toBe(true);
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/api/computer/screens/botA/websockify?token=guess`, { headers: { cookie: "session=secret", authorization: "Bearer secret" } });
+  // noVNC offers "binary"; a browser drops the connection unless the answer names it
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/api/computer/screens/botA/websockify?token=guess`, ["binary"], { headers: { cookie: "session=secret", authorization: "Bearer secret" } });
   const messages: string[] = [];
   await new Promise<void>((resolve, reject) => {
     ws.on("message", (data) => { messages.push(String(data)); if (messages.length === 1) ws.send("hello"); else resolve(); });
@@ -70,6 +71,7 @@ test("a screen opens for a real bot and the viewer carries pixels through the se
     setTimeout(() => reject(new Error("no data")), 4000);
   });
   expect(messages).toEqual(["RFB 003.008\n", "hello"]);
+  expect(ws.protocol).toBe("binary");
   // the browser's own cookie, bearer and query never reach the container; the token is the server's
   expect(upstream.seen).toEqual(["/websockify?token=tokenAAAAAAAAAAAAAAAAAAAAAAAA cookie=none auth=none"]);
   ws.close();
