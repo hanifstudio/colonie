@@ -16,6 +16,7 @@ import { promisify } from "node:util";
 import { augmentedPath, resolveCliSpawn } from "../../runtime/env-path.ts";
 import { DATA_DIR } from "../../config.ts";
 import { resolveProxy } from "../../proxy-paths.ts";
+import { COLONIE_SCREEN_SCRIPT, LIGHT_XSTARTUP_SCRIPT, TOKEN_NOVNC_SCRIPT } from "./screen-scripts.ts";
 
 const run = promisify(execFile);
 const SCREENSHOT_STATUS_TTL_MS = 10_000;
@@ -37,7 +38,7 @@ export const BASE_IMAGE = `${BASE_IMAGE_REPOSITORY}@${BASE_IMAGE_DIGEST}`;
 // Image and container labels below remain the authoritative compatibility
 // check, not the mutable tag.
 export const IMAGE_REPOSITORY = "localhost/colonie/cua-local-vm";
-export const IMAGE_LAYER_VERSION = "5";
+export const IMAGE_LAYER_VERSION = "6";
 export const IMAGE_LAYER_LABEL = "com.colonie.image-layer";
 export const IMAGE = `${IMAGE_REPOSITORY}:driver-${CUA_DRIVER_VERSION}-v${IMAGE_LAYER_VERSION}`;
 export const CONTAINER = "colonie-computer";
@@ -223,6 +224,11 @@ RUN printf '%s\\n' \\
       'stderr_logfile=/var/log/supervisor/cua-driver.error.log' \\
       'priority=30' \\
       >> /etc/supervisor/supervisord.conf
+# One screen per bot (colonie-screen), one viewer for all of them (token websockify),
+# and a light home session, so a screen costs a window manager and not a desktop.
+COPY colonie-screen start-novnc.sh xstartup.sh /usr/local/bin/
+RUN chmod 0755 /usr/local/bin/colonie-screen /usr/local/bin/start-novnc.sh /usr/local/bin/xstartup.sh; \\
+    install -d -o cua -g cua -m 0755 /run/colonie
 LABEL ${MANAGED_LABEL}="1" \\
       ${DRIVER_LABEL}="${CUA_DRIVER_VERSION}" \\
       ${BASE_IMAGE_LABEL}="${BASE_IMAGE_DIGEST}" \\
@@ -562,7 +568,7 @@ function viewerUrl(password: string | null, port: number | null): string {
  * telemetry knobs can never drift between the Local VM and a VPS container. */
 export function cuaExecArgs(
   args: string[],
-  options: { container?: string; interactive?: boolean } = {},
+  options: { container?: string; interactive?: boolean; display?: string } = {},
 ): string[] {
   return [
     "exec",
@@ -572,11 +578,13 @@ export function cuaExecArgs(
     "-e",
     "HOME=/home/cua",
     "-e",
-    `DISPLAY=${DISPLAY}`,
+    `DISPLAY=${options.display ?? DISPLAY}`,
     "-e",
     "CUA_DRIVER_INSTALL_CHANNEL=python_package",
     "-e",
     "CUA_DRIVER_RS_TELEMETRY_ENABLED=0",
+    "-e",
+    "CUA_DRIVER_RS_UPDATE_CHECK=0",
     options.container ?? CONTAINER,
     CUA_EXECUTABLE,
     ...args,
@@ -1066,6 +1074,9 @@ async function prepareManagedImage(runtime: Runtime, runner: CommandRunner): Pro
   const context = await mkdtemp(join(tmpdir(), "colonie-cua-image-"));
   try {
     await writeFile(join(context, "Dockerfile"), managedImageDockerfile(), { mode: 0o600 });
+    await writeFile(join(context, "colonie-screen"), COLONIE_SCREEN_SCRIPT, { mode: 0o644 });
+    await writeFile(join(context, "start-novnc.sh"), TOKEN_NOVNC_SCRIPT, { mode: 0o644 });
+    await writeFile(join(context, "xstartup.sh"), LIGHT_XSTARTUP_SCRIPT, { mode: 0o644 });
     await runner(runtime, ["build", "-t", IMAGE, context], 10 * 60_000);
   } finally {
     await rm(context, { recursive: true, force: true });
