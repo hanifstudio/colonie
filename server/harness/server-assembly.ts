@@ -67,6 +67,8 @@ import { createQueueSteerRoutes } from "../routes/queue-steer.ts";
 import { createReactionRoutes } from "../routes/reactions.ts";
 import { createRoutineRoutes } from "../routes/routines.ts";
 import { createServerInfoRoutes } from "../routes/server-info.ts";
+import { createComputerRoutes } from "../routes/computer.ts";
+import { computerHost } from "../colonie/computer/computer-instance.ts";
 import { createSkillsLibraryRoutes } from "../routes/skills-library.ts";
 import { ROUTES } from "../routes/table.ts";
 import { createTeamBriefRoutes } from "../routes/team-brief.ts";
@@ -370,6 +372,12 @@ ROUTES.push(createConnectorRoutes({ cfg, composio }));
 ROUTES.push(createAdminReadRoutes({ cfg, adminActivityRecording, ownThreadIds }));
 ROUTES.push(createBotActivityRoutes({ store, outboundCounts, ownThreadIds }));
 ROUTES.push(createServerInfoRoutes({ staticDir: STATIC_DIR, sharedWorkspaceFullAccessEnabled }));
+const computerRoutes = createComputerRoutes({
+  host: computerHost,
+  botExists: (id) => Boolean(store.bot(id)),
+  live: (auth) => auth.kind === "loopback" || sessions.isLive(auth.session.id),
+});
+ROUTES.push(computerRoutes.route);
 ROUTES.push(teamLibraryRoutes);
 ROUTES.push(cliProbeRoutes);
 ROUTES.push(createTeamMapRoutes({
@@ -849,6 +857,7 @@ const handleRequest = createRequestHandler({
 });
 
 const server = createServer(handleRequest);
+computerRoutes.attach(server, handleRequest);
 
 
 calendarCalls().start();

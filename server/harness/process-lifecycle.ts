@@ -1,5 +1,6 @@
 // The process's own lifecycle, lifted out of index.ts: what happens once the HTTP listener is up (the queued-send drain, the engine read gate, the presenters, the leftover delegation drain and the periodic sweep) and what a SIGINT/SIGTERM tears down, in order, before the process exits.
 import { flushAdminActivity } from "../admin-activity.ts";
+import { shutdownComputer } from "../colonie/computer/computer-instance.ts";
 import { flushAllMemoryJournals } from "../colonie/memory/memory-journal.ts";
 import { discardDelegations, pendingThreads } from "../colonie/peers/delegations.ts";
 import { flushUsageLedger } from "../colonie/providers/usage-ledger.ts";
@@ -88,6 +89,7 @@ const gracefulShutdown = createGracefulShutdown({
       await browserRuntime.closeAll();
     },
     () => liveCalls.shutdown(),
+    () => shutdownComputer(),
     () => flushAllProfileHistory(),
     () => flushAllMemoryJournals(),
     () => colonieMemory().idle(),

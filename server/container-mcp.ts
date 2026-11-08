@@ -5,13 +5,18 @@
 import { cuaExecArgs } from "./colonie/computer/container-computer.ts";
 import { runMcpBridge } from "./colonie/mcp/mcp-bridge.ts";
 
-const [runtime, container, socket] = process.argv.slice(2);
+const [runtime, container, socket, display] = process.argv.slice(2);
 if (!runtime || !["docker", "podman", "container"].includes(runtime)) {
   process.stderr.write("invalid Local VM runtime\n");
   process.exit(2);
 }
 if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container) || !socket?.startsWith("/run/user/1000/")) {
   process.stderr.write("invalid Local VM connection\n");
+  process.exit(2);
+}
+
+if (display !== undefined && !/^:\d{1,2}$/.test(display)) {
+  process.stderr.write("invalid Local VM screen\n");
   process.exit(2);
 }
 
@@ -22,7 +27,7 @@ const controlToken = process.env.COLONIE_CONTROL_TOKEN ?? "";
 
 runMcpBridge({
   command: runtime,
-  args: cuaExecArgs(["mcp", "--socket", socket], { container, interactive: true }),
+  args: cuaExecArgs(["mcp", "--socket", socket], { container, interactive: true, ...(display ? { display } : {}) }),
   label: "Cua Driver",
   // No liveness watchdog: the runtime CLI talks to a local daemon and fails
   // fast on its own — there is no silent WAN peer to wedge on.

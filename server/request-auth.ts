@@ -432,6 +432,7 @@ function mutatingPublicRoute(method: string, path: string): boolean {
   // Remote viewer config and its WebSocket upgrade hand out a desktop's VNC
   // password and control. Native owners open the direct viewer instead.
   if (path.startsWith("/api/desktop-viewer/")) return true;
+  if (path.startsWith("/api/computer/screens/")) return true;
   if (["GET", "HEAD", "OPTIONS"].includes(upper)) return false;
   // The test-capability route carries its own high-entropy, per-boot key.
   return path !== "/api/testing/internal-capability";

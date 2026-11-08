@@ -51,6 +51,8 @@ export const VM_WORKSPACE_DIR = join(DATA_DIR, "vm-home");
 export const VM_WORKSPACE_GUEST = "/home/cua/workspace";
 export const DISPLAY = ":1";
 export const CUA_SOCKET = "/run/user/1000/colonie-cua.sock";
+/** The driver socket of one bot screen; colonie-screen creates it. */
+export const screenSocket = (screen: number): string => `/run/user/1000/colonie-cua-${screen}.sock`;
 export const CUA_EXECUTABLE = "/usr/local/libexec/colonie/cua-driver";
 
 const RUNTIMES = ["docker", "podman", "container"] as const;
@@ -1331,10 +1333,14 @@ export function containerComputerMcp(
   runtime: Runtime,
   control?: { url: string; token: string },
   target: LocalVmTarget = SHARED_LOCAL_VM_TARGET,
+  /** A bot's screen (2 or more); without it, the home screen's driver. */
+  screen?: number,
 ): ContainerMcpLaunch {
   return {
     command: process.execPath,
-    args: [containerMcpPath, runtime, target.containerName, CUA_SOCKET],
+    args: screen === undefined
+      ? [containerMcpPath, runtime, target.containerName, CUA_SOCKET]
+      : [containerMcpPath, runtime, target.containerName, screenSocket(screen), `:${screen}`],
     // The control pair rides in env, not argv — argv is world-readable
     // through `ps` for the life of the bridge.
     env: {
