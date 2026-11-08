@@ -14,9 +14,9 @@ One Computer tab in the side panel holds the browser: one computer per workspace
 so bots work at once and the person watches or takes over any screen; a bot with no computer keeps
 the Browser tab. Local: a container on the Mac, on demand. Shared: the same image in
 `deploy/compose.yaml`, viewed through the server. Proved in a throwaway container (arm64): two screens,
-a viewer each, input to both; `cua-driver`'s own input did not reach Firefox. Order: fix that, a fake
-computer for tests, Local launcher and panel, then Shared (droplet, amd64). Rebuild thin from
-`backup/before-remove-computer-2026-10-31`; never revert `bef37f46`.
+a viewer each, and `cua-driver` 0.20.0 drove both at once with `scope: "desktop"` after `bring_to_front`
+(window scope is ignored by Firefox). Order: a fake computer for tests, Local launcher and panel, then
+Shared (droplet, amd64). Rebuild thin from `backup/before-remove-computer-2026-10-31`, not `bef37f46`.
 
 ## After: verify collaboration, browser panels, and routines
 
