@@ -297,7 +297,7 @@ export function createGroupConversations(deps: {
     const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}`
       : ask.unnamed ? `${ask.asker} wrote to the group without naming anyone, so it comes to you` : `${ask.asker} mentioned you`;
     return { about: information, prompt: [
-      `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" only when a person or access you cannot get yourself blocks you. Work still going is not stuck: keep going until you can write one of the two. To ask a teammate for something, name them and do not close with "Status: done". When you only confirm or thank a teammate, close with "Status: done": that does not wake them. Never end with only a promise to continue.`,
+      `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" only when a person or access you cannot get yourself blocks you. A stuck line is one line that shows the evidence: what you tried, and the exact error or the file that stopped you, so the group can act on it without asking you again. Work still going is not stuck: keep going until you can write one of the two. To ask a teammate for something, name them and do not close with "Status: done". When you only confirm or thank a teammate, close with "Status: done": that does not wake them. Never end with only a promise to continue.`,
       ...(told ? ["", told] : []),
       ...(board(record, bot, ask) ? ["", board(record, bot, ask)] : []),
       ...(lines.length ? ["", resume ? "Said since you last spoke:" : "Recent messages:",

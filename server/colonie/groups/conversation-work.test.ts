@@ -707,3 +707,18 @@ test("two bots named in one message work at once; one failing leaves the other's
   expect(mine.stoppedBy).toBeUndefined();
   expect(theirs.stoppedBy).toMatchObject({ botId: second.id, reason: "failed" });
 });
+
+test("a bot is told that a stuck line shows what it tried and the exact error or file, and the group sees that line", async () => {
+  const f = fixture();
+  await f.service.post(caller, f.group.id, `@${f.bot.name} export the report`, randomUUID());
+  await settle(() => f.calls.some((call) => call.work.conversationId === f.group.id));
+  const call = f.calls.find((entry) => entry.work.conversationId === f.group.id)!;
+  expect(call.prompt).toContain('"Status: stuck - what you need"');
+  expect(call.prompt).toContain("what you tried, and the exact error or the file that stopped you");
+  f.store.appendMessage(call.threadId, { role: "bot", kind: "text", text: "I could not export.\nStatus: stuck - tried export twice; EACCES opening reports/q3.pdf", turnTerminal: true });
+  f.service.turnCompleted(call.threadId, true);
+  await settle(() => f.store.messagesFor(f.group.threadId).some((message) => message.stoppedBy));
+  const line = f.store.messagesFor(f.group.threadId).find((message) => message.stoppedBy)!;
+  expect(line.text).toContain("Stuck: tried export twice; EACCES opening reports/q3.pdf");
+  expect(line.stoppedBy).toMatchObject({ botId: f.bot.id, reason: "blocked" });
+});
