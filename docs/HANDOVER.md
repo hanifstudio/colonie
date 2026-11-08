@@ -8,19 +8,20 @@ a resting bot is idle (its title no longer picks a state), and each new bot gets
 Left: see it in a window with a working bot, and confirm browsing sets the bot busy. The saved
 `mascotExpression` field is unused (queue item 5). A headless server keeps an old `imageGen` section.
 
-## Next: follow up on a bot's answer as easily as in openbot
+## Next: a bot has a computer, and the browser lives inside it
 
-Stages 1 and 2 are done. Stage 3 left: waiting out a spent quota (the engines report no reset time;
-an unattended wait is a product call). Done, proved by tests only, never seen in a window: a spent
-quota is stated in the engine's own words (the adapters' `sessionFailure` report, asked for in
-`acp-runtime.ts`; `retry.ts` word matching is the fallback, no real limit seen); bots asked together
-are told who else got it; stall watcher for groups; stop one request; replies; Try again; step-list
-card; file links; stuck evidence; quiet routines. Out of scope: steering a turn, branching, a side question.
+One Computer tab in the side panel holds the browser: one computer per workspace, one screen per bot,
+so bots work at once and the person watches or takes over any screen; a bot with no computer keeps
+the Browser tab. Local: a container on the Mac, on demand. Shared: the same image in
+`deploy/compose.yaml`, viewed through the server. Proved in a throwaway container (arm64): two screens,
+a viewer each, input to both; `cua-driver`'s own input did not reach Firefox. Order: fix that, a fake
+computer for tests, Local launcher and panel, then Shared (droplet, amd64). Rebuild thin from
+`backup/before-remove-computer-2026-10-31`; never revert `bef37f46`.
 
 ## After: verify collaboration, browser panels, and routines
 
-Review group handoffs, Work, Browser, and Files with a person in disposable workspaces. Local
-Chromium cannot launch (macOS permission denied); real-engine and real-window checks remain.
+Review group handoffs, Work, Browser, Files with a person in disposable workspaces. Local Chromium
+cannot launch (macOS permission denied); real-engine and real-window checks remain.
 
 ## After that: prepare the first public release
 
