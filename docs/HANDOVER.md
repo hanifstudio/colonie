@@ -11,13 +11,13 @@ until picked again. Out of scope: new bodies.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 
-Stage 1 is done (restart, a stalled turn, two bots at once are covered by tests). Stage 2: the line
-says what holds a bot, a side question, reorder the queue. Stage 3: several bots' answers arrive
-together, a "no reply needed" mark, blocked reports with evidence, files a bot names attach
-themselves, quiet routines, quota-reset waits. Done so far: the stall watcher covers groups; the
-asker can cancel or stop one request from its group line; replies and quotes in a group; a failed
-send keeps the words and offers Try again; a bot's step list as a card, open while it works, folded
-after. None of it was seen in a window. Out of scope: steering a running turn, branching.
+Stages 1 and 2 are done. Stage 3 left: several bots' answers arrive together, a "no reply needed"
+mark, blocked reports with evidence, quiet routines, quota-reset waits. Done so far, all proved by
+tests only and never seen in a window: the stall watcher covers groups; the asker can cancel or stop
+one request from its group line; replies and quotes; a failed send keeps the words and offers Try
+again; a bot's step list as a card; a file a bot names in a group answer becomes a link when it is
+in the project folder. Out of scope: steering a running turn, branching, a side question, reordering
+the queue.
 
 ## After: verify collaboration, browser panels, and routines
 

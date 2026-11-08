@@ -307,7 +307,7 @@ export function createGroupConversations(deps: {
     ].join("\n") };
   }
 
-  const work = createConversationWork({ store: deps.store, records: () => records, changed, lead: leadOf,
+  const work = createConversationWork({ projectFiles: (id) => listConversationFiles(conversationFolder(id, deps.foldersRoot)).files.map((file) => file.path), store: deps.store, records: () => records, changed, lead: leadOf,
     brief: (record, bot, ask) => ({ ...brief(record, bot, ask), recoveryPrompt: brief(record, bot, ask, true).prompt }),
     run: deps.runBotTurn, interrupt: deps.interruptBotTurn });
 

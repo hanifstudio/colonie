@@ -389,8 +389,8 @@ describe("a group with several bots", () => {
       text: `write file plan.md Launch on Friday at the hall then ask ${helper.name} to write file checklist.md Venue, catering, invitations` } });
     const done = await until(teamLines, (list) => {
       const answers = list.filter((message) => message.from && !message.notice && !message.relay);
-      return answers.some((message) => message.from.botId === lead && !message.working && /Wrote plan\.md/.test(message.text))
-        && answers.some((message) => message.from.botId === helper.id && !message.working && /Wrote checklist\.md/.test(message.text));
+      return answers.some((message) => message.from.botId === lead && !message.working && /Wrote (?:\[plan\.md\]\(plan\.md\)|plan\.md)/.test(message.text))
+        && answers.some((message) => message.from.botId === helper.id && !message.working && /Wrote (?:\[checklist\.md\]\(checklist\.md\)|checklist\.md)/.test(message.text));
     }, "the lead's part and the helper's part, both in the group");
     const answers = done.filter((message: any) => message.from && !message.notice && !message.relay);
     // in that order, each once, and the helper was handed the lead's words, not Ada's
@@ -469,6 +469,16 @@ describe("a group with several bots", () => {
     // a person outside the group is told there is no such conversation
     const stranger = await ws.as(CICI, `/api/threads/${own.threadId}/messages/${messageId}/file`, { method: "POST", body: { path } });
     expect(stranger.status).toBe(404);
+  }, 90_000);
+
+  test("a file a bot only names in its answer opens from the answer, and a name that is no file stays plain", async () => {
+    const own = (await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Named", emails: [BOB], bots: [bot.id] } })).body as { id: string; threadId: string };
+    await ws.as(ADA, `/api/conversations/${own.id}/messages`, { method: "POST", body: { text: `@${bot.name} write file named.md Named content` } });
+    const lines = async () => (await ws.as(ADA, `/api/conversations/${own.id}/messages`)).body.messages as Array<any>;
+    const list = await until(lines, (rows) => rows.some((message) => message.from?.botId === bot.id && !message.working && /named\.md/.test(message.text ?? "")), "the bot naming its file");
+    const answer = list.findLast((message: any) => message.from?.botId === bot.id && /named\.md/.test(message.text ?? ""));
+    expect(answer.text).toContain("[named.md](named.md)");
+    expect((await ws.as(BOB, `/api/threads/${own.threadId}/messages/${answer.id}/file`, { method: "POST", body: { path: "named.md" } })).status).toBe(200);
   }, 90_000);
 
   test("the person who asked cancels one waiting request from its line; another member cannot", async () => {

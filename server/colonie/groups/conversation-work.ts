@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { conversationWork, enqueueConversationWork, saveConversationRecords, saveConversationWork, type ConversationWork } from "../../persistence/conversation-db.ts";
 import { mentionedBots, type Store } from "../../persistence/store.ts";
 import { failedTurnCause } from "../../../shared/failed-turn.ts";
+import { linkNamedFiles } from "../workspace/name-files.ts";
 import type { ConversationPlan } from "../../../shared/conversation-plan.ts";
 import type { GroupConversation } from "./group-conversations.ts";
 
@@ -60,6 +61,8 @@ export function onlyAcknowledges(reply: string): boolean {
 const MAX_CHAIN = 8;
 
 export function createConversationWork(deps: {
+  /** The files in a conversation's project folder, by path: a file a bot names in its answer is linked only if it is here. */
+  projectFiles?: (conversationId: string) => string[];
   store: () => Store;
   records: () => GroupConversation[];
   changed: () => void;
@@ -129,8 +132,10 @@ export function createConversationWork(deps: {
       ? path.slice(askAt + 1).filter((message) => message.kind === "activity" && message.tool?.ok === false)
         .map((message) => failedTurnCause(message.tool?.name ?? "")).findLast((value): value is string => Boolean(value))
       : undefined;
-    const said = end ? end.text : ok && answer?.text ? answer.text
+    const said0 = end ? end.text : ok && answer?.text ? answer.text
       : failure ?? (cause ? `${bot?.name ?? "The bot"} stopped: ${cause}` : `${bot?.name ?? "The bot"} could not answer this time. Ask again in a moment.`);
+    // a file the answer names that is really in the project folder opens from the answer
+    const said = ok && answer?.text ? linkNamedFiles(said0, deps.projectFiles?.(record.id) ?? []) : said0;
     const next: GroupConversation = ok && answer ? {
       ...record, seenThrough: { ...record.seenThrough, [work.botId]: work.sourceMessageId },
       toldAbout: { ...record.toldAbout, [work.botId]: work.about ?? "" },
