@@ -293,12 +293,15 @@ export function createGroupConversations(deps: {
       if (size + line.length > CONTEXT_CHARS) break;
       size += line.length; lines.unshift(line);
     }
+    // bots asked in one message answer side by side: each takes its own part instead of repeating the others
+    const alongside = ask.by ? [] : (ask.visited ?? []).filter((id) => id !== bot.id).map((id) => deps.store().bot(id)?.name).filter((name): name is string => Boolean(name));
     const information = about(record, bot);
     const told = !resume || record.toldAbout?.[bot.id] !== information ? information : null;
     const asked = ask.by ? `${ask.by} (a bot) asked you, for ${ask.asker}`
       : ask.unnamed ? `${ask.asker} wrote to the group without naming anyone, so it comes to you` : `${ask.asker} mentioned you`;
     return { about: information, prompt: [
       `${asked}. Everyone here reads your answer; answer briefly and to the point. End with a last line "Status: done" when the result is delivered, or "Status: stuck - what you need" only when a person or access you cannot get yourself blocks you. A stuck line is one line that shows the evidence: what you tried, and the exact error or the file that stopped you, so the group can act on it without asking you again. Work still going is not stuck: keep going until you can write one of the two. To ask a teammate for something, name them and do not close with "Status: done". When you only confirm or thank a teammate, close with "Status: done": that does not wake them. Never end with only a promise to continue.`,
+      ...(alongside.length ? ["", `${ask.asker}'s message also went to ${alongside.join(", ")}. Each of you answers your own part: do not repeat what they will cover, and do not wait for them.`] : []),
       ...(told ? ["", told] : []),
       ...(board(record, bot, ask) ? ["", board(record, bot, ask)] : []),
       ...(lines.length ? ["", resume ? "Said since you last spoke:" : "Recent messages:",

@@ -693,6 +693,10 @@ test("two bots named in one message work at once; one failing leaves the other's
   await settle(() => here().length === 2);
   const [first, other] = [here().find((call) => call.work.botId === f.bot.id)!, here().find((call) => call.work.botId === second.id)!];
   expect(first.threadId).not.toBe(other.threadId);
+  // each is told who else got the message, so they split the work instead of repeating each other
+  expect(first.prompt).toContain(`also went to ${second.name}.`);
+  expect(other.prompt).toContain(`also went to ${f.bot.name}.`);
+  expect(first.prompt).toContain("do not repeat what they will cover");
   const lines = () => f.store.messagesFor(group.threadId).filter((message) => message.working);
   expect(lines()).toHaveLength(2);
   // the first answers; the second's turn fails
@@ -715,6 +719,7 @@ test("a bot is told that a stuck line shows what it tried and the exact error or
   const call = f.calls.find((entry) => entry.work.conversationId === f.group.id)!;
   expect(call.prompt).toContain('"Status: stuck - what you need"');
   expect(call.prompt).toContain("what you tried, and the exact error or the file that stopped you");
+  expect(call.prompt).not.toContain("also went to");
   f.store.appendMessage(call.threadId, { role: "bot", kind: "text", text: "I could not export.\nStatus: stuck - tried export twice; EACCES opening reports/q3.pdf", turnTerminal: true });
   f.service.turnCompleted(call.threadId, true);
   await settle(() => f.store.messagesFor(f.group.threadId).some((message) => message.stoppedBy));
