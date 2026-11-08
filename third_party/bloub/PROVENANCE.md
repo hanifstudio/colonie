@@ -9,3 +9,11 @@ provides its own React rendering/lifecycle/status wrapper and icon generation.
 The upstream Vue application/component is not included in the application.
 The repository describes its visual reference as the x.ai bot avatar; the MIT
 license covers the contributed code, not ownership of that reference design.
+
+## Colonie additions
+
+The engine is otherwise unchanged. One state was added next to `swirl` in
+`src/bot/states.ts`: `rings`, a bot at work with its rings turning, keeping the
+body its owner chose (the upstream `orbit` turns the body into a triangle).
+`src/components/bloub-motion.ts` decides which state Colonie plays and a test
+there keeps that choice honest.

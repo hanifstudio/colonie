@@ -164,6 +164,8 @@ export type StateId =
   | 'comet'
   /** transition d'interface, pas une animation du catalogue : hors `SEQUENCE` */
   | 'swirl'
+  /** ajout Colonie (voir PROVENANCE.md) : `swirl` qui dure, hors `SEQUENCE` */
+  | 'rings'
 
 export interface StateDef {
   id: StateId
@@ -193,11 +195,7 @@ export interface StateDef {
    * sur la video, c'est precisement ce qu'on reproduit.
    */
   baseFace: boolean
-  /**
-   * `shape` = la forme choisie par la personne (ou null). Colonie : un etat qui se relache vers
-   * une boule se relache vers CETTE forme, pas vers un cercle.
-   */
-  pose(local: number, shape?: number[] | null): Pose
+  pose(local: number): Pose
 }
 
 /** Onde de pulsation qui parcourt les trois points de gauche a droite. */
@@ -444,7 +442,7 @@ export const STATES: StateDef[] = [
     baseFace: false,
     baseBody: false,
     blinkIn: false,
-    pose: (t, shape) => {
+    pose: (t) => {
       // Rotation mesuree : rampe sur 0.35 s puis 1.25 tour/s (sens antihoraire).
       const ramp = easings.easeInOutCubic(clamp(t / 0.35))
       const rot = -TAU * 1.25 * t * ramp
@@ -452,12 +450,9 @@ export const STATES: StateDef[] = [
       const back = easings.easeInOutCubic(clamp((t - 1.6) / 0.9))
       const tri = spinningTriangle(rot)
       const ball = circle(1, { rot })
-      // Colonie : le corps revient a la forme choisie, et cesse de tourner en y arrivant (une forme
-      // non ronde qui tournerait sans fin ne serait plus la forme choisie).
-      const rest = shape ?? ball.radii
       const sil: Silhouette = {
-        radii: tri.radii.map((r, i) => r + (rest[i]! - r) * back),
-        rot: shape ? rot * (1 - back) : rot,
+        radii: tri.radii.map((r, i) => r + (ball.radii[i]! - r) * back),
+        rot,
         cx: tri.cx * (1 - back),
         cy: tri.cy * (1 - back),
         sx: 1,
@@ -526,6 +521,33 @@ export const STATES: StateDef[] = [
           // ils entrent l'un apres l'autre puis s'effacent avant la fin du bloc,
           // pour que la reprise au repos se fasse sur une image deja propre
           opacity: clamp((t - i * 0.06) / 0.14) * clamp((1.22 - t) / 0.34)
+        }))
+      })
+  },
+
+  {
+    /**
+     * Ajout Colonie (voir PROVENANCE.md) : le bot au travail, ses anneaux tournent autour de lui.
+     *
+     * `orbit` est la mesure de la video : le corps y devient un triangle, donc la forme choisie
+     * disparait. Ici le bot reste LUI-MEME. C'est `swirl` qui dure : meme corps et meme visage de
+     * repos (`baseBody`, `baseFace`, donc la table de `eyefit.ts` couvre deja toutes les formes),
+     * mais les six anneaux d'`orbit` restent jusqu'a ce qu'on quitte l'etat. Hors `SEQUENCE`.
+     */
+    id: 'rings',
+    duration: 2.4,
+    morph: 0.4,
+    baseFace: true,
+    baseBody: true,
+    blinkIn: true,
+    pose: (t) =>
+      base({
+        arcs: RINGS.map((s, i) => ({
+          id: `rg${i}`,
+          seed: s,
+          t,
+          // ils entrent un par un, comme ceux d'`orbit`, puis restent
+          opacity: clamp((t - i * 0.13) / 0.3)
         }))
       })
   },
@@ -601,6 +623,7 @@ export const POSES: Record<StateId, number> = {
   play: 0.9,
   orbit: 1.2,
   swirl: 0.5,
+  rings: 1.2,
   burst: 0.45,
   comet: 1.15
 }

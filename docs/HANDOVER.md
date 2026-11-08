@@ -3,10 +3,11 @@
 ## Now: a bot looks the same everywhere
 
 Done in code: the chosen face wins on every screen; the body picker offers only the 7 bodies the
-engine draws; while a bot works it settles into its chosen body instead of a circle. Left: see the
-sidebar, chat, and settings in a window, with a bot that works. Bots saved with a chosen "working",
-"thinking" or "sleeping" show the default face until picked again. Thinking and sleeping still
-shrink to a dot on purpose. Out of scope: new bodies.
+engine draws; `bloub-motion.ts` lists what each state plays, and a test keeps every "bot is there"
+state (rings while working) on the chosen body with the eyes inside it. Left: see the sidebar, chat
+and settings in a window with a working bot, and confirm browsing sets the bot busy (then it plays
+the rings). Bots saved with a chosen "working", "thinking" or "sleeping" show the default face
+until picked again. Out of scope: new bodies.
 
 ## Next: follow up on a bot's answer as easily as in openbot
 
@@ -37,8 +38,7 @@ Chromium cannot launch (macOS permission denied); real-engine and real-window ch
    skips it), the Colonie Cloud domain; the server image's last 600 MB
    (web-app-only packages, Next.js via better-auth).
 
-Not yet seen: the installed app opening a `colonie://` link.
-**Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
+Not yet seen: the installed app opening a `colonie://` link. **Colonie Cloud is live** at https://colonie-cloud.hanifyaskur.workers.dev
 (Neon through Hyperdrive `9cadf41e…`, schema `colonie_cloud`). After the
 owner resets the Neon password: `wrangler hyperdrive update
 9cadf41ef5894f3eafbf22df42ef749c --connection-string=…`. Before outside users:

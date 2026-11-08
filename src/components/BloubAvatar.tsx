@@ -4,6 +4,8 @@ import { BotEngine, type BotFrame } from "../../third_party/bloub/src/bot/engine
 import { SHAPE_BY_ID } from "../../third_party/bloub/src/bot/skins";
 import { EXPRESSION_BY_ID, EXPRESSIONS } from "../../third_party/bloub/src/bot/expressions";
 import { NOTIF_BLUE } from "../../third_party/bloub/src/bot/decor";
+import { motionFor } from "./bloub-motion";
+import type { MausMotion, MausState } from "@/lib/mascot";
 import { bloubViewHalf, useGlobalBloubGaze } from "./bloub-gaze";
 import type { StateId } from "../../third_party/bloub/src/bot/states";
 import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS, type MascotBodyId } from "../../shared/mascot-bodies";
@@ -25,18 +27,8 @@ export function bloubFace(state = "idle", face?: string): string {
   return FACES[face ?? state] ?? FACES.happy!;
 }
 
-export function bloubState(state = "idle", motion = "none"): StateId {
-  if (motion === "failure") return "alert";
-  if (["success", "blink", "customize"].includes(motion)) return "wink";
-  if (motion === "celebrate") return "burst";
-  if (["alerting", "notifying"].includes(state)) return "notify";
-  if (["sleeping", "drowsy", "powering-down"].includes(state)) return "sleep";
-  if (["thinking", "searching", "radar"].includes(state)) return "thinking";
-  if (["working", "writing", "loading", "uploading", "progress", "orbit"].includes(state)) return "orbit";
-  if (["spawning", "waking"].includes(state)) return "swirl";
-  if (["sending", "receiving"].includes(state)) return "comet";
-  if (["surprised", "scared"].includes(state)) return "wide";
-  return "idle";
+export function bloubState(state: MausState = "idle", motion: MausMotion = "none"): StateId {
+  return motionFor(state, motion).engine;
 }
 export function bloubShape(body = "cursor") { return SHAPE_BY_ID.get(SHAPES[body] ?? "galet")!; }
 /** The body choice that draws the same shape as `body`; a bot saved as "blob" is drawn as the cursor. */
