@@ -110,7 +110,8 @@ export function createComputerHost(deps: ComputerHostDeps) {
     if (known.container !== "running" || !known.daemonUp) {
       held.clear();
       recovered = false;
-      return { ...base, state: "off", message: lastError ?? known.problem };
+      // only a real failure is shown; "no computer made yet" is just off
+      return { ...base, state: "off", message: lastError };
     }
     await recover();
     return { ...base, state: "on", message: null, screens: [...held.keys()].map((botId) => ({ botId })) };

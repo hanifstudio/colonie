@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown01Icon, ArrowRight01Icon, Download01Icon, FileTextIcon, Folder01Icon, Loading02Icon,
-  GlobeIcon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, Search01Icon, UnfoldLessIcon, UnfoldMoreIcon, UserGroupIcon,
+  GlobeIcon, MonitorIcon, MultiplicationSignIcon, PlusSignIcon, RefreshCwIcon, Search01Icon, UnfoldLessIcon, UnfoldMoreIcon, UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { BotAvatar } from "../Avatar";
@@ -16,6 +16,7 @@ import { FullAccessWarning } from "../FullAccessWarning";
 import { useDesktopCapabilities, useCaptionChrome } from "../DesktopCapabilities";
 import { usePreviewPanel } from "../file-preview/use-preview-panel";
 import { cn } from "@/lib/cn";
+import { computerTabLabel, useComputer } from "@/lib/computer";
 import { t } from "@/lib/i18n";
 import { filePreviewKind } from "@/lib/file-preview";
 import { useAdminSession, useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
@@ -32,6 +33,7 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members" | "browser"; onLeft: () => void;
 }) {
   const { dispatch } = useStore();
+  const label = computerTabLabel(useComputer().view);
   const { padClass } = useCaptionChrome();
   const { panel, width, minimum, maximum, resize } = usePreviewPanel();
   const memberBots = bots.filter((bot) => conversation.bots.includes(bot.id));
@@ -41,7 +43,7 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   );
   const close = () => dispatch({ type: "toggleGroupPanel", open: false });
   return (
-    <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : tab === "browser" ? "Browser" : "Members"}`}
+    <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : tab === "browser" ? label : "Members"}`}
       className="animate-panel-in relative flex h-full max-w-full shrink-0 flex-col border-l border-hairline/40 bg-panel max-md:absolute max-md:inset-0 max-md:z-40 max-md:w-full!"
       style={{ width }}>
       <div role="separator" aria-label="Resize panel" aria-orientation="vertical" aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={width} tabIndex={0} {...resize}
@@ -56,7 +58,7 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
               <HIcon icon={Folder01Icon} size={13} /> Files
             </button>
             {memberBots.length > 0 && <button type="button" aria-pressed={tab === "browser"} className={tabClass(tab === "browser")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "browser", open: true })}>
-              <HIcon icon={GlobeIcon} size={13} /> Browser
+              <HIcon icon={label === "Computer" ? MonitorIcon : GlobeIcon} size={13} /> {label}
             </button>}
           </div>
           <button type="button" onClick={close} aria-label="Close panel" title="Close panel"
@@ -214,7 +216,7 @@ function BotScreens({ bots }: { bots: Bot[] }) {
   const ordered = [...bots].sort((a, b) => Number(Boolean(b.busy)) - Number(Boolean(a.busy)));
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-      <p className="px-2 pb-2 text-[12.5px] text-ink-secondary">Watch a bot's browser while it works, or take over to help it.</p>
+      <p className="px-2 pb-2 text-[12.5px] text-ink-secondary">Watch a bot's screen while it works, or take over to help it.</p>
       {ordered.map((bot) => (
         <button key={bot.id} type="button" className={cn(ROW, "hover:bg-raised/60")}
           onClick={() => { writeBotPanelView(bot.id, "browser"); dispatch({ type: "toggleBrowser", open: true, botId: bot.id }); }}>

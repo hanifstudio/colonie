@@ -74,6 +74,7 @@
     "@betteroffice/fonts": "0.4.0",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
+    "@novnc/novnc": "1.7.0",
     "@tanstack/react-virtual": "^3.14.13",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
