@@ -26,3 +26,4 @@ release
 /.env
 .colonie-dev/
 dist-colonie/
+.ui-shots/

@@ -10,7 +10,7 @@ covers what changed, and report what actually ran.
 | Docs only | Links and paths. No build. |
 | Server or engine code | The focused test files, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm structure:check`. Then a throwaway server (below) when behavior matters. |
 | Electron shell | `pnpm test:electron` and `node --check` on the changed file. |
-| Interface | `pnpm build`, plus a look in a real window, which is usually the owner's step. |
+| Interface | `pnpm build`, then `pnpm ui:shots` (real screens in headless Chromium, dark and light; `--compare <earlier folder>` lists what changed) and look at the files. A real window with the packaged app is still the owner's step. |
 | Packaging | `pnpm colonie:package`, then launch the app with throwaway data. |
 | Real engine behavior | A small, bounded task in a throwaway workspace, only after the simulated check passes. |
 
