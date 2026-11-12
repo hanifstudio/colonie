@@ -55,3 +55,39 @@ test("a bot opens a page in its own browser without an approval card, and runnin
   }
   expect(card?.card.subtitle, ws.log().slice(-2000)).toBe("agent_browser_eval");
 }, 90_000);
+
+test("a bot told to close its browser with one tab open ends with the browser closed, not a failed call", async () => {
+  const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
+  const made = await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Tidy up", bots: [bot.id] } });
+  const id = made.body.id;
+  await ws.as(ADA, `/api/conversations/${id}/messages`, { method: "POST", body: { text: `@${bot.name} mcp call browser agent_browser_tab_close {}` } });
+  let answer: any;
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const messages = (await ws.as(ADA, `/api/conversations/${id}/messages`)).body.messages as any[];
+    answer = messages.filter((message) => message.from?.botId === bot.id && !message.relay).at(-1);
+    if (answer && !answer.working && !/is waiting for/.test(answer.text)) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  expect(answer?.text, ws.log().slice(-2000)).toContain("Browser closed");
+  expect(answer?.text).toContain("That was the only tab, so the browser is closed.");
+  expect(answer?.text).not.toContain("Cannot close the last tab");
+}, 90_000);
+
+test("a bot with no screen is told whether a computer exists, and is not told to deny a desktop it was never offered", async () => {
+  const bot = (await ws.as(ADA, "/api/bots")).body.bots[0];
+  const made = await ws.as(ADA, "/api/conversations", { method: "POST", body: { kind: "group", name: "Told", bots: [bot.id] } });
+  const id = made.body.id;
+  await ws.as(ADA, `/api/conversations/${id}/messages`, { method: "POST", body: { text: `@${bot.name} show what you were told` } });
+  let answer: any;
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const messages = (await ws.as(ADA, `/api/conversations/${id}/messages`)).body.messages as any[];
+    answer = messages.filter((message) => message.from?.botId === bot.id && !message.relay).at(-1);
+    if (answer && !answer.working && !/is waiting for/.test(answer.text)) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  // which sentence depends on whether this machine has a container runtime; some sentence is always there
+  expect(answer?.text, ws.log().slice(-2000)).toMatch(/This workspace(?:'s computer is starting| can give you your own computer| could give you a computer| has no computer for bots yet)/);
+  expect(answer?.text).not.toContain("never claim to have a desktop");
+}, 90_000);

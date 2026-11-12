@@ -7,7 +7,7 @@
 // (BROWSER_TOOLS_HIDDEN): the engine's own web reading does that job.
 import type { IncomingMessage } from "node:http";
 
-import { BROWSER_TOOLS_HIDDEN, withChallengeNote } from "../colonie/computer/browser-engine.ts";
+import { BROWSER_TOOLS_HIDDEN, closedLastTabRefused, withChallengeNote } from "../colonie/computer/browser-engine.ts";
 import type { BrowserRuntime, BrowserSpawnSpec } from "../colonie/computer/browser-runtime.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -41,7 +41,7 @@ export function createInternalBrowserRoute(deps: {
     if (!browser || browser.session !== capability.browserSession) return json(res, 409, { error: "this browser profile changed; start a new turn" });
     if (body?.method !== "tools/list" && body?.method !== "tools/call") return json(res, 400, { error: "unsupported browser method" });
     if (body.method === "tools/call" && BROWSER_TOOLS_HIDDEN.has(String(body.params?.name))) return json(res, 404, { error: "no such browser tool" });
-    const result = await deps.runtime.agentRpc(browser.session, browser.spec, body.method, body.params, () => {
+    const dispatch = (params: unknown) => deps.runtime.agentRpc(browser.session, browser.spec, body.method, params, () => {
       if (!deps.isActive(capability)) throw expired();
       const current = deps.bot(capability.botId);
       if (!enabled(current) || deps.currentBrowserSession(current!.id, current!.browserProfile) !== browser.session) {
@@ -52,6 +52,13 @@ export function createInternalBrowserRoute(deps: {
       }
       if (body.method === "tools/call") deps.announce?.(capability);
     });
+    let result = await dispatch(body.params);
+    // The only tab cannot be closed on its own; closing it means closing the browser
+    if (body.method === "tools/call" && closedLastTabRefused(body.params?.name, result)) {
+      result = await dispatch({ ...body.params, name: "agent_browser_close", arguments: {} });
+      const closed = result as { content?: unknown[] } | null;
+      if (closed && Array.isArray(closed.content)) closed.content = [...closed.content, { type: "text", text: "That was the only tab, so the browser is closed." }];
+    }
     if (!deps.isActive(capability)) throw expired();
     const listed = result as { tools?: Array<{ name?: string }> } | null;
     if (body.method === "tools/list" && Array.isArray(listed?.tools)) {

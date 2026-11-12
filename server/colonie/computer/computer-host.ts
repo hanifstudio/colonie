@@ -109,11 +109,11 @@ export function createComputerHost(deps: ComputerHostDeps) {
     }
   }
 
-  async function view(): Promise<ComputerView> {
+  async function view(maxAgeMs = 1_500): Promise<ComputerView> {
     const base = { screens: [] as ComputerView["screens"], idleMinutes: Math.round(idleMs / 60_000) };
     if (!supported()) return { ...base, state: "unsupported", message: "This workspace's server cannot run a computer yet. Bots browse with the built-in browser here." };
     if (job) return { ...base, state: phase === "preparing" ? "preparing" : "starting", message: null };
-    const known = await facts(1_500);
+    const known = await facts(maxAgeMs);
     if (!known.runtime) return { ...base, state: "no-runtime", message: "Colonie needs Docker or Podman to run a computer. Install one, then check again." };
     if (known.container !== "running" || !known.daemonUp) {
       held.clear(); taken.clear();

@@ -146,6 +146,8 @@ agent({ name: "Colonie deterministic fixture" })
       return { stopReason: "end_turn", _meta: { jetbrains: { air: { version: 1, sessionFailure: { id: "f1", revision: 1, kind: "quota_exhausted", category: "limit", severity: "error", title: "The Claude account has no available quota.", actions: [] } } } } };
     }
     let result = `${session.prompts.length}: ${text}`;
+    // "show what you were told": the whole prompt this turn, so a test can see what the app handed the engine
+    if (/(?:^|\n@\S+ )show what you were told\s*$/.test(text)) result = session.prompts.at(-1)!;
     // a bot in a group handing work on: its answer names the other bot only
     const handOff = /hand over to (\S+)\s*$/.exec(text)?.[1];
     if (handOff) result = `@${handOff} over to you`;

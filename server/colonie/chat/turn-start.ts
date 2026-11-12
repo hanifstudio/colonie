@@ -35,7 +35,7 @@ import { extractTurnImages } from "../../colonie/chat/turn-images.ts";
 import { turnStartLogLine } from "../../colonie/chat/turn-log.ts";
 import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
 import { announceComputerUse, computerHost } from "../../colonie/computer/computer-instance.ts";
-import { BOT_COMPUTER_FULL_NOTE, BOT_COMPUTER_PROMPT, botComputerMount } from "../../colonie/computer/computer-prompt.ts";
+import { BOT_COMPUTER_FULL_NOTE, BOT_COMPUTER_PROMPT, botComputerMount, botComputerOfferNote } from "../../colonie/computer/computer-prompt.ts";
 import { removedComputerInstanceIds } from "../../colonie/computer/computer-engine-removal.ts";
 import { withMcpSignIn } from "../../colonie/mcp/mcp-oauth.ts";
 import { beginMemoryTurn, endMemoryTurn } from "../../colonie/memory/memory-journal.ts";
@@ -416,6 +416,9 @@ async function startTurn(
             computerNote = BOT_COMPUTER_FULL_NOTE;
             console.warn(`[computer] ${bot.name} has no screen for this request: ${error instanceof Error ? error.message : String(error)}`);
           }
+        } else {
+          // no screen: say whether a computer exists, so the bot neither denies it nor promises it
+          computerNote = botComputerOfferNote((await computerHost.view(5_000)).state);
         }
         // Browser sessions belong to bots, regardless of retired desktop settings.
         const browsingBot = store.bot(bot.id);

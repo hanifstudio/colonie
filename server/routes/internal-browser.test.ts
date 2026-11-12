@@ -77,3 +77,32 @@ test("a page showing a CAPTCHA tells the bot to hand it to the person", async ()
 test("only tool listing and calls pass through", async () => {
   expect((await call(setup().route, { authorization: BEARER }, { method: "resources/list" }))?.status).toBe(400);
 });
+
+test("closing the only tab closes the browser instead of failing, and says so", async () => {
+  const refused = { isError: true, content: [{ type: "text", text: "Cannot close the last tab" }] };
+  const seen: string[] = [];
+  const capability = { botId: "b1", threadId: "t1", generation: "g1", kind: "browser", browserSession: "s1" };
+  const route = createInternalBrowserRoute({
+    authorize: (header) => header === BEARER ? capability : null, isActive: () => true, bot: (id) => id === "b1" ? { id } : undefined, browserEnabled: () => true,
+    browserIntegration: async () => ({ session: "s1", spec: { command: "agent-browser", args: [], env: {} } }), currentBrowserSession: () => "s1", claimTurnResource: () => true,
+    runtime: { agentRpc: async (_session, _spec, _method, params) => { const name = (params as { name: string }).name; seen.push(name); return name === "agent_browser_tab_close" ? refused : { content: [{ type: "text", text: "Browser closed" }] }; } },
+  });
+  const answer = await call(route, { authorization: BEARER }, { method: "tools/call", params: { name: "agent_browser_tab_close", arguments: {} } });
+  expect(seen).toEqual(["agent_browser_tab_close", "agent_browser_close"]);
+  expect(JSON.stringify(answer?.body)).toContain("That was the only tab, so the browser is closed.");
+  expect(JSON.stringify(answer?.body)).not.toContain("isError");
+});
+
+test("another failure to close a tab is left for the bot to read, and only that one tool is retried", async () => {
+  const other = { isError: true, content: [{ type: "text", text: "Tab index 4 out of range" }] };
+  const seen: string[] = [];
+  const capability = { botId: "b1", threadId: "t1", generation: "g1", kind: "browser", browserSession: "s1" };
+  const route = createInternalBrowserRoute({
+    authorize: (header) => header === BEARER ? capability : null, isActive: () => true, bot: (id) => id === "b1" ? { id } : undefined, browserEnabled: () => true,
+    browserIntegration: async () => ({ session: "s1", spec: { command: "agent-browser", args: [], env: {} } }), currentBrowserSession: () => "s1", claimTurnResource: () => true,
+    runtime: { agentRpc: async (_session, _spec, _method, params) => { seen.push((params as { name: string }).name); return other; } },
+  });
+  const answer = await call(route, { authorization: BEARER }, { method: "tools/call", params: { name: "agent_browser_tab_close", arguments: { index: 4 } } });
+  expect(seen).toEqual(["agent_browser_tab_close"]);
+  expect(JSON.stringify(answer?.body)).toContain("out of range");
+});

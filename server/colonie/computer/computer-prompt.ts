@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AcpToolMount } from "../connections/contracts.ts";
 import { computerToolMount } from "./browser-engine.ts";
+import type { ComputerState } from "../../../shared/computer.ts";
 import type { ComputerHost } from "./computer-host.ts";
 
 /** What a bot with a screen on the workspace's computer is told. The scope advice
@@ -27,4 +28,21 @@ export function botComputerMount(host: ComputerHost, botId: string, announce?: (
     deactivate: drop,
     release: drop,
   };
+}
+
+/** What a bot with no screen is told about the computer, so it never denies one that exists or promises one
+ * that does not. Its built-in browser covers ordinary browsing; the computer is for desktop apps and
+ * a screen the person can watch and take over. The bot suggests it; only the person turns it on. */
+export function botComputerOfferNote(state: ComputerState): string {
+  switch (state) {
+    case "off":
+      return "This workspace can give you your own computer (a private desktop with a screen the person can watch and take over), but it is turned off, so you have no desktop now. Browse with your built-in browser meanwhile. If a task needs a desktop app, or the person asks whether you have a computer, say it exists but is off, and that they can turn it on from the Screen tab with Turn on computer, then ask you again. Do not turn it on yourself and do not claim a desktop you were not given.";
+    case "preparing":
+    case "starting":
+      return "This workspace's computer is starting up, so you have no screen yet. Browse with your built-in browser meanwhile, and say it is starting if the person asks about a computer.";
+    case "no-runtime":
+      return "This workspace could give you a computer, but this machine has no Docker or Podman installed, so it cannot be turned on. You have your built-in browser only. If the person asks about a computer, say that Docker or Podman must be installed first.";
+    default:
+      return "This workspace has no computer for bots yet, only your built-in browser. If the person asks whether you have a computer or a desktop, say so plainly.";
+  }
 }

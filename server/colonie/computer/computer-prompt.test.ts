@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { createComputerHost, type ContainerBackend } from "./computer-host.ts";
-import { BOT_COMPUTER_PROMPT, botComputerMount } from "./computer-prompt.ts";
+import { BOT_COMPUTER_PROMPT, botComputerMount, botComputerOfferNote } from "./computer-prompt.ts";
 
 function running() {
   const backend: ContainerBackend = {
@@ -60,4 +60,17 @@ test("the bot is told how to drive its screen, including the measured scope advi
   expect(BOT_COMPUTER_PROMPT).toContain("bring_to_front");
   expect(BOT_COMPUTER_PROMPT).toContain("Screen tab");
   expect(BOT_COMPUTER_PROMPT).toMatch(/never ask for a password in chat/);
+});
+
+test("a bot with no screen is told whether a computer exists, never denying one that does or promising one that does not", () => {
+  const off = botComputerOfferNote("off");
+  expect(off).toContain("turned off");
+  expect(off).toContain("Screen tab");
+  expect(off).toMatch(/Do not turn it on yourself/);
+  expect(botComputerOfferNote("starting")).toContain("starting up");
+  expect(botComputerOfferNote("preparing")).toContain("starting up");
+  expect(botComputerOfferNote("no-runtime")).toContain("Docker or Podman");
+  expect(botComputerOfferNote("unsupported")).toContain("no computer for bots yet");
+  // the note given with a real screen is never the one given without it
+  for (const state of ["off", "starting", "no-runtime", "unsupported"] as const) expect(botComputerOfferNote(state)).not.toContain(BOT_COMPUTER_PROMPT.slice(0, 40));
 });
