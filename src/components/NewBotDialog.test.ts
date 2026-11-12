@@ -24,6 +24,9 @@ describe("a new bot", () => {
     const html = renderToStaticMarkup(createElement(SimpleNewBot, { draft, extra: createElement("div", { "data-new-bot-visibility": true }, "Who can see it") }));
     const at = (text: string) => html.indexOf(text);
     expect(at("Name")).toBeLessThan(at("What should Nova do?"));
+    // the name comes first, above the picture options
+    expect(at("Name")).toBeLessThan(at("Upload image"));
+    expect(at("Upload image")).toBeLessThan(at("What should Nova do?"));
     expect(at("Or start from")).toBeLessThan(at("Who can see it"));
     expect(at("Who can see it")).toBeLessThan(at("Skills, memory"));
     // the name field is focused by code (without scrolling), not by autofocus

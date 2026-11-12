@@ -4,7 +4,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { BuiltInBrowserRow, GeneralSettings, ProfileFields } from "./SettingsModal";
 import { ComposioCredentialPanel } from "./ComposioCredentialPanel";
-import { DefaultBotSettings } from "./NewBotDialog";
+import { EnginesSettings } from "./EnginesSettings";
+import { DefaultBotSettings, SimpleNewBot } from "./NewBotDialog";
+import { BotCreationDraft, EMPTY_BOT_DEFAULTS } from "@/lib/bot-creation-draft";
 import { SKINS } from "@/lib/skins";
 
 const { api, storeState } = vi.hoisted(() => ({ api: vi.fn(), storeState: { current: {} as Record<string, unknown> } }));
@@ -18,6 +20,9 @@ vi.mock("@/lib/session", async (importOriginal) => ({
   readSessionState: async () => ({}),
   isOwnerOrAdmin: () => true,
 }));
+
+// The animated mascot never settles under happy-dom; the form order is what is checked.
+vi.mock("./BotProfileAvatarCard", () => ({ BotProfileAvatarCard: () => createElement("div", { "data-avatar-card": true }, "Upload image") }));
 
 let root: Root;
 let host: HTMLDivElement;
@@ -104,4 +109,25 @@ test("General: both defaults actions are the same kind of Button, under a descri
 
 test("Skins: each one-line description says what the look is", () => {
   for (const skin of SKINS) expect(skin.tagline).not.toMatch(/original|Colonie look/i);
+});
+
+test("AI settings: the page has one Model providers heading; the intro and Check again sit under it", async () => {
+  storeState.current = { config: {}, bots: [], instances: [] };
+  await draw(createElement(EnginesSettings));
+  expect(host.querySelector("h1, h2, h3")).toBeNull();
+  expect(host.textContent).not.toContain("Model providers");
+  expect(host.textContent).toContain("Connect the AI tools that power your bots.");
+  expect(buttonNamed("Check again")).toBeDefined();
+});
+
+test("New bot: the Name field comes first and takes focus without scrolling the form", async () => {
+  const draft = new BotCreationDraft({ ...EMPTY_BOT_DEFAULTS, profile: { name: "Nova" } }, () => {});
+  const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+  await draw(createElement(SimpleNewBot, { draft }));
+  const fields = [...host.querySelectorAll("input:not([type=file]), textarea")];
+  expect((fields[0] as HTMLInputElement).value).toBe("Nova");
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  expect(focus.mock.instances[0]).toBe(fields[0]);
+  expect(host.querySelector("label")!.compareDocumentPosition(host.querySelector("[data-avatar-card]")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  draft.dispose();
 });

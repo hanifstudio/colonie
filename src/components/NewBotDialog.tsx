@@ -260,13 +260,13 @@ export function SimpleNewBot({ draft, extra }: { draft: BotCreationDraft; extra?
   useEffect(() => { nameField.current?.focus({ preventScroll: true }); }, []);
   const name = bot.name.trim() || "this bot";
   return <div className="space-y-5">
-    <BotEditorContext.Provider value={{ request: draft.request, draft: true, uploadAvatar: draft.uploadAvatar }}>
-      <BotProfileAvatarCard bot={bot} activeState="idle" mascotMotion={null} onPatch={patch => draft.patch(patch)} />
-    </BotEditorContext.Provider>
     <label className="block text-[13px] text-ink-secondary">Name
       <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} ref={nameField}
         className={cn(inputCls)} />
     </label>
+    <BotEditorContext.Provider value={{ request: draft.request, draft: true, uploadAvatar: draft.uploadAvatar }}>
+      <BotProfileAvatarCard compact bot={bot} activeState="idle" mascotMotion={null} onPatch={patch => draft.patch(patch)} />
+    </BotEditorContext.Provider>
     <label className="block text-[13px] text-ink-secondary">What should {name} do?
       <textarea value={bot.soul ?? ""} onChange={event => draft.patch({ soul: event.target.value })} rows={4}
         placeholder="For example: keep our launch on track, remind people of deadlines, and sum up each week."

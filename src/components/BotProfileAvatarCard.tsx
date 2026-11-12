@@ -120,11 +120,14 @@ export function BotProfileAvatarCard({
   activeState,
   mascotMotion,
   onPatch,
+  compact = false,
 }: {
   bot: Bot;
   activeState: MausState;
   mascotMotion: { kind: Exclude<MausMotion, "none">; nonce: number } | null;
   onPatch: (patch: AvatarPatch) => void;
+  /** Tighter spacing and smaller pictures, for a form where the avatar is not the main thing. */
+  compact?: boolean;
 }) {
   const { uploadAvatar, readOnly } = useBotEditor();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -188,11 +191,11 @@ export function BotProfileAvatarCard({
         {hasImage ? (
           <AvatarFraming bot={bot} disabled={busy} onPatch={onPatch} />
         ) : (
-          <div className="flex justify-center py-3">
+          <div className={cn("flex justify-center", compact ? "py-1" : "py-3")}>
             <BotAvatar
               bot={bot}
               state={activeState}
-              size={112}
+              size={compact ? 72 : 112}
               motion={mascotMotion?.kind ?? "none"}
               motionKey={mascotMotion?.nonce ?? 0}
             />
@@ -233,7 +236,7 @@ export function BotProfileAvatarCard({
 
         {!hasImage && (
           <>
-            <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
+            <div className={cn("mb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary", compact ? "mt-3" : "mt-4")}>
               Body
             </div>
             <div className="grid grid-cols-4 gap-2">
@@ -246,18 +249,18 @@ export function BotProfileAvatarCard({
                   aria-label={`Use the ${MASCOT_BODIES[id].name} body`}
                   onClick={() => onPatch({ mascotBody: id })}
                   className={cn(
-                    "flex items-center justify-center rounded-xl py-3 disabled:opacity-50",
+                    "flex items-center justify-center rounded-xl disabled:opacity-50", compact ? "py-1.5" : "py-3",
                     bodyChoice(bot.mascotBody) === id
                       ? "bg-control text-ink"
                       : "text-ink-secondary hover:bg-control/60",
                   )}
                 >
-                  <MausAvatar color={bot.color} bodyId={id} size={52} animated={false} trackPointer={false} />
+                  <MausAvatar color={bot.color} bodyId={id} size={compact ? 36 : 52} animated={false} trackPointer={false} />
                 </button>
               ))}
             </div>
 
-            <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
+            <div className={cn("mb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary", compact ? "mt-3" : "mt-4")}>
               Color
             </div>
             <div className="flex flex-wrap gap-2">
