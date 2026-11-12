@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "./ui/Button";
 import { api, useStore, type Bot } from "@/state/store";
 import type { ConnectedAppsView } from "../../shared/connected-apps";
 import type { ToolkitCard } from "./PluginsPanel";
@@ -11,6 +12,7 @@ export function BotConnectedTools({ bot }: { bot: Bot }) {
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [revision, setRevision] = useState(0);
   const [toolkits, setToolkits] = useState<string[]>([]);
   const [customServers, setCustomServers] = useState<string[]>([]);
@@ -39,12 +41,17 @@ export function BotConnectedTools({ bot }: { bot: Bot }) {
   const knownCards = [...cards, ...toolkits.filter((slug) => !cards.some((card) => card.slug === slug)).map((slug) => ({ slug, label: slug }))];
   const visibleCards = knownCards.filter((card) => toolkits.includes(card.slug) || `${card.label} ${card.slug}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => Number(toolkits.includes(b.slug)) - Number(toolkits.includes(a.slug))).slice(0, 40);
   const visibleServers = [...servers, ...customServers.filter((name) => !servers.some((server) => server.name === name)).map((name) => ({ name, enabled: false }))];
+  const connected = toolkits.length + customServers.length;
+  const summary = !view ? (error ? "Could not load." : "Loading…") : connected === 0 ? "No apps or tools connected yet." : `${connected} ${connected === 1 ? "app or tool" : "apps and tools"} connected.`;
   return <section aria-label="Bot connected tools" className="space-y-3 rounded-xl border border-hairline bg-inset p-3 text-sm">
-    <div className="flex items-center justify-between gap-2"><h3 className="font-medium">Connected apps and tools</h3><button disabled={saving} onClick={() => setRevision((value) => value + 1)} className="text-xs underline">Refresh</button></div>
-    <p className="text-xs text-ink-secondary">Choose the tools this bot can use. Changes apply with its next message and keep existing conversations.</p>
-    <button onClick={() => { dispatch({ type: "toggleSettings", open: false }); dispatch({ type: "toggleAppSettings", open: true, section: "connections" }); }} className="rounded-lg bg-control px-3 py-1.5">Manage connections</button>
-    {!view && !error && <p>Loading…</p>}
-    {view && <fieldset disabled={saving || Boolean(working)} className="space-y-3">
+    <div className="min-w-0"><h3 className="text-[13px] font-medium">Connected apps and tools</h3><p className="text-xs text-ink-secondary">{summary}</p></div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button size="sm" aria-expanded={choosing} onClick={() => setChoosing((value) => !value)}>{choosing ? "Hide tools" : "Choose tools"}</Button>
+      <Button size="sm" onClick={() => { dispatch({ type: "toggleSettings", open: false }); dispatch({ type: "toggleAppSettings", open: true, section: "connections" }); }}>Manage connections</Button>
+      <Button variant="quiet" size="sm" disabled={saving} onClick={() => setRevision((value) => value + 1)}>Refresh</Button>
+    </div>
+    {choosing && <p className="text-xs text-ink-secondary">Choose the tools this bot can use. Changes apply with its next message and keep existing conversations.</p>}
+    {choosing && view && <fieldset disabled={saving || Boolean(working)} className="space-y-3">
       <legend className="font-medium">Composio apps</legend>
       {!view.configured && <p className="text-xs text-ink-secondary">Set up Composio in app settings to choose apps.</p>}
       {view.configured && <><input aria-label="Find apps for this bot" placeholder="Find an app" className="w-full rounded-lg border border-hairline bg-panel p-2" value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -52,7 +59,7 @@ export function BotConnectedTools({ bot }: { bot: Bot }) {
       <h4 className="font-medium">Custom MCP</h4>
       {visibleServers.filter((server) => server.enabled || customServers.includes(server.name)).map((server) => <label key={server.name} className="flex gap-2"><input type="checkbox" disabled={!server.enabled && !customServers.includes(server.name)} checked={customServers.includes(server.name)} onChange={() => setCustomServers(toggle(customServers, server.name))} />{server.name}{!server.enabled && " · Disabled or removed in app settings"}</label>)}
       {!servers.length && <p className="text-xs text-ink-secondary">No custom connections yet.</p>}
-      <button onClick={() => void save()} className="rounded-lg bg-control px-3 py-1.5 disabled:opacity-50">{saving ? "Saving…" : "Save tool access"}</button>
+      <Button disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save tool access"}</Button>
       {working && <p className="text-xs text-ink-secondary">Wait for this bot's conversations to finish before changing access.</p>}
     </fieldset>}
     {error && <p role="alert" className="text-danger">{error}</p>}

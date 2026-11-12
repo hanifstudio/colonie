@@ -4,7 +4,7 @@
 // the bot has made in this chat. Every field writes through the same path the
 // full fold-out sections use, and "All settings" opens that full view.
 import { useMemo, useState } from "react";
-import { ChevronRightIcon, FileTextIcon, Image01Icon, MultiplicationSignIcon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { ChevronRightIcon, FileTextIcon, Folder01Icon, Image01Icon, MultiplicationSignIcon, SparklesIcon, Tick01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 
 import { cn } from "@/lib/cn";
@@ -27,6 +27,7 @@ import { BotConnectedTools } from "../BotConnectedTools";
 import { ColonieMemorySection } from "./ColonieMemorySection";
 import { ColonieSkillsSection } from "./ColonieSkillsSection";
 import { ChiefControls } from "../ChiefControls";
+import { TabPills } from "../ui/TabPills";
 import { useBotEditor } from "./BotEditorContext";
 
 export const simpleInputCls =
@@ -89,7 +90,7 @@ export function SimpleBotPanel({
 }) {
   const { dispatch } = useStore();
   const { workspace, readOnly } = useBotEditor();
-  const [tab, setTab] = useState<"details" | "library">("details");
+  const [chosenTab, setTab] = useState<"details" | "memory" | "library">("details");
   const [fullAccessTarget, setFullAccessTarget] = useState<string | null>(null);
   const skills = useManagedSkills(bot, !acp && !workspace);
   const { patch, approvalMode, engine, trustedModesAvailable } = derived;
@@ -116,13 +117,14 @@ export function SimpleBotPanel({
   };
   const customMode = displayedApprovalMode !== "ask" && displayedApprovalMode !== "auto" && displayedApprovalMode !== "full";
 
+  const tabs = [
+    { id: "details" as const, label: t("botSettings.simple.details"), icon: UserIcon },
+    ...(acp && !workspace ? [{ id: "memory" as const, label: "Memory", icon: SparklesIcon }] : []),
+    ...(!workspace ? [{ id: "library" as const, label: t("botSettings.simple.library"), icon: Folder01Icon }] : []),
+  ];
+  // A tab this bot does not have (another bot was opened) falls back to Details.
+  const tab = tabs.some((entry) => entry.id === chosenTab) ? chosenTab : "details";
   const library = useMemo(() => (tab === "library" ? botLibraryItems(bot) : []), [tab, bot]);
-
-  const tabCls = (active: boolean) =>
-    cn(
-      "rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors",
-      active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
-    );
 
   return (
     <>
@@ -146,28 +148,7 @@ export function SimpleBotPanel({
         </div>
 
         <div className="mt-4 flex justify-center">
-          <div role="tablist" aria-label={t("botSettings.simple.tabs")} className="inline-flex rounded-full bg-inset p-1">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "details"}
-              data-simple-tab="details"
-              onClick={() => setTab("details")}
-              className={tabCls(tab === "details")}
-            >
-              {t("botSettings.simple.details")}
-            </button>
-            {!workspace && <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "library"}
-              data-simple-tab="library"
-              onClick={() => setTab("library")}
-              className={tabCls(tab === "library")}
-            >
-              {t("botSettings.simple.library")}
-            </button>}
-          </div>
+          <TabPills label={t("botSettings.simple.tabs")} tabs={tabs} value={tab} onChange={setTab} />
         </div>
 
         {tab === "details" ? (
@@ -202,19 +183,20 @@ export function SimpleBotPanel({
               <textarea id={`simple-bot-about-${bot.id}`} className={simpleInputCls} maxLength={BOT_PROFILE_LIMITS.description}
                 placeholder="What should this bot help you with?" value={bot.description} onChange={(event) => patch({ description: event.target.value })} />
             </div>}
-            <SoulField
-              bot={bot}
-              onPatch={patch}
-              simple={{
-                label: t("botSettings.simple.instructions"),
-                placeholder: t("botSettings.simple.instructionsPlaceholder", { name: bot.name }),
-              }}
-            />
-            {acp && <p className="-mt-3 text-xs text-ink-secondary">Changes apply from your next message, in every conversation.</p>}
+            <div className="flex flex-col gap-1.5">
+              <SoulField
+                bot={bot}
+                onPatch={patch}
+                simple={{
+                  label: t("botSettings.simple.instructions"),
+                  placeholder: t("botSettings.simple.instructionsPlaceholder", { name: bot.name }),
+                }}
+              />
+              {acp && <p className="px-1 text-[11px] text-ink-tertiary">Changes apply from your next message, in every conversation.</p>}
+            </div>
             {acp && !workspace && <ChiefControls bot={bot} />}
             {acp && !workspace && <BotConnectedTools bot={bot} />}
             {acp && !workspace && <ColonieSkillsSection bot={bot} />}
-            {acp && !workspace && <ColonieMemorySection bot={bot} />}
 
             {/* The bot's model, in the same plain-words picker as the chat
                 header, shown in place (a floating popover would be clipped by
@@ -322,6 +304,10 @@ export function SimpleBotPanel({
               </span>
               <HIcon icon={ChevronRightIcon} size={15} className="shrink-0" />
             </button>
+          </div>
+        ) : tab === "memory" ? (
+          <div role="tabpanel" aria-label="Memory" className="mt-5">
+            <fieldset disabled={readOnly} className="contents"><ColonieMemorySection bot={bot} /></fieldset>
           </div>
         ) : (
           <div role="tabpanel" className="mt-5">

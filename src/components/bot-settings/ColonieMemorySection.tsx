@@ -9,7 +9,7 @@
 // Every response is guarded by a request sequence, so switching bots or
 // unmounting can never let a stale response populate another bot's list, and
 // a conflicted save keeps the person's draft instead of reporting success.
-import { Add01Icon, Delete02Icon, NoteEditIcon, SparklesIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, SparklesIcon } from "@hugeicons/core-free-icons";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { ApiError, api, type Bot } from "@/state/store";
@@ -19,6 +19,8 @@ import type { MemoryEntry, MemoryKind, MemoryView } from "../../../shared/coloni
 import { ConfirmDialog } from "../ConfirmDialog";
 import { HIcon } from "../HIcon";
 import { Switch } from "../SettingsPrimitives";
+import { Button } from "../ui/Button";
+import { MemoryBrowser } from "./MemoryBrowser";
 import { inputCls } from "./field";
 
 const buttonCls = "rounded-lg bg-control px-3 py-1.5 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50";
@@ -259,26 +261,12 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
       )}
 
       {view && (
-        <MemoryList
-          title="About you · Shared with your bots"
-          hint="Facts about you that any of your bots may recall."
-          entries={lists.shared}
+        <MemoryBrowser
+          entries={view.entries}
+          botName={bot.name}
+          caption={(entry) => `${sourceLabel(entry)}${entry.scope === "shared" ? " · Shared with all bots" : ""}`}
           onEdit={(entry) => setEditing({ id: entry.id, text: entry.text, kind: entry.kind, until: entry.until ?? "", expectedRevision: view.revision })}
           onForget={setForgetTarget}
-          onClear={() => setClearScope("shared")}
-          canClear={lists.shared.length > 0}
-        />
-      )}
-
-      {view && (
-        <MemoryList
-          title={`Only ${bot.name}`}
-          hint="Project facts and decisions kept private to this bot."
-          entries={lists.bot}
-          onEdit={(entry) => setEditing({ id: entry.id, text: entry.text, kind: entry.kind, until: entry.until ?? "", expectedRevision: view.revision })}
-          onForget={setForgetTarget}
-          onClear={() => setClearScope("bot")}
-          canClear={lists.bot.length > 0}
         />
       )}
 
@@ -342,6 +330,13 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
         </div>
       )}
 
+      {view && (lists.shared.length > 0 || lists.bot.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+          {lists.shared.length > 0 && <Button variant="quiet" size="sm" onClick={() => setClearScope("shared")}>Clear shared memories</Button>}
+          {lists.bot.length > 0 && <Button variant="quiet" size="sm" onClick={() => setClearScope("bot")}>Clear {bot.name}&apos;s memories</Button>}
+        </div>
+      )}
+
       {/* how automatic memory is doing: only when there is news, or in Advanced mode */}
       {view && (advanced || view.status.running || view.status.pending > 0 || view.status.lastError) && (
         <div className="rounded-xl bg-card p-4">
@@ -379,62 +374,6 @@ export function ColonieMemorySection({ bot, active = true }: { bot: Bot; active?
         onCancel={() => setClearScope(null)}
         onConfirm={() => void confirmClear()}
       />
-    </div>
-  );
-}
-
-function MemoryList({
-  title,
-  hint,
-  entries,
-  onEdit,
-  onForget,
-  onClear,
-  canClear,
-}: {
-  title: string;
-  hint: string;
-  entries: readonly MemoryEntry[];
-  onEdit: (entry: MemoryEntry) => void;
-  onForget: (entry: MemoryEntry) => void;
-  onClear: () => void;
-  canClear: boolean;
-}) {
-  return (
-    <div className="rounded-xl bg-card p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[15px] font-medium text-ink">{title}</div>
-          <p className="mt-0.5 text-[12.5px] text-ink-secondary">{hint}</p>
-        </div>
-        {canClear && (
-          <button type="button" className={quietButtonCls} onClick={onClear}>
-            Clear
-          </button>
-        )}
-      </div>
-      {entries.length === 0 ? (
-        <div className="mt-3 text-[12.5px] text-ink-secondary">Nothing here yet.</div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          {entries.map((entry) => (
-            <div key={entry.id} className="rounded-lg bg-inset px-3 py-2">
-              <div className="text-[13px] leading-relaxed text-ink">{entry.text}</div>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="text-[11.5px] text-ink-secondary">{sourceLabel(entry)}</span>
-                <span className="flex shrink-0 items-center gap-1">
-                  <button type="button" className={cn(quietButtonCls, "inline-flex items-center gap-1")} onClick={() => onEdit(entry)}>
-                    <HIcon icon={NoteEditIcon} size={12} /> Edit
-                  </button>
-                  <button type="button" className={cn(quietButtonCls, "inline-flex items-center gap-1 text-danger")} onClick={() => onForget(entry)}>
-                    <HIcon icon={Delete02Icon} size={12} /> Forget
-                  </button>
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

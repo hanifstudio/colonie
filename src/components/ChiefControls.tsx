@@ -11,7 +11,7 @@ import { ApiError, api, type Bot } from "@/state/store";
 import type { ChiefView } from "../../shared/colonie-chief";
 import { HIcon } from "./HIcon";
 
-const buttonCls = "rounded-lg bg-control px-3 py-1.5 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50";
+import { Button } from "./ui/Button";
 
 export interface ChiefControlsState {
   view: ChiefView | null;
@@ -96,29 +96,30 @@ export function ChiefControls({ bot }: { bot: Bot }) {
 
   const chief = isChief(state.view, bot.id);
   return (
-    <div className="rounded-xl border border-hairline/40 bg-card p-4">
-      <div className="flex items-center gap-2 text-[14px] font-medium text-ink">
-        <HIcon icon={SparklesIcon} className="h-4 w-4 text-ink-secondary" />
-        <span>Chief</span>
-      </div>
-      {state.error ? <p className="mt-2 text-[12.5px] text-danger">{state.error}</p> : null}
-      {chief ? (
-        <p className="mt-2 text-[13px] text-ink-secondary">
-          {bot.name} is the Chief. The Chief can create, change, delete and ask other bots, and manage their guides.
+    <div className="rounded-xl border border-hairline/40 bg-card px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <HIcon icon={SparklesIcon} size={16} className="shrink-0 text-ink-secondary" />
+        <span className="shrink-0 text-[13px] font-medium text-ink">Chief</span>
+        <p className="min-w-0 flex-1 text-[12px] leading-snug text-ink-secondary">
+          {chief
+            ? `${bot.name} manages the other bots and their guides.`
+            : state.view?.chief
+              ? `${state.view.chief.name} is the Chief.`
+              : "Loading…"}
         </p>
-      ) : state.view?.chief ? (
-        <>
-          <p className="mt-2 text-[13px] text-ink-secondary">
-            {state.view.chief.name} is the Chief. Making {bot.name} the Chief transfers the role — {state.view.chief.name} becomes an
-            ordinary bot.
-          </p>
-          <button type="button" className={`${buttonCls} mt-3`} onClick={() => void makeChief()} disabled={saving}>
+        {!chief && state.view?.chief && (
+          <Button
+            size="sm"
+            className="shrink-0"
+            title={`Transfers the role: ${state.view.chief.name} becomes an ordinary bot.`}
+            onClick={() => void makeChief()}
+            disabled={saving}
+          >
             {saving ? "Transferring…" : "Make Chief"}
-          </button>
-        </>
-      ) : (
-        <p className="mt-2 text-[13px] text-ink-secondary">Loading the Chief role…</p>
-      )}
+          </Button>
+        )}
+      </div>
+      {state.error ? <p className="mt-2 text-[12px] text-danger">{state.error}</p> : null}
     </div>
   );
 }
