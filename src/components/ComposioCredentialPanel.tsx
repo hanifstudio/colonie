@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "./ui/Button";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { credentialOperationError, type ComposioCredentialStatus } from "../../shared/composio-credential";
 
@@ -60,13 +61,17 @@ export function ComposioCredentialPanel({ onStatus }: { onStatus(status: Composi
       <span role="status" className="text-xs text-ink-secondary">{!status ? "Checking setup…" : attention ? "Needs attention" : status.available ? "Key available" : "Not set up"}</span>
     </div>
     {status?.available && <>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-ink-secondary">Active key</dt><dd data-testid="composio-masked-key" className="font-mono">{status.maskedKey}</dd>
-        <dt className="text-ink-secondary">Source</dt><dd>{sourceLabel[status.source]}</dd>
-        <dt className="text-ink-secondary">Origin</dt><dd>{originLabel[status.origin]}</dd></dl>
+      <p className="text-sm text-ink">Your project key is saved and ready to use.</p>
+      <details data-composio-key-details>
+        <summary className="cursor-pointer text-xs text-ink-secondary hover:text-ink">Details</summary>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-ink-secondary">Active key</dt><dd data-testid="composio-masked-key" className="font-mono">{status.maskedKey}</dd>
+          <dt className="text-ink-secondary">Source</dt><dd>{sourceLabel[status.source]}</dd>
+          <dt className="text-ink-secondary">Origin</dt><dd>{originLabel[status.origin]}</dd></dl>
+      </details>
       <p className="text-xs text-ink-secondary">A project key enables Composio setup. Gmail, Drive and other accounts are connected separately in the Apps panel.</p>
       {status.source === "environment" && <p className="text-xs text-ink-secondary">This key is supplied outside the app. Remove it from the launch environment to turn it off.</p>}
-      <div className="flex gap-2"><button disabled={busy || status.storage === "unreadable"} onClick={() => { setEditing(true); setError(""); setNotice(""); }} className="rounded-lg bg-control px-3 py-2 text-sm">Replace key</button>
-        {status.canRemove && <button disabled={busy} onClick={() => void save("remove")} className="rounded-lg bg-control px-3 py-2 text-sm text-danger">{busy ? "Please wait…" : "Remove key"}</button>}</div>
+      <div className="flex gap-2"><Button disabled={busy || status.storage === "unreadable"} onClick={() => { setEditing(true); setError(""); setNotice(""); }}>Replace key</Button>
+        {status.canRemove && <Button disabled={busy} onClick={() => void save("remove")} className="text-danger">{busy ? "Please wait…" : "Remove key"}</Button>}</div>
     </>}
     {status && (!status.available || editing) && <form onSubmit={(event) => { event.preventDefault(); void save("save"); }} className="space-y-2">
       <label className="block text-sm">{status.available ? "New Composio project key" : "Enter your Composio project key"}

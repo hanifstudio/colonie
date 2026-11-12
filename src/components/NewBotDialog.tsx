@@ -26,6 +26,8 @@ import { inputCls } from "./bot-settings/field";
 import { RoutineEditor } from "./RoutinesPage";
 import { FullAccessWarning } from "./FullAccessWarning";
 import { SharePresetDialog } from "./SharePresetDialog";
+import { SettingRow } from "./SettingsPrimitives";
+import { Button } from "./ui/Button";
 
 const SECTIONS = ["Identity", "Soul", "Skills", "Memory", "Routines", "Access", "Model", "Permissions", "Voice & alerts"] as const;
 type Section = typeof SECTIONS[number];
@@ -409,12 +411,12 @@ export function DefaultBotSettings() {
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
   return <>
-    <div className="flex items-center justify-between gap-4 py-3"><span className="text-[13px] text-ink">{t("newBot.defaults")}</span>
-      <div className="flex shrink-0 gap-2">
-        <button type="button" onClick={() => setSharing(true)} className="rounded-lg px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-control hover:text-ink">{t("newBot.sharePreset")}</button>
-        <button type="button" onClick={() => setOpen(true)} className="rounded-lg bg-control px-3 py-1.5 text-[13px] text-ink hover:bg-raised-hover">{t("newBot.edit")}</button>
+    <SettingRow title={t("newBot.defaults")} subtitle={t("newBot.defaultsHint")}>
+      <div className="flex gap-2 sm:justify-end">
+        <Button onClick={() => setSharing(true)}>{t("newBot.sharePreset")}</Button>
+        <Button onClick={() => setOpen(true)}>{t("newBot.edit")}</Button>
       </div>
-    </div>
+    </SettingRow>
     {open && <NewBotDialog defaultsMode onClose={() => setOpen(false)} />}
     {sharing && <SharePresetDialog onClose={() => setSharing(false)} />}
   </>;

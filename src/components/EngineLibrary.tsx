@@ -68,7 +68,7 @@ export function EngineSections({ instances, renderEngine }: {
   // Flat, instance-keyed siblings keep forms and sign-in state alive when a
   // refreshed status moves a card between groups. Separate section parents
   // would remount it and discard unsaved input.
-  return <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-start gap-3">
+  return <div className="grid grid-cols-1 items-start gap-3">
     {[true, false].flatMap((ready) => {
       const rows = instances.filter((instance) => engineReady(instance) === ready);
       if (!rows.length) return [];

@@ -33,6 +33,7 @@ import { useUpdaterState } from "@/lib/updater";
 import { brand } from "../lib/brand";
 import { EnginesSettings } from "./EnginesSettings";
 import { PeopleSection } from "./PeopleSection";
+import { Button } from "./ui/Button";
 import { ColoniePeople } from "./ColoniePeople";
 import { ActivitySection } from "./ActivitySection";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
@@ -175,7 +176,7 @@ export function sectionMatches(section: (typeof SECTIONS)[number], query: string
 }
 
 /** Name and email save on blur; shared context has its own autosave. */
-function ProfileFields() {
+export function ProfileFields() {
   const { state, dispatch } = useStore();
   const account = useSignedInAccount();
   const [name, setName] = useState(state.config?.profile?.name ?? "");
@@ -217,17 +218,23 @@ function ProfileFields() {
     </div>
   );
   return (
-    <div className="flex flex-col gap-3">
-      <input aria-label={t("settings.profile.name")} value={name} onChange={(e) => setName(e.target.value)} onBlur={save} placeholder={t("settings.profile.name")} className={inputClass} />
-      <input
-        type="email"
-        aria-label={t("settings.profile.email")}
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onBlur={save}
-        placeholder="you@example.com"
-        className={inputClass}
-      />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <label htmlFor="profile-name" className="text-[14px] text-ink">{t("settings.profile.name")}</label>
+        <input id="profile-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={save} className={inputClass} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="profile-email" className="text-[14px] text-ink">{t("settings.profile.email")}</label>
+        <input
+          id="profile-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={save}
+          placeholder="you@example.com"
+          className={inputClass}
+        />
+      </div>
       <AboutMeSettings />
     </div>
   );
@@ -667,13 +674,14 @@ function ExperimentalFeaturesRow() {
 }
 
 /** The workspace browser switch, shared by Simple and Advanced settings. */
-function BuiltInBrowserRow() {
+export function BuiltInBrowserRow() {
   const { state, dispatch } = useStore();
   const browser = builtInBrowserEnabled(state.config);
   const desktopBrowser = browserAvailable(state.config);
   const browserInstallable = state.config?.browserEngine?.installable === true;
   const browserBlockedOnWindows = window.colonie?.platform === "win32" && !desktopBrowser && !browserInstallable;
   const [saving, setSaving] = useState(false);
+  const [installRequested, setInstallRequested] = useState(false);
   const [error, setError] = useState("");
 
   const toggle = async (next: boolean) => {
@@ -693,26 +701,54 @@ function BuiltInBrowserRow() {
     }
   };
 
+  // One state at a time: no engine yet means one Install action and no switch;
+  // with the engine, the switch is the whole control.
+  const needsInstall = !desktopBrowser && browserInstallable;
+  const installing = installRequested || state.config?.browserEngine?.installing === true;
+
+  const install = async () => {
+    if (installing) return;
+    setInstallRequested(true);
+    setError("");
+    try {
+      await api("/api/browser-engine/install", { method: "POST" });
+      const config: ConfigStatus = await api("/api/config");
+      dispatch({ type: "configStatus", config });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t("settings.browser.installError"));
+    } finally {
+      setInstallRequested(false);
+    }
+  };
+
   return (
     <div data-built-in-browser className="rounded-xl bg-card px-4">
       <SettingRow
         title={t("settings.experimental.browserAria")}
-        subtitle={desktopBrowser
-          ? browser
-            ? t("settings.experimental.browserOn")
-            : t("settings.experimental.browserOff")
-          : browserBlockedOnWindows
-            ? t("settings.experimental.browserWindows")
-            : browserUnavailableReason(state.config)}
+        subtitle={needsInstall
+          ? t("settings.browser.installHint")
+          : desktopBrowser
+            ? browser
+              ? t("settings.experimental.browserOn")
+              : t("settings.experimental.browserOff")
+            : browserBlockedOnWindows
+              ? t("settings.experimental.browserWindows")
+              : browserUnavailableReason(state.config)}
         message={error ? <p role="alert" className="text-danger">{error}</p> : null}
       >
-        <Switch
-          checked={browser}
-          aria-label={t("settings.experimental.browserAria")}
-          disabled={saving || (!browser && !desktopBrowser && !browserInstallable)}
-          onClick={() => void toggle(!browser)}
-          className="disabled:cursor-wait disabled:opacity-50"
-        />
+        {needsInstall ? (
+          <Button variant="primary" disabled={installing} onClick={() => void install()}>
+            {installing ? t("settings.browser.installing") : t("settings.browser.install")}
+          </Button>
+        ) : (
+          <Switch
+            checked={browser}
+            aria-label={t("settings.experimental.browserAria")}
+            disabled={saving || (!browser && !desktopBrowser)}
+            onClick={() => void toggle(!browser)}
+            className="disabled:cursor-wait disabled:opacity-50"
+          />
+        )}
       </SettingRow>
     </div>
   );
@@ -721,11 +757,47 @@ function BuiltInBrowserRow() {
 function BrowserProfilesRow() {
   const { state } = useStore();
   const profiles = state.config?.browserProfiles ?? [];
-  if (!builtInBrowserEnabled(state.config) && profiles.length === 0) return null;
+  // Profiles only matter once a browser can run; one that exists is always shown.
+  if (!(builtInBrowserEnabled(state.config) && browserAvailable(state.config)) && profiles.length === 0) return null;
   return (
     <Card title={t("settings.profiles.title")} subtitle={t("settings.profiles.sharedSubtitle")}>
       <BrowserProfilesManager />
     </Card>
+  );
+}
+
+/** The General page: everyday choices first, then the cleanup and recovery
+ * cards, and last an Advanced group for the switch that shows technical controls. */
+export function GeneralSettings({ shared, fleet, advanced, remoteActive }: {
+  shared: boolean; fleet: boolean; advanced: boolean; remoteActive: boolean;
+}) {
+  return (
+    <>
+      <SharedWorkspaceAddress shared={shared} origin={window.location.origin} />
+      <div>
+        <LanguageRow />
+        <NewBotEffortRow />
+        <AnalyticsRow />
+        <DefaultBotSettings />
+        {fleet && <SharedAgentInstructions />}
+      </div>
+      <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
+        <McpCallTimeoutSettings />
+      </Card>
+      <ThreadConcurrencySettings />
+      {!remoteActive && <RoutinesInConversationRow />}
+      <AutomaticRecoverySettings />
+      <ThreadCleanupSettings />
+      <div>
+        {!remoteActive && <ReplayTourRow />}
+        <UpdatesRow />
+        <DiagnosticsRow />
+      </div>
+      <div data-settings-group="advanced">
+        <AdvancedModeRow />
+        {fleet && advanced && <DeveloperToolsRow />}
+      </div>
+    </>
   );
 }
 
@@ -904,35 +976,10 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
     switch (id) {
       case "general":
         if (workspace) return <>
-          <div><AdvancedModeRow /><LanguageRow /></div>
+          <div><LanguageRow /><AdvancedModeRow /></div>
           {workspace.general}
         </>;
-        return (
-          <>
-            <SharedWorkspaceAddress shared={colonieSignIn} origin={window.location.origin} />
-            <div>
-              <AdvancedModeRow />
-              {colonieFleet && advanced && <DeveloperToolsRow />}
-              <LanguageRow />
-              <NewBotEffortRow />
-              <AnalyticsRow />
-              <DefaultBotSettings />
-              {colonieFleet && <SharedAgentInstructions />}
-            </div>
-            <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
-              <McpCallTimeoutSettings />
-            </Card>
-            <ThreadConcurrencySettings />
-            {!remoteActive && <RoutinesInConversationRow />}
-            <AutomaticRecoverySettings />
-            <ThreadCleanupSettings />
-            <div>
-              {!remoteActive && <ReplayTourRow />}
-              <UpdatesRow />
-              <DiagnosticsRow />
-            </div>
-          </>
-        );
+        return <GeneralSettings shared={colonieSignIn} fleet={colonieFleet} advanced={advanced} remoteActive={remoteActive} />;
       case "appearance":
         return (
           <>
@@ -971,7 +1018,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
                   {t("settings.connections.ready")}
                 </div>
               ) : null}
-              <div className="text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary">{t("keys.providers.title")}</div>
+              <div className="text-[13px] font-medium text-ink">{t("keys.providers.title")}</div>
               <p className="-mt-3 text-[12px] leading-relaxed text-ink-secondary">{t("keys.providers.subtitle")}</p>
               <ApiKeyRow section="openai" testProvider="openai" />
               <ApiKeyRow section="anthropic" testProvider="anthropic" />
@@ -987,7 +1034,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
                   <OpenAiCompatUrl />
                 </div>
               </details>
-              <div className="pt-2 text-[11.5px] font-medium uppercase tracking-wide text-ink-secondary">{t("keys.integrations.title")}</div>
+              <div className="pt-2 text-[13px] font-medium text-ink">{t("keys.integrations.title")}</div>
               <ApiKeyRow section="opencodeGo" />
               <p className="-mt-2 text-[11.5px] leading-relaxed text-ink-secondary">
                   {/* {command} marks where the code chip goes, so a translator can move it */}
@@ -1035,7 +1082,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
   };
 
   const blockHeading = (labelKey: LocaleKey) => (
-    <h3 className="px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-secondary">{t(labelKey)}</h3>
+    <h3 className="px-1 text-[15px] font-medium text-ink">{t(labelKey)}</h3>
   );
 
   return (

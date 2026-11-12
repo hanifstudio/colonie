@@ -5,6 +5,7 @@ import { api, ApiError, useStore, type Bot, type BotAnnouncement, type BrowserPr
 import { browserProfileDeletionBlockReason, browserProfilesMutation, newBrowserProfileId } from "@/lib/browser-profiles";
 import { isOwnerOrAdmin, readSessionState } from "@/lib/session";
 import { t } from "@/lib/i18n";
+import { Button } from "./ui/Button";
 
 /** Browser-panel and workspace settings share one editor. The server owns
  * session routing and erasure; this UI never handles cookies or partitions. */
@@ -133,7 +134,7 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
   if (canManage === false) return <p className="text-[12px] text-ink-secondary">{t("settings.profiles.ownerOnly")}</p>;
 
   const inputClass = "min-w-0 flex-1 rounded-md border border-hairline/40 bg-inset px-2.5 py-2 text-[13px] text-ink outline-none focus:border-accent disabled:opacity-50";
-  const buttonClass = "shrink-0 rounded-md bg-control px-2.5 py-2 text-[12px] text-ink hover:bg-raised-hover disabled:opacity-50";
+  const needsName = !locked && profiles.length < 20 && !name.trim();
   const selected = currentBot?.browserProfile ?? "";
   return (
     <div className="flex min-w-0 flex-col gap-3" aria-busy={busy}>
@@ -164,8 +165,9 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
           <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void create(); }}>
             <label htmlFor={`${fieldId}-new`} className="sr-only">{t("settings.profiles.newName")}</label>
             <input id={`${fieldId}-new`} value={name} onChange={(event) => setName(event.target.value)} maxLength={40} required disabled={locked || profiles.length >= 20} placeholder={t("settings.profiles.newName")} className={inputClass} />
-            <button type="submit" disabled={locked || !name.trim() || profiles.length >= 20} className={`${buttonClass} flex items-center gap-1`}><HIcon icon={PlusSignIcon} size={13} />{t("settings.profiles.create")}</button>
+            <Button type="submit" size="sm" disabled={locked || !name.trim() || profiles.length >= 20} aria-describedby={needsName ? `${fieldId}-reason` : undefined} className="flex shrink-0 items-center gap-1"><HIcon icon={PlusSignIcon} size={13} />{t("settings.profiles.create")}</Button>
           </form>
+          {needsName && <p id={`${fieldId}-reason`} className="text-[11px] text-ink-secondary">{t("settings.profiles.nameFirst")}</p>}
           {profiles.length >= 20 && <p className="text-[11px] text-ink-secondary">{t("settings.profiles.limit")}</p>}
           {!profiles.length && <p className="text-[12px] text-ink-secondary">{t("settings.profiles.sharedEmpty")}</p>}
           <div className="divide-y divide-hairline/30">
@@ -179,8 +181,8 @@ export function BrowserProfilesManager({ bot, onProfileChanged, disabled = false
                     {renaming?.id === profile.id ? (
                       <form className="flex min-w-0 flex-1 flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void rename(); }}>
                         <input autoFocus value={renaming.name} onChange={(event) => setRenaming({ id: profile.id, name: event.target.value })} maxLength={40} required disabled={locked} className={inputClass} aria-label={t("settings.profiles.nameAria")} />
-                        <button type="submit" disabled={locked || !renaming.name.trim()} className={buttonClass}>{t("common.save")}</button>
-                        <button type="button" disabled={busy} onClick={() => setRenaming(null)} className={buttonClass}>{t("common.cancel")}</button>
+                        <Button type="submit" size="sm" disabled={locked || !renaming.name.trim()}>{t("common.save")}</Button>
+                        <Button size="sm" disabled={busy} onClick={() => setRenaming(null)}>{t("common.cancel")}</Button>
                       </form>
                     ) : (
                       <>
