@@ -140,6 +140,8 @@
      there `raised` is pure white and a card is too. */
   --color-control: #2f2f2f;
   --color-hairline: #333333;
+  /* a control's own edge: the hairline in dark skins, a step darker in light ones, so an off switch or a button shows on a card */
+  --color-edge: #333333;
   --color-ink: #fcfcfc;
   --color-ink-secondary: #fcfcfc99;
   /* quiet text: timestamps, hints, placeholders, calendar hours. It used to
@@ -204,6 +206,7 @@
   --color-inset: #191919;
   --color-control: #2f2f2f;       /* = raised: Midnight is unchanged */
   --color-hairline: #333333;
+  --color-edge: #333333;
   --color-ink: #fcfcfc;
   --color-ink-secondary: #fcfcfc99;
   --color-ink-tertiary: #fcfcfc90;
@@ -251,6 +254,7 @@
                                      a control needs its own tone: 1.26:1 on a
                                      card, and raised-hover still lifts off it */
   --color-hairline: #c8bda8;      /* #ece7dd was 1.11:1 on the rail → 1.65:1 */
+  --color-edge: #a99c82;
 
   --color-ink: #1a1a18;           /* 17.4:1 on white */
   --color-ink-secondary: #6b6559; /* #8b8578 was 3.67:1 → 5.78:1 */
@@ -310,6 +314,7 @@
   --color-inset: #0b0a08;         /* inset sinks below the ground */
   --color-control: #262019;       /* = raised: Foundry is unchanged */
   --color-hairline: #3d3529;      /* visible on purpose — this UI has edges */
+  --color-edge: #3d3529;
 
   --color-ink: #f4efe4;           /* warm off-white, never pure #fff */
   --color-ink-secondary: #b0a696; /* 6.7:1 on raised, 5.9:1 on hover */
@@ -375,6 +380,7 @@
                                      card, 1.29:1 on the panel, 1.13:1 on an
                                      inset row, 1.09:1 under the hover tone. */
   --color-hairline: #aebfbd;      /* 1.60:1 — level with the other three */
+  --color-edge: #8aa3a0;
 
   --color-ink: #14201f;           /* dark petrol; a neutral black would read
                                      as a foreign object on a tinted ground */
@@ -421,6 +427,7 @@
   --color-inset: #0d0e10;
   --color-control: #2a2d32;
   --color-hairline: #3b4048;
+  --color-edge: #3b4048;
 
   --color-ink: #f2f4f7;
   --color-ink-secondary: #b3b8c2;
@@ -466,6 +473,7 @@
   --color-inset: #e6e9ee;
   --color-control: #d3d9e1;
   --color-hairline: #b4bbc5;
+  --color-edge: #929bab;
 
   --color-ink: #1d2229;
   --color-ink-secondary: #59616c;
@@ -510,6 +518,7 @@
   --color-inset: #0d0b0f;
   --color-control: #2b2630;
   --color-hairline: #403847;
+  --color-edge: #403847;
 
   --color-ink: #f4eff6;
   --color-ink-secondary: #b9afbd;
@@ -562,6 +571,7 @@
      and every border is drawn at /40 on top of that. #d0d0d0 is the lightest
      grey that still passes; see scripts/check-skin-contrast.mjs. */
   --color-hairline: #d0d0d0;
+  --color-edge: #9a9a9a;
 
   --color-ink: #0d0d0d;
   --color-ink-secondary: #575757;
@@ -615,6 +625,7 @@
   --color-inset: #e7ece8;         /* the search field */
   --color-control: #dce3de;       /* a chip on a card */
   --color-hairline: #c9d3cc;
+  --color-edge: #8c9f92;
 
   --color-ink: #0f1a13;
   --color-ink-secondary: #4d5a52;
@@ -771,7 +782,7 @@ body {
   background: color-mix(in srgb, var(--color-menu) 62%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   backdrop-filter: blur(28px) saturate(170%);
-  border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+  border: 1px solid var(--color-edge);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
     inset 0 0 0 1px color-mix(in srgb, white 4%, transparent),

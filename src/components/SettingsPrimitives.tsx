@@ -18,13 +18,13 @@ export function Switch({
       aria-checked={checked}
       className={cn(
         "relative h-6 w-11 shrink-0 rounded-full transition-colors enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none",
-        checked ? "bg-accent" : "bg-control",
+        checked ? "bg-accent" : "bg-control ring-1 ring-edge",
         className,
       )}
     >
       <span
         className={cn(
-          "absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-[left] motion-reduce:transition-none",
+          "absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-[left] motion-reduce:transition-none",
           checked ? "left-[21px]" : "left-[3px]",
         )}
       />

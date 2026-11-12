@@ -667,7 +667,7 @@ export function PluginsPanel() {
               <p className="mt-1 text-[13px] text-ink-secondary">{t("apps.subtitle")}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <label className="hidden h-10 w-[260px] items-center gap-2.5 rounded-xl bg-control/70 px-3.5 md:flex">
+              <label className="hidden h-10 w-[260px] items-center gap-2.5 rounded-xl border border-edge bg-control/70 px-3.5 md:flex">
                 <HIcon icon={Search01Icon} size={16} className="shrink-0 text-ink-secondary" />
                 <input
                   value={search}
@@ -696,7 +696,7 @@ export function PluginsPanel() {
             </div>
           </div>
           {/* A narrow window has no room in the header row for the search. */}
-          <label className="flex h-10 w-full items-center gap-2.5 rounded-xl bg-control/70 px-3.5 md:hidden">
+          <label className="flex h-10 w-full items-center gap-2.5 rounded-xl border border-edge bg-control/70 px-3.5 md:hidden">
             <HIcon icon={Search01Icon} size={16} className="shrink-0 text-ink-secondary" />
             <input
               value={search}

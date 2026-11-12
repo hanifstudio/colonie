@@ -1108,7 +1108,7 @@ export function SettingsModal({ workspace }: { workspace?: { general: ReactNode;
           <div className="shrink-0 px-2 py-3 text-[15px] font-semibold text-ink">
             {t("settings.title")}
           </div>
-          <div className="mb-2 mt-1 flex min-h-8 shrink-0 items-center gap-2 rounded-lg border border-transparent bg-control/70 px-2.5 py-2 focus-within:border-focus">
+          <div className="mb-2 mt-1 flex min-h-8 shrink-0 items-center gap-2 rounded-lg border border-edge bg-control/70 px-2.5 py-2 focus-within:border-focus">
             <HIcon icon={Search01Icon} size={14} className="shrink-0 text-ink-secondary" />
             <input
               data-settings-search

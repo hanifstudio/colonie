@@ -53,3 +53,17 @@ test("an empty card names its region, and says what went wrong as an alert", asy
   expect(host.querySelector("[role=alert]")?.textContent).toBe("It broke.");
   expect(host.querySelector("button")?.textContent).toBe("Retry");
 });
+
+test("a secondary button and an off switch keep a visible edge, so they read as controls on light skins", async () => {
+  const { Switch } = await import("../SettingsPrimitives");
+  await render(createElement("div", null,
+    createElement(Button, null, "Edit"),
+    createElement(Switch, { checked: false, "aria-label": "off" }),
+    createElement(Switch, { checked: true, "aria-label": "on" })));
+  const [button] = [...host.querySelectorAll("button")];
+  expect(button!.className).toContain("ring-edge");
+  const [off, on] = [...host.querySelectorAll<HTMLElement>('[role="switch"]')];
+  expect(off!.className).toContain("ring-edge");
+  expect(on!.className).not.toContain("ring-edge");
+  expect(off!.querySelector("span")!.className).toContain("shadow-sm");
+});

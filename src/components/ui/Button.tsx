@@ -9,7 +9,7 @@ export type ButtonSize = "md" | "sm";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "rounded-lg bg-accent font-medium text-accent-ink hover:opacity-90 disabled:opacity-50",
-  secondary: "rounded-lg bg-raised text-ink hover:bg-control disabled:opacity-50",
+  secondary: "rounded-lg bg-raised text-ink ring-1 ring-edge hover:bg-control disabled:opacity-50",
   quiet: "rounded-md text-ink-secondary underline decoration-ink-tertiary underline-offset-2 hover:text-ink disabled:opacity-50",
 };
 const SIZE: Record<ButtonVariant, Record<ButtonSize, string>> = {
