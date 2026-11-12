@@ -8,6 +8,7 @@ import { HIcon } from "./HIcon";
 import { cn } from "@/lib/cn";
 import { api, useStore, type Message } from "@/state/store";
 import { writeBotPanelView } from "@/lib/bot-panel-view";
+import { placeToWatch } from "@/lib/computer";
 import { endBrowserHelp, startBrowserHelp } from "@/lib/browser-help";
 import { signInResumeText } from "../../shared/sign-in-request";
 
@@ -28,7 +29,7 @@ export function SignInAsk({ message, threadId, onSettled, canAnswer = true }: {
   const botName = state.bots.find((bot) => bot.id === ask.botId)?.name ?? message.from?.name ?? "The bot";
   const open = () => {
     startBrowserHelp(ask.botId);
-    writeBotPanelView(ask.botId, "browser");
+    writeBotPanelView(ask.botId, placeToWatch());
     dispatch({ type: "toggleBrowser", open: true, botId: ask.botId });
   };
   const settle = async (next: "done" | "cancelled") => {

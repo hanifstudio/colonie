@@ -38,10 +38,15 @@ async function act(path: string): Promise<void> {
   finally { working = false; emit(); schedule(); }
 }
 
+const screenPath = (botId: string, action: "take" | "hand-back") => `/api/computer/screens/${encodeURIComponent(botId)}/${action}`;
+
 export const computerActions = {
   refresh: () => refresh().finally(schedule),
   turnOn: () => act("/api/computer/on"),
   turnOff: () => act("/api/computer/off"),
+  /** The person drives this bot's screen: the bot is paused until they hand it back. */
+  takeOver: (botId: string) => act(screenPath(botId, "take")),
+  handBack: (botId: string) => act(screenPath(botId, "hand-back")),
 };
 
 /** Test seam: forget what a previous test saw. */
@@ -62,5 +67,11 @@ export function useComputer() {
   return { ...state, ...computerActions };
 }
 
-/** What the panel's first tab is called: the computer, or the browser where there is none. */
-export const computerTabLabel = (view: ComputerView | null): "Computer" | "Browser" => view && view.state !== "unsupported" ? "Computer" : "Browser";
+/** The Screen tab has something to show: a server that can run a computer. Until the first answer, assume so. */
+export const screenAvailable = (view: ComputerView | null): boolean => !view || view.state !== "unsupported";
+
+/** Where a bot's panel should open for what is happening now: the screen when the computer is on, the browser otherwise. */
+export const placeToWatch = (): "screen" | "browser" => current?.state === "on" ? "screen" : "browser";
+
+/** Where a bot's panel opens when a person asks for its screen: the Screen wherever it can exist. */
+export const placeToAsk = (): "screen" | "browser" => screenAvailable(current) ? "screen" : "browser";

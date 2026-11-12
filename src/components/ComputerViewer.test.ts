@@ -23,9 +23,13 @@ let host: HTMLDivElement;
 beforeEach(() => { vi.clearAllMocks(); made.length = 0; host = document.createElement("div"); document.body.append(host); root = createRoot(host); });
 afterEach(async () => { await act(() => root.unmount()); host.remove(); });
 const button = (name: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((entry) => entry.textContent?.trim() === name);
-const render = async () => { await act(async () => { root.render(createElement(ComputerViewer, { bot })); }); await act(async () => { await Promise.resolve(); }); };
+let taken = false;
+const takeOver = vi.fn(async () => {});
+const handBack = vi.fn(async () => {});
+const render = async () => { await act(async () => { root.render(createElement(ComputerViewer, { bot, taken, onTakeOver: takeOver, onHandBack: handBack })); }); await act(async () => { await Promise.resolve(); }); };
 
-test("it opens the bot's screen, connects watch-only, and only a person's Take over lets them type", async () => {
+test("it opens the bot's screen, connects watch-only, and only the server's word that the person took over lets them type", async () => {
+  taken = false;
   api.mockResolvedValue({ ok: true });
   await render();
   expect(api).toHaveBeenCalledWith("/api/computer/screens/scout", expect.objectContaining({ method: "POST" }));
@@ -38,10 +42,32 @@ test("it opens the bot's screen, connects watch-only, and only a person's Take o
   await act(async () => { made[0]!.fire("connect"); });
   expect(host.textContent).toContain("Watching Scout's screen");
   await act(async () => { button("Take over")!.click(); });
-  expect(made[0]!.viewOnly).toBe(false);
-  expect(host.textContent).toContain("You're in control");
-  await act(async () => { button("Hand back")!.click(); });
+  expect(takeOver).toHaveBeenCalledOnce();
+  // nothing changes until the server says the person is in control
   expect(made[0]!.viewOnly).toBe(true);
+  taken = true;
+  await render();
+  expect(made[0]!.viewOnly).toBe(false);
+  expect(host.textContent).toContain("You're in control. Scout is paused.");
+  expect(host.querySelector(".ring-2")).not.toBeNull();
+  await act(async () => { button("Hand back")!.click(); });
+  expect(handBack).toHaveBeenCalledOnce();
+  taken = false;
+  await render();
+  expect(made[0]!.viewOnly).toBe(true);
+  expect(host.querySelector(".ring-2")).toBeNull();
+});
+
+test("a hand-back from somewhere else ends typing here, and a take that is refused leaves the screen watch-only", async () => {
+  taken = true;
+  api.mockResolvedValue({ ok: true });
+  await render();
+  await act(async () => { made[0]!.fire("connect"); });
+  expect(made[0]!.viewOnly).toBe(false);
+  taken = false;
+  await render();
+  expect(made[0]!.viewOnly).toBe(true);
+  expect(host.textContent).toContain("Watching Scout's screen");
 });
 
 test("a screen that cannot be opened says why and Try again asks once more", async () => {

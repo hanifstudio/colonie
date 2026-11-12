@@ -8,15 +8,14 @@ a resting bot is idle (its title no longer picks a state), and each new bot gets
 Left: see it in a window with a working bot, and confirm browsing sets the bot busy. The saved
 `mascotExpression` field is unused (queue item 5). A headless server keeps an old `imageGen` section.
 
-## Next: a bot has a computer, and the browser lives inside it
+## Next: the bot panel has three tabs: Screen, Browser, Files
 
-Built: a Computer tab holds the browser (the built-in browser until the computer is on, then the
-bot's own live screen); one container, one screen per bot (`colonie-screen`), a viewer per screen
-through the server, the bot's turn mounts its screen's driver. Proved with a real container (arm64,
-`scripts/smoke-computer.ts`) and a throwaway server with the fake engine: two bots held two screens, a
-tool call ran on a screen, the viewer worked as a browser client does. Never seen in a window.
-Left: look at the tab in a window; amd64; a real engine driving it; Shared (compose service,
-droplet); Take over does not pause the bot; each screen's Firefox profile is its own (no shared logins).
+Built: Screen is the bot's own screen on the workspace's computer, Browser is the built-in browser, and
+Files. A green dot marks where the bot is working. Take over pauses the bot (the server refuses its screen
+calls) until Hand back, and the last viewer closing hands it back. Shared opens on Browser; its Screen says
+a computer is not available there yet. Proved by panel and server tests; not yet by a real container, and
+never seen in a window. Left: a real engine driving a screen; Shared (compose service, droplet, amd64);
+each screen's Firefox profile is its own (no shared logins); a paused bot does not resume by itself.
 
 ## After: verify collaboration, browser panels, and routines
 

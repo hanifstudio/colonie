@@ -4,6 +4,7 @@
 // pure; everything async lives in the wrapped dispatch + SSE fold.
 import { THREAD_FRAME } from "@/lib/conversations";
 import { writeBotPanelView } from "@/lib/bot-panel-view";
+import { noteBotSurface } from "@/lib/bot-surface";
 import { shouldOpenBrowserPanel } from "@/lib/browser-auto-open";
 import { isPersonalThread } from "../../shared/personal-thread";
 import type { ConversationPlan } from "../../shared/conversation-plan";
@@ -878,7 +879,7 @@ export interface AppState {
   /** a Markdown file opened from chat for in-app reading: which message shared it */
   filePreview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } | null;
   /** A group's right panel (owner, October 30): its project files or its members. */
-  groupPanel: "files" | "members" | "browser" | null;
+  groupPanel: "files" | "members" | "screens" | null;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
   shortcutsOpen: boolean;
@@ -1131,7 +1132,7 @@ export type Action =
   | { type: "toggleActivity"; open?: boolean }
   | { type: "openFilePreview"; preview: { threadId: string; messageId: string; path: string; name: string; sourceOffset?: number; conversationId?: string } }
   | { type: "closeFilePreview" }
-  | { type: "toggleGroupPanel"; tab?: "files" | "members" | "browser"; open?: boolean }
+  | { type: "toggleGroupPanel"; tab?: "files" | "members" | "screens"; open?: boolean }
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
   | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection }
@@ -3513,9 +3514,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         case "computer-use": {
           // Hermes' rule (browser-auto-open.ts); opening never takes focus.
+          const place = frame.view === "computer" ? "screen" : "browser";
+          noteBotSurface(frame.botId, frame.turn, place);
           if (!shouldOpenBrowserPanel(stateRef.current, frame, browserAutoOpened.get(frame.threadId))) break;
           browserAutoOpened.set(frame.threadId, frame.turn);
-          writeBotPanelView(frame.botId, "browser");
+          writeBotPanelView(frame.botId, place);
           rawDispatch({ type: "toggleBrowser", open: true, botId: frame.botId });
           break;
         }

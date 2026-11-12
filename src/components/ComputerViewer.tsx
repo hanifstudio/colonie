@@ -7,22 +7,25 @@ import { cn } from "@/lib/cn";
 
 type Connection = "opening" | "connecting" | "connected" | "lost" | "refused";
 
-/** A bot's own screen on the workspace's computer, live. It starts as a window onto the
- * screen; Take over lets the person click and type, and Hand back returns it to watching.
- * Only desktop pixels and input cross the container boundary; the page is this app's own. */
-export function ComputerViewer({ bot }: { bot: Bot }) {
+/** A bot's own screen on the workspace's computer, live. It is a window onto the screen until the
+ * person takes over: then the bot is paused (the server refuses its tool calls) and they can click and
+ * type. `taken` is the server's word, so a hand-back from anywhere ends it here too. Only desktop
+ * pixels and input cross the container boundary; the page is this app's own. */
+export function ComputerViewer({ bot, taken, onTakeOver, onHandBack, error }: {
+  bot: Bot; taken: boolean; onTakeOver: () => Promise<void>; onHandBack: () => Promise<void>; error?: string;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const client = useRef<RFB | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [connection, setConnection] = useState<Connection>("opening");
   const [reason, setReason] = useState("");
-  const [control, setControl] = useState(false);
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
     const abort = new AbortController();
     let rfb: RFB | undefined;
     let deadline: ReturnType<typeof setTimeout> | undefined;
-    setConnection("opening"); setReason(""); setControl(false);
+    setConnection("opening"); setReason("");
     void (async () => {
       try { await api(`/api/computer/screens/${encodeURIComponent(bot.id)}`, { method: "POST", signal: abort.signal }); }
       catch (cause) {
@@ -52,26 +55,33 @@ export function ComputerViewer({ bot }: { bot: Bot }) {
     };
   }, [bot.id, attempt]);
 
-  useEffect(() => { if (client.current) client.current.viewOnly = !control; }, [control, connection]);
+  // typing is allowed exactly while the server says the person is driving and the picture is live
+  const driving = taken && connection === "connected";
+  useEffect(() => { if (client.current) client.current.viewOnly = !driving; }, [driving, connection]);
 
   const message = connection === "refused" ? reason
     : connection === "lost" ? "The screen disconnected."
     : connection === "opening" ? `Opening ${bot.name}'s screen…`
     : connection === "connecting" ? "Connecting…" : "";
+  const toggle = async () => {
+    setAsking(true);
+    try { await (taken ? onHandBack() : onTakeOver()); } finally { setAsking(false); }
+  };
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
-      <div className="flex items-center justify-between gap-2 text-[12px] text-ink-secondary">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <HIcon icon={MonitorIcon} size={14} />
-          <span className="truncate">{control ? "You're in control. Click and type on the screen." : `Watching ${bot.name}'s screen`}</span>
+      <div className="flex items-center justify-between gap-3 text-[12px] text-ink-secondary">
+        <span className="flex min-w-0 items-center gap-1.5" aria-live="polite">
+          <HIcon icon={MonitorIcon} size={14} className="shrink-0" />
+          <span className="truncate">{taken ? `You're in control. ${bot.name} is paused.` : `Watching ${bot.name}'s screen`}</span>
         </span>
-        <button type="button" disabled={connection !== "connected"} aria-pressed={control} onClick={() => setControl((value) => !value)}
+        <button type="button" disabled={asking || (!taken && connection !== "connected")} aria-pressed={taken} onClick={() => void toggle()}
+          title={taken ? `Give the screen back to ${bot.name}` : `Pause ${bot.name} and use the screen yourself`}
           className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] disabled:opacity-40",
-            control ? "bg-accent text-accent-ink" : "bg-raised text-ink hover:bg-control")}>
-          <HIcon icon={HandIcon} size={13} /> {control ? "Hand back" : "Take over"}
+            taken ? "bg-accent text-accent-ink" : "bg-raised text-ink hover:bg-control")}>
+          <HIcon icon={HandIcon} size={13} /> {taken ? "Hand back" : "Take over"}
         </button>
       </div>
-      <div className="relative min-h-64 flex-1 overflow-hidden rounded-xl bg-inset">
+      <div className={cn("relative min-h-64 flex-1 overflow-hidden rounded-xl bg-inset", driving && "ring-2 ring-accent/70")}>
         <div ref={host} className="absolute inset-0" data-testid="computer-screen" />
         {message && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-inset/90 p-6 text-center text-[13px] text-ink-secondary">
           {connection === "refused" || connection === "lost" ? <HIcon icon={MonitorIcon} size={24} /> : <HIcon icon={Loading02Icon} size={24} className="animate-spin" />}
@@ -80,6 +90,7 @@ export function ComputerViewer({ bot }: { bot: Bot }) {
             className="rounded-lg bg-raised px-3 py-1.5 text-[12.5px] text-ink hover:bg-control">Try again</button>}
         </div>}
       </div>
+      {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
     </div>
   );
 }
