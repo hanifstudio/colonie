@@ -84,3 +84,9 @@ test("with the computer off the Browser tab is just the browser", async () => {
   await act(async () => { tab("Browser").click(); });
   expect(host.querySelector("[role=note]")).toBeNull();
 });
+
+test("the gear at the panel's top left says it opens the bot's settings", async () => {
+  await show(view("off"));
+  const gear = host.querySelector<HTMLButtonElement>("button[aria-label='Bot settings']")!;
+  expect(gear.title).toBe("Bot settings");
+});

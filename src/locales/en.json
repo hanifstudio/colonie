@@ -1646,6 +1646,7 @@
   "botSettings.simple.allSettings": "All settings",
   "botSettings.simple.allSettingsHint": "model, apps, memory, voice, history",
   "botSettings.simple.back": "Back",
+  "botSettings.simple.libraryEmptyTitle": "Nothing in the library yet",
   "botSettings.simple.libraryEmpty": "Pages, files, and apps {name} makes show up here.",
   "botSettings.simple.libraryOpen": "Show {name} in the chat",
   "botSettings.visibility.title": "Who can see it",

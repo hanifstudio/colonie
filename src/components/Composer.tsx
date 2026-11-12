@@ -1,6 +1,6 @@
 import { track } from "@/lib/analytics";
 export const COMPOSER_PILL = "@container/composer relative z-[1] rounded-3xl bg-composer px-2 py-1.5 ring-1 ring-composer-ring";
-export const COMPOSER_ROW = "flex items-end gap-1 @max-[30rem]/composer:flex-wrap";
+export const COMPOSER_ROW = "flex items-end gap-1 @max-[24rem]/composer:flex-wrap";
 export const COMPOSER_INPUT = "block max-h-[9rem] min-h-6 w-full resize-none overflow-y-auto bg-transparent px-1 py-1 text-[15px] leading-6 placeholder:text-ink-secondary focus:outline-none";
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import {
@@ -890,7 +890,7 @@ export function Composer({
           )}
           <MentionTextarea
           {...mentions.inputProps}
-          wrapperClassName="@max-[30rem]/composer:order-first @max-[30rem]/composer:basis-full"
+          wrapperClassName="@max-[24rem]/composer:order-first @max-[24rem]/composer:basis-full"
           inputRef={inputRef}
           peers={state.bots.filter((member) => member.id !== bot?.id)}
           // the message is composed in the writer's language, not the UI's
@@ -974,7 +974,7 @@ export function Composer({
           aria-label={t("composer.placeholder.bot", { name: bot?.name ?? "" })}
             className={COMPOSER_INPUT}
           />
-          <div data-composer-actions className="flex items-center gap-1 @max-[30rem]/composer:ml-auto">
+          <div data-composer-actions className="flex items-center gap-1 @max-[24rem]/composer:ml-auto">
           {/* Stop stays a stop. Stop-then-steer is named beside the queued
               message above, where its effect is visible before activation. */}
           {busy && !locked && (

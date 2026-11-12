@@ -60,6 +60,8 @@ test("Library still opens its own tab", async () => {
   await pick("Library");
   expect(pressed()).toEqual(["Library"]);
   expect(host.textContent).toContain("Scout makes show up here");
+  const card = host.querySelector('[role="region"][aria-label="Library"]');
+  expect(card?.querySelector("h3")?.textContent).toBe("Nothing in the library yet");
 });
 
 test("a workspace bot has only Details, as before", async () => {

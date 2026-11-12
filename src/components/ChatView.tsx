@@ -1438,17 +1438,17 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
       >
         {/* The chip group does not shrink, so in a narrow column (a phone,
             or a panel beside the chat) the name truncated to nothing and the
-            rename pencil landed under the export button. Below 30rem the
+            rename pencil landed under the export button. Below 20rem the
             header wraps: name line on top, chips underneath on the right.
             From 30rem the bot sits in the middle of the header: three
             columns, the left one empty, so the name is centred on the chat
             itself. The controls' column never goes below their own width;
             when room is short it takes it from the empty side, which slides
             the name left rather than under the controls. */}
-        <div data-chathead-row className="flex items-center justify-between @max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]">
+        <div data-chathead-row className="flex items-center justify-between @max-[20rem]/chathead:flex-wrap @max-[20rem]/chathead:gap-y-1 @min-[30rem]/chathead:grid @min-[30rem]/chathead:grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(max-content,1fr)]">
         {/* a group or DM sits at the start, as Grok Bot's channels do; a bot's
             own chat keeps its name centred */}
-        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2 @max-[30rem]/chathead:basis-full",
+        <div data-chathead-identity className={cn("flex min-w-0 items-center gap-2 @max-[20rem]/chathead:basis-full",
           accountConversation ? "@min-[30rem]/chathead:col-span-2 @min-[30rem]/chathead:col-start-1 @min-[30rem]/chathead:justify-self-start" : "@min-[30rem]/chathead:col-start-2 @min-[30rem]/chathead:justify-self-center")} style={headerNoDragStyle}>
           {/* The bot as one pill, the same shape as the model chip across the
               header: avatar and name together, opening the bot's settings.
@@ -1518,7 +1518,7 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
         </div>
         <div
           data-chathead-controls
-          className="flex shrink-0 items-center gap-2 @max-[30rem]/chathead:ml-auto @max-[30rem]/chathead:flex-wrap @max-[30rem]/chathead:justify-end @min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end"
+          className="flex shrink-0 items-center gap-2 @max-[20rem]/chathead:ml-auto @max-[20rem]/chathead:flex-wrap @max-[20rem]/chathead:justify-end @min-[30rem]/chathead:col-start-3 @min-[30rem]/chathead:justify-self-end"
           // The caption buttons sit over the header's right end; drop this
           // icon row 16px (visual only — the header keeps its height) so the
           // buttons clear the 26px overlay while the rest of the layout stays.

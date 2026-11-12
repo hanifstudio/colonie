@@ -47,7 +47,7 @@ export function BrowserSidePanel({ bot: profileBot }: { bot: Bot }) {
       className="absolute inset-y-0 left-0 z-10 w-1.5 touch-none cursor-col-resize hover:bg-accent/30 focus-visible:bg-accent/50 max-md:hidden" />
     <div className={cn("px-4 py-3", padClass)}>
       <div className="relative flex min-h-7 items-center justify-center">
-        <button type="button" aria-label="Bot settings" onClick={() => { dispatch({ type: "toggleBrowser", open: false }); dispatch({ type: "toggleSettings", open: true, section: "access" }); }}
+        <button type="button" aria-label="Bot settings" title="Bot settings" onClick={() => { dispatch({ type: "toggleBrowser", open: false }); dispatch({ type: "toggleSettings", open: true, section: "access" }); }}
           className="absolute left-0 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"><HIcon icon={Settings01Icon} size={18} /></button>
         <div className="mx-9"><TabPills label="Bot panel view" tour="computer-tabs" tabs={tabs} value={view} onChange={select} /></div>
         <button type="button" aria-label="Close bot panel" onClick={() => dispatch({ type: "toggleBrowser", open: false })}

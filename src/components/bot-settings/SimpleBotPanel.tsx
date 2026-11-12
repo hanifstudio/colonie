@@ -28,6 +28,7 @@ import { ColonieMemorySection } from "./ColonieMemorySection";
 import { ColonieSkillsSection } from "./ColonieSkillsSection";
 import { ChiefControls } from "../ChiefControls";
 import { TabPills } from "../ui/TabPills";
+import { EmptyCard } from "../ui/EmptyCard";
 import { useBotEditor } from "./BotEditorContext";
 
 export const simpleInputCls =
@@ -312,9 +313,12 @@ export function SimpleBotPanel({
         ) : (
           <div role="tabpanel" className="mt-5">
             {library.length === 0 ? (
-              <div className="px-4 py-12 text-center text-[13px] leading-relaxed text-ink-secondary">
-                {t("botSettings.simple.libraryEmpty", { name: bot.name })}
-              </div>
+              <EmptyCard
+                label={t("botSettings.simple.library")}
+                icon={<HIcon icon={Folder01Icon} size={22} />}
+                title={t("botSettings.simple.libraryEmptyTitle")}
+                body={t("botSettings.simple.libraryEmpty", { name: bot.name })}
+              />
             ) : (
               <div className="flex flex-col gap-1.5">
                 {library.map((item) => {

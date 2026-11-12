@@ -70,3 +70,11 @@ test("the bot panel toggle in the chat header is named for the whole panel and s
   expect(en["chat.openBotPanel"]).toBe("Open the bot's screen, browser and files");
   expect(en["chat.closeBotPanel"]).toBe("Close the bot's screen, browser and files");
 });
+
+test("in a narrow chat header the chip folds to the mark alone and keeps its accessible name", async () => {
+  await act(() => root.render(createElement(ModelPicker, { bot: bot as never, threadId: "t1" })));
+  const chip = host.querySelector<HTMLButtonElement>('[data-tour="model"]')!;
+  expect(chip.className).toContain("@max-4xl/chathead:size-[30px]");
+  expect(chip.querySelector("span")!.className).toContain("@max-4xl/chathead:hidden");
+  expect(chip.getAttribute("aria-label")).toContain("Codex default");
+});
