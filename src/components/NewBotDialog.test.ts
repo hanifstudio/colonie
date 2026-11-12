@@ -18,4 +18,16 @@ describe("a new bot", () => {
     for (const tab of ["Soul", "Permissions", "Voice &amp; alerts", "Routines"]) expect(html).not.toContain(`>${tab}<`);
     draft.dispose();
   });
+
+  it("puts the visibility choice among the form's fields, after the name and role and before the closing note", () => {
+    const draft = new BotCreationDraft({ ...EMPTY_BOT_DEFAULTS, profile: { name: "Nova" } }, () => {});
+    const html = renderToStaticMarkup(createElement(SimpleNewBot, { draft, extra: createElement("div", { "data-new-bot-visibility": true }, "Who can see it") }));
+    const at = (text: string) => html.indexOf(text);
+    expect(at("Name")).toBeLessThan(at("What should Nova do?"));
+    expect(at("Or start from")).toBeLessThan(at("Who can see it"));
+    expect(at("Who can see it")).toBeLessThan(at("Skills, memory"));
+    // the name field is focused by code (without scrolling), not by autofocus
+    expect(html).not.toContain("autofocus");
+    draft.dispose();
+  });
 });

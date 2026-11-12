@@ -67,6 +67,29 @@ describe("groups and DMs between people", () => {
     expect(dm).toContain("Start DM");
   });
 
+  it("the new conversation dialog has a title and a close control, selectable rows, and says why it cannot create yet", () => {
+    const people = [{ email: "bob@x.com", name: "Bob" }];
+    const bots = [{ id: "b1", name: "Riset" }];
+    const base = { kind: "group" as const, name: "", people, bots, chosenPeople: [], chosenBots: [], busy: false, error: "",
+      onKind: () => {}, onName: () => {}, onTogglePerson: () => {}, onToggleBot: () => {}, onCreate: () => {}, onClose: () => {} };
+    const empty = renderToStaticMarkup(createElement(NewConversationView, base));
+    expect(empty).toContain('aria-labelledby="new-conversation-title"');
+    expect(empty).toContain(">New group or DM</h2>");
+    expect(empty).toContain('aria-label="Close"');
+    // rows are real checkboxes (native buttons: Enter and Space work), unchecked at first
+    expect(empty).toMatch(/role="checkbox" aria-checked="false"[^>]*>(?:(?!<\/button>).)*Riset/);
+    expect(empty).toContain("Name the group and pick at least one bot or person");
+    expect(empty).toMatch(/<button[^>]*disabled=""[^>]*>[^]*Create group/);
+    const named = renderToStaticMarkup(createElement(NewConversationView, { ...base, name: "Launch" }));
+    expect(named).toContain("Pick at least one bot or person");
+    const chosen = renderToStaticMarkup(createElement(NewConversationView, { ...base, name: "Launch", chosenBots: ["b1"] }));
+    expect(chosen).toContain('role="checkbox" aria-checked="true"');
+    expect(chosen).not.toContain("Pick at least one");
+    const dm = renderToStaticMarkup(createElement(NewConversationView, { ...base, kind: "dm" }));
+    expect(dm).toContain('role="radio" aria-checked="false"');
+    expect(dm).toContain("Pick one person");
+  });
+
   it("live messages are added once and patched in place", () => {
     const first = message({ id: "m1", role: "bot", text: "Riset is working on it…" });
     let list = withFrame([], { kind: "message", threadId: "t1", message: first });

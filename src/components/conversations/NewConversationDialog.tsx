@@ -1,9 +1,10 @@
 // Starting a group (a name, people, bots) or a DM with one person.
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loading02Icon } from "@hugeicons/core-free-icons";
+import { Loading02Icon, MultiplicationSignIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "../HIcon";
 import { cn } from "@/lib/cn";
+import { Button } from "../ui/Button";
 import { CONVERSATIONS_CHANGED, OPEN_NEW_CONVERSATION, createConversation, workspacePeople } from "@/lib/conversations";
 import { useStore } from "@/state/store";
 
@@ -17,13 +18,25 @@ export function NewConversationView({ kind, name, people, bots, chosenPeople, ch
   onTogglePerson: (email: string) => void; onToggleBot: (id: string) => void;
   onCreate: () => void; onClose: () => void;
 }) {
-  const check = (on: boolean) => cn("flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px]", on ? "bg-accent/15 text-ink" : "text-ink-secondary hover:bg-raised");
+  const row = (on: boolean) => cn("flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus", on ? "bg-accent/15 text-ink" : "text-ink-secondary hover:bg-raised");
+  // A visible box: filled with a tick when chosen (a round dot when only one can be).
+  const box = (on: boolean, single = false) => (
+    <span aria-hidden className={cn("flex size-4 shrink-0 items-center justify-center border", single ? "rounded-full" : "rounded", on ? "border-accent bg-accent text-accent-ink" : "border-hairline")}>
+      {on && <HIcon icon={Tick02Icon} size={11} />}
+    </span>
+  );
   const ready = kind === "dm" ? chosenPeople.length === 1 : Boolean(name.trim()) && chosenPeople.length + chosenBots.length > 0;
+  const hint = ready ? "" : kind === "dm" ? "Pick one person" : !name.trim() ? "Name the group and pick at least one bot or person" : "Pick at least one bot or person";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <form role="dialog" aria-modal="true" aria-label="New group or DM" onSubmit={(event) => { event.preventDefault(); if (ready) onCreate(); }}
+      <form role="dialog" aria-modal="true" aria-labelledby="new-conversation-title" onSubmit={(event) => { event.preventDefault(); if (ready) onCreate(); }}
         onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}
         className="w-full max-w-[460px] rounded-[20px] border border-hairline/50 bg-panel p-6 shadow-2xl shadow-black/50">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="new-conversation-title" className="text-[17px] font-semibold text-ink">New group or DM</h2>
+          <button type="button" onClick={onClose} aria-label="Close"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"><HIcon icon={MultiplicationSignIcon} size={18} className="pointer-events-none" /></button>
+        </div>
         <div role="radiogroup" aria-label="Kind" className="grid grid-cols-2 gap-2">
           {([["group", "Group", "People and bots, with a name"], ["dm", "Direct message", "You and one person"]] as const).map(([value, label, detail]) => (
             <button key={value} type="button" role="radio" aria-checked={kind === value} onClick={() => onKind(value)}
@@ -39,10 +52,11 @@ export function NewConversationView({ kind, name, people, bots, chosenPeople, ch
         )}
         {people.length > 0 && (
           <fieldset className="mt-4">
-            <legend className="mb-1 text-[11.5px] font-medium uppercase tracking-wide text-ink-tertiary">People</legend>
-            <div className="flex max-h-40 flex-col overflow-y-auto">
+            <legend id="new-conversation-people" className="mb-1 text-[11.5px] font-medium uppercase tracking-wide text-ink-tertiary">People</legend>
+            <div role={kind === "dm" ? "radiogroup" : "group"} aria-labelledby="new-conversation-people" className="flex max-h-40 flex-col overflow-y-auto">
               {people.map((person) => (
-                <button key={person.email} type="button" className={check(chosenPeople.includes(person.email))} onClick={() => onTogglePerson(person.email)} aria-pressed={chosenPeople.includes(person.email)}>
+                <button key={person.email} type="button" role={kind === "dm" ? "radio" : "checkbox"} aria-checked={chosenPeople.includes(person.email)} className={row(chosenPeople.includes(person.email))} onClick={() => onTogglePerson(person.email)}>
+                  {box(chosenPeople.includes(person.email), kind === "dm")}
                   <span className="min-w-0 flex-1 truncate">{person.name}</span>
                   {person.name !== person.email && <span className="truncate text-[11.5px] text-ink-tertiary">{person.email}</span>}
                 </button>
@@ -52,11 +66,11 @@ export function NewConversationView({ kind, name, people, bots, chosenPeople, ch
         )}
         {kind === "group" && bots.length > 0 && (
           <fieldset className="mt-4">
-            <legend className="mb-1 text-[11.5px] font-medium uppercase tracking-wide text-ink-tertiary">Bots</legend>
-            <div className="flex max-h-32 flex-col overflow-y-auto">
+            <legend id="new-conversation-bots" className="mb-1 text-[11.5px] font-medium uppercase tracking-wide text-ink-tertiary">Bots</legend>
+            <div role="group" aria-labelledby="new-conversation-bots" className="flex max-h-32 flex-col overflow-y-auto">
               {bots.map((bot) => (
-                <button key={bot.id} type="button" className={check(chosenBots.includes(bot.id))} onClick={() => onToggleBot(bot.id)} aria-pressed={chosenBots.includes(bot.id)}>
-                  {bot.name}
+                <button key={bot.id} type="button" role="checkbox" aria-checked={chosenBots.includes(bot.id)} className={row(chosenBots.includes(bot.id))} onClick={() => onToggleBot(bot.id)}>
+                  {box(chosenBots.includes(bot.id))}<span className="min-w-0 flex-1 truncate">{bot.name}</span>
                 </button>
               ))}
             </div>
@@ -64,11 +78,12 @@ export function NewConversationView({ kind, name, people, bots, chosenPeople, ch
         )}
         {kind === "dm" && people.length === 0 && <p className="mt-4 text-[12.5px] text-ink-secondary">Nobody else is in this workspace yet. Invite people first.</p>}
         {error && <p role="alert" className="mt-3 text-[12px] text-danger">{error}</p>}
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-[12.5px] text-ink-secondary hover:bg-raised">Cancel</button>
-          <button type="submit" disabled={!ready || busy} className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-white disabled:opacity-50">
+        {hint && !busy && <p id="new-conversation-hint" className="mt-4 text-[12px] text-ink-secondary">{hint}</p>}
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={!ready || busy} aria-describedby={hint ? "new-conversation-hint" : undefined} className="flex items-center gap-1.5 whitespace-nowrap">
             {busy && <HIcon icon={Loading02Icon} size={13} className="animate-spin" />}{kind === "dm" ? "Start DM" : "Create group"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

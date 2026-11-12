@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Delete02Icon, Loading02Icon, MultiplicationSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { BotProfileAvatarCard } from "./BotProfileAvatarCard";
@@ -175,18 +175,8 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
       else parent.dispatch(action);
     },
   };
-  const title = defaultsMode ? t("newBot.defaults") : t("sidebar.newBot");
-  return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-3 sm:p-5">
-    <div ref={dialog} role="dialog" aria-modal="true" aria-label={title} aria-busy={saving} tabIndex={-1}
-      className={cn("flex w-full flex-col overflow-hidden rounded-2xl border border-hairline/50 bg-panel shadow-2xl outline-none",
-        defaultsMode ? "h-[min(760px,94dvh)] max-w-[900px]" : "max-h-[94dvh] max-w-[520px]")}>
-      <div className="flex shrink-0 items-center justify-between border-b border-hairline/40 px-5 py-4">
-        <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
-        <button type="button" onClick={() => closeRef.current()} aria-label={t("common.close")}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"><HIcon icon={MultiplicationSignIcon} size={18} className="pointer-events-none" /></button>
-      </div>
-        {choosesVisibility && (
-          <div className="flex flex-wrap items-center gap-2 px-5 pt-3 text-[13px] text-ink-secondary" data-new-bot-visibility>
+  const visibilityField = choosesVisibility ? (
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-secondary" data-new-bot-visibility>
             <label className="flex items-center gap-2">
               {t("botSettings.visibility.title")}
               <select
@@ -211,10 +201,20 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
               />
             )}
           </div>
-        )}
-      {!defaultsMode && <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        ) : null;
+  const title = defaultsMode ? t("newBot.defaults") : t("sidebar.newBot");
+  return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-3 sm:p-5">
+    <div ref={dialog} role="dialog" aria-modal="true" aria-label={title} aria-busy={saving} tabIndex={-1}
+      className={cn("flex w-full flex-col overflow-hidden rounded-2xl border border-hairline/50 bg-panel shadow-2xl outline-none",
+        defaultsMode ? "h-[min(760px,94dvh)] max-w-[900px]" : "max-h-[94dvh] max-w-[520px]")}>
+      <div className="flex shrink-0 items-center justify-between border-b border-hairline/40 px-5 py-4">
+        <h2 className="text-[17px] font-semibold text-ink">{title}</h2>
+        <button type="button" onClick={() => closeRef.current()} aria-label={t("common.close")}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"><HIcon icon={MultiplicationSignIcon} size={18} className="pointer-events-none" /></button>
+      </div>
+      {!defaultsMode && <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-5">
         {!ready && !error && <div role="status" className="flex items-center gap-2 text-[13px] text-ink-secondary"><HIcon icon={Loading02Icon} size={16} className="animate-spin" />{t("newBot.loading")}</div>}
-        {ready && <fieldset disabled={saving} className="min-w-0"><SimpleNewBot draft={draft} /></fieldset>}
+        {ready && <fieldset disabled={saving} className="min-w-0"><SimpleNewBot draft={draft} extra={visibilityField} /></fieldset>}
       </div>}
       {defaultsMode && <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav aria-label={t("newBot.sections")} className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline/40 p-2 sm:w-40 sm:flex-col sm:border-b-0 sm:border-r">
@@ -251,15 +251,18 @@ export function LocalNewBotDialog({ defaultsMode = false, onClose, section, onCr
 /** Making a bot: its face and name (a friendly name is suggested), what it
  * should do (its standing instructions), or a role to start from. The rest
  * (skills, memory, model, permissions, voice) waits in the bot's settings. */
-export function SimpleNewBot({ draft }: { draft: BotCreationDraft }) {
+export function SimpleNewBot({ draft, extra }: { draft: BotCreationDraft; extra?: ReactNode }) {
   const bot = draft.bot;
+  const nameField = useRef<HTMLInputElement>(null);
+  // Focus the name without scrolling the form away from its top.
+  useEffect(() => { nameField.current?.focus({ preventScroll: true }); }, []);
   const name = bot.name.trim() || "this bot";
   return <div className="space-y-5">
     <BotEditorContext.Provider value={{ request: draft.request, draft: true, uploadAvatar: draft.uploadAvatar }}>
       <BotProfileAvatarCard bot={bot} activeState="idle" mascotMotion={null} onPatch={patch => draft.patch(patch)} />
     </BotEditorContext.Provider>
     <label className="block text-[13px] text-ink-secondary">Name
-      <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} autoFocus
+      <input value={bot.name} onChange={event => draft.patch({ name: event.target.value })} maxLength={60} ref={nameField}
         className={cn(inputCls)} />
     </label>
     <label className="block text-[13px] text-ink-secondary">What should {name} do?
@@ -277,6 +280,7 @@ export function SimpleNewBot({ draft }: { draft: BotCreationDraft }) {
         </button>)}
       </div>
     </div>
+    {extra}
     <p className="text-[12px] text-ink-tertiary">Skills, memory, model and permissions are in the bot's settings once it is made.</p>
   </div>;
 }
