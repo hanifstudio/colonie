@@ -12,6 +12,8 @@ export type ComputerState =
 
 export interface ComputerScreen {
   botId: string;
+  /** The person is driving this screen, so the bot is paused until they hand it back. */
+  taken: boolean;
 }
 
 export interface ComputerView {

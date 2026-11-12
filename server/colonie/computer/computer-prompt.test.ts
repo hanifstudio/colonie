@@ -45,9 +45,19 @@ test("the mount holds the computer once per turn and gives it back on deactivate
   expect(held).toBe(0);
 });
 
+test("the mount tells the app the screen is in use each time it is activated", async () => {
+  const host = running();
+  await host.screen("botA");
+  const told: string[] = [];
+  const mount = botComputerMount(host, "botA", () => told.push("used"))!;
+  mount.activate();
+  mount.release();
+  expect(told).toEqual(["used"]);
+});
+
 test("the bot is told how to drive its screen, including the measured scope advice", () => {
   expect(BOT_COMPUTER_PROMPT).toContain('scope "desktop"');
   expect(BOT_COMPUTER_PROMPT).toContain("bring_to_front");
-  expect(BOT_COMPUTER_PROMPT).toContain("Computer tab");
+  expect(BOT_COMPUTER_PROMPT).toContain("Screen tab");
   expect(BOT_COMPUTER_PROMPT).toMatch(/never ask for a password in chat/);
 });

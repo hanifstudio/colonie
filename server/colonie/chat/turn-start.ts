@@ -34,7 +34,7 @@ import * as composio from "../mcp/composio.ts";
 import { extractTurnImages } from "../../colonie/chat/turn-images.ts";
 import { turnStartLogLine } from "../../colonie/chat/turn-log.ts";
 import { agentBrowserFrame, browserToolMount, BUILT_IN_BROWSER_SYSTEM_PROMPT } from "../../colonie/computer/browser-engine.ts";
-import { computerHost } from "../../colonie/computer/computer-instance.ts";
+import { announceComputerUse, computerHost } from "../../colonie/computer/computer-instance.ts";
 import { BOT_COMPUTER_FULL_NOTE, BOT_COMPUTER_PROMPT, botComputerMount } from "../../colonie/computer/computer-prompt.ts";
 import { removedComputerInstanceIds } from "../../colonie/computer/computer-engine-removal.ts";
 import { withMcpSignIn } from "../../colonie/mcp/mcp-oauth.ts";
@@ -411,7 +411,7 @@ async function startTurn(
         let acpComputerTools: ReturnType<typeof botComputerMount>;
         let computerNote: string | undefined;
         if (await computerHost.isOn()) {
-          try { await computerHost.screen(bot.id); acpComputerTools = botComputerMount(computerHost, bot.id); }
+          try { await computerHost.screen(bot.id); acpComputerTools = botComputerMount(computerHost, bot.id, () => announceComputerUse({ botId: bot.id, threadId, turn: dispatchClaimId })); }
           catch (error) {
             computerNote = BOT_COMPUTER_FULL_NOTE;
             console.warn(`[computer] ${bot.name} has no screen for this request: ${error instanceof Error ? error.message : String(error)}`);

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
 import { createComputerHost, type ContainerBackend } from "../colonie/computer/computer-host.ts";
 import { createComputerRoutes } from "./computer.ts";
@@ -32,7 +32,7 @@ async function app(options: { scopes?: string[]; viewerPort?: number | null; liv
     startRuntime: async () => {}, prepareImage: async () => {}, create: async () => {}, start: async () => {}, stop: async () => {}, remove: async () => {},
     exec: async () => "", mcp: () => ({ command: "node", args: [], env: {} }),
   };
-  const host = createComputerHost({ backend, token: () => "tokenAAAAAAAAAAAAAAAAAAAAAAAA" });
+  const host = createComputerHost({ backend, token: () => "tokenAAAAAAAAAAAAAAAAAAAAAAAA", gateUrl: () => "http://127.0.0.1:1/api/internal/computer-gate" });
   const routes = createComputerRoutes({ host, botExists: (id) => id === "botA", live: options.live ?? (() => true) });
   const handle = async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "", "http://x");
@@ -93,4 +93,37 @@ test("a viewer for a screen that is not open, or a signed-out session, gets noth
   await expired.host.screen("botA");
   expect(await refused(`ws://127.0.0.1:${expired.port}/api/computer/screens/botA/websockify`)).toBe("http 401");
   expect(upstream.seen).toEqual([]);
+});
+
+test("taking over needs an open viewer; the bot's screen key then says held, and the last viewer closing hands it back", async () => {
+  const upstream = await fakeWebsockify("tokenAAAAAAAAAAAAAAAAAAAAAAAA");
+  const { port, host } = await app({ viewerPort: upstream.port });
+  await host.screen("botA");
+  const key = host.mcp("botA")!.env.COLONIE_CONTROL_TOKEN!;
+  const ask = async (token: string) => ((await (await fetch(`http://127.0.0.1:${port}/api/internal/computer-gate`, { headers: { authorization: `Bearer ${token}` } })).json()) as { held: boolean }).held;
+  const post = (path: string) => fetch(`http://127.0.0.1:${port}/api/computer/screens/botA/${path}`, { method: "POST" });
+  // no viewer yet: a hold would have nothing to release it
+  expect((await post("take")).status).toBe(409);
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/api/computer/screens/botA/websockify`, ["binary"]);
+  await new Promise<void>((resolve, reject) => { ws.on("message", () => resolve()); ws.on("error", reject); setTimeout(() => reject(new Error("no data")), 4000); });
+  const taken = (await (await post("take")).json()) as { screens: unknown[] };
+  expect(taken.screens).toEqual([{ botId: "botA", taken: true }]);
+  expect(host.taken("botA")).toBe(true);
+  expect(await ask(key)).toBe(true);
+  ws.close();
+  await vi.waitFor(() => expect(host.taken("botA")).toBe(false));
+  expect(await ask(key)).toBe(false);
+});
+
+test("the gate answers only to a screen's own key, and only for GET", async () => {
+  const { port, host } = await app();
+  await host.screen("botA");
+  const gate = (init: RequestInit) => fetch(`http://127.0.0.1:${port}/api/internal/computer-gate`, init);
+  expect((await gate({})).status).toBe(401);
+  expect((await gate({ headers: { authorization: "Bearer wrongwrongwrongwrongwrong" } })).status).toBe(401);
+  expect((await gate({ method: "POST", headers: { authorization: "Bearer wrongwrongwrongwrongwrong" } })).status).toBe(405);
+  const member = await app({ scopes: ["read"] });
+  expect((await fetch(`http://127.0.0.1:${member.port}/api/computer/screens/botA/take`, { method: "POST" })).status).toBe(403);
+  expect((await fetch(`http://127.0.0.1:${member.port}/api/computer/screens/botA/hand-back`, { method: "POST" })).status).toBe(403);
 });

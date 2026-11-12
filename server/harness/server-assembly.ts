@@ -68,7 +68,7 @@ import { createReactionRoutes } from "../routes/reactions.ts";
 import { createRoutineRoutes } from "../routes/routines.ts";
 import { createServerInfoRoutes } from "../routes/server-info.ts";
 import { createComputerRoutes } from "../routes/computer.ts";
-import { computerHost } from "../colonie/computer/computer-instance.ts";
+import { computerHost, onComputerUse } from "../colonie/computer/computer-instance.ts";
 import { createSkillsLibraryRoutes } from "../routes/skills-library.ts";
 import { ROUTES } from "../routes/table.ts";
 import { createTeamBriefRoutes } from "../routes/team-brief.ts";
@@ -350,12 +350,12 @@ ROUTES.push(createSignInAskRoutes({
 }));
 // Once per turn the app opens the bot's browser beside the conversation.
 const announcedBrowserTurns = new Set<string>();
-const announceBrowserUse = (capability: { botId: string; threadId: string; generation: string }) => {
+const announceBrowserUse = (capability: { botId: string; threadId: string; generation: string }, view: "browser" | "computer" = "browser") => {
   if (announcedBrowserTurns.has(capability.generation)) return;
   announcedBrowserTurns.add(capability.generation);
   if (announcedBrowserTurns.size > 500) announcedBrowserTurns.delete(announcedBrowserTurns.values().next().value!);
   const conversationId = (store.tasks(capability.botId) as Array<{ threadId: string; forConversation?: string }>).find((task) => task.threadId === capability.threadId)?.forConversation;
-  broadcast({ kind: "computer-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, view: "browser", ...(conversationId ? { conversationId } : {}) });
+  broadcast({ kind: "computer-use", botId: capability.botId, threadId: capability.threadId, turn: capability.generation, view, ...(conversationId ? { conversationId } : {}) });
 };
 ROUTES.push(createInternalBrowserRoute({
   authorize: deps.authorizedInternalCapability, isActive: deps.internalCapabilityIsActive,
@@ -378,6 +378,7 @@ const computerRoutes = createComputerRoutes({
   live: (auth) => auth.kind === "loopback" || sessions.isLive(auth.session.id),
 });
 ROUTES.push(computerRoutes.route);
+onComputerUse(({ botId, threadId, turn }) => announceBrowserUse({ botId, threadId, generation: turn }, "computer"));
 ROUTES.push(teamLibraryRoutes);
 ROUTES.push(cliProbeRoutes);
 ROUTES.push(createTeamMapRoutes({

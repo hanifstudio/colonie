@@ -2,7 +2,7 @@
 // module decides when it is on, who has which screen, and when it turns itself
 // off. Every container command goes through a ContainerBackend, so all of it is
 // tested without a container runtime; `containerBackend` is the real one.
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { ComputerView } from "../../../shared/computer.ts";
 import { LocalVmIdleTimer } from "./local-vm-idle.ts";
 
@@ -44,6 +44,8 @@ export interface ComputerHostDeps {
   busy?: () => boolean;
   token?: () => string;
   onChange?: () => void;
+  /** Where a bot's screen tools ask whether the person is driving (the harness's own loopback URL). */
+  gateUrl?: () => string | undefined;
 }
 
 export const DEFAULT_IDLE_MS = 30 * 60_000;
@@ -62,6 +64,10 @@ export class ComputerOff extends Error {
   constructor() { super("The computer is off. Turn it on first."); }
 }
 
+/** The key a screen's tools use to ask the harness: derived from the viewer token, never equal to it. */
+const gateToken = (screenToken: string) => createHash("sha256").update(`colonie-gate:${screenToken}`).digest("base64url");
+const safeEqual = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
 export function createComputerHost(deps: ComputerHostDeps) {
   const { backend } = deps;
   const idleMs = deps.idleMs ?? DEFAULT_IDLE_MS;
@@ -69,6 +75,8 @@ export function createComputerHost(deps: ComputerHostDeps) {
   const makeToken = deps.token ?? (() => randomBytes(24).toString("base64url"));
   const supported = deps.supported ?? (() => true);
   const held = new Map<string, Held>();
+  /** Bots whose screen the person is driving right now: the bot's tool calls are refused. */
+  const taken = new Set<string>();
   let phase: "idle" | "preparing" | "starting" = "idle";
   let job: Promise<void> | null = null;
   let lastError: string | null = null;
@@ -108,13 +116,13 @@ export function createComputerHost(deps: ComputerHostDeps) {
     const known = await facts(1_500);
     if (!known.runtime) return { ...base, state: "no-runtime", message: "Colonie needs Docker or Podman to run a computer. Install one, then check again." };
     if (known.container !== "running" || !known.daemonUp) {
-      held.clear();
+      held.clear(); taken.clear();
       recovered = false;
       // only a real failure is shown; "no computer made yet" is just off
       return { ...base, state: "off", message: lastError };
     }
     await recover();
-    return { ...base, state: "on", message: null, screens: [...held.keys()].map((botId) => ({ botId })) };
+    return { ...base, state: "on", message: null, screens: [...held.keys()].map((botId) => ({ botId, taken: taken.has(botId) })) };
   }
 
   async function bringUp(): Promise<void> {
@@ -154,7 +162,7 @@ export function createComputerHost(deps: ComputerHostDeps) {
 
   async function turnOff(): Promise<void> {
     idle.cancel();
-    held.clear();
+    held.clear(); taken.clear();
     recovered = false;
     forget();
     const now = await backend.facts();
@@ -195,7 +203,7 @@ export function createComputerHost(deps: ComputerHostDeps) {
   async function closeScreen(botId: string): Promise<void> {
     const entry = held.get(botId);
     if (!entry) return;
-    held.delete(botId);
+    held.delete(botId); taken.delete(botId);
     await backend.exec(["colonie-screen", "down", String(entry.number)], EXEC_MS).catch(() => undefined);
     changed();
   }
@@ -209,8 +217,27 @@ export function createComputerHost(deps: ComputerHostDeps) {
       if (!entry || now.container !== "running" || !now.viewerPort) return null;
       return { port: now.viewerPort, token: entry.token };
     },
-    mcp: (botId: string) => { const entry = held.get(botId); return entry ? backend.mcp(entry.number) : null; },
+    mcp: (botId: string) => {
+      const entry = held.get(botId);
+      if (!entry) return null;
+      const spec = backend.mcp(entry.number);
+      const url = deps.gateUrl?.();
+      // the screen's tools ask before every call, and refuse while the person is driving
+      return url ? { ...spec, env: { ...spec.env, COLONIE_CONTROL_URL: url, COLONIE_CONTROL_TOKEN: gateToken(entry.token) } } : spec;
+    },
     holds: (botId: string) => held.has(botId),
+    /** The person drives this screen: the bot's tool calls are refused until handBack. */
+    takeOver(botId: string): void {
+      if (!held.has(botId)) throw Object.assign(new Error("This screen is not open."), { status: 409 });
+      if (!taken.has(botId)) { taken.add(botId); idle.touch(); changed(); }
+    },
+    handBack(botId: string): void { if (taken.delete(botId)) { idle.touch(); changed(); } },
+    taken: (botId: string) => taken.has(botId),
+    /** Whether the person is driving the screen that this gate token belongs to; undefined for a stranger's token. */
+    gate(token: string): { taken: boolean } | undefined {
+      for (const [botId, entry] of held) if (safeEqual(gateToken(entry.token), token)) return { taken: taken.has(botId) };
+      return undefined;
+    },
     /** A turn is working on the computer: it will not turn itself off until released. */
     use: (): (() => void) => { uses++; idle.touch(); let done = false; return () => { if (!done) { done = true; uses--; idle.touch(); } }; },
     touch: () => { if (held.size || job === null) idle.touch(); },

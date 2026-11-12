@@ -9,7 +9,8 @@ import type { ComputerHost } from "../colonie/computer/computer-host.ts";
 import { isSameOrigin, type RequestAuth } from "../request-auth.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
-const SCREEN = /^\/api\/computer\/screens\/([\w-]{1,80})(\/websockify)?$/;
+const SCREEN = /^\/api\/computer\/screens\/([\w-]{1,80})(\/websockify|\/take|\/hand-back)?$/;
+const GATE = "/api/internal/computer-gate";
 const HANDSHAKE_MS = 10_000;
 const RECHECK_MS = 5_000;
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -24,6 +25,8 @@ export function createComputerRoutes(deps: {
 }) {
   const { host } = deps;
   const upgrades = new Map<IncomingMessage, Upgrade>();
+  /** Open viewers per bot: a person who takes over keeps the screen only while one is looking at it. */
+  const viewers = new Map<string, number>();
   let stopped = false;
 
   /** Upgrades run through the same authentication and gates as HTTP; only this route detaches the socket. */
@@ -38,7 +41,7 @@ export function createComputerRoutes(deps: {
       let path: string;
       try { path = new URL(req.url ?? "", "http://localhost").pathname; }
       catch { res.writeHead(400).end(); return; }
-      if (!SCREEN.exec(path)?.[2]) { res.writeHead(404).end(); return; }
+      if (SCREEN.exec(path)?.[2] !== "/websockify") { res.writeHead(404).end(); return; }
       const upgrade: Upgrade = { socket, head, release: () => socket.off("data", buffer), close: () => socket.destroy() };
       const buffer = (data: Buffer) => {
         if (upgrade.head.length + data.length > 64 * 1024) socket.destroy();
@@ -59,6 +62,15 @@ export function createComputerRoutes(deps: {
   }
 
   const route: RouteHandler = async ({ req, res, path, method, auth, json }) => {
+    if (path === GATE) {
+      // The screen's own tools ask this before each call (a loopback bridge, not a person).
+      res.setHeader("cache-control", "private, no-store");
+      if (method !== "GET") return json(res, 405, { error: "method not allowed" });
+      const bearer = /^Bearer (\S{20,200})$/.exec(String(req.headers.authorization ?? ""))?.[1];
+      const state = bearer ? host.gate(bearer) : undefined;
+      if (!state) return json(res, 401, { error: "unauthorized" });
+      return json(res, 200, { held: state.taken, helpOpen: false });
+    }
     if (path === "/api/computer" || path === "/api/computer/on" || path === "/api/computer/off" || SCREEN.test(path)) {
       res.setHeader("cache-control", "private, no-store");
       // These start containers and hand out a live desktop: the owner only.
@@ -85,6 +97,14 @@ export function createComputerRoutes(deps: {
     if (!match) return PASS;
     const botId = match[1]!;
     if (!deps.botExists(botId)) return json(res, 404, { error: "no such bot" });
+    if (match[2] === "/take" || match[2] === "/hand-back") {
+      if (method !== "POST") return json(res, 405, { error: "method not allowed" });
+      // a hold lasts as long as a viewer is open (the last one closing hands it back), so take needs one
+      if (match[2] === "/take" && !viewers.get(botId)) return json(res, 409, { error: "Open the screen first, then take over." });
+      try { if (match[2] === "/take") host.takeOver(botId); else host.handBack(botId); }
+      catch (error) { return json(res, 409, { error: error instanceof Error ? error.message : "could not change who is driving" }); }
+      return json(res, 200, await host.view());
+    }
     if (!match[2]) {
       if (method !== "POST") return json(res, 405, { error: "method not allowed" });
       try { await host.screen(botId); }
@@ -122,9 +142,15 @@ export function createComputerRoutes(deps: {
     let closed = false;
     const timeout = setTimeout(() => fail(), HANDSHAKE_MS);
     timeout.unref();
+    let counted = false;
     upgrade.close = () => {
       if (closed) return;
       closed = true;
+      if (counted) {
+        const left = (viewers.get(botId) ?? 1) - 1;
+        if (left > 0) viewers.set(botId, left);
+        else { viewers.delete(botId); host.handBack(botId); }
+      }
       clearTimeout(timeout);
       clearInterval(recheck);
       upstream.destroy();
@@ -148,6 +174,8 @@ export function createComputerRoutes(deps: {
       }
       clearTimeout(timeout);
       peer = remote;
+      counted = true;
+      viewers.set(botId, (viewers.get(botId) ?? 0) + 1);
       remote.once("error", upgrade.close);
       remote.once("close", upgrade.close);
       upgrade.release();

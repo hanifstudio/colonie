@@ -162,3 +162,36 @@ test("a turn holding the computer keeps it from turning itself off, and giving i
   expect(calls).toContain("stop");
   host.dispose();
 });
+
+test("taking over a screen refuses the bot's calls through its own key until it is handed back, for that screen only", async () => {
+  const { backend } = fake({ container: "running" });
+  const host = createComputerHost({ backend, token: tokens(), gateUrl: () => "http://127.0.0.1:8799/api/internal/computer-gate" });
+  await host.screen("botA");
+  await host.screen("botB");
+  const key = (botId: string) => host.mcp(botId)!.env.COLONIE_CONTROL_TOKEN!;
+  expect(host.mcp("botA")!.env.COLONIE_CONTROL_URL).toBe("http://127.0.0.1:8799/api/internal/computer-gate");
+  // the key is not the viewer's secret
+  expect(key("botA")).not.toBe("token00000000000000000001");
+  expect(host.gate(key("botA"))).toEqual({ taken: false });
+  host.takeOver("botA");
+  expect(host.gate(key("botA"))).toEqual({ taken: true });
+  expect(host.gate(key("botB"))).toEqual({ taken: false });
+  expect((await host.view()).screens).toEqual([{ botId: "botA", taken: true }, { botId: "botB", taken: false }]);
+  host.handBack("botA");
+  expect(host.gate(key("botA"))).toEqual({ taken: false });
+  expect(host.gate("not-a-key-not-a-key-not-a-key")).toBeUndefined();
+});
+
+test("a screen that is not open cannot be taken over, and closing it or turning off ends the hold", async () => {
+  const { backend } = fake({ container: "running" });
+  const host = createComputerHost({ backend, token: tokens() });
+  expect(() => host.takeOver("botA")).toThrow(/not open/);
+  await host.screen("botA");
+  host.takeOver("botA");
+  await host.closeScreen("botA");
+  expect(host.taken("botA")).toBe(false);
+  await host.screen("botA");
+  host.takeOver("botA");
+  await host.turnOff();
+  expect(host.taken("botA")).toBe(false);
+});
