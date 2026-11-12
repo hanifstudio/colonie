@@ -4,6 +4,7 @@
 //   pnpm ui:shots --out .ui-shots/before
 //   pnpm ui:shots --compare .ui-shots/before     list the screens that differ from an earlier run
 //   pnpm ui:shots --only panel-screen-off,chat   just these screens
+//   node scripts/ui-compare.mjs <before folder> <after folder>   compare two saved runs without shooting again
 //
 // It runs the built web app (dist/) in headless Chromium against a throwaway local server with a stand-in
 // engine: nothing of the owner's is touched. Each screen is saved in the dark skin and the light one.
@@ -14,6 +15,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { compareFolders } from "./ui-compare.mjs";
 
 const root = join(import.meta.dirname, "..");
 const args = process.argv.slice(2);
@@ -68,10 +70,37 @@ async function openGroupPanel(page, view) {
   await wait(page, 500);
 }
 
-/** Every screen worth keeping an eye on: a name and how to reach it from the app's first screen. */
+const click = (locator) => locator.click({ timeout: 5000 });
+
+async function openAppSettings(page, section) {
+  // the profile row at the bottom left of the sidebar opens a small menu; "Settings" is in it
+  await click(page.locator('aside [aria-haspopup="menu"]').last());
+  await click(page.getByRole("menuitem", { name: "Settings", exact: true }));
+  await wait(page, 700);
+  if (section) await click(page.locator(`[data-settings-page="${section}"], [data-settings-section="${section}"]`).first());
+  await wait(page, 500);
+}
+const settingsPage = (id) => ({ name: `app-settings-${id}`, go: (page) => openAppSettings(page, id) });
+
+/** The bot's own settings: "Open Scout's profile" in the chat header opens the Details tab. */
+async function openBotDetails(page) {
+  await click(page.getByRole("button", { name: "Open Scout's profile" }).first());
+  await wait(page, 700);
+}
+async function openRoutines(page, webhooks) {
+  // the sidebar's Routines row is drawn only in the Advanced interface and not when every engine is a Claude/Codex
+  // adapter; with the stand-in engine it is missing, so this screen is skipped (with a line saying so) until it is reachable
+  await click(page.locator('[data-sidebar-nav="routines"]'));
+  await wait(page, 900);
+  if (webhooks) { await click(page.getByRole("button", { name: /Webhooks/ }).first()); await wait(page, 600); }
+}
+
+/** Every screen worth keeping an eye on: a name and how to reach it from the app's first screen.
+ *  `narrow` also saves it in a phone-width window (a ".narrow" part before the skin in the file name);
+ *  `advanced` turns on the Advanced interface mode for screens that only exist there. */
 const SCREENS = [
-  { name: "chat", go: async () => {} },
-  { name: "panel-screen-off", go: (page) => openBotPanel(page, "off") },
+  { name: "chat", go: async () => {}, narrow: true },
+  { name: "panel-screen-off", go: (page) => openBotPanel(page, "off"), narrow: true },
   { name: "panel-screen-starting", go: (page) => openBotPanel(page, "preparing") },
   { name: "panel-screen-no-runtime", go: (page) => openBotPanel(page, "noRuntime") },
   { name: "panel-screen-unsupported", go: (page) => openBotPanel(page, "unsupported", "Screen") },
@@ -80,7 +109,22 @@ const SCREENS = [
   { name: "panel-files", go: (page) => openBotPanel(page, "off", "Files") },
   { name: "group-members", go: (page) => openGroupPanel(page, "Members") },
   { name: "group-screens", go: (page) => openGroupPanel(page, "Screens") },
+  { name: "app-settings", go: (page) => openAppSettings(page) },
+  settingsPage("general"),
+  settingsPage("appearance"),
+  settingsPage("ai"),
+  settingsPage("computers"),
+  settingsPage("account"),
+  { name: "bot-details", go: openBotDetails, narrow: true },
+  { name: "bot-details-library", go: async (page) => { await openBotDetails(page); await click(page.getByRole("tab", { name: /Library/ }).or(page.getByRole("button", { name: /^Library$/ })).first()); await wait(page, 400); } },
+  { name: "bot-details-access", go: async (page) => { await openBotDetails(page); await click(page.getByRole("button", { name: /All settings|More profile options/ })); await wait(page, 500); await click(page.locator('[data-bot-settings-section="access"] > button').first()); await wait(page, 500); } },
+  { name: "routines", advanced: true, go: (page) => openRoutines(page) },
+  { name: "routines-webhooks", advanced: true, go: (page) => openRoutines(page, true) },
+  { name: "mcp-servers", go: async (page) => { await click(page.getByRole("button", { name: "Apps", exact: true })); await wait(page, 700); await click(page.locator('[data-apps-filter="mcp"]')); await wait(page, 600); } },
+  { name: "new-bot", seeded: true, blur: true, go: async (page) => { await click(page.getByRole("button", { name: "New or share" })); await click(page.getByRole("button", { name: /New Bot/ })); await wait(page, 700); } },
+  { name: "new-group-or-dm", blur: true, go: async (page) => { await click(page.getByRole("button", { name: "New or share" })); await click(page.getByRole("button", { name: /New group or DM/ })); await wait(page, 600); } },
 ].filter((screen) => !only || only.includes(screen.name));
+const VARIANTS = SCREENS.flatMap((screen) => [{ screen, narrow: false }, ...(screen.narrow ? [{ screen, narrow: true }] : [])]);
 
 /** Times change on every run, and "Today" becomes "Yesterday" at midnight; one fixed wording keeps runs identical. */
 const hold = (page) => page.evaluate(() => {
@@ -102,8 +146,11 @@ const browser = await chromium.launch({ headless: true });
 const written = {};
 try {
   for (const skin of [undefined, "daylight"]) {
-    for (const screen of SCREENS) {
-      const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce", deviceScaleFactor: 1 });
+    for (const { screen, narrow } of VARIANTS) {
+      const context = await browser.newContext({ viewport: narrow ? { width: 390, height: 844 } : { width: 1280, height: 800 }, reducedMotion: "reduce", deviceScaleFactor: 1 });
+      // the server suggests a random name for a new bot; one fixed name keeps two runs identical
+      if (screen.seeded) await context.route("**/api/bot-defaults", async (route) => { const reply = await route.fetch(); const body = await reply.json(); await route.fulfill({ response: reply, json: { ...body, suggestedName: "Pearl" } }); });
+      if (screen.advanced) await context.addInitScript(() => { try { localStorage.setItem("colonie-advanced-mode", "1"); } catch {} });
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror", (error) => errors.push(String(error)));
@@ -113,15 +160,24 @@ try {
       await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } span[aria-label*=\"nread\"] { opacity: 0 !important; }" });
       await page.waitForLoadState("networkidle").catch(() => {});
       await wait(page, 1200);
-      await screen.go(page);
+      const file = `${screen.name}${narrow ? ".narrow" : ""}.${skin ? "light" : "dark"}.png`;
+      try { await screen.go(page); } catch (error) {
+        console.log(`  skipped ${file}: could not reach it (${String(error.message ?? error).split("\n")[0].slice(0, 140)})`);
+        await context.close();
+        continue;
+      }
+      // the focus ring of an auto-focused field sits a sliver differently from run to run, so a dialog is shown with nothing focused
       await page.evaluate(() => document.fonts.ready);
       await wait(page, 600);
       await hold(page);
-      const file = `${screen.name}.${skin ? "light" : "dark"}.png`;
       // the bot's face drifts a little all the time (it is alive), and its badge sits a fraction of a pixel differently
       // from one page load to the next, so both are covered with a flat patch. An unread dot appears or not
       // depending on timing, so it is hidden.
-      await page.screenshot({ path: join(out, file), animations: "disabled", caret: "hide", mask: [page.getByRole("img", { name: "Scout", exact: true }), page.getByRole("img", { name: "Launch", exact: true }), page.getByTitle("Chief of Staff").locator("xpath=..")], maskColor: "#6d5ae6" });
+      // a dialog's backdrop or a focus ring can settle a few pixels late, so take the picture until two in a row match
+      const shoot = async () => { if (screen.blur) { await page.evaluate(() => document.activeElement?.blur?.()); await wait(page, 150); } return page.screenshot({ animations: "disabled", caret: "hide", mask: [page.getByRole("img", { name: "Scout", exact: true }), page.getByRole("img", { name: "Launch", exact: true }), page.getByTitle("Chief of Staff").locator("xpath=..")], maskColor: "#6d5ae6" }); };
+      let picture = await shoot();
+      for (let tries = 0; tries < 6; tries += 1) { await wait(page, 250); const again = await shoot(); const same = again.equals(picture); picture = again; if (same) break; }
+      writeFileSync(join(out, file), picture);
       written[file] = createHash("sha256").update(readFileSync(join(out, file))).digest("hex");
       if (errors.length) console.log(`  page error on ${file}: ${errors[0].slice(0, 160)}`);
       await context.close();
@@ -131,12 +187,4 @@ try {
 writeFileSync(join(out, "manifest.json"), `${JSON.stringify(written, null, 2)}\n`);
 console.log(`Saved ${Object.keys(written).length} screens to ${relative(root, out)}`);
 
-if (compare) {
-  const base = JSON.parse(readFileSync(join(root, compare, "manifest.json"), "utf8"));
-  const changed = Object.keys(written).filter((file) => base[file] && base[file] !== written[file]);
-  const added = Object.keys(written).filter((file) => !base[file]);
-  const gone = only ? [] : Object.keys(base).filter((file) => !written[file]);
-  console.log(changed.length || added.length || gone.length
-    ? `Compared with ${compare}:\n${[...changed.map((file) => `  changed  ${file}`), ...added.map((file) => `  new      ${file}`), ...gone.map((file) => `  missing  ${file}`)].join("\n")}`
-    : `Compared with ${compare}: every screen is identical.`);
-}
+if (compare) await compareFolders(join(root, compare), out, { whole: !only });
