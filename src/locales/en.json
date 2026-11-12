@@ -737,6 +737,8 @@
   "chat.stop": "Stop",
   "chat.stopTurn": "Stop this turn",
   "chat.computer": "Browser",
+  "chat.openBotPanel": "Open the bot's screen, browser and files",
+  "chat.closeBotPanel": "Close the bot's screen, browser and files",
   "chat.advancedOnly": "In Advanced mode",
   "chat.inspector": "Inspector",
   "chat.inspectorHint": "Inspector — runtime events and raw protocol for this thread",

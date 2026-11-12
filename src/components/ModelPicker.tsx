@@ -880,6 +880,8 @@ export function ModelPicker({
       }}
       aria-expanded={open && !bot.busy}
       aria-haspopup="dialog"
+      // the visible name is hidden in the compact chip, so the label carries the full text
+      aria-label={`${t("model.choose")}: ${summary.split("\n")[0]}`}
       className={cn(
         "flex items-center gap-1.5 rounded-full border border-hairline/40 bg-control/60 py-1 pl-2 pr-2.5 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-control/60",
         // in a narrow chat header fold to a rounded square with just the

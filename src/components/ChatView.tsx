@@ -15,7 +15,7 @@ import {
   GaugeIcon,
   CheckListIcon,
   MessageSquareReplyIcon,
-  GlobeIcon,
+  MonitorIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
@@ -1549,9 +1549,11 @@ export function ChatView({ bot: profile, accountConversation }: { bot: Bot; acco
               "rounded-md p-1.5 hover:bg-raised",
               state.browserOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
             )}
-            title="Browser" aria-label="Open browser"
+            title={t(state.browserOpen ? "chat.closeBotPanel" : "chat.openBotPanel")}
+            aria-label={t(state.browserOpen ? "chat.closeBotPanel" : "chat.openBotPanel")}
+            aria-pressed={state.browserOpen}
           >
-            <HIcon icon={GlobeIcon} size={18} />
+            <HIcon icon={MonitorIcon} size={18} />
           </button>
           {/* Keep threads reachable even when the sidebar is collapsed.
               Less frequent actions share one menu. */}

@@ -128,10 +128,12 @@ export function ProviderMark({ driverKind, size, className }: IconProps & { driv
     case "grokAgent":
       return <GrokMark size={size} className={className} />;
     case "claudeAgent":
+    case "claude-acp":
       return <ClaudeMark size={size} className={className} />;
     case "mistral":
       return <PresetProviderMark preset="mistral" size={size} className={className} />;
     case "codex":
+    case "codex-acp":
       return <CodexMark size={size} className={className} />;
     case "kimiAgent":
       return <KimiMark size={size} className={className} />;
@@ -151,7 +153,7 @@ export function ProviderMark({ driverKind, size, className }: IconProps & { driv
       return <PiMark size={size} className={className} />;
     default:
       return (
-        <span className="flex size-full items-center justify-center text-[10px] font-semibold tracking-tight text-ink-secondary">
+        <span style={{ width: size ?? "100%", height: size ?? "100%" }} className="flex shrink-0 items-center justify-center text-[10px] font-semibold tracking-tight text-ink-secondary">
           {(driverKind.replace(/Agent$/i, "").slice(0, 1) || "?").toUpperCase()}
         </span>
       );
