@@ -58,6 +58,16 @@ async function openBotPanel(page, state, view) {
   await wait(page, 500);
 }
 
+async function openGroupPanel(page, view) {
+  await page.route("**/api/computer", (route) => route.fulfill({ json: COMPUTER.off }));
+  await page.locator('section[aria-label="Groups and people"] button', { hasText: "Launch" }).first().click();
+  await wait(page, 800);
+  await page.getByRole("button", { name: "Show conversation details", exact: true }).click();
+  await wait(page, 500);
+  if (view) await page.locator('[aria-label="Group panel view"]').getByRole("button", { name: view, exact: true }).click();
+  await wait(page, 500);
+}
+
 /** Every screen worth keeping an eye on: a name and how to reach it from the app's first screen. */
 const SCREENS = [
   { name: "chat", go: async () => {} },
@@ -68,13 +78,15 @@ const SCREENS = [
   { name: "panel-browser", go: (page) => openBotPanel(page, "off", "Browser") },
   { name: "panel-browser-computer-on", go: (page) => openBotPanel(page, "on", "Browser") },
   { name: "panel-files", go: (page) => openBotPanel(page, "off", "Files") },
+  { name: "group-members", go: (page) => openGroupPanel(page, "Members") },
+  { name: "group-screens", go: (page) => openGroupPanel(page, "Screens") },
 ].filter((screen) => !only || only.includes(screen.name));
 
-/** Times and dates change on every run; one fixed wording keeps two runs of the same code identical. */
+/** Times change on every run, and "Today" becomes "Yesterday" at midnight; one fixed wording keeps runs identical. */
 const hold = (page) => page.evaluate(() => {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    node.nodeValue = node.nodeValue.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)\b/gi, "9:41 AM");
+    node.nodeValue = node.nodeValue.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)\b/gi, "9:41 AM").replace(/\bYesterday\b/g, "Today");
   }
 });
 
@@ -84,6 +96,8 @@ const ws = await startSharedWorkspace([], completionPatch(new Date("2026-01-01T0
 const first = (await (await fetch(`${ws.url}/api/bots`)).json()).bots[0];
 const renamed = await fetch(`${ws.url}/api/bots/${first.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Scout" }) });
 if (!renamed.ok) throw new Error(`could not name the bot: ${renamed.status} ${await renamed.text()}`);
+const group = await fetch(`${ws.url}/api/conversations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "group", name: "Launch", bots: [first.id] }) });
+if (!group.ok) throw new Error(`could not make the group: ${group.status} ${await group.text()}`);
 const browser = await chromium.launch({ headless: true });
 const written = {};
 try {
@@ -96,11 +110,18 @@ try {
       await page.goto(ws.url);
       await page.locator("main").first().waitFor({ timeout: 20_000 });
       if (skin) await page.evaluate((value) => { document.documentElement.dataset.skin = value; }, skin);
-      await wait(page, 800);
+      await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } span[aria-label*=\"nread\"] { opacity: 0 !important; }" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+      await wait(page, 1200);
       await screen.go(page);
+      await page.evaluate(() => document.fonts.ready);
+      await wait(page, 600);
       await hold(page);
       const file = `${screen.name}.${skin ? "light" : "dark"}.png`;
-      await page.screenshot({ path: join(out, file), animations: "disabled", caret: "hide" });
+      // the bot's face drifts a little all the time (it is alive), and its badge sits a fraction of a pixel differently
+      // from one page load to the next, so both are covered with a flat patch. An unread dot appears or not
+      // depending on timing, so it is hidden.
+      await page.screenshot({ path: join(out, file), animations: "disabled", caret: "hide", mask: [page.getByRole("img", { name: "Scout", exact: true }), page.getByRole("img", { name: "Launch", exact: true }), page.getByTitle("Chief of Staff").locator("xpath=..")], maskColor: "#6d5ae6" });
       written[file] = createHash("sha256").update(readFileSync(join(out, file))).digest("hex");
       if (errors.length) console.log(`  page error on ${file}: ${errors[0].slice(0, 160)}`);
       await context.close();

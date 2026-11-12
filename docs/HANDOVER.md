@@ -10,12 +10,12 @@ Left: see it in a window with a working bot, and confirm browsing sets the bot b
 
 ## Next: the bot panel has three tabs: Screen, Browser, Files
 
-Built: Screen is the bot's own screen on the workspace's computer, Browser is the built-in browser, and
-Files. A green dot marks where the bot is working. Take over pauses the bot (the server refuses its screen
-calls) until Hand back, and the last viewer closing hands it back. Shared opens on Browser; its Screen says
-a computer is not available there yet. Proved by panel and server tests; not yet by a real container, and
-never seen in a window. Left: a real engine driving a screen; Shared (compose service, droplet, amd64);
-each screen's Firefox profile is its own (no shared logins); a paused bot does not resume by itself.
+Built: Screen (the bot's own screen on the workspace's computer), Browser (built-in), Files; a green dot
+marks where the bot works. Take over pauses the bot until Hand back; the last viewer closing hands it back.
+Shared opens on Browser. Proved by tests, a real container and `pnpm ui:shots` pictures; not in the packaged
+app. Left: a real engine driving a screen; Shared (compose service, droplet, amd64); no shared Firefox
+logins; a paused bot does not resume. Guardrails (Blueprint, Interface): `pnpm ui:shots`, `pnpm ui:check`,
+`src/components/ui/`; move other screens onto them when touched; the owner picks half text sizes to merge.
 
 ## After: verify collaboration, browser panels, and routines
 

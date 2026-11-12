@@ -296,6 +296,24 @@ scripts/               Build, launch, and checks
 - Reuse existing components and style tokens; do not build a second version
   of a control that already exists.
 
+## Interface
+
+The look is settled (owner, November 12: keep it as it is). The work now is to keep it from drifting.
+
+- Colors, skins and focus rings come from the tokens in `src/styles.css`. No hex colors in components.
+- Use the shared pieces in `src/components/ui/`: `Button` (primary is the one thing to do on a screen,
+  secondary is any other action, quiet is a small link-like choice), `TabPills`, `EmptyCard` (every empty,
+  starting or not-available panel), `StatusDot`. Do not write these again inline.
+- Text sizes for new code: 11 caption, 12 small, 13 body, 15 title, 17 heading. The half sizes (12.5, 11.5,
+  13.5, 10.5) exist only where they keep an old screen unchanged. Corners: `rounded-lg` for controls,
+  `rounded-xl` for cards, `rounded-full` for pills.
+- A panel with nothing to show says why in one plain sentence and offers the one thing to do next.
+- A name always means one thing (Screen is the bot's computer screen, Browser is the built-in browser).
+- Icons come from Hugeicons through `HIcon`.
+- `pnpm ui:check` fails when an inline button, text size, corner or hex color is added; the limits in
+  `scripts/ui-rules.json` only go down. A change to the interface comes with `pnpm ui:shots` pictures
+  (before and after, `--compare`), looked at, because a build passing says nothing about how it looks.
+
 ## Waiting on the owner
 
 - Confirm with Anthropic that the Local app's in-app Claude sign-in is

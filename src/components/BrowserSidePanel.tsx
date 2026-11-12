@@ -2,6 +2,9 @@ import { useState, type ReactNode } from "react";
 import { Folder01Icon, GlobeIcon, MonitorIcon, MultiplicationSignIcon, Settings01Icon } from "@hugeicons/core-free-icons";
 import { HIcon } from "./HIcon";
 import { ScreenPane } from "./ScreenPane";
+import { Button } from "./ui/Button";
+import { StatusDot } from "./ui/StatusDot";
+import { TabPills, type TabPill } from "./ui/TabPills";
 import { BrowserPanel } from "./BrowserPanel";
 import { BotFilesPane } from "./BotFilesPane";
 import { ConversationRoutines } from "./routines/ConversationRoutines";
@@ -28,12 +31,12 @@ export function BrowserSidePanel({ bot: profileBot }: { bot: Bot }) {
   const view = chosen ?? firstBotPanelView(screenAvailable(computer));
   const working = useWorkingTab(bot.id, Boolean(bot.busy));
   const select = (next: BotPanelView) => { setChosen(next); writeBotPanelView(bot.id, next); };
-  const tab = (active: boolean) => cn("flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px]", active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink");
-  const tabs: Array<{ id: BotPanelView; label: string; icon: typeof MonitorIcon; tour?: string }> = [
+  const base: Array<TabPill<BotPanelView>> = [
     { id: "screen", label: "Screen", icon: MonitorIcon, tour: "computer-browser" },
     { id: "browser", label: "Browser", icon: GlobeIcon },
     { id: "files", label: "Files", icon: Folder01Icon },
   ];
+  const tabs = base.map((entry) => ({ ...entry, after: working === entry.id ? <StatusDot label={`${bot.name} is using this now`} testId={`working-${entry.id}`} /> : undefined }));
   let body: ReactNode;
   if (view === "files") body = <BotFilesPane bot={bot} />;
   else if (view === "browser") body = <BrowserTab bot={bot} computerOn={computer?.state === "on"} onOpenScreen={() => select("screen")} />;
@@ -46,14 +49,7 @@ export function BrowserSidePanel({ bot: profileBot }: { bot: Bot }) {
       <div className="relative flex min-h-7 items-center justify-center">
         <button type="button" aria-label="Bot settings" onClick={() => { dispatch({ type: "toggleBrowser", open: false }); dispatch({ type: "toggleSettings", open: true, section: "access" }); }}
           className="absolute left-0 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"><HIcon icon={Settings01Icon} size={18} /></button>
-        <div className="mx-9 flex gap-0.5 rounded-full bg-inset p-0.5" aria-label="Bot panel view" data-tour="computer-tabs">
-          {tabs.map(({ id, label, icon, tour }) => (
-            <button key={id} type="button" data-tour={tour} aria-pressed={view === id} className={tab(view === id)} onClick={() => select(id)}>
-              <HIcon icon={icon} size={13} /> {label}
-              {working === id && <span role="img" aria-label={`${bot.name} is using this now`} data-testid={`working-${id}`} className="size-1.5 animate-pulse rounded-full bg-success" />}
-            </button>
-          ))}
-        </div>
+        <div className="mx-9"><TabPills label="Bot panel view" tour="computer-tabs" tabs={tabs} value={view} onChange={select} /></div>
         <button type="button" aria-label="Close bot panel" onClick={() => dispatch({ type: "toggleBrowser", open: false })}
           className="absolute right-0 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink"><HIcon icon={MultiplicationSignIcon} size={18} /></button>
       </div>
@@ -72,7 +68,7 @@ function BrowserTab({ bot, computerOn, onOpenScreen }: { bot: Bot; computerOn: b
       {computerOn && (
         <div className="mx-3 mt-1 flex items-center justify-between gap-3 rounded-xl bg-card px-3.5 py-2.5 text-[12.5px] leading-snug text-ink-secondary" role="note">
           <span>The computer is on, so {bot.name} browses on its Screen instead of here.</span>
-          <button type="button" onClick={onOpenScreen} className="shrink-0 rounded-lg bg-raised px-3 py-1.5 text-[12.5px] text-ink hover:bg-control">Open Screen</button>
+          <Button className="shrink-0" onClick={onOpenScreen}>Open Screen</Button>
         </div>
       )}
       <div className="flex min-h-0 flex-1 flex-col"><BrowserPanel bot={bot} /></div>

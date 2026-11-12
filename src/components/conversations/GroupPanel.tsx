@@ -28,6 +28,7 @@ import { approvalModeFor, type ApprovalMode } from "../../../shared/approval-mod
 import { writeBotPanelView } from "@/lib/bot-panel-view";
 import { placeToAsk } from "@/lib/computer";
 import { ConversationRoutines } from "../routines/ConversationRoutines";
+import { TabPills } from "../ui/TabPills";
 
 export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   conversation: Conversation; bots: Bot[]; messages: Message[] | null; tab: "files" | "members" | "screens"; onLeft: () => void;
@@ -36,10 +37,6 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
   const { padClass } = useCaptionChrome();
   const { panel, width, minimum, maximum, resize } = usePreviewPanel();
   const memberBots = bots.filter((bot) => conversation.bots.includes(bot.id));
-  const tabClass = (active: boolean) => cn(
-    "flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] transition-colors",
-    active ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink",
-  );
   const close = () => dispatch({ type: "toggleGroupPanel", open: false });
   return (
     <aside ref={panel} aria-label={`${conversation.title}: ${tab === "files" ? "Files" : tab === "screens" ? "Screens" : "Members"}`}
@@ -49,16 +46,13 @@ export function GroupPanel({ conversation, bots, messages, tab, onLeft }: {
         className="absolute inset-y-0 left-0 z-10 w-1.5 touch-none cursor-col-resize transition-colors hover:bg-accent/30 focus-visible:bg-accent/50 focus-visible:outline-none max-md:hidden" />
       <div className={cn("px-4 py-3", padClass)}>
         <div className="relative flex min-h-7 items-center justify-center">
-          <div className="mx-9 flex gap-0.5 rounded-full bg-inset p-0.5" aria-label="Group panel view">
-            <button type="button" aria-pressed={tab === "members"} className={tabClass(tab === "members")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "members", open: true })}>
-              <HIcon icon={UserGroupIcon} size={13} /> Members
-            </button>
-            <button type="button" aria-pressed={tab === "files"} className={tabClass(tab === "files")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "files", open: true })}>
-              <HIcon icon={Folder01Icon} size={13} /> Files
-            </button>
-            {memberBots.length > 0 && <button type="button" aria-pressed={tab === "screens"} className={tabClass(tab === "screens")} onClick={() => dispatch({ type: "toggleGroupPanel", tab: "screens", open: true })}>
-              <HIcon icon={MonitorIcon} size={13} /> Screens
-            </button>}
+          <div className="mx-9">
+            <TabPills label="Group panel view" value={tab} onChange={(next) => dispatch({ type: "toggleGroupPanel", tab: next, open: true })}
+              tabs={[
+                { id: "members", label: "Members", icon: UserGroupIcon },
+                { id: "files", label: "Files", icon: Folder01Icon },
+                ...(memberBots.length > 0 ? [{ id: "screens" as const, label: "Screens", icon: MonitorIcon }] : []),
+              ]} />
           </div>
           <button type="button" onClick={close} aria-label="Close panel" title="Close panel"
             className="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-secondary hover:bg-control hover:text-ink">
