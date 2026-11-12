@@ -12,7 +12,6 @@
 // Help Center and Send Feedback are not offered.
 import { useEffect, useRef, useState } from "react";
 import {
-  ImageUploadIcon,
   ArrowDownToLineIcon,
   InformationCircleIcon,
   KeyboardIcon,
@@ -229,12 +228,6 @@ export function SidebarProfileMenu() {
   const name = profileLabel(profile);
 
   const items: SidebarMenuItem[] = [
-    ...(account?.photoUrl ? [{
-      key: "photo",
-      label: "Change photo",
-      icon: <HIcon icon={ImageUploadIcon} size={18} />,
-      onSelect: () => openPhotoPage(account.photoUrl!),
-    }] : []),
     {
       key: "settings",
       label: t("sidebar.menu.settings"),
