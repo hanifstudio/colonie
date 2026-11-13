@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// The memory list stays calm at 40+ items: a count, search, groups by kind, five per group until "Show all".
+// The memory list stays simple at 40+ items: one plain list, eight lines until "Show all", search only when long.
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -21,8 +21,7 @@ const onForget = vi.fn();
 const show = (entries: MemoryEntry[]) => act(async () => {
   root.render(createElement(MemoryBrowser, { entries, botName: "Scout", caption: () => "Added by you", onEdit, onForget }));
 });
-const section = (label: string) => host.querySelector<HTMLElement>(`section[aria-label="${label}"]`);
-const rows = (label: string) => section(label)?.querySelectorAll("li").length ?? 0;
+const rows = () => host.querySelectorAll("ul[aria-label='Memories'] li").length;
 const buttonIn = (scope: ParentNode, text: string) => [...scope.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent?.trim() === text);
 const search = (value: string) => act(async () => {
   const input = host.querySelector<HTMLInputElement>('input[aria-label="Search memories"]')!;
@@ -30,39 +29,42 @@ const search = (value: string) => act(async () => {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
-test("it says how many memories there are and groups them by kind, five at first", async () => {
+test("a long list shows eight lines, a search box and Show all", async () => {
   await show(many());
-  expect(host.textContent).toContain("42 memories");
-  expect(["Preferences", "Facts", "Decisions"].map(rows)).toEqual([5, 5, 5]);
-  expect(buttonIn(section("Facts")!, "Show all 14")).toBeTruthy();
+  expect(rows()).toBe(8);
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Search memories"]')!.placeholder).toBe("Search 42 memories");
+  expect(buttonIn(host, "Show all 42")).toBeTruthy();
 });
 
-test("Show all opens one group only, and Show fewer closes it again", async () => {
+test("Show all opens the whole list, and Show fewer closes it again", async () => {
   await show(many());
-  await act(async () => { buttonIn(section("Facts")!, "Show all 14")!.click(); });
-  expect(rows("Facts")).toBe(14);
-  expect(rows("Decisions")).toBe(5);
-  await act(async () => { buttonIn(section("Facts")!, "Show fewer")!.click(); });
-  expect(rows("Facts")).toBe(5);
+  await act(async () => { buttonIn(host, "Show all 42")!.click(); });
+  expect(rows()).toBe(42);
+  await act(async () => { buttonIn(host, "Show fewer")!.click(); });
+  expect(rows()).toBe(8);
 });
 
-test("a group of five or fewer has no Show all", async () => {
+test("a short list has no search box and no Show all", async () => {
   await show([entry(1, "fact"), entry(2, "fact")]);
-  expect(host.textContent).toContain("2 memories");
+  expect(rows()).toBe(2);
   expect(host.textContent).not.toContain("Show all");
-  expect(section("Preferences")).toBeNull();
+  expect(host.querySelector('input[aria-label="Search memories"]')).toBeNull();
 });
 
-test("search narrows the list, counts the matches, and says so when nothing matches", async () => {
-  await show([entry(1, "fact", "lives in Jakarta"), entry(2, "preference", "likes short answers"), entry(3, "fact", "works with Dewi")]);
+test("search narrows the whole list and says so when nothing matches", async () => {
+  await show([...many(), entry(100, "fact", "lives in Jakarta")]);
   await search("jakarta");
-  expect(host.textContent).toContain("1 of 3 memories");
-  expect(rows("Facts")).toBe(1);
-  expect(section("Preferences")).toBeNull();
+  expect(rows()).toBe(1);
   await search("zzz");
   expect(host.textContent).toContain("No memories match");
   await search("");
-  expect(host.textContent).toContain("3 memories");
+  expect(rows()).toBe(8);
+});
+
+test("the source of a memory is a tooltip, not a second line", async () => {
+  await show([entry(1, "fact", "lives in Jakarta")]);
+  expect(host.querySelector("li")!.title).toBe("Added by you");
+  expect(host.textContent).not.toContain("Added by you");
 });
 
 test("Edit and Forget are real buttons on every row, so keyboard and touch reach them, and name the memory", async () => {
