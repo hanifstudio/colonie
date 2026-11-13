@@ -69,6 +69,8 @@
   "attach.loadVideo": "Load video",
   "attach.closeVideo": "Close video preview",
   "attach.videoHint": "Loads on request · up to 25 MB",
+  "attach.imageLoading": "Loading {name}…",
+  "attach.imageUnavailable": "This picture cannot be shown here. You can still save a copy.",
   "attach.videoLoading": "Loading video…",
   "attach.videoUnavailable": "This video cannot be played here. You can still save a copy.",
   "attach.previewAudio": "Play {name}",

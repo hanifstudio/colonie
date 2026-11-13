@@ -16,6 +16,7 @@ import {
   AttachmentThumbnail,
   previewImage,
   requestMessageFile,
+  canonicalDownloadFilename,
   safeDownloadFilename,
   useFilePreview,
   type MessageAttachmentContext,
@@ -76,6 +77,12 @@ export function collectMessageFiles(text: string, existingPaths: readonly string
 
 export function isVideoAttachment(path: string): boolean {
   return /\.(?:mp4|m4v|webm|mov)$/i.test(fileIdentity(path));
+}
+
+/** Raster pictures only. SVG stays a chip: it can carry markup, and the
+ * attach and upload paths already refuse it. */
+export function isImageFileAttachment(path: string): boolean {
+  return /\.(?:png|jpe?g|gif|webp|avif|bmp)$/i.test(fileIdentity(path));
 }
 
 export function isAudioAttachment(path: string): boolean {
@@ -236,6 +243,85 @@ function VideoAttachment({ file, message }: { file: GalleryFile; message: Messag
   );
 }
 
+const IMAGE_MIMES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp", "image/x-ms-bmp"];
+
+/** A picture the bot attached or linked as a file: fetched through the same
+ * message-scoped grant as a download, then shown as a thumbnail. The server
+ * must say it is a raster image, and the read stays bounded. */
+export async function loadMessageImage(
+  file: GalleryFile,
+  message: MessageAttachmentContext,
+  signal: AbortSignal,
+): Promise<Blob> {
+  const response = await requestMessageFile(file.path, message, signal);
+  const mime = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (!mime || !IMAGE_MIMES.includes(mime)) {
+    await response.body?.cancel();
+    throw new Error(t("attach.imageUnavailable"));
+  }
+  const declared = Number(response.headers.get("content-length"));
+  if (declared > FILE_MAX_BYTES) {
+    await response.body?.cancel();
+    throw new Error(t("attach.fileTooLarge"));
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error(t("attach.imageUnavailable"));
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > FILE_MAX_BYTES) throw new Error(t("attach.fileTooLarge"));
+      chunks.push(new Uint8Array(value));
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+  return new Blob(chunks, { type: mime });
+}
+
+/** Image files a message vouches for load their pixels once, here, so the
+ * gallery can show a thumbnail and step through them in the viewer. A failed
+ * load falls back to the ordinary file chip. */
+function useMessageImages(files: readonly GalleryFile[], message: MessageAttachmentContext | undefined): Map<string, PreviewImage | "failed"> {
+  const [loaded, setLoaded] = useState<Map<string, PreviewImage | "failed">>(() => new Map());
+  const wanted = message
+    ? files.filter((file) => (file.private || file.linked) && isImageFileAttachment(file.path))
+    : [];
+  const signature = `${message?.threadId}:${message?.messageId}:${wanted.map((file) => file.path).join("\n")}`;
+  useEffect(() => {
+    if (!message || wanted.length === 0) return;
+    const controller = new AbortController();
+    const urls: string[] = [];
+    setLoaded(new Map());
+    void (async () => {
+      for (const file of wanted) {
+        if (controller.signal.aborted) return;
+        let result: PreviewImage | "failed";
+        try {
+          const url = URL.createObjectURL(await loadMessageImage(file, message, controller.signal));
+          urls.push(url);
+          result = { src: url, name: file.name, downloadUrl: url, downloadName: canonicalDownloadFilename({ fallback: file.name, source: file.path }) };
+        } catch {
+          if (controller.signal.aborted) return;
+          result = "failed";
+        }
+        setLoaded((previous) => new Map(previous).set(fileIdentity(file.path), result));
+      }
+    })();
+    return () => {
+      controller.abort();
+      for (const url of urls) URL.revokeObjectURL(url);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- signature stands for message and wanted
+  }, [signature]);
+  return loaded;
+}
+
 const AUDIO_MIMES = ["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg", "audio/opus", "audio/flac", "audio/x-flac"];
 
 /** Same rule as video: the server must say it is audio, and the read is bounded
@@ -321,7 +407,8 @@ function AudioAttachment({ file, message }: { file: GalleryFile; message: Messag
 }
 
 type GalleryItem = { key: string } & (
-  | { kind: "image"; image: PreviewImage; path: string }
+  | { kind: "image"; image: PreviewImage; path: string; fetched?: boolean }
+  | { kind: "pending"; name: string }
   | { kind: "video" | "audio" | "file"; file: GalleryFile }
 );
 
@@ -335,6 +422,7 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<PreviewImage | null>(null);
   const onPreview = useFilePreview();
+  const fetchedImages = useMessageImages(files, message);
   const items = useMemo(() => {
     const seen = new Set<string>();
     const result: GalleryItem[] = [];
@@ -354,13 +442,20 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
       if (seen.has(key)) continue;
       seen.add(key);
       const trusted = Boolean(message && (file.private || file.linked));
+      if (trusted && isImageFileAttachment(file.path)) {
+        const fetched = fetchedImages.get(key);
+        if (fetched !== "failed") {
+          result.push(fetched ? { key, kind: "image", image: fetched, path: file.path, fetched: true } : { key, kind: "pending", name: file.name });
+          continue;
+        }
+      }
       result.push({ key, kind: trusted && isVideoAttachment(file.path) ? "video" : trusted && isAudioAttachment(file.path) ? "audio" : "file", file });
     }
     return result;
-  }, [images, files, message]);
+  }, [images, files, message, fetchedImages]);
   if (!items.length) return null;
   const shown = expanded ? items : items.slice(0, 4);
-  const media = shown.filter((item) => item.kind === "image" || item.kind === "video");
+  const media = shown.filter((item) => item.kind === "image" || item.kind === "pending" || item.kind === "video");
   const documents = shown.filter((item) => item.kind === "file" || item.kind === "audio");
   const previews = items.flatMap((item) => item.kind === "image" ? [item.image] : []);
 
@@ -368,10 +463,15 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
     <section aria-label={items.length === 1 ? t("attach.gallerySingle") : t("attach.galleryCount", { count: items.length })} className={cn("mb-1.5 w-[min(34rem,70vw)] max-w-full space-y-1.5 text-left whitespace-normal", className)}>
       {media.length > 0 && (
         <div className={cn("grid gap-2", media.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
-          {media.map((item) => item.kind === "image" ? (
+          {media.map((item) => item.kind === "pending" ? (
+            <span key={item.key} role="status" title={item.name} className="relative flex aspect-[4/3] min-w-0 animate-pulse items-center justify-center rounded-2xl bg-raised/65">
+              <HIcon icon={Loading02Icon} size={17} className="animate-spin text-ink-tertiary" />
+              <span className="sr-only">{t("attach.imageLoading", { name: item.name })}</span>
+            </span>
+          ) : item.kind === "image" ? (
             <div key={item.key} className="min-w-0" title={item.image.name}>
               <AttachmentThumbnail key={item.image.src} image={item.image} eager={eager} onPreview={() => {
-                if (onPreview && message) onPreview({ ...message, path: item.path, name: item.image.name });
+                if (onPreview && message && !item.fetched) onPreview({ ...message, path: item.path, name: item.image.name });
                 else setSelected(item.image);
               }} className="max-h-72 rounded-2xl border-0 bg-transparent" />
             </div>
