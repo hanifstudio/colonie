@@ -109,8 +109,8 @@ try {
   await ana.click('button[aria-label="New or share"], button[aria-label="New"]');
   await ana.click('button:has-text("New group or DM")');
   await ana.fill('input[aria-label="Group name"]', "Launch");
-  await ana.click('button[aria-pressed]:has-text("Bob")');
-  await ana.locator('fieldset:has(legend:text("Bots")) button').first().click();
+  await ana.click('[role="checkbox"]:has-text("Bob")');
+  await ana.locator('[role="group"][aria-labelledby="new-conversation-bots"] [role="checkbox"]').first().click();
   await ana.click('button:has-text("Create group")');
   await until(bob, async () => (await text(bob)).includes("Launch"), "the group shows in Bob's sidebar without a reload");
 
