@@ -74,3 +74,14 @@ test("a waiting line shows no Cancel to anyone but the person who asked", async 
   expect(host.querySelector('[aria-label^="Cancel"]')).toBeNull();
   expect(host.querySelector('[aria-label^="Stop"]')).toBeNull();
 });
+
+test("a bot's pictures and files sit below its reply as small tiles, not above it", async () => {
+  const reply = { id: "g1", at: 1, role: "bot", kind: "text", text: "Here is the floor plan.", attachments: [{ kind: "image", path: "/store/plan.png" }, { kind: "file", path: "/store/notes.pdf", name: "notes.pdf" }] } as unknown as Message;
+  await draw(reply, rows({ accountWorkspace: false }));
+  const text = host.querySelector("[data-citation-source]")!;
+  const gallery = host.querySelector("section[aria-label]")!;
+  expect(gallery).toBeTruthy();
+  expect(text.compareDocumentPosition(gallery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const tile = gallery.querySelector("img")?.parentElement?.parentElement;
+  expect(tile?.className).toContain("size-28");
+});

@@ -455,16 +455,17 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
   }, [images, files, message, fetchedImages]);
   if (!items.length) return null;
   const shown = expanded ? items : items.slice(0, 4);
-  const media = shown.filter((item) => item.kind === "image" || item.kind === "pending" || item.kind === "video");
+  const tiles = shown.filter((item) => item.kind === "image" || item.kind === "pending");
+  const videos = shown.filter((item) => item.kind === "video");
   const documents = shown.filter((item) => item.kind === "file" || item.kind === "audio");
   const previews = items.flatMap((item) => item.kind === "image" ? [item.image] : []);
 
   return (
-    <section aria-label={items.length === 1 ? t("attach.gallerySingle") : t("attach.galleryCount", { count: items.length })} className={cn("mb-1.5 w-[min(34rem,70vw)] max-w-full space-y-1.5 text-left whitespace-normal", className)}>
-      {media.length > 0 && (
-        <div className={cn("grid gap-2", media.length === 1 ? "grid-cols-1" : "grid-cols-2")}>
-          {media.map((item) => item.kind === "pending" ? (
-            <span key={item.key} role="status" title={item.name} className="relative flex aspect-[4/3] min-w-0 animate-pulse items-center justify-center rounded-2xl bg-raised/65">
+    <section aria-label={items.length === 1 ? t("attach.gallerySingle") : t("attach.galleryCount", { count: items.length })} className={cn("mb-1.5 max-w-[min(34rem,70vw)] space-y-1.5 text-left whitespace-normal", className)}>
+      {tiles.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {tiles.map((item) => item.kind === "pending" ? (
+            <span key={item.key} role="status" title={item.name} className="relative flex size-28 animate-pulse items-center justify-center rounded-xl bg-raised/65 sm:size-32">
               <HIcon icon={Loading02Icon} size={17} className="animate-spin text-ink-tertiary" />
               <span className="sr-only">{t("attach.imageLoading", { name: item.name })}</span>
             </span>
@@ -473,11 +474,14 @@ export function AttachmentGallery({ images = [], files = [], message, eager = fa
               <AttachmentThumbnail key={item.image.src} image={item.image} eager={eager} onPreview={() => {
                 if (onPreview && message && !item.fetched) onPreview({ ...message, path: item.path, name: item.image.name });
                 else setSelected(item.image);
-              }} className="max-h-72 rounded-2xl border-0 bg-transparent" />
+              }} className="size-28 rounded-xl sm:size-32" />
             </div>
-          ) : item.kind === "video" && message ? (
-            <VideoAttachment key={`${message.threadId}:${message.messageId}:${item.key}`} file={item.file} message={message} />
           ) : null)}
+        </div>
+      )}
+      {videos.length > 0 && message && (
+        <div className="flex flex-col gap-2">
+          {videos.map((item) => item.kind === "video" && <div key={item.key} className="w-72 max-w-full"><VideoAttachment key={`${message.threadId}:${message.messageId}:${item.key}`} file={item.file} message={message} /></div>)}
         </div>
       )}
       {documents.length > 0 && (
