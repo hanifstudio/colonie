@@ -89,15 +89,14 @@ jobs:
           cat > release-notes.md <<EOF
           Early build for Mac with Apple silicon. Not notarized yet: after opening it once, go to System Settings → Privacy & Security and click Open Anyway.
 
-          - New: give your bots a computer. The first tab of the side panel is now Computer. Turn it on and every bot gets its own live screen on one shared computer, so bots can work at once and you can watch or take over any screen. It needs Docker or Podman (the first start downloads about 1.8 GB), uses about 1 GB while on, and turns itself off after 30 idle minutes. Without it, bots keep using the built-in browser. Shared workspaces do not have it yet.
-          - In a group you can reply to or quote one message, and a message that did not send keeps your words and offers Try again.
-          - A bot's step list shows as a card while it works. A file a bot names in its answer becomes a link that opens it.
-          - You can stop or cancel one request from its line in a group. A bot that is stuck says what it tried and the exact error. Bots asked together split the work instead of repeating each other.
-          - When a bot cannot answer because its account is out of quota or limited, the message now says so in the engine's own words. A group's routine stays quiet when it has nothing new.
-          - Bot faces: one default face, a body picker (Upload, Body, Color) that offers only the bodies the avatar draws, a new Triangle body, and a working bot keeps the body you chose. "Generate with AI" for avatars is gone, and so is the View work button.
-          - Fix: the stall watcher no longer crashes the server, and it now covers groups.
+          - The bot's side panel now has Screen and Browser tabs. A green dot shows which one the bot is working in. You can take over a bot's screen, and the bot waits while you hold it.
+          - Bots now know they can use a computer, and can close their browser even with one tab left.
+          - Bot details are calmer: Memory has its own tab (one plain list, search when it is long), Chief and Connected apps are shorter, and an empty Library says what it is for.
+          - Pictures a bot sends show as small tiles under its reply. Click one to open it big.
+          - Clearer chat header and composer, a profile menu without Change photo, and clearer New group and New bot windows (the bot's name comes first).
+          - Cleaner Browser, Account, AI and General settings, and buttons, switches and search boxes you can see in the light skins.
 
-          Validation uses simulated engines only. The Computer tab was checked with a real container and a simulated engine, but never in a window, with a real Claude/Codex bot, on an Intel Mac, or on a clean Mac. Real bots following the new instructions and clean-Mac installation remain unverified.
+          Validation uses simulated engines and pictures of the web interface. These changes were not seen in the packaged app, with a real Claude/Codex bot, on an Intel Mac, or on a clean Mac. Skins other than Daylight, Meadow and Midnight were not checked after the last fix, the composer on a very narrow window still wraps to two lines, and the new text is English only.
 
           Built from commit $RELEASE_SHA. The Shared workspace image is ghcr.io/hanifstudio/colonie-workspace:$VERSION.
           EOF
